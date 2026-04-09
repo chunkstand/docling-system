@@ -4,20 +4,20 @@ PDF ingestion and retrieval workspace built around Docling.
 
 ## Concise Note
 
-This system turns PDFs into structured, searchable knowledge. It ingests source files, runs Docling to produce canonical parse artifacts, stores normalized chunks and metadata, generates embeddings, and exposes keyword, semantic, and hybrid retrieval through a simple API.
+This system turns uploaded PDFs into structured, searchable knowledge. It uses Docling to produce canonical artifacts, stores versioned runs and retrieval chunks, promotes only successful runs to active status, and exposes keyword, semantic, and hybrid search through a local REST API and UI.
 
 ## System Plan
 
 The current plan for the system is:
 
-1. Build a Python API and ingestion worker around Docling.
-2. Accept PDF uploads or trusted local file paths.
-3. Store original PDFs plus derived JSON and Markdown artifacts on the local filesystem.
-4. Persist document records, chunks, metadata, and embeddings in Postgres with pgvector.
-5. Expose document status, chunk inspection, and search endpoints over REST.
-6. Support keyword, semantic, and hybrid retrieval across normalized chunks.
-7. Add retries, reprocessing, duplicate handling, and stronger observability after the core ingestion path is stable.
-8. Optionally add a lightweight UI and swap local storage for S3-compatible storage in a later phase.
+1. Accept multipart PDF uploads only on the public API.
+2. Deduplicate documents by checksum and reuse the canonical document row.
+3. Process every attempt through a durable `document_runs` queue/lease model.
+4. Store source PDFs and versioned Docling artifacts on the local filesystem.
+5. Persist documents, runs, chunks, and embeddings in Postgres with pgvector.
+6. Promote only fully successful runs to `active_run_id` so search sees a stable version.
+7. Expose document status, chunk inspection, reprocessing, artifact download, and search endpoints.
+8. Keep retention, retries, and search filters intentionally small and explicit for v1.
 
 Detailed planning and architecture notes live in [SYSTEM_PLAN.md](./SYSTEM_PLAN.md).
 
@@ -29,6 +29,7 @@ Detailed planning and architecture notes live in [SYSTEM_PLAN.md](./SYSTEM_PLAN.
 4. Run migrations with `uv run alembic upgrade head`.
 5. Start the API with `uv run docling-system-api`.
 6. Start the worker in a second shell with `uv run docling-system-worker`.
+7. Open `http://localhost:8000/` in your browser.
 
 Useful commands:
 
