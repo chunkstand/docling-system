@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import hashlib
+import shutil
+import uuid
+from pathlib import Path
+from tempfile import NamedTemporaryFile
+
+from fastapi import UploadFile
+
+from app.core.config import get_settings
+
+
+class StorageService:
+    def __init__(self, storage_root: Path | None = None) -> None:
+        settings = get_settings()
+        self.storage_root = (storage_root or settings.storage_root).resolve()
+        self.source_root = self.storage_root / "source"
+        self.runs_root = self.storage_root / "runs"
+        self.staging_root = self.storage_root / "_staging"
+
+        self.source_root.mkdir(parents=True, exist_ok=True)
+        self.runs_root.mkdir(parents=True, exist_ok=True)
+        self.staging_root.mkdir(parents=True, exist_ok=True)
+
+    async def stage_upload(self, upload: UploadFile) -> tuple[Path, str]:
+        suffix = Path(upload.filename or "upload.pdf").suffix or ".pdf"
+        hasher = hashlib.sha256()
+
+        with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
+            while chunk := await upload.read(1024 * 1024):
+                temp_file.write(chunk)
+                hasher.update(chunk)
+            staged_path = Path(temp_file.name)
+
+        await upload.close()
+        return staged_path, hasher.hexdigest()
+
+    def move_source_file(self, document_id: uuid.UUID, staged_path: Path) -> Path:
+        destination = self.source_root / f"{document_id}.pdf"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(staged_path), destination)
+        return destination
+
+    def get_run_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        path = self.runs_root / str(document_id) / str(run_id)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_docling_json_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.get_run_dir(document_id, run_id) / "docling.json"
+
+    def get_markdown_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.get_run_dir(document_id, run_id) / "document.md"
+
+    def delete_file_if_exists(self, path: Path) -> None:
+        if path.exists():
+            path.unlink()
