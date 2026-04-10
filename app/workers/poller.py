@@ -8,3 +8,7 @@ logger = get_logger(__name__)
 def run() -> None:
     logger.info("worker_starting")
     run_worker_loop()
+
+
+if __name__ == "__main__":
+    run()

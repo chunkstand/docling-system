@@ -1,0 +1,80 @@
+rollout_mode: immediate_breaking_replacement
+embedding_contract:
+  model: text-embedding-3-small
+  dimension: 1536
+documents:
+  - name: upc_ch7
+    kind: standards_multi_page_tables
+    path: /Users/chunkstand/Documents/UPC/UPC_CH_7.pdf
+    thresholds:
+      expected_logical_table_count: 11
+      logical_table_tolerance: 1
+      maximum_unexpected_merges: 1
+      maximum_unexpected_splits: 1
+      expected_top_n_table_hit_queries:
+        - query: drainage fixture unit values
+          top_n: 3
+      expected_top_n_chunk_hit_queries:
+        - query: backwater valves
+          top_n: 3
+  - name: upc_ch2_figures
+    kind: figure_heavy_definitions
+    path: /Users/chunkstand/Documents/UPC/UPC_Ch_2.pdf
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_figure_count: 18
+      figure_count_tolerance: 1
+      minimum_captioned_figure_count: 18
+      minimum_figures_with_provenance: 18
+      minimum_figures_with_artifacts: 18
+      expected_figure_captions_present:
+        - Bottle Fillers and Drinking Fountain Alts.
+        - Grease Interceptors (UPC)
+        - "PrimaryDefinition: Invert"
+      expected_top_n_chunk_hit_queries:
+        - query: accepted engineering practice
+          top_n: 3
+        - query: air gap
+          top_n: 3
+  - name: born_digital_simple
+    kind: born_digital_simple_tables
+    path: null
+    thresholds:
+      expected_logical_table_count: 1
+      logical_table_tolerance: 1
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+  - name: awkward_headers
+    kind: awkward_headers_and_footnotes
+    path: /Users/chunkstand/Documents/UPC/UPC_CH_3.pdf
+    thresholds:
+      expected_logical_table_count: 2
+      logical_table_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: hangers and supports
+          top_n: 3
+        - query: hanger rod sizes
+          top_n: 3
+      expected_top_n_chunk_hit_queries:
+        - query: listed standards
+          top_n: 3
+  - name: prose_control
+    kind: prose_heavy_control
+    path: /Users/chunkstand/Documents/UPC/UPC_CH_1.pdf
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_chunk_hit_queries:
+        - query: uniform plumbing code
+          top_n: 3
+        - query: conflicts between codes
+          top_n: 3
+        - query: authority having jurisdiction
+          top_n: 3

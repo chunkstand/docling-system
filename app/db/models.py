@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Computed,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -25,6 +26,7 @@ from app.db.base import Base
 class RunStatus(StrEnum):
     QUEUED = "queued"
     PROCESSING = "processing"
+    VALIDATING = "validating"
     RETRY_WAIT = "retry_wait"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -56,7 +58,7 @@ class DocumentRun(Base):
     __tablename__ = "document_runs"
     __table_args__ = (
         CheckConstraint(
-            "status IN ('queued', 'processing', 'retry_wait', 'completed', 'failed')",
+            "status IN ('queued', 'processing', 'validating', 'retry_wait', 'completed', 'failed')",
             name="ck_document_runs_status",
         ),
         UniqueConstraint("document_id", "run_number", name="uq_document_runs_doc_run_number"),
@@ -77,10 +79,20 @@ class DocumentRun(Base):
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
     docling_json_path: Mapped[str | None] = mapped_column(Text)
-    markdown_path: Mapped[str | None] = mapped_column(Text)
+    yaml_path: Mapped[str | None] = mapped_column(Text)
     chunk_count: Mapped[int | None] = mapped_column(Integer)
+    table_count: Mapped[int | None] = mapped_column(Integer)
+    figure_count: Mapped[int | None] = mapped_column(Integer)
     embedding_model: Mapped[str | None] = mapped_column(Text)
     embedding_dim: Mapped[int | None] = mapped_column(Integer)
+    validation_status: Mapped[str | None] = mapped_column(Text)
+    validation_results_json: Mapped[dict] = mapped_column(
+        "validation_results",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -132,4 +144,133 @@ class DocumentChunk(Base):
         ),
         nullable=False,
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentTable(Base):
+    __tablename__ = "document_tables"
+    __table_args__ = (
+        UniqueConstraint("run_id", "table_index", name="uq_document_tables_run_table_index"),
+        Index("ix_document_tables_document_id", "document_id"),
+        Index("ix_document_tables_page_from", "page_from"),
+        Index("ix_document_tables_page_to", "page_to"),
+        Index("ix_document_tables_textsearch", "textsearch", postgresql_using="gin"),
+        Index(
+            "ix_document_tables_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    table_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
+    logical_table_key: Mapped[str | None] = mapped_column(Text)
+    table_version: Mapped[int | None] = mapped_column(Integer)
+    supersedes_table_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    lineage_group: Mapped[str | None] = mapped_column(Text)
+    heading: Mapped[str | None] = mapped_column(Text)
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    row_count: Mapped[int | None] = mapped_column(Integer)
+    col_count: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="persisted", server_default=sql_text("'persisted'"))
+    search_text: Mapped[str] = mapped_column(Text, nullable=False)
+    preview_text: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    json_path: Mapped[str | None] = mapped_column(Text)
+    yaml_path: Mapped[str | None] = mapped_column(Text)
+    textsearch: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+            "setweight(to_tsvector('english', coalesce(heading, '')), 'B') || "
+            "to_tsvector('english', coalesce(search_text, ''))",
+            persisted=True,
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentTableSegment(Base):
+    __tablename__ = "document_table_segments"
+    __table_args__ = (
+        UniqueConstraint("table_id", "segment_index", name="uq_document_table_segments_table_segment_index"),
+        Index("ix_document_table_segments_run_id", "run_id"),
+        Index("ix_document_table_segments_page_from", "page_from"),
+        Index("ix_document_table_segments_page_to", "page_to"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    table_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_tables.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    segment_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_table_ref: Mapped[str | None] = mapped_column(Text)
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    segment_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentFigure(Base):
+    __tablename__ = "document_figures"
+    __table_args__ = (
+        UniqueConstraint("run_id", "figure_index", name="uq_document_figures_run_figure_index"),
+        Index("ix_document_figures_document_id", "document_id"),
+        Index("ix_document_figures_run_id", "run_id"),
+        Index("ix_document_figures_page_from", "page_from"),
+        Index("ix_document_figures_page_to", "page_to"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    figure_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_figure_ref: Mapped[str | None] = mapped_column(Text)
+    caption: Mapped[str | None] = mapped_column(Text)
+    heading: Mapped[str | None] = mapped_column(Text)
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="persisted", server_default=sql_text("'persisted'"))
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    json_path: Mapped[str | None] = mapped_column(Text)
+    yaml_path: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -12,9 +12,10 @@ def test_search_route_uses_search_service(monkeypatch) -> None:
     document_id = uuid4()
     run_id = uuid4()
 
-    def fake_search_chunks(session, request):
+    def fake_search_documents(session, request):
         return [
             {
+                "result_type": "chunk",
                 "chunk_id": str(chunk_id),
                 "document_id": str(document_id),
                 "run_id": str(run_id),
@@ -32,7 +33,7 @@ def test_search_route_uses_search_service(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr("app.api.main.search_chunks", fake_search_chunks)
+    monkeypatch.setattr("app.api.main.search_documents", fake_search_documents)
 
     client = TestClient(app)
     response = client.post("/search", json={"query": "hello", "mode": "hybrid", "limit": 5})

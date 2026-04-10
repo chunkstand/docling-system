@@ -1,0 +1,385 @@
+const state = {
+  currentDocumentId: null,
+  pollTimer: null,
+};
+
+const healthPill = document.getElementById("health-pill");
+const documentPill = document.getElementById("document-pill");
+const documentsList = document.getElementById("documents-list");
+const statusFeedback = document.getElementById("status-feedback");
+const documentIdEl = document.getElementById("document-id");
+const activeRunStatusEl = document.getElementById("active-run-status");
+const latestRunStatusEl = document.getElementById("latest-run-status");
+const validationStatusEl = document.getElementById("validation-status");
+const promotionStatusEl = document.getElementById("promotion-status");
+const jsonLink = document.getElementById("json-link");
+const yamlLink = document.getElementById("yaml-link");
+const refreshButton = document.getElementById("refresh-button");
+const reprocessButton = document.getElementById("reprocess-button");
+const chunksList = document.getElementById("chunks-list");
+const tablesList = document.getElementById("tables-list");
+const figuresList = document.getElementById("figures-list");
+const searchForm = document.getElementById("search-form");
+const searchResults = document.getElementById("search-results");
+
+function escapeHtml(text) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function setArtifactLink(link, href, enabled) {
+  link.href = href || "#";
+  link.classList.toggle("disabled", !enabled);
+}
+
+function setFeedback(element, message, tone = "muted") {
+  element.textContent = message;
+  element.className = `feedback ${tone}`;
+}
+
+async function checkHealth() {
+  try {
+    const response = await fetch("/health");
+    if (!response.ok) throw new Error("Health check failed");
+    healthPill.textContent = "Ready";
+    healthPill.className = "metric-value ok";
+  } catch (error) {
+    healthPill.textContent = "Offline";
+    healthPill.className = "metric-value error";
+  }
+}
+
+function renderDocuments(documents) {
+  if (!documents.length) {
+    documentsList.className = "documents-list empty";
+    documentsList.textContent = "No documents loaded yet. Use docling-system-ingest-file locally to queue PDFs.";
+    return;
+  }
+
+  documentsList.className = "documents-list";
+  documentsList.innerHTML = documents
+    .map(
+      (document) => `
+        <button class="document-card ${document.document_id === state.currentDocumentId ? "selected" : ""}" type="button" data-document-id="${document.document_id}">
+          <strong>${escapeHtml(document.title || document.source_filename)}</strong>
+          <span>${escapeHtml(document.source_filename)}</span>
+          <span>Latest: ${escapeHtml(document.latest_run_status || "unknown")}</span>
+          <span>Validation: ${escapeHtml(document.latest_validation_status || "pending")}</span>
+          <span>${document.table_count || 0} tables</span>
+          <span>${document.figure_count || 0} diagrams</span>
+        </button>
+      `,
+    )
+    .join("");
+
+  documentsList.querySelectorAll("[data-document-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.currentDocumentId = button.dataset.documentId;
+      renderDocuments(documents);
+      refreshCurrentDocument();
+    });
+  });
+}
+
+function renderChunks(chunks) {
+  if (!chunks.length) {
+    chunksList.className = "chunks-list empty";
+    chunksList.textContent = "No active chunks yet.";
+    return;
+  }
+
+  chunksList.className = "chunks-list";
+  chunksList.innerHTML = chunks
+    .slice(0, 8)
+    .map(
+      (chunk) => `
+        <article class="chunk-card">
+          <div class="chunk-meta">
+            <span>Chunk ${chunk.chunk_index}</span>
+            <span>Pages ${chunk.page_from ?? "?"}-${chunk.page_to ?? "?"}</span>
+            ${chunk.heading ? `<span>${escapeHtml(chunk.heading)}</span>` : ""}
+          </div>
+          <p>${escapeHtml(chunk.text)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderTables(tables, documentId) {
+  if (!tables.length) {
+    tablesList.className = "tables-list empty";
+    tablesList.textContent = "No active tables yet.";
+    return;
+  }
+
+  tablesList.className = "tables-list";
+  tablesList.innerHTML = tables
+    .slice(0, 8)
+    .map(
+      (table) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>Table ${table.table_index + 1}</span>
+            <span>Pages ${table.page_from ?? "?"}-${table.page_to ?? "?"}</span>
+            <span>${table.row_count ?? "?"} rows x ${table.col_count ?? "?"} cols</span>
+          </div>
+          ${table.title ? `<strong>${escapeHtml(table.title)}</strong>` : ""}
+          ${table.heading ? `<p class="table-heading">${escapeHtml(table.heading)}</p>` : ""}
+          <p>${escapeHtml(table.preview_text)}</p>
+          <div class="artifact-links table-links">
+            <a href="/documents/${documentId}/tables/${table.table_id}/artifacts/json" target="_blank" rel="noreferrer">JSON</a>
+            <a href="/documents/${documentId}/tables/${table.table_id}/artifacts/yaml" target="_blank" rel="noreferrer">YAML</a>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderFigures(figures, documentId) {
+  if (!figures.length) {
+    figuresList.className = "tables-list empty";
+    figuresList.textContent = "No active figures yet.";
+    return;
+  }
+
+  figuresList.className = "tables-list";
+  figuresList.innerHTML = figures
+    .slice(0, 8)
+    .map(
+      (figure) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>Figure ${figure.figure_index + 1}</span>
+            <span>Pages ${figure.page_from ?? "?"}-${figure.page_to ?? "?"}</span>
+            <span>Confidence ${figure.confidence != null ? Number(figure.confidence).toFixed(2) : "n/a"}</span>
+          </div>
+          ${figure.caption ? `<strong>${escapeHtml(figure.caption)}</strong>` : "<strong>Uncaptioned figure</strong>"}
+          ${figure.heading ? `<p class="table-heading">${escapeHtml(figure.heading)}</p>` : ""}
+          <div class="artifact-links table-links">
+            <a href="/documents/${documentId}/figures/${figure.figure_id}/artifacts/json" target="_blank" rel="noreferrer">JSON</a>
+            <a href="/documents/${documentId}/figures/${figure.figure_id}/artifacts/yaml" target="_blank" rel="noreferrer">YAML</a>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderSearchResults(results) {
+  if (!results.length) {
+    searchResults.className = "search-results empty";
+    searchResults.textContent = "No results yet.";
+    return;
+  }
+
+  searchResults.className = "search-results";
+  searchResults.innerHTML = results
+    .map((result) => {
+      if (result.result_type === "table") {
+        return `
+          <article class="result-card">
+            <div class="result-meta">
+              <span>Table hit</span>
+              <span>${escapeHtml(result.source_filename)}</span>
+              <span>Pages ${result.page_from ?? "?"}-${result.page_to ?? "?"}</span>
+              <span>Score ${Number(result.score).toFixed(3)}</span>
+            </div>
+            ${result.table_title ? `<strong>${escapeHtml(result.table_title)}</strong>` : ""}
+            ${result.table_heading ? `<p class="table-heading">${escapeHtml(result.table_heading)}</p>` : ""}
+            <p>${escapeHtml(result.table_preview || "")}</p>
+          </article>
+        `;
+      }
+
+      return `
+        <article class="result-card">
+          <div class="result-meta">
+            <span>Chunk hit</span>
+            <span>${escapeHtml(result.source_filename)}</span>
+            <span>Pages ${result.page_from ?? "?"}-${result.page_to ?? "?"}</span>
+            <span>Score ${Number(result.score).toFixed(3)}</span>
+          </div>
+          ${result.heading ? `<strong>${escapeHtml(result.heading)}</strong>` : ""}
+          <p>${escapeHtml(result.chunk_text || "")}</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+async function fetchDocuments() {
+  const response = await fetch("/documents");
+  if (!response.ok) {
+    throw new Error("Unable to load documents.");
+  }
+  return response.json();
+}
+
+async function fetchDocumentStatus(documentId) {
+  const response = await fetch(`/documents/${documentId}`);
+  if (!response.ok) {
+    throw new Error("Unable to load document status.");
+  }
+  return response.json();
+}
+
+async function fetchChunks(documentId) {
+  const response = await fetch(`/documents/${documentId}/chunks`);
+  if (!response.ok) {
+    throw new Error("Unable to load chunks.");
+  }
+  return response.json();
+}
+
+async function fetchTables(documentId) {
+  const response = await fetch(`/documents/${documentId}/tables`);
+  if (!response.ok) {
+    throw new Error("Unable to load tables.");
+  }
+  return response.json();
+}
+
+async function fetchFigures(documentId) {
+  const response = await fetch(`/documents/${documentId}/figures`);
+  if (!response.ok) {
+    throw new Error("Unable to load figures.");
+  }
+  return response.json();
+}
+
+async function refreshDocuments() {
+  const documents = await fetchDocuments();
+  if (!state.currentDocumentId && documents.length) {
+    state.currentDocumentId = documents[0].document_id;
+  }
+  renderDocuments(documents);
+}
+
+async function refreshCurrentDocument() {
+  if (!state.currentDocumentId) {
+    setFeedback(
+      statusFeedback,
+      "No validated documents are loaded yet. Use docling-system-ingest-file to queue PDFs.",
+    );
+    renderChunks([]);
+    renderTables([], "");
+    renderFigures([], "");
+    return;
+  }
+
+  try {
+    const [document, chunks, tables, figures] = await Promise.all([
+      fetchDocumentStatus(state.currentDocumentId),
+      fetchChunks(state.currentDocumentId),
+      fetchTables(state.currentDocumentId),
+      fetchFigures(state.currentDocumentId),
+    ]);
+
+    documentIdEl.textContent = document.document_id;
+    documentPill.textContent = document.title || document.source_filename;
+    documentPill.className = "metric-value subtle";
+    activeRunStatusEl.textContent = document.active_run_status || "Not active";
+    latestRunStatusEl.textContent = document.latest_run_status || "Unknown";
+    validationStatusEl.textContent = document.latest_validation_status || "Pending";
+    promotionStatusEl.textContent = document.latest_run_promoted ? "Promoted" : "Not promoted";
+    setArtifactLink(jsonLink, `/documents/${document.document_id}/artifacts/json`, document.has_json_artifact);
+    setArtifactLink(yamlLink, `/documents/${document.document_id}/artifacts/yaml`, document.has_yaml_artifact);
+
+    const note = document.is_searchable
+      ? `Document is searchable with ${document.table_count ?? 0} active tables and ${document.figure_count ?? 0} active diagrams.`
+      : document.latest_error_message || "Latest run has not been promoted yet.";
+    setFeedback(statusFeedback, note, document.is_searchable ? "muted" : "");
+    renderChunks(chunks);
+    renderTables(tables, document.document_id);
+    renderFigures(figures, document.document_id);
+  } catch (error) {
+    setFeedback(statusFeedback, error.message || "Unable to refresh document state.");
+  }
+}
+
+function startPolling() {
+  if (state.pollTimer) {
+    window.clearInterval(state.pollTimer);
+  }
+  state.pollTimer = window.setInterval(async () => {
+    await refreshDocuments();
+    await refreshCurrentDocument();
+  }, 5000);
+}
+
+refreshButton.addEventListener("click", async () => {
+  await refreshDocuments();
+  await refreshCurrentDocument();
+});
+
+reprocessButton.addEventListener("click", async () => {
+  if (!state.currentDocumentId) {
+    setFeedback(statusFeedback, "Select a document first.");
+    return;
+  }
+
+  setFeedback(statusFeedback, "Queueing reprocess...");
+  try {
+    const response = await fetch(`/documents/${state.currentDocumentId}/reprocess`, {
+      method: "POST",
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.detail || "Unable to reprocess.");
+    }
+    setFeedback(statusFeedback, `Queued run ${body.run_id}.`);
+    await refreshDocuments();
+    await refreshCurrentDocument();
+    startPolling();
+  } catch (error) {
+    setFeedback(statusFeedback, error.message || "Unable to reprocess.");
+  }
+});
+
+searchForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const query = document.getElementById("search-query").value.trim();
+  const mode = document.getElementById("search-mode").value;
+  if (!query) {
+    renderSearchResults([]);
+    searchResults.className = "search-results empty";
+    searchResults.textContent = "Enter a query before searching.";
+    return;
+  }
+
+  searchResults.className = "search-results empty";
+  searchResults.textContent = "Searching...";
+
+  const payload = { query, mode, limit: 8 };
+  if (state.currentDocumentId) {
+    payload.filters = { document_id: state.currentDocumentId };
+  }
+
+  try {
+    const response = await fetch("/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.detail || "Search failed.");
+    }
+    renderSearchResults(body);
+  } catch (error) {
+    searchResults.className = "search-results empty";
+    searchResults.textContent = error.message || "Search failed.";
+  }
+});
+
+checkHealth();
+setArtifactLink(jsonLink, "#", false);
+setArtifactLink(yamlLink, "#", false);
+refreshDocuments().then(refreshCurrentDocument);
+startPolling();

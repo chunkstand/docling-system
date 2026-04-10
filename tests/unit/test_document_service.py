@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from fastapi import UploadFile
+from fastapi import HTTPException
 
 from app.db.models import Document, DocumentRun, RunStatus
-from app.services.documents import _build_duplicate_response, _is_pdf
+from app.services.documents import _build_duplicate_response, _is_pdf, _validate_local_ingest_path
 
 
 def test_is_pdf_accepts_pdf_mime() -> None:
@@ -54,3 +57,33 @@ def test_duplicate_response_prefers_active_run_status() -> None:
 def test_non_pdf_rejected() -> None:
     upload = UploadFile(filename="report.txt", file=BytesIO(b"text"), headers={"content-type": "text/plain"})
     assert _is_pdf(upload) is False
+
+
+def test_local_ingest_rejects_symlink(monkeypatch) -> None:
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        target = root / "doc.pdf"
+        target.write_bytes(b"%PDF-1.4")
+        link = root / "link.pdf"
+        link.symlink_to(target)
+        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root])
+        try:
+            _validate_local_ingest_path(link)
+        except HTTPException as exc:
+            assert exc.status_code == 400
+        else:
+            raise AssertionError("Expected symlink ingest to be rejected")
+
+
+def test_local_ingest_rejects_path_outside_allowed_roots(monkeypatch) -> None:
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        file_path = root / "doc.pdf"
+        file_path.write_bytes(b"%PDF-1.4")
+        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root / "other"])
+        try:
+            _validate_local_ingest_path(file_path)
+        except HTTPException as exc:
+            assert exc.status_code == 400
+        else:
+            raise AssertionError("Expected out-of-root ingest to be rejected")

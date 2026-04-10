@@ -9,8 +9,9 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentRun, RunStatus
-from app.schemas.documents import DocumentDetailResponse, DocumentUploadResponse
+from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
+from app.core.config import get_settings
+from app.schemas.documents import DocumentDetailResponse, DocumentSummaryResponse, DocumentUploadResponse
 from app.services.storage import StorageService
 
 
@@ -31,6 +32,33 @@ def _utcnow() -> datetime:
 def _is_pdf(upload: UploadFile) -> bool:
     filename = upload.filename or ""
     return upload.content_type in PDF_MIME_TYPES or filename.lower().endswith(".pdf")
+
+
+def _allowed_ingest_roots() -> list[Path]:
+    settings = get_settings()
+    if settings.local_ingest_allowed_roots:
+        return [Path(item).expanduser().resolve() for item in settings.local_ingest_allowed_roots.split(":") if item]
+    return [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
+
+
+def _validate_local_ingest_path(file_path: Path) -> Path:
+    settings = get_settings()
+    raw_path = file_path.expanduser()
+    if raw_path.is_symlink():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Symlink ingest paths are not allowed.")
+    resolved_path = raw_path.resolve()
+    if not resolved_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found: {resolved_path}")
+    if resolved_path.suffix.lower() != ".pdf":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported.")
+    if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is outside allowed local ingest roots.")
+    if resolved_path.stat().st_size > settings.local_ingest_max_file_bytes:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds local ingest size limit.")
+    with resolved_path.open("rb") as source_file:
+        if source_file.read(5) != b"%PDF-":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF.")
+    return resolved_path
 
 
 def _get_run(session: Session, run_id: UUID | None) -> DocumentRun | None:
@@ -78,6 +106,84 @@ def _build_recovery_response(document_id: UUID, run_id: UUID) -> DocumentUploadR
     )
 
 
+def _queue_document_run(
+    session: Session,
+    storage_service: StorageService,
+    *,
+    staged_path: Path,
+    sha256: str,
+    source_filename: str,
+    mime_type: str,
+) -> tuple[DocumentUploadResponse, int]:
+    existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+    if existing is not None:
+        snapshot = _load_existing_snapshot(session, existing)
+
+        if snapshot.active_run is not None:
+            storage_service.delete_file_if_exists(staged_path)
+            return _build_duplicate_response(snapshot), status.HTTP_200_OK
+
+        if snapshot.latest_run and snapshot.latest_run.status in {
+            RunStatus.QUEUED.value,
+            RunStatus.PROCESSING.value,
+            RunStatus.VALIDATING.value,
+            RunStatus.RETRY_WAIT.value,
+        }:
+            storage_service.delete_file_if_exists(staged_path)
+            return DocumentUploadResponse(
+                document_id=existing.id,
+                run_id=snapshot.latest_run.id,
+                status=snapshot.latest_run.status,
+                duplicate=True,
+                recovery_run=True,
+            ), status.HTTP_202_ACCEPTED
+
+        recovery_run = create_run_for_existing_document(session=session, document=existing)
+        session.commit()
+        storage_service.delete_file_if_exists(staged_path)
+        return _build_recovery_response(existing.id, recovery_run.id), status.HTTP_202_ACCEPTED
+
+    now = _utcnow()
+    document = Document(
+        source_filename=Path(source_filename).name,
+        source_path="",
+        sha256=sha256,
+        mime_type=mime_type,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(document)
+    session.flush()
+
+    source_path = storage_service.move_source_file(document.id, staged_path)
+    document.source_path = str(source_path)
+
+    document_run = DocumentRun(
+        document_id=document.id,
+        run_number=1,
+        status=RunStatus.QUEUED.value,
+        created_at=now,
+        next_attempt_at=now,
+        validation_status="pending",
+    )
+    session.add(document_run)
+    session.flush()
+
+    document.latest_run_id = document_run.id
+    document.updated_at = now
+    session.commit()
+
+    return (
+        DocumentUploadResponse(
+            document_id=document.id,
+            run_id=document_run.id,
+            status=document_run.status,
+            duplicate=False,
+        ),
+        status.HTTP_202_ACCEPTED,
+    )
+
+
 async def ingest_upload(
     session: Session,
     upload: UploadFile,
@@ -89,70 +195,36 @@ async def ingest_upload(
     staged_path, sha256 = await storage_service.stage_upload(upload)
 
     try:
-        existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
-        if existing is not None:
-            snapshot = _load_existing_snapshot(session, existing)
-
-            if snapshot.active_run is not None:
-                storage_service.delete_file_if_exists(staged_path)
-                return _build_duplicate_response(snapshot), status.HTTP_200_OK
-
-            if snapshot.latest_run and snapshot.latest_run.status in {
-                RunStatus.QUEUED.value,
-                RunStatus.PROCESSING.value,
-                RunStatus.RETRY_WAIT.value,
-            }:
-                storage_service.delete_file_if_exists(staged_path)
-                return DocumentUploadResponse(
-                    document_id=existing.id,
-                    run_id=snapshot.latest_run.id,
-                    status=snapshot.latest_run.status,
-                    duplicate=True,
-                    recovery_run=True,
-                ), status.HTTP_202_ACCEPTED
-
-            recovery_run = create_run_for_existing_document(session=session, document=existing)
-            session.commit()
-            storage_service.delete_file_if_exists(staged_path)
-            return _build_recovery_response(existing.id, recovery_run.id), status.HTTP_202_ACCEPTED
-
-        now = _utcnow()
-        document = Document(
-            source_filename=Path(upload.filename or "document.pdf").name,
-            source_path="",
+        return _queue_document_run(
+            session=session,
+            storage_service=storage_service,
+            staged_path=staged_path,
             sha256=sha256,
+            source_filename=upload.filename or "document.pdf",
             mime_type=upload.content_type or "application/pdf",
-            created_at=now,
-            updated_at=now,
         )
-        session.add(document)
-        session.flush()
+    except Exception:
+        storage_service.delete_file_if_exists(staged_path)
+        session.rollback()
+        raise
 
-        source_path = storage_service.move_source_file(document.id, staged_path)
-        document.source_path = str(source_path)
 
-        document_run = DocumentRun(
-            document_id=document.id,
-            run_number=1,
-            status=RunStatus.QUEUED.value,
-            created_at=now,
-            next_attempt_at=now,
-        )
-        session.add(document_run)
-        session.flush()
+def ingest_local_file(
+    session: Session,
+    file_path: Path,
+    storage_service: StorageService,
+) -> tuple[DocumentUploadResponse, int]:
+    file_path = _validate_local_ingest_path(file_path)
 
-        document.latest_run_id = document_run.id
-        document.updated_at = now
-        session.commit()
-
-        return (
-            DocumentUploadResponse(
-                document_id=document.id,
-                run_id=document_run.id,
-                status=document_run.status,
-                duplicate=False,
-            ),
-            status.HTTP_202_ACCEPTED,
+    staged_path, sha256 = storage_service.stage_local_file(file_path)
+    try:
+        return _queue_document_run(
+            session=session,
+            storage_service=storage_service,
+            staged_path=staged_path,
+            sha256=sha256,
+            source_filename=file_path.name,
+            mime_type="application/pdf",
         )
     except Exception:
         storage_service.delete_file_if_exists(staged_path)
@@ -168,6 +240,7 @@ def create_run_for_existing_document(session: Session, document: Document) -> Do
         status=RunStatus.QUEUED.value,
         created_at=now,
         next_attempt_at=now,
+        validation_status="pending",
     )
     session.add(run)
     session.flush()
@@ -183,6 +256,21 @@ def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailRe
 
     active_run = _get_run(session, document.active_run_id)
     latest_run = _get_run(session, document.latest_run_id)
+    table_count = 0
+    figure_count = 0
+    if document.active_run_id is not None:
+        table_count = session.execute(
+            select(func.count()).select_from(DocumentTable).where(
+                DocumentTable.document_id == document.id,
+                DocumentTable.run_id == document.active_run_id,
+            )
+        ).scalar_one()
+        figure_count = session.execute(
+            select(func.count()).select_from(DocumentFigure).where(
+                DocumentFigure.document_id == document.id,
+                DocumentFigure.run_id == document.active_run_id,
+            )
+        ).scalar_one()
 
     return DocumentDetailResponse(
         document_id=document.id,
@@ -192,13 +280,64 @@ def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailRe
         active_run_status=active_run.status if active_run else None,
         latest_run_id=document.latest_run_id,
         latest_run_status=latest_run.status if latest_run else None,
+        latest_validation_status=latest_run.validation_status if latest_run else None,
+        latest_run_promoted=bool(latest_run and latest_run.id == document.active_run_id),
         is_searchable=document.active_run_id is not None,
         has_json_artifact=bool(active_run and active_run.docling_json_path),
-        has_markdown_artifact=bool(active_run and active_run.markdown_path),
+        has_yaml_artifact=bool(active_run and active_run.yaml_path),
+        table_count=table_count,
+        has_table_artifacts=table_count > 0,
+        figure_count=figure_count,
+        has_figure_artifacts=figure_count > 0,
         created_at=document.created_at,
         updated_at=document.updated_at,
         latest_error_message=latest_run.error_message if latest_run else None,
     )
+
+
+def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryResponse]:
+    documents = session.execute(select(Document).order_by(Document.updated_at.desc()).limit(limit)).scalars().all()
+    summaries: list[DocumentSummaryResponse] = []
+
+    for document in documents:
+        active_run = _get_run(session, document.active_run_id)
+        latest_run = _get_run(session, document.latest_run_id)
+        table_count = 0
+        figure_count = 0
+        if document.active_run_id is not None:
+            table_count = session.execute(
+                select(func.count()).select_from(DocumentTable).where(
+                    DocumentTable.document_id == document.id,
+                    DocumentTable.run_id == document.active_run_id,
+                )
+            ).scalar_one()
+            figure_count = session.execute(
+                select(func.count()).select_from(DocumentFigure).where(
+                    DocumentFigure.document_id == document.id,
+                    DocumentFigure.run_id == document.active_run_id,
+                )
+            ).scalar_one()
+
+        summaries.append(
+            DocumentSummaryResponse(
+                document_id=document.id,
+                source_filename=document.source_filename,
+                title=document.title,
+                active_run_id=document.active_run_id,
+                active_run_status=active_run.status if active_run else None,
+                latest_run_id=document.latest_run_id,
+                latest_run_status=latest_run.status if latest_run else None,
+                latest_validation_status=latest_run.validation_status if latest_run else None,
+                latest_run_promoted=bool(latest_run and latest_run.id == document.active_run_id),
+                table_count=table_count,
+                has_table_artifacts=table_count > 0,
+                figure_count=figure_count,
+                has_figure_artifacts=figure_count > 0,
+                updated_at=document.updated_at,
+            )
+        )
+
+    return summaries
 
 
 def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadResponse:
@@ -210,6 +349,7 @@ def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadRes
     if latest_run and latest_run.status in {
         RunStatus.QUEUED.value,
         RunStatus.PROCESSING.value,
+        RunStatus.VALIDATING.value,
         RunStatus.RETRY_WAIT.value,
     }:
         raise HTTPException(

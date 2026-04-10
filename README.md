@@ -1,38 +1,160 @@
 # docling-system
 
-PDF ingestion and retrieval workspace built around Docling.
+Docling-based PDF ingestion and retrieval system for plumbing-code knowledge.
 
-## Concise Note
+## What It Does
 
-This system turns uploaded PDFs into structured, searchable knowledge. It uses Docling to produce canonical artifacts, stores versioned runs and retrieval chunks, promotes only successful runs to active status, and exposes keyword, semantic, and hybrid search through a local REST API and UI.
+This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks and logical tables, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and a read-only browser UI.
 
-## System Plan
+The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, artifacts, validation status, metrics, and mixed chunk/table search.
 
-The current plan for the system is:
+## Current Contracts
 
-1. Accept multipart PDF uploads only on the public API.
-2. Deduplicate documents by checksum and reuse the canonical document row.
-3. Process every attempt through a durable `document_runs` queue/lease model.
-4. Store source PDFs and versioned Docling artifacts on the local filesystem.
-5. Persist documents, runs, chunks, and embeddings in Postgres with pgvector.
-6. Promote only fully successful runs to `active_run_id` so search sees a stable version.
-7. Expose document status, chunk inspection, reprocessing, artifact download, and search endpoints.
-8. Keep retention, retries, and search filters intentionally small and explicit for v1.
+- `docling.json` is the canonical machine-readable document parse artifact.
+- `document.yaml` is the human-readable document artifact.
+- Table JSON is the canonical machine-readable table artifact.
+- Table YAML is the human-readable table artifact.
+- YAML is derived output, not a second source of truth.
+- Search, ranking, filtering, validation, and persistence use normalized database fields and structured objects, not reparsed YAML.
+- `documents.active_run_id` advances only after document and table validations pass.
+- A failed validation run remains non-active, and the prior active run remains unchanged.
+- `/search` is the immediate mixed typed search contract for both chunks and tables.
+- `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
 
-Detailed planning and architecture notes live in [SYSTEM_PLAN.md](./SYSTEM_PLAN.md).
+## Stack
 
-## Local Run
+- FastAPI REST API
+- SQLAlchemy, Alembic, psycopg
+- Postgres with pgvector
+- Docling PDF parsing
+- OpenAI embeddings with `text-embedding-3-small` and a pinned 1536-dimension contract
+- One polling worker with DB-backed leasing and retries
+- Local filesystem storage under `storage/`
+- Docker Compose for local Postgres
+- Read-only local UI mounted at `http://localhost:8000/`
 
-1. Copy `.env.example` to `.env` and set `DOCLING_SYSTEM_OPENAI_API_KEY`.
-2. Start Postgres with `docker compose up -d db`.
-3. Install dependencies with `uv sync --extra dev`.
-4. Run migrations with `uv run alembic upgrade head`.
-5. Start the API with `uv run docling-system-api`.
-6. Start the worker in a second shell with `uv run docling-system-worker`.
-7. Open `http://localhost:8000/` in your browser.
+## Local Setup
 
-Useful commands:
+1. Copy `.env.example` to `.env`.
+2. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings should be generated.
+3. Start Postgres:
 
-- `uv run pytest tests/unit`
-- `uv run docling-system-cleanup`
-- `uv run alembic upgrade head --sql`
+```bash
+docker compose up -d db
+```
+
+4. Install dependencies:
+
+```bash
+uv sync --extra dev
+```
+
+5. Run migrations:
+
+```bash
+uv run alembic upgrade head
+```
+
+6. Start the API:
+
+```bash
+uv run docling-system-api
+```
+
+7. Start the worker in a second shell:
+
+```bash
+uv run docling-system-worker
+```
+
+8. Open the UI:
+
+```text
+http://localhost:8000/
+```
+
+## Ingesting PDFs
+
+Local-file ingest is CLI-only:
+
+```bash
+uv run docling-system-ingest-file /absolute/path/to/file.pdf
+```
+
+The CLI passes through the same checksum dedupe, run queue, worker processing, validation gate, and active-run promotion path as upload ingest.
+
+Local path ingest policy:
+
+- Paths must be under configured allowed roots.
+- If `DOCLING_SYSTEM_LOCAL_INGEST_ALLOWED_ROOTS` is unset, the default roots are the repo working directory and `~/Documents`.
+- Symlink file paths are rejected.
+- Files must have a `.pdf` suffix and a `%PDF-` header.
+- Duplicate content is deduped by checksum, not by path string.
+- File size defaults to `104857600` bytes.
+- Page count defaults to a maximum of `750` pages.
+
+`POST /documents` remains multipart upload-based for compatibility. No arbitrary path-based ingest is exposed through public HTTP.
+
+## API Overview
+
+- `GET /health`
+- `GET /metrics`
+- `GET /documents`
+- `POST /documents`
+- `GET /documents/{document_id}`
+- `GET /documents/{document_id}/chunks`
+- `GET /documents/{document_id}/tables`
+- `GET /documents/{document_id}/tables/{table_id}`
+- `GET /documents/{document_id}/artifacts/json`
+- `GET /documents/{document_id}/artifacts/yaml`
+- `GET /documents/{document_id}/tables/{table_id}/artifacts/json`
+- `GET /documents/{document_id}/tables/{table_id}/artifacts/yaml`
+- `POST /documents/{document_id}/reprocess`
+- `POST /search`
+
+## Search Contract
+
+`POST /search` returns one ranked list containing typed results:
+
+- `result_type: "chunk"` for prose chunk hits
+- `result_type: "table"` for logical table hits
+
+Supported modes:
+
+- `keyword`
+- `semantic`
+- `hybrid`
+
+Supported filters:
+
+- `document_id`
+- `page_range`
+- `result_type`
+
+Keyword, semantic, and hybrid modes search active chunks and active tables independently, then merge results deterministically. Query embeddings are computed once per request and reused for chunk and table semantic retrieval. If embeddings fail, the system degrades to keyword-backed retrieval instead of blocking validated ingestion.
+
+## Tables
+
+Tables are first-class retrieval objects. The parser stores logical tables, source table segment provenance, merge metadata, repeated-header removal metadata, and audit hashes. Continued tables can be merged into one logical table when the evidence is strong enough; ambiguous continuation candidates are recorded instead of guessed.
+
+Table telemetry is available from `GET /metrics`, including detected tables, persisted logical tables, segment counts, continuation merges, ambiguous continuations, table embedding failures, and table search hits.
+
+## Useful Commands
+
+```bash
+uv run pytest tests
+uv run pytest tests/unit
+uv run alembic upgrade head
+uv run docling-system-cleanup
+uv run docling-system-ingest-file /absolute/path/to/file.pdf
+```
+
+## Evaluation
+
+The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance.
+
+## Troubleshooting
+
+If the worker logs `429 insufficient_quota` from OpenAI, the API key is authenticating but the OpenAI project behind that key does not have usable quota or billing. Ingest still completes when validation passes, but embeddings are not stored and semantic search falls back to keyword-backed behavior.
+
+After changing `DOCLING_SYSTEM_OPENAI_API_KEY`, restart the API and worker. Existing runs need to be reprocessed to generate embeddings with the new key.

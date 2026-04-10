@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System</title>
+    <link rel="stylesheet" href="/ui/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Plumbing Code Retrieval Console</p>
+          <h1>Browse active documents. Inspect tables and diagrams. Search the validated corpus.</h1>
+          <p class="hero-text">
+            This interface is read-only. Ingest new PDFs with the local
+            <code>docling-system-ingest-file</code> command, then use this dashboard to inspect
+            validated runs, table and diagram artifacts, and mixed retrieval results.
+          </p>
+        </div>
+        <div class="hero-panel">
+          <div class="metric">
+            <span class="metric-label">API</span>
+            <strong id="health-pill" class="metric-value pending">Checking</strong>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Selected document</span>
+            <strong id="document-pill" class="metric-value subtle">None selected</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="panel documents-panel">
+          <div class="panel-header">
+            <p class="section-label">Documents</p>
+            <h2>Validated document set</h2>
+          </div>
+          <div id="documents-list" class="documents-list empty">No documents loaded yet.</div>
+        </section>
+
+        <section class="panel status-panel">
+          <div class="panel-header">
+            <p class="section-label">Document</p>
+            <h2>Current document status</h2>
+          </div>
+          <div class="status-grid">
+            <div class="status-card">
+              <span class="status-label">Document ID</span>
+              <code id="document-id">No document selected</code>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Active run</span>
+              <strong id="active-run-status">Unknown</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Latest run</span>
+              <strong id="latest-run-status">Unknown</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Validation</span>
+              <strong id="validation-status">Unknown</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Promotion</span>
+              <strong id="promotion-status">Unknown</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Artifacts</span>
+              <div class="artifact-links">
+                <a id="json-link" href="#" target="_blank" rel="noreferrer">JSON</a>
+                <a id="yaml-link" href="#" target="_blank" rel="noreferrer">YAML</a>
+              </div>
+            </div>
+          </div>
+          <div class="status-actions">
+            <button class="secondary-button" id="refresh-button" type="button">Refresh</button>
+            <button class="secondary-button" id="reprocess-button" type="button">Reprocess</button>
+          </div>
+          <div id="status-feedback" class="feedback muted" aria-live="polite"></div>
+        </section>
+
+        <section class="panel chunks-panel">
+          <div class="panel-header">
+            <p class="section-label">Chunks</p>
+            <h2>Active run chunk preview</h2>
+          </div>
+          <div id="chunks-list" class="chunks-list empty">No active chunks yet.</div>
+        </section>
+
+        <section class="panel tables-panel">
+          <div class="panel-header">
+            <p class="section-label">Tables</p>
+            <h2>Active run tables</h2>
+          </div>
+          <div id="tables-list" class="tables-list empty">No active tables yet.</div>
+        </section>
+
+        <section class="panel tables-panel">
+          <div class="panel-header">
+            <p class="section-label">Diagrams</p>
+            <h2>Active run figures</h2>
+          </div>
+          <div id="figures-list" class="tables-list empty">No active figures yet.</div>
+        </section>
+
+        <section class="panel search-panel">
+          <div class="panel-header">
+            <p class="section-label">Search</p>
+            <h2>Query the active corpus</h2>
+          </div>
+          <form id="search-form" class="search-form">
+            <input
+              id="search-query"
+              name="query"
+              type="text"
+              placeholder="Ask for a phrase or concept"
+              autocomplete="off"
+            />
+            <select id="search-mode" name="mode">
+              <option value="hybrid">Hybrid</option>
+              <option value="keyword">Keyword</option>
+              <option value="semantic">Semantic</option>
+            </select>
+            <button class="primary-button" type="submit">Search</button>
+          </form>
+          <div id="search-results" class="search-results empty">Search results will appear here.</div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/ui/app.js" defer></script>
+  </body>
+</html>

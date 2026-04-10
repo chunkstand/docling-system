@@ -15,6 +15,7 @@ dependencies = [
   "openai>=2.2.0",
   "pgvector>=0.4.1",
   "psycopg[binary]>=3.2.0",
+  "pyyaml>=6.0.3",
   "pydantic-settings>=2.11.0",
   "python-multipart>=0.0.20",
   "sqlalchemy>=2.0.43",
@@ -35,6 +36,7 @@ dev = [
 docling-system-api = "app.api.main:run"
 docling-system-worker = "app.workers.poller:run"
 docling-system-cleanup = "app.maintenance:run_cleanup"
+docling-system-ingest-file = "app.cli:run_ingest_file"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

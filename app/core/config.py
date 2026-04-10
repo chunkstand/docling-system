@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     worker_lease_timeout_seconds: int = 300
     worker_max_attempts: int = 3
     worker_heartbeat_seconds: int = 30
+    local_ingest_allowed_roots: str | None = None
+    local_ingest_max_file_bytes: int = 104857600
+    local_ingest_max_pages: int = 750
 
 
 @lru_cache(maxsize=1)

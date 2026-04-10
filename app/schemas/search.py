@@ -13,6 +13,7 @@ class PageRangeFilter(BaseModel):
 class SearchFilters(BaseModel):
     document_id: UUID | None = None
     page_range: PageRangeFilter | None = None
+    result_type: str | None = Field(default=None, pattern="^(chunk|table)$")
 
 
 class SearchRequest(BaseModel):
@@ -29,12 +30,19 @@ class SearchScores(BaseModel):
 
 
 class SearchResult(BaseModel):
-    chunk_id: UUID
+    result_type: str
     document_id: UUID
     run_id: UUID
     score: float
-    chunk_text: str
-    heading: str | None
+    chunk_id: UUID | None = None
+    chunk_text: str | None = None
+    heading: str | None = None
+    table_id: UUID | None = None
+    table_title: str | None = None
+    table_heading: str | None = None
+    table_preview: str | None = None
+    row_count: int | None = None
+    col_count: int | None = None
     page_from: int | None
     page_to: int | None
     source_filename: str

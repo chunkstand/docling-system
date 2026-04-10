@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentChunk, DocumentRun, RunStatus
+from app.db.models import Document, DocumentChunk, DocumentFigure, DocumentRun, DocumentTable, DocumentTableSegment, RunStatus
 from app.services.storage import StorageService
 
 
@@ -72,13 +72,13 @@ def cleanup_superseded_runs(session: Session, storage_service: StorageService) -
                 continue
             if run.docling_json_path:
                 Path(run.docling_json_path).unlink(missing_ok=True)
-            if run.markdown_path:
-                Path(run.markdown_path).unlink(missing_ok=True)
+            if run.yaml_path:
+                Path(run.yaml_path).unlink(missing_ok=True)
             run_dir = storage_service.runs_root / str(document.id) / str(run.id)
-            if run_dir.exists():
-                for child in run_dir.iterdir():
-                    child.unlink(missing_ok=True)
-                run_dir.rmdir()
+            storage_service.delete_tree_if_exists(run_dir)
+            session.query(DocumentTableSegment).filter(DocumentTableSegment.run_id == run.id).delete()
+            session.query(DocumentTable).filter(DocumentTable.run_id == run.id).delete()
+            session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).delete()
             session.query(DocumentChunk).filter(DocumentChunk.run_id == run.id).delete()
             session.delete(run)
             deleted_runs += 1
@@ -105,14 +105,14 @@ def cleanup_expired_failed_run_artifacts(
 
     cleaned = 0
     for run in failed_runs:
+        run_dir = storage_service.runs_root / str(run.document_id) / str(run.id)
+        if run_dir.exists():
+            storage_service.delete_tree_if_exists(run_dir)
+            cleaned += 1
         if run.docling_json_path:
-            Path(run.docling_json_path).unlink(missing_ok=True)
             run.docling_json_path = None
-            cleaned += 1
-        if run.markdown_path:
-            Path(run.markdown_path).unlink(missing_ok=True)
-            run.markdown_path = None
-            cleaned += 1
+        if run.yaml_path:
+            run.yaml_path = None
 
     if cleaned:
         session.commit()

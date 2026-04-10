@@ -4,21 +4,22 @@
 
 Build a small, durable PDF ingestion and retrieval system around Docling.
 
-The system accepts PDF uploads, parses them into structured artifacts, stores canonical parse outputs and retrieval chunks, and exposes keyword, semantic, and hybrid search. It uses:
+The system accepts multipart PDF uploads through the API and trusted local-file ingest through the operator CLI, parses PDFs into structured artifacts, stores canonical parse outputs plus prose chunks and logical tables, and exposes keyword, semantic, and hybrid mixed search. It uses:
 
 - Python API + worker
 - Docling for extraction and chunk source
 - Postgres + pgvector for retrieval storage
 - local filesystem for source PDFs and derived artifacts
-- REST API for ingestion, status, reprocessing, and search
+- REST API for upload ingestion, status, reprocessing, table/chunk inspection, metrics, artifacts, and search
 
 This revision keeps the original scope, but hardens the design in five places that are necessary for v1:
 
-1. public ingest is upload-only
+1. public HTTP ingest is upload-only; local path ingest is CLI-only and policy-constrained
 2. async processing is durable
-3. reprocessing is versioned and atomically promoted
+3. reprocessing is versioned and atomically promoted only after validation
 4. embeddings are pinned to one model/dimension in v1
 5. search filters are explicit and indexed
+6. tables are first-class retrieval objects with JSON/YAML artifacts and segment provenance
 
 ---
 
@@ -43,7 +44,7 @@ This revision keeps the original scope, but hardens the design in five places th
 
 `POST /documents` accepts **multipart PDF upload only**.
 
-Path-based ingestion is **not exposed on the REST API in v1**. If local-path import is needed for development or one-off admin work, do it with an internal script or shell command outside the public API.
+Path-based ingestion is **not exposed on the REST API in v1**. Local-path import is supported only through the operator CLI `docling-system-ingest-file`, with allowed-root checks, symlink rejection, PDF validation, size limits, page limits, and checksum dedupe.
 
 ### 2. Duplicate contract
 
@@ -81,9 +82,9 @@ Search never reads “whatever chunks happen to exist.”
 
 Instead:
 
-- every run writes chunks under its own `run_id`
+- every run writes chunks, logical tables, source table segments, and artifacts under its own `run_id`
 - `documents.active_run_id` points to the one visible version
-- only after the full run succeeds does the worker atomically promote that run to active
+- only after document and table validations pass does the worker atomically promote that run to active
 
 If a reprocess fails halfway through, the old active version stays visible.
 
@@ -102,13 +103,15 @@ Supported filters are intentionally small:
 
 - `document_id`
 - `page_range`
+- optional `result_type`
 
 No arbitrary JSONB filtering in v1.
 
 Filter semantics:
 
 - `document_id` is exact match
-- `page_range` uses inclusive overlap semantics against chunk `page_from/page_to`
+- `page_range` uses inclusive overlap semantics against chunk/table `page_from/page_to`
+- `result_type` is optional and limits mixed search to `chunk` or `table`
 - `source_filename` remains document metadata, but is **not** a v1 search filter because one canonical document may be uploaded under multiple filenames over time
 
 ---
@@ -122,18 +125,20 @@ Filter semantics:
    - computes checksum
    - resolves duplicates
    - creates document and run records
-   - exposes status, chunks, reprocess, and search endpoints
+   - exposes status, chunks, tables, artifacts, metrics, reprocess, and search endpoints
+   - serves the read-only local UI
 
 2. **Ingestion worker**
    - claims due runs with a DB lease
    - validates PDFs
    - runs Docling
-   - writes JSON and Markdown artifacts
-   - derives retrieval chunks and embeddings
-   - atomically promotes successful runs
+   - writes JSON and YAML artifacts
+   - derives retrieval chunks, logical tables, table segments, and embeddings
+   - validates persisted run outputs
+   - atomically promotes validation-passing runs
 
 3. **Postgres database**
-   - stores documents, runs, chunks, state, and retrieval metadata
+   - stores documents, runs, chunks, logical tables, table segments, state, and retrieval metadata
    - supports full-text search and vector similarity
 
 4. **Filesystem storage**
@@ -141,7 +146,7 @@ Filter semantics:
    - uses deterministic paths for easy inspection
 
 5. **Embedding provider**
-   - converts chunk text into fixed-size vectors
+   - converts chunk text and table search text into fixed-size vectors
    - one model/dimension is pinned for v1
 
 ---
@@ -150,12 +155,13 @@ Filter semantics:
 
 Keep the runtime boring and explicit:
 
-`upload -> dedupe/gate -> queued -> processing -> completed|failed`
+`upload/CLI ingest -> dedupe/gate -> queued -> processing -> validating -> completed|failed`
 
 At the run layer, use these states:
 
 - `queued`
 - `processing`
+- `validating`
 - `retry_wait`
 - `completed`
 - `failed`
@@ -163,7 +169,10 @@ At the run layer, use these states:
 Transition rules:
 
 - `queued -> processing`
-- `processing -> completed`
+- `processing -> validating`
+- `validating -> completed`
+- `validating -> retry_wait`
+- `validating -> failed`
 - `processing -> retry_wait`
 - `processing -> failed`
 - `retry_wait -> processing`
@@ -187,15 +196,17 @@ Only leased runs may move into `processing`.
 8. Worker sets run status to `processing`.
 9. Worker runs Docling and produces:
    - canonical Docling JSON artifact
-   - canonical Markdown artifact
+   - human-readable document YAML artifact
    - structured chunk source
+   - normalized logical tables and source table segments
 10. Worker normalizes retrieval chunks with heading and page provenance.
-11. Worker generates embeddings for each chunk.
-12. Worker writes chunks under that `run_id`.
-13. Worker validates the run.
-14. If successful, worker atomically updates `documents.active_run_id = run_id` and marks the run `completed`.
-15. If failed, worker records error state and leaves the prior active run unchanged.
-16. Search reads only chunks from `documents.active_run_id`.
+11. Worker normalizes logical tables with titles, page provenance, merge metadata, search text, preview text, and segment provenance.
+12. Worker generates embeddings for chunks and tables when OpenAI quota is available.
+13. Worker writes chunks, tables, table segments, document artifacts, and table artifacts under that `run_id`.
+14. Worker validates the run.
+15. If successful, worker atomically updates `documents.active_run_id = run_id` and marks the run `completed`.
+16. If failed, worker records error state and leaves the prior active run unchanged.
+17. Search reads only chunks and tables from `documents.active_run_id`.
 
 ---
 
@@ -207,7 +218,9 @@ Recommended local storage tree:
 storage/
   source/<document-id>.pdf
   runs/<document-id>/<run-id>/docling.json
-  runs/<document-id>/<run-id>/document.md
+  runs/<document-id>/<run-id>/document.yaml
+  runs/<document-id>/<run-id>/tables/<table-index>.json
+  runs/<document-id>/<run-id>/tables/<table-index>.yaml
 ```
 
 This keeps the source PDF stable and the parsed outputs versioned.
@@ -236,7 +249,7 @@ Notes:
 
 - one row per unique PDF bytes
 - duplicates map to the same document row
-- `active_run_id` is the only version used for search and chunk reads
+- `active_run_id` is the only version used for search, chunk reads, and table reads
 - `source_filename` is display metadata for the canonical document, not a guaranteed record of every upload filename
 
 ### `document_runs`
@@ -246,7 +259,7 @@ Durable processing run + queue ownership record.
 - `id` uuid primary key
 - `document_id` uuid not null references `documents(id)` on delete cascade
 - `run_number` integer not null
-- `status` text not null check (`queued`, `processing`, `retry_wait`, `completed`, `failed`)
+- `status` text not null check (`queued`, `processing`, `validating`, `retry_wait`, `completed`, `failed`)
 - `attempts` integer not null default `0`
 - `locked_at` timestamptz nullable
 - `locked_by` text nullable
@@ -254,8 +267,11 @@ Durable processing run + queue ownership record.
 - `next_attempt_at` timestamptz nullable
 - `error_message` text nullable
 - `docling_json_path` text nullable
-- `markdown_path` text nullable
+- `yaml_path` text nullable
 - `chunk_count` integer nullable
+- `table_count` integer nullable
+- `validation_status` text nullable
+- `validation_results` jsonb not null default `{}`
 - `embedding_model` text nullable
 - `embedding_dim` integer nullable
 - `created_at` timestamptz not null
@@ -271,7 +287,7 @@ Recommended indexes:
 Lease rule:
 
 - workers claim runs from `queued` or due `retry_wait`
-- stalled `processing` runs may be re-queued if heartbeat is stale past a timeout
+- stalled `processing` or `validating` runs may be re-queued if heartbeat is stale past a timeout
 
 ### `document_chunks`
 
@@ -304,6 +320,53 @@ Recommended indexes:
 Search visibility rule:
 
 - queries must join `documents.active_run_id = document_chunks.run_id`
+
+### `document_tables`
+
+Searchable logical table rows.
+
+- `id` uuid primary key
+- `document_id` uuid not null references `documents(id)` on delete cascade
+- `run_id` uuid not null references `document_runs(id)` on delete cascade
+- `table_index` integer not null
+- `title` text nullable
+- `heading` text nullable
+- `logical_table_key` text nullable
+- `table_version` integer nullable
+- `supersedes_table_id` uuid nullable
+- `lineage_group` text nullable
+- `status` text not null
+- `page_from` integer nullable
+- `page_to` integer nullable
+- `row_count` integer not null
+- `col_count` integer not null
+- `search_text` text not null
+- `preview_text` text not null
+- `metadata` jsonb not null default `{}`
+- `embedding` vector(1536)
+- `json_path` text nullable
+- `yaml_path` text nullable
+- `textsearch` tsvector generated from `title`, `heading`, and `search_text`
+- `created_at` timestamptz not null
+
+Visibility rule:
+
+- queries must join `documents.active_run_id = document_tables.run_id`
+
+### `document_table_segments`
+
+Source table segment provenance for logical tables.
+
+- `id` uuid primary key
+- `table_id` uuid not null references `document_tables(id)` on delete cascade
+- `run_id` uuid not null references `document_runs(id)` on delete cascade
+- `segment_index` integer not null
+- `source_table_ref` text not null
+- `page_from` integer nullable
+- `page_to` integer nullable
+- `segment_order` integer not null
+- `metadata` jsonb not null default `{}`
+- `created_at` timestamptz not null
 
 ---
 
@@ -346,6 +409,8 @@ Return:
 - latest run status
 - `is_searchable`
 - active run artifact availability
+- active table count and table artifact availability
+- latest validation status and whether the latest run promoted
 - error information if latest run failed
 
 Do not expose raw filesystem paths on the public API. If artifact downloads are needed, expose them through dedicated endpoints.
@@ -353,6 +418,14 @@ Do not expose raw filesystem paths on the public API. If artifact downloads are 
 ### `GET /documents/{id}/chunks`
 
 Return chunks for the active run only.
+
+### `GET /documents/{id}/tables`
+
+Return logical table summaries for the active run only.
+
+### `GET /documents/{id}/tables/{table_id}`
+
+Return active-run table detail, including table metadata and source segment provenance.
 
 ### `POST /search`
 
@@ -367,31 +440,41 @@ Supported filters:
 
 - `document_id`
 - `page_range`
+- `result_type`
 
 Filter semantics:
 
 - `document_id`: exact match
-- `page_range`: inclusive overlap against chunk `page_from/page_to`
+- `page_range`: inclusive overlap against chunk/table `page_from/page_to`
+- `result_type`: optional `chunk` or `table`
 
 Response fields:
 
-- `chunk_id`
+- `result_type`
 - `document_id`
 - `run_id`
 - `score`
-- `chunk_text`
-- `heading`
 - `page_from`
 - `page_to`
 - `source_filename`
+- chunk fields: `chunk_id`, `chunk_text`, `heading`
+- table fields: `table_id`, `table_title`, `table_heading`, `table_preview`, `row_count`, `col_count`
 
 ### `GET /documents/{id}/artifacts/json`
 
 Return the active run's canonical Docling JSON artifact.
 
-### `GET /documents/{id}/artifacts/markdown`
+### `GET /documents/{id}/artifacts/yaml`
 
-Return the active run's canonical Markdown artifact.
+Return the active run's human-readable document YAML artifact.
+
+### `GET /documents/{id}/tables/{table_id}/artifacts/json`
+
+Return the active run's canonical normalized table JSON artifact.
+
+### `GET /documents/{id}/tables/{table_id}/artifacts/yaml`
+
+Return the active run's human-readable table YAML artifact.
 
 ---
 
@@ -399,22 +482,23 @@ Return the active run's canonical Markdown artifact.
 
 ### Keyword retrieval
 
-Use Postgres full-text search over chunk text plus heading.
+Use Postgres full-text search over active chunk text/headings and active table titles/headings/search text.
 
 ### Semantic retrieval
 
-Use pgvector cosine similarity over the fixed-size embedding column.
+Use pgvector cosine similarity over the fixed-size embedding column for chunks and tables. Query embedding is computed once per request and reused across result types.
 
 ### Hybrid retrieval
 
 For v1:
 
-1. fetch top N vector matches
-2. fetch top N keyword matches
+1. fetch top N vector matches for chunks and tables
+2. fetch top N keyword matches for chunks and tables
 3. apply the v1 filter contract on indexed columns
-4. normalize scores
-5. merge by `chunk_id`
-6. return the best combined ranks
+4. normalize scores deterministically
+5. merge by stable object identity
+6. apply deterministic table-query boost when triggered
+7. return the best combined typed ranks
 
 Implementation note:
 
@@ -432,8 +516,9 @@ The worker should:
 
 1. convert the PDF into a Docling document
 2. export canonical JSON
-3. export canonical Markdown
+3. export human-readable document YAML derived from the same normalized document source
 4. derive retrieval chunks from the Docling structure
+5. derive logical tables and source table segments from Docling table objects
 
 Chunk normalization should preserve at least:
 
@@ -442,7 +527,7 @@ Chunk normalization should preserve at least:
 - `page_from`
 - `page_to`
 
-The parse artifacts are canonical. Retrieval chunks are derived artifacts for search.
+Docling JSON is the canonical document parse artifact. Document YAML is human-readable derived output. Table JSON is the canonical normalized table artifact. Table YAML is human-readable derived output. Retrieval chunks and table rows are derived search projections.
 
 ---
 
@@ -455,7 +540,8 @@ The parse artifacts are canonical. Retrieval chunks are derived artifacts for se
 - run Docling
 - persist versioned artifacts
 - derive chunks
-- embed chunks
+- derive logical tables and source segments
+- embed chunks and tables when OpenAI quota is available
 - write rows under `run_id`
 - validate counts and outputs
 - atomically promote run to `active_run_id`
@@ -568,7 +654,7 @@ docling-system/
 ### Milestone 3
 
 - implement worker claim/lease/retry model
-- run Docling and persist JSON + Markdown
+- run Docling and persist JSON + YAML
 - derive normalized chunks
 
 ### Milestone 4

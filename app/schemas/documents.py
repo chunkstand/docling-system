@@ -16,6 +16,23 @@ class DocumentUploadResponse(BaseModel):
     active_run_status: str | None = None
 
 
+class DocumentSummaryResponse(BaseModel):
+    document_id: UUID
+    source_filename: str
+    title: str | None
+    active_run_id: UUID | None
+    active_run_status: str | None
+    latest_run_id: UUID | None
+    latest_run_status: str | None
+    latest_validation_status: str | None = None
+    latest_run_promoted: bool = False
+    table_count: int = 0
+    has_table_artifacts: bool = False
+    figure_count: int = 0
+    has_figure_artifacts: bool = False
+    updated_at: datetime
+
+
 class DocumentDetailResponse(BaseModel):
     document_id: UUID
     source_filename: str
@@ -24,9 +41,15 @@ class DocumentDetailResponse(BaseModel):
     active_run_status: str | None
     latest_run_id: UUID | None
     latest_run_status: str | None
+    latest_validation_status: str | None = None
+    latest_run_promoted: bool = False
     is_searchable: bool
     has_json_artifact: bool = False
-    has_markdown_artifact: bool = False
+    has_yaml_artifact: bool = False
+    table_count: int = 0
+    has_table_artifacts: bool = False
+    figure_count: int = 0
+    has_figure_artifacts: bool = False
     created_at: datetime
     updated_at: datetime
     latest_error_message: str | None = None
