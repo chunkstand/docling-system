@@ -4,20 +4,25 @@ Date: 2026-04-10 (local) / 2026-04-11 UTC runtime timestamps
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Last committed checkpoint: `d409f39` (`Close retrieval gaps and add bitter lesson guidance`)
+Last committed checkpoint: `35e4075` (`Capture eval baselines before promotion and make repo Ruff-clean`)
 
 ## Executive Summary
 
-The system is now beyond the prior table/figure milestone. The main change in this session was adding a persisted, run-scoped evaluation subsystem that:
+The system is now at a stronger retrieval-regression checkpoint than the prior handoff.
 
-- reads `docs/evaluation_corpus.yaml`
-- evaluates the same production search path against an explicit `run_id`
-- stores evaluation summaries and per-query results in Postgres
-- records query-level candidate rank, baseline rank, and rank delta
-- exposes the latest evaluation through API and UI
-- provides CLI commands for evaluating one run or the whole corpus
+The original evaluation milestone remains in place:
 
-The `born_digital_simple` gap is closed with `UPC_Appendix_N.pdf`, and the ranking fix for table-title queries remains in place. The current evaluation corpus runs cleanly end to end.
+- `docs/evaluation_corpus.yaml` drives persisted run-scoped evaluations
+- production search can execute against explicit `run_id` values
+- evaluation summaries and query rows are stored in Postgres
+- latest evaluation results are exposed through API and UI
+
+This follow-up session added two important hardening steps:
+
+- reprocess evaluations now compare the candidate run against the prior active run before promotion, so future `baseline_rank` and `rank_delta` values are meaningful by default
+- the repository is now Ruff-clean, with `ruff` added to the dev toolchain and the codebase reformatted/fixed to pass `uv run ruff check app tests`
+
+The branch is committed, the worktree is clean, the API and worker are running, and the system is ready to continue UPC uploads.
 
 ## Current Runtime State
 
@@ -27,6 +32,7 @@ At handoff time:
 - API is running on `http://127.0.0.1:8000`
 - one worker process is running
 - Alembic head is `0008_run_evaluations`
+- run queue is empty: `0 queued`, `0 processing`, `0 validating`, `0 retry_wait`
 
 Verification:
 
@@ -50,7 +56,12 @@ Current active document set:
 ```json
 [
   {
-    "document_id": "4a3134a8-088d-441c-b5da-735563ed5e35",
+    "source_filename": "UPC_Appendix_B.pdf",
+    "active_run_id": "79bba82b-37b7-4e07-a915-380b83f98527",
+    "latest_validation_status": "passed",
+    "latest_evaluation_status": "skipped"
+  },
+  {
     "source_filename": "UPC_Appendix_N.pdf",
     "active_run_id": "befc5635-1cab-456c-b8bf-0aa27fd6497f",
     "latest_validation_status": "passed",
@@ -60,17 +71,15 @@ Current active document set:
     "latest_evaluation_status": "completed"
   },
   {
-    "document_id": "4a8da24f-603b-4540-baa2-431a2b10baaf",
-    "source_filename": "UPC_CH_3.pdf",
-    "active_run_id": "0ac3a1ff-5a6b-47d6-90a1-31157b0e055c",
+    "source_filename": "UPC_CH_1.pdf",
+    "active_run_id": "2c95e372-0b2a-46f0-9c1e-f6c3a85b5137",
     "latest_validation_status": "passed",
-    "table_count": 2,
-    "figure_count": 29,
-    "latest_evaluation_fixture": "awkward_headers",
+    "table_count": 0,
+    "figure_count": 0,
+    "latest_evaluation_fixture": "prose_control",
     "latest_evaluation_status": "completed"
   },
   {
-    "document_id": "215a55c7-508f-41ba-8440-cba24f0c3e41",
     "source_filename": "UPC_Ch_2.pdf",
     "active_run_id": "2c094484-7651-4efd-b26a-0b9b8ca9237c",
     "latest_validation_status": "passed",
@@ -80,23 +89,21 @@ Current active document set:
     "latest_evaluation_status": "completed"
   },
   {
-    "document_id": "f9cf2f57-441f-495b-9fb1-6108da3d1731",
+    "source_filename": "UPC_CH_3.pdf",
+    "active_run_id": "0ac3a1ff-5a6b-47d6-90a1-31157b0e055c",
+    "latest_validation_status": "passed",
+    "table_count": 2,
+    "figure_count": 29,
+    "latest_evaluation_fixture": "awkward_headers",
+    "latest_evaluation_status": "completed"
+  },
+  {
     "source_filename": "UPC_CH_7.pdf",
     "active_run_id": "cc4c107c-a1ab-4bc4-b461-355aadcd7855",
     "latest_validation_status": "passed",
     "table_count": 11,
     "figure_count": 10,
     "latest_evaluation_fixture": "upc_ch7",
-    "latest_evaluation_status": "completed"
-  },
-  {
-    "document_id": "a85d7a04-5ee6-4067-af9b-7012f54fab39",
-    "source_filename": "UPC_CH_1.pdf",
-    "active_run_id": "2c95e372-0b2a-46f0-9c1e-f6c3a85b5137",
-    "latest_validation_status": "passed",
-    "table_count": 0,
-    "figure_count": 0,
-    "latest_evaluation_fixture": "prose_control",
     "latest_evaluation_status": "completed"
   }
 ]
@@ -241,6 +248,44 @@ Live example:
 - `failed_queries: 0`
 - all three queries currently rank the expected type at candidate rank `1`
 
+### 7. Baseline-Aware Reprocess Evaluation
+
+The worker and evaluation service now preserve the document's prior active run as the evaluation baseline before promotion.
+
+Files:
+
+- `app/services/evaluations.py`
+- `app/services/runs.py`
+- `app/cli.py`
+- `tests/unit/test_evaluation_service.py`
+- `tests/unit/test_run_logic.py`
+- `tests/unit/test_cli.py`
+
+Current behavior:
+
+- when a non-active candidate run is evaluated, the default baseline is the document's current active run
+- the worker captures that baseline before any promotion can occur
+- explicit CLI baselines still work, but self-baselines are ignored
+- baseline validation now rejects cross-document or missing baseline run IDs
+
+This closes the main gap from the prior handoff: future reprocess evaluations now persist real longitudinal deltas by default.
+
+### 8. Ruff-Clean Repository
+
+Added `ruff` to the dev environment and cleaned the repository to pass lint.
+
+Files:
+
+- `pyproject.toml`
+- `uv.lock`
+- multiple `app/` and `tests/` modules reformatted or line-broken to satisfy Ruff
+
+Important implementation choice:
+
+- `app/api/main.py` has a targeted Ruff per-file ignore for `B008`
+- this is intentional because FastAPI dependency and file parameter defaults use `Depends(...)` and `File(...)` idiomatically
+- the ignore is narrow and keeps `B008` enabled elsewhere
+
 ## Evaluation Corpus Status
 
 Current configured fixtures:
@@ -271,10 +316,8 @@ Current result:
 
 Important limitation:
 
-- current stored baseline deltas are only meaningful when a baseline run is provided or an older active run is still available for comparison
-- the current corpus run shown in this session was evaluated with `baseline_run_id: null`, so `rank_delta` is null for those rows
-
-The plumbing for deltas exists; the next useful step is to evaluate candidate reprocesses against previous active runs so query-level regressions become longitudinal instead of single-run snapshots.
+- historical evaluation rows created before this session may still have `baseline_run_id: null`
+- future reprocess evaluations now default to the prior active run baseline, but existing stored rows are not backfilled automatically
 
 ## Current Contracts
 
@@ -346,26 +389,30 @@ Config:
 
 ## Verification Performed
 
-Commands run this session:
+Commands run across the last two sessions:
 
 ```bash
 uv run alembic upgrade head
 uv run pytest tests
 uv run python -m compileall app tests
 uv run docling-system-eval-corpus
+uv run ruff check app tests
 curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
 ```
 
 Passing results:
 
-- `uv run pytest tests` -> `44 passed, 1 skipped`
+- `uv run pytest tests` -> `47 passed, 1 skipped`
 - `uv run python -m compileall app tests` passed
+- `uv run ruff check app tests` passed
 - migration to `0008_run_evaluations` passed
 - batch evaluation over the configured corpus completed successfully
 
 Live runtime checks:
 
 - API health check succeeded
+- API and worker processes are currently running
+- queue counts are currently all zero outside `completed`
 - document list now includes `latest_evaluation`
 - latest evaluation route returns persisted query-level rows
 
@@ -379,17 +426,14 @@ This is deliberate for now, but it means:
 
 That is a good v1 default while metrics are new, but not the likely end state.
 
-### 2. Query-Level Deltas Need Longitudinal Baselines
+### 2. Historical Evaluations Are Still Sparse
 
-The schema supports:
+The schema and worker now support real baseline deltas for reprocess runs, but:
 
-- `baseline_run_id`
-- `baseline_rank`
-- `rank_delta`
+- previously stored evaluation rows may still have `baseline_run_id: null`
+- the current corpus still has relatively few query cases per fixture
 
-But the currently persisted corpus evaluation rows were created without baselines.
-
-To make regression deltas useful in practice, the next session should evaluate reprocess runs against the prior active run before promotion.
+The next useful step is to generate more candidate reprocesses and broaden the corpus so the delta data becomes richer.
 
 ### 3. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
 
@@ -405,19 +449,13 @@ It has:
 
 This is not a correctness issue, but it is an example of a document in the system that is outside the current fixed eval set.
 
-### 4. Worktree Is Not Clean
+### 4. The Branch Is Committed But Not Pushed From This Handoff
 
-This session’s evaluation work is not committed yet.
+The current branch is clean and committed through:
 
-Current modified/untracked files include:
+- `35e4075` `Capture eval baselines before promotion and make repo Ruff-clean`
 
-- runtime files
-- UI files
-- new migration
-- new evaluation schema/service
-- tests
-
-Do not assume the branch is committed or pushed past `d409f39`.
+Do not assume that commit has been pushed unless you verify it explicitly.
 
 ## Next Steps For The Next Session
 
@@ -429,34 +467,28 @@ Recommended path:
 2. add explicit policy for eval-based warnings vs blocking failures
 3. only make evaluation gating mandatory after baseline deltas are stable and trusted
 
-### Priority 2: Capture Real Baseline Deltas On Reprocess
+### Priority 2: Expand Corpus Richness
 
-Implement or tighten the worker/evaluator behavior so:
-
-- candidate run evaluates against prior active run
-- query rows persist real `baseline_rank` and `rank_delta`
-
-This is the missing step that turns the evaluation schema into a true regression tracker.
-
-### Priority 3: Expand Corpus Richness
-
-The current corpus now covers five named fixtures, but query coverage is still sparse.
-
-Best next move:
+The baseline plumbing is now in place. The next leverage point is to increase corpus depth:
 
 - add more query cases per fixture
 - explicitly include mode and filters where it matters
 - add negative or adversarial queries where ranking confusion is likely
+### Priority 3: Continue UPC Uploads
 
-### Priority 4: Commit This Milestone
+The current active chapter set is:
 
-Suggested workflow:
+- `UPC_CH_1.pdf`
+- `UPC_Ch_2.pdf`
+- `UPC_CH_3.pdf`
+- `UPC_CH_7.pdf`
 
-```bash
-git status
-git add ...
-git commit -m "Add run-scoped evaluation and query regression tracking"
-```
+The current non-chapter ingests are:
+
+- `UPC_Appendix_B.pdf`
+- `UPC_Appendix_N.pdf`
+
+The runtime is healthy and ready to continue chapter uploads.
 
 ## Handy Commands
 
