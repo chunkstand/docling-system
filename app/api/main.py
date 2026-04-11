@@ -14,11 +14,18 @@ from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import DocumentDetailResponse, DocumentSummaryResponse, DocumentUploadResponse
+from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.search import SearchRequest, SearchResult
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.chunks import get_active_chunks
-from app.services.documents import get_document_detail, ingest_upload, list_documents, reprocess_document
+from app.services.documents import (
+    get_document_detail,
+    get_latest_document_evaluation_detail,
+    ingest_upload,
+    list_documents,
+    reprocess_document,
+)
 from app.services.figures import get_active_figure_detail, get_active_figures
 from app.services.search import search_documents
 from app.services.storage import StorageService
@@ -77,6 +84,14 @@ def read_document(
     session: Session = Depends(get_db_session),
 ) -> DocumentDetailResponse:
     return get_document_detail(session, document_id)
+
+
+@app.get("/documents/{document_id}/evaluations/latest", response_model=EvaluationDetailResponse)
+def read_latest_document_evaluation(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> EvaluationDetailResponse:
+    return get_latest_document_evaluation_detail(session, document_id)
 
 
 @app.get("/documents/{document_id}/chunks", response_model=list[DocumentChunkResponse])

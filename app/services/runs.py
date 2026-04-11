@@ -19,6 +19,7 @@ from app.core.logging import get_logger
 from app.db.models import Document, DocumentChunk, DocumentFigure, DocumentRun, DocumentTable, DocumentTableSegment, RunStatus
 from app.services.docling_parser import DoclingParser, ParsedDocument, ParsedFigure, ParsedTable
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
+from app.services.evaluations import evaluate_run
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -586,6 +587,21 @@ def process_run(
         report = validate_persisted_run(session, document, run, parsed)
         if not report.passed:
             raise ValidationError(report)
+
+        heartbeat_run(session, run)
+        evaluation = evaluate_run(
+            session,
+            document,
+            run,
+            baseline_run_id=document.active_run_id if document.active_run_id != run.id else None,
+        )
+        logger.info(
+            "run_evaluation_completed",
+            run_id=str(run.id),
+            document_id=str(document.id),
+            evaluation_status=evaluation.status,
+            fixture_name=evaluation.fixture_name,
+        )
 
         failure_stage = "promotion"
         finalize_run_success(session, document, run, parsed, report)

@@ -222,3 +222,29 @@ def test_semantic_mode_falls_back_to_keyword_when_embeddings_unavailable(monkeyp
     assert len(results) == 1
     assert results[0].result_type == "chunk"
     assert results[0].chunk_id == chunk_id
+
+
+def test_search_documents_passes_explicit_run_scope(monkeypatch) -> None:
+    scoped_run_id = uuid4()
+    observed: dict[str, object] = {}
+
+    def fake_chunk_search(session, request, candidate_limit=None, *, run_id=None):
+        observed["chunk_run_id"] = run_id
+        return []
+
+    def fake_table_search(session, request, candidate_limit=None, *, run_id=None):
+        observed["table_run_id"] = run_id
+        return []
+
+    monkeypatch.setattr("app.services.search._run_keyword_chunk_search", fake_chunk_search)
+    monkeypatch.setattr("app.services.search._run_keyword_table_search", fake_table_search)
+
+    results = search_documents(
+        session=None,
+        request=SearchRequest(query="scoped", mode="keyword", limit=5),
+        run_id=scoped_run_id,
+    )
+
+    assert results == []
+    assert observed["chunk_run_id"] == scoped_run_id
+    assert observed["table_run_id"] == scoped_run_id

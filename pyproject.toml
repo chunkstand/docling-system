@@ -37,6 +37,8 @@ docling-system-api = "app.api.main:run"
 docling-system-worker = "app.workers.poller:run"
 docling-system-cleanup = "app.maintenance:run_cleanup"
 docling-system-ingest-file = "app.cli:run_ingest_file"
+docling-system-eval-run = "app.cli:run_eval_run"
+docling-system-eval-corpus = "app.cli:run_eval_corpus"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

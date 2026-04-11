@@ -12,6 +12,8 @@ const activeRunStatusEl = document.getElementById("active-run-status");
 const latestRunStatusEl = document.getElementById("latest-run-status");
 const validationStatusEl = document.getElementById("validation-status");
 const promotionStatusEl = document.getElementById("promotion-status");
+const evaluationStatusEl = document.getElementById("evaluation-status");
+const evaluationSummaryPillEl = document.getElementById("evaluation-summary-pill");
 const jsonLink = document.getElementById("json-link");
 const yamlLink = document.getElementById("yaml-link");
 const refreshButton = document.getElementById("refresh-button");
@@ -19,6 +21,8 @@ const reprocessButton = document.getElementById("reprocess-button");
 const chunksList = document.getElementById("chunks-list");
 const tablesList = document.getElementById("tables-list");
 const figuresList = document.getElementById("figures-list");
+const evaluationFeedback = document.getElementById("evaluation-feedback");
+const evaluationQueries = document.getElementById("evaluation-queries");
 const searchForm = document.getElementById("search-form");
 const searchResults = document.getElementById("search-results");
 
@@ -171,6 +175,52 @@ function renderFigures(figures, documentId) {
     .join("");
 }
 
+function renderEvaluation(evaluation) {
+  if (!evaluation) {
+    evaluationStatusEl.textContent = "Missing";
+    evaluationSummaryPillEl.textContent = "No evaluation";
+    setFeedback(evaluationFeedback, "No persisted evaluation exists for the latest run.");
+    evaluationQueries.className = "tables-list empty";
+    evaluationQueries.textContent = "No evaluation results yet.";
+    return;
+  }
+
+  evaluationStatusEl.textContent = evaluation.status;
+  evaluationSummaryPillEl.textContent = `${evaluation.passed_queries}/${evaluation.query_count} passed`;
+  const summaryNote =
+    evaluation.status === "completed"
+      ? `${evaluation.failed_queries} failed, ${evaluation.regressed_queries} regressed, ${evaluation.improved_queries} improved.`
+      : evaluation.error_message || "Evaluation did not complete.";
+  setFeedback(evaluationFeedback, summaryNote, evaluation.status === "completed" ? "muted" : "");
+
+  const queryResults = evaluation.query_results || [];
+  if (!queryResults.length) {
+    evaluationQueries.className = "tables-list empty";
+    evaluationQueries.textContent = "No evaluation query results yet.";
+    return;
+  }
+
+  evaluationQueries.className = "tables-list";
+  evaluationQueries.innerHTML = queryResults
+    .slice(0, 8)
+    .map(
+      (row) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>${escapeHtml(row.mode)}</span>
+            <span>${row.passed ? "pass" : "fail"}</span>
+            <span>candidate rank ${row.candidate_rank ?? "n/a"}</span>
+            <span>baseline rank ${row.baseline_rank ?? "n/a"}</span>
+            <span>delta ${row.rank_delta ?? "n/a"}</span>
+          </div>
+          <strong>${escapeHtml(row.query_text)}</strong>
+          <p>${escapeHtml(row.candidate_label || "No matching candidate result")}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderSearchResults(results) {
   if (!results.length) {
     searchResults.className = "search-results empty";
@@ -253,6 +303,17 @@ async function fetchFigures(documentId) {
   return response.json();
 }
 
+async function fetchLatestEvaluation(documentId) {
+  const response = await fetch(`/documents/${documentId}/evaluations/latest`);
+  if (response.status === 404) {
+    return null;
+  }
+  if (!response.ok) {
+    throw new Error("Unable to load evaluation.");
+  }
+  return response.json();
+}
+
 async function refreshDocuments() {
   const documents = await fetchDocuments();
   if (!state.currentDocumentId && documents.length) {
@@ -270,15 +331,17 @@ async function refreshCurrentDocument() {
     renderChunks([]);
     renderTables([], "");
     renderFigures([], "");
+    renderEvaluation(null);
     return;
   }
 
   try {
-    const [document, chunks, tables, figures] = await Promise.all([
+    const [document, chunks, tables, figures, evaluation] = await Promise.all([
       fetchDocumentStatus(state.currentDocumentId),
       fetchChunks(state.currentDocumentId),
       fetchTables(state.currentDocumentId),
       fetchFigures(state.currentDocumentId),
+      fetchLatestEvaluation(state.currentDocumentId),
     ]);
 
     documentIdEl.textContent = document.document_id;
@@ -298,6 +361,7 @@ async function refreshCurrentDocument() {
     renderChunks(chunks);
     renderTables(tables, document.document_id);
     renderFigures(figures, document.document_id);
+    renderEvaluation(evaluation || document.latest_evaluation);
   } catch (error) {
     setFeedback(statusFeedback, error.message || "Unable to refresh document state.");
   }

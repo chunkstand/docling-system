@@ -14,6 +14,7 @@ from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, 
 from app.core.config import get_settings
 from app.schemas.documents import DocumentDetailResponse, DocumentSummaryResponse, DocumentUploadResponse
 from app.services.storage import StorageService
+from app.services.evaluations import get_latest_document_evaluation, get_latest_evaluation_summary
 
 
 PDF_MIME_TYPES = {"application/pdf", "application/x-pdf"}
@@ -307,6 +308,7 @@ def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailRe
         has_table_artifacts=table_count > 0,
         figure_count=figure_count,
         has_figure_artifacts=figure_count > 0,
+        latest_evaluation=get_latest_evaluation_summary(session, document.latest_run_id),
         created_at=document.created_at,
         updated_at=document.updated_at,
         latest_error_message=latest_run.error_message if latest_run else None,
@@ -351,6 +353,7 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
                 has_table_artifacts=table_count > 0,
                 figure_count=figure_count,
                 has_figure_artifacts=figure_count > 0,
+                latest_evaluation=get_latest_evaluation_summary(session, document.latest_run_id),
                 updated_at=document.updated_at,
             )
         )
@@ -384,3 +387,13 @@ def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadRes
         status=run.status,
         duplicate=False,
     )
+
+
+def get_latest_document_evaluation_detail(session: Session, document_id: UUID):
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    evaluation = get_latest_document_evaluation(session, document)
+    if evaluation is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No evaluation found for the document.")
+    return evaluation

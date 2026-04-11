@@ -5,7 +5,7 @@ import sys
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.cli import run_ingest_file
+from app.cli import run_eval_run, run_ingest_file
 
 
 def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
@@ -44,3 +44,41 @@ def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
     assert output["document_id"] == str(document_id)
     assert output["run_id"] == str(run_id)
     assert output["status"] == "queued"
+
+
+def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, model, key):
+            if model.__name__ == "DocumentRun" and key == run_id:
+                return SimpleNamespace(id=run_id, document_id=document_id)
+            if model.__name__ == "Document" and key == document_id:
+                return SimpleNamespace(id=document_id, source_filename="report.pdf")
+            return None
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-eval-run", str(run_id)])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.evaluate_run",
+        lambda session, document, run, baseline_run_id=None: SimpleNamespace(
+            status="completed",
+            fixture_name="fixture",
+            summary_json={"query_count": 2, "passed_queries": 2},
+            error_message=None,
+        ),
+    )
+
+    run_eval_run()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["run_id"] == str(run_id)
+    assert output["document_id"] == str(document_id)
+    assert output["status"] == "completed"

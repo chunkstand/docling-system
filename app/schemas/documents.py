@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.schemas.evaluations import EvaluationSummaryResponse
+
 
 class DocumentUploadResponse(BaseModel):
     document_id: UUID
@@ -30,6 +32,7 @@ class DocumentSummaryResponse(BaseModel):
     has_table_artifacts: bool = False
     figure_count: int = 0
     has_figure_artifacts: bool = False
+    latest_evaluation: EvaluationSummaryResponse | None = None
     updated_at: datetime
 
 
@@ -50,6 +53,7 @@ class DocumentDetailResponse(BaseModel):
     has_table_artifacts: bool = False
     figure_count: int = 0
     has_figure_artifacts: bool = False
+    latest_evaluation: EvaluationSummaryResponse | None = None
     created_at: datetime
     updated_at: datetime
     latest_error_message: str | None = None

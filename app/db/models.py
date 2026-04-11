@@ -98,6 +98,80 @@ class DocumentRun(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class DocumentRunEvaluation(Base):
+    __tablename__ = "document_run_evaluations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'completed', 'failed', 'skipped')",
+            name="ck_document_run_evaluations_status",
+        ),
+        UniqueConstraint("run_id", "corpus_name", "eval_version", name="uq_document_run_evaluations_run_corpus_version"),
+        Index("ix_document_run_evaluations_run_id", "run_id"),
+        Index("ix_document_run_evaluations_status", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    corpus_name: Mapped[str] = mapped_column(Text, nullable=False)
+    fixture_name: Mapped[str | None] = mapped_column(Text)
+    eval_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=sql_text("1"))
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", server_default=sql_text("'pending'"))
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class DocumentRunEvaluationQuery(Base):
+    __tablename__ = "document_run_evaluation_queries"
+    __table_args__ = (
+        Index("ix_document_run_evaluation_queries_evaluation_id", "evaluation_id"),
+        Index("ix_document_run_evaluation_queries_query_text", "query_text"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    evaluation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_run_evaluations.id", ondelete="CASCADE"), nullable=False
+    )
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, nullable=False)
+    filters_json: Mapped[dict] = mapped_column(
+        "filters",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    expected_result_type: Mapped[str | None] = mapped_column(Text)
+    expected_top_n: Mapped[int | None] = mapped_column(Integer)
+    passed: Mapped[bool] = mapped_column(nullable=False, default=False, server_default=sql_text("false"))
+    candidate_rank: Mapped[int | None] = mapped_column(Integer)
+    baseline_rank: Mapped[int | None] = mapped_column(Integer)
+    rank_delta: Mapped[int | None] = mapped_column(Integer)
+    candidate_score: Mapped[float | None] = mapped_column(Float)
+    baseline_score: Mapped[float | None] = mapped_column(Float)
+    candidate_result_type: Mapped[str | None] = mapped_column(Text)
+    baseline_result_type: Mapped[str | None] = mapped_column(Text)
+    candidate_label: Mapped[str | None] = mapped_column(Text)
+    baseline_label: Mapped[str | None] = mapped_column(Text)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (

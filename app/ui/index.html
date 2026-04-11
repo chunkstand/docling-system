@@ -72,12 +72,22 @@
                 <a id="yaml-link" href="#" target="_blank" rel="noreferrer">YAML</a>
               </div>
             </div>
+            <div class="status-card">
+              <span class="status-label">Latest evaluation</span>
+              <strong id="evaluation-status">Unknown</strong>
+            </div>
+            <div class="status-card">
+              <span class="status-label">Eval summary</span>
+              <strong id="evaluation-summary-pill">No evaluation</strong>
+            </div>
           </div>
           <div class="status-actions">
             <button class="secondary-button" id="refresh-button" type="button">Refresh</button>
             <button class="secondary-button" id="reprocess-button" type="button">Reprocess</button>
           </div>
           <div id="status-feedback" class="feedback muted" aria-live="polite"></div>
+          <div id="evaluation-feedback" class="feedback muted" aria-live="polite"></div>
+          <div id="evaluation-queries" class="tables-list empty">No evaluation results yet.</div>
         </section>
 
         <section class="panel chunks-panel">

@@ -40,23 +40,35 @@ class RankedResult:
     hybrid_score: float | None = None
 
 
-def _active_chunk_query() -> Select[tuple[DocumentChunk, Document]]:
-    return select(DocumentChunk, Document).join(
-        Document,
-        and_(
-            Document.id == DocumentChunk.document_id,
-            Document.active_run_id == DocumentChunk.run_id,
-        ),
+def _chunk_query(run_id: UUID | None = None) -> Select[tuple[DocumentChunk, Document]]:
+    if run_id is None:
+        return select(DocumentChunk, Document).join(
+            Document,
+            and_(
+                Document.id == DocumentChunk.document_id,
+                Document.active_run_id == DocumentChunk.run_id,
+            ),
+        )
+    return (
+        select(DocumentChunk, Document)
+        .join(Document, Document.id == DocumentChunk.document_id)
+        .where(DocumentChunk.run_id == run_id)
     )
 
 
-def _active_table_query() -> Select[tuple[DocumentTable, Document]]:
-    return select(DocumentTable, Document).join(
-        Document,
-        and_(
-            Document.id == DocumentTable.document_id,
-            Document.active_run_id == DocumentTable.run_id,
-        ),
+def _table_query(run_id: UUID | None = None) -> Select[tuple[DocumentTable, Document]]:
+    if run_id is None:
+        return select(DocumentTable, Document).join(
+            Document,
+            and_(
+                Document.id == DocumentTable.document_id,
+                Document.active_run_id == DocumentTable.run_id,
+            ),
+        )
+    return (
+        select(DocumentTable, Document)
+        .join(Document, Document.id == DocumentTable.document_id)
+        .where(DocumentTable.run_id == run_id)
     )
 
 
@@ -151,11 +163,17 @@ def _hydrate_ranked_tables(rows: Iterable[tuple[DocumentTable, Document, float]]
     return hydrated
 
 
-def _run_keyword_chunk_search(session: Session, request: SearchRequest, candidate_limit: int | None = None) -> list[RankedResult]:
+def _run_keyword_chunk_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
     tsquery = func.plainto_tsquery("english", request.query)
     rank = cast(func.ts_rank_cd(DocumentChunk.textsearch, tsquery), Float)
     statement = (
-        _apply_chunk_filters(_active_chunk_query(), request.filters)
+        _apply_chunk_filters(_chunk_query(run_id), request.filters)
         .add_columns(rank.label("score"))
         .where(DocumentChunk.textsearch.op("@@")(tsquery))
         .order_by(rank.desc(), DocumentChunk.chunk_index.asc())
@@ -164,11 +182,17 @@ def _run_keyword_chunk_search(session: Session, request: SearchRequest, candidat
     return _hydrate_ranked_chunks(session.execute(statement).all(), "keyword")
 
 
-def _run_keyword_table_search(session: Session, request: SearchRequest, candidate_limit: int | None = None) -> list[RankedResult]:
+def _run_keyword_table_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
     tsquery = func.plainto_tsquery("english", request.query)
     rank = cast(func.ts_rank_cd(DocumentTable.textsearch, tsquery), Float)
     statement = (
-        _apply_table_filters(_active_table_query(), request.filters)
+        _apply_table_filters(_table_query(run_id), request.filters)
         .add_columns(rank.label("score"))
         .where(DocumentTable.textsearch.op("@@")(tsquery))
         .order_by(rank.desc(), DocumentTable.table_index.asc())
@@ -182,11 +206,13 @@ def _run_semantic_chunk_search(
     request: SearchRequest,
     query_embedding: list[float],
     candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
 ) -> list[RankedResult]:
     distance = DocumentChunk.embedding.cosine_distance(query_embedding)
     similarity = cast(1 - distance, Float)
     statement = (
-        _apply_chunk_filters(_active_chunk_query(), request.filters)
+        _apply_chunk_filters(_chunk_query(run_id), request.filters)
         .add_columns(similarity.label("score"))
         .where(DocumentChunk.embedding.is_not(None))
         .order_by(distance.asc(), DocumentChunk.chunk_index.asc())
@@ -200,11 +226,13 @@ def _run_semantic_table_search(
     request: SearchRequest,
     query_embedding: list[float],
     candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
 ) -> list[RankedResult]:
     distance = DocumentTable.embedding.cosine_distance(query_embedding)
     similarity = cast(1 - distance, Float)
     statement = (
-        _apply_table_filters(_active_table_query(), request.filters)
+        _apply_table_filters(_table_query(run_id), request.filters)
         .add_columns(similarity.label("score"))
         .where(DocumentTable.embedding.is_not(None))
         .order_by(distance.asc(), DocumentTable.table_index.asc())
@@ -369,10 +397,21 @@ def search_documents(
     session: Session,
     request: SearchRequest,
     embedding_provider: EmbeddingProvider | None = None,
+    *,
+    run_id: UUID | None = None,
 ) -> list[SearchResult]:
     tabular_query = _is_tabular_query(request.query)
-    keyword_results = _run_keyword_chunk_search(session, request, candidate_limit=max(request.limit * 5, 20))
-    keyword_results.extend(_run_keyword_table_search(session, request, candidate_limit=max(request.limit * 5, 20)))
+    keyword_candidate_limit = max(request.limit * 5, 20)
+    if run_id is None:
+        keyword_results = _run_keyword_chunk_search(session, request, candidate_limit=keyword_candidate_limit)
+        keyword_results.extend(_run_keyword_table_search(session, request, candidate_limit=keyword_candidate_limit))
+    else:
+        keyword_results = _run_keyword_chunk_search(
+            session, request, candidate_limit=keyword_candidate_limit, run_id=run_id
+        )
+        keyword_results.extend(
+            _run_keyword_table_search(session, request, candidate_limit=keyword_candidate_limit, run_id=run_id)
+        )
 
     def keyword_fallback_results() -> list[SearchResult]:
         return _sort_ranked_results(
@@ -405,12 +444,31 @@ def search_documents(
         observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=request.mode == "hybrid")
         return results
 
-    semantic_results = _run_semantic_chunk_search(
-        session, request, query_embedding, candidate_limit=max(request.limit * 5, 20)
-    )
-    semantic_results.extend(
-        _run_semantic_table_search(session, request, query_embedding, candidate_limit=max(request.limit * 5, 20))
-    )
+    semantic_candidate_limit = max(request.limit * 5, 20)
+    if run_id is None:
+        semantic_results = _run_semantic_chunk_search(
+            session, request, query_embedding, candidate_limit=semantic_candidate_limit
+        )
+        semantic_results.extend(
+            _run_semantic_table_search(session, request, query_embedding, candidate_limit=semantic_candidate_limit)
+        )
+    else:
+        semantic_results = _run_semantic_chunk_search(
+            session,
+            request,
+            query_embedding,
+            candidate_limit=semantic_candidate_limit,
+            run_id=run_id,
+        )
+        semantic_results.extend(
+            _run_semantic_table_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=semantic_candidate_limit,
+                run_id=run_id,
+            )
+        )
 
     if request.mode == "semantic":
         results = _sort_ranked_results(

@@ -1,45 +1,48 @@
 # Session Handoff
 
-Date: 2026-04-10
+Date: 2026-04-10 (local) / 2026-04-11 UTC runtime timestamps
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
+Last committed checkpoint: `d409f39` (`Close retrieval gaps and add bitter lesson guidance`)
 
 ## Executive Summary
 
-The system is running locally and is materially ahead of GitHub `main`.
+The system is now beyond the prior table/figure milestone. The main change in this session was adding a persisted, run-scoped evaluation subsystem that:
 
-The current implementation includes:
+- reads `docs/evaluation_corpus.yaml`
+- evaluates the same production search path against an explicit `run_id`
+- stores evaluation summaries and per-query results in Postgres
+- records query-level candidate rank, baseline rank, and rank delta
+- exposes the latest evaluation through API and UI
+- provides CLI commands for evaluating one run or the whole corpus
 
-- durable DB-backed document runs
-- validation-gated promotion through `documents.active_run_id`
-- canonical `docling.json` plus human-readable `document.yaml`
-- first-class tables with JSON/YAML artifacts, segment provenance, and mixed retrieval
-- first-class figures/diagrams with JSON/YAML artifacts, caption attachment metadata, provenance, and confidence
-- read-only UI
-- CLI local-file ingest
-- evaluation corpus config with prose, table, and figure fixtures
-
-The most important change in this session was finishing first-class figure support and then fixing a real table continuation gap in Chapter 3. `TABLE 313.3 HANGERS AND SUPPORTS` now merges into one logical table across pages 35-36 when processed with the patched parser.
+The `born_digital_simple` gap is closed with `UPC_Appendix_N.pdf`, and the ranking fix for table-title queries remains in place. The current evaluation corpus runs cleanly end to end.
 
 ## Current Runtime State
 
 At handoff time:
 
-- Postgres container is healthy on `localhost:5432`
-- API is healthy at `http://127.0.0.1:8000`
-- worker process is running again
+- Postgres is healthy on `localhost:5432`
+- API is running on `http://127.0.0.1:8000`
+- one worker process is running
+- Alembic head is `0008_run_evaluations`
 
 Verification:
 
 ```bash
 curl -sS http://127.0.0.1:8000/health
+uv run alembic current
 ```
 
-Result:
+Results:
 
 ```json
 {"status":"ok"}
+```
+
+```text
+0008_run_evaluations (head)
 ```
 
 Current active document set:
@@ -47,12 +50,24 @@ Current active document set:
 ```json
 [
   {
+    "document_id": "4a3134a8-088d-441c-b5da-735563ed5e35",
+    "source_filename": "UPC_Appendix_N.pdf",
+    "active_run_id": "befc5635-1cab-456c-b8bf-0aa27fd6497f",
+    "latest_validation_status": "passed",
+    "table_count": 1,
+    "figure_count": 0,
+    "latest_evaluation_fixture": "born_digital_simple",
+    "latest_evaluation_status": "completed"
+  },
+  {
     "document_id": "4a8da24f-603b-4540-baa2-431a2b10baaf",
     "source_filename": "UPC_CH_3.pdf",
     "active_run_id": "0ac3a1ff-5a6b-47d6-90a1-31157b0e055c",
     "latest_validation_status": "passed",
     "table_count": 2,
-    "figure_count": 29
+    "figure_count": 29,
+    "latest_evaluation_fixture": "awkward_headers",
+    "latest_evaluation_status": "completed"
   },
   {
     "document_id": "215a55c7-508f-41ba-8440-cba24f0c3e41",
@@ -60,7 +75,9 @@ Current active document set:
     "active_run_id": "2c094484-7651-4efd-b26a-0b9b8ca9237c",
     "latest_validation_status": "passed",
     "table_count": 0,
-    "figure_count": 18
+    "figure_count": 18,
+    "latest_evaluation_fixture": "upc_ch2_figures",
+    "latest_evaluation_status": "completed"
   },
   {
     "document_id": "f9cf2f57-441f-495b-9fb1-6108da3d1731",
@@ -68,7 +85,9 @@ Current active document set:
     "active_run_id": "cc4c107c-a1ab-4bc4-b461-355aadcd7855",
     "latest_validation_status": "passed",
     "table_count": 11,
-    "figure_count": 10
+    "figure_count": 10,
+    "latest_evaluation_fixture": "upc_ch7",
+    "latest_evaluation_status": "completed"
   },
   {
     "document_id": "a85d7a04-5ee6-4067-af9b-7012f54fab39",
@@ -76,415 +95,368 @@ Current active document set:
     "active_run_id": "2c95e372-0b2a-46f0-9c1e-f6c3a85b5137",
     "latest_validation_status": "passed",
     "table_count": 0,
-    "figure_count": 0
+    "figure_count": 0,
+    "latest_evaluation_fixture": "prose_control",
+    "latest_evaluation_status": "completed"
   }
 ]
 ```
 
 ## What Changed In This Session
 
-### 1. First-Class Figures / Diagram Integrity
+### 1. Run-Scoped Evaluation Storage
 
-Added first-class figure support across parser, persistence, validation, storage, API, cleanup, and UI.
+Added persisted evaluation storage:
 
-Main files:
+- `document_run_evaluations`
+- `document_run_evaluation_queries`
 
-- `app/services/docling_parser.py`
+Files:
+
 - `app/db/models.py`
+- `alembic/versions/0008_run_evaluations.py`
+
+Current stored evaluation contract:
+
+- one evaluation record per `(run_id, corpus_name, eval_version)`
+- fixture name
+- evaluation status: `pending`, `completed`, `failed`, or `skipped`
+- summary JSON with aggregate counts
+- per-query rows with:
+  - query text
+  - search mode
+  - filters
+  - expected result type
+  - expected top-N threshold
+  - pass/fail
+  - candidate rank
+  - baseline rank
+  - rank delta
+  - candidate/baseline score
+  - candidate/baseline labels
+  - top-result snapshots in details JSON
+
+### 2. Search Refactor For Explicit `run_id`
+
+Production search now supports two scopes using the same code path:
+
+- default active-run search for API/UI behavior
+- explicit `run_id` search for evaluation
+
+File:
+
+- `app/services/search.py`
+
+Important implementation detail:
+
+- evaluation does not use a parallel “shadow” search implementation
+- it calls the same production search/ranking logic with `run_id=<candidate>` or `run_id=<baseline>`
+
+This was the main architectural requirement for trustworthy regression deltas.
+
+### 3. Evaluation Service
+
+Added a new evaluation service:
+
+- `app/services/evaluations.py`
+
+Behavior:
+
+- reads `docs/evaluation_corpus.yaml`
+- matches a fixture by `document.source_filename`
+- compiles expected table/chunk queries into evaluation cases
+- evaluates the candidate run
+- optionally evaluates a baseline run
+- persists summary and per-query rows
+
+Current corpus behavior:
+
+- fixtures with no matching path are skipped
+- matched fixtures produce stored evaluation results
+- query-level pass/fail is based on expected result type appearing within expected top-N
+
+### 4. Worker Integration
+
+Evaluation is now part of the worker path.
+
+Order:
+
+1. parse
+2. persist artifacts/chunks/tables/figures
+3. validate
+4. evaluate
+5. promote
+
+File:
+
 - `app/services/runs.py`
-- `app/services/validation.py`
-- `app/services/storage.py`
+
+Important choice:
+
+- evaluation is non-blocking for promotion in the current implementation
+- validation still gates promotion
+- evaluation failure records evaluation status but does not currently reject an otherwise valid run
+
+### 5. CLI Commands
+
+Added:
+
+- `docling-system-eval-run <run_id> [--baseline-run-id <run_id>]`
+- `docling-system-eval-corpus`
+
+Files:
+
+- `app/cli.py`
+- `pyproject.toml`
+
+Purpose:
+
+- operator-triggered re-evaluation of one run
+- batch re-evaluation of all active documents with matching fixtures
+
+### 6. API And UI Surfacing
+
+Added:
+
+- latest evaluation summary on document list/detail payloads
+- `GET /documents/{document_id}/evaluations/latest`
+- read-only UI rendering for latest evaluation status and per-query results
+
+Files:
+
+- `app/schemas/evaluations.py`
+- `app/schemas/documents.py`
 - `app/services/documents.py`
 - `app/api/main.py`
-- `app/services/figures.py`
-- `app/schemas/figures.py`
 - `app/ui/index.html`
 - `app/ui/app.js`
-- `alembic/versions/0007_document_figures.py`
 
-Current figure contract:
+Live example:
 
-- run-scoped `figure_id`
-- `source_figure_ref`
-- caption
-- heading
-- page range
-- confidence
-- JSON artifact
-- YAML artifact
-- caption resolution source
-- caption attachment confidence
-- source confidence if present
-- normalized provenance including bbox and page number
+`GET /documents/4a8da24f-603b-4540-baa2-431a2b10baaf/evaluations/latest` currently returns:
 
-Current figure behavior:
+- fixture: `awkward_headers`
+- `query_count: 3`
+- `passed_queries: 3`
+- `failed_queries: 0`
+- all three queries currently rank the expected type at candidate rank `1`
 
-- explicit Docling caption refs are preferred when available
-- fallback caption heuristics use nearby caption/text items
-- fallback vs explicit attachment is stored in metadata
-- figures are validation-gated before promotion, same as tables
+## Evaluation Corpus Status
 
-Live examples from Chapter 2:
-
-- `Bottle Fillers and Drinking Fountain Alts.`
-- `Grease Interceptors (UPC)`
-- `PrimaryDefinition: Invert`
-
-### 2. Worker / API Module Entrypoints
-
-Added `if __name__ == "__main__": run()` to:
-
-- `app/api/main.py`
-- `app/workers/poller.py`
-
-Reason:
-
-- `python -m app.api.main`
-- `python -m app.workers.poller`
-
-were not reliable before because the module `run()` functions were not invoked on direct module execution. This was a real runtime gap discovered during validation.
-
-### 3. Chapter 2 Ingest and Figure Eval Coverage
-
-Ingested:
-
-- `/Users/chunkstand/Documents/UPC/UPC_Ch_2.pdf`
-
-Result:
-
-- `document_id`: `215a55c7-508f-41ba-8440-cba24f0c3e41`
-- active `run_id`: `2c094484-7651-4efd-b26a-0b9b8ca9237c`
-- validation: `passed`
-- tables: `0`
-- figures: `18`
-
-This document is now the figure-heavy eval fixture in:
-
-- `docs/evaluation_corpus.yaml`
-
-Fixture name:
-
-- `upc_ch2_figures`
-
-Thresholds added:
-
-- `expected_figure_count: 18`
-- `figure_count_tolerance: 1`
-- `minimum_captioned_figure_count: 18`
-- `minimum_figures_with_provenance: 18`
-- `minimum_figures_with_artifacts: 18`
-- expected figure captions:
-  - `Bottle Fillers and Drinking Fountain Alts.`
-  - `Grease Interceptors (UPC)`
-  - `PrimaryDefinition: Invert`
-- expected chunk-hit queries:
-  - `accepted engineering practice`
-  - `air gap`
-
-### 4. Chapter 3 Ingest and Table Continuation Fix
-
-Ingested:
-
-- `/Users/chunkstand/Documents/UPC/UPC_CH_3.pdf`
-
-Initial behavior:
-
-- `TABLE 313.3 HANGERS AND SUPPORTS` appeared as two logical tables on pages 35 and 36
-- both were marked `ambiguous_continuation_candidate: true`
-
-Parser fix:
-
-- updated `app/services/docling_parser.py`
-- added `_segment_merge_reason(...)`
-- allowed adjacent same-title same-heading continuation merges even when column count drifts across pages
-- lowered merge confidence for this case instead of blocking the merge entirely
-
-New merge behavior:
-
-- `TABLE 313.3 HANGERS AND SUPPORTS` now merges into one logical table over pages 35-36
-- merge metadata:
-  - `merge_reason: adjacent_same_title_heading_continuation`
-  - lower `merge_confidence` than exact-shape merges
-
-Important verification detail:
-
-- The live worker path was noisy because an older worker process was still around during one reprocess.
-- To verify the parser fix deterministically, I queued a fresh Chapter 3 run and processed it directly with `process_run(...)` in a one-off script.
-- That direct run promoted successfully and is now the active Chapter 3 run.
-
-Current active Chapter 3 result:
-
-- `document_id`: `4a8da24f-603b-4540-baa2-431a2b10baaf`
-- active `run_id`: `0ac3a1ff-5a6b-47d6-90a1-31157b0e055c`
-- validation: `passed`
-- table count: `2`
-- figure count: `29`
-
-Active Chapter 3 tables now:
-
-1. `TABLE 313.3 HANGERS AND SUPPORTS`
-   - pages `35-36`
-   - row_count `17`
-2. `HANGER ROD SIZES`
-   - page `38`
-
-### 5. Evaluation Corpus Updates
-
-`docs/evaluation_corpus.yaml` now has real fixtures for:
+Current configured fixtures:
 
 - `upc_ch7`
-  - multi-page standards tables
 - `upc_ch2_figures`
-  - figure-heavy definitions
+- `born_digital_simple`
 - `awkward_headers`
-  - now points to `UPC_CH_3.pdf`
 - `prose_control`
-  - `UPC_CH_1.pdf`
 
-Current `awkward_headers` config:
+`born_digital_simple` is now:
 
-- path: `/Users/chunkstand/Documents/UPC/UPC_CH_3.pdf`
-- expected logical table count: `2`
+- path: `/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf`
+- expected logical table count: `1`
 - logical table tolerance: `0`
-- maximum unexpected merges: `0`
-- maximum unexpected splits: `0`
-- expected top-N table queries:
-  - `hangers and supports`
-  - `hanger rod sizes`
-- expected top-N chunk query:
-  - `listed standards`
+- query: `correlation between temperature ranges`
 
-Note:
+Corpus-wide evaluation command:
 
-- `born_digital_simple` is still a placeholder and still needs a real PDF.
+```bash
+uv run docling-system-eval-corpus
+```
+
+Current result:
+
+- all five configured fixtures complete successfully
+- all configured query cases currently pass
+
+Important limitation:
+
+- current stored baseline deltas are only meaningful when a baseline run is provided or an older active run is still available for comparison
+- the current corpus run shown in this session was evaluated with `baseline_run_id: null`, so `rank_delta` is null for those rows
+
+The plumbing for deltas exists; the next useful step is to evaluate candidate reprocesses against previous active runs so query-level regressions become longitudinal instead of single-run snapshots.
 
 ## Current Contracts
-
-### Artifact Canon
-
-Document level:
-
-- canonical machine-readable artifact: `docling.json`
-- human-readable artifact: `document.yaml`
-
-Table level:
-
-- canonical machine-readable artifact: normalized table JSON
-- human-readable artifact: normalized table YAML
-
-Figure level:
-
-- canonical machine-readable artifact: normalized figure JSON
-- human-readable artifact: normalized figure YAML
-
-Important rule:
-
-- JSON-backed structured objects and normalized DB fields are the machine-facing source of truth.
-- YAML exists for operator/agent readability and inspection, not as a storage-of-record for retrieval.
 
 ### Promotion Gate
 
 Promotion still requires validation success before `documents.active_run_id` advances.
 
-Current validation scope includes:
+Evaluation does not currently gate promotion.
 
-- document artifact existence
-- chunk persistence count checks
-- title/page-count sanity
-- table artifact existence and search-text sanity
-- table row/column sanity
-- continued-table merge sanity
-- repeated-header-removal sanity
-- figure artifact existence
-- figure provenance presence
-- figure caption-resolution metadata presence
-- figure confidence-field presence
+This split is intentional:
+
+- validation protects search integrity and artifact correctness
+- evaluation measures retrieval quality over time
 
 ### Search
 
-Mixed `/search` is still:
+`POST /search` remains the active-corpus endpoint.
 
-- immediate replacement rollout
-- typed result set with `chunk` and `table`
-- deterministic merge/tie-break rules
+New internal/runtime capability:
 
-Important limitation:
+- the service layer can now execute the same search path against an explicit `run_id`
 
-- figures are first-class integrity objects, not yet `result_type="figure"` search results
+This is used by evaluation and should remain the single ranking implementation.
 
-Important ranking note:
+### Evaluation Storage
 
-- Chapter 3 continuation is fixed
-- but some table-title queries still rank chunk hits above table hits
-- the awkward-table eval thresholds currently allow top-3 table presence rather than requiring rank-1 dominance
+Evaluation is now a first-class persisted subsystem and must not be overloaded into:
+
+- `validation_results_json`
+- ad hoc metric files
+- hand-written notes in docs
+
+Validation and evaluation are separate concerns and should remain separate.
 
 ## Files Changed Or Added Recently
 
 Core runtime:
 
 - `app/api/main.py`
+- `app/cli.py`
 - `app/db/models.py`
 - `app/schemas/documents.py`
-- `app/schemas/figures.py`
-- `app/services/cleanup.py`
-- `app/services/docling_parser.py`
+- `app/schemas/evaluations.py`
 - `app/services/documents.py`
-- `app/services/figures.py`
+- `app/services/evaluations.py`
 - `app/services/runs.py`
-- `app/services/storage.py`
-- `app/services/validation.py`
-- `app/workers/poller.py`
+- `app/services/search.py`
 
-Docs/config:
+UI:
 
-- `README.md`
-- `SYSTEM_PLAN.md`
-- `AGENTS.md`
-- `.env.example`
-- `docs/evaluation_corpus.yaml`
-- `docs/SESSION_HANDOFF.md`
+- `app/ui/index.html`
+- `app/ui/app.js`
 
-Migrations:
+Migration:
 
-- `alembic/versions/0002_document_run_cleanup_index.py`
-- `alembic/versions/0003_document_tables.py`
-- `alembic/versions/0004_yaml_artifacts.py`
-- `alembic/versions/0005_validation_gate_fields.py`
-- `alembic/versions/0006_table_hardening_fields.py`
-- `alembic/versions/0007_document_figures.py`
+- `alembic/versions/0008_run_evaluations.py`
 
 Tests:
 
-- `tests/unit/test_docling_parser.py`
-- `tests/unit/test_eval_config.py`
-- `tests/unit/test_figures_api.py`
-- `tests/unit/test_validation.py`
-- plus previously added table/search/UI/telemetry tests
+- `tests/unit/test_cli.py`
+- `tests/unit/test_documents_api.py`
+- `tests/unit/test_evaluation_service.py`
+- `tests/unit/test_search_service.py`
+- `tests/unit/test_ui.py`
+
+Config:
+
+- `pyproject.toml`
 
 ## Verification Performed
 
-During this session:
+Commands run this session:
 
 ```bash
-uv run pytest tests/unit/test_docling_parser.py tests/unit/test_eval_config.py
-uv run pytest tests/unit/test_eval_config.py
-uv run python -m compileall app tests
 uv run alembic upgrade head
+uv run pytest tests
+uv run python -m compileall app tests
+uv run docling-system-eval-corpus
+curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
 ```
 
-Relevant passing results:
+Passing results:
 
-- figure parser/API/validation tests passed earlier in session
-- `tests/unit/test_docling_parser.py` passed with the new Chapter 3 continuation case
-- `tests/unit/test_eval_config.py` passed after adding figure coverage and the Chapter 3 awkward-table fixture
-- `uv run pytest tests` had previously passed at `35 passed, 1 skipped` before the Chapter 3 continuation patch
+- `uv run pytest tests` -> `44 passed, 1 skipped`
+- `uv run python -m compileall app tests` passed
+- migration to `0008_run_evaluations` passed
+- batch evaluation over the configured corpus completed successfully
 
-Live runtime checks performed:
+Live runtime checks:
 
 - API health check succeeded
-- Chapter 2 ingest completed and promoted
-- Chapter 3 ingest completed and promoted
-- Chapter 3 deterministic reprocess through `process_run(...)` completed and promoted with `table_count=2`
+- document list now includes `latest_evaluation`
+- latest evaluation route returns persisted query-level rows
 
 ## Known Gaps / Risks
 
-### 1. Ranking Still Needs Work
+### 1. Evaluation Does Not Yet Gate Promotion
 
-Even after fixing the Chapter 3 continuation split, some table-title queries still return chunk hits above table hits.
+This is deliberate for now, but it means:
 
-Example:
+- a retrieval regression can still be promoted if validation passes
 
-- query: `hangers and supports`
+That is a good v1 default while metrics are new, but not the likely end state.
 
-Current behavior:
+### 2. Query-Level Deltas Need Longitudinal Baselines
 
-- chunk title/caption-like hits rank above the merged table hit
-- table hit is still present in top 3
+The schema supports:
 
-This is acceptable under the current eval thresholds, but it is not ideal retrieval quality.
+- `baseline_run_id`
+- `baseline_rank`
+- `rank_delta`
 
-### 2. `born_digital_simple` Eval Slot Still Empty
+But the currently persisted corpus evaluation rows were created without baselines.
 
-The evaluation corpus still needs a real simple-table document for:
+To make regression deltas useful in practice, the next session should evaluate reprocess runs against the prior active run before promotion.
 
-- `born_digital_simple`
+### 3. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
 
-This is the main missing eval fixture now.
+There is an active document for:
 
-### 3. Worktree Is Not Clean
+- `UPC_Appendix_B.pdf`
 
-There are still many local modifications and untracked files in the repo. This work has not been committed yet.
+It has:
 
-This includes:
+- validation `passed`
+- `table_count=0`
+- no evaluation fixture match
+
+This is not a correctness issue, but it is an example of a document in the system that is outside the current fixed eval set.
+
+### 4. Worktree Is Not Clean
+
+This session’s evaluation work is not committed yet.
+
+Current modified/untracked files include:
 
 - runtime files
-- docs
-- migrations
-- tests
 - UI files
+- new migration
+- new evaluation schema/service
+- tests
 
-Do not assume the branch is committed or pushed.
+Do not assume the branch is committed or pushed past `d409f39`.
 
 ## Next Steps For The Next Session
 
-### Priority 1: Ingest The Next PDF
+### Priority 1: Decide Whether Evaluation Should Influence Promotion
 
-Continue one PDF at a time.
+Recommended path:
 
-Reason:
+1. keep validation as the hard promotion gate
+2. add explicit policy for eval-based warnings vs blocking failures
+3. only make evaluation gating mandatory after baseline deltas are stable and trusted
 
-- the eval workflow is working best when each document is classified individually as prose-heavy, figure-heavy, simple-table, or awkward-table
+### Priority 2: Capture Real Baseline Deltas On Reprocess
 
-Immediate target:
+Implement or tighten the worker/evaluator behavior so:
 
-- find a real candidate for the `born_digital_simple` eval slot
+- candidate run evaluates against prior active run
+- query rows persist real `baseline_rank` and `rank_delta`
 
-What to do:
+This is the missing step that turns the evaluation schema into a true regression tracker.
 
-1. ingest the next PDF with `uv run docling-system-ingest-file ...`
-2. inspect:
-   - chunk count
-   - table count
-   - figure count
-   - whether tables are continued/awkward or simple
-3. if it is a clean simple-table document, replace `born_digital_simple.path: null` in `docs/evaluation_corpus.yaml`
+### Priority 3: Expand Corpus Richness
 
-### Priority 2: Improve Table Ranking
+The current corpus now covers five named fixtures, but query coverage is still sparse.
 
-After the next fixture is in place, work on ranking so true table-title queries rank table hits above chunk title/caption noise more consistently.
+Best next move:
 
-Likely place:
+- add more query cases per fixture
+- explicitly include mode and filters where it matters
+- add negative or adversarial queries where ranking confusion is likely
 
-- `app/services/search.py`
+### Priority 4: Commit This Milestone
 
-Focus queries:
-
-- `hangers and supports`
-- `hanger rod sizes`
-- `drainage fixture unit values`
-
-### Priority 3: Re-Run Full Suite After Ranking Changes
-
-Once ranking changes are made:
+Suggested workflow:
 
 ```bash
-uv run pytest tests
+git status
+git add ...
+git commit -m "Add run-scoped evaluation and query regression tracking"
 ```
-
-Then verify:
-
-- Chapter 3 still has `table_count=2`
-- Chapter 7 still has `table_count=11`
-- Chapter 2 still has `figure_count=18`
-
-### Priority 4: Commit Milestone Work
-
-This branch needs a real commit point. After the next fixture and any ranking adjustments are stable:
-
-1. review `git status`
-2. stage intentional files
-3. commit the milestone
-4. push to `origin`
 
 ## Handy Commands
 
@@ -500,34 +472,28 @@ List documents:
 curl -sS http://127.0.0.1:8000/documents | jq
 ```
 
-Ingest local file:
+Read latest evaluation:
 
 ```bash
-uv run docling-system-ingest-file /absolute/path/to/file.pdf
+curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
 ```
 
-Reprocess one document:
+Evaluate one run:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8000/documents/<document_id>/reprocess
+uv run docling-system-eval-run <run_id>
 ```
 
-Run worker manually:
+Evaluate one run against a baseline:
 
 ```bash
-uv run python -m app.workers.poller
+uv run docling-system-eval-run <candidate_run_id> --baseline-run-id <baseline_run_id>
 ```
 
-Run API manually:
+Evaluate all matching active fixtures:
 
 ```bash
-uv run python -m app.api.main
-```
-
-Apply migrations:
-
-```bash
-uv run alembic upgrade head
+uv run docling-system-eval-corpus
 ```
 
 Run full tests:
