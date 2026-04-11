@@ -64,6 +64,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert chapter_five_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_5.pdf"
     assert chapter_five_thresholds["expected_logical_table_count"] == 41
     assert chapter_five_thresholds["expected_figure_count"] == 41
+    assert len(chapter_five_thresholds["expected_merged_tables"]) >= 1
     assert len(chapter_five_thresholds["expected_top_n_table_hit_queries"]) >= 1
     assert len(chapter_five_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
 

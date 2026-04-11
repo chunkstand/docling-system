@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.services.evaluations import (
     fixture_for_document,
     load_evaluation_fixtures,
+    _summarize_structural_checks,
     resolve_baseline_run_id,
 )
 
@@ -18,6 +19,10 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert len(born_digital.queries) >= 1
     assert born_digital.queries[0].expected_result_type == "table"
     assert born_digital.queries[0].expected_top_n >= 1
+
+    chapter_five = next(fixture for fixture in fixtures if fixture.name == "upc_ch5")
+    assert len(chapter_five.thresholds.expected_merged_tables) == 1
+    assert chapter_five.thresholds.expected_merged_tables[0].overlay_family_key == "TABLE 510.1.2(2)"
 
 
 def test_fixture_for_document_matches_by_source_filename() -> None:
@@ -50,3 +55,78 @@ def test_resolve_baseline_run_id_ignores_self_and_honors_explicit_override() -> 
         )
         == explicit_baseline_run_id
     )
+
+
+def test_summarize_structural_checks_passes_expected_overlay_merge(tmp_path) -> None:
+    json_path = tmp_path / "figure.json"
+    yaml_path = tmp_path / "figure.yaml"
+    json_path.write_text("{}")
+    yaml_path.write_text("caption: ok\n")
+
+    fixture = next(fixture for fixture in load_evaluation_fixtures() if fixture.name == "upc_ch5")
+    table = SimpleNamespace(
+        title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
+        heading="510.1.2 Elbows",
+        page_from=109,
+        page_to=113,
+        metadata_json={
+            "is_merged": True,
+            "source_segment_count": 5,
+            "overlay_applied": True,
+            "overlay_family_key": "TABLE 510.1.2(2)",
+        },
+    )
+    figure = SimpleNamespace(
+        caption="Example figure",
+        json_path=str(json_path),
+        yaml_path=str(yaml_path),
+        metadata_json={"provenance": [{"page_no": 1}]},
+    )
+
+    summary = _summarize_structural_checks(
+        tables=[table] * fixture.thresholds.expected_logical_table_count,
+        figures=[figure] * fixture.thresholds.expected_figure_count,
+        thresholds=fixture.thresholds,
+    )
+
+    assert summary["passed"] is True
+    expected_merge_check = next(
+        check for check in summary["checks"] if check["name"] == "expected_merged_tables"
+    )
+    assert expected_merge_check["passed"] is True
+    assert expected_merge_check["actual_matched_count"] == 1
+
+
+def test_summarize_structural_checks_flags_missing_expected_merge(tmp_path) -> None:
+    json_path = tmp_path / "figure.json"
+    yaml_path = tmp_path / "figure.yaml"
+    json_path.write_text("{}")
+    yaml_path.write_text("caption: ok\n")
+
+    fixture = next(fixture for fixture in load_evaluation_fixtures() if fixture.name == "upc_ch5")
+    table = SimpleNamespace(
+        title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
+        heading="510.1.2 Elbows",
+        page_from=109,
+        page_to=113,
+        metadata_json={"is_merged": False, "source_segment_count": 1},
+    )
+    figure = SimpleNamespace(
+        caption="Example figure",
+        json_path=str(json_path),
+        yaml_path=str(yaml_path),
+        metadata_json={"provenance": [{"page_no": 1}]},
+    )
+
+    summary = _summarize_structural_checks(
+        tables=[table] * fixture.thresholds.expected_logical_table_count,
+        figures=[figure] * fixture.thresholds.expected_figure_count,
+        thresholds=fixture.thresholds,
+    )
+
+    assert summary["passed"] is False
+    expected_merge_check = next(
+        check for check in summary["checks"] if check["name"] == "expected_merged_tables"
+    )
+    assert expected_merge_check["passed"] is False
+    assert "repaired TABLE 510.1.2(2) overlay family" in expected_merge_check["missing"]

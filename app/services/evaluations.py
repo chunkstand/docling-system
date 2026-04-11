@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -10,7 +10,14 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentRun, DocumentRunEvaluation, DocumentRunEvaluationQuery
+from app.db.models import (
+    Document,
+    DocumentFigure,
+    DocumentRun,
+    DocumentRunEvaluation,
+    DocumentRunEvaluationQuery,
+    DocumentTable,
+)
 from app.schemas.evaluations import (
     EvaluationDetailResponse,
     EvaluationQueryResultResponse,
@@ -29,6 +36,7 @@ class EvaluationFixture:
     name: str
     path: str
     queries: list[EvaluationQueryCase]
+    thresholds: EvaluationThresholds
 
 
 @dataclass
@@ -38,6 +46,34 @@ class EvaluationQueryCase:
     filters: dict
     expected_result_type: str
     expected_top_n: int
+
+
+@dataclass
+class EvaluationMergeExpectation:
+    description: str
+    title_contains: str | None = None
+    heading_contains: str | None = None
+    page_from: int | None = None
+    page_to: int | None = None
+    minimum_source_segment_count: int = 2
+    overlay_applied: bool | None = None
+    overlay_family_key: str | None = None
+
+
+@dataclass
+class EvaluationThresholds:
+    expected_logical_table_count: int | None = None
+    logical_table_tolerance: int = 0
+    expected_figure_count: int | None = None
+    figure_count_tolerance: int = 0
+    minimum_captioned_figure_count: int | None = None
+    minimum_figures_with_provenance: int | None = None
+    minimum_figures_with_artifacts: int | None = None
+    expected_figure_captions_present: list[str] = field(default_factory=list)
+    maximum_unexpected_merges: int = 0
+    maximum_unexpected_splits: int = 0
+    expected_merged_tables: list[EvaluationMergeExpectation] = field(default_factory=list)
+    enforce_unexpected_merged_tables: bool = False
 
 
 def _utcnow() -> datetime:
@@ -118,6 +154,39 @@ def _normalize_fixture_query(entry: dict, expected_result_type: str) -> Evaluati
     )
 
 
+def _normalize_thresholds(thresholds: dict) -> EvaluationThresholds:
+    expectations = [
+        EvaluationMergeExpectation(
+            description=entry.get("description")
+            or entry.get("title_contains")
+            or entry.get("overlay_family_key")
+            or "expected_merged_table",
+            title_contains=entry.get("title_contains"),
+            heading_contains=entry.get("heading_contains"),
+            page_from=entry.get("page_from"),
+            page_to=entry.get("page_to"),
+            minimum_source_segment_count=entry.get("minimum_source_segment_count", 2),
+            overlay_applied=entry.get("overlay_applied"),
+            overlay_family_key=entry.get("overlay_family_key"),
+        )
+        for entry in thresholds.get("expected_merged_tables", [])
+    ]
+    return EvaluationThresholds(
+        expected_logical_table_count=thresholds.get("expected_logical_table_count"),
+        logical_table_tolerance=thresholds.get("logical_table_tolerance", 0),
+        expected_figure_count=thresholds.get("expected_figure_count"),
+        figure_count_tolerance=thresholds.get("figure_count_tolerance", 0),
+        minimum_captioned_figure_count=thresholds.get("minimum_captioned_figure_count"),
+        minimum_figures_with_provenance=thresholds.get("minimum_figures_with_provenance"),
+        minimum_figures_with_artifacts=thresholds.get("minimum_figures_with_artifacts"),
+        expected_figure_captions_present=thresholds.get("expected_figure_captions_present") or [],
+        maximum_unexpected_merges=thresholds.get("maximum_unexpected_merges", 0),
+        maximum_unexpected_splits=thresholds.get("maximum_unexpected_splits", 0),
+        expected_merged_tables=expectations,
+        enforce_unexpected_merged_tables=thresholds.get("enforce_unexpected_merged_tables", False),
+    )
+
+
 def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[EvaluationFixture]:
     path = corpus_path or DEFAULT_CORPUS_PATH
     config = yaml.safe_load(path.read_text()) or {}
@@ -142,7 +211,14 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
                     expected_top_n=entry.get("top_n", 3),
                 )
             )
-        fixtures.append(EvaluationFixture(name=document["name"], path=doc_path, queries=queries))
+        fixtures.append(
+            EvaluationFixture(
+                name=document["name"],
+                path=doc_path,
+                queries=queries,
+                thresholds=_normalize_thresholds(thresholds),
+            )
+        )
     return fixtures
 
 
@@ -189,6 +265,250 @@ def _upsert_evaluation_row(
     session.add(evaluation)
     session.flush()
     return evaluation
+
+
+def _metadata_for_row(row: object) -> dict:
+    return getattr(row, "metadata_json", None) or getattr(row, "metadata", None) or {}
+
+
+def _table_label(row: object) -> str:
+    return (
+        getattr(row, "title", None)
+        or getattr(row, "heading", None)
+        or getattr(row, "preview_text", None)
+        or f"table_{getattr(row, 'table_index', 'unknown')}"
+    )
+
+
+def _source_segment_count(row: object) -> int:
+    metadata = _metadata_for_row(row)
+    return int(metadata.get("source_segment_count") or metadata.get("segment_count") or 0)
+
+
+def _text_contains(value: str | None, expected_substring: str | None) -> bool:
+    if expected_substring is None:
+        return True
+    return expected_substring.lower() in (value or "").lower()
+
+
+def _table_matches_merge_expectation(
+    table: object, expectation: EvaluationMergeExpectation
+) -> bool:
+    metadata = _metadata_for_row(table)
+    if not _text_contains(getattr(table, "title", None), expectation.title_contains):
+        return False
+    if not _text_contains(getattr(table, "heading", None), expectation.heading_contains):
+        return False
+    if expectation.page_from is not None and getattr(table, "page_from", None) != expectation.page_from:
+        return False
+    if expectation.page_to is not None and getattr(table, "page_to", None) != expectation.page_to:
+        return False
+    if _source_segment_count(table) < expectation.minimum_source_segment_count:
+        return False
+    if (
+        expectation.overlay_applied is not None
+        and bool(metadata.get("overlay_applied")) != expectation.overlay_applied
+    ):
+        return False
+    if (
+        expectation.overlay_family_key is not None
+        and metadata.get("overlay_family_key") != expectation.overlay_family_key
+    ):
+        return False
+    return True
+
+
+def _artifact_present(path_value: str | None) -> bool:
+    return bool(path_value and Path(path_value).exists())
+
+
+def _summarize_structural_checks(
+    tables: list[object], figures: list[object], thresholds: EvaluationThresholds
+) -> dict:
+    checks: list[dict] = []
+
+    actual_table_count = len(tables)
+    if thresholds.expected_logical_table_count is not None:
+        passed = (
+            abs(actual_table_count - thresholds.expected_logical_table_count)
+            <= thresholds.logical_table_tolerance
+        )
+        checks.append(
+            {
+                "name": "logical_table_count",
+                "passed": passed,
+                "expected": thresholds.expected_logical_table_count,
+                "actual": actual_table_count,
+                "tolerance": thresholds.logical_table_tolerance,
+            }
+        )
+
+    actual_figure_count = len(figures)
+    if thresholds.expected_figure_count is not None:
+        passed = (
+            abs(actual_figure_count - thresholds.expected_figure_count)
+            <= thresholds.figure_count_tolerance
+        )
+        checks.append(
+            {
+                "name": "figure_count",
+                "passed": passed,
+                "expected": thresholds.expected_figure_count,
+                "actual": actual_figure_count,
+                "tolerance": thresholds.figure_count_tolerance,
+            }
+        )
+
+    captioned_figure_count = sum(1 for figure in figures if getattr(figure, "caption", None))
+    if thresholds.minimum_captioned_figure_count is not None:
+        checks.append(
+            {
+                "name": "minimum_captioned_figure_count",
+                "passed": captioned_figure_count >= thresholds.minimum_captioned_figure_count,
+                "expected_minimum": thresholds.minimum_captioned_figure_count,
+                "actual": captioned_figure_count,
+            }
+        )
+
+    figures_with_provenance = sum(
+        1 for figure in figures if (_metadata_for_row(figure).get("provenance") or [])
+    )
+    if thresholds.minimum_figures_with_provenance is not None:
+        checks.append(
+            {
+                "name": "minimum_figures_with_provenance",
+                "passed": figures_with_provenance >= thresholds.minimum_figures_with_provenance,
+                "expected_minimum": thresholds.minimum_figures_with_provenance,
+                "actual": figures_with_provenance,
+            }
+        )
+
+    figures_with_artifacts = sum(
+        1
+        for figure in figures
+        if _artifact_present(getattr(figure, "json_path", None))
+        and _artifact_present(getattr(figure, "yaml_path", None))
+    )
+    if thresholds.minimum_figures_with_artifacts is not None:
+        checks.append(
+            {
+                "name": "minimum_figures_with_artifacts",
+                "passed": figures_with_artifacts >= thresholds.minimum_figures_with_artifacts,
+                "expected_minimum": thresholds.minimum_figures_with_artifacts,
+                "actual": figures_with_artifacts,
+            }
+        )
+
+    if thresholds.expected_figure_captions_present:
+        available_captions = [getattr(figure, "caption", None) or "" for figure in figures]
+        missing_captions = [
+            expected
+            for expected in thresholds.expected_figure_captions_present
+            if not any(expected.lower() in caption.lower() for caption in available_captions)
+        ]
+        checks.append(
+            {
+                "name": "expected_figure_captions_present",
+                "passed": not missing_captions,
+                "expected": thresholds.expected_figure_captions_present,
+                "missing": missing_captions,
+            }
+        )
+
+    merged_tables = [table for table in tables if _metadata_for_row(table).get("is_merged")]
+    matched_merged_ids: set[object] = set()
+    expectation_results: list[dict] = []
+    for expectation in thresholds.expected_merged_tables:
+        matches = [table for table in merged_tables if _table_matches_merge_expectation(table, expectation)]
+        matched_merged_ids.update(id(table) for table in matches)
+        expectation_results.append(
+            {
+                "description": expectation.description,
+                "passed": bool(matches),
+                "match_count": len(matches),
+                "matches": [
+                    {
+                        "label": _table_label(table),
+                        "page_from": getattr(table, "page_from", None),
+                        "page_to": getattr(table, "page_to", None),
+                        "source_segment_count": _source_segment_count(table),
+                        "overlay_family_key": _metadata_for_row(table).get("overlay_family_key"),
+                    }
+                    for table in matches
+                ],
+            }
+        )
+
+    missing_expected_merges = [item["description"] for item in expectation_results if not item["passed"]]
+    checks.append(
+        {
+            "name": "expected_merged_tables",
+            "passed": len(missing_expected_merges) <= thresholds.maximum_unexpected_splits,
+            "expected_count": len(thresholds.expected_merged_tables),
+            "actual_matched_count": len(expectation_results) - len(missing_expected_merges),
+            "missing": missing_expected_merges,
+            "tolerance": thresholds.maximum_unexpected_splits,
+            "details": expectation_results,
+        }
+    )
+
+    unexpected_merged_tables: list[dict] = []
+    if thresholds.enforce_unexpected_merged_tables:
+        unexpected_merged_tables = [
+            {
+                "label": _table_label(table),
+                "page_from": getattr(table, "page_from", None),
+                "page_to": getattr(table, "page_to", None),
+                "merge_reason": _metadata_for_row(table).get("merge_reason"),
+            }
+            for table in merged_tables
+            if id(table) not in matched_merged_ids
+        ]
+    checks.append(
+        {
+            "name": "unexpected_merged_tables",
+            "passed": len(unexpected_merged_tables) <= thresholds.maximum_unexpected_merges,
+            "enforced": thresholds.enforce_unexpected_merged_tables,
+            "limit": thresholds.maximum_unexpected_merges,
+            "actual": len(unexpected_merged_tables),
+            "details": unexpected_merged_tables,
+            "observed_merged_table_count": len(merged_tables),
+        }
+    )
+
+    passed_checks = sum(1 for check in checks if check["passed"])
+    failed_checks = len(checks) - passed_checks
+    return {
+        "passed": failed_checks == 0,
+        "check_count": len(checks),
+        "passed_checks": passed_checks,
+        "failed_checks": failed_checks,
+        "checks": checks,
+    }
+
+
+def _evaluate_structural_checks(
+    session: Session, run: DocumentRun, thresholds: EvaluationThresholds
+) -> dict:
+    tables = (
+        session.execute(
+            select(DocumentTable)
+            .where(DocumentTable.run_id == run.id)
+            .order_by(DocumentTable.table_index)
+        )
+        .scalars()
+        .all()
+    )
+    figures = (
+        session.execute(
+            select(DocumentFigure)
+            .where(DocumentFigure.run_id == run.id)
+            .order_by(DocumentFigure.figure_index)
+        )
+        .scalars()
+        .all()
+    )
+    return _summarize_structural_checks(tables, figures, thresholds)
 
 
 def evaluate_run(
@@ -303,6 +623,7 @@ def evaluate_run(
                 )
             )
 
+        structural_summary = _evaluate_structural_checks(session, run, fixture.thresholds)
         evaluation.status = "completed"
         evaluation.summary_json = {
             "status": "completed",
@@ -313,6 +634,11 @@ def evaluate_run(
             "regressed_queries": regressed_queries,
             "improved_queries": improved_queries,
             "stable_queries": stable_queries,
+            "structural_check_count": structural_summary["check_count"],
+            "passed_structural_checks": structural_summary["passed_checks"],
+            "failed_structural_checks": structural_summary["failed_checks"],
+            "structural_passed": structural_summary["passed"],
+            "structural_checks": structural_summary["checks"],
             "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
         }
         evaluation.completed_at = now

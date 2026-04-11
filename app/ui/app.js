@@ -187,9 +187,10 @@ function renderEvaluation(evaluation) {
 
   evaluationStatusEl.textContent = evaluation.status;
   evaluationSummaryPillEl.textContent = `${evaluation.passed_queries}/${evaluation.query_count} passed`;
+  const structuralFailures = evaluation.summary?.failed_structural_checks ?? 0;
   const summaryNote =
     evaluation.status === "completed"
-      ? `${evaluation.failed_queries} failed, ${evaluation.regressed_queries} regressed, ${evaluation.improved_queries} improved.`
+      ? `${evaluation.failed_queries} failed, ${evaluation.regressed_queries} regressed, ${evaluation.improved_queries} improved, ${structuralFailures} structural failed.`
       : evaluation.error_message || "Evaluation did not complete.";
   setFeedback(evaluationFeedback, summaryNote, evaluation.status === "completed" ? "muted" : "");
 

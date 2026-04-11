@@ -92,6 +92,14 @@ documents:
       maximum_unexpected_splits: 0
       expected_figure_count: 41
       figure_count_tolerance: 0
+      expected_merged_tables:
+        - description: repaired TABLE 510.1.2(2) overlay family
+          title_contains: TABLE 510.1.2 ( 2 )
+          page_from: 109
+          page_to: 113
+          minimum_source_segment_count: 5
+          overlay_applied: true
+          overlay_family_key: TABLE 510.1.2(2)
       expected_top_n_table_hit_queries:
         - query: exterior masonry chimney
           top_n: 3
