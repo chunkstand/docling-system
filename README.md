@@ -24,6 +24,8 @@ The current workflow is operator-driven: use the CLI to ingest local PDFs, then 
 - Run evaluations are first-class persisted records with summary and per-query detail.
 - `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
+- Table supplements are registry-driven via `config/table_supplements.yaml`; the registry selects document-specific clean supplement PDFs without changing the canonical source document contract.
+- Supplement overlays preserve chapter-local page spans and original segment provenance while replacing known-bad logical table families with cleaner extracted rows.
 
 ## Stack
 
@@ -146,6 +148,8 @@ Keyword, semantic, and hybrid modes search active chunks and active tables indep
 
 Tables are first-class retrieval objects. The parser stores logical tables, source table segment provenance, merge metadata, repeated-header removal metadata, and audit hashes. Continued tables can be merged into one logical table when the evidence is strong enough; ambiguous continuation candidates are recorded instead of guessed.
 
+The current parser also supports a small, explicit supplement registry for known-bad scanned table families. This is a provisional v1 mechanism, not a second ingest path: the chapter PDF remains canonical, and matching registry rules selectively overlay cleaner table-family rows from a supplement PDF while retaining chapter-local page ranges and source-segment lineage.
+
 Table telemetry is available from `GET /metrics`, including detected tables, persisted logical tables, segment counts, continuation merges, ambiguous continuations, table embedding failures, and table search hits.
 
 ## Useful Commands
@@ -156,11 +160,22 @@ uv run pytest tests/unit
 uv run alembic upgrade head
 uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
+uv run docling-system-eval-run <run_id>
+uv run docling-system-eval-corpus
 ```
 
 ## Evaluation
 
 The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance.
+
+Current configured fixtures include:
+
+- `upc_ch7`
+- `upc_ch2_figures`
+- `born_digital_simple`
+- `awkward_headers`
+- `upc_ch4`
+- `prose_control`
 
 ## Troubleshooting
 

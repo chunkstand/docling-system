@@ -4,25 +4,31 @@ Date: 2026-04-10 (local) / 2026-04-11 UTC runtime timestamps
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Last committed checkpoint: `35e4075` (`Capture eval baselines before promotion and make repo Ruff-clean`)
+Last committed checkpoint: `c15e8b4` (`Add registry-driven table supplements`)
 
 ## Executive Summary
 
-The system is now at a stronger retrieval-regression checkpoint than the prior handoff.
+The system has moved past the earlier evaluation-storage checkpoint and now has a stronger, more practical ingestion baseline for UPC work.
 
-The original evaluation milestone remains in place:
+The important durable pieces remain in place:
 
 - `docs/evaluation_corpus.yaml` drives persisted run-scoped evaluations
 - production search can execute against explicit `run_id` values
 - evaluation summaries and query rows are stored in Postgres
 - latest evaluation results are exposed through API and UI
+- validation still gates promotion of `documents.active_run_id`
 
-This follow-up session added two important hardening steps:
+This follow-up work added three concrete operational improvements:
 
-- reprocess evaluations now compare the candidate run against the prior active run before promotion, so future `baseline_rank` and `rank_delta` values are meaningful by default
-- the repository is now Ruff-clean, with `ruff` added to the dev toolchain and the codebase reformatted/fixed to pass `uv run ruff check app tests`
+- chapter 4 now has a fixture in the fixed evaluation corpus and evaluates cleanly
+- chapter 5 table normalization was hardened so title-only/empty spacer fragments no longer create false zero-row logical tables
+- known-bad table families can now be repaired through a registry-driven supplement mechanism in `config/table_supplements.yaml` instead of hardcoded one-off parser rules
 
-The branch is committed, the worktree is clean, the API and worker are running, and the system is ready to continue UPC uploads.
+The current registry contains the first real repair rule:
+
+- `UPC_CH_5.pdf` can overlay the corrupted `TABLE 510.1.2(n)` family from the clean `510.1.2.pdf` supplement while preserving chapter-local page spans and original table-segment provenance
+
+The branch is committed, the runtime is healthy, and the system is ready for the next UPC chapters.
 
 ## Current Runtime State
 
@@ -55,6 +61,24 @@ Current active document set:
 
 ```json
 [
+  {
+    "source_filename": "UPC_CH_5.pdf",
+    "active_run_id": "7d8559b8-848f-40bc-bf39-2e6da7f8c15f",
+    "latest_validation_status": "passed",
+    "table_count": 41,
+    "figure_count": 41,
+    "latest_evaluation_fixture": null,
+    "latest_evaluation_status": "skipped"
+  },
+  {
+    "source_filename": "UPC_CH_4.pdf",
+    "active_run_id": "9def6693-353e-4580-832e-391e4a8cdd12",
+    "latest_validation_status": "passed",
+    "table_count": 3,
+    "figure_count": 0,
+    "latest_evaluation_fixture": "upc_ch4",
+    "latest_evaluation_status": "completed"
+  },
   {
     "source_filename": "UPC_Appendix_B.pdf",
     "active_run_id": "79bba82b-37b7-4e07-a915-380b83f98527",
@@ -286,6 +310,77 @@ Important implementation choice:
 - this is intentional because FastAPI dependency and file parameter defaults use `Depends(...)` and `File(...)` idiomatically
 - the ignore is narrow and keeps `B008` enabled elsewhere
 
+### 9. Chapter 4 Evaluation Fixture
+
+Added a fixed-corpus fixture for chapter 4.
+
+Files:
+
+- `docs/evaluation_corpus.yaml`
+- `tests/unit/test_eval_config.py`
+
+Current fixture:
+
+- `name: upc_ch4`
+- `path: /Users/chunkstand/Documents/UPC/UPC_CH_4.pdf`
+- expected logical table count: `3`
+- expected figure count: `0`
+- expected table query: `minimum required plumbing fixtures`
+- expected chunk query: `public lavatories`
+
+The current active chapter 4 run evaluates cleanly with `2/2` queries passing.
+
+### 10. Chapter 5 Table Normalization Hardening
+
+Chapter 5 initially failed validation because badly scanned venting tables produced logical tables with empty previews and invalid row counts.
+
+Files:
+
+- `app/services/docling_parser.py`
+- `tests/unit/test_docling_parser.py`
+- `tests/unit/test_validation.py`
+
+Current behavior:
+
+- logical-table `row_count` and `col_count` are derived from normalized grid rows, not Docling's declared counts
+- title-only empty spacer segments are collapsed before logical-table merging
+- carried page spans are preserved when those empty segments bridge real continuation fragments
+
+This keeps chapter 5 promotable without weakening the validation contract.
+
+### 11. Registry-Driven Table Supplements
+
+The one-off chapter-5 overlay path has been replaced with a small registry-driven repair mechanism.
+
+Files:
+
+- `config/table_supplements.yaml`
+- `app/core/config.py`
+- `app/services/docling_parser.py`
+- `tests/unit/test_docling_parser.py`
+
+Current behavior:
+
+- supplement rules are loaded from `config/table_supplements.yaml`
+- rules match by canonical source filename
+- supplement PDFs are resolved from the source directory or allowed local roots
+- overlays are applied by matcher strategy, currently `upc_510_family`
+- overlay metadata is persisted on the replacement logical tables
+- chapter-local page spans and original source-segment provenance are retained
+
+Current live rule:
+
+- `UPC_CH_5.pdf` + `510.1.2.pdf` + matcher `upc_510_family`
+
+Current live result on active run `7d8559b8-848f-40bc-bf39-2e6da7f8c15f`:
+
+- `TABLE 510.1.2(1)` pages `103-108`
+- `TABLE 510.1.2(2)` pages `109-113`
+- `TABLE 510.1.2(3)` pages `114-116`
+- `TABLE 510.1.2(4)` pages `117-119`
+- `TABLE 510.1.2(5)` pages `120-121`
+- `TABLE 510.1.2(6)` pages `122-124`
+
 ## Evaluation Corpus Status
 
 Current configured fixtures:
@@ -294,14 +389,8 @@ Current configured fixtures:
 - `upc_ch2_figures`
 - `born_digital_simple`
 - `awkward_headers`
+- `upc_ch4`
 - `prose_control`
-
-`born_digital_simple` is now:
-
-- path: `/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf`
-- expected logical table count: `1`
-- logical table tolerance: `0`
-- query: `correlation between temperature ranges`
 
 Corpus-wide evaluation command:
 
@@ -311,7 +400,7 @@ uv run docling-system-eval-corpus
 
 Current result:
 
-- all five configured fixtures complete successfully
+- all six configured fixtures complete successfully
 - all configured query cases currently pass
 
 Important limitation:
@@ -342,6 +431,17 @@ New internal/runtime capability:
 
 This is used by evaluation and should remain the single ranking implementation.
 
+### Table Supplements
+
+Table supplements are now a first-class provisional repair mechanism, but they are not a second canonical ingest path.
+
+Keep these constraints:
+
+- the chapter PDF remains the canonical document source
+- supplement PDFs are narrow repair inputs for specific corrupted table families
+- overlay outputs must preserve the chapter-local page span and original source-segment lineage
+- registry entries should remain sparse, explicit, and test-covered
+
 ### Evaluation Storage
 
 Evaluation is now a first-class persisted subsystem and must not be overloaded into:
@@ -358,10 +458,12 @@ Core runtime:
 
 - `app/api/main.py`
 - `app/cli.py`
+- `app/core/config.py`
 - `app/db/models.py`
 - `app/schemas/documents.py`
 - `app/schemas/evaluations.py`
 - `app/services/documents.py`
+- `app/services/docling_parser.py`
 - `app/services/evaluations.py`
 - `app/services/runs.py`
 - `app/services/search.py`
@@ -379,12 +481,15 @@ Tests:
 
 - `tests/unit/test_cli.py`
 - `tests/unit/test_documents_api.py`
+- `tests/unit/test_docling_parser.py`
 - `tests/unit/test_evaluation_service.py`
+- `tests/unit/test_eval_config.py`
 - `tests/unit/test_search_service.py`
 - `tests/unit/test_ui.py`
 
 Config:
 
+- `config/table_supplements.yaml`
 - `pyproject.toml`
 
 ## Verification Performed
@@ -396,17 +501,21 @@ uv run alembic upgrade head
 uv run pytest tests
 uv run python -m compileall app tests
 uv run docling-system-eval-corpus
+uv run pytest tests/unit/test_docling_parser.py tests/unit/test_validation.py -q
 uv run ruff check app tests
 curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
+curl -sS http://127.0.0.1:8000/documents | jq
 ```
 
 Passing results:
 
 - `uv run pytest tests` -> `47 passed, 1 skipped`
+- `uv run pytest tests/unit/test_docling_parser.py tests/unit/test_validation.py -q` -> `13 passed`
 - `uv run python -m compileall app tests` passed
 - `uv run ruff check app tests` passed
 - migration to `0008_run_evaluations` passed
 - batch evaluation over the configured corpus completed successfully
+- live reprocess of `UPC_CH_5.pdf` completed and promoted as run `7d8559b8-848f-40bc-bf39-2e6da7f8c15f`
 
 Live runtime checks:
 
@@ -435,7 +544,16 @@ The schema and worker now support real baseline deltas for reprocess runs, but:
 
 The next useful step is to generate more candidate reprocesses and broaden the corpus so the delta data becomes richer.
 
-### 3. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
+### 3. Chapter 5 Has No Fixed Fixture Yet
+
+`UPC_CH_5.pdf` is now ingesting and promoting cleanly, but:
+
+- it does not yet have a fixed fixture in `docs/evaluation_corpus.yaml`
+- its latest evaluation status is `skipped`
+
+That means the new supplement-registry path is covered by unit tests and live verification, but not yet by the fixed retrieval corpus.
+
+### 4. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
 
 There is an active document for:
 
@@ -449,11 +567,11 @@ It has:
 
 This is not a correctness issue, but it is an example of a document in the system that is outside the current fixed eval set.
 
-### 4. The Branch Is Committed But Not Pushed From This Handoff
+### 5. The Branch Is Committed But Not Pushed From This Handoff
 
 The current branch is clean and committed through:
 
-- `35e4075` `Capture eval baselines before promotion and make repo Ruff-clean`
+- `c15e8b4` `Add registry-driven table supplements`
 
 Do not assume that commit has been pushed unless you verify it explicitly.
 
@@ -474,13 +592,24 @@ The baseline plumbing is now in place. The next leverage point is to increase co
 - add more query cases per fixture
 - explicitly include mode and filters where it matters
 - add negative or adversarial queries where ranking confusion is likely
-### Priority 3: Continue UPC Uploads
+
+### Priority 3: Add Fixed Evaluation Coverage For Chapter 5
+
+The current system has live-verified chapter 5 repair behavior, but it should be pinned in the fixed corpus:
+
+- add a `UPC_CH_5.pdf` fixture
+- include at least one query that should resolve against the repaired `510.1.2` family
+- include expected table and figure counts
+
+### Priority 4: Continue UPC Uploads
 
 The current active chapter set is:
 
 - `UPC_CH_1.pdf`
 - `UPC_Ch_2.pdf`
 - `UPC_CH_3.pdf`
+- `UPC_CH_4.pdf`
+- `UPC_CH_5.pdf`
 - `UPC_CH_7.pdf`
 
 The current non-chapter ingests are:
