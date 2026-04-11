@@ -3,16 +3,21 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 import yaml
 from docling.document_converter import DocumentConverter
+from app.core.config import get_settings
 
 HEADING_PATTERN = re.compile(r"^(Chapter\s+\d+|Part\s+[IVXLC]+|[0-9]+(?:\.[0-9]+)*\s)")
 TABLE_LABEL_PATTERN = re.compile(r"^TABLE\s+[0-9A-Z().-]+", re.IGNORECASE)
+PROVISIONAL_UPC_510_FAMILY_PATTERN = re.compile(
+    r"TABLE\s+510\.1\.2\s*(?:\(\s*(\d+)\s*\)|(\d+))",
+    re.IGNORECASE,
+)
 TABLE_ARTIFACT_SCHEMA_VERSION = "1.0"
 FIGURE_ARTIFACT_SCHEMA_VERSION = "1.0"
 
@@ -476,10 +481,11 @@ def _build_raw_table_segments(
                 heading=heading,
                 page_from=table_snapshot.page_from,
                 page_to=table_snapshot.page_to,
-                row_count=int(table_data.get("num_rows") or len(rows)),
-                col_count=int(
-                    table_data.get("num_cols") or max((len(row) for row in rows), default=0)
-                ),
+                # Use normalized rows as the source of truth for logical-table building.
+                # Docling can emit title-only placeholder table fragments with declared
+                # num_rows/num_cols but an all-empty grid.
+                row_count=len(rows),
+                col_count=max((len(row) for row in rows), default=0),
                 rows=rows,
                 metadata={
                     "caption": caption,
@@ -494,6 +500,59 @@ def _build_raw_table_segments(
         )
 
     return raw_segments
+
+
+def _meaningful_table_segments(raw_segments: list[ParsedTableSegment]) -> list[ParsedTableSegment]:
+    meaningful_segments: list[ParsedTableSegment] = []
+    pending_empty_segments: list[ParsedTableSegment] = []
+
+    for segment in raw_segments:
+        if not segment.rows:
+            pending_empty_segments.append(segment)
+            continue
+
+        collapsible = [
+            empty_segment
+            for empty_segment in pending_empty_segments
+            if empty_segment.heading == segment.heading and _pages_adjacent(empty_segment, segment)
+        ]
+        if collapsible:
+            carried_page_from = min(
+                (
+                    empty_segment.page_from
+                    for empty_segment in collapsible
+                    if empty_segment.page_from is not None
+                ),
+                default=segment.page_from,
+            )
+            carried_page_to = max(
+                (
+                    empty_segment.page_to
+                    for empty_segment in collapsible
+                    if empty_segment.page_to is not None
+                ),
+                default=segment.page_to,
+            )
+            if carried_page_from is not None:
+                segment.page_from = (
+                    min(segment.page_from, carried_page_from)
+                    if segment.page_from is not None
+                    else carried_page_from
+                )
+            if carried_page_to is not None:
+                segment.page_to = (
+                    max(segment.page_to, carried_page_to)
+                    if segment.page_to is not None
+                    else carried_page_to
+                )
+            segment.metadata["collapsed_empty_segment_indices"] = [
+                empty_segment.segment_index for empty_segment in collapsible
+            ]
+
+        pending_empty_segments.clear()
+        meaningful_segments.append(segment)
+
+    return meaningful_segments
 
 
 def _build_figures(
@@ -637,6 +696,260 @@ def _build_search_text(title: str | None, heading: str | None, rows: list[list[s
 def _build_preview_text(rows: list[list[str]]) -> str:
     preview_rows = [" | ".join(cell for cell in row if cell) for row in rows[:4] if any(row)]
     return "\n".join(preview_rows).strip()
+
+
+def _preferred_family_title(tables: list[ParsedTable]) -> str | None:
+    candidates = [title for table in tables if (title := table.title)]
+    if not candidates:
+        return None
+
+    def title_score(title: str) -> tuple[int, int]:
+        normalized = _normalize_text(title)
+        return (0 if "continued" in normalized.lower() else 1, len(normalized))
+
+    return max(candidates, key=title_score)
+
+
+def _extract_upc_510_family_key(title: str | None) -> str | None:
+    normalized = _normalize_text(title)
+    match = PROVISIONAL_UPC_510_FAMILY_PATTERN.search(normalized)
+    if not match:
+        return None
+    family_number = match.group(1) or match.group(2)
+    return f"TABLE 510.1.2({family_number})"
+
+
+def _group_tables_by_upc_510_family(tables: list[ParsedTable]) -> dict[str, list[ParsedTable]]:
+    grouped: dict[str, list[ParsedTable]] = {}
+    current_family: str | None = None
+    previous_table: ParsedTable | None = None
+
+    for table in tables:
+        normalized_title = _normalize_text(table.title)
+        family_key = _extract_upc_510_family_key(normalized_title)
+        if family_key is None and current_family and previous_table is not None:
+            same_heading = table.heading == previous_table.heading
+            previous_page = previous_table.page_to or previous_table.page_from
+            current_page = table.page_from or table.page_to
+            is_continuation_fragment = (
+                not normalized_title
+                or not TABLE_LABEL_PATTERN.match(normalized_title)
+                or "continued" in normalized_title.lower()
+            )
+            if (
+                is_continuation_fragment
+                and same_heading
+                and previous_page is not None
+                and current_page is not None
+            ):
+                if current_page - previous_page <= 1:
+                    family_key = current_family
+
+        if family_key is None:
+            if normalized_title and TABLE_LABEL_PATTERN.match(normalized_title):
+                current_family = None
+            previous_table = table
+            continue
+
+        grouped.setdefault(family_key, []).append(table)
+        current_family = family_key
+        previous_table = table
+
+    return grouped
+
+
+def _merge_table_family(
+    tables: list[ParsedTable],
+    *,
+    table_index: int,
+    page_from: int | None = None,
+    page_to: int | None = None,
+    heading: str | None = None,
+    segments: list[ParsedTableSegment] | None = None,
+    metadata_updates: dict[str, Any] | None = None,
+) -> ParsedTable:
+    rows: list[list[str]] = []
+    total_removed_headers = 0
+
+    for position, table in enumerate(tables):
+        table_rows = table.rows
+        if position > 0:
+            table_rows, removed = _strip_repeated_header_rows(rows, table_rows)
+            total_removed_headers += removed
+        rows.extend(table_rows)
+
+    merged_segments = segments if segments is not None else [
+        segment for table in tables for segment in table.segments
+    ]
+    resolved_title = _preferred_family_title(tables)
+    resolved_heading = heading or next((table.heading for table in tables if table.heading), None)
+    resolved_page_from = (
+        page_from
+        if page_from is not None
+        else min((table.page_from for table in tables if table.page_from is not None), default=None)
+    )
+    resolved_page_to = (
+        page_to
+        if page_to is not None
+        else max((table.page_to for table in tables if table.page_to is not None), default=None)
+    )
+
+    metadata = dict(tables[0].metadata)
+    metadata.update(
+        {
+            "is_merged": len(tables) > 1,
+            "source_segment_count": len(merged_segments),
+            "segment_count": len(merged_segments),
+            "merge_reason": (
+                "provisional_family_group_merge" if len(tables) > 1 else metadata.get("merge_reason")
+            )
+            or "single_segment",
+            "merge_confidence": 0.7 if len(tables) > 1 else metadata.get("merge_confidence", 1.0),
+            "continuation_candidate": len(tables) > 1,
+            "ambiguous_continuation_candidate": False,
+            "repeated_header_rows_removed": total_removed_headers > 0,
+            "header_rows_removed_count": total_removed_headers,
+            "merge_sanity_passed": True,
+            "header_removal_passed": True,
+            "source_segment_indices": [segment.segment_index for segment in merged_segments],
+            "source_titles": [table.title for table in tables if table.title],
+        }
+    )
+    if metadata_updates:
+        metadata.update(metadata_updates)
+
+    return ParsedTable(
+        table_index=table_index,
+        title=resolved_title,
+        heading=resolved_heading,
+        page_from=resolved_page_from,
+        page_to=resolved_page_to,
+        row_count=len(rows),
+        col_count=max((len(row) for row in rows), default=0),
+        rows=rows,
+        search_text=_build_search_text(resolved_title, resolved_heading, rows),
+        preview_text=_build_preview_text(rows),
+        metadata=metadata,
+        segments=merged_segments,
+    )
+
+
+def _apply_table_family_overlays(
+    tables: list[ParsedTable],
+    supplement_tables: list[ParsedTable],
+    *,
+    supplement_filename: str,
+) -> list[ParsedTable]:
+    current_families = _group_tables_by_upc_510_family(tables)
+    supplement_families = _group_tables_by_upc_510_family(supplement_tables)
+    if not current_families or not supplement_families:
+        return tables
+
+    table_to_family = {
+        id(table): family_key
+        for family_key, family_tables in current_families.items()
+        for table in family_tables
+    }
+    replaced_families = {
+        family_key for family_key in current_families if family_key in supplement_families
+    }
+    if not replaced_families:
+        return tables
+
+    result: list[ParsedTable] = []
+    emitted_families: set[str] = set()
+    for table in tables:
+        family_key = table_to_family.get(id(table))
+        if family_key not in replaced_families:
+            result.append(table)
+            continue
+        if family_key in emitted_families:
+            continue
+
+        original_family = current_families[family_key]
+        supplement_family = supplement_families[family_key]
+        original_segments = [segment for item in original_family for segment in item.segments]
+        overlay_table = _merge_table_family(
+            supplement_family,
+            table_index=0,
+            page_from=min(
+                (item.page_from for item in original_family if item.page_from is not None),
+                default=None,
+            ),
+            page_to=max(
+                (item.page_to for item in original_family if item.page_to is not None),
+                default=None,
+            ),
+            heading=next((item.heading for item in original_family if item.heading), None),
+            segments=original_segments,
+            metadata_updates={
+                "overlay_applied": True,
+                "overlay_type": "provisional_clean_pdf_family_replacement",
+                "overlay_family_key": family_key,
+                "overlay_source_filename": supplement_filename,
+                "overlay_source_table_indices": [item.table_index for item in supplement_family],
+                "overlay_original_table_indices": [item.table_index for item in original_family],
+            },
+        )
+        result.append(overlay_table)
+        emitted_families.add(family_key)
+
+    return [replace(table, table_index=index) for index, table in enumerate(result)]
+
+
+def _apply_provisional_table_supplements(
+    source_path: Path | None,
+    tables: list[ParsedTable],
+    *,
+    source_filename: str | None = None,
+) -> list[ParsedTable]:
+    # Provisional v1 rule: if a clean sibling PDF exists for the badly scanned
+    # UPC 510.1.2 venting tables, prefer it as the extraction source for those
+    # table families while preserving the chapter page span and provenance.
+    if source_filename != "UPC_CH_5.pdf":
+        return tables
+
+    supplement_filename = "510.1.2.pdf"
+    candidate_paths: list[Path] = []
+    if source_path is not None:
+        candidate_paths.append(source_path.with_name(supplement_filename))
+
+    settings = get_settings()
+    if settings.local_ingest_allowed_roots:
+        roots = [
+            Path(item).expanduser().resolve()
+            for item in settings.local_ingest_allowed_roots.split(":")
+            if item
+        ]
+    else:
+        roots = [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
+
+    for root in roots:
+        if not root.exists():
+            continue
+        direct_candidate = root / supplement_filename
+        if direct_candidate.is_file():
+            candidate_paths.append(direct_candidate)
+        upc_candidate = root / "UPC" / supplement_filename
+        if upc_candidate.is_file():
+            candidate_paths.append(upc_candidate)
+        if any(path.is_file() for path in candidate_paths):
+            break
+        recursive_matches = list(root.rglob(supplement_filename))
+        candidate_paths.extend(path for path in recursive_matches if path.is_file())
+        if recursive_matches:
+            break
+
+    supplement_path = next((path for path in candidate_paths if path.is_file()), None)
+    if supplement_path is None:
+        return tables
+
+    supplement_tables = DoclingParser().parse_pdf(supplement_path).tables
+    return _apply_table_family_overlays(
+        tables,
+        supplement_tables,
+        supplement_filename=supplement_path.name,
+    )
 
 
 def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[ParsedTable]:
@@ -795,16 +1108,22 @@ class DoclingParser:
     def __init__(self, converter: DocumentConverter | None = None) -> None:
         self.converter = converter or get_document_converter()
 
-    def parse_pdf(self, source_path: Path) -> ParsedDocument:
+    def parse_pdf(self, source_path: Path, *, source_filename: str | None = None) -> ParsedDocument:
         result = self.converter.convert(source_path)
         document = result.document
         exported_doc = document.export_to_dict()
         snapshots = _snapshot_items(document)
         chunks = _normalize_chunks(snapshots)
         raw_segments = _build_raw_table_segments(exported_doc, snapshots)
-        tables = _build_logical_tables(raw_segments)
-        _annotate_ambiguous_continuations(raw_segments, tables)
-        _validate_table_merge_assignments(raw_segments, tables)
+        meaningful_segments = _meaningful_table_segments(raw_segments)
+        tables = _build_logical_tables(meaningful_segments)
+        _annotate_ambiguous_continuations(meaningful_segments, tables)
+        _validate_table_merge_assignments(meaningful_segments, tables)
+        tables = _apply_provisional_table_supplements(
+            source_path,
+            tables,
+            source_filename=source_filename or (source_path.name if source_path is not None else None),
+        )
         figures = _build_figures(exported_doc, snapshots)
 
         yaml_text = yaml.safe_dump(exported_doc, sort_keys=False, allow_unicode=True)

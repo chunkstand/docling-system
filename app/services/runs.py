@@ -602,7 +602,10 @@ def process_run(
         failure_stage = "parse"
         logger.info("run_processing_started", run_id=str(run.id), document_id=str(document.id))
         heartbeat_run(session, run)
-        parsed = parser.parse_pdf(Path(document.source_path))
+        parsed = parser.parse_pdf(
+            Path(document.source_path),
+            source_filename=document.source_filename,
+        )
         increment("tables_detected_total", len(parsed.raw_table_segments))
         heartbeat_run(session, run)
         failure_stage = "embedding"

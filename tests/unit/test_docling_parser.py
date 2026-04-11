@@ -5,7 +5,11 @@ from types import SimpleNamespace
 from app.services.docling_parser import (
     DoclingParser,
     ParsedTableSegment,
+    ParsedTable,
+    _apply_table_family_overlays,
     _build_logical_tables,
+    _group_tables_by_upc_510_family,
+    _meaningful_table_segments,
     _normalize_chunks,
     _snapshot_items,
 )
@@ -253,3 +257,274 @@ def test_build_logical_tables_merges_same_title_adjacent_segments_with_shape_dri
     assert tables[0].metadata["is_merged"] is True
     assert tables[0].metadata["merge_reason"] == "adjacent_same_title_heading_continuation"
     assert tables[0].metadata["merge_confidence"] == 0.8
+
+
+def test_meaningful_table_segments_drops_empty_spacer_and_allows_continuation_merge() -> None:
+    first = ParsedTableSegment(
+        segment_index=0,
+        segment_order=10,
+        source_table_ref="#/tables/0",
+        title="TABLE 510.1.2(2) TYPE B DOUBLE-WALL GAS VENT [NFPA 54: TABLE 13.1(b)]*",
+        heading="510.1.2 Elbows",
+        page_from=109,
+        page_to=109,
+        row_count=2,
+        col_count=3,
+        rows=[
+            ["Vent Height", "Fan", "Nat"],
+            ["6", "2838", "1660"],
+        ],
+        metadata={"title_source": "caption", "header_rows_removed": 0, "header_rows_retained": 3},
+    )
+    spacer = ParsedTableSegment(
+        segment_index=1,
+        segment_order=11,
+        source_table_ref="#/tables/1",
+        title="TABLE 510.1.2(2) TYPE B DOUBLE-WALL GAS VENT [NFPA 54: TABLE 13.1(b)]* NUMBER OF",
+        heading="510.1.2 Elbows",
+        page_from=110,
+        page_to=110,
+        row_count=0,
+        col_count=0,
+        rows=[],
+        metadata={
+            "title_source": "caption+title_hint",
+            "header_rows_removed": 0,
+            "header_rows_retained": 0,
+        },
+    )
+    second = ParsedTableSegment(
+        segment_index=2,
+        segment_order=12,
+        source_table_ref="#/tables/2",
+        title=None,
+        heading="510.1.2 Elbows",
+        page_from=111,
+        page_to=111,
+        row_count=2,
+        col_count=4,
+        rows=[
+            ["20", "0", "35", "96"],
+            ["2", "37", "74", "50"],
+        ],
+        metadata={"title_source": "inferred", "header_rows_removed": 0, "header_rows_retained": 3},
+    )
+
+    segments = _meaningful_table_segments([first, spacer, second])
+    tables = _build_logical_tables(segments)
+
+    assert [segment.segment_index for segment in segments] == [0, 2]
+    assert len(tables) == 1
+    assert tables[0].title == first.title
+    assert tables[0].page_from == 109
+    assert tables[0].page_to == 111
+    assert tables[0].metadata["is_merged"] is True
+
+
+def _make_table(
+    *,
+    table_index: int,
+    title: str | None,
+    page_from: int,
+    page_to: int,
+    rows: list[list[str]],
+    heading: str = "510.1.2 Elbows",
+    segment_index: int | None = None,
+) -> ParsedTable:
+    resolved_segment_index = segment_index if segment_index is not None else table_index
+    segment = ParsedTableSegment(
+        segment_index=resolved_segment_index,
+        segment_order=resolved_segment_index,
+        source_table_ref=f"#/tables/{resolved_segment_index}",
+        title=title,
+        heading=heading,
+        page_from=page_from,
+        page_to=page_to,
+        row_count=len(rows),
+        col_count=max((len(row) for row in rows), default=0),
+        rows=rows,
+        metadata={"title_source": "caption", "header_rows_removed": 0, "header_rows_retained": 3},
+    )
+    return ParsedTable(
+        table_index=table_index,
+        title=title,
+        heading=heading,
+        page_from=page_from,
+        page_to=page_to,
+        row_count=len(rows),
+        col_count=max((len(row) for row in rows), default=0),
+        rows=rows,
+        search_text="\n".join(" | ".join(row) for row in rows),
+        preview_text="\n".join(" | ".join(row) for row in rows[:4]),
+        metadata={
+            "is_merged": False,
+            "source_segment_count": 1,
+            "segment_count": 1,
+            "merge_reason": "single_segment",
+            "merge_confidence": 1.0,
+            "continuation_candidate": False,
+            "ambiguous_continuation_candidate": False,
+            "repeated_header_rows_removed": False,
+            "header_rows_removed_count": 0,
+            "title_resolution_source": "caption",
+            "merge_sanity_passed": True,
+            "header_removal_passed": True,
+            "source_segment_indices": [resolved_segment_index],
+            "source_titles": [title] if title else [],
+        },
+        segments=[segment],
+    )
+
+
+def test_apply_table_family_overlays_replaces_corrupted_upc_family() -> None:
+    corrupted_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2(2) TYPE B DOUBLE-WALL GAS VENT [NFPA 54: TABLE 13.1(b)]*",
+            page_from=109,
+            page_to=111,
+            rows=[["10", "2733029 1940"], ["15", "3062988 1910"]],
+            segment_index=21,
+        ),
+        _make_table(
+            table_index=1,
+            title="TABLE 510.1.2(2)",
+            page_from=112,
+            page_to=112,
+            rows=[["50", "N", "N"], ["100", "0", "1316"]],
+            segment_index=24,
+        ),
+        _make_table(
+            table_index=2,
+            title="TABLE 510.1.2(5) SINGLE-WALL METAL PIPE OR TYPE B ASBESTOS-CEMENT VENT [NFPA 54: TABLE 13.1(e)]*",
+            page_from=120,
+            page_to=121,
+            rows=[["10", "2", "216"], ["15", "2", "211"]],
+            segment_index=36,
+        ),
+    ]
+
+    supplement_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE-WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
+            page_from=4,
+            page_to=5,
+            rows=[["10", "273", "3029", "1940"], ["15", "306", "2988", "1910"]],
+            segment_index=4,
+        ),
+        _make_table(
+            table_index=1,
+            title="TABLE 510.1.2 ( 2 ) -[ :",
+            page_from=5,
+            page_to=6,
+            rows=[["10", "229", "645", "437"], ["15", "272", "630", "420"]],
+            segment_index=5,
+        ),
+    ]
+
+    result = _apply_table_family_overlays(
+        corrupted_tables,
+        supplement_tables,
+        supplement_filename="510.1.2.pdf",
+    )
+
+    assert len(result) == 2
+    assert result[0].table_index == 0
+    assert result[0].title == supplement_tables[0].title
+    assert result[0].page_from == 109
+    assert result[0].page_to == 112
+    assert result[0].rows[0] == ["10", "273", "3029", "1940"]
+    assert result[0].rows[-1] == ["15", "272", "630", "420"]
+    assert result[0].metadata["overlay_applied"] is True
+    assert result[0].metadata["overlay_source_filename"] == "510.1.2.pdf"
+    assert result[0].metadata["overlay_family_key"] == "TABLE 510.1.2(2)"
+    assert result[0].metadata["overlay_original_table_indices"] == [0, 1]
+    assert result[0].metadata["overlay_source_table_indices"] == [0, 1]
+    assert [segment.segment_index for segment in result[0].segments] == [21, 24]
+    assert result[1].title == corrupted_tables[2].title
+
+
+def test_apply_table_family_overlays_does_not_absorb_later_titled_tables() -> None:
+    chapter_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2(6) EXTERIOR MASONRY CHIMNEY [NFPA 54: TABLE 13.1(f)]1, 2",
+            page_from=122,
+            page_to=124,
+            rows=[["5", "35", "67"], ["10", "30", "58"]],
+            heading="510.1.2 Elbows",
+            segment_index=38,
+        ),
+        _make_table(
+            table_index=1,
+            title="TABLE 509.4 TYPE OF VENTING SYSTEM TO BE USED [NFPA 54: TABLE 12.5.1]",
+            page_from=125,
+            page_to=125,
+            rows=[["Listed Category I appliances", "Type B gas vent"]],
+            heading="509.4 Type of Venting System",
+            segment_index=41,
+        ),
+    ]
+    supplement_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2 ( 6 ) EXTERIOR MASONRY CHIMNEY [ NFPA 54 : TABLE 13.1(f)] 1, 2",
+            page_from=11,
+            page_to=12,
+            rows=[["NUMBEROFAPPLIANCES:", "SINGLE"], ["5", "35"]],
+            segment_index=11,
+        )
+    ]
+
+    result = _apply_table_family_overlays(
+        chapter_tables,
+        supplement_tables,
+        supplement_filename="510.1.2.pdf",
+    )
+
+    assert len(result) == 2
+    assert result[0].metadata["overlay_applied"] is True
+    assert result[0].metadata["overlay_original_table_indices"] == [0]
+    assert result[1].title == chapter_tables[1].title
+    assert result[1].metadata.get("overlay_applied") is None
+
+
+def test_group_tables_by_upc_510_family_keeps_titled_continued_fragment() -> None:
+    tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2 ( 1 ) TYPE B DOUBLE-WALL GAS VENT [ NFPA 54 :",
+            page_from=1,
+            page_to=1,
+            rows=[["a"]],
+        ),
+        _make_table(
+            table_index=1,
+            title="TABLE 13.1(a)] (continued)",
+            page_from=2,
+            page_to=2,
+            rows=[["b"]],
+        ),
+        _make_table(
+            table_index=2,
+            title="TABLE 510.2(1) TYPE B DOUBLE-WALL VENT [NFPA 54: TABLE 13.2(a)]*",
+            page_from=3,
+            page_to=3,
+            rows=[["c"]],
+            heading="510.2 Multiple Appliance Vent Table 510.2(1) Through Table 510.2(9)",
+        ),
+        _make_table(
+            table_index=3,
+            title="OF BTU PER HOUR",
+            page_from=4,
+            page_to=4,
+            rows=[["d"]],
+            heading="510.2 Multiple Appliance Vent Table 510.2(1) Through Table 510.2(9)",
+        ),
+    ]
+
+    grouped = _group_tables_by_upc_510_family(tables)
+
+    assert list(grouped) == ["TABLE 510.1.2(1)"]
+    assert [table.table_index for table in grouped["TABLE 510.1.2(1)"]] == [0, 1]
