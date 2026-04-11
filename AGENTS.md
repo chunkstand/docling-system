@@ -30,6 +30,7 @@ Unless the user says otherwise, prefer:
 - `docling.json` is the canonical machine-readable document parse artifact.
 - `document.yaml` is the human-readable document artifact.
 - Table JSON is canonical; table YAML is human-readable.
+- Figures are first-class persisted outputs with JSON/YAML artifacts and provenance metadata.
 - YAML must remain derived output, not a source of truth for search, ranking, filtering, validation, or persistence.
 - Tables are first-class retrieval objects with persisted logical tables, source segments, merge metadata, audit metadata, and table JSON/YAML artifacts.
 - `documents.active_run_id` may advance only after document and table validations pass.
@@ -38,6 +39,9 @@ Unless the user says otherwise, prefer:
 - `/search` is the immediate mixed typed response for chunks and tables.
 - Mixed-search filters are limited to `document_id`, `page_range`, and optional `result_type`.
 - Local path ingest is CLI-only, constrained by allowed roots, symlink rejection, PDF validation, size limits, page limits, and checksum dedupe.
+- Run evaluations are first-class persisted records with summary and per-query detail.
+- `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
+- `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 
 # Bitter Lesson Guidance
 

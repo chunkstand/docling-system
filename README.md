@@ -4,9 +4,9 @@ Docling-based PDF ingestion and retrieval system for plumbing-code knowledge.
 
 ## What It Does
 
-This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks and logical tables, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and a read-only browser UI.
+This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and a read-only browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.
 
-The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, artifacts, validation status, metrics, and mixed chunk/table search.
+The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, figures, artifacts, validation status, evaluation status, metrics, and mixed chunk/table search.
 
 ## Current Contracts
 
@@ -14,12 +14,16 @@ The current workflow is operator-driven: use the CLI to ingest local PDFs, then 
 - `document.yaml` is the human-readable document artifact.
 - Table JSON is the canonical machine-readable table artifact.
 - Table YAML is the human-readable table artifact.
+- Figures are first-class persisted outputs with JSON/YAML artifacts and provenance metadata.
 - YAML is derived output, not a second source of truth.
 - Search, ranking, filtering, validation, and persistence use normalized database fields and structured objects, not reparsed YAML.
 - `documents.active_run_id` advances only after document and table validations pass.
 - A failed validation run remains non-active, and the prior active run remains unchanged.
 - `/search` is the immediate mixed typed search contract for both chunks and tables.
 - `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
+- Run evaluations are first-class persisted records with summary and per-query detail.
+- `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
+- `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 
 ## Stack
 
@@ -102,13 +106,18 @@ Local path ingest policy:
 - `GET /documents`
 - `POST /documents`
 - `GET /documents/{document_id}`
+- `GET /documents/{document_id}/evaluations/latest`
 - `GET /documents/{document_id}/chunks`
 - `GET /documents/{document_id}/tables`
 - `GET /documents/{document_id}/tables/{table_id}`
+- `GET /documents/{document_id}/figures`
+- `GET /documents/{document_id}/figures/{figure_id}`
 - `GET /documents/{document_id}/artifacts/json`
 - `GET /documents/{document_id}/artifacts/yaml`
 - `GET /documents/{document_id}/tables/{table_id}/artifacts/json`
 - `GET /documents/{document_id}/tables/{table_id}/artifacts/yaml`
+- `GET /documents/{document_id}/figures/{figure_id}/artifacts/json`
+- `GET /documents/{document_id}/figures/{figure_id}/artifacts/yaml`
 - `POST /documents/{document_id}/reprocess`
 - `POST /search`
 
