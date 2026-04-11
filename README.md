@@ -175,6 +175,7 @@ Current configured fixtures include:
 - `born_digital_simple`
 - `awkward_headers`
 - `upc_ch4`
+- `upc_ch5`
 - `prose_control`
 
 ## Troubleshooting

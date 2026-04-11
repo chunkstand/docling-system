@@ -67,8 +67,8 @@ Current active document set:
     "latest_validation_status": "passed",
     "table_count": 41,
     "figure_count": 41,
-    "latest_evaluation_fixture": null,
-    "latest_evaluation_status": "skipped"
+    "latest_evaluation_fixture": "upc_ch5",
+    "latest_evaluation_status": "completed"
   },
   {
     "source_filename": "UPC_CH_4.pdf",
@@ -390,6 +390,7 @@ Current configured fixtures:
 - `born_digital_simple`
 - `awkward_headers`
 - `upc_ch4`
+- `upc_ch5`
 - `prose_control`
 
 Corpus-wide evaluation command:
@@ -400,7 +401,7 @@ uv run docling-system-eval-corpus
 
 Current result:
 
-- all six configured fixtures complete successfully
+- all seven configured fixtures complete successfully
 - all configured query cases currently pass
 
 Important limitation:
@@ -544,16 +545,7 @@ The schema and worker now support real baseline deltas for reprocess runs, but:
 
 The next useful step is to generate more candidate reprocesses and broaden the corpus so the delta data becomes richer.
 
-### 3. Chapter 5 Has No Fixed Fixture Yet
-
-`UPC_CH_5.pdf` is now ingesting and promoting cleanly, but:
-
-- it does not yet have a fixed fixture in `docs/evaluation_corpus.yaml`
-- its latest evaluation status is `skipped`
-
-That means the new supplement-registry path is covered by unit tests and live verification, but not yet by the fixed retrieval corpus.
-
-### 4. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
+### 3. `UPC_Appendix_B.pdf` Is In The Document Set But Not In The Eval Corpus
 
 There is an active document for:
 
@@ -567,7 +559,7 @@ It has:
 
 This is not a correctness issue, but it is an example of a document in the system that is outside the current fixed eval set.
 
-### 5. The Branch Is Committed But Not Pushed From This Handoff
+### 4. The Branch Is Committed But Not Pushed From This Handoff
 
 The current branch is clean and committed through:
 
@@ -593,15 +585,7 @@ The baseline plumbing is now in place. The next leverage point is to increase co
 - explicitly include mode and filters where it matters
 - add negative or adversarial queries where ranking confusion is likely
 
-### Priority 3: Add Fixed Evaluation Coverage For Chapter 5
-
-The current system has live-verified chapter 5 repair behavior, but it should be pinned in the fixed corpus:
-
-- add a `UPC_CH_5.pdf` fixture
-- include at least one query that should resolve against the repaired `510.1.2` family
-- include expected table and figure counts
-
-### Priority 4: Continue UPC Uploads
+### Priority 3: Continue UPC Uploads
 
 The current active chapter set is:
 

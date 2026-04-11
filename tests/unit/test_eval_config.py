@@ -11,12 +11,13 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert config["rollout_mode"] == "immediate_breaking_replacement"
     assert config["embedding_contract"]["model"] == "text-embedding-3-small"
     assert config["embedding_contract"]["dimension"] == 1536
-    assert len(config["documents"]) == 6
+    assert len(config["documents"]) == 7
 
     names = {document["name"] for document in config["documents"]}
     assert "upc_ch2_figures" in names
     assert "awkward_headers" in names
     assert "upc_ch4" in names
+    assert "upc_ch5" in names
 
     figure_document = next(
         document for document in config["documents"] if document["name"] == "upc_ch2_figures"
@@ -55,6 +56,16 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert chapter_four_thresholds["expected_figure_count"] == 0
     assert len(chapter_four_thresholds["expected_top_n_table_hit_queries"]) >= 1
     assert len(chapter_four_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
+
+    chapter_five_document = next(
+        document for document in config["documents"] if document["name"] == "upc_ch5"
+    )
+    chapter_five_thresholds = chapter_five_document["thresholds"]
+    assert chapter_five_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_5.pdf"
+    assert chapter_five_thresholds["expected_logical_table_count"] == 41
+    assert chapter_five_thresholds["expected_figure_count"] == 41
+    assert len(chapter_five_thresholds["expected_top_n_table_hit_queries"]) >= 1
+    assert len(chapter_five_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
 
     for document in config["documents"]:
         thresholds = document["thresholds"]
