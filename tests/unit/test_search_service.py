@@ -119,6 +119,52 @@ def test_tabular_query_boost_keeps_table_first(monkeypatch) -> None:
     assert results[0].result_type == "table"
 
 
+def test_table_title_match_boost_keeps_table_first_for_title_query(monkeypatch) -> None:
+    table_id = uuid4()
+    chunk_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=chunk_id,
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="doc.pdf",
+                page_from=5,
+                page_to=5,
+                chunk_text="TABLE 313.3 HANGERS AND SUPPORTS",
+                heading="313.2 Material",
+                keyword_score=0.03,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="table",
+                result_id=table_id,
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="doc.pdf",
+                page_from=35,
+                page_to=36,
+                table_title="TABLE 313.3 HANGERS AND SUPPORTS",
+                table_heading="313.2 Material",
+                table_preview="Material | Horizontal | Vertical",
+                row_count=17,
+                col_count=5,
+                keyword_score=0.02,
+            )
+        ],
+    )
+
+    results = search_documents(session=None, request=SearchRequest(query="hangers and supports", mode="keyword", limit=5))
+    assert results[0].result_type == "table"
+
+
 def test_result_type_filter_limits_results(monkeypatch) -> None:
     monkeypatch.setattr("app.services.search._run_keyword_chunk_search", lambda session, request, candidate_limit=None: [])
     monkeypatch.setattr(

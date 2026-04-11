@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+import re
 from uuid import UUID
 
 from sqlalchemy import Float, Select, and_, cast, false, func, select
@@ -14,6 +15,8 @@ from app.services.telemetry import observe_search_results
 
 
 TABULAR_QUERY_BOOST = 0.05
+TABLE_TITLE_EXACT_MATCH_BOOST = 0.04
+TABLE_TITLE_TOKEN_COVERAGE_BOOST = 0.02
 
 
 @dataclass
@@ -227,6 +230,31 @@ def _is_tabular_query(query: str) -> bool:
     return False
 
 
+def _normalize_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
+
+
+def _table_title_match_boost(item: RankedResult, query: str | None) -> float:
+    if query is None or item.result_type != "table" or not item.table_title:
+        return 0.0
+    normalized_query = _normalize_text(query)
+    normalized_title = _normalize_text(item.table_title)
+    if not normalized_query or not normalized_title:
+        return 0.0
+    if len(normalized_query) >= 4 and normalized_query in normalized_title:
+        return TABLE_TITLE_EXACT_MATCH_BOOST
+    query_tokens = set(normalized_query.split())
+    if len(query_tokens) < 2:
+        return 0.0
+    title_tokens = set(normalized_title.split())
+    token_coverage = len(query_tokens & title_tokens) / len(query_tokens)
+    if token_coverage >= 0.8:
+        return TABLE_TITLE_TOKEN_COVERAGE_BOOST
+    return 0.0
+
+
 def _exact_filter_priority(item: RankedResult, filters: SearchFilters | None) -> int:
     if filters is None or filters.page_range is None:
         return 0
@@ -243,8 +271,9 @@ def _result_type_priority(item: RankedResult, tabular_query: bool) -> int:
     return 1 if item.result_type == "chunk" else 0
 
 
-def _final_score(item: RankedResult, base_score: float, tabular_query: bool) -> float:
+def _final_score(item: RankedResult, base_score: float, tabular_query: bool, query: str | None = None) -> float:
     boost = TABULAR_QUERY_BOOST if tabular_query and item.result_type == "table" else 0.0
+    boost += _table_title_match_boost(item, query)
     return base_score + boost
 
 
@@ -255,18 +284,19 @@ def _sort_ranked_results(
     filters: SearchFilters | None,
     tabular_query: bool,
     limit: int,
+    query: str | None = None,
 ) -> list[SearchResult]:
     ranked = sorted(
         items,
         key=lambda item: (
-            -_final_score(item, score_getter(item), tabular_query),
+            -_final_score(item, score_getter(item), tabular_query, query),
             -_exact_filter_priority(item, filters),
             -_result_type_priority(item, tabular_query),
             item.page_from if item.page_from is not None else 10**9,
             str(item.result_id),
         ),
     )[:limit]
-    return [_to_search_result(item, score=_final_score(item, score_getter(item), tabular_query)) for item in ranked]
+    return [_to_search_result(item, score=_final_score(item, score_getter(item), tabular_query, query)) for item in ranked]
 
 
 def _result_key(item: RankedResult) -> tuple[str, UUID]:
@@ -279,6 +309,7 @@ def _merge_hybrid_results(
     limit: int,
     filters: SearchFilters | None,
     tabular_query: bool,
+    query: str | None = None,
 ) -> list[SearchResult]:
     merged: dict[tuple[str, UUID], RankedResult] = {}
 
@@ -298,14 +329,14 @@ def _merge_hybrid_results(
     ranked = sorted(
         merged.values(),
         key=lambda item: (
-            -_final_score(item, item.hybrid_score or 0.0, tabular_query),
+            -_final_score(item, item.hybrid_score or 0.0, tabular_query, query),
             -_exact_filter_priority(item, filters),
             -_result_type_priority(item, tabular_query),
             item.page_from if item.page_from is not None else 10**9,
             str(item.result_id),
         ),
     )[:limit]
-    return [_to_search_result(item, score=_final_score(item, item.hybrid_score or 0.0, tabular_query)) for item in ranked]
+    return [_to_search_result(item, score=_final_score(item, item.hybrid_score or 0.0, tabular_query, query)) for item in ranked]
 
 
 def _to_search_result(item: RankedResult, score: float) -> SearchResult:
@@ -350,6 +381,7 @@ def search_documents(
             filters=request.filters,
             tabular_query=tabular_query,
             limit=request.limit,
+            query=request.query,
         )
 
     if request.mode == "keyword":
@@ -387,10 +419,18 @@ def search_documents(
             filters=request.filters,
             tabular_query=tabular_query,
             limit=request.limit,
+            query=request.query,
         )
         observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=False)
         return results
 
-    results = _merge_hybrid_results(keyword_results, semantic_results, request.limit, request.filters, tabular_query)
+    results = _merge_hybrid_results(
+        keyword_results,
+        semantic_results,
+        request.limit,
+        request.filters,
+        tabular_query,
+        query=request.query,
+    )
     observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=True)
     return results

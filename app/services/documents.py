@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, UploadFile, status
+import pypdfium2 as pdfium
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
@@ -58,7 +59,24 @@ def _validate_local_ingest_path(file_path: Path) -> Path:
     with resolved_path.open("rb") as source_file:
         if source_file.read(5) != b"%PDF-":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF.")
+    page_count = _pdf_page_count(resolved_path)
+    if page_count <= 0 or page_count > settings.local_ingest_max_pages:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"PDF page count exceeds local ingest limit ({settings.local_ingest_max_pages}).",
+        )
     return resolved_path
+
+
+def _pdf_page_count(file_path: Path) -> int:
+    try:
+        pdf = pdfium.PdfDocument(str(file_path))
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF.") from exc
+    try:
+        return len(pdf)
+    finally:
+        pdf.close()
 
 
 def _get_run(session: Session, run_id: UUID | None) -> DocumentRun | None:

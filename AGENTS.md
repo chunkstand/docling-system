@@ -39,6 +39,17 @@ Unless the user says otherwise, prefer:
 - Mixed-search filters are limited to `document_id`, `page_range`, and optional `result_type`.
 - Local path ingest is CLI-only, constrained by allowed roots, symlink rejection, PDF validation, size limits, page limits, and checksum dedupe.
 
+# Bitter Lesson Guidance
+
+- preserve and strengthen the parts of the system that scale with more data, more compute, and better models: durable runs, stored artifacts, eval corpora, retrieval telemetry, and validation-gated promotion
+- treat parser heuristics, table merge rules, caption attachment rules, and ranking boosts as short-term scaffolding for v1, not as the long-term moat
+- prefer investments that improve general search and learning loops over investments that only encode more document-specific human knowledge
+- when choosing between a new hand-written heuristic and better eval coverage, richer provenance, or a cleaner model/reranking interface, prefer the latter unless a heuristic is required to keep the system buildable and testable now
+- keep enough raw provenance and intermediate artifacts to support future learned reranking, learned merge decisions, and learned figure/table resolution without re-architecting storage or APIs
+- do not let YAML, manually curated rules, or ad hoc post-processing become hidden sources of truth; keep structured DB fields and canonical JSON artifacts as the machine-facing contract
+- bias new retrieval work toward generic recall plus reranking and measurable eval improvements, not toward a growing collection of query-shape special cases
+- if a heuristic is added, pair it with a regression test and document it as a provisional rule that may later be replaced by a more general method
+
 # Working Rules
 
 - implement milestone by milestone

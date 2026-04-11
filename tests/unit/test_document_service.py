@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -87,3 +88,37 @@ def test_local_ingest_rejects_path_outside_allowed_roots(monkeypatch) -> None:
             assert exc.status_code == 400
         else:
             raise AssertionError("Expected out-of-root ingest to be rejected")
+
+
+def test_local_ingest_rejects_pdf_over_page_limit(monkeypatch) -> None:
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        file_path = root / "doc.pdf"
+        file_path.write_bytes(b"%PDF-1.4")
+        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root.resolve()])
+        monkeypatch.setattr(
+            "app.services.documents.get_settings",
+            lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+        )
+        monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 11)
+        try:
+            _validate_local_ingest_path(file_path)
+        except HTTPException as exc:
+            assert exc.status_code == 400
+            assert "page count exceeds local ingest limit" in exc.detail
+        else:
+            raise AssertionError("Expected page limit ingest check to reject the PDF")
+
+
+def test_local_ingest_accepts_pdf_within_page_limit(monkeypatch) -> None:
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        file_path = root / "doc.pdf"
+        file_path.write_bytes(b"%PDF-1.4")
+        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root.resolve()])
+        monkeypatch.setattr(
+            "app.services.documents.get_settings",
+            lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+        )
+        monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 5)
+        assert _validate_local_ingest_path(file_path) == file_path.resolve()

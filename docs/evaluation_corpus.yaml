@@ -41,12 +41,15 @@ documents:
           top_n: 3
   - name: born_digital_simple
     kind: born_digital_simple_tables
-    path: null
+    path: /Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf
     thresholds:
       expected_logical_table_count: 1
-      logical_table_tolerance: 1
+      logical_table_tolerance: 0
       maximum_unexpected_merges: 0
       maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: correlation between temperature ranges
+          top_n: 3
   - name: awkward_headers
     kind: awkward_headers_and_footnotes
     path: /Users/chunkstand/Documents/UPC/UPC_CH_3.pdf
