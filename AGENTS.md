@@ -44,6 +44,9 @@ Unless the user says otherwise, prefer:
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 - Table supplements are registry-driven from `config/table_supplements.yaml`; keep chapter PDFs as the canonical source documents and treat supplement PDFs as narrowly-scoped repair inputs for specific bad table families.
 - Supplement overlays must preserve the chapter-local page span and original source-segment provenance of the replaced logical tables.
+- When a new chapter PDF needs supporting clean tables, add the clean PDF as a supplement input, not as a second canonical document.
+- Pair every supplement rule with fixed-corpus evaluation coverage in `docs/evaluation_corpus.yaml`, including `expected_merged_tables` checks for the repaired family where possible.
+- For supplement-backed repairs, verify both retrieval queries and `summary.structural_passed` from `GET /documents/{document_id}/evaluations/latest` or `docling-system-eval-run`.
 
 # Bitter Lesson Guidance
 
@@ -56,6 +59,7 @@ Unless the user says otherwise, prefer:
 - bias new retrieval work toward generic recall plus reranking and measurable eval improvements, not toward a growing collection of query-shape special cases
 - if a heuristic is added, pair it with a regression test and document it as a provisional rule that may later be replaced by a more general method
 - when a document-specific repair is unavoidable, prefer a registry entry plus provenance-preserving overlay over more parser hardcoding or splitting the corpus into many primary PDFs
+- prefer explicit merge expectations in evaluation fixtures over hand-inspecting artifact JSON after every repair; artifact inspection is a verification aid, not the durable contract
 
 # Working Rules
 

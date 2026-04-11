@@ -4,7 +4,7 @@ Date: 2026-04-10 (local) / 2026-04-11 UTC runtime timestamps
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Last committed checkpoint: `c15e8b4` (`Add registry-driven table supplements`)
+Last committed checkpoint: `924eae9` (`Add structural merge checks to evaluations`)
 
 ## Executive Summary
 
@@ -18,15 +18,20 @@ The important durable pieces remain in place:
 - latest evaluation results are exposed through API and UI
 - validation still gates promotion of `documents.active_run_id`
 
-This follow-up work added three concrete operational improvements:
+This follow-up work added four concrete operational improvements:
 
 - chapter 4 now has a fixture in the fixed evaluation corpus and evaluates cleanly
 - chapter 5 table normalization was hardened so title-only/empty spacer fragments no longer create false zero-row logical tables
 - known-bad table families can now be repaired through a registry-driven supplement mechanism in `config/table_supplements.yaml` instead of hardcoded one-off parser rules
+- evaluation fixtures can now enforce structural merge expectations through `expected_merged_tables`, so repaired families are checked by persisted evaluation instead of only by ad hoc artifact inspection
 
 The current registry contains the first real repair rule:
 
 - `UPC_CH_5.pdf` can overlay the corrupted `TABLE 510.1.2(n)` family from the clean `510.1.2.pdf` supplement while preserving chapter-local page spans and original table-segment provenance
+
+The current fixed-corpus structural merge check contains the first real repair assertion:
+
+- `upc_ch5` requires the repaired `TABLE 510.1.2(2)` family to exist as a merged overlay-backed logical table on pages `109-113` with `overlay_family_key=TABLE 510.1.2(2)`
 
 The branch is committed, the runtime is healthy, and the system is ready for the next UPC chapters.
 
@@ -153,6 +158,7 @@ Current stored evaluation contract:
 - fixture name
 - evaluation status: `pending`, `completed`, `failed`, or `skipped`
 - summary JSON with aggregate counts
+- summary JSON also includes structural evaluation results, including `structural_passed`, per-check details, and merge expectation outcomes
 - per-query rows with:
   - query text
   - search mode
@@ -205,6 +211,7 @@ Current corpus behavior:
 - fixtures with no matching path are skipped
 - matched fixtures produce stored evaluation results
 - query-level pass/fail is based on expected result type appearing within expected top-N
+- structural checks can additionally enforce logical table counts, figure counts, figure artifact/provenance coverage, and expected merged-table overlays
 
 ### 4. Worker Integration
 
@@ -381,6 +388,29 @@ Current live result on active run `7d8559b8-848f-40bc-bf39-2e6da7f8c15f`:
 - `TABLE 510.1.2(5)` pages `120-121`
 - `TABLE 510.1.2(6)` pages `122-124`
 
+### 12. Structural Merge Checks In Evaluation
+
+Evaluation fixtures can now assert structural merge expectations directly.
+
+Files:
+
+- `app/services/evaluations.py`
+- `docs/evaluation_corpus.yaml`
+- `tests/unit/test_evaluation_service.py`
+- `tests/unit/test_eval_config.py`
+
+Current behavior:
+
+- fixtures can declare `expected_merged_tables`
+- merge expectations can match by title text, heading text, page span, minimum source segment count, and overlay metadata
+- evaluation summaries now include `structural_passed`, `structural_check_count`, `failed_structural_checks`, and detailed structural-check rows
+- repaired-family regressions can now fail the structural portion of evaluation even if simple search queries still pass
+
+Current live chapter 5 result:
+
+- latest chapter 5 evaluation reports `structural_passed: true`
+- the repaired `TABLE 510.1.2(2)` overlay family is matched as an expected merged table
+
 ## Evaluation Corpus Status
 
 Current configured fixtures:
@@ -403,6 +433,7 @@ Current result:
 
 - all seven configured fixtures complete successfully
 - all configured query cases currently pass
+- chapter 5 also passes structural merge checks for the repaired `510.1.2(2)` family
 
 Important limitation:
 
@@ -442,6 +473,18 @@ Keep these constraints:
 - supplement PDFs are narrow repair inputs for specific corrupted table families
 - overlay outputs must preserve the chapter-local page span and original source-segment lineage
 - registry entries should remain sparse, explicit, and test-covered
+
+### Future Supplement Workflow
+
+For future sessions adding new chapter PDFs with supporting clean tables, follow this exact sequence:
+
+1. ingest the chapter PDF as the canonical document
+2. place the clean supporting table PDF under an allowed local root
+3. add a registry rule in `config/table_supplements.yaml`
+4. reprocess the chapter and inspect the replacement family once
+5. add or extend the matching fixture in `docs/evaluation_corpus.yaml`
+6. include `expected_merged_tables` for the repaired family when there is a stable identity for it
+7. run `uv run docling-system-eval-run <run_id>` and confirm `summary.structural_passed` is `true`
 
 ### Evaluation Storage
 
@@ -503,6 +546,7 @@ uv run pytest tests
 uv run python -m compileall app tests
 uv run docling-system-eval-corpus
 uv run pytest tests/unit/test_docling_parser.py tests/unit/test_validation.py -q
+uv run pytest tests/unit/test_evaluation_service.py tests/unit/test_eval_config.py -q
 uv run ruff check app tests
 curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
 curl -sS http://127.0.0.1:8000/documents | jq
@@ -512,11 +556,13 @@ Passing results:
 
 - `uv run pytest tests` -> `47 passed, 1 skipped`
 - `uv run pytest tests/unit/test_docling_parser.py tests/unit/test_validation.py -q` -> `13 passed`
+- `uv run pytest tests/unit/test_evaluation_service.py tests/unit/test_eval_config.py -q` -> `7 passed`
 - `uv run python -m compileall app tests` passed
 - `uv run ruff check app tests` passed
 - migration to `0008_run_evaluations` passed
 - batch evaluation over the configured corpus completed successfully
 - live reprocess of `UPC_CH_5.pdf` completed and promoted as run `7d8559b8-848f-40bc-bf39-2e6da7f8c15f`
+- live chapter 5 evaluation now reports `structural_passed: true` for the repaired `510.1.2(2)` family
 
 Live runtime checks:
 
@@ -563,7 +609,7 @@ This is not a correctness issue, but it is an example of a document in the syste
 
 The current branch is clean and committed through:
 
-- `c15e8b4` `Add registry-driven table supplements`
+- `924eae9` `Add structural merge checks to evaluations`
 
 Do not assume that commit has been pushed unless you verify it explicitly.
 
@@ -584,6 +630,7 @@ The baseline plumbing is now in place. The next leverage point is to increase co
 - add more query cases per fixture
 - explicitly include mode and filters where it matters
 - add negative or adversarial queries where ranking confusion is likely
+- when new supplement-backed repairs are added, include `expected_merged_tables` so the repaired family is structurally pinned in evaluation
 
 ### Priority 3: Continue UPC Uploads
 

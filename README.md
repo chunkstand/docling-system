@@ -150,6 +150,14 @@ Tables are first-class retrieval objects. The parser stores logical tables, sour
 
 The current parser also supports a small, explicit supplement registry for known-bad scanned table families. This is a provisional v1 mechanism, not a second ingest path: the chapter PDF remains canonical, and matching registry rules selectively overlay cleaner table-family rows from a supplement PDF while retaining chapter-local page ranges and source-segment lineage.
 
+For future repairs, the intended workflow is:
+
+- ingest the chapter PDF as the canonical document
+- add any clean supporting table PDF as a supplement input under the allowed local roots
+- add or update the matching rule in `config/table_supplements.yaml`
+- add fixed-corpus evaluation coverage in `docs/evaluation_corpus.yaml`, including `expected_merged_tables` where the repair should be structurally verified
+- reprocess the document and confirm both query hits and structural checks pass through `GET /documents/{document_id}/evaluations/latest`
+
 Table telemetry is available from `GET /metrics`, including detected tables, persisted logical tables, segment counts, continuation merges, ambiguous continuations, table embedding failures, and table search hits.
 
 ## Useful Commands
