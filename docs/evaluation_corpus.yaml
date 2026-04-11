@@ -66,6 +66,22 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: listed standards
           top_n: 3
+  - name: upc_ch4
+    kind: fixture_count_tables
+    path: /Users/chunkstand/Documents/UPC/UPC_CH_4.pdf
+    thresholds:
+      expected_logical_table_count: 3
+      logical_table_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      expected_top_n_table_hit_queries:
+        - query: minimum required plumbing fixtures
+          top_n: 3
+      expected_top_n_chunk_hit_queries:
+        - query: public lavatories
+          top_n: 3
   - name: prose_control
     kind: prose_heavy_control
     path: /Users/chunkstand/Documents/UPC/UPC_CH_1.pdf
