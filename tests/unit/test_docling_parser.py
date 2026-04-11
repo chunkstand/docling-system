@@ -6,9 +6,12 @@ from app.services.docling_parser import (
     DoclingParser,
     ParsedTableSegment,
     ParsedTable,
+    TableSupplementRule,
     _apply_table_family_overlays,
+    _apply_registered_table_supplements,
     _build_logical_tables,
     _group_tables_by_upc_510_family,
+    _load_table_supplement_registry,
     _meaningful_table_segments,
     _normalize_chunks,
     _snapshot_items,
@@ -528,3 +531,110 @@ def test_group_tables_by_upc_510_family_keeps_titled_continued_fragment() -> Non
 
     assert list(grouped) == ["TABLE 510.1.2(1)"]
     assert [table.table_index for table in grouped["TABLE 510.1.2(1)"]] == [0, 1]
+
+
+def test_load_table_supplement_registry_reads_rules(tmp_path) -> None:
+    registry_path = tmp_path / "table_supplements.yaml"
+    registry_path.write_text(
+        """
+rules:
+  - document_filenames:
+      - UPC_CH_5.pdf
+      - nested/UPC_CH_6.pdf
+    supplement_filename: UPC/510.1.2.pdf
+    matcher: upc_510_family
+    overlay_type: clean_pdf_family_replacement
+    description: Example rule
+""".strip()
+    )
+
+    rules = _load_table_supplement_registry(str(registry_path))
+
+    assert len(rules) == 1
+    assert rules[0].document_filenames == ("UPC_CH_5.pdf", "UPC_CH_6.pdf")
+    assert rules[0].supplement_filename == "510.1.2.pdf"
+    assert rules[0].matcher == "upc_510_family"
+    assert rules[0].overlay_type == "clean_pdf_family_replacement"
+    assert rules[0].description == "Example rule"
+
+
+def test_apply_registered_table_supplements_uses_matching_rule(monkeypatch, tmp_path) -> None:
+    chapter_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2(2) TYPE B DOUBLE-WALL GAS VENT [NFPA 54: TABLE 13.1(b)]*",
+            page_from=109,
+            page_to=111,
+            rows=[["10", "2733029 1940"]],
+        )
+    ]
+    supplement_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE-WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
+            page_from=4,
+            page_to=5,
+            rows=[["10", "273", "3029", "1940"]],
+        )
+    ]
+
+    class FakeParser:
+        def parse_pdf(self, source_path, *, source_filename=None):  # noqa: ANN001, ANN202
+            return SimpleNamespace(tables=supplement_tables)
+
+    supplement_path = tmp_path / "510.1.2.pdf"
+    supplement_path.write_bytes(b"%PDF-1.4")
+    monkeypatch.setattr(
+        "app.services.docling_parser._resolve_table_supplement_path",
+        lambda supplement_filename, *, source_path: supplement_path,
+    )
+
+    rules = (
+        TableSupplementRule(
+            document_filenames=("UPC_CH_5.pdf",),
+            supplement_filename="510.1.2.pdf",
+            matcher="upc_510_family",
+            overlay_type="clean_pdf_family_replacement",
+        ),
+    )
+
+    result = _apply_registered_table_supplements(
+        tmp_path / "UPC_CH_5.pdf",
+        chapter_tables,
+        source_filename="UPC_CH_5.pdf",
+        registry_rules=rules,
+        parser=FakeParser(),
+    )
+
+    assert result[0].metadata["overlay_applied"] is True
+    assert result[0].metadata["overlay_type"] == "clean_pdf_family_replacement"
+    assert result[0].rows[0] == ["10", "273", "3029", "1940"]
+
+
+def test_apply_registered_table_supplements_skips_non_matching_rule(tmp_path) -> None:
+    chapter_tables = [
+        _make_table(
+            table_index=0,
+            title="TABLE 510.1.2(2) TYPE B DOUBLE-WALL GAS VENT [NFPA 54: TABLE 13.1(b)]*",
+            page_from=109,
+            page_to=111,
+            rows=[["10", "2733029 1940"]],
+        )
+    ]
+    rules = (
+        TableSupplementRule(
+            document_filenames=("UPC_CH_6.pdf",),
+            supplement_filename="510.1.2.pdf",
+            matcher="upc_510_family",
+            overlay_type="clean_pdf_family_replacement",
+        ),
+    )
+
+    result = _apply_registered_table_supplements(
+        tmp_path / "UPC_CH_5.pdf",
+        chapter_tables,
+        source_filename="UPC_CH_5.pdf",
+        registry_rules=rules,
+    )
+
+    assert result == chapter_tables

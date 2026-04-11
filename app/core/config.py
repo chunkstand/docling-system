@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     local_ingest_allowed_roots: str | None = None
     local_ingest_max_file_bytes: int = 104857600
     local_ingest_max_pages: int = 750
+    table_supplement_registry_path: Path = Field(default=Path("./config/table_supplements.yaml"))
 
 
 @lru_cache(maxsize=1)

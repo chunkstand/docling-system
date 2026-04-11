@@ -172,9 +172,80 @@ class ItemSnapshot:
     page_to: int | None
 
 
+@dataclass(frozen=True)
+class TableSupplementRule:
+    document_filenames: tuple[str, ...]
+    supplement_filename: str
+    matcher: str
+    overlay_type: str
+    description: str | None = None
+
+    def matches_document(self, source_filename: str | None) -> bool:
+        if source_filename is None:
+            return False
+        normalized = Path(source_filename).name
+        return normalized in self.document_filenames
+
+
 @lru_cache(maxsize=1)
 def get_document_converter() -> DocumentConverter:
     return DocumentConverter()
+
+
+@lru_cache(maxsize=4)
+def _load_table_supplement_registry(registry_path: str) -> tuple[TableSupplementRule, ...]:
+    path = Path(registry_path)
+    if not path.is_file():
+        return ()
+
+    payload = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(payload, dict):
+        raise ValueError("Table supplement registry must be a mapping.")
+
+    raw_rules = payload.get("rules") or []
+    if not isinstance(raw_rules, list):
+        raise ValueError("Table supplement registry rules must be a list.")
+
+    rules: list[TableSupplementRule] = []
+    for raw_rule in raw_rules:
+        if not isinstance(raw_rule, dict):
+            raise ValueError("Each table supplement rule must be a mapping.")
+
+        raw_filenames = raw_rule.get("document_filenames") or raw_rule.get("document_filename")
+        if isinstance(raw_filenames, str):
+            document_filenames = (Path(raw_filenames).name,)
+        elif isinstance(raw_filenames, list) and raw_filenames:
+            document_filenames = tuple(Path(str(item)).name for item in raw_filenames if item)
+        else:
+            raise ValueError("Table supplement rules require document_filenames.")
+
+        matcher = str(raw_rule.get("matcher") or "").strip()
+        if matcher not in {"upc_510_family"}:
+            raise ValueError(f"Unsupported table supplement matcher: {matcher}")
+
+        supplement_filename = Path(str(raw_rule.get("supplement_filename") or "")).name
+        if not supplement_filename:
+            raise ValueError("Table supplement rules require supplement_filename.")
+
+        overlay_type = str(raw_rule.get("overlay_type") or "").strip() or "clean_pdf_family_replacement"
+        description = raw_rule.get("description")
+        rules.append(
+            TableSupplementRule(
+                document_filenames=document_filenames,
+                supplement_filename=supplement_filename,
+                matcher=matcher,
+                overlay_type=overlay_type,
+                description=str(description).strip() if description else None,
+            )
+        )
+
+    return tuple(rules)
+
+
+def get_table_supplement_registry() -> tuple[TableSupplementRule, ...]:
+    settings = get_settings()
+    registry_path = settings.table_supplement_registry_path.expanduser().resolve()
+    return _load_table_supplement_registry(str(registry_path))
 
 
 def _collect_page_range(item: Any) -> tuple[int | None, int | None]:
@@ -834,14 +905,24 @@ def _merge_table_family(
     )
 
 
+def _group_tables_for_supplement_matcher(
+    matcher: str, tables: list[ParsedTable]
+) -> dict[str, list[ParsedTable]]:
+    if matcher == "upc_510_family":
+        return _group_tables_by_upc_510_family(tables)
+    raise ValueError(f"Unsupported table supplement matcher: {matcher}")
+
+
 def _apply_table_family_overlays(
     tables: list[ParsedTable],
     supplement_tables: list[ParsedTable],
     *,
+    family_matcher: str = "upc_510_family",
+    overlay_type: str = "clean_pdf_family_replacement",
     supplement_filename: str,
 ) -> list[ParsedTable]:
-    current_families = _group_tables_by_upc_510_family(tables)
-    supplement_families = _group_tables_by_upc_510_family(supplement_tables)
+    current_families = _group_tables_for_supplement_matcher(family_matcher, tables)
+    supplement_families = _group_tables_for_supplement_matcher(family_matcher, supplement_tables)
     if not current_families or not supplement_families:
         return tables
 
@@ -884,7 +965,7 @@ def _apply_table_family_overlays(
             segments=original_segments,
             metadata_updates={
                 "overlay_applied": True,
-                "overlay_type": "provisional_clean_pdf_family_replacement",
+                "overlay_type": overlay_type,
                 "overlay_family_key": family_key,
                 "overlay_source_filename": supplement_filename,
                 "overlay_source_table_indices": [item.table_index for item in supplement_family],
@@ -897,23 +978,7 @@ def _apply_table_family_overlays(
     return [replace(table, table_index=index) for index, table in enumerate(result)]
 
 
-def _apply_provisional_table_supplements(
-    source_path: Path | None,
-    tables: list[ParsedTable],
-    *,
-    source_filename: str | None = None,
-) -> list[ParsedTable]:
-    # Provisional v1 rule: if a clean sibling PDF exists for the badly scanned
-    # UPC 510.1.2 venting tables, prefer it as the extraction source for those
-    # table families while preserving the chapter page span and provenance.
-    if source_filename != "UPC_CH_5.pdf":
-        return tables
-
-    supplement_filename = "510.1.2.pdf"
-    candidate_paths: list[Path] = []
-    if source_path is not None:
-        candidate_paths.append(source_path.with_name(supplement_filename))
-
+def _supplement_search_roots() -> list[Path]:
     settings = get_settings()
     if settings.local_ingest_allowed_roots:
         roots = [
@@ -924,7 +989,21 @@ def _apply_provisional_table_supplements(
     else:
         roots = [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
 
+    deduped: list[Path] = []
     for root in roots:
+        if root not in deduped:
+            deduped.append(root)
+    return deduped
+
+
+def _resolve_table_supplement_path(
+    supplement_filename: str, *, source_path: Path | None
+) -> Path | None:
+    candidate_paths: list[Path] = []
+    if source_path is not None:
+        candidate_paths.append(source_path.with_name(supplement_filename))
+
+    for root in _supplement_search_roots():
         if not root.exists():
             continue
         direct_candidate = root / supplement_filename
@@ -940,16 +1019,41 @@ def _apply_provisional_table_supplements(
         if recursive_matches:
             break
 
-    supplement_path = next((path for path in candidate_paths if path.is_file()), None)
-    if supplement_path is None:
-        return tables
+    return next((path for path in candidate_paths if path.is_file()), None)
 
-    supplement_tables = DoclingParser().parse_pdf(supplement_path).tables
-    return _apply_table_family_overlays(
-        tables,
-        supplement_tables,
-        supplement_filename=supplement_path.name,
-    )
+
+def _apply_registered_table_supplements(
+    source_path: Path | None,
+    tables: list[ParsedTable],
+    *,
+    source_filename: str | None = None,
+    registry_rules: tuple[TableSupplementRule, ...] | None = None,
+    parser: DoclingParser | None = None,
+) -> list[ParsedTable]:
+    resolved_rules = registry_rules if registry_rules is not None else get_table_supplement_registry()
+    normalized_source_filename = Path(source_filename).name if source_filename else None
+    result = tables
+
+    for rule in resolved_rules:
+        if not rule.matches_document(normalized_source_filename):
+            continue
+        supplement_path = _resolve_table_supplement_path(
+            rule.supplement_filename,
+            source_path=source_path,
+        )
+        if supplement_path is None:
+            continue
+        supplement_parser = parser or DoclingParser()
+        supplement_tables = supplement_parser.parse_pdf(supplement_path).tables
+        result = _apply_table_family_overlays(
+            result,
+            supplement_tables,
+            family_matcher=rule.matcher,
+            overlay_type=rule.overlay_type,
+            supplement_filename=supplement_path.name,
+        )
+
+    return result
 
 
 def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[ParsedTable]:
@@ -1119,7 +1223,7 @@ class DoclingParser:
         tables = _build_logical_tables(meaningful_segments)
         _annotate_ambiguous_continuations(meaningful_segments, tables)
         _validate_table_merge_assignments(meaningful_segments, tables)
-        tables = _apply_provisional_table_supplements(
+        tables = _apply_registered_table_supplements(
             source_path,
             tables,
             source_filename=source_filename or (source_path.name if source_path is not None else None),

@@ -1,0 +1,10 @@
+rules:
+  - document_filenames:
+      - UPC_CH_5.pdf
+    supplement_filename: 510.1.2.pdf
+    matcher: upc_510_family
+    overlay_type: clean_pdf_family_replacement
+    description: >
+      Replace the corrupted TABLE 510.1.2 family in the chapter 5 download with
+      the clean table-family PDF while preserving chapter-local page span and
+      provenance.
