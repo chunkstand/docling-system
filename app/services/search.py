@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-import re
 from uuid import UUID
 
 from sqlalchemy import Float, Select, and_, cast, false, func, select
@@ -12,7 +12,6 @@ from app.db.models import Document, DocumentChunk, DocumentTable
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult, SearchScores
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.telemetry import observe_search_results
-
 
 TABULAR_QUERY_BOOST = 0.05
 TABLE_TITLE_EXACT_MATCH_BOOST = 0.04
@@ -116,7 +115,9 @@ def _apply_table_filters(statement: Select, filters: SearchFilters | None) -> Se
     return statement
 
 
-def _hydrate_ranked_chunks(rows: Iterable[tuple[DocumentChunk, Document, float]], score_kind: str) -> list[RankedResult]:
+def _hydrate_ranked_chunks(
+    rows: Iterable[tuple[DocumentChunk, Document, float]], score_kind: str
+) -> list[RankedResult]:
     hydrated: list[RankedResult] = []
     for chunk, document, score in rows:
         ranked = RankedResult(
@@ -138,7 +139,9 @@ def _hydrate_ranked_chunks(rows: Iterable[tuple[DocumentChunk, Document, float]]
     return hydrated
 
 
-def _hydrate_ranked_tables(rows: Iterable[tuple[DocumentTable, Document, float]], score_kind: str) -> list[RankedResult]:
+def _hydrate_ranked_tables(
+    rows: Iterable[tuple[DocumentTable, Document, float]], score_kind: str
+) -> list[RankedResult]:
     hydrated: list[RankedResult] = []
     for table, document, score in rows:
         ranked = RankedResult(
@@ -288,7 +291,10 @@ def _exact_filter_priority(item: RankedResult, filters: SearchFilters | None) ->
         return 0
     if item.page_from is None or item.page_to is None:
         return 0
-    if item.page_from >= filters.page_range.page_from and item.page_to <= filters.page_range.page_to:
+    if (
+        item.page_from >= filters.page_range.page_from
+        and item.page_to <= filters.page_range.page_to
+    ):
         return 1
     return 0
 
@@ -299,7 +305,9 @@ def _result_type_priority(item: RankedResult, tabular_query: bool) -> int:
     return 1 if item.result_type == "chunk" else 0
 
 
-def _final_score(item: RankedResult, base_score: float, tabular_query: bool, query: str | None = None) -> float:
+def _final_score(
+    item: RankedResult, base_score: float, tabular_query: bool, query: str | None = None
+) -> float:
     boost = TABULAR_QUERY_BOOST if tabular_query and item.result_type == "table" else 0.0
     boost += _table_title_match_boost(item, query)
     return base_score + boost
@@ -324,7 +332,10 @@ def _sort_ranked_results(
             str(item.result_id),
         ),
     )[:limit]
-    return [_to_search_result(item, score=_final_score(item, score_getter(item), tabular_query, query)) for item in ranked]
+    return [
+        _to_search_result(item, score=_final_score(item, score_getter(item), tabular_query, query))
+        for item in ranked
+    ]
 
 
 def _result_key(item: RankedResult) -> tuple[str, UUID]:
@@ -364,7 +375,12 @@ def _merge_hybrid_results(
             str(item.result_id),
         ),
     )[:limit]
-    return [_to_search_result(item, score=_final_score(item, item.hybrid_score or 0.0, tabular_query, query)) for item in ranked]
+    return [
+        _to_search_result(
+            item, score=_final_score(item, item.hybrid_score or 0.0, tabular_query, query)
+        )
+        for item in ranked
+    ]
 
 
 def _to_search_result(item: RankedResult, score: float) -> SearchResult:
@@ -403,14 +419,20 @@ def search_documents(
     tabular_query = _is_tabular_query(request.query)
     keyword_candidate_limit = max(request.limit * 5, 20)
     if run_id is None:
-        keyword_results = _run_keyword_chunk_search(session, request, candidate_limit=keyword_candidate_limit)
-        keyword_results.extend(_run_keyword_table_search(session, request, candidate_limit=keyword_candidate_limit))
+        keyword_results = _run_keyword_chunk_search(
+            session, request, candidate_limit=keyword_candidate_limit
+        )
+        keyword_results.extend(
+            _run_keyword_table_search(session, request, candidate_limit=keyword_candidate_limit)
+        )
     else:
         keyword_results = _run_keyword_chunk_search(
             session, request, candidate_limit=keyword_candidate_limit, run_id=run_id
         )
         keyword_results.extend(
-            _run_keyword_table_search(session, request, candidate_limit=keyword_candidate_limit, run_id=run_id)
+            _run_keyword_table_search(
+                session, request, candidate_limit=keyword_candidate_limit, run_id=run_id
+            )
         )
 
     def keyword_fallback_results() -> list[SearchResult]:
@@ -425,7 +447,9 @@ def search_documents(
 
     if request.mode == "keyword":
         results = keyword_fallback_results()
-        observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=False)
+        observe_search_results(
+            sum(1 for item in results if item.result_type == "table"), mixed_request=False
+        )
         return results
 
     provider = embedding_provider
@@ -434,14 +458,20 @@ def search_documents(
             provider = get_embedding_provider()
         except Exception:
             results = keyword_fallback_results()
-            observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=request.mode == "hybrid")
+            observe_search_results(
+                sum(1 for item in results if item.result_type == "table"),
+                mixed_request=request.mode == "hybrid",
+            )
             return results
 
     try:
         query_embedding = provider.embed_texts([request.query])[0]
     except Exception:
         results = keyword_fallback_results()
-        observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=request.mode == "hybrid")
+        observe_search_results(
+            sum(1 for item in results if item.result_type == "table"),
+            mixed_request=request.mode == "hybrid",
+        )
         return results
 
     semantic_candidate_limit = max(request.limit * 5, 20)
@@ -450,7 +480,9 @@ def search_documents(
             session, request, query_embedding, candidate_limit=semantic_candidate_limit
         )
         semantic_results.extend(
-            _run_semantic_table_search(session, request, query_embedding, candidate_limit=semantic_candidate_limit)
+            _run_semantic_table_search(
+                session, request, query_embedding, candidate_limit=semantic_candidate_limit
+            )
         )
     else:
         semantic_results = _run_semantic_chunk_search(
@@ -479,7 +511,9 @@ def search_documents(
             limit=request.limit,
             query=request.query,
         )
-        observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=False)
+        observe_search_results(
+            sum(1 for item in results if item.result_type == "table"), mixed_request=False
+        )
         return results
 
     results = _merge_hybrid_results(
@@ -490,5 +524,7 @@ def search_documents(
         tabular_query,
         query=request.query,
     )
-    observe_search_results(sum(1 for item in results if item.result_type == "table"), mixed_request=True)
+    observe_search_results(
+        sum(1 for item in results if item.result_type == "table"), mixed_request=True
+    )
     return results

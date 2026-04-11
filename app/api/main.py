@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import uvicorn
 from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
+import uvicorn
 from fastapi import Depends, FastAPI, File, Response, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.chunks import DocumentChunkResponse
-from app.schemas.documents import DocumentDetailResponse, DocumentSummaryResponse, DocumentUploadResponse
+from app.schemas.documents import (
+    DocumentDetailResponse,
+    DocumentSummaryResponse,
+    DocumentUploadResponse,
+)
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.search import SearchRequest, SearchResult
@@ -31,7 +35,6 @@ from app.services.search import search_documents
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
-
 
 app = FastAPI(title="Docling System", version="0.1.0")
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -127,7 +130,9 @@ def read_document_figures(
     return get_active_figures(session, document_id)
 
 
-@app.get("/documents/{document_id}/figures/{figure_id}", response_model=DocumentFigureDetailResponse)
+@app.get(
+    "/documents/{document_id}/figures/{figure_id}", response_model=DocumentFigureDetailResponse
+)
 def read_document_figure(
     document_id: UUID,
     figure_id: UUID,
@@ -174,7 +179,9 @@ def read_yaml_artifact(
     return FileResponse(Path(run.yaml_path))
 
 
-def _get_active_table_row(session: Session, document_id: UUID, table_id: UUID) -> DocumentTable | None:
+def _get_active_table_row(
+    session: Session, document_id: UUID, table_id: UUID
+) -> DocumentTable | None:
     document = get_document_detail(session, document_id)
     if document.active_run_id is None:
         return None
@@ -184,12 +191,18 @@ def _get_active_table_row(session: Session, document_id: UUID, table_id: UUID) -
     return table
 
 
-def _get_active_figure_row(session: Session, document_id: UUID, figure_id: UUID) -> DocumentFigure | None:
+def _get_active_figure_row(
+    session: Session, document_id: UUID, figure_id: UUID
+) -> DocumentFigure | None:
     document = get_document_detail(session, document_id)
     if document.active_run_id is None:
         return None
     figure = session.get(DocumentFigure, figure_id)
-    if figure is None or figure.run_id != document.active_run_id or figure.document_id != document_id:
+    if (
+        figure is None
+        or figure.run_id != document.active_run_id
+        or figure.document_id != document_id
+    ):
         return None
     return figure
 

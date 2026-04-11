@@ -8,7 +8,7 @@ from uuid import UUID
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.services.documents import ingest_local_file
-from app.services.evaluations import evaluate_run, fixture_for_document
+from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
 from app.services.storage import StorageService
 
 
@@ -22,7 +22,9 @@ def run_ingest_file() -> None:
 
     with session_factory() as session:
         for raw_path in args.pdf_paths:
-            payload, status_code = ingest_local_file(session, Path(raw_path).expanduser().resolve(), storage_service)
+            payload, status_code = ingest_local_file(
+                session, Path(raw_path).expanduser().resolve(), storage_service
+            )
             print(
                 json.dumps(
                     {
@@ -33,7 +35,9 @@ def run_ingest_file() -> None:
                         "status": payload.status,
                         "duplicate": payload.duplicate,
                         "recovery_run": payload.recovery_run,
-                        "active_run_id": str(payload.active_run_id) if payload.active_run_id else None,
+                        "active_run_id": str(payload.active_run_id)
+                        if payload.active_run_id
+                        else None,
                         "active_run_status": payload.active_run_status,
                     }
                 )
@@ -41,9 +45,13 @@ def run_ingest_file() -> None:
 
 
 def run_eval_run() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate one persisted run against the evaluation corpus.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate one persisted run against the evaluation corpus."
+    )
     parser.add_argument("run_id", help="Document run UUID to evaluate.")
-    parser.add_argument("--baseline-run-id", help="Optional baseline run UUID for rank-delta comparison.")
+    parser.add_argument(
+        "--baseline-run-id", help="Optional baseline run UUID for rank-delta comparison."
+    )
     args = parser.parse_args()
 
     session_factory = get_session_factory()
@@ -54,7 +62,11 @@ def run_eval_run() -> None:
         document = session.get(Document, run.document_id)
         if document is None:
             raise SystemExit(f"Document not found for run: {args.run_id}")
-        baseline_run_id = UUID(args.baseline_run_id) if args.baseline_run_id else None
+        baseline_run_id = resolve_baseline_run_id(
+            run.id,
+            document.active_run_id,
+            explicit_baseline_run_id=UUID(args.baseline_run_id) if args.baseline_run_id else None,
+        )
         evaluation = evaluate_run(session, document, run, baseline_run_id=baseline_run_id)
         print(
             json.dumps(
@@ -72,7 +84,9 @@ def run_eval_run() -> None:
 
 
 def run_eval_corpus() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate all active documents that match the evaluation corpus.")
+    parser = argparse.ArgumentParser(
+        description="Evaluate all active documents that match the evaluation corpus."
+    )
     parser.parse_args()
 
     session_factory = get_session_factory()

@@ -49,7 +49,9 @@ def get_active_figures(session: Session, document_id: UUID) -> list[DocumentFigu
     ]
 
 
-def get_active_figure_detail(session: Session, document_id: UUID, figure_id: UUID) -> DocumentFigureDetailResponse:
+def get_active_figure_detail(
+    session: Session, document_id: UUID, figure_id: UUID
+) -> DocumentFigureDetailResponse:
     document = _get_active_document(session, document_id)
     if document.active_run_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Figure not found.")

@@ -6,7 +6,6 @@ from threading import Lock
 
 from app.core.config import get_settings
 
-
 _lock = Lock()
 _defaults: dict[str, float] = {
     "tables_detected_total": 0,
@@ -52,10 +51,16 @@ def observe_search_results(table_hits: int, mixed_request: bool) -> None:
     with _lock:
         metrics = _read_metrics()
         if table_hits:
-            metrics["table_search_hits_total"] = metrics.get("table_search_hits_total", 0) + table_hits
+            metrics["table_search_hits_total"] = (
+                metrics.get("table_search_hits_total", 0) + table_hits
+            )
         if mixed_request:
-            metrics["mixed_search_requests_total"] = metrics.get("mixed_search_requests_total", 0) + 1
-            metrics["mixed_search_table_results_total"] = metrics.get("mixed_search_table_results_total", 0) + table_hits
+            metrics["mixed_search_requests_total"] = (
+                metrics.get("mixed_search_requests_total", 0) + 1
+            )
+            metrics["mixed_search_table_results_total"] = (
+                metrics.get("mixed_search_table_results_total", 0) + table_hits
+            )
             if table_hits:
                 metrics["mixed_search_requests_with_table_hits_total"] = (
                     metrics.get("mixed_search_requests_with_table_hits_total", 0) + 1
@@ -68,5 +73,7 @@ def snapshot_metrics() -> dict[str, float]:
         metrics = _read_metrics()
     requests = metrics.get("mixed_search_requests_total", 0)
     requests_with_table_hits = metrics.get("mixed_search_requests_with_table_hits_total", 0)
-    metrics["mixed_search_table_hit_rate"] = (requests_with_table_hits / requests) if requests else 0.0
+    metrics["mixed_search_table_hit_rate"] = (
+        (requests_with_table_hits / requests) if requests else 0.0
+    )
     return metrics

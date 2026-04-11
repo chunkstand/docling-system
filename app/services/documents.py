@@ -1,21 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import HTTPException, UploadFile, status
 import pypdfium2 as pdfium
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
 from app.core.config import get_settings
-from app.schemas.documents import DocumentDetailResponse, DocumentSummaryResponse, DocumentUploadResponse
-from app.services.storage import StorageService
+from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
+from app.schemas.documents import (
+    DocumentDetailResponse,
+    DocumentSummaryResponse,
+    DocumentUploadResponse,
+)
 from app.services.evaluations import get_latest_document_evaluation, get_latest_evaluation_summary
-
+from app.services.storage import StorageService
 
 PDF_MIME_TYPES = {"application/pdf", "application/x-pdf"}
 
@@ -28,7 +31,7 @@ class ExistingRunSnapshot:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _is_pdf(upload: UploadFile) -> bool:
@@ -39,7 +42,11 @@ def _is_pdf(upload: UploadFile) -> bool:
 def _allowed_ingest_roots() -> list[Path]:
     settings = get_settings()
     if settings.local_ingest_allowed_roots:
-        return [Path(item).expanduser().resolve() for item in settings.local_ingest_allowed_roots.split(":") if item]
+        return [
+            Path(item).expanduser().resolve()
+            for item in settings.local_ingest_allowed_roots.split(":")
+            if item
+        ]
     return [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
 
 
@@ -47,24 +54,40 @@ def _validate_local_ingest_path(file_path: Path) -> Path:
     settings = get_settings()
     raw_path = file_path.expanduser()
     if raw_path.is_symlink():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Symlink ingest paths are not allowed.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Symlink ingest paths are not allowed."
+        )
     resolved_path = raw_path.resolve()
     if not resolved_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found: {resolved_path}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found: {resolved_path}"
+        )
     if resolved_path.suffix.lower() != ".pdf":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported."
+        )
     if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Path is outside allowed local ingest roots.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path is outside allowed local ingest roots.",
+        )
     if resolved_path.stat().st_size > settings.local_ingest_max_file_bytes:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds local ingest size limit.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds local ingest size limit."
+        )
     with resolved_path.open("rb") as source_file:
         if source_file.read(5) != b"%PDF-":
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF."
+            )
     page_count = _pdf_page_count(resolved_path)
     if page_count <= 0 or page_count > settings.local_ingest_max_pages:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"PDF page count exceeds local ingest limit ({settings.local_ingest_max_pages}).",
+            detail=(
+                "PDF page count exceeds local ingest limit "
+                f"({settings.local_ingest_max_pages})."
+            ),
         )
     return resolved_path
 
@@ -73,7 +96,10 @@ def _pdf_page_count(file_path: Path) -> int:
     try:
         pdf = pdfium.PdfDocument(str(file_path))
     except Exception as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF.") from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File is not a valid PDF.",
+        ) from exc
     try:
         return len(pdf)
     finally:
@@ -134,7 +160,9 @@ def _queue_document_run(
     source_filename: str,
     mime_type: str,
 ) -> tuple[DocumentUploadResponse, int]:
-    existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+    existing = session.execute(
+        select(Document).where(Document.sha256 == sha256)
+    ).scalar_one_or_none()
     if existing is not None:
         snapshot = _load_existing_snapshot(session, existing)
 
@@ -209,7 +237,9 @@ async def ingest_upload(
     storage_service: StorageService,
 ) -> tuple[DocumentUploadResponse, int]:
     if not _is_pdf(upload):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF uploads are supported.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF uploads are supported."
+        )
 
     staged_path, sha256 = await storage_service.stage_upload(upload)
 
@@ -279,13 +309,17 @@ def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailRe
     figure_count = 0
     if document.active_run_id is not None:
         table_count = session.execute(
-            select(func.count()).select_from(DocumentTable).where(
+            select(func.count())
+            .select_from(DocumentTable)
+            .where(
                 DocumentTable.document_id == document.id,
                 DocumentTable.run_id == document.active_run_id,
             )
         ).scalar_one()
         figure_count = session.execute(
-            select(func.count()).select_from(DocumentFigure).where(
+            select(func.count())
+            .select_from(DocumentFigure)
+            .where(
                 DocumentFigure.document_id == document.id,
                 DocumentFigure.run_id == document.active_run_id,
             )
@@ -316,7 +350,11 @@ def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailRe
 
 
 def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryResponse]:
-    documents = session.execute(select(Document).order_by(Document.updated_at.desc()).limit(limit)).scalars().all()
+    documents = (
+        session.execute(select(Document).order_by(Document.updated_at.desc()).limit(limit))
+        .scalars()
+        .all()
+    )
     summaries: list[DocumentSummaryResponse] = []
 
     for document in documents:
@@ -326,13 +364,17 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
         figure_count = 0
         if document.active_run_id is not None:
             table_count = session.execute(
-                select(func.count()).select_from(DocumentTable).where(
+                select(func.count())
+                .select_from(DocumentTable)
+                .where(
                     DocumentTable.document_id == document.id,
                     DocumentTable.run_id == document.active_run_id,
                 )
             ).scalar_one()
             figure_count = session.execute(
-                select(func.count()).select_from(DocumentFigure).where(
+                select(func.count())
+                .select_from(DocumentFigure)
+                .where(
                     DocumentFigure.document_id == document.id,
                     DocumentFigure.run_id == document.active_run_id,
                 )
@@ -395,5 +437,7 @@ def get_latest_document_evaluation_detail(session: Session, document_id: UUID):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
     evaluation = get_latest_document_evaluation(session, document)
     if evaluation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No evaluation found for the document.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No evaluation found for the document."
+        )
     return evaluation

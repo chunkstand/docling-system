@@ -17,20 +17,36 @@ class FakeDocument:
 
     def iterate_items(self):
         yield (
-            SimpleNamespace(text="701.1 Applicability", level=1, label="section_header", prov=[SimpleNamespace(page_no=1)]),
+            SimpleNamespace(
+                text="701.1 Applicability",
+                level=1,
+                label="section_header",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
             0,
         )
         yield (
-            SimpleNamespace(text="First paragraph", label="text", prov=[SimpleNamespace(page_no=1)]),
-            1,
-        )
-        yield (SimpleNamespace(label="picture", self_ref="#/pictures/0", prov=[SimpleNamespace(page_no=1)]), 1)
-        yield (
-            SimpleNamespace(text="UpCodes Diagram (1)", label="text", prov=[SimpleNamespace(page_no=1)]),
+            SimpleNamespace(
+                text="First paragraph", label="text", prov=[SimpleNamespace(page_no=1)]
+            ),
             1,
         )
         yield (
-            SimpleNamespace(text="Island Fixture Venting (UPC)", label="text", prov=[SimpleNamespace(page_no=1)]),
+            SimpleNamespace(
+                label="picture", self_ref="#/pictures/0", prov=[SimpleNamespace(page_no=1)]
+            ),
+            1,
+        )
+        yield (
+            SimpleNamespace(
+                text="UpCodes Diagram (1)", label="text", prov=[SimpleNamespace(page_no=1)]
+            ),
+            1,
+        )
+        yield (
+            SimpleNamespace(
+                text="Island Fixture Venting (UPC)", label="text", prov=[SimpleNamespace(page_no=1)]
+            ),
             1,
         )
         yield (
@@ -49,14 +65,26 @@ class FakeDocument:
         yield (SimpleNamespace(label="table", prov=[SimpleNamespace(page_no=2)]), 1)
         yield (SimpleNamespace(label="table", prov=[SimpleNamespace(page_no=3)]), 1)
         yield (
-            SimpleNamespace(text="701.3 Drainage Fittings", level=1, label="section_header", prov=[SimpleNamespace(page_no=4)]),
+            SimpleNamespace(
+                text="701.3 Drainage Fittings",
+                level=1,
+                label="section_header",
+                prov=[SimpleNamespace(page_no=4)],
+            ),
             0,
         )
         yield (
-            SimpleNamespace(text="Second paragraph", label="text", prov=[SimpleNamespace(page_no=4)]),
+            SimpleNamespace(
+                text="Second paragraph", label="text", prov=[SimpleNamespace(page_no=4)]
+            ),
             1,
         )
-        yield (SimpleNamespace(label="picture", self_ref="#/pictures/1", prov=[SimpleNamespace(page_no=4)]), 1)
+        yield (
+            SimpleNamespace(
+                label="picture", self_ref="#/pictures/1", prov=[SimpleNamespace(page_no=4)]
+            ),
+            1,
+        )
 
     def export_to_dict(self) -> dict:
         return {
@@ -79,7 +107,13 @@ class FakeDocument:
                     "prov": [
                         {
                             "page_no": 1,
-                            "bbox": {"l": 10, "t": 20, "r": 30, "b": 40, "coord_origin": "BOTTOMLEFT"},
+                            "bbox": {
+                                "l": 10,
+                                "t": 20,
+                                "r": 30,
+                                "b": 40,
+                                "coord_origin": "BOTTOMLEFT",
+                            },
                             "charspan": [0, 0],
                         }
                     ],
@@ -94,7 +128,13 @@ class FakeDocument:
                     "prov": [
                         {
                             "page_no": 4,
-                            "bbox": {"l": 11, "t": 21, "r": 31, "b": 41, "coord_origin": "BOTTOMLEFT"},
+                            "bbox": {
+                                "l": 11,
+                                "t": 21,
+                                "r": 31,
+                                "b": 41,
+                                "coord_origin": "BOTTOMLEFT",
+                            },
                             "charspan": [0, 0],
                         }
                     ],
@@ -158,7 +198,9 @@ def test_docling_parser_returns_serialized_document_and_merged_table() -> None:
     assert len(parsed.chunks) == 6
     assert len(parsed.tables) == 1
     assert len(parsed.figures) == 2
-    assert parsed.tables[0].title == "TABLE 701.2 MATERIALS FOR DRAIN, WASTE, VENT PIPE AND FITTINGS"
+    assert (
+        parsed.tables[0].title == "TABLE 701.2 MATERIALS FOR DRAIN, WASTE, VENT PIPE AND FITTINGS"
+    )
     assert parsed.tables[0].row_count == 3
     assert parsed.tables[0].metadata["header_rows_removed_count"] == 1
     assert "Lavatory" in parsed.tables[0].search_text

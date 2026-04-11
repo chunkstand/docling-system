@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -12,7 +12,7 @@ def test_document_tables_route_uses_table_service(monkeypatch) -> None:
     table_id = uuid4()
     document_id = uuid4()
     run_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def fake_get_active_tables(session, incoming_document_id):
         assert incoming_document_id == document_id
@@ -48,7 +48,7 @@ def test_document_table_detail_route_uses_table_service(monkeypatch) -> None:
     table_id = uuid4()
     document_id = uuid4()
     run_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def fake_get_active_table_detail(session, incoming_document_id, incoming_table_id):
         assert incoming_document_id == document_id

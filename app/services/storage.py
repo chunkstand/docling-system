@@ -41,7 +41,9 @@ class StorageService:
         hasher = hashlib.sha256()
 
         with source_path.open("rb") as source_file:
-            with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
+            with NamedTemporaryFile(
+                delete=False, dir=self.staging_root, suffix=suffix
+            ) as temp_file:
                 while chunk := source_file.read(1024 * 1024):
                     temp_file.write(chunk)
                     hasher.update(chunk)
@@ -71,10 +73,14 @@ class StorageService:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    def get_table_json_path(self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int) -> Path:
+    def get_table_json_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
+    ) -> Path:
         return self.get_table_dir(document_id, run_id) / f"{table_index}.json"
 
-    def get_table_yaml_path(self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int) -> Path:
+    def get_table_yaml_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
+    ) -> Path:
         return self.get_table_dir(document_id, run_id) / f"{table_index}.yaml"
 
     def get_figure_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
@@ -82,10 +88,14 @@ class StorageService:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    def get_figure_json_path(self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int) -> Path:
+    def get_figure_json_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
+    ) -> Path:
         return self.get_figure_dir(document_id, run_id) / f"{figure_index}.json"
 
-    def get_figure_yaml_path(self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int) -> Path:
+    def get_figure_yaml_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
+    ) -> Path:
         return self.get_figure_dir(document_id, run_id) / f"{figure_index}.yaml"
 
     def delete_file_if_exists(self, path: Path) -> None:

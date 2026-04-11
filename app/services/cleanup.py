@@ -1,25 +1,33 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentChunk, DocumentFigure, DocumentRun, DocumentTable, DocumentTableSegment, RunStatus
+from app.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentFigure,
+    DocumentRun,
+    DocumentTable,
+    DocumentTableSegment,
+    RunStatus,
+)
 from app.services.storage import StorageService
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def cleanup_staging_files(storage_service: StorageService, older_than_seconds: int = 3600) -> int:
     deleted = 0
     cutoff = _utcnow() - timedelta(seconds=older_than_seconds)
     for path in storage_service.staging_root.glob("*"):
-        modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+        modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
         if modified_at < cutoff:
             path.unlink(missing_ok=True)
             deleted += 1
@@ -51,14 +59,20 @@ def cleanup_superseded_runs(session: Session, storage_service: StorageService) -
     deleted_runs = 0
 
     for document in documents:
-        successful_runs = session.execute(
-            select(DocumentRun)
-            .where(
-                DocumentRun.document_id == document.id,
-                DocumentRun.status == RunStatus.COMPLETED.value,
+        successful_runs = (
+            session.execute(
+                select(DocumentRun)
+                .where(
+                    DocumentRun.document_id == document.id,
+                    DocumentRun.status == RunStatus.COMPLETED.value,
+                )
+                .order_by(
+                    DocumentRun.completed_at.desc().nullslast(), DocumentRun.created_at.desc()
+                )
             )
-            .order_by(DocumentRun.completed_at.desc().nullslast(), DocumentRun.created_at.desc())
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         removable_ids = determine_superseded_run_ids(
             successful_runs=successful_runs,
@@ -76,7 +90,9 @@ def cleanup_superseded_runs(session: Session, storage_service: StorageService) -
                 Path(run.yaml_path).unlink(missing_ok=True)
             run_dir = storage_service.runs_root / str(document.id) / str(run.id)
             storage_service.delete_tree_if_exists(run_dir)
-            session.query(DocumentTableSegment).filter(DocumentTableSegment.run_id == run.id).delete()
+            session.query(DocumentTableSegment).filter(
+                DocumentTableSegment.run_id == run.id
+            ).delete()
             session.query(DocumentTable).filter(DocumentTable.run_id == run.id).delete()
             session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).delete()
             session.query(DocumentChunk).filter(DocumentChunk.run_id == run.id).delete()
@@ -95,13 +111,17 @@ def cleanup_expired_failed_run_artifacts(
     older_than_days: int = 7,
 ) -> int:
     cutoff = _utcnow() - timedelta(days=older_than_days)
-    failed_runs = session.execute(
-        select(DocumentRun).where(
-            DocumentRun.status == RunStatus.FAILED.value,
-            DocumentRun.completed_at.is_not(None),
-            DocumentRun.completed_at < cutoff,
+    failed_runs = (
+        session.execute(
+            select(DocumentRun).where(
+                DocumentRun.status == RunStatus.FAILED.value,
+                DocumentRun.completed_at.is_not(None),
+                DocumentRun.completed_at < cutoff,
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     cleaned = 0
     for run in failed_runs:

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
-import uuid
 
 import yaml
 from sqlalchemy import select
@@ -19,7 +19,6 @@ from app.schemas.evaluations import (
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
 from app.services.search import search_documents
 
-
 EVAL_VERSION = 1
 DEFAULT_CORPUS_NAME = "default"
 DEFAULT_CORPUS_PATH = Path("docs") / "evaluation_corpus.yaml"
@@ -29,7 +28,7 @@ DEFAULT_CORPUS_PATH = Path("docs") / "evaluation_corpus.yaml"
 class EvaluationFixture:
     name: str
     path: str
-    queries: list["EvaluationQueryCase"]
+    queries: list[EvaluationQueryCase]
 
 
 @dataclass
@@ -42,7 +41,20 @@ class EvaluationQueryCase:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def resolve_baseline_run_id(
+    candidate_run_id: UUID,
+    active_run_id: UUID | None,
+    *,
+    explicit_baseline_run_id: UUID | None = None,
+) -> UUID | None:
+    if explicit_baseline_run_id is not None:
+        return None if explicit_baseline_run_id == candidate_run_id else explicit_baseline_run_id
+    if active_run_id is None or active_run_id == candidate_run_id:
+        return None
+    return active_run_id
 
 
 def _run_label(result: SearchResult | None) -> str | None:
@@ -134,7 +146,9 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
     return fixtures
 
 
-def fixture_for_document(document: Document, corpus_path: Path | None = None) -> EvaluationFixture | None:
+def fixture_for_document(
+    document: Document, corpus_path: Path | None = None
+) -> EvaluationFixture | None:
     for fixture in load_evaluation_fixtures(corpus_path):
         if Path(fixture.path).name == document.source_filename:
             return fixture
@@ -186,6 +200,18 @@ def evaluate_run(
     corpus_path: Path | None = None,
     corpus_name: str = DEFAULT_CORPUS_NAME,
 ) -> DocumentRunEvaluation:
+    baseline_run_id = resolve_baseline_run_id(
+        run.id,
+        document.active_run_id,
+        explicit_baseline_run_id=baseline_run_id,
+    )
+    if baseline_run_id is not None:
+        baseline_run = session.get(DocumentRun, baseline_run_id)
+        if baseline_run is None:
+            raise ValueError(f"Baseline run {baseline_run_id} does not exist.")
+        if baseline_run.document_id != document.id:
+            raise ValueError("Baseline run must belong to the same document as the candidate run.")
+
     evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=None)
     fixture = fixture_for_document(document, corpus_path)
     now = _utcnow()
@@ -219,16 +245,27 @@ def evaluate_run(
         for case in fixture.queries:
             filters_payload = {**case.filters, "document_id": str(document.id)}
             filters = SearchFilters.model_validate(filters_payload)
-            request = SearchRequest(query=case.query, mode=case.mode, filters=filters, limit=max(case.expected_top_n, 10))
+            request = SearchRequest(
+                query=case.query,
+                mode=case.mode,
+                filters=filters,
+                limit=max(case.expected_top_n, 10),
+            )
 
             candidate_results = search_documents(session, request, run_id=run.id)
-            baseline_results = search_documents(session, request, run_id=baseline_run_id) if baseline_run_id else []
+            baseline_results = (
+                search_documents(session, request, run_id=baseline_run_id)
+                if baseline_run_id
+                else []
+            )
 
             candidate_rank = _matching_rank(candidate_results, case.expected_result_type)
             baseline_rank = _matching_rank(baseline_results, case.expected_result_type)
             candidate_passed = candidate_rank is not None and candidate_rank <= case.expected_top_n
             baseline_passed = baseline_rank is not None and baseline_rank <= case.expected_top_n
-            delta_kind = _classify_delta(candidate_passed, baseline_passed, _rank_delta(candidate_rank, baseline_rank))
+            delta_kind = _classify_delta(
+                candidate_passed, baseline_passed, _rank_delta(candidate_rank, baseline_rank)
+            )
 
             query_count += 1
             passed_queries += int(candidate_passed)
@@ -283,7 +320,9 @@ def evaluate_run(
         return evaluation
     except Exception as exc:
         session.rollback()
-        evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=fixture.name)
+        evaluation = _upsert_evaluation_row(
+            session, run, corpus_name=corpus_name, fixture_name=fixture.name
+        )
         evaluation.status = "failed"
         evaluation.error_message = str(exc)
         evaluation.summary_json = {
@@ -325,34 +364,50 @@ def _to_evaluation_summary(evaluation: DocumentRunEvaluation) -> EvaluationSumma
     )
 
 
-def get_latest_evaluation_summary(session: Session, run_id: UUID | None) -> EvaluationSummaryResponse | None:
+def get_latest_evaluation_summary(
+    session: Session, run_id: UUID | None
+) -> EvaluationSummaryResponse | None:
     if run_id is None:
         return None
-    evaluation = session.execute(
-        select(DocumentRunEvaluation)
-        .where(DocumentRunEvaluation.run_id == run_id)
-        .order_by(DocumentRunEvaluation.created_at.desc())
-    ).scalars().first()
+    evaluation = (
+        session.execute(
+            select(DocumentRunEvaluation)
+            .where(DocumentRunEvaluation.run_id == run_id)
+            .order_by(DocumentRunEvaluation.created_at.desc())
+        )
+        .scalars()
+        .first()
+    )
     if evaluation is None:
         return None
     return _to_evaluation_summary(evaluation)
 
 
-def get_latest_document_evaluation(session: Session, document: Document) -> EvaluationDetailResponse | None:
+def get_latest_document_evaluation(
+    session: Session, document: Document
+) -> EvaluationDetailResponse | None:
     if document.latest_run_id is None:
         return None
-    evaluation = session.execute(
-        select(DocumentRunEvaluation)
-        .where(DocumentRunEvaluation.run_id == document.latest_run_id)
-        .order_by(DocumentRunEvaluation.created_at.desc())
-    ).scalars().first()
+    evaluation = (
+        session.execute(
+            select(DocumentRunEvaluation)
+            .where(DocumentRunEvaluation.run_id == document.latest_run_id)
+            .order_by(DocumentRunEvaluation.created_at.desc())
+        )
+        .scalars()
+        .first()
+    )
     if evaluation is None:
         return None
-    query_rows = session.execute(
-        select(DocumentRunEvaluationQuery)
-        .where(DocumentRunEvaluationQuery.evaluation_id == evaluation.id)
-        .order_by(DocumentRunEvaluationQuery.query_text.asc())
-    ).scalars().all()
+    query_rows = (
+        session.execute(
+            select(DocumentRunEvaluationQuery)
+            .where(DocumentRunEvaluationQuery.evaluation_id == evaluation.id)
+            .order_by(DocumentRunEvaluationQuery.query_text.asc())
+        )
+        .scalars()
+        .all()
+    )
     summary = _to_evaluation_summary(evaluation)
     return EvaluationDetailResponse(
         **summary.model_dump(),

@@ -15,6 +15,8 @@ from sqlalchemy import (
     Integer,
     Text,
     UniqueConstraint,
+)
+from sqlalchemy import (
     text as sql_text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID
@@ -44,11 +46,21 @@ class Document(Base):
     page_count: Mapped[int | None] = mapped_column(Integer)
     active_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("document_runs.id", ondelete="SET NULL", use_alter=True, name="fk_documents_active_run_id"),
+        ForeignKey(
+            "document_runs.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_documents_active_run_id",
+        ),
     )
     latest_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("document_runs.id", ondelete="SET NULL", use_alter=True, name="fk_documents_latest_run_id"),
+        ForeignKey(
+            "document_runs.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_documents_latest_run_id",
+        ),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -72,7 +84,9 @@ class DocumentRun(Base):
     )
     run_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=sql_text("0"))
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     locked_by: Mapped[str | None] = mapped_column(Text)
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -105,7 +119,12 @@ class DocumentRunEvaluation(Base):
             "status IN ('pending', 'completed', 'failed', 'skipped')",
             name="ck_document_run_evaluations_status",
         ),
-        UniqueConstraint("run_id", "corpus_name", "eval_version", name="uq_document_run_evaluations_run_corpus_version"),
+        UniqueConstraint(
+            "run_id",
+            "corpus_name",
+            "eval_version",
+            name="uq_document_run_evaluations_run_corpus_version",
+        ),
         Index("ix_document_run_evaluations_run_id", "run_id"),
         Index("ix_document_run_evaluations_status", "status"),
     )
@@ -116,8 +135,12 @@ class DocumentRunEvaluation(Base):
     )
     corpus_name: Mapped[str] = mapped_column(Text, nullable=False)
     fixture_name: Mapped[str | None] = mapped_column(Text)
-    eval_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=sql_text("1"))
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", server_default=sql_text("'pending'"))
+    eval_version: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default=sql_text("1")
+    )
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="pending", server_default=sql_text("'pending'")
+    )
     summary_json: Mapped[dict] = mapped_column(
         "summary",
         JSONB,
@@ -139,7 +162,9 @@ class DocumentRunEvaluationQuery(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     evaluation_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("document_run_evaluations.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("document_run_evaluations.id", ondelete="CASCADE"),
+        nullable=False,
     )
     query_text: Mapped[str] = mapped_column(Text, nullable=False)
     mode: Mapped[str] = mapped_column(Text, nullable=False)
@@ -152,7 +177,9 @@ class DocumentRunEvaluationQuery(Base):
     )
     expected_result_type: Mapped[str | None] = mapped_column(Text)
     expected_top_n: Mapped[int | None] = mapped_column(Integer)
-    passed: Mapped[bool] = mapped_column(nullable=False, default=False, server_default=sql_text("false"))
+    passed: Mapped[bool] = mapped_column(
+        nullable=False, default=False, server_default=sql_text("false")
+    )
     candidate_rank: Mapped[int | None] = mapped_column(Integer)
     baseline_rank: Mapped[int | None] = mapped_column(Integer)
     rank_delta: Mapped[int | None] = mapped_column(Integer)
@@ -256,7 +283,9 @@ class DocumentTable(Base):
     page_to: Mapped[int | None] = mapped_column(Integer)
     row_count: Mapped[int | None] = mapped_column(Integer)
     col_count: Mapped[int | None] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="persisted", server_default=sql_text("'persisted'"))
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="persisted", server_default=sql_text("'persisted'")
+    )
     search_text: Mapped[str] = mapped_column(Text, nullable=False)
     preview_text: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_json: Mapped[dict] = mapped_column(
@@ -285,7 +314,9 @@ class DocumentTable(Base):
 class DocumentTableSegment(Base):
     __tablename__ = "document_table_segments"
     __table_args__ = (
-        UniqueConstraint("table_id", "segment_index", name="uq_document_table_segments_table_segment_index"),
+        UniqueConstraint(
+            "table_id", "segment_index", name="uq_document_table_segments_table_segment_index"
+        ),
         Index("ix_document_table_segments_run_id", "run_id"),
         Index("ix_document_table_segments_page_from", "page_from"),
         Index("ix_document_table_segments_page_to", "page_to"),
@@ -337,7 +368,9 @@ class DocumentFigure(Base):
     page_from: Mapped[int | None] = mapped_column(Integer)
     page_to: Mapped[int | None] = mapped_column(Integer)
     confidence: Mapped[float | None] = mapped_column(Float)
-    status: Mapped[str] = mapped_column(Text, nullable=False, default="persisted", server_default=sql_text("'persisted'"))
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="persisted", server_default=sql_text("'persisted'")
+    )
     metadata_json: Mapped[dict] = mapped_column(
         "metadata",
         JSONB,

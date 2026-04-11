@@ -5,7 +5,13 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.services.docling_parser import ParsedChunk, ParsedDocument, ParsedFigure, ParsedTable, ParsedTableSegment
+from app.services.docling_parser import (
+    ParsedChunk,
+    ParsedDocument,
+    ParsedFigure,
+    ParsedTable,
+    ParsedTableSegment,
+)
 from app.services.validation import validate_persisted_run
 
 
@@ -82,7 +88,12 @@ def _parsed_document() -> ParsedDocument:
             "caption_resolution_source": "explicit_ref",
             "caption_attachment_confidence": 1.0,
             "source_confidence": None,
-            "provenance": [{"page_no": 1, "bbox": {"l": 1, "t": 2, "r": 3, "b": 4, "coord_origin": "BOTTOMLEFT"}}],
+            "provenance": [
+                {
+                    "page_no": 1,
+                    "bbox": {"l": 1, "t": 2, "r": 3, "b": 4, "coord_origin": "BOTTOMLEFT"},
+                }
+            ],
         },
     )
     return ParsedDocument(
@@ -160,8 +171,12 @@ def test_validate_persisted_run_fails_when_table_artifact_missing() -> None:
             yaml_path=str(doc_yaml),
         )
         document = SimpleNamespace(id=uuid4())
-        persisted_table = SimpleNamespace(json_path=str(table_json), yaml_path=str(root / "missing.yaml"))
-        persisted_figure = SimpleNamespace(json_path=str(root / "figure.json"), yaml_path=str(root / "figure.yaml"))
+        persisted_table = SimpleNamespace(
+            json_path=str(table_json), yaml_path=str(root / "missing.yaml")
+        )
+        persisted_figure = SimpleNamespace(
+            json_path=str(root / "figure.json"), yaml_path=str(root / "figure.yaml")
+        )
         session = FakeSession(
             chunk_count=1,
             table_count=1,
@@ -196,7 +211,9 @@ def test_validate_persisted_run_fails_when_figure_artifact_missing() -> None:
         )
         document = SimpleNamespace(id=uuid4())
         persisted_table = SimpleNamespace(json_path=str(table_json), yaml_path=str(table_yaml))
-        persisted_figure = SimpleNamespace(json_path=str(figure_json), yaml_path=str(root / "missing-figure.yaml"))
+        persisted_figure = SimpleNamespace(
+            json_path=str(figure_json), yaml_path=str(root / "missing-figure.yaml")
+        )
         session = FakeSession(
             chunk_count=1,
             table_count=1,

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from app.services.runs import is_retryable_error
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
+
+from app.db.models import Document, DocumentRun
+from app.services.runs import is_retryable_error, process_run
+from app.services.validation import ValidationReport
 
 
 def test_value_errors_are_terminal() -> None:
@@ -9,3 +15,105 @@ def test_value_errors_are_terminal() -> None:
 
 def test_unknown_errors_are_retryable() -> None:
     assert is_retryable_error(RuntimeError("transient")) is True
+
+
+def test_process_run_uses_prior_active_run_for_evaluation_baseline(
+    monkeypatch, tmp_path: Path
+) -> None:
+    document_id = uuid4()
+    candidate_run_id = uuid4()
+    prior_active_run_id = uuid4()
+    drifted_active_run_id = uuid4()
+    source_path = tmp_path / "report.pdf"
+    source_path.write_bytes(b"%PDF-1.7\n")
+
+    run = SimpleNamespace(id=candidate_run_id, document_id=document_id)
+    document = SimpleNamespace(
+        id=document_id,
+        source_path=str(source_path),
+        active_run_id=prior_active_run_id,
+        latest_run_id=prior_active_run_id,
+    )
+    parsed = SimpleNamespace(
+        raw_table_segments=[],
+        chunks=[],
+        tables=[],
+        figures=[],
+        title="Report",
+        page_count=1,
+    )
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == candidate_run_id:
+                return run
+            if model is Document and key == document_id:
+                return document
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    observed: dict[str, object | None] = {}
+
+    monkeypatch.setattr("app.services.runs.heartbeat_run", lambda session, run: None)
+    monkeypatch.setattr("app.services.runs.increment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.runs._apply_embeddings", lambda parsed, embedding_provider, run: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._build_lineage_assignments", lambda session, document, parsed: {}
+    )
+    monkeypatch.setattr(
+        "app.services.runs._persist_parsed_artifacts",
+        lambda storage_service, document, run, parsed: (
+            tmp_path / "docling.json",
+            tmp_path / "document.yaml",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_chunks", lambda session, document, run, parsed: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_tables",
+        lambda session, document, run, parsed, storage_service, lineage_assignments: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_figures",
+        lambda session, document, run, parsed, storage_service: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._mark_run_persisted",
+        lambda session, document, run, parsed, json_path, yaml_path: setattr(
+            document,
+            "active_run_id",
+            drifted_active_run_id,
+        ),
+    )
+    monkeypatch.setattr("app.services.runs._mark_run_validating", lambda session, run: None)
+    monkeypatch.setattr(
+        "app.services.runs.validate_persisted_run",
+        lambda session, document, run, parsed: ValidationReport(
+            passed=True, summary="ok", details={}
+        ),
+    )
+
+    def fake_evaluate_run(session, document, run, baseline_run_id=None):
+        observed["baseline_run_id"] = baseline_run_id
+        return SimpleNamespace(status="completed", fixture_name="fixture")
+
+    monkeypatch.setattr("app.services.runs.evaluate_run", fake_evaluate_run)
+    monkeypatch.setattr(
+        "app.services.runs.finalize_run_success",
+        lambda session, document, run, parsed, report: setattr(document, "active_run_id", run.id),
+    )
+
+    process_run(
+        session=FakeSession(),
+        run_id=candidate_run_id,
+        storage_service=object(),
+        parser=SimpleNamespace(parse_pdf=lambda _: parsed),
+        embedding_provider=None,
+    )
+
+    assert observed["baseline_run_id"] == prior_active_run_id

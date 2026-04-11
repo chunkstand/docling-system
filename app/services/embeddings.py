@@ -31,7 +31,8 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         for embedding in embeddings:
             if len(embedding) != self.embedding_dim:
                 raise ValueError(
-                    f"Embedding dimension mismatch: expected {self.embedding_dim}, got {len(embedding)}."
+                    "Embedding dimension mismatch: "
+                    f"expected {self.embedding_dim}, got {len(embedding)}."
                 )
         return embeddings
 

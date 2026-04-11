@@ -9,7 +9,6 @@ from app.services.cleanup import (
 )
 from app.services.storage import StorageService
 
-
 logger = get_logger(__name__)
 
 

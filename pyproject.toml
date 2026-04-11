@@ -54,3 +54,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/main.py" = ["B008"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.10",
+]

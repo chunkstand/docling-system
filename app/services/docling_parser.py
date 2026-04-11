@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from docling.document_converter import DocumentConverter
 import yaml
-
+from docling.document_converter import DocumentConverter
 
 HEADING_PATTERN = re.compile(r"^(Chapter\s+\d+|Part\s+[IVXLC]+|[0-9]+(?:\.[0-9]+)*\s)")
 TABLE_LABEL_PATTERN = re.compile(r"^TABLE\s+[0-9A-Z().-]+", re.IGNORECASE)
@@ -178,7 +177,9 @@ def _collect_page_range(item: Any) -> tuple[int | None, int | None]:
     if not provenances:
         return None, None
 
-    page_numbers = [prov.page_no for prov in provenances if getattr(prov, "page_no", None) is not None]
+    page_numbers = [
+        prov.page_no for prov in provenances if getattr(prov, "page_no", None) is not None
+    ]
     if not page_numbers:
         return None, None
     return min(page_numbers), max(page_numbers)
@@ -189,7 +190,9 @@ def _normalize_text(value: str | None) -> str:
 
 
 def _is_structural_heading(snapshot: ItemSnapshot) -> bool:
-    return snapshot.label == "section_header" and bool(snapshot.text and HEADING_PATTERN.match(snapshot.text))
+    return snapshot.label == "section_header" and bool(
+        snapshot.text and HEADING_PATTERN.match(snapshot.text)
+    )
 
 
 def _snapshot_items(docling_document: Any) -> list[ItemSnapshot]:
@@ -298,7 +301,9 @@ def _annotation_confidence(value: Any) -> float | None:
     if isinstance(value, dict):
         for key, nested in value.items():
             lowered = str(key).lower()
-            if lowered in {"confidence", "score", "probability"} and isinstance(nested, (int, float)):
+            if lowered in {"confidence", "score", "probability"} and isinstance(
+                nested, (int, float)
+            ):
                 return float(nested)
             nested_value = _annotation_confidence(nested)
             if nested_value is not None:
@@ -313,11 +318,15 @@ def _annotation_confidence(value: Any) -> float | None:
 
 def _find_nearby_caption(snapshots: list[ItemSnapshot], table_snapshot: ItemSnapshot) -> str | None:
     best_match: tuple[int, str] | None = None
-    for candidate in snapshots[max(0, table_snapshot.index - 3) : min(len(snapshots), table_snapshot.index + 4)]:
+    for candidate in snapshots[
+        max(0, table_snapshot.index - 3) : min(len(snapshots), table_snapshot.index + 4)
+    ]:
         text = candidate.text or ""
         if not TABLE_LABEL_PATTERN.match(text):
             continue
-        score = abs(candidate.index - table_snapshot.index) + (_page_distance(table_snapshot, candidate) * 2)
+        score = abs(candidate.index - table_snapshot.index) + (
+            _page_distance(table_snapshot, candidate) * 2
+        )
         if best_match is None or score < best_match[0]:
             best_match = (score, text)
     return best_match[1] if best_match else None
@@ -377,7 +386,12 @@ def _find_nearby_figure_caption(
         return primary.text, "nearby_caption", 0.85, candidate_texts
 
     if primary.text and _is_figure_group_label(primary.text) and secondary and secondary.text:
-        return f"{primary.text} {secondary.text}".strip(), "nearby_group_label", 0.7, candidate_texts
+        return (
+            f"{primary.text} {secondary.text}".strip(),
+            "nearby_group_label",
+            0.7,
+            candidate_texts,
+        )
 
     return primary.text, "nearby_text", 0.6, candidate_texts
 
@@ -395,9 +409,13 @@ def _looks_like_table_title_hint(snapshot: ItemSnapshot) -> bool:
     return snapshot.text.isupper() or snapshot.label == "section_header"
 
 
-def _find_table_title_hint(snapshots: list[ItemSnapshot], table_snapshot: ItemSnapshot) -> str | None:
+def _find_table_title_hint(
+    snapshots: list[ItemSnapshot], table_snapshot: ItemSnapshot
+) -> str | None:
     candidates = []
-    for candidate in snapshots[max(0, table_snapshot.index - 2) : min(len(snapshots), table_snapshot.index + 3)]:
+    for candidate in snapshots[
+        max(0, table_snapshot.index - 2) : min(len(snapshots), table_snapshot.index + 3)
+    ]:
         if not _looks_like_table_title_hint(candidate):
             continue
         candidates.append(candidate)
@@ -405,7 +423,12 @@ def _find_table_title_hint(snapshots: list[ItemSnapshot], table_snapshot: ItemSn
     if not candidates:
         return None
 
-    candidates.sort(key=lambda candidate: (abs(candidate.index - table_snapshot.index), _page_distance(table_snapshot, candidate)))
+    candidates.sort(
+        key=lambda candidate: (
+            abs(candidate.index - table_snapshot.index),
+            _page_distance(table_snapshot, candidate),
+        )
+    )
     return candidates[0].text
 
 
@@ -422,11 +445,15 @@ def _structural_heading_at(snapshots: list[ItemSnapshot], item_index: int) -> st
     return None
 
 
-def _build_raw_table_segments(exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]) -> list[ParsedTableSegment]:
+def _build_raw_table_segments(
+    exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]
+) -> list[ParsedTableSegment]:
     table_snapshots = [snapshot for snapshot in snapshots if snapshot.label == "table"]
     raw_segments: list[ParsedTableSegment] = []
 
-    for segment_index, (table_snapshot, exported_table) in enumerate(zip(table_snapshots, exported_doc.get("tables") or [], strict=False)):
+    for segment_index, (table_snapshot, exported_table) in enumerate(
+        zip(table_snapshots, exported_doc.get("tables") or [], strict=False)
+    ):
         table_data = exported_table.get("data") or {}
         rows = _normalize_grid_rows(table_data)
         caption = _find_nearby_caption(snapshots, table_snapshot)
@@ -450,7 +477,9 @@ def _build_raw_table_segments(exported_doc: dict[str, Any], snapshots: list[Item
                 page_from=table_snapshot.page_from,
                 page_to=table_snapshot.page_to,
                 row_count=int(table_data.get("num_rows") or len(rows)),
-                col_count=int(table_data.get("num_cols") or max((len(row) for row in rows), default=0)),
+                col_count=int(
+                    table_data.get("num_cols") or max((len(row) for row in rows), default=0)
+                ),
                 rows=rows,
                 metadata={
                     "caption": caption,
@@ -467,7 +496,9 @@ def _build_raw_table_segments(exported_doc: dict[str, Any], snapshots: list[Item
     return raw_segments
 
 
-def _build_figures(exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]) -> list[ParsedFigure]:
+def _build_figures(
+    exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]
+) -> list[ParsedFigure]:
     picture_snapshots = [snapshot for snapshot in snapshots if snapshot.label == "picture"]
     text_lookup = _build_exported_text_lookup(exported_doc)
     figures: list[ParsedFigure] = []
@@ -475,7 +506,9 @@ def _build_figures(exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]) 
     for figure_index, (picture_snapshot, exported_picture) in enumerate(
         zip(picture_snapshots, exported_doc.get("pictures") or [], strict=False)
     ):
-        caption_refs = [ref for ref in exported_picture.get("captions") or [] if isinstance(ref, str)]
+        caption_refs = [
+            ref for ref in exported_picture.get("captions") or [] if isinstance(ref, str)
+        ]
         explicit_captions = [text_lookup[ref] for ref in caption_refs if ref in text_lookup]
         explicit_caption = " ".join(dict.fromkeys(explicit_captions)).strip() or None
 
@@ -485,14 +518,18 @@ def _build_figures(exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]) 
             caption_confidence = 1.0
             caption_candidates = explicit_captions
         else:
-            caption, caption_source, caption_confidence, caption_candidates = _find_nearby_figure_caption(
-                snapshots,
-                picture_snapshot,
+            caption, caption_source, caption_confidence, caption_candidates = (
+                _find_nearby_figure_caption(
+                    snapshots,
+                    picture_snapshot,
+                )
             )
 
         annotations = exported_picture.get("annotations") or []
         source_confidence = _annotation_confidence(annotations)
-        figure_confidence = source_confidence if source_confidence is not None else caption_confidence
+        figure_confidence = (
+            source_confidence if source_confidence is not None else caption_confidence
+        )
         heading = _structural_heading_at(snapshots, picture_snapshot.index)
         provenance = _normalize_provenance(exported_picture.get("prov"))
 
@@ -569,7 +606,9 @@ def _row_key(row: list[str]) -> str:
     return " | ".join(_normalize_text(cell).lower() for cell in row).strip()
 
 
-def _strip_repeated_header_rows(existing_rows: list[list[str]], new_rows: list[list[str]]) -> tuple[list[list[str]], int]:
+def _strip_repeated_header_rows(
+    existing_rows: list[list[str]], new_rows: list[list[str]]
+) -> tuple[list[list[str]], int]:
     if not existing_rows or not new_rows:
         return new_rows, 0
 
@@ -619,20 +658,32 @@ def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[Parsed
                 segment_rows, removed = _strip_repeated_header_rows(rows, segment_rows)
                 total_removed_headers += removed
                 segment.metadata["header_rows_removed"] = removed
-                segment.metadata["header_rows_retained"] = max(len(segment.rows[: min(len(segment.rows), 3)]) - removed, 0)
+                segment.metadata["header_rows_retained"] = max(
+                    len(segment.rows[: min(len(segment.rows), 3)]) - removed, 0
+                )
             rows.extend(segment_rows)
 
         title = next((segment.title for segment in segments if segment.title), None)
         heading = next((segment.heading for segment in segments if segment.heading), None)
-        page_from = min((segment.page_from for segment in segments if segment.page_from is not None), default=None)
-        page_to = max((segment.page_to for segment in segments if segment.page_to is not None), default=None)
+        page_from = min(
+            (segment.page_from for segment in segments if segment.page_from is not None),
+            default=None,
+        )
+        page_to = max(
+            (segment.page_to for segment in segments if segment.page_to is not None), default=None
+        )
         row_count = len(rows)
-        col_count = max((len(row) for row in rows), default=max((segment.col_count for segment in segments), default=0))
+        col_count = max(
+            (len(row) for row in rows),
+            default=max((segment.col_count for segment in segments), default=0),
+        )
 
         repeated_header_found = False
         if len(segments) > 1 and rows:
             first_row_key = _row_key(rows[0])
-            repeated_header_found = any(_row_key(row) == first_row_key for row in rows[1: min(len(rows), 6)])
+            repeated_header_found = any(
+                _row_key(row) == first_row_key for row in rows[1 : min(len(rows), 6)]
+            )
 
         metadata = {
             "is_merged": len(segments) > 1,
@@ -689,11 +740,11 @@ def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[Parsed
     return tables
 
 
-def _annotate_ambiguous_continuations(raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]) -> None:
+def _annotate_ambiguous_continuations(
+    raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]
+) -> None:
     segment_to_table = {
-        segment.segment_index: table.table_index
-        for table in tables
-        for segment in table.segments
+        segment.segment_index: table.table_index for table in tables for segment in table.segments
     }
     for left, right in zip(raw_segments, raw_segments[1:], strict=False):
         if not _pages_adjacent(left, right):
@@ -702,23 +753,42 @@ def _annotate_ambiguous_continuations(raw_segments: list[ParsedTableSegment], ta
             continue
         if segment_to_table.get(left.segment_index) == segment_to_table.get(right.segment_index):
             continue
-        left_table = next(table for table in tables if any(seg.segment_index == left.segment_index for seg in table.segments))
-        right_table = next(table for table in tables if any(seg.segment_index == right.segment_index for seg in table.segments))
+        left_table = next(
+            table
+            for table in tables
+            if any(seg.segment_index == left.segment_index for seg in table.segments)
+        )
+        right_table = next(
+            table
+            for table in tables
+            if any(seg.segment_index == right.segment_index for seg in table.segments)
+        )
         left_table.metadata["ambiguous_continuation_candidate"] = True
         right_table.metadata["ambiguous_continuation_candidate"] = True
-        left_table.metadata["merge_reason"] = left_table.metadata.get("merge_reason") or "split_due_to_ambiguity"
-        right_table.metadata["merge_reason"] = right_table.metadata.get("merge_reason") or "split_due_to_ambiguity"
+        left_table.metadata["merge_reason"] = (
+            left_table.metadata.get("merge_reason") or "split_due_to_ambiguity"
+        )
+        right_table.metadata["merge_reason"] = (
+            right_table.metadata.get("merge_reason") or "split_due_to_ambiguity"
+        )
 
 
-def _validate_table_merge_assignments(raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]) -> None:
+def _validate_table_merge_assignments(
+    raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]
+) -> None:
     segment_to_table: dict[int, int] = {}
     for table in tables:
         for segment in table.segments:
             segment_to_table[segment.segment_index] = table.table_index
 
     for left, right in zip(raw_segments, raw_segments[1:], strict=False):
-        if _should_merge_segments(left, right) and segment_to_table.get(left.segment_index) != segment_to_table.get(right.segment_index):
-            raise ValueError("Detected a continued table segment that was not merged into the same logical table.")
+        if _should_merge_segments(left, right) and segment_to_table.get(
+            left.segment_index
+        ) != segment_to_table.get(right.segment_index):
+            raise ValueError(
+                "Detected a continued table segment that was not merged "
+                "into the same logical table."
+            )
 
 
 class DoclingParser:
@@ -739,7 +809,10 @@ class DoclingParser:
 
         yaml_text = yaml.safe_dump(exported_doc, sort_keys=False, allow_unicode=True)
         docling_json = json.dumps(exported_doc, indent=2)
-        title = next((chunk.heading for chunk in chunks if chunk.heading), None) or document.name
+        title = (
+            next((chunk.heading for chunk in chunks if chunk.heading), None)
+            or document.name
+        )
 
         return ParsedDocument(
             title=title,

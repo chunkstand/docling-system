@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import socket
 import time
 import uuid
-import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -16,10 +16,18 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
-from app.db.models import Document, DocumentChunk, DocumentFigure, DocumentRun, DocumentTable, DocumentTableSegment, RunStatus
+from app.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentFigure,
+    DocumentRun,
+    DocumentTable,
+    DocumentTableSegment,
+    RunStatus,
+)
 from app.services.docling_parser import DoclingParser, ParsedDocument, ParsedFigure, ParsedTable
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
-from app.services.evaluations import evaluate_run
+from app.services.evaluations import evaluate_run, resolve_baseline_run_id
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -32,7 +40,7 @@ class ValidationError(ValueError):
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def get_worker_identity() -> str:
@@ -111,7 +119,9 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
     run.attempts += 1
     session.commit()
     session.refresh(run)
-    logger.info("run_claimed", run_id=str(run.id), document_id=str(run.document_id), worker_id=worker_id)
+    logger.info(
+        "run_claimed", run_id=str(run.id), document_id=str(run.document_id), worker_id=worker_id
+    )
     return run
 
 
@@ -151,7 +161,9 @@ def _persist_table_artifacts(
         created_at=created_at.isoformat(),
         artifact_sha256="",
     )
-    artifact_seed = hashlib.sha256(json.dumps(base_payload, sort_keys=True).encode("utf-8")).hexdigest()
+    artifact_seed = hashlib.sha256(
+        json.dumps(base_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     table_payload = table.artifact_payload(
         document_id=str(document.id),
         run_id=str(run.id),
@@ -190,7 +202,9 @@ def _persist_figure_artifacts(
         created_at=created_at.isoformat(),
         artifact_sha256="",
     )
-    artifact_seed = hashlib.sha256(json.dumps(base_payload, sort_keys=True).encode("utf-8")).hexdigest()
+    artifact_seed = hashlib.sha256(
+        json.dumps(base_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()
     figure_payload = figure.artifact_payload(
         document_id=str(document.id),
         run_id=str(run.id),
@@ -215,10 +229,14 @@ def _persist_figure_artifacts(
 def _stable_table_key_source(table: ParsedTable) -> str | None:
     if not table.title:
         return None
-    return f"{table.title.strip().lower()}|{(table.heading or '').strip().lower()}|{table.col_count}"
+    return (
+        f"{table.title.strip().lower()}|{(table.heading or '').strip().lower()}|{table.col_count}"
+    )
 
 
-def _build_lineage_assignments(session: Session, document: Document, parsed: ParsedDocument) -> dict[int, dict[str, object | None]]:
+def _build_lineage_assignments(
+    session: Session, document: Document, parsed: ParsedDocument
+) -> dict[int, dict[str, object | None]]:
     key_counts: dict[str, int] = {}
     for table in parsed.tables:
         source = _stable_table_key_source(table)
@@ -227,9 +245,13 @@ def _build_lineage_assignments(session: Session, document: Document, parsed: Par
 
     previous_by_key: dict[str, DocumentTable] = {}
     if document.active_run_id is not None:
-        previous_tables = session.execute(
-            select(DocumentTable).where(DocumentTable.run_id == document.active_run_id)
-        ).scalars().all()
+        previous_tables = (
+            session.execute(
+                select(DocumentTable).where(DocumentTable.run_id == document.active_run_id)
+            )
+            .scalars()
+            .all()
+        )
         for previous in previous_tables:
             if previous.logical_table_key:
                 previous_by_key[previous.logical_table_key] = previous
@@ -252,13 +274,17 @@ def _build_lineage_assignments(session: Session, document: Document, parsed: Par
             "logical_table_key": logical_table_key,
             "table_version": (previous.table_version or 1) + 1 if previous else 1,
             "supersedes_table_id": previous.id if previous else None,
-            "lineage_group": previous.lineage_group or logical_table_key if previous else logical_table_key,
+            "lineage_group": previous.lineage_group or logical_table_key
+            if previous
+            else logical_table_key,
         }
 
     return assignments
 
 
-def _replace_run_chunks(session: Session, document: Document, run: DocumentRun, parsed: ParsedDocument) -> None:
+def _replace_run_chunks(
+    session: Session, document: Document, run: DocumentRun, parsed: ParsedDocument
+) -> None:
     session.query(DocumentChunk).filter(DocumentChunk.run_id == run.id).delete()
     now = _utcnow()
     for chunk in parsed.chunks:
@@ -317,7 +343,9 @@ def _replace_run_tables(
             "yaml_artifact_sha256": yaml_sha,
             "search_text_sha256": hashlib.sha256(table.search_text.encode("utf-8")).hexdigest(),
         }
-        merge_metadata_sha = hashlib.sha256(json.dumps(table.metadata, sort_keys=True).encode("utf-8")).hexdigest()
+        merge_metadata_sha = hashlib.sha256(
+            json.dumps(table.metadata, sort_keys=True).encode("utf-8")
+        ).hexdigest()
         audit["merge_metadata_sha256"] = merge_metadata_sha
         table.metadata.setdefault("audit", audit)
         table_row = DocumentTable(
@@ -423,7 +451,9 @@ def _replace_run_figures(
         )
 
 
-def _apply_embeddings(parsed: ParsedDocument, embedding_provider: EmbeddingProvider | None, run: DocumentRun) -> None:
+def _apply_embeddings(
+    parsed: ParsedDocument, embedding_provider: EmbeddingProvider | None, run: DocumentRun
+) -> None:
     if embedding_provider is None:
         run.embedding_model = None
         run.embedding_dim = None
@@ -497,8 +527,12 @@ def finalize_run_success(
     run.completed_at = now
     run.status = RunStatus.COMPLETED.value
     run.error_message = None
-    session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update({"status": "validated"})
-    session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update({"status": "validated"})
+    session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update(
+        {"status": "validated"}
+    )
+    session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update(
+        {"status": "validated"}
+    )
 
     document.active_run_id = run.id
     document.latest_run_id = run.id
@@ -528,8 +562,12 @@ def finalize_run_failure(
     if report is not None:
         run.validation_status = "failed"
         run.validation_results_json = {**report.details, **run.validation_results_json}
-        session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update({"status": "rejected"})
-        session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update({"status": "rejected"})
+        session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update(
+            {"status": "rejected"}
+        )
+        session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).update(
+            {"status": "rejected"}
+        )
 
     if is_retryable_error(exc) and run.attempts < settings.worker_max_attempts:
         backoff_seconds = min(60, 2 ** max(run.attempts - 1, 0))
@@ -558,6 +596,7 @@ def process_run(
         raise ValueError(f"Document {run.document_id} does not exist.")
     if not Path(document.source_path).exists():
         raise ValueError("Source file missing before worker pickup.")
+    prior_active_run_id = document.active_run_id
 
     try:
         failure_stage = "parse"
@@ -593,7 +632,7 @@ def process_run(
             session,
             document,
             run,
-            baseline_run_id=document.active_run_id if document.active_run_id != run.id else None,
+            baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
         )
         logger.info(
             "run_evaluation_completed",
@@ -621,7 +660,12 @@ def process_run(
             raise
         report = exc.report if isinstance(exc, ValidationError) else None
         finalize_run_failure(session, run, exc, report=report, failure_stage=failure_stage)
-        logger.exception("run_processing_failed", run_id=str(run.id), document_id=str(document.id), error=str(exc))
+        logger.exception(
+            "run_processing_failed",
+            run_id=str(run.id),
+            document_id=str(document.id),
+            error=str(exc),
+        )
 
 
 def run_worker_loop() -> None:

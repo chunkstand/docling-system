@@ -1,21 +1,22 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from uuid import uuid4
 
-from fastapi import UploadFile
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 
 from app.db.models import Document, DocumentRun, RunStatus
 from app.services.documents import _build_duplicate_response, _is_pdf, _validate_local_ingest_path
 
 
 def test_is_pdf_accepts_pdf_mime() -> None:
-    upload = UploadFile(filename="report.bin", file=BytesIO(b"%PDF"), headers={"content-type": "application/pdf"})
+    upload = UploadFile(
+        filename="report.bin", file=BytesIO(b"%PDF"), headers={"content-type": "application/pdf"}
+    )
     assert _is_pdf(upload) is True
 
 
@@ -27,7 +28,7 @@ def test_is_pdf_accepts_pdf_filename() -> None:
 def test_duplicate_response_prefers_active_run_status() -> None:
     document_id = uuid4()
     run_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     document = Document(
         id=document_id,
@@ -48,7 +49,9 @@ def test_duplicate_response_prefers_active_run_status() -> None:
         created_at=now,
     )
 
-    response = _build_duplicate_response(type("Snapshot", (), {"document": document, "active_run": run, "latest_run": run})())
+    response = _build_duplicate_response(
+        type("Snapshot", (), {"document": document, "active_run": run, "latest_run": run})()
+    )
 
     assert response.document_id == document_id
     assert response.status == RunStatus.COMPLETED.value
@@ -56,7 +59,9 @@ def test_duplicate_response_prefers_active_run_status() -> None:
 
 
 def test_non_pdf_rejected() -> None:
-    upload = UploadFile(filename="report.txt", file=BytesIO(b"text"), headers={"content-type": "text/plain"})
+    upload = UploadFile(
+        filename="report.txt", file=BytesIO(b"text"), headers={"content-type": "text/plain"}
+    )
     assert _is_pdf(upload) is False
 
 
@@ -81,7 +86,9 @@ def test_local_ingest_rejects_path_outside_allowed_roots(monkeypatch) -> None:
         root = Path(temp_dir)
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
-        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root / "other"])
+        monkeypatch.setattr(
+            "app.services.documents._allowed_ingest_roots", lambda: [root / "other"]
+        )
         try:
             _validate_local_ingest_path(file_path)
         except HTTPException as exc:
@@ -95,10 +102,14 @@ def test_local_ingest_rejects_pdf_over_page_limit(monkeypatch) -> None:
         root = Path(temp_dir)
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
-        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root.resolve()])
+        monkeypatch.setattr(
+            "app.services.documents._allowed_ingest_roots", lambda: [root.resolve()]
+        )
         monkeypatch.setattr(
             "app.services.documents.get_settings",
-            lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+            lambda: SimpleNamespace(
+                local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10
+            ),
         )
         monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 11)
         try:
@@ -115,10 +126,14 @@ def test_local_ingest_accepts_pdf_within_page_limit(monkeypatch) -> None:
         root = Path(temp_dir)
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
-        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root.resolve()])
+        monkeypatch.setattr(
+            "app.services.documents._allowed_ingest_roots", lambda: [root.resolve()]
+        )
         monkeypatch.setattr(
             "app.services.documents.get_settings",
-            lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+            lambda: SimpleNamespace(
+                local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10
+            ),
         )
         monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 5)
         assert _validate_local_ingest_path(file_path) == file_path.resolve()

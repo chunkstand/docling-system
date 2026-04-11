@@ -17,7 +17,9 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert "upc_ch2_figures" in names
     assert "awkward_headers" in names
 
-    figure_document = next(document for document in config["documents"] if document["name"] == "upc_ch2_figures")
+    figure_document = next(
+        document for document in config["documents"] if document["name"] == "upc_ch2_figures"
+    )
     figure_thresholds = figure_document["thresholds"]
     assert figure_document["kind"] == "figure_heavy_definitions"
     assert figure_thresholds["expected_figure_count"] >= 1
@@ -27,13 +29,17 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert figure_thresholds["minimum_figures_with_artifacts"] >= 1
     assert len(figure_thresholds["expected_figure_captions_present"]) >= 1
 
-    awkward_document = next(document for document in config["documents"] if document["name"] == "awkward_headers")
+    awkward_document = next(
+        document for document in config["documents"] if document["name"] == "awkward_headers"
+    )
     awkward_thresholds = awkward_document["thresholds"]
     assert awkward_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_3.pdf"
     assert awkward_thresholds["expected_logical_table_count"] >= 1
     assert len(awkward_thresholds["expected_top_n_table_hit_queries"]) >= 1
 
-    simple_document = next(document for document in config["documents"] if document["name"] == "born_digital_simple")
+    simple_document = next(
+        document for document in config["documents"] if document["name"] == "born_digital_simple"
+    )
     simple_thresholds = simple_document["thresholds"]
     assert simple_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf"
     assert simple_thresholds["expected_logical_table_count"] == 1

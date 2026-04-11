@@ -21,5 +21,8 @@ def test_snapshot_metrics_reports_mixed_search_table_hit_rate(monkeypatch) -> No
         assert metrics["tables_detected_total"] >= baseline["tables_detected_total"] + 2
         assert metrics["table_search_hits_total"] >= baseline["table_search_hits_total"] + 3
         assert metrics["mixed_search_requests_total"] >= baseline["mixed_search_requests_total"] + 1
-        assert metrics["mixed_search_requests_with_table_hits_total"] >= baseline.get("mixed_search_requests_with_table_hits_total", 0) + 1
+        assert (
+            metrics["mixed_search_requests_with_table_hits_total"]
+            >= baseline.get("mixed_search_requests_with_table_hits_total", 0) + 1
+        )
         assert 0 < metrics["mixed_search_table_hit_rate"] <= 1

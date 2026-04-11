@@ -48,7 +48,8 @@ def _figure_validation_result(figure: ParsedFigure, json_path: Path, yaml_path: 
         "yaml_artifact_exists": yaml_path.exists(),
         "provenance_present": bool(provenance),
         "caption_resolution_source_present": "caption_resolution_source" in metadata,
-        "confidence_field_present": "caption_attachment_confidence" in metadata and "source_confidence" in metadata,
+        "confidence_field_present": "caption_attachment_confidence" in metadata
+        and "source_confidence" in metadata,
     }
 
 
@@ -85,12 +86,24 @@ def validate_persisted_run(
         "detected_count_matches_persisted": persisted_figure_count == len(parsed.figures),
     }
 
-    persisted_tables = session.execute(
-        select(DocumentTable).where(DocumentTable.run_id == run.id).order_by(DocumentTable.table_index)
-    ).scalars().all()
-    persisted_figures = session.execute(
-        select(DocumentFigure).where(DocumentFigure.run_id == run.id).order_by(DocumentFigure.figure_index)
-    ).scalars().all()
+    persisted_tables = (
+        session.execute(
+            select(DocumentTable)
+            .where(DocumentTable.run_id == run.id)
+            .order_by(DocumentTable.table_index)
+        )
+        .scalars()
+        .all()
+    )
+    persisted_figures = (
+        session.execute(
+            select(DocumentFigure)
+            .where(DocumentFigure.run_id == run.id)
+            .order_by(DocumentFigure.figure_index)
+        )
+        .scalars()
+        .all()
+    )
 
     for parsed_table, persisted_table in zip(parsed.tables, persisted_tables, strict=False):
         json_path = Path(persisted_table.json_path) if persisted_table.json_path else Path()
@@ -133,7 +146,9 @@ def validate_persisted_run(
         for detail in figure_details
     )
 
-    passed = all(document_checks.values()) and all(table_checks.values()) and all(figure_checks.values())
+    passed = (
+        all(document_checks.values()) and all(table_checks.values()) and all(figure_checks.values())
+    )
     summary = "Validation passed." if passed else "Validation failed."
     details = {
         "document_checks": document_checks,

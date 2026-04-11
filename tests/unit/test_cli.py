@@ -49,6 +49,7 @@ def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
 def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
     document_id = uuid4()
     run_id = uuid4()
+    active_run_id = uuid4()
 
     class FakeSession:
         def __enter__(self):
@@ -61,20 +62,25 @@ def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
             if model.__name__ == "DocumentRun" and key == run_id:
                 return SimpleNamespace(id=run_id, document_id=document_id)
             if model.__name__ == "Document" and key == document_id:
-                return SimpleNamespace(id=document_id, source_filename="report.pdf")
+                return SimpleNamespace(
+                    id=document_id, source_filename="report.pdf", active_run_id=active_run_id
+                )
             return None
 
     monkeypatch.setattr(sys, "argv", ["docling-system-eval-run", str(run_id)])
     monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr(
-        "app.cli.evaluate_run",
-        lambda session, document, run, baseline_run_id=None: SimpleNamespace(
+    observed: dict[str, object | None] = {}
+
+    def fake_evaluate_run(session, document, run, baseline_run_id=None):
+        observed["baseline_run_id"] = baseline_run_id
+        return SimpleNamespace(
             status="completed",
             fixture_name="fixture",
             summary_json={"query_count": 2, "passed_queries": 2},
             error_message=None,
-        ),
-    )
+        )
+
+    monkeypatch.setattr("app.cli.evaluate_run", fake_evaluate_run)
 
     run_eval_run()
 
@@ -82,3 +88,4 @@ def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
     assert output["run_id"] == str(run_id)
     assert output["document_id"] == str(document_id)
     assert output["status"] == "completed"
+    assert observed["baseline_run_id"] == active_run_id

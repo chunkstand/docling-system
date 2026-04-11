@@ -55,7 +55,9 @@ def get_active_tables(session: Session, document_id: UUID) -> list[DocumentTable
     ]
 
 
-def get_active_table_detail(session: Session, document_id: UUID, table_id: UUID) -> DocumentTableDetailResponse:
+def get_active_table_detail(
+    session: Session, document_id: UUID, table_id: UUID
+) -> DocumentTableDetailResponse:
     document = _get_active_document(session, document_id)
     if document.active_run_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found.")

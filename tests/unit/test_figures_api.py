@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
@@ -12,7 +12,7 @@ def test_document_figures_route_uses_figure_service(monkeypatch) -> None:
     figure_id = uuid4()
     document_id = uuid4()
     run_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def fake_get_active_figures(session, incoming_document_id):
         assert incoming_document_id == document_id
@@ -47,7 +47,7 @@ def test_document_figure_detail_route_uses_figure_service(monkeypatch) -> None:
     figure_id = uuid4()
     document_id = uuid4()
     run_id = uuid4()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def fake_get_active_figure_detail(session, incoming_document_id, incoming_figure_id):
         assert incoming_document_id == document_id
