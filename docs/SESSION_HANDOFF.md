@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `de4f123` (`Close replay UI and docs gaps`)
+Latest committed checkpoint before this handoff update: `d12fe12` (`Close learned harness gaps`)
 
 ## Executive Summary
 
@@ -21,6 +21,11 @@ The branch now includes:
   - answer-feedback gaps now flow into `GET /quality/eval-candidates`
   - the operator UI now runs harness evaluations directly
   - ranking-dataset export now marks row schema version and metadata era
+- data-agnostic hardening after ingesting non-UPC PDFs:
+  - generic prose docs now infer usable titles instead of falling back to UUID-like names
+  - keyword retrieval now relaxes to OR matching when strict full-text search returns zero hits
+  - worker leasing now limits claim queries to one row so queued runs do not crash the worker
+  - `The Bitter Lesson.pdf` is now part of the fixed corpus with a live passing evaluation
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -34,6 +39,9 @@ What is now true:
 - named search harnesses can be replayed and compared through both the API and the CLI
 - harness evaluation is now exposed in the operator UI instead of only through API/CLI
 - exported ranking rows now self-identify as `legacy_pre_harness` or `harness_v1`
+- persisted search-request details now record whether keyword serving used `strict` or `relaxed_or`
+- generic prose documents can promote with human-readable titles derived from parsed content
+- the worker can safely process multiple queued runs without tripping `MultipleResultsFound`
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently
@@ -134,7 +142,7 @@ This handoff update also closes the post-milestone gaps that were still open aft
 
 ### 5. Learned Reranking Harness
 
-Uncommitted changes captured by this handoff update:
+Committed changes through `d12fe12`:
 
 - versioned search harnesses now wrap:
   - retrieval profile
@@ -188,6 +196,37 @@ Relevant files:
 - `tests/unit/test_cli.py`
 - `tests/unit/test_ui.py`
 
+### 6. Data-Agnostic Hardening
+
+Uncommitted changes captured by this handoff update:
+
+- `app/services/docling_parser.py`
+  - added UUID-aware title normalization and fallback title inference from the first meaningful parsed text chunk
+- `app/services/search.py`
+  - added relaxed keyword fallback that retries lexical search with OR semantics when strict `plainto_tsquery` returns zero candidates
+  - persisted `keyword_strategy` and `keyword_strict_candidate_count` on durable search-request records
+- `app/services/chat.py`
+  - improved chunk citation labels for prose-only docs
+  - added normalized-question retry logic for chat-backed search requests
+- `app/services/runs.py`
+  - fixed worker leasing by adding `LIMIT 1` to the `claim_next_run` query
+- `docs/evaluation_corpus.yaml`
+  - added `bitter_lesson_prose` as the first non-UPC fixed-corpus fixture
+- tests added or updated:
+  - `tests/unit/test_docling_parser.py`
+  - `tests/unit/test_chat_service.py`
+  - `tests/unit/test_search_service.py`
+  - `tests/unit/test_run_logic.py`
+  - `tests/unit/test_eval_config.py`
+  - `tests/unit/test_evaluation_service.py`
+
+Live result:
+
+- `The Bitter Lesson.pdf` reprocessed successfully with title `The Bitter Lesson`
+- direct keyword search for `What is the main claim of The Bitter Lesson?` now returns grounded prose chunks
+- `POST /chat` for the same question now returns a cited, model-backed answer instead of a no-evidence fallback
+- `uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865` completed with fixture `bitter_lesson_prose`, `passed_queries = 3`, `failed_queries = 0`
+
 ## Current Runtime State
 
 At handoff time:
@@ -197,15 +236,17 @@ At handoff time:
 - the worker was restarted after the same migration
 - Alembic head in the running database is `0012_harness_chat_feedback`
 - `docling-system-audit` completes live with zero violations
-- the active/evaluated corpus remains eight documents
+- the active corpus now includes ten documents
+- the latest-evaluation surface is populated for all ten active documents
+- the fixed corpus now includes one non-UPC prose fixture (`bitter_lesson_prose`)
 
 Live audit result:
 
 ```json
 {
-  "checked_documents": 8,
-  "checked_runs": 27,
-  "checked_evaluations": 14,
+  "checked_documents": 10,
+  "checked_runs": 31,
+  "checked_evaluations": 18,
   "checked_tables": 481,
   "checked_figures": 344,
   "violation_count": 0,
@@ -236,6 +277,9 @@ Recent live replay/feedback verification:
 - `POST /search/harness-evaluations` completed live for `default_v1` vs `wide_v2`
 - `GET /quality/trends` now includes `answer_feedback_counts`
 - `GET /quality/eval-candidates` now includes `answer_feedback_gap` rows from grounded chat feedback
+- direct keyword search for `What is the main claim of The Bitter Lesson?` now persists `keyword_strategy = "relaxed_or"` and returns the expected prose chunks
+- `POST /chat` for the same query now returns a grounded answer with citations from `The Bitter Lesson.pdf`
+- `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now reports fixture `bitter_lesson_prose` with `passed_queries = 3`
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
 - `uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3` completed live
 - `uv run docling-system-export-ranking-dataset --limit 5` now emits:
@@ -246,7 +290,7 @@ Recent live replay/feedback verification:
 
 ## Active Corpus State
 
-Current active/evaluated set:
+Current active set:
 
 - `UPC_CH_5.pdf` -> fixture `upc_ch5`
 - `UPC_CH_4.pdf` -> fixture `upc_ch4`
@@ -256,6 +300,8 @@ Current active/evaluated set:
 - `UPC_Ch_2.pdf` -> fixture `upc_ch2_figures`
 - `UPC_CH_7.pdf` -> fixture `upc_ch7`
 - `UPC_CH_1.pdf` -> fixture `prose_control`
+- `The Bitter Lesson.pdf` -> fixture `bitter_lesson_prose`
+- `TEST_PDF.pdf` -> active, latest evaluation currently `skipped` (no fixed-corpus fixture yet)
 
 ## Verification Performed
 
@@ -281,6 +327,10 @@ uv run docling-system-run-replay-suite feedback --limit 3
 uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3
 uv run docling-system-export-ranking-dataset --limit 5
 uv run docling-system-audit
+uv run pytest tests/unit/test_run_logic.py tests/unit/test_docling_parser.py tests/unit/test_chat_service.py tests/unit/test_search_service.py tests/unit/test_eval_config.py tests/unit/test_evaluation_service.py -q
+uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865
+curl -i -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json' --data '{"query":"What is the main claim of The Bitter Lesson?","mode":"keyword","limit":4,"filters":{"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}}'
+curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What is the main claim of The Bitter Lesson?","mode":"keyword","top_k":4,"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}'
 ```
 
 Key results:
@@ -295,6 +345,9 @@ Key results:
 - ranking export now distinguishes `legacy_pre_harness` rows from `harness_v1` rows
 - replay, harness-evaluation, and export commands completed live
 - audit stayed green after the new migration
+- focused parser/chat/search/worker/eval tests passed after the data-agnostic hardening work
+- `The Bitter Lesson` fixed-corpus evaluation passed live
+- generic keyword questions over prose docs no longer fail closed when strict lexical matching returns zero hits
 
 ## Current Contracts To Preserve
 
@@ -349,11 +402,15 @@ Key results:
 
 ## Remaining Gaps / Risks
 
-### 1. Evaluation Still Does Not Gate Promotion
+### 1. Cross-Domain Fixed-Corpus Coverage Is Still Thin
+
+The corpus is no longer all-UPC, but only one non-UPC document (`The Bitter Lesson.pdf`) is currently represented in the fixed evaluation corpus. `TEST_PDF.pdf` is active and searchable, but still has a `skipped` latest evaluation because it does not yet have fixture coverage.
+
+### 2. Evaluation Still Does Not Gate Promotion
 
 Still deliberate. Retrieval quality can regress while promotion still advances if validation passes.
 
-### 2. Learned Harness Does Not Yet Use A Trained Model
+### 3. Learned Harness Does Not Yet Use A Trained Model
 
 Milestone 5 establishes the harness and data path, but the current rerankers are still hand-tuned linear scorers:
 
@@ -361,17 +418,26 @@ Milestone 5 establishes the harness and data path, but the current rerankers are
 - harness evaluation currently compares named configs, not learned checkpoints
 - the next leverage is using feedback, replay deltas, and eval rows to fit and validate a model-backed reranker offline
 
-### 3. Historical Search Rows Still Carry Legacy Signals
+### 4. Historical Search Rows Still Carry Legacy Signals
 
 Older feedback rows in the local database still export their original reranker metadata, including legacy `heuristic_v1` labels. The export now marks these rows as `legacy_pre_harness`, which removes ambiguity, but downstream fitting code still needs an explicit policy for whether to include them.
 
-### 4. README And Handoff Are Current, But Product Docs Are Still Thin
+### 5. README And Handoff Are Current, But Product Docs Are Still Thin
 
 The operator-facing commands and endpoints are documented, and the ranking dataset schema now has its own doc. The deeper design contract for harness evaluation semantics, answer-feedback interpretation, and future fitting workflows still lives mostly in code and tests.
 
 ## Recommended Next Steps
 
-### Priority 1: Fit The First Offline Reranker
+### Priority 1: Expand Cross-Domain Fixture Coverage
+
+- add at least:
+  - one table-heavy non-UPC fixture
+  - one figure-heavy/scientific fixture
+  - one additional prose-heavy report or policy document
+- keep the fixture expectations generic and retrieval-focused
+- use the fixed corpus to make future reranker work harder and more representative
+
+### Priority 2: Fit The First Offline Reranker
 
 - define the first training/evaluation split over:
   - fixed eval queries
@@ -380,13 +446,13 @@ The operator-facing commands and endpoints are documented, and the ranking datas
 - fit the first offline reranker candidate against the exported dataset
 - keep promotion gated by validation, but gate reranker adoption by replay/eval comparison
 
-### Priority 2: Deepen Harness Evaluation
+### Priority 3: Deepen Harness Evaluation
 
 - persist named experiment configs beyond the current harness registry
 - add richer drilldown on added hits, removed hits, and score shifts per replay query
 - surface per-source improvements/regressions more prominently in the UI
 
-### Priority 3: Expand Feedback Coverage
+### Priority 4: Expand Feedback Coverage
 
 - add more answer-feedback coverage from real chat use
 - mine repeated `no_answer`, `unsupported`, and `incomplete` patterns into new eval fixtures

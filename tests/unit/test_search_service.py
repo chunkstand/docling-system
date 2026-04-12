@@ -350,3 +350,71 @@ def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> No
     assert request_rows[0].tabular_query is True
     assert request_rows[0].details_json["served_mode"] == "keyword"
     assert result_rows[0].rerank_features_json["final_score"] >= result_rows[0].score
+
+
+def test_execute_search_falls_back_to_relaxed_keyword_matching(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="essay.pdf",
+                page_from=1,
+                page_to=1,
+                chunk_text=(
+                    "General methods that leverage computation are ultimately the most "
+                    "effective."
+                ),
+                heading=None,
+                keyword_score=0.4,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(
+            query="What is the main claim of The Bitter Lesson?",
+            mode="keyword",
+            limit=5,
+        ),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert len(execution.results) == 1
+    assert execution.results[0].result_type == "chunk"
+    assert request_rows[0].details_json["keyword_strategy"] == "relaxed_or"
+    assert request_rows[0].details_json["keyword_strict_candidate_count"] == 0
+    assert request_rows[0].details_json["keyword_candidate_count"] == 1

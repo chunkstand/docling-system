@@ -428,6 +428,24 @@ def _hydrate_ranked_tables(
     return hydrated
 
 
+def _keyword_terms(query: str) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for token in re.findall(r"[A-Za-z0-9]+", query.lower()):
+        if len(token) <= 1 or token in seen:
+            continue
+        seen.add(token)
+        terms.append(token)
+    return terms
+
+
+def _build_relaxed_tsquery(query: str):
+    terms = _keyword_terms(query)
+    if len(terms) < 2:
+        return None
+    return func.to_tsquery("english", " | ".join(terms))
+
+
 def _run_keyword_chunk_search(
     session: Session,
     request: SearchRequest,
@@ -447,6 +465,28 @@ def _run_keyword_chunk_search(
     return _hydrate_ranked_chunks(session.execute(statement).all(), "keyword")
 
 
+def _run_relaxed_keyword_chunk_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
+    tsquery = _build_relaxed_tsquery(request.query)
+    if tsquery is None:
+        return []
+
+    rank = cast(func.ts_rank_cd(DocumentChunk.textsearch, tsquery), Float)
+    statement = (
+        _apply_chunk_filters(_chunk_query(run_id), request.filters)
+        .add_columns(rank.label("score"))
+        .where(DocumentChunk.textsearch.op("@@")(tsquery))
+        .order_by(rank.desc(), DocumentChunk.chunk_index.asc())
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_chunks(session.execute(statement).all(), "keyword")
+
+
 def _run_keyword_table_search(
     session: Session,
     request: SearchRequest,
@@ -455,6 +495,28 @@ def _run_keyword_table_search(
     run_id: UUID | None = None,
 ) -> list[RankedResult]:
     tsquery = func.plainto_tsquery("english", request.query)
+    rank = cast(func.ts_rank_cd(DocumentTable.textsearch, tsquery), Float)
+    statement = (
+        _apply_table_filters(_table_query(run_id), request.filters)
+        .add_columns(rank.label("score"))
+        .where(DocumentTable.textsearch.op("@@")(tsquery))
+        .order_by(rank.desc(), DocumentTable.table_index.asc())
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_tables(session.execute(statement).all(), "keyword")
+
+
+def _run_relaxed_keyword_table_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
+    tsquery = _build_relaxed_tsquery(request.query)
+    if tsquery is None:
+        return []
+
     rank = cast(func.ts_rank_cd(DocumentTable.textsearch, tsquery), Float)
     statement = (
         _apply_table_filters(_table_query(run_id), request.filters)
@@ -838,7 +900,41 @@ def execute_search(
             )
         )
 
-    keyword_details = {"keyword_candidate_count": len(keyword_results)}
+    keyword_strategy = "strict"
+    strict_keyword_count = len(keyword_results)
+    if strict_keyword_count == 0:
+        if run_id is None:
+            keyword_results = _run_relaxed_keyword_chunk_search(
+                session, request, candidate_limit=keyword_candidate_limit
+            )
+            keyword_results.extend(
+                _run_relaxed_keyword_table_search(
+                    session, request, candidate_limit=keyword_candidate_limit
+                )
+            )
+        else:
+            keyword_results = _run_relaxed_keyword_chunk_search(
+                session,
+                request,
+                candidate_limit=keyword_candidate_limit,
+                run_id=run_id,
+            )
+            keyword_results.extend(
+                _run_relaxed_keyword_table_search(
+                    session,
+                    request,
+                    candidate_limit=keyword_candidate_limit,
+                    run_id=run_id,
+                )
+            )
+        if keyword_results:
+            keyword_strategy = "relaxed_or"
+
+    keyword_details = {
+        "keyword_candidate_count": len(keyword_results),
+        "keyword_strict_candidate_count": strict_keyword_count,
+        "keyword_strategy": keyword_strategy,
+    }
     embedding_status = "skipped"
     embedding_error: str | None = None
     served_mode = request.mode

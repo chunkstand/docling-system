@@ -4,8 +4,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+from sqlalchemy.dialects import postgresql
+
 from app.db.models import Document, DocumentRun
-from app.services.runs import finalize_run_failure, is_retryable_error, process_run
+from app.services.runs import claim_next_run, finalize_run_failure, is_retryable_error, process_run
 from app.services.storage import StorageService
 from app.services.validation import ValidationReport
 
@@ -176,3 +178,31 @@ def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path)
     artifact = artifact_path.read_text()
     assert "boom" in artifact
     assert "parse" in artifact
+
+
+def test_claim_next_run_limits_worker_lease_query_to_one_row() -> None:
+    captured = {}
+
+    class FakeResult:
+        def scalar_one_or_none(self):
+            return None
+
+    class FakeSession:
+        def execute(self, query):
+            captured["sql"] = str(
+                query.compile(
+                    dialect=postgresql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+            return FakeResult()
+
+        def rollback(self) -> None:
+            captured["rolled_back"] = True
+
+    run = claim_next_run(FakeSession(), "worker-1")
+
+    assert run is None
+    assert captured["rolled_back"] is True
+    assert " LIMIT 1" in captured["sql"]
+    assert "FOR UPDATE SKIP LOCKED" in captured["sql"]

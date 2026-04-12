@@ -10,6 +10,7 @@ from typing import Any
 
 import yaml
 from docling.document_converter import DocumentConverter
+
 from app.core.config import get_settings
 
 HEADING_PATTERN = re.compile(r"^(Chapter\s+\d+|Part\s+[IVXLC]+|[0-9]+(?:\.[0-9]+)*\s)")
@@ -20,6 +21,10 @@ PROVISIONAL_UPC_510_FAMILY_PATTERN = re.compile(
 )
 TABLE_ARTIFACT_SCHEMA_VERSION = "1.0"
 FIGURE_ARTIFACT_SCHEMA_VERSION = "1.0"
+UUID_LIKE_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -187,6 +192,41 @@ class TableSupplementRule:
         return normalized in self.document_filenames
 
 
+def _normalize_document_title(value: str | None) -> str | None:
+    text = " ".join((value or "").split()).strip()
+    if not text or len(text) > 160:
+        return None
+    if UUID_LIKE_PATTERN.fullmatch(text):
+        return None
+    return text
+
+
+def _infer_document_title(chunks: list[ParsedChunk], document_name: str | None) -> str:
+    heading_title = next(
+        (
+            normalized
+            for chunk in chunks
+            if (normalized := _normalize_document_title(chunk.heading)) is not None
+        ),
+        None,
+    )
+    if heading_title is not None:
+        return heading_title
+
+    text_title = next(
+        (
+            normalized
+            for chunk in chunks
+            if (normalized := _normalize_document_title(chunk.text)) is not None
+        ),
+        None,
+    )
+    if text_title is not None:
+        return text_title
+
+    return _normalize_document_title(document_name) or "Untitled document"
+
+
 @lru_cache(maxsize=1)
 def get_document_converter() -> DocumentConverter:
     return DocumentConverter()
@@ -227,7 +267,9 @@ def _load_table_supplement_registry(registry_path: str) -> tuple[TableSupplement
         if not supplement_filename:
             raise ValueError("Table supplement rules require supplement_filename.")
 
-        overlay_type = str(raw_rule.get("overlay_type") or "").strip() or "clean_pdf_family_replacement"
+        overlay_type = (
+            str(raw_rule.get("overlay_type") or "").strip() or "clean_pdf_family_replacement"
+        )
         description = raw_rule.get("description")
         rules.append(
             TableSupplementRule(
@@ -872,7 +914,9 @@ def _merge_table_family(
             "source_segment_count": len(merged_segments),
             "segment_count": len(merged_segments),
             "merge_reason": (
-                "provisional_family_group_merge" if len(tables) > 1 else metadata.get("merge_reason")
+                "provisional_family_group_merge"
+                if len(tables) > 1
+                else metadata.get("merge_reason")
             )
             or "single_segment",
             "merge_confidence": 0.7 if len(tables) > 1 else metadata.get("merge_confidence", 1.0),
@@ -1030,7 +1074,9 @@ def _apply_registered_table_supplements(
     registry_rules: tuple[TableSupplementRule, ...] | None = None,
     parser: DoclingParser | None = None,
 ) -> list[ParsedTable]:
-    resolved_rules = registry_rules if registry_rules is not None else get_table_supplement_registry()
+    resolved_rules = (
+        registry_rules if registry_rules is not None else get_table_supplement_registry()
+    )
     normalized_source_filename = Path(source_filename).name if source_filename else None
     result = tables
 
@@ -1226,16 +1272,14 @@ class DoclingParser:
         tables = _apply_registered_table_supplements(
             source_path,
             tables,
-            source_filename=source_filename or (source_path.name if source_path is not None else None),
+            source_filename=source_filename
+            or (source_path.name if source_path is not None else None),
         )
         figures = _build_figures(exported_doc, snapshots)
 
         yaml_text = yaml.safe_dump(exported_doc, sort_keys=False, allow_unicode=True)
         docling_json = json.dumps(exported_doc, indent=2)
-        title = (
-            next((chunk.heading for chunk in chunks if chunk.heading), None)
-            or document.name
-        )
+        title = _infer_document_title(chunks, document.name)
 
         return ParsedDocument(
             title=title,

@@ -4,11 +4,11 @@ from types import SimpleNamespace
 
 from app.services.docling_parser import (
     DoclingParser,
-    ParsedTableSegment,
     ParsedTable,
+    ParsedTableSegment,
     TableSupplementRule,
-    _apply_table_family_overlays,
     _apply_registered_table_supplements,
+    _apply_table_family_overlays,
     _build_logical_tables,
     _group_tables_by_upc_510_family,
     _load_table_supplement_registry,
@@ -182,6 +182,48 @@ class FakeConverter:
         return SimpleNamespace(document=FakeDocument())
 
 
+class FakeTitlelessDocument:
+    def __init__(self) -> None:
+        self.name = "12345678-1234-1234-1234-1234567890ab"
+
+    def iterate_items(self):
+        yield (
+            SimpleNamespace(
+                text="The Bitter Lesson",
+                label="text",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            0,
+        )
+        yield (
+            SimpleNamespace(
+                text="Rich Sutton",
+                label="text",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            1,
+        )
+        yield (
+            SimpleNamespace(
+                text="General methods that leverage computation are ultimately the most effective.",
+                label="text",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            2,
+        )
+
+    def export_to_dict(self) -> dict:
+        return {"name": self.name, "kind": "docling", "texts": [], "pictures": [], "tables": []}
+
+    def num_pages(self) -> int:
+        return 1
+
+
+class FakeTitlelessConverter:
+    def convert(self, source_path):
+        return SimpleNamespace(document=FakeTitlelessDocument())
+
+
 def test_normalize_chunks_keeps_structural_heading_not_table_heading() -> None:
     snapshots = _snapshot_items(FakeDocument())
     chunks = _normalize_chunks(snapshots)
@@ -216,6 +258,14 @@ def test_docling_parser_returns_serialized_document_and_merged_table() -> None:
     assert parsed.figures[0].metadata["provenance"][0]["bbox"]["coord_origin"] == "BOTTOMLEFT"
     assert parsed.figures[1].caption == "Fixture Venting Diagram"
     assert parsed.figures[1].metadata["caption_resolution_source"] == "explicit_ref"
+
+
+def test_docling_parser_uses_first_meaningful_text_for_title_when_headings_are_absent() -> None:
+    parser = DoclingParser(converter=FakeTitlelessConverter())
+
+    parsed = parser.parse_pdf(source_path=None)  # type: ignore[arg-type]
+
+    assert parsed.title == "The Bitter Lesson"
 
 
 def test_build_logical_tables_merges_same_title_adjacent_segments_with_shape_drift() -> None:
@@ -399,7 +449,10 @@ def test_apply_table_family_overlays_replaces_corrupted_upc_family() -> None:
         ),
         _make_table(
             table_index=2,
-            title="TABLE 510.1.2(5) SINGLE-WALL METAL PIPE OR TYPE B ASBESTOS-CEMENT VENT [NFPA 54: TABLE 13.1(e)]*",
+            title=(
+                "TABLE 510.1.2(5) SINGLE-WALL METAL PIPE OR TYPE B ASBESTOS-CEMENT "
+                "VENT [NFPA 54: TABLE 13.1(e)]*"
+            ),
             page_from=120,
             page_to=121,
             rows=[["10", "2", "216"], ["15", "2", "211"]],

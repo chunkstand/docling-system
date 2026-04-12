@@ -11,7 +11,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert config["rollout_mode"] == "immediate_breaking_replacement"
     assert config["embedding_contract"]["model"] == "text-embedding-3-small"
     assert config["embedding_contract"]["dimension"] == 1536
-    assert len(config["documents"]) == 8
+    assert len(config["documents"]) == 9
 
     names = {document["name"] for document in config["documents"]}
     assert "appendix_b_prose_guidance" in names
@@ -19,6 +19,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert "awkward_headers" in names
     assert "upc_ch4" in names
     assert "upc_ch5" in names
+    assert "bitter_lesson_prose" in names
 
     figure_document = next(
         document for document in config["documents"] if document["name"] == "upc_ch2_figures"
@@ -42,7 +43,10 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert awkward_thresholds["minimum_captioned_figure_count"] >= 1
     assert awkward_thresholds["minimum_figures_with_provenance"] >= 1
     assert awkward_thresholds["minimum_figures_with_artifacts"] >= 1
-    assert all(isinstance(caption, str) for caption in awkward_thresholds["expected_figure_captions_present"])
+    assert all(
+        isinstance(caption, str)
+        for caption in awkward_thresholds["expected_figure_captions_present"]
+    )
     assert len(awkward_thresholds["expected_top_n_table_hit_queries"]) >= 1
 
     simple_document = next(
@@ -56,7 +60,9 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert len(simple_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
 
     appendix_b_document = next(
-        document for document in config["documents"] if document["name"] == "appendix_b_prose_guidance"
+        document
+        for document in config["documents"]
+        if document["name"] == "appendix_b_prose_guidance"
     )
     appendix_b_thresholds = appendix_b_document["thresholds"]
     assert appendix_b_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_B.pdf"
@@ -96,6 +102,19 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert chapter_seven_thresholds["minimum_figures_with_artifacts"] >= 1
     assert len(chapter_seven_thresholds["expected_top_n_table_hit_queries"]) >= 2
     assert len(chapter_seven_thresholds["expected_top_n_chunk_hit_queries"]) >= 2
+
+    bitter_lesson_document = next(
+        document for document in config["documents"] if document["name"] == "bitter_lesson_prose"
+    )
+    bitter_lesson_thresholds = bitter_lesson_document["thresholds"]
+    assert (
+        bitter_lesson_document["path"]
+        == "/Users/chunkstand/Documents/docling-ingest-staging/The Bitter Lesson.pdf"
+    )
+    assert bitter_lesson_document["kind"] == "cross_domain_prose_essay"
+    assert bitter_lesson_thresholds["expected_logical_table_count"] == 0
+    assert bitter_lesson_thresholds["expected_figure_count"] == 0
+    assert len(bitter_lesson_thresholds["expected_top_n_chunk_hit_queries"]) == 3
 
     for document in config["documents"]:
         thresholds = document["thresholds"]

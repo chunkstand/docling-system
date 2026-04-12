@@ -4,9 +4,9 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.services.evaluations import (
+    _summarize_structural_checks,
     fixture_for_document,
     load_evaluation_fixtures,
-    _summarize_structural_checks,
     resolve_baseline_run_id,
 )
 
@@ -23,9 +23,14 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     chapter_five = next(fixture for fixture in fixtures if fixture.name == "upc_ch5")
     assert len(chapter_five.queries) >= 4
     assert len(chapter_five.thresholds.expected_merged_tables) == 1
-    assert chapter_five.thresholds.expected_merged_tables[0].overlay_family_key == "TABLE 510.1.2(2)"
+    assert (
+        chapter_five.thresholds.expected_merged_tables[0].overlay_family_key
+        == "TABLE 510.1.2(2)"
+    )
 
-    appendix_b = next(fixture for fixture in fixtures if fixture.name == "appendix_b_prose_guidance")
+    appendix_b = next(
+        fixture for fixture in fixtures if fixture.name == "appendix_b_prose_guidance"
+    )
     assert appendix_b.path.endswith("UPC_Appendix_B.pdf")
     assert appendix_b.thresholds.expected_logical_table_count == 0
     assert appendix_b.thresholds.expected_figure_count == 0
@@ -38,6 +43,12 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     awkward = next(fixture for fixture in fixtures if fixture.name == "awkward_headers")
     assert awkward.thresholds.expected_figure_count == 29
     assert awkward.thresholds.minimum_figures_with_provenance == 29
+
+    bitter_lesson = next(fixture for fixture in fixtures if fixture.name == "bitter_lesson_prose")
+    assert bitter_lesson.path.endswith("The Bitter Lesson.pdf")
+    assert bitter_lesson.thresholds.expected_logical_table_count == 0
+    assert bitter_lesson.thresholds.expected_figure_count == 0
+    assert all(query.expected_result_type == "chunk" for query in bitter_lesson.queries)
 
 
 def test_fixture_for_document_matches_by_source_filename() -> None:

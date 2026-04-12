@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -24,6 +25,44 @@ from app.services.search import execute_search
 
 MAX_CONTEXT_EXCERPT_CHARS = 700
 FALLBACK_CITATION_COUNT = 3
+QUESTION_STOPWORDS = {
+    "a",
+    "about",
+    "an",
+    "are",
+    "as",
+    "at",
+    "by",
+    "can",
+    "corpus",
+    "did",
+    "do",
+    "does",
+    "for",
+    "from",
+    "how",
+    "i",
+    "in",
+    "is",
+    "it",
+    "main",
+    "me",
+    "of",
+    "on",
+    "say",
+    "says",
+    "should",
+    "tell",
+    "the",
+    "this",
+    "to",
+    "what",
+    "when",
+    "where",
+    "which",
+    "who",
+    "why",
+}
 
 logger = get_logger(__name__)
 
@@ -53,8 +92,10 @@ def _result_label(result: SearchResult) -> str:
             or _collapse_whitespace(result.table_heading)
             or f"Table on {_page_label(result.page_from, result.page_to)}"
         )
+    excerpt = _collapse_whitespace(result.chunk_text)
     return (
         _collapse_whitespace(result.heading)
+        or excerpt[:80].rstrip(" .,;:")
         or f"Chunk on {_page_label(result.page_from, result.page_to)}"
     )
 
@@ -179,6 +220,23 @@ def _fallback_answer(question: str, citations: list[ChatCitation]) -> str:
     return "\n".join(lines)
 
 
+def _normalize_question_query(question: str) -> str | None:
+    tokens = re.findall(r"[A-Za-z0-9]+", question.lower())
+    filtered: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        if token in QUESTION_STOPWORDS or token in seen:
+            continue
+        seen.add(token)
+        filtered.append(token)
+    if not filtered:
+        return None
+    normalized = " ".join(filtered)
+    if normalized == question.strip().lower():
+        return None
+    return normalized
+
+
 def answer_question(
     session: Session,
     request: ChatRequest,
@@ -195,6 +253,27 @@ def answer_question(
     )
     execution = execute_search(session, search_request, origin="chat")
     citations = _build_citations(execution.results)
+
+    if not citations:
+        normalized_query = _normalize_question_query(request.question)
+        if normalized_query:
+            retry_request = SearchRequest(
+                query=normalized_query,
+                mode=request.mode,
+                filters=filters,
+                limit=request.top_k,
+                harness_name=request.harness_name,
+            )
+            retry_execution = execute_search(
+                session,
+                retry_request,
+                origin="chat",
+                parent_request_id=execution.request_id,
+            )
+            retry_citations = _build_citations(retry_execution.results)
+            if retry_citations:
+                execution = retry_execution
+                citations = retry_citations
 
     if not citations:
         response = ChatResponse(

@@ -110,6 +110,7 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
             )
         )
         .order_by(DocumentRun.created_at)
+        .limit(1)
         .with_for_update(skip_locked=True)
     )
     run = session.execute(eligible_query).scalar_one_or_none()

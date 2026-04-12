@@ -128,3 +128,46 @@ def test_answer_question_falls_back_without_generator(monkeypatch) -> None:
     assert response.reranker_version == "v1"
     assert response.search_request_id is not None
     assert response.chat_answer_id is not None
+
+
+def test_answer_question_retries_with_normalized_query_when_initial_search_misses(
+    monkeypatch,
+) -> None:
+    result = _chunk_result()
+    queries: list[str] = []
+
+    class FakeExecution:
+        def __init__(self, results, request_id):
+            self.results = results
+            self.request_id = request_id
+            self.harness_name = "default_v1"
+            self.reranker_name = "linear_feature_reranker"
+            self.reranker_version = "v1"
+            self.retrieval_profile_name = "default_v1"
+
+    def fake_execute_search(session, request, origin="api", parent_request_id=None):
+        queries.append(request.query)
+        if len(queries) == 1:
+            return FakeExecution([], uuid4())
+        return FakeExecution([result], uuid4())
+
+    monkeypatch.setattr("app.services.chat.execute_search", fake_execute_search)
+    generator = FakeAnswerGenerator()
+    session = FakeSession()
+
+    response = answer_question(
+        session=session,
+        request=ChatRequest(
+            question="What is the main claim of The Bitter Lesson?",
+            mode="keyword",
+            document_id=result.document_id,
+            top_k=4,
+        ),
+        answer_generator=generator,
+    )
+
+    assert len(queries) == 2
+    assert queries[0] == "What is the main claim of The Bitter Lesson?"
+    assert queries[1] == "claim bitter lesson"
+    assert response.used_fallback is False
+    assert response.chat_answer_id is not None

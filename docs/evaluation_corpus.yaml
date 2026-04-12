@@ -178,3 +178,20 @@ documents:
           top_n: 3
         - query: authority having jurisdiction
           top_n: 3
+  - name: bitter_lesson_prose
+    kind: cross_domain_prose_essay
+    path: /Users/chunkstand/Documents/docling-ingest-staging/The Bitter Lesson.pdf
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_chunk_hit_queries:
+        - query: general methods that leverage computation
+          top_n: 3
+        - query: building in how we think we think
+          top_n: 3
+        - query: search and learning
+          top_n: 3
