@@ -11,9 +11,10 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert config["rollout_mode"] == "immediate_breaking_replacement"
     assert config["embedding_contract"]["model"] == "text-embedding-3-small"
     assert config["embedding_contract"]["dimension"] == 1536
-    assert len(config["documents"]) == 7
+    assert len(config["documents"]) == 8
 
     names = {document["name"] for document in config["documents"]}
+    assert "appendix_b_prose_guidance" in names
     assert "upc_ch2_figures" in names
     assert "awkward_headers" in names
     assert "upc_ch4" in names
@@ -46,6 +47,15 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert simple_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf"
     assert simple_thresholds["expected_logical_table_count"] == 1
     assert len(simple_thresholds["expected_top_n_table_hit_queries"]) >= 1
+
+    appendix_b_document = next(
+        document for document in config["documents"] if document["name"] == "appendix_b_prose_guidance"
+    )
+    appendix_b_thresholds = appendix_b_document["thresholds"]
+    assert appendix_b_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_B.pdf"
+    assert appendix_b_thresholds["expected_logical_table_count"] == 0
+    assert appendix_b_thresholds["expected_figure_count"] == 0
+    assert len(appendix_b_thresholds["expected_top_n_chunk_hit_queries"]) >= 2
 
     chapter_four_document = next(
         document for document in config["documents"] if document["name"] == "upc_ch4"

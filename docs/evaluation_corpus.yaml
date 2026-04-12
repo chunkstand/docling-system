@@ -50,6 +50,21 @@ documents:
       expected_top_n_table_hit_queries:
         - query: correlation between temperature ranges
           top_n: 3
+  - name: appendix_b_prose_guidance
+    kind: prose_only_guidance
+    path: /Users/chunkstand/Documents/UPC/UPC_Appendix_B.pdf
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_chunk_hit_queries:
+        - query: combination waste and vent system
+          top_n: 3
+        - query: relief vents
+          top_n: 3
   - name: awkward_headers
     kind: awkward_headers_and_footnotes
     path: /Users/chunkstand/Documents/UPC/UPC_CH_3.pdf

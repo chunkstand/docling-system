@@ -9,8 +9,8 @@ def test_index_serves_ui() -> None:
     response = client.get("/")
 
     assert response.status_code == 200
-    assert "docling-system-ingest-file" in response.text
-    assert "Ask the knowledge base" in response.text
-    assert "Active run tables" in response.text
-    assert "Latest evaluation" in response.text
+    assert "Docling System" in response.text
+    assert "Grounded Answer Workspace" in response.text
+    assert "Live ingestion and telemetry" in response.text
+    assert "Logical tables" in response.text
     assert "/ui/app.js" in response.text

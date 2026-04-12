@@ -1,10 +1,59 @@
 const state = {
   currentDocumentId: null,
   pollTimer: null,
+  processTimer: null,
+  activeProcessKind: null,
+  activeProcessStep: -1,
+};
+
+const PROCESS_PRESETS = {
+  chat: [
+    {
+      title: "Scope question",
+      detail: "Resolve selected document or whole-corpus scope and normalize the query.",
+    },
+    {
+      title: "Retrieve evidence",
+      detail: "Search active chunks and logical tables from the validated corpus.",
+    },
+    {
+      title: "Ground answer",
+      detail: "Assemble citations and synthesize only from retrieved evidence.",
+    },
+    {
+      title: "Verification pass",
+      detail: "Return cited output and expose the supporting passages for inspection.",
+    },
+  ],
+  search: [
+    {
+      title: "Parse retrieval request",
+      detail: "Normalize the query and resolve direct corpus filters.",
+    },
+    {
+      title: "Search active corpus",
+      detail: "Run mixed retrieval over active chunks and tables.",
+    },
+    {
+      title: "Merge and rank",
+      detail: "Combine retrieval candidates and compute the final ordering.",
+    },
+    {
+      title: "Publish results",
+      detail: "Render the scored evidence surface for operator review.",
+    },
+  ],
 };
 
 const healthPill = document.getElementById("health-pill");
 const documentPill = document.getElementById("document-pill");
+const ingestionStatusValue = document.getElementById("ingestion-status-value");
+const docCountValue = document.getElementById("doc-count-value");
+const verifiedCountValue = document.getElementById("verified-count-value");
+const evaluatedCountValue = document.getElementById("evaluated-count-value");
+const tableHitRateValue = document.getElementById("table-hit-rate-value");
+const telemetryStrip = document.getElementById("telemetry-strip");
+const ingestionRunLane = document.getElementById("ingestion-run-lane");
 const documentsList = document.getElementById("documents-list");
 const statusFeedback = document.getElementById("status-feedback");
 const documentIdEl = document.getElementById("document-id");
@@ -31,16 +80,26 @@ const chatScopeNote = document.getElementById("chat-scope-note");
 const chatWarning = document.getElementById("chat-warning");
 const chatResponse = document.getElementById("chat-response");
 const chatCitations = document.getElementById("chat-citations");
+const searchProcess = document.getElementById("search-process");
+const searchProcessCaption = document.getElementById("search-process-caption");
 const searchForm = document.getElementById("search-form");
 const searchResults = document.getElementById("search-results");
 
 function escapeHtml(text) {
-  return text
+  return String(text ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function formatInteger(value) {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value ?? 0);
+}
+
+function formatPercent(value) {
+  return `${Math.round((value ?? 0) * 100)}%`;
 }
 
 function setArtifactLink(link, href, enabled) {
@@ -63,22 +122,100 @@ function formatPages(pageFrom, pageTo) {
   return `pages ${pageFrom}-${pageTo}`;
 }
 
+function ingestionRuns(documents) {
+  return documents.filter((document) =>
+    ["queued", "processing", "validating", "retry_wait"].includes(document.latest_run_status),
+  );
+}
+
+function resetProcessRail() {
+  window.clearInterval(state.processTimer);
+  state.processTimer = null;
+  state.activeProcessKind = null;
+  state.activeProcessStep = -1;
+  renderProcessRail("chat", -1, "idle");
+}
+
+function renderProcessRail(kind, activeStep, status, caption = null) {
+  const steps = PROCESS_PRESETS[kind];
+  const idleCaption =
+    kind === "search"
+      ? "Waiting for a direct search request. The rail will show retrieval stages here."
+      : "Waiting for a query. The rail will animate through retrieval and verification stages.";
+
+  searchProcessCaption.textContent = caption || idleCaption;
+  searchProcess.innerHTML = steps
+    .map((step, index) => {
+      const isComplete = status === "complete" || index < activeStep;
+      const isActive = status === "running" && index === activeStep;
+      const isError = status === "error" && index === activeStep;
+      const className = [
+        "process-step",
+        isComplete ? "is-complete" : "",
+        isActive ? "is-active" : "",
+        isError ? "is-error" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      return `
+        <article class="${className}">
+          <div class="process-step-dot"></div>
+          <div>
+            <strong>${escapeHtml(step.title)}</strong>
+            <span>${escapeHtml(step.detail)}</span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function startProcessRail(kind) {
+  window.clearInterval(state.processTimer);
+  state.activeProcessKind = kind;
+  state.activeProcessStep = 0;
+  renderProcessRail(
+    kind,
+    0,
+    "running",
+    kind === "search"
+      ? "Search request received. Running mixed retrieval over the active corpus."
+      : "Grounded question received. Resolving evidence against the active corpus.",
+  );
+
+  const steps = PROCESS_PRESETS[kind];
+  state.processTimer = window.setInterval(() => {
+    state.activeProcessStep = Math.min(state.activeProcessStep + 1, steps.length - 1);
+    renderProcessRail(kind, state.activeProcessStep, "running");
+  }, 650);
+}
+
+function finishProcessRail(kind, succeeded, caption) {
+  window.clearInterval(state.processTimer);
+  state.processTimer = null;
+  const finalStep = PROCESS_PRESETS[kind].length - 1;
+  state.activeProcessKind = kind;
+  state.activeProcessStep = finalStep;
+  renderProcessRail(kind, finalStep, succeeded ? "complete" : "error", caption);
+}
+
 async function checkHealth() {
   try {
     const response = await fetch("/health");
     if (!response.ok) throw new Error("Health check failed");
     healthPill.textContent = "Ready";
-    healthPill.className = "metric-value ok";
+    healthPill.className = "signal-value ok";
   } catch (error) {
     healthPill.textContent = "Offline";
-    healthPill.className = "metric-value error";
+    healthPill.className = "signal-value error";
   }
 }
 
 function renderDocuments(documents) {
   if (!documents.length) {
     documentsList.className = "documents-list empty";
-    documentsList.textContent = "No documents loaded yet. Use docling-system-ingest-file locally to queue PDFs.";
+    documentsList.textContent =
+      "No documents loaded yet. Use docling-system-ingest-file locally to queue PDFs.";
     return;
   }
 
@@ -86,13 +223,15 @@ function renderDocuments(documents) {
   documentsList.innerHTML = documents
     .map(
       (document) => `
-        <button class="document-card ${document.document_id === state.currentDocumentId ? "selected" : ""}" type="button" data-document-id="${document.document_id}">
+        <button
+          class="document-card ${document.document_id === state.currentDocumentId ? "selected" : ""}"
+          type="button"
+          data-document-id="${document.document_id}"
+        >
           <strong>${escapeHtml(document.title || document.source_filename)}</strong>
           <span>${escapeHtml(document.source_filename)}</span>
-          <span>Latest: ${escapeHtml(document.latest_run_status || "unknown")}</span>
-          <span>Validation: ${escapeHtml(document.latest_validation_status || "pending")}</span>
-          <span>${document.table_count || 0} tables</span>
-          <span>${document.figure_count || 0} diagrams</span>
+          <span>run ${escapeHtml(document.latest_run_status || "unknown")} / validation ${escapeHtml(document.latest_validation_status || "pending")}</span>
+          <span>${document.table_count || 0} tables · ${document.figure_count || 0} figures</span>
         </button>
       `,
     )
@@ -107,6 +246,79 @@ function renderDocuments(documents) {
   });
 }
 
+function renderOverview(documents, metrics) {
+  const validated = documents.filter((document) => document.latest_validation_status === "passed");
+  const evaluated = documents.filter(
+    (document) => document.latest_evaluation && document.latest_evaluation.status === "completed",
+  );
+  const activeIngestion = ingestionRuns(documents);
+
+  docCountValue.textContent = formatInteger(documents.length);
+  verifiedCountValue.textContent = formatInteger(validated.length);
+  evaluatedCountValue.textContent = formatInteger(evaluated.length);
+  tableHitRateValue.textContent = formatPercent(metrics.mixed_search_table_hit_rate);
+  ingestionStatusValue.textContent = activeIngestion.length
+    ? `${activeIngestion.length} live run${activeIngestion.length > 1 ? "s" : ""}`
+    : "Idle";
+}
+
+function renderIngestionLane(documents) {
+  const activeRuns = ingestionRuns(documents);
+  if (!activeRuns.length) {
+    ingestionRunLane.className = "ingestion-lane empty";
+    ingestionRunLane.textContent = "No current ingestion run.";
+    return;
+  }
+
+  ingestionRunLane.className = "ingestion-lane";
+  ingestionRunLane.innerHTML = activeRuns
+    .map(
+      (document) => `
+        <article class="ingestion-item">
+          <strong>${escapeHtml(document.source_filename)}</strong>
+          <span>Status: ${escapeHtml(document.latest_run_status)}</span>
+          <span>Validation: ${escapeHtml(document.latest_validation_status || "pending")}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderTelemetry(metrics) {
+  telemetryStrip.className = "telemetry-strip";
+  telemetryStrip.innerHTML = [
+    {
+      label: "Logical tables persisted",
+      value: formatInteger(metrics.logical_tables_persisted_total),
+      note: "Structured retrieval objects written to the corpus.",
+    },
+    {
+      label: "Continuation merges",
+      value: formatInteger(metrics.continuation_merges_total),
+      note: "Merged table segments with preserved lineage.",
+    },
+    {
+      label: "Mixed search requests",
+      value: formatInteger(metrics.mixed_search_requests_total),
+      note: "Requests observed through the shared retrieval path.",
+    },
+    {
+      label: "Table search hits",
+      value: formatInteger(metrics.table_search_hits_total),
+      note: "Returned table evidence from active mixed retrieval.",
+    },
+  ]
+    .map(
+      (item) => `
+        <article class="telemetry-item">
+          <strong>${escapeHtml(item.value)} · ${escapeHtml(item.label)}</strong>
+          <span>${escapeHtml(item.note)}</span>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderChunks(chunks) {
   if (!chunks.length) {
     chunksList.className = "chunks-list empty";
@@ -116,13 +328,13 @@ function renderChunks(chunks) {
 
   chunksList.className = "chunks-list";
   chunksList.innerHTML = chunks
-    .slice(0, 8)
+    .slice(0, 6)
     .map(
       (chunk) => `
         <article class="chunk-card">
           <div class="chunk-meta">
             <span>Chunk ${chunk.chunk_index}</span>
-            <span>Pages ${chunk.page_from ?? "?"}-${chunk.page_to ?? "?"}</span>
+            <span>${escapeHtml(formatPages(chunk.page_from, chunk.page_to))}</span>
             ${chunk.heading ? `<span>${escapeHtml(chunk.heading)}</span>` : ""}
           </div>
           <p>${escapeHtml(chunk.text)}</p>
@@ -141,19 +353,19 @@ function renderTables(tables, documentId) {
 
   tablesList.className = "tables-list";
   tablesList.innerHTML = tables
-    .slice(0, 8)
+    .slice(0, 6)
     .map(
       (table) => `
         <article class="table-card">
           <div class="table-meta">
             <span>Table ${table.table_index + 1}</span>
-            <span>Pages ${table.page_from ?? "?"}-${table.page_to ?? "?"}</span>
-            <span>${table.row_count ?? "?"} rows x ${table.col_count ?? "?"} cols</span>
+            <span>${escapeHtml(formatPages(table.page_from, table.page_to))}</span>
+            <span>${table.row_count ?? "?"} rows × ${table.col_count ?? "?"} cols</span>
           </div>
           ${table.title ? `<strong>${escapeHtml(table.title)}</strong>` : ""}
           ${table.heading ? `<p class="table-heading">${escapeHtml(table.heading)}</p>` : ""}
           <p>${escapeHtml(table.preview_text)}</p>
-          <div class="artifact-links table-links">
+          <div class="artifact-links">
             <a href="/documents/${documentId}/tables/${table.table_id}/artifacts/json" target="_blank" rel="noreferrer">JSON</a>
             <a href="/documents/${documentId}/tables/${table.table_id}/artifacts/yaml" target="_blank" rel="noreferrer">YAML</a>
           </div>
@@ -172,18 +384,18 @@ function renderFigures(figures, documentId) {
 
   figuresList.className = "tables-list";
   figuresList.innerHTML = figures
-    .slice(0, 8)
+    .slice(0, 6)
     .map(
       (figure) => `
         <article class="table-card">
           <div class="table-meta">
             <span>Figure ${figure.figure_index + 1}</span>
-            <span>Pages ${figure.page_from ?? "?"}-${figure.page_to ?? "?"}</span>
+            <span>${escapeHtml(formatPages(figure.page_from, figure.page_to))}</span>
             <span>Confidence ${figure.confidence != null ? Number(figure.confidence).toFixed(2) : "n/a"}</span>
           </div>
           ${figure.caption ? `<strong>${escapeHtml(figure.caption)}</strong>` : "<strong>Uncaptioned figure</strong>"}
           ${figure.heading ? `<p class="table-heading">${escapeHtml(figure.heading)}</p>` : ""}
-          <div class="artifact-links table-links">
+          <div class="artifact-links">
             <a href="/documents/${documentId}/figures/${figure.figure_id}/artifacts/json" target="_blank" rel="noreferrer">JSON</a>
             <a href="/documents/${documentId}/figures/${figure.figure_id}/artifacts/yaml" target="_blank" rel="noreferrer">YAML</a>
           </div>
@@ -197,7 +409,10 @@ function renderEvaluation(evaluation) {
   if (!evaluation) {
     evaluationStatusEl.textContent = "Missing";
     evaluationSummaryPillEl.textContent = "No evaluation";
-    setFeedback(evaluationFeedback, "No persisted evaluation exists for the latest run.");
+    setFeedback(
+      evaluationFeedback,
+      "No persisted evaluation exists for the latest run.",
+    );
     evaluationQueries.className = "tables-list empty";
     evaluationQueries.textContent = "No evaluation results yet.";
     return;
@@ -208,7 +423,7 @@ function renderEvaluation(evaluation) {
   const structuralFailures = evaluation.summary?.failed_structural_checks ?? 0;
   const summaryNote =
     evaluation.status === "completed"
-      ? `${evaluation.failed_queries} failed, ${evaluation.regressed_queries} regressed, ${evaluation.improved_queries} improved, ${structuralFailures} structural failed.`
+      ? `${evaluation.failed_queries} failed queries, ${structuralFailures} failed structural checks, ${evaluation.improved_queries} improved results.`
       : evaluation.error_message || "Evaluation did not complete.";
   setFeedback(evaluationFeedback, summaryNote, evaluation.status === "completed" ? "muted" : "");
 
@@ -221,7 +436,7 @@ function renderEvaluation(evaluation) {
 
   evaluationQueries.className = "tables-list";
   evaluationQueries.innerHTML = queryResults
-    .slice(0, 8)
+    .slice(0, 6)
     .map(
       (row) => `
         <article class="table-card">
@@ -230,7 +445,6 @@ function renderEvaluation(evaluation) {
             <span>${row.passed ? "pass" : "fail"}</span>
             <span>candidate rank ${row.candidate_rank ?? "n/a"}</span>
             <span>baseline rank ${row.baseline_rank ?? "n/a"}</span>
-            <span>delta ${row.rank_delta ?? "n/a"}</span>
           </div>
           <strong>${escapeHtml(row.query_text)}</strong>
           <p>${escapeHtml(row.candidate_label || "No matching candidate result")}</p>
@@ -256,7 +470,7 @@ function renderSearchResults(results) {
             <div class="result-meta">
               <span>Table hit</span>
               <span>${escapeHtml(result.source_filename)}</span>
-              <span>Pages ${result.page_from ?? "?"}-${result.page_to ?? "?"}</span>
+              <span>${escapeHtml(formatPages(result.page_from, result.page_to))}</span>
               <span>Score ${Number(result.score).toFixed(3)}</span>
             </div>
             ${result.table_title ? `<strong>${escapeHtml(result.table_title)}</strong>` : ""}
@@ -271,7 +485,7 @@ function renderSearchResults(results) {
           <div class="result-meta">
             <span>Chunk hit</span>
             <span>${escapeHtml(result.source_filename)}</span>
-            <span>Pages ${result.page_from ?? "?"}-${result.page_to ?? "?"}</span>
+            <span>${escapeHtml(formatPages(result.page_from, result.page_to))}</span>
             <span>Score ${Number(result.score).toFixed(3)}</span>
           </div>
           ${result.heading ? `<strong>${escapeHtml(result.heading)}</strong>` : ""}
@@ -312,7 +526,7 @@ function renderChatResponse(payload) {
     <article class="answer-card">
       <div class="result-meta">
         <span>${escapeHtml(payload.mode)}</span>
-        <span>${payload.used_fallback ? "extractive fallback" : "model answer"}</span>
+        <span>${payload.used_fallback ? "extractive fallback" : "model-backed answer"}</span>
         ${payload.model ? `<span>${escapeHtml(payload.model)}</span>` : ""}
       </div>
       <p>${escapeHtml(payload.answer).replaceAll("\n", "<br />")}</p>
@@ -351,6 +565,14 @@ async function fetchDocuments() {
   const response = await fetch("/documents");
   if (!response.ok) {
     throw new Error("Unable to load documents.");
+  }
+  return response.json();
+}
+
+async function fetchMetrics() {
+  const response = await fetch("/metrics");
+  if (!response.ok) {
+    throw new Error("Unable to load metrics.");
   }
   return response.json();
 }
@@ -399,11 +621,14 @@ async function fetchLatestEvaluation(documentId) {
 }
 
 async function refreshDocuments() {
-  const documents = await fetchDocuments();
+  const [documents, metrics] = await Promise.all([fetchDocuments(), fetchMetrics()]);
   if (!state.currentDocumentId && documents.length) {
     state.currentDocumentId = documents[0].document_id;
   }
   renderDocuments(documents);
+  renderOverview(documents, metrics);
+  renderIngestionLane(documents);
+  renderTelemetry(metrics);
   syncChatScopeState();
 }
 
@@ -417,6 +642,7 @@ async function refreshCurrentDocument() {
     renderTables([], "");
     renderFigures([], "");
     renderEvaluation(null);
+    documentPill.textContent = "None selected";
     return;
   }
 
@@ -431,16 +657,24 @@ async function refreshCurrentDocument() {
 
     documentIdEl.textContent = document.document_id;
     documentPill.textContent = document.title || document.source_filename;
-    documentPill.className = "metric-value subtle";
+    documentPill.className = "signal-value subtle";
     activeRunStatusEl.textContent = document.active_run_status || "Not active";
     latestRunStatusEl.textContent = document.latest_run_status || "Unknown";
     validationStatusEl.textContent = document.latest_validation_status || "Pending";
     promotionStatusEl.textContent = document.latest_run_promoted ? "Promoted" : "Not promoted";
-    setArtifactLink(jsonLink, `/documents/${document.document_id}/artifacts/json`, document.has_json_artifact);
-    setArtifactLink(yamlLink, `/documents/${document.document_id}/artifacts/yaml`, document.has_yaml_artifact);
+    setArtifactLink(
+      jsonLink,
+      `/documents/${document.document_id}/artifacts/json`,
+      document.has_json_artifact,
+    );
+    setArtifactLink(
+      yamlLink,
+      `/documents/${document.document_id}/artifacts/yaml`,
+      document.has_yaml_artifact,
+    );
 
     const note = document.is_searchable
-      ? `Document is searchable with ${document.table_count ?? 0} active tables and ${document.figure_count ?? 0} active diagrams.`
+      ? `Document is searchable with ${document.table_count ?? 0} active tables and ${document.figure_count ?? 0} active figures.`
       : document.latest_error_message || "Latest run has not been promoted yet.";
     setFeedback(statusFeedback, note, document.is_searchable ? "muted" : "");
     renderChunks(chunks);
@@ -514,8 +748,9 @@ chatForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  startProcessRail("chat");
   chatResponse.className = "chat-response empty";
-  chatResponse.textContent = "Retrieving evidence and drafting an answer...";
+  chatResponse.textContent = "Retrieving evidence and building a cited answer...";
   chatCitations.className = "chat-citations empty";
   chatCitations.textContent = "Waiting for supporting passages...";
   setFeedback(chatWarning, "");
@@ -536,10 +771,18 @@ chatForm.addEventListener("submit", async (event) => {
       throw new Error(body.detail || "Chat request failed.");
     }
     renderChatResponse(body);
+    finishProcessRail(
+      "chat",
+      true,
+      `Grounded answer completed with ${body.citations.length} supporting citation${body.citations.length === 1 ? "" : "s"}.`,
+    );
+    const metrics = await fetchMetrics();
+    renderTelemetry(metrics);
   } catch (error) {
     renderChatResponse(null);
     chatResponse.className = "chat-response empty";
     chatResponse.textContent = error.message || "Chat request failed.";
+    finishProcessRail("chat", false, error.message || "Grounded answer failed.");
   }
 });
 
@@ -554,6 +797,7 @@ searchForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  startProcessRail("search");
   searchResults.className = "search-results empty";
   searchResults.textContent = "Searching...";
 
@@ -573,9 +817,17 @@ searchForm.addEventListener("submit", async (event) => {
       throw new Error(body.detail || "Search failed.");
     }
     renderSearchResults(body);
+    finishProcessRail(
+      "search",
+      true,
+      `Direct retrieval completed with ${body.length} ranked result${body.length === 1 ? "" : "s"}.`,
+    );
+    const metrics = await fetchMetrics();
+    renderTelemetry(metrics);
   } catch (error) {
     searchResults.className = "search-results empty";
     searchResults.textContent = error.message || "Search failed.";
+    finishProcessRail("search", false, error.message || "Direct search failed.");
   }
 });
 
@@ -584,5 +836,6 @@ setArtifactLink(jsonLink, "#", false);
 setArtifactLink(yamlLink, "#", false);
 syncChatScopeState();
 renderChatResponse(null);
+resetProcessRail();
 refreshDocuments().then(refreshCurrentDocument);
 startPolling();

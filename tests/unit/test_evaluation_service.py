@@ -24,6 +24,12 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert len(chapter_five.thresholds.expected_merged_tables) == 1
     assert chapter_five.thresholds.expected_merged_tables[0].overlay_family_key == "TABLE 510.1.2(2)"
 
+    appendix_b = next(fixture for fixture in fixtures if fixture.name == "appendix_b_prose_guidance")
+    assert appendix_b.path.endswith("UPC_Appendix_B.pdf")
+    assert appendix_b.thresholds.expected_logical_table_count == 0
+    assert appendix_b.thresholds.expected_figure_count == 0
+    assert all(query.expected_result_type == "chunk" for query in appendix_b.queries)
+
 
 def test_fixture_for_document_matches_by_source_filename() -> None:
     document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")
