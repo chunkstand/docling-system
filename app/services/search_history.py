@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import uuid
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import SearchRequestRecord, SearchRequestResult
+from app.db.models import SearchFeedback, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import (
+    SearchFeedbackCreateRequest,
+    SearchFeedbackResponse,
     SearchFilters,
     SearchLoggedResultResponse,
     SearchReplayDiffResponse,
@@ -18,6 +22,10 @@ from app.schemas.search import (
     SearchScores,
 )
 from app.services.search import execute_search
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 def _not_found(search_request_id: UUID) -> HTTPException:
@@ -64,6 +72,18 @@ def _to_logged_result(row: SearchRequestResult) -> SearchLoggedResultResponse:
     )
 
 
+def _to_feedback_response(row: SearchFeedback) -> SearchFeedbackResponse:
+    return SearchFeedbackResponse(
+        feedback_id=row.id,
+        search_request_id=row.search_request_id,
+        search_request_result_id=row.search_request_result_id,
+        result_rank=row.result_rank,
+        feedback_type=row.feedback_type,
+        note=row.note,
+        created_at=row.created_at,
+    )
+
+
 def _load_request_row(session: Session, search_request_id: UUID) -> SearchRequestRecord:
     row = session.get(SearchRequestRecord, search_request_id)
     if row is None:
@@ -79,6 +99,15 @@ def _build_request_detail(
             select(SearchRequestResult)
             .where(SearchRequestResult.search_request_id == request_row.id)
             .order_by(SearchRequestResult.rank.asc())
+        )
+        .scalars()
+        .all()
+    )
+    feedback_rows = (
+        session.execute(
+            select(SearchFeedback)
+            .where(SearchFeedback.search_request_id == request_row.id)
+            .order_by(SearchFeedback.created_at.desc())
         )
         .scalars()
         .all()
@@ -103,8 +132,79 @@ def _build_request_detail(
         table_hit_count=request_row.table_hit_count,
         duration_ms=request_row.duration_ms,
         created_at=request_row.created_at,
+        feedback=[_to_feedback_response(row) for row in feedback_rows],
         results=[_to_logged_result(row) for row in result_rows],
     )
+
+
+def build_search_replay_diff(
+    original: SearchRequestDetailResponse,
+    replay: SearchRequestDetailResponse,
+) -> SearchReplayDiffResponse:
+    original_ranks = {_search_result_key(result): result.rank for result in original.results}
+    replay_ranks = {_search_result_key(result): result.rank for result in replay.results}
+    overlap_keys = set(original_ranks) & set(replay_ranks)
+    max_rank_shift = (
+        max(abs(original_ranks[key] - replay_ranks[key]) for key in overlap_keys)
+        if overlap_keys
+        else 0
+    )
+
+    original_top = _search_result_key(original.results[0]) if original.results else None
+    replay_top = _search_result_key(replay.results[0]) if replay.results else None
+
+    return SearchReplayDiffResponse(
+        overlap_count=len(overlap_keys),
+        added_count=len(set(replay_ranks) - set(original_ranks)),
+        removed_count=len(set(original_ranks) - set(replay_ranks)),
+        top_result_changed=original_top != replay_top,
+        max_rank_shift=max_rank_shift,
+    )
+
+
+def record_search_feedback(
+    session: Session,
+    search_request_id: UUID,
+    payload: SearchFeedbackCreateRequest,
+) -> SearchFeedbackResponse:
+    _load_request_row(session, search_request_id)
+
+    result_row = None
+    if payload.feedback_type in {"relevant", "irrelevant"}:
+        if payload.result_rank is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Result-specific feedback requires result_rank.",
+            )
+        result_row = session.execute(
+            select(SearchRequestResult).where(
+                SearchRequestResult.search_request_id == search_request_id,
+                SearchRequestResult.rank == payload.result_rank,
+            )
+        ).scalar_one_or_none()
+        if result_row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Search result rank not found: {payload.result_rank}",
+            )
+    elif payload.result_rank is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request-level feedback must not include result_rank.",
+        )
+
+    feedback = SearchFeedback(
+        id=uuid.uuid4(),
+        search_request_id=search_request_id,
+        search_request_result_id=getattr(result_row, "id", None),
+        result_rank=payload.result_rank,
+        feedback_type=payload.feedback_type,
+        note=payload.note,
+        created_at=_utcnow(),
+    )
+    session.add(feedback)
+    session.flush()
+    return _to_feedback_response(feedback)
 
 
 def get_search_request_detail(
@@ -142,26 +242,8 @@ def replay_search_request(session: Session, search_request_id: UUID) -> SearchRe
     original = _build_request_detail(session, request_row)
     replay = get_search_request_detail(session, execution.request_id)
 
-    original_ranks = {_search_result_key(result): result.rank for result in original.results}
-    replay_ranks = {_search_result_key(result): result.rank for result in replay.results}
-    overlap_keys = set(original_ranks) & set(replay_ranks)
-    max_rank_shift = (
-        max(abs(original_ranks[key] - replay_ranks[key]) for key in overlap_keys)
-        if overlap_keys
-        else 0
-    )
-
-    original_top = _search_result_key(original.results[0]) if original.results else None
-    replay_top = _search_result_key(replay.results[0]) if replay.results else None
-
     return SearchReplayResponse(
         original_request=original,
         replay_request=replay,
-        diff=SearchReplayDiffResponse(
-            overlap_count=len(overlap_keys),
-            added_count=len(set(replay_ranks) - set(original_ranks)),
-            removed_count=len(set(original_ranks) - set(replay_ranks)),
-            top_result_changed=original_top != replay_top,
-            max_rank_shift=max_rank_shift,
-        ),
+        diff=build_search_replay_diff(original, replay),
     )

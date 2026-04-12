@@ -10,8 +10,10 @@ from app.cli import (
     run_backfill_legacy_audit,
     run_eval_candidates,
     run_eval_run,
+    run_export_ranking_dataset,
     run_ingest_file,
     run_replay_search,
+    run_replay_suite,
 )
 
 
@@ -228,3 +230,70 @@ def test_eval_candidates_cli_prints_summary(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output[0]["candidate_type"] == "live_search_gap"
     assert output[0]["search_request_id"] == str(search_request_id)
+
+
+def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
+    replay_run_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-run-replay-suite", "feedback", "--limit", "3"],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.run_search_replay_suite",
+        lambda session, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "replay_run_id": str(replay_run_id),
+                "source_type": payload.source_type,
+                "query_count": payload.limit,
+            }
+        ),
+    )
+
+    run_replay_suite()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["replay_run_id"] == str(replay_run_id)
+    assert output["source_type"] == "feedback"
+    assert output["query_count"] == 3
+
+
+def test_export_ranking_dataset_cli_prints_rows(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-export-ranking-dataset", "--limit", "5"],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.export_ranking_dataset",
+        lambda session, limit=200: [
+            {"dataset_type": "feedback", "feedback_type": "relevant"},
+            {"dataset_type": "replay", "passed": True},
+        ],
+    )
+
+    run_export_ranking_dataset()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["dataset_type"] == "feedback"
+    assert output[1]["dataset_type"] == "replay"

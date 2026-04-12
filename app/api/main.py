@@ -27,9 +27,16 @@ from app.schemas.quality import (
     QualityEvaluationStatusResponse,
     QualityFailuresResponse,
     QualitySummaryResponse,
+    QualityTrendsResponse,
 )
 from app.schemas.search import (
+    SearchFeedbackCreateRequest,
+    SearchFeedbackResponse,
+    SearchReplayComparisonResponse,
     SearchReplayResponse,
+    SearchReplayRunDetailResponse,
+    SearchReplayRunRequest,
+    SearchReplayRunSummaryResponse,
     SearchRequest,
     SearchRequestDetailResponse,
     SearchResult,
@@ -49,11 +56,22 @@ from app.services.figures import get_active_figure_detail, get_active_figures
 from app.services.quality import (
     get_quality_failures,
     get_quality_summary,
+    get_quality_trends,
     list_quality_eval_candidates,
     list_quality_evaluations,
 )
 from app.services.search import execute_search
-from app.services.search_history import get_search_request_detail, replay_search_request
+from app.services.search_history import (
+    get_search_request_detail,
+    record_search_feedback,
+    replay_search_request,
+)
+from app.services.search_replays import (
+    compare_search_replay_runs,
+    get_search_replay_run_detail,
+    list_search_replay_runs,
+    run_search_replay_suite,
+)
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
@@ -105,6 +123,11 @@ def read_quality_eval_candidates(
     session: Session = Depends(get_db_session),
 ) -> list[QualityEvaluationCandidateResponse]:
     return list_quality_eval_candidates(session)
+
+
+@app.get("/quality/trends", response_model=QualityTrendsResponse)
+def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTrendsResponse:
+    return get_quality_trends(session)
 
 
 @app.get("/documents", response_model=list[DocumentSummaryResponse])
@@ -341,6 +364,20 @@ def read_search_request(
     return get_search_request_detail(session, search_request_id)
 
 
+@app.post(
+    "/search/requests/{search_request_id}/feedback",
+    response_model=SearchFeedbackResponse,
+)
+def create_search_feedback(
+    search_request_id: UUID,
+    payload: SearchFeedbackCreateRequest,
+    session: Session = Depends(get_db_session),
+) -> SearchFeedbackResponse:
+    feedback = record_search_feedback(session, search_request_id, payload)
+    session.commit()
+    return feedback
+
+
 @app.post("/search/requests/{search_request_id}/replay", response_model=SearchReplayResponse)
 def replay_logged_search(
     search_request_id: UUID,
@@ -349,6 +386,44 @@ def replay_logged_search(
     replay = replay_search_request(session, search_request_id)
     session.commit()
     return replay
+
+
+@app.get("/search/replays", response_model=list[SearchReplayRunSummaryResponse])
+def read_search_replays(
+    session: Session = Depends(get_db_session),
+) -> list[SearchReplayRunSummaryResponse]:
+    return list_search_replay_runs(session)
+
+
+@app.post("/search/replays", response_model=SearchReplayRunDetailResponse)
+def create_search_replay_run(
+    payload: SearchReplayRunRequest,
+    session: Session = Depends(get_db_session),
+) -> SearchReplayRunDetailResponse:
+    replay_run = run_search_replay_suite(session, payload)
+    session.commit()
+    return replay_run
+
+
+@app.get("/search/replays/compare", response_model=SearchReplayComparisonResponse)
+def read_search_replay_comparison(
+    baseline_replay_run_id: UUID,
+    candidate_replay_run_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchReplayComparisonResponse:
+    return compare_search_replay_runs(
+        session,
+        baseline_replay_run_id=baseline_replay_run_id,
+        candidate_replay_run_id=candidate_replay_run_id,
+    )
+
+
+@app.get("/search/replays/{replay_run_id}", response_model=SearchReplayRunDetailResponse)
+def read_search_replay_run(
+    replay_run_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchReplayRunDetailResponse:
+    return get_search_replay_run_detail(session, replay_run_id)
 
 
 @app.post("/chat", response_model=ChatResponse)

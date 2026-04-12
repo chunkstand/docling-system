@@ -152,3 +152,133 @@ def test_search_request_replay_route_uses_history_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["replay_request"]["parent_search_request_id"] == str(request_id)
+
+
+def test_search_request_feedback_route_uses_history_service(monkeypatch) -> None:
+    request_id = uuid4()
+    feedback_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.record_search_feedback",
+        lambda session, search_request_id, payload: {
+            "feedback_id": str(feedback_id),
+            "search_request_id": str(search_request_id),
+            "search_request_result_id": None,
+            "result_rank": None,
+            "feedback_type": payload.feedback_type,
+            "note": payload.note,
+            "created_at": "2026-04-12T00:00:00Z",
+        },
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/search/requests/{request_id}/feedback",
+        json={"feedback_type": "missing_table"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["feedback_id"] == str(feedback_id)
+    assert body["feedback_type"] == "missing_table"
+
+
+def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
+    replay_run_id = uuid4()
+    comparison_baseline_id = uuid4()
+    comparison_candidate_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.list_search_replay_runs",
+        lambda session: [
+            {
+                "replay_run_id": str(replay_run_id),
+                "source_type": "live_search_gaps",
+                "status": "completed",
+                "query_count": 3,
+                "passed_count": 2,
+                "failed_count": 1,
+                "zero_result_count": 1,
+                "table_hit_count": 1,
+                "top_result_changes": 0,
+                "max_rank_shift": 0,
+                "created_at": "2026-04-12T00:00:00Z",
+                "completed_at": "2026-04-12T00:00:01Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.run_search_replay_suite",
+        lambda session, payload: {
+            "replay_run_id": str(replay_run_id),
+            "source_type": payload.source_type,
+            "status": "completed",
+            "query_count": 3,
+            "passed_count": 2,
+            "failed_count": 1,
+            "zero_result_count": 1,
+            "table_hit_count": 1,
+            "top_result_changes": 0,
+            "max_rank_shift": 0,
+            "created_at": "2026-04-12T00:00:00Z",
+            "completed_at": "2026-04-12T00:00:01Z",
+            "summary": {"source_limit": 3},
+            "query_results": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_search_replay_run_detail",
+        lambda session, replay_run_id: {
+            "replay_run_id": str(replay_run_id),
+            "source_type": "live_search_gaps",
+            "status": "completed",
+            "query_count": 3,
+            "passed_count": 2,
+            "failed_count": 1,
+            "zero_result_count": 1,
+            "table_hit_count": 1,
+            "top_result_changes": 0,
+            "max_rank_shift": 0,
+            "created_at": "2026-04-12T00:00:00Z",
+            "completed_at": "2026-04-12T00:00:01Z",
+            "summary": {"source_limit": 3},
+            "query_results": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.compare_search_replay_runs",
+        lambda session, baseline_replay_run_id, candidate_replay_run_id: {
+            "baseline_replay_run_id": str(baseline_replay_run_id),
+            "candidate_replay_run_id": str(candidate_replay_run_id),
+            "shared_query_count": 3,
+            "improved_count": 1,
+            "regressed_count": 0,
+            "unchanged_count": 2,
+            "baseline_zero_result_count": 1,
+            "candidate_zero_result_count": 0,
+            "changed_queries": [],
+        },
+    )
+
+    client = TestClient(app)
+
+    list_response = client.get("/search/replays")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["replay_run_id"] == str(replay_run_id)
+
+    create_response = client.post(
+        "/search/replays",
+        json={"source_type": "live_search_gaps", "limit": 3},
+    )
+    assert create_response.status_code == 200
+    assert create_response.json()["source_type"] == "live_search_gaps"
+
+    detail_response = client.get(f"/search/replays/{replay_run_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["replay_run_id"] == str(replay_run_id)
+
+    compare_response = client.get(
+        f"/search/replays/compare?baseline_replay_run_id={comparison_baseline_id}&candidate_replay_run_id={comparison_candidate_id}"
+    )
+    assert compare_response.status_code == 200
+    assert compare_response.json()["improved_count"] == 1

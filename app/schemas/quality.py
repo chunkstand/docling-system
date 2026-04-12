@@ -82,3 +82,31 @@ class QualityEvaluationCandidateResponse(BaseModel):
     source_filename: str | None = None
     evaluation_id: UUID | None = None
     search_request_id: UUID | None = None
+
+
+class QualitySearchTrendPointResponse(BaseModel):
+    bucket_date: str
+    request_count: int
+    zero_result_count: int
+    table_hit_rate: float
+
+
+class QualityFeedbackTypeCountResponse(BaseModel):
+    feedback_type: str
+    count: int
+
+
+class QualityReplayRunTrendResponse(BaseModel):
+    replay_run_id: UUID
+    source_type: str
+    status: str
+    query_count: int
+    passed_count: int
+    failed_count: int
+    created_at: datetime
+
+
+class QualityTrendsResponse(BaseModel):
+    search_request_days: list[QualitySearchTrendPointResponse]
+    feedback_counts: list[QualityFeedbackTypeCountResponse]
+    recent_replay_runs: list[QualityReplayRunTrendResponse]

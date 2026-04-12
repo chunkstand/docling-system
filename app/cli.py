@@ -7,12 +7,17 @@ from uuid import UUID
 
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
+from app.schemas.search import SearchReplayRunRequest
 from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
 from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_history import replay_search_request
+from app.services.search_replays import (
+    export_ranking_dataset,
+    run_search_replay_suite,
+)
 from app.services.storage import StorageService
 
 
@@ -168,3 +173,38 @@ def run_eval_candidates() -> None:
     with session_factory() as session:
         payload = list_quality_eval_candidates(session, limit=args.limit)
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_replay_suite() -> None:
+    parser = argparse.ArgumentParser(
+        description="Run a persisted replay suite over evaluation queries, live gaps, or feedback."
+    )
+    parser.add_argument(
+        "source_type",
+        choices=["evaluation_queries", "live_search_gaps", "feedback"],
+        help="Replay source to execute.",
+    )
+    parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = run_search_replay_suite(
+            session,
+            SearchReplayRunRequest(source_type=args.source_type, limit=args.limit),
+        )
+        session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_export_ranking_dataset() -> None:
+    parser = argparse.ArgumentParser(
+        description="Export labeled ranking data from search feedback and replay deltas."
+    )
+    parser.add_argument("--limit", type=int, default=200, help="Maximum rows per source set.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = export_ranking_dataset(session, limit=args.limit)
+    print(json.dumps(payload))

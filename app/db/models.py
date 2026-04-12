@@ -316,6 +316,170 @@ class SearchRequestResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SearchFeedback(Base):
+    __tablename__ = "search_feedback"
+    __table_args__ = (
+        CheckConstraint(
+            "feedback_type IN ('relevant', 'irrelevant', 'missing_table', "
+            "'missing_chunk', 'no_answer')",
+            name="ck_search_feedback_type",
+        ),
+        Index("ix_search_feedback_search_request_id", "search_request_id"),
+        Index("ix_search_feedback_search_request_result_id", "search_request_result_id"),
+        Index("ix_search_feedback_feedback_type", "feedback_type"),
+        Index("ix_search_feedback_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    search_request_result_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_request_results.id", ondelete="SET NULL"),
+    )
+    result_rank: Mapped[int | None] = mapped_column(Integer)
+    feedback_type: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SearchReplayRun(Base):
+    __tablename__ = "search_replay_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('evaluation_queries', 'live_search_gaps', 'feedback')",
+            name="ck_search_replay_runs_source_type",
+        ),
+        CheckConstraint(
+            "status IN ('completed', 'failed')",
+            name="ck_search_replay_runs_status",
+        ),
+        Index("ix_search_replay_runs_created_at", "created_at"),
+        Index("ix_search_replay_runs_source_type_created_at", "source_type", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    passed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    failed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    zero_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    top_result_changes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    max_rank_shift: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SearchReplayQuery(Base):
+    __tablename__ = "search_replay_queries"
+    __table_args__ = (
+        Index("ix_search_replay_queries_replay_run_id", "replay_run_id"),
+        Index("ix_search_replay_queries_source_search_request_id", "source_search_request_id"),
+        Index("ix_search_replay_queries_replay_search_request_id", "replay_search_request_id"),
+        Index("ix_search_replay_queries_feedback_id", "feedback_id"),
+        Index("ix_search_replay_queries_evaluation_query_id", "evaluation_query_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    replay_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    replay_search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    feedback_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_feedback.id", ondelete="SET NULL"),
+    )
+    evaluation_query_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_evaluation_queries.id", ondelete="SET NULL"),
+    )
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, nullable=False)
+    filters_json: Mapped[dict] = mapped_column(
+        "filters",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    expected_result_type: Mapped[str | None] = mapped_column(Text)
+    expected_top_n: Mapped[int | None] = mapped_column(Integer)
+    passed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    overlap_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    added_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    removed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    top_result_changed: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    max_rank_shift: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (

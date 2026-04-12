@@ -163,3 +163,42 @@ def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None
     body = response.json()
     assert body[0]["candidate_type"] == "live_search_gap"
     assert body[0]["search_request_id"] == str(search_request_id)
+
+
+def test_quality_trends_route_uses_quality_service(monkeypatch) -> None:
+    replay_run_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_quality_trends",
+        lambda session: {
+            "search_request_days": [
+                {
+                    "bucket_date": "2026-04-12",
+                    "request_count": 4,
+                    "zero_result_count": 1,
+                    "table_hit_rate": 0.5,
+                }
+            ],
+            "feedback_counts": [{"feedback_type": "missing_table", "count": 2}],
+            "recent_replay_runs": [
+                {
+                    "replay_run_id": str(replay_run_id),
+                    "source_type": "feedback",
+                    "status": "completed",
+                    "query_count": 3,
+                    "passed_count": 2,
+                    "failed_count": 1,
+                    "created_at": "2026-04-12T00:00:00Z",
+                }
+            ],
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get("/quality/trends")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["search_request_days"][0]["bucket_date"] == "2026-04-12"
+    assert body["feedback_counts"][0]["feedback_type"] == "missing_table"
+    assert body["recent_replay_runs"][0]["replay_run_id"] == str(replay_run_id)

@@ -17,5 +17,7 @@ def test_index_serves_ui() -> None:
     assert "Recent processing attempts" in response.text
     assert "Failed runs by stage will appear here." in response.text
     assert "Mined evaluation candidates will appear here." in response.text
+    assert "Search and feedback trends will appear here." in response.text
+    assert "Replay suite runs will appear here." in response.text
     assert "Clear selection" in response.text
     assert "/ui/app.js" in response.text

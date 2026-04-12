@@ -5,6 +5,7 @@ const state = {
   processTimer: null,
   activeProcessKind: null,
   activeProcessStep: -1,
+  lastSearchRequestId: null,
 };
 
 const PROCESS_PRESETS = {
@@ -86,6 +87,8 @@ const qualityEvaluations = document.getElementById("quality-evaluations");
 const qualityFailureStages = document.getElementById("quality-failure-stages");
 const qualityFailures = document.getElementById("quality-failures");
 const qualityEvalCandidates = document.getElementById("quality-eval-candidates");
+const qualityTrends = document.getElementById("quality-trends");
+const searchReplays = document.getElementById("search-replays");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
@@ -98,6 +101,7 @@ const searchProcess = document.getElementById("search-process");
 const searchProcessCaption = document.getElementById("search-process-caption");
 const searchForm = document.getElementById("search-form");
 const searchFeedback = document.getElementById("search-feedback");
+const searchFeedbackActions = document.getElementById("search-feedback-actions");
 const searchResults = document.getElementById("search-results");
 
 function escapeHtml(text) {
@@ -667,7 +671,86 @@ function renderQualityEvalCandidates(rows) {
     .join("");
 }
 
+function renderQualityTrends(payload) {
+  if (!payload) {
+    qualityTrends.className = "tables-list empty";
+    qualityTrends.textContent = "Search and feedback trends will appear here.";
+    return;
+  }
+
+  const dayCards = (payload.search_request_days || []).map(
+    (point) => `
+      <article class="table-card">
+        <div class="table-meta">
+          <span>${escapeHtml(point.bucket_date)}</span>
+          <span>${formatInteger(point.request_count)} searches</span>
+          <span>${formatPercent(point.table_hit_rate)}</span>
+        </div>
+        <p>${formatInteger(point.zero_result_count)} zero-result requests</p>
+      </article>
+    `,
+  );
+  const feedbackSummary =
+    (payload.feedback_counts || [])
+      .slice(0, 4)
+      .map((row) => `${row.feedback_type}: ${formatInteger(row.count)}`)
+      .join(" · ") || "No search feedback yet.";
+
+  qualityTrends.className = "tables-list";
+  qualityTrends.innerHTML = [
+    `<article class="table-card"><strong>Feedback labels</strong><p>${escapeHtml(feedbackSummary)}</p></article>`,
+    ...dayCards,
+  ].join("");
+}
+
+function renderSearchReplays(rows) {
+  if (!rows.length) {
+    searchReplays.className = "tables-list empty";
+    searchReplays.textContent = "Replay suite runs will appear here.";
+    return;
+  }
+
+  searchReplays.className = "tables-list";
+  searchReplays.innerHTML = rows
+    .slice(0, 6)
+    .map(
+      (row) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>${escapeHtml(row.source_type)}</span>
+            <span>${escapeHtml(row.status)}</span>
+          </div>
+          <strong>${formatInteger(row.passed_count)} passed / ${formatInteger(row.query_count)} queries</strong>
+          <p>${formatInteger(row.failed_count)} failed · ${formatInteger(row.zero_result_count)} zero-result · ${formatInteger(row.top_result_changes)} top-result changes</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderSearchFeedbackActions(searchRequestId, results) {
+  if (!searchRequestId) {
+    searchFeedbackActions.innerHTML = "";
+    return;
+  }
+
+  searchFeedbackActions.innerHTML = `
+    <button class="secondary-button" type="button" data-request-feedback="missing_table">Missing table</button>
+    <button class="secondary-button" type="button" data-request-feedback="missing_chunk">Missing chunk</button>
+    <button class="secondary-button" type="button" data-request-feedback="no_answer">No answer</button>
+  `;
+  searchFeedbackActions.className = "status-actions";
+  if (!results.length) {
+    setFeedback(
+      searchFeedback,
+      `Request ${searchRequestId} logged with no results. Use the request-level labels if the miss is meaningful.`,
+    );
+  }
+}
+
 function renderSearchResults(results, searchRequestId = null) {
+  state.lastSearchRequestId = searchRequestId;
+  renderSearchFeedbackActions(searchRequestId, results);
   if (!results.length) {
     setFeedback(searchFeedback, searchRequestId ? `Request ${searchRequestId} returned no results.` : "");
     searchResults.className = "search-results empty";
@@ -683,7 +766,15 @@ function renderSearchResults(results, searchRequestId = null) {
   );
   searchResults.className = "search-results";
   searchResults.innerHTML = results
-    .map((result) => {
+    .map((result, index) => {
+      const feedbackButtons = searchRequestId
+        ? `
+          <div class="artifact-links">
+            <button class="secondary-button" type="button" data-result-feedback="relevant" data-result-rank="${index + 1}">Relevant</button>
+            <button class="secondary-button" type="button" data-result-feedback="irrelevant" data-result-rank="${index + 1}">Irrelevant</button>
+          </div>
+        `
+        : "";
       if (result.result_type === "table") {
         return `
           <article class="result-card">
@@ -696,6 +787,7 @@ function renderSearchResults(results, searchRequestId = null) {
             ${result.table_title ? `<strong>${escapeHtml(result.table_title)}</strong>` : ""}
             ${result.table_heading ? `<p class="table-heading">${escapeHtml(result.table_heading)}</p>` : ""}
             <p>${escapeHtml(result.table_preview || "")}</p>
+            ${feedbackButtons}
           </article>
         `;
       }
@@ -710,6 +802,7 @@ function renderSearchResults(results, searchRequestId = null) {
           </div>
           ${result.heading ? `<strong>${escapeHtml(result.heading)}</strong>` : ""}
           <p>${escapeHtml(result.chunk_text || "")}</p>
+          ${feedbackButtons}
         </article>
       `;
     })
@@ -829,6 +922,35 @@ async function fetchQualityEvalCandidates() {
   return response.json();
 }
 
+async function fetchQualityTrends() {
+  const response = await fetch("/quality/trends");
+  if (!response.ok) {
+    throw new Error("Unable to load quality trends.");
+  }
+  return response.json();
+}
+
+async function fetchSearchReplays() {
+  const response = await fetch("/search/replays");
+  if (!response.ok) {
+    throw new Error("Unable to load replay suite runs.");
+  }
+  return response.json();
+}
+
+async function postSearchFeedback(searchRequestId, payload) {
+  const response = await fetch(`/search/requests/${searchRequestId}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to record search feedback.");
+  }
+  return body;
+}
+
 async function fetchDocumentStatus(documentId) {
   const response = await fetch(`/documents/${documentId}`);
   if (!response.ok) {
@@ -901,23 +1023,29 @@ async function refreshDocuments() {
 
 async function refreshQualityPanel() {
   try {
-    const [summary, evaluations, failures, evalCandidates] = await Promise.all([
+    const [summary, evaluations, failures, evalCandidates, trends, replayRuns] = await Promise.all([
       fetchQualitySummary(),
       fetchQualityEvaluations(),
       fetchQualityFailures(),
       fetchQualityEvalCandidates(),
+      fetchQualityTrends(),
+      fetchSearchReplays(),
     ]);
     renderQualitySummary(summary);
     renderQualityEvaluations(evaluations);
     renderQualityFailureStages(summary.failed_runs_by_stage || []);
     renderQualityFailures(failures);
     renderQualityEvalCandidates(evalCandidates);
+    renderQualityTrends(trends);
+    renderSearchReplays(replayRuns);
   } catch (error) {
     renderQualitySummary(null);
     renderQualityEvaluations([]);
     renderQualityFailureStages([]);
     renderQualityFailures(null);
     renderQualityEvalCandidates([]);
+    renderQualityTrends(null);
+    renderSearchReplays([]);
     setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
   }
 }
@@ -1095,6 +1223,8 @@ searchForm.addEventListener("submit", async (event) => {
   }
 
   startProcessRail("search");
+  state.lastSearchRequestId = null;
+  renderSearchFeedbackActions(null, []);
   setFeedback(searchFeedback, "");
   searchResults.className = "search-results empty";
   searchResults.textContent = "Searching...";
@@ -1123,10 +1253,59 @@ searchForm.addEventListener("submit", async (event) => {
     const metrics = await fetchMetrics();
     renderTelemetry(metrics);
   } catch (error) {
+    state.lastSearchRequestId = null;
+    renderSearchFeedbackActions(null, []);
     setFeedback(searchFeedback, "");
     searchResults.className = "search-results empty";
     searchResults.textContent = error.message || "Search failed.";
     finishProcessRail("search", false, error.message || "Direct search failed.");
+  }
+});
+
+searchResults.addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  const button = event.target.closest("[data-result-feedback]");
+  if (!button || !state.lastSearchRequestId) {
+    return;
+  }
+
+  try {
+    const feedback = await postSearchFeedback(state.lastSearchRequestId, {
+      feedback_type: button.dataset.resultFeedback,
+      result_rank: Number(button.dataset.resultRank),
+    });
+    setFeedback(
+      searchFeedback,
+      `Recorded ${feedback.feedback_type} feedback for request ${feedback.search_request_id}.`,
+    );
+    await refreshQualityPanel();
+  } catch (error) {
+    setFeedback(searchFeedback, error.message || "Unable to record search feedback.");
+  }
+});
+
+searchFeedbackActions.addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  const button = event.target.closest("[data-request-feedback]");
+  if (!button || !state.lastSearchRequestId) {
+    return;
+  }
+
+  try {
+    const feedback = await postSearchFeedback(state.lastSearchRequestId, {
+      feedback_type: button.dataset.requestFeedback,
+    });
+    setFeedback(
+      searchFeedback,
+      `Recorded ${feedback.feedback_type} feedback for request ${feedback.search_request_id}.`,
+    );
+    await refreshQualityPanel();
+  } catch (error) {
+    setFeedback(searchFeedback, error.message || "Unable to record search feedback.");
   }
 });
 

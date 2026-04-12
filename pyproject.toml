@@ -43,6 +43,8 @@ docling-system-audit = "app.cli:run_audit"
 docling-system-backfill-legacy-audit = "app.cli:run_backfill_legacy_audit"
 docling-system-replay-search = "app.cli:run_replay_search"
 docling-system-eval-candidates = "app.cli:run_eval_candidates"
+docling-system-run-replay-suite = "app.cli:run_replay_suite"
+docling-system-export-ranking-dataset = "app.cli:run_export_ranking_dataset"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

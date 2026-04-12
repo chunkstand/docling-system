@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,6 +15,8 @@ from app.db.models import (
     DocumentRunEvaluation,
     DocumentRunEvaluationQuery,
     RunStatus,
+    SearchFeedback,
+    SearchReplayRun,
     SearchRequestRecord,
 )
 from app.schemas.quality import (
@@ -21,8 +24,12 @@ from app.schemas.quality import (
     QualityEvaluationStatusResponse,
     QualityFailuresResponse,
     QualityFailureStageCountResponse,
+    QualityFeedbackTypeCountResponse,
+    QualityReplayRunTrendResponse,
     QualityRunFailureResponse,
+    QualitySearchTrendPointResponse,
     QualitySummaryResponse,
+    QualityTrendsResponse,
 )
 
 
@@ -363,3 +370,77 @@ def list_quality_eval_candidates(
         ),
     )
     return rows[:limit]
+
+
+def get_quality_trends(
+    session: Session, *, day_count: int = 7, replay_limit: int = 8
+) -> QualityTrendsResponse:
+    search_requests = (
+        session.execute(
+            select(SearchRequestRecord).where(SearchRequestRecord.origin.in_(("api", "chat")))
+        )
+        .scalars()
+        .all()
+    )
+    feedback_rows = session.execute(select(SearchFeedback)).scalars().all()
+    replay_runs = (
+        session.execute(select(SearchReplayRun).order_by(SearchReplayRun.created_at.desc()))
+        .scalars()
+        .all()
+    )
+
+    today = datetime.now(UTC).date()
+    day_buckets = {
+        (today - timedelta(days=offset)).isoformat(): {
+            "request_count": 0,
+            "zero_result_count": 0,
+            "table_hit_requests": 0,
+        }
+        for offset in reversed(range(day_count))
+    }
+
+    for row in search_requests:
+        bucket_key = row.created_at.date().isoformat()
+        bucket = day_buckets.get(bucket_key)
+        if bucket is None:
+            continue
+        bucket["request_count"] += 1
+        bucket["zero_result_count"] += int(row.result_count == 0)
+        bucket["table_hit_requests"] += int(row.table_hit_count > 0)
+
+    feedback_counts = Counter(row.feedback_type for row in feedback_rows)
+
+    return QualityTrendsResponse(
+        search_request_days=[
+            QualitySearchTrendPointResponse(
+                bucket_date=bucket_date,
+                request_count=values["request_count"],
+                zero_result_count=values["zero_result_count"],
+                table_hit_rate=(
+                    values["table_hit_requests"] / values["request_count"]
+                    if values["request_count"]
+                    else 0.0
+                ),
+            )
+            for bucket_date, values in day_buckets.items()
+        ],
+        feedback_counts=[
+            QualityFeedbackTypeCountResponse(feedback_type=feedback_type, count=count)
+            for feedback_type, count in sorted(
+                feedback_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ],
+        recent_replay_runs=[
+            QualityReplayRunTrendResponse(
+                replay_run_id=row.id,
+                source_type=row.source_type,
+                status=row.status,
+                query_count=row.query_count,
+                passed_count=row.passed_count,
+                failed_count=row.failed_count,
+                created_at=row.created_at,
+            )
+            for row in replay_runs[:replay_limit]
+        ],
+    )

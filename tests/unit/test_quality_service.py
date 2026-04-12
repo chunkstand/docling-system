@@ -9,6 +9,7 @@ from app.services.quality import (
     build_quality_evaluation_rows,
     build_quality_failures,
     build_quality_summary,
+    get_quality_trends,
     list_quality_eval_candidates,
 )
 
@@ -175,3 +176,63 @@ def test_list_quality_eval_candidates_mines_eval_failures_and_live_search_gaps()
     assert len(rows) == 2
     assert {row.candidate_type for row in rows} == {"evaluation_failure", "live_search_gap"}
     assert {row.expected_result_type for row in rows} == {"table"}
+
+
+def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:
+    now = _timestamp()
+    search_requests = [
+        SimpleNamespace(
+            created_at=now,
+            result_count=0,
+            table_hit_count=0,
+        ),
+        SimpleNamespace(
+            created_at=now,
+            result_count=2,
+            table_hit_count=1,
+        ),
+    ]
+    feedback_rows = [
+        SimpleNamespace(feedback_type="missing_table"),
+        SimpleNamespace(feedback_type="missing_table"),
+        SimpleNamespace(feedback_type="relevant"),
+    ]
+    replay_run_id = uuid4()
+    replay_runs = [
+        SimpleNamespace(
+            id=replay_run_id,
+            source_type="feedback",
+            status="completed",
+            query_count=3,
+            passed_count=2,
+            failed_count=1,
+            created_at=now,
+        )
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            mapping = {
+                "SearchRequestRecord": search_requests,
+                "SearchFeedback": feedback_rows,
+                "SearchReplayRun": replay_runs,
+            }
+            return FakeScalarResult(mapping[entity_name])
+
+    trends = get_quality_trends(FakeSession(), day_count=2, replay_limit=5)
+
+    assert trends.search_request_days[-1].request_count == 2
+    assert trends.search_request_days[-1].zero_result_count == 1
+    assert trends.feedback_counts[0].feedback_type == "missing_table"
+    assert trends.recent_replay_runs[0].replay_run_id == replay_run_id
