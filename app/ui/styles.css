@@ -297,7 +297,13 @@ body::before {
 
 .control-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 190px)) auto;
+  grid-template-columns: repeat(3, minmax(0, 190px)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.search-form {
+  grid-template-columns: repeat(3, minmax(0, 190px)) auto;
   gap: 12px;
   align-items: end;
 }
@@ -413,10 +419,19 @@ body::before {
 }
 
 .document-card:hover,
+.table-card[data-replay-run-id]:hover,
 .document-card.selected {
   transform: translateY(-1px);
   border-color: var(--line-strong);
   background: rgba(211, 180, 112, 0.08);
+}
+
+.table-card[data-replay-run-id] {
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
 }
 
 .result-meta,

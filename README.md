@@ -8,9 +8,9 @@ This system ingests PDF code books, parses them with Docling, stores versioned r
 
 The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, figures, artifacts, validation status, evaluation status, metrics, and mixed chunk/table search.
 
-The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets.
+The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets. Both direct search and grounded chat can now run under named search harnesses so operators can compare retrieval profiles and reranker versions against the same corpus.
 
-The system also records replayable failure artifacts for failed runs, exposes recent run history per document, persists direct-search telemetry with operator feedback labels, and includes replay/audit CLIs for checking run and retrieval invariants against the local corpus.
+The system also records replayable failure artifacts for failed runs, exposes recent run history per document, persists direct-search telemetry with operator feedback labels, stores answer-level feedback for grounded chat responses, and includes replay/audit CLIs for checking run and retrieval invariants against the local corpus.
 
 ## Current Contracts
 
@@ -131,11 +131,14 @@ Local path ingest policy:
 - `GET /search/requests/{search_request_id}`
 - `POST /search/requests/{search_request_id}/feedback`
 - `POST /search/requests/{search_request_id}/replay`
+- `GET /search/harnesses`
+- `POST /search/harness-evaluations`
 - `GET /search/replays`
 - `POST /search/replays`
 - `GET /search/replays/{replay_run_id}`
 - `GET /search/replays/compare`
 - `POST /chat`
+- `POST /chat/answers/{chat_answer_id}/feedback`
 - `GET /quality/summary`
 - `GET /quality/failures`
 - `GET /quality/evaluations`
@@ -161,6 +164,10 @@ Supported filters:
 - `page_range`
 - `result_type`
 
+Optional harness override:
+
+- `harness_name`
+
 Keyword, semantic, and hybrid modes search active chunks and active tables independently, then merge results deterministically. Query embeddings are computed once per request and reused for chunk and table semantic retrieval. If embeddings fail, the system degrades to keyword-backed retrieval instead of blocking validated ingestion.
 
 Every direct search request is persisted and returned with an `X-Search-Request-Id` response header. That durable request ID supports:
@@ -169,6 +176,14 @@ Every direct search request is persisted and returned with an `X-Search-Request-
 - operator labeling through `POST /search/requests/{search_request_id}/feedback`
 - one-off replay through `POST /search/requests/{search_request_id}/replay`
 - batch replay suites and trend reporting through the replay and quality endpoints
+
+Named harnesses bundle:
+
+- a retrieval candidate profile
+- a reranker implementation name and version
+- a persisted config snapshot captured on every search request and replay run
+
+Use `GET /search/harnesses` to inspect the currently available harnesses.
 
 ## Tables
 
@@ -198,10 +213,14 @@ uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
+uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 12
+uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 25
 uv run docling-system-export-ranking-dataset --limit 200
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
+
+The ranking dataset export schema is documented in [docs/ranking_dataset_schema.md](./docs/ranking_dataset_schema.md).
 
 ## Evaluation
 

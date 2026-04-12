@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `ce4da3f` (`Add search feedback and replay lab`)
+Latest committed checkpoint before this handoff update: `de4f123` (`Close replay UI and docs gaps`)
 
 ## Executive Summary
 
@@ -16,14 +16,18 @@ The branch now includes:
 - legacy audit-field backfill so historical rows satisfy the current audit contract
 - persisted search-request telemetry, feedback labels, replay suites, replay comparison, and ranking-dataset export
 - a replay/quality operator UI that now exposes both replay execution and replay comparison controls
-- a green live `docling-system-audit` result after migration `0011_search_feedback_replays`
+- Milestone 5 learned-reranking harness infrastructure with named search harnesses, harness evaluations, answer-feedback capture, and replay drilldown
+- a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
 
 - validation still gates promotion
 - evaluation still does not gate promotion
 - search requests are durable first-class records
+- chat answers are durable first-class records with operator feedback
+- search requests, replay runs, and chat answers now all carry harness metadata when available
 - replay and trend surfaces exist in both the API and the operator UI
+- named search harnesses can be replayed and compared through both the API and the CLI
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently
@@ -122,14 +126,70 @@ This handoff update also closes the post-milestone gaps that were still open aft
 - `README.md` now documents the replay/feedback endpoints and CLI commands
 - this handoff reflects the current migration head and runtime state instead of the older milestone-2 state
 
+### 5. Learned Reranking Harness
+
+Uncommitted changes captured by this handoff update:
+
+- versioned search harnesses now wrap:
+  - retrieval profile
+  - reranker name and version
+  - persisted harness config snapshots on direct searches and replay runs
+- chat answers are now persisted with:
+  - `chat_answer_id`
+  - `search_request_id`
+  - harness metadata
+  - durable answer-feedback labels
+- new API routes in `app/api/main.py`:
+  - `GET /search/harnesses`
+  - `POST /search/harness-evaluations`
+  - `POST /chat/answers/{chat_answer_id}/feedback`
+- new CLI command:
+  - `uv run docling-system-eval-reranker <candidate_harness_name> --baseline-harness-name <name> --limit N`
+- the operator UI now exposes:
+  - harness selectors on direct search, replay creation, and chat
+  - replay drilldown
+  - answer-feedback actions
+- dataset export is now documented in `docs/ranking_dataset_schema.md`
+
+Relevant files:
+
+- `app/api/main.py`
+- `app/cli.py`
+- `app/db/models.py`
+- `app/schemas/chat.py`
+- `app/schemas/search.py`
+- `app/schemas/quality.py`
+- `app/services/chat.py`
+- `app/services/search.py`
+- `app/services/search_history.py`
+- `app/services/search_replays.py`
+- `app/services/search_harness_evaluations.py`
+- `app/services/quality.py`
+- `app/ui/index.html`
+- `app/ui/app.js`
+- `app/ui/styles.css`
+- `alembic/versions/0012_harness_chat_feedback.py`
+- `docs/ranking_dataset_schema.md`
+- `README.md`
+- `tests/unit/test_chat_api.py`
+- `tests/unit/test_chat_service.py`
+- `tests/unit/test_search_api.py`
+- `tests/unit/test_search_harness_evaluations.py`
+- `tests/unit/test_search_replays.py`
+- `tests/unit/test_search_service.py`
+- `tests/unit/test_quality_api.py`
+- `tests/unit/test_quality_service.py`
+- `tests/unit/test_cli.py`
+- `tests/unit/test_ui.py`
+
 ## Current Runtime State
 
 At handoff time:
 
 - API health check succeeds at `http://127.0.0.1:8000/health`
-- the API was restarted after the `0011_search_feedback_replays` migration
+- the API was restarted after the `0012_harness_chat_feedback` migration
 - the worker was restarted after the same migration
-- Alembic head in the running database is `0011_search_feedback_replays`
+- Alembic head in the running database is `0012_harness_chat_feedback`
 - `docling-system-audit` completes live with zero violations
 - the active/evaluated corpus remains eight documents
 
@@ -150,12 +210,27 @@ Live audit result:
 
 Recent live replay/feedback verification:
 
+- `GET /search/harnesses` returns `default_v1` and `wide_v2` with persisted config snapshots
+- `POST /search` with `harness_name = "wide_v2"` returns `X-Search-Request-Id`
+- persisted request detail includes:
+  - harness metadata
+  - retrieval profile metadata
+  - rerank feature snapshots
 - persisted direct search requests return `X-Search-Request-Id`
 - request detail includes persisted rerank features and feedback labels
 - `POST /search/requests/{id}/feedback` persists both ranked-result feedback and request-level `no_answer`
+- `POST /chat` now returns:
+  - `chat_answer_id`
+  - `search_request_id`
+  - harness metadata
+- `POST /chat/answers/{id}/feedback` persists answer-level feedback live
 - `POST /search/replays` succeeded for `feedback` and `live_search_gaps`
 - `GET /search/replays/compare` returned shared-query regression/improvement summaries
+- `GET /search/replays/{id}` returns replay drilldown rows with harness metadata
+- `POST /search/harness-evaluations` completed live for `default_v1` vs `wide_v2`
+- `GET /quality/trends` now includes `answer_feedback_counts`
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
+- `uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3` completed live
 - `uv run docling-system-export-ranking-dataset --limit 5` emitted feedback and replay rows live
 
 ## Active Corpus State
@@ -176,12 +251,22 @@ Current active/evaluated set:
 Commands run and observed passing recently:
 
 ```bash
-uv run ruff check app/api/main.py app/cli.py app/db/models.py app/schemas/search.py app/schemas/quality.py app/services/search_history.py app/services/search_replays.py app/services/quality.py alembic/versions/0011_search_feedback_replays.py tests/unit/test_search_api.py tests/unit/test_quality_api.py tests/unit/test_quality_service.py tests/unit/test_cli.py tests/unit/test_search_replays.py tests/unit/test_ui.py
+uv run ruff check app/api/main.py app/cli.py app/db/models.py app/schemas/chat.py app/schemas/search.py app/schemas/quality.py app/services/chat.py app/services/search.py app/services/search_history.py app/services/search_replays.py app/services/search_harness_evaluations.py app/services/quality.py alembic/versions/0012_harness_chat_feedback.py tests/unit/test_chat_api.py tests/unit/test_chat_service.py tests/unit/test_search_api.py tests/unit/test_search_harness_evaluations.py tests/unit/test_search_replays.py tests/unit/test_search_service.py tests/unit/test_quality_api.py tests/unit/test_quality_service.py tests/unit/test_cli.py tests/unit/test_ui.py
 uv run pytest tests/unit -q
 uv run python -m compileall app tests
 node --check app/ui/app.js
 uv run alembic upgrade head
+curl -sS http://127.0.0.1:8000/search/harnesses
+curl -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json' --data '{"query":"vent stack","mode":"keyword","limit":3,"harness_name":"wide_v2"}'
+curl -sS http://127.0.0.1:8000/search/requests/<search_request_id>
+curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":3,"harness_name":"wide_v2"}'
+curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"incomplete","note":"Keyword harness did not surface a usable vent stack answer."}'
+curl -sS -X POST http://127.0.0.1:8000/search/replays -H 'content-type: application/json' --data '{"source_type":"feedback","limit":3,"harness_name":"wide_v2"}'
+curl -sS http://127.0.0.1:8000/search/replays/<replay_run_id>
+curl -sS -X POST http://127.0.0.1:8000/search/harness-evaluations -H 'content-type: application/json' --data '{"baseline_harness_name":"default_v1","candidate_harness_name":"wide_v2","source_types":["feedback","evaluation_queries"],"limit":3}'
+curl -sS http://127.0.0.1:8000/quality/trends
 uv run docling-system-run-replay-suite feedback --limit 3
+uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3
 uv run docling-system-export-ranking-dataset --limit 5
 uv run docling-system-audit
 ```
@@ -191,8 +276,9 @@ Key results:
 - full unit suite passed
 - JS syntax check passed
 - compileall passed
-- migration `0011_search_feedback_replays` applied live
-- replay and export commands completed live
+- migration `0012_harness_chat_feedback` applied live
+- harness catalog, harness-backed search, chat answer feedback, replay detail, harness evaluation, and trend endpoints all completed live
+- replay, harness-evaluation, and export commands completed live
 - audit stayed green after the new migration
 
 ## Current Contracts To Preserve
@@ -210,12 +296,20 @@ Key results:
 ### Search Telemetry
 
 - every direct `/search` request persists a durable search-request record
+- search requests now persist harness name, reranker version, retrieval profile name, and harness config snapshots
 - feedback labels are durable operator annotations, not transient UI state
 - replay suites should consume persisted requests, feedback, and eval rows instead of recomputing ad hoc query lists in the browser
+
+### Chat
+
+- every `/chat` response now persists a durable chat-answer record
+- answer feedback is first-class persisted operator data and should be mined alongside retrieval feedback, not treated as UI-only state
+- chat-answer rows should keep their originating `search_request_id` and harness metadata so answer quality can be evaluated against retrieval behavior
 
 ### Replay
 
 - replay runs are persisted first-class records
+- replay runs now persist the harness metadata they were executed with
 - comparison is keyed by shared `(query_text, mode, filters)` identity
 - ranking dataset export is a derived operator artifact, not a source of truth
 
@@ -243,41 +337,44 @@ Key results:
 
 Still deliberate. Retrieval quality can regress while promotion still advances if validation passes.
 
-### 2. Replay UI Is Operational, Not Deeply Analytical Yet
+### 2. Learned Harness Does Not Yet Use A Trained Model
 
-The UI now runs and compares replay suites, but it is still a thin operator surface:
+Milestone 5 establishes the harness and data path, but the current rerankers are still hand-tuned linear scorers:
 
-- no per-query drilldown modal for replay rows
-- no persistent baseline pinning in the UI
-- no charted trend history beyond list cards
+- there is still no trained reranker or offline fitting loop over the exported dataset
+- harness evaluation currently compares named configs, not learned checkpoints
+- the next leverage is using feedback, replay deltas, and eval rows to fit and validate a model-backed reranker offline
 
-### 3. Reranking Is Still Heuristic
+### 3. Historical Search Rows Still Carry Legacy Reranker Metadata
 
-The new harness is in place, but the reranker remains `heuristic_v1`. The main leverage now is harvesting labels and replay deltas to support a learned reranker or better scoring model later.
+Older feedback rows in the local database still export their original reranker metadata, including legacy `heuristic_v1` labels. That is correct for provenance, but downstream training/export consumers need to treat historical rows as mixed-era data.
 
 ### 4. README And Handoff Are Current, But Product Docs Are Still Thin
 
-The operator-facing commands and endpoints are documented. The deeper design contract for search telemetry, replay semantics, and dataset export still lives mostly in code and tests.
+The operator-facing commands and endpoints are documented, and the ranking dataset schema now has its own doc. The deeper design contract for harness evaluation semantics, answer-feedback interpretation, and future fitting workflows still lives mostly in code and tests.
 
 ## Recommended Next Steps
 
-### Priority 1: Learned-Ranking Prep
+### Priority 1: Fit The First Offline Reranker
 
-- add richer rerank feature snapshots where useful
-- define the first offline ranking objective from replay and feedback rows
-- add a pluggable reranker interface for experiments behind eval/replay gates
+- define the first training/evaluation split over:
+  - fixed eval queries
+  - replay-derived labels
+  - operator feedback
+- fit the first offline reranker candidate against the exported dataset
+- keep promotion gated by validation, but gate reranker adoption by replay/eval comparison
 
-### Priority 2: Replay Drilldown
+### Priority 2: Deepen Harness Evaluation
 
-- expose replay-run detail in the UI
-- show changed queries, removed hits, and added hits per replay row
-- add a stable baseline pin or “compare to latest previous successful run” control
+- persist named experiment configs beyond the current harness registry
+- add richer drilldown on added hits, removed hits, and score shifts per replay query
+- surface per-source improvements/regressions more prominently in the UI
 
-### Priority 3: Export And Operator Contracts
+### Priority 3: Expand Feedback Coverage
 
-- document the ranking-dataset export schema
-- document replay pass/fail semantics by source type
-- document when feedback labels should be used versus when fixed-corpus evals should be extended
+- add more answer-feedback coverage from real chat use
+- mine repeated `no_answer` and `incomplete` patterns into new eval fixtures
+- document when operator feedback should become a fixed corpus regression
 
 ## Handy Commands
 
@@ -303,8 +400,18 @@ Replay:
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
 uv run docling-system-run-replay-suite live_search_gaps --limit 12
+uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 12
 uv run docling-system-export-ranking-dataset --limit 200
+curl -sS http://127.0.0.1:8000/search/harnesses | jq
+curl -sS -X POST http://127.0.0.1:8000/search/harness-evaluations -H 'content-type: application/json' --data '{"baseline_harness_name":"default_v1","candidate_harness_name":"wide_v2","source_types":["feedback","evaluation_queries"],"limit":12}' | jq
 curl -sS "http://127.0.0.1:8000/search/replays/compare?baseline_replay_run_id=<id>&candidate_replay_run_id=<id>" | jq
+```
+
+Chat:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":3,"harness_name":"wide_v2"}' | jq
+curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"incomplete","note":"Keyword harness did not surface a usable vent stack answer."}' | jq
 ```
 
 Audit / cleanup:

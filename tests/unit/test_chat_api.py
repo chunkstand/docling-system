@@ -44,3 +44,30 @@ def test_chat_route_uses_answer_service(monkeypatch) -> None:
     assert body["mode"] == "hybrid"
     assert body["used_fallback"] is False
     assert body["citations"][0]["source_filename"] == "UPC_CH_5.pdf"
+
+
+def test_chat_feedback_route_uses_chat_service(monkeypatch) -> None:
+    answer_id = uuid4()
+    feedback_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.record_chat_answer_feedback",
+        lambda session, chat_answer_id, payload: {
+            "feedback_id": str(feedback_id),
+            "chat_answer_id": str(chat_answer_id),
+            "feedback_type": payload.feedback_type,
+            "note": payload.note,
+            "created_at": "2026-04-12T00:00:00Z",
+        },
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/chat/answers/{answer_id}/feedback",
+        json={"feedback_type": "helpful"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["chat_answer_id"] == str(answer_id)
+    assert body["feedback_type"] == "helpful"

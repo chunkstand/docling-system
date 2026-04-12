@@ -30,7 +30,7 @@ from app.schemas.search import (
     SearchReplayRunSummaryResponse,
     SearchRequest,
 )
-from app.services.search import execute_search
+from app.services.search import execute_search, get_search_harness
 from app.services.search_history import (
     build_search_replay_diff,
     get_search_request_detail,
@@ -94,6 +94,11 @@ def _to_replay_run_summary(row: SearchReplayRun) -> SearchReplayRunSummaryRespon
         replay_run_id=row.id,
         source_type=row.source_type,
         status=row.status,
+        harness_name=row.harness_name,
+        reranker_name=row.reranker_name,
+        reranker_version=row.reranker_version,
+        retrieval_profile_name=row.retrieval_profile_name,
+        harness_config=row.harness_config_json or {},
         query_count=row.query_count,
         passed_count=row.passed_count,
         failed_count=row.failed_count,
@@ -359,10 +364,12 @@ def run_search_replay_suite(
     session: Session,
     request: SearchReplayRunRequest,
 ) -> SearchReplayRunDetailResponse:
+    harness = get_search_harness(request.harness_name)
     replay_run = SearchReplayRun(
         id=uuid.uuid4(),
         source_type=request.source_type,
         status="failed",
+        harness_name=harness.name,
         created_at=_utcnow(),
         summary_json={},
     )
@@ -373,6 +380,7 @@ def run_search_replay_suite(
         cases = _build_replay_cases(session, request)
         created_at = _utcnow()
         summary_counter: Counter[str] = Counter()
+        last_execution = None
 
         for case in cases:
             filters = SearchRequest.model_validate(
@@ -381,6 +389,7 @@ def run_search_replay_suite(
                     "mode": case.mode,
                     "filters": case.filters,
                     "limit": case.limit,
+                    "harness_name": request.harness_name,
                 }
             )
             execution = execute_search(
@@ -389,6 +398,7 @@ def run_search_replay_suite(
                 origin="replay_suite",
                 parent_request_id=case.source_search_request_id,
             )
+            last_execution = execution
             replay_detail = (
                 get_search_request_detail(session, execution.request_id)
                 if execution.request_id is not None
@@ -436,7 +446,10 @@ def run_search_replay_suite(
                         "source_reason": case.source_reason,
                         "feedback_type": case.feedback_type,
                         "embedding_status": execution.embedding_status,
+                        "harness_name": execution.harness_name,
                         "reranker_name": execution.reranker_name,
+                        "reranker_version": execution.reranker_version,
+                        "retrieval_profile_name": execution.retrieval_profile_name,
                         **pass_details,
                     },
                     created_at=created_at,
@@ -444,6 +457,17 @@ def run_search_replay_suite(
             )
 
         replay_run.status = "completed"
+        replay_run.harness_name = harness.name
+        if last_execution is not None:
+            replay_run.reranker_name = last_execution.reranker_name
+            replay_run.reranker_version = last_execution.reranker_version
+            replay_run.retrieval_profile_name = last_execution.retrieval_profile_name
+            replay_run.harness_config_json = last_execution.harness_config
+        else:
+            replay_run.reranker_name = harness.reranker_name
+            replay_run.reranker_version = harness.reranker_version
+            replay_run.retrieval_profile_name = harness.retrieval_profile_name
+            replay_run.harness_config_json = harness.config_snapshot
         replay_run.query_count = summary_counter["query_count"]
         replay_run.passed_count = summary_counter["passed_count"]
         replay_run.failed_count = summary_counter["failed_count"]
@@ -454,6 +478,10 @@ def run_search_replay_suite(
         replay_run.summary_json = {
             "source_type": request.source_type,
             "source_limit": request.limit,
+            "harness_name": replay_run.harness_name,
+            "reranker_name": replay_run.reranker_name,
+            "reranker_version": replay_run.reranker_version,
+            "retrieval_profile_name": replay_run.retrieval_profile_name,
             "query_count": replay_run.query_count,
             "passed_count": replay_run.passed_count,
             "failed_count": replay_run.failed_count,
@@ -471,6 +499,7 @@ def run_search_replay_suite(
         replay_run.summary_json = {
             "source_type": request.source_type,
             "source_limit": request.limit,
+            "harness_name": request.harness_name or "default_v1",
             "error": str(exc),
         }
         replay_run.completed_at = _utcnow()
@@ -573,6 +602,10 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
                 "feedback_id": str(feedback.id),
                 "feedback_type": feedback.feedback_type,
                 "search_request_id": str(request_row.id),
+                "harness_name": request_row.harness_name,
+                "reranker_name": request_row.reranker_name,
+                "reranker_version": request_row.reranker_version,
+                "retrieval_profile_name": request_row.retrieval_profile_name,
                 "query_text": request_row.query_text,
                 "mode": request_row.mode,
                 "filters": request_row.filters_json or {},
@@ -598,6 +631,11 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
                 "dataset_type": "replay",
                 "replay_query_id": str(row.id),
                 "replay_run_id": str(row.replay_run_id),
+                "harness_name": getattr(
+                    session.get(SearchReplayRun, row.replay_run_id),
+                    "harness_name",
+                    None,
+                ),
                 "query_text": row.query_text,
                 "mode": row.mode,
                 "filters": row.filters_json or {},

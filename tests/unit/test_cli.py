@@ -9,6 +9,7 @@ from app.cli import (
     run_audit,
     run_backfill_legacy_audit,
     run_eval_candidates,
+    run_eval_reranker,
     run_eval_run,
     run_export_ranking_dataset,
     run_ingest_file,
@@ -248,7 +249,14 @@ def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         sys,
         "argv",
-        ["docling-system-run-replay-suite", "feedback", "--limit", "3"],
+        [
+            "docling-system-run-replay-suite",
+            "feedback",
+            "--limit",
+            "3",
+            "--harness-name",
+            "wide_v2",
+        ],
     )
     monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
@@ -258,6 +266,7 @@ def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
                 "replay_run_id": str(replay_run_id),
                 "source_type": payload.source_type,
                 "query_count": payload.limit,
+                "harness_name": payload.harness_name,
             }
         ),
     )
@@ -268,6 +277,7 @@ def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
     assert output["replay_run_id"] == str(replay_run_id)
     assert output["source_type"] == "feedback"
     assert output["query_count"] == 3
+    assert output["harness_name"] == "wide_v2"
 
 
 def test_export_ranking_dataset_cli_prints_rows(monkeypatch, capsys) -> None:
@@ -297,3 +307,49 @@ def test_export_ranking_dataset_cli_prints_rows(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output[0]["dataset_type"] == "feedback"
     assert output[1]["dataset_type"] == "replay"
+
+
+def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-eval-reranker",
+            "wide_v2",
+            "--baseline-harness-name",
+            "default_v1",
+            "--source-type",
+            "evaluation_queries",
+            "--limit",
+            "5",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.evaluate_search_harness",
+        lambda session, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "baseline_harness_name": payload.baseline_harness_name,
+                "candidate_harness_name": payload.candidate_harness_name,
+                "limit": payload.limit,
+                "sources": [{"source_type": payload.source_types[0], "improved_count": 2}],
+            }
+        ),
+    )
+
+    run_eval_reranker()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["candidate_harness_name"] == "wide_v2"
+    assert output["baseline_harness_name"] == "default_v1"
+    assert output["sources"][0]["source_type"] == "evaluation_queries"

@@ -148,6 +148,10 @@ def test_export_ranking_dataset_includes_feedback_and_replay_rows() -> None:
                     query_text="vent stack",
                     mode="hybrid",
                     filters_json={},
+                    harness_name="default_v1",
+                    reranker_name="linear_feature_reranker",
+                    reranker_version="v1",
+                    retrieval_profile_name="default_v1",
                 )
             if model.__name__ == "SearchRequestResult" and key == result_id:
                 return SimpleNamespace(

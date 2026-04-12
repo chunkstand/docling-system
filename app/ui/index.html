@@ -91,6 +91,10 @@
                   <option value="corpus">Whole corpus</option>
                 </select>
               </div>
+              <div class="control-group">
+                <label class="field-label" for="chat-harness">Harness</label>
+                <select id="chat-harness" name="harness_name"></select>
+              </div>
               <button class="primary-button" type="submit">Run grounded query</button>
             </div>
           </form>
@@ -114,6 +118,8 @@
               </div>
               <div id="chat-warning" class="feedback muted" aria-live="polite"></div>
               <div id="chat-response" class="chat-response empty">Answers will appear here.</div>
+              <div id="chat-feedback" class="feedback muted" aria-live="polite"></div>
+              <div id="chat-feedback-actions" class="status-actions"></div>
               <div id="chat-citations" class="chat-citations empty">
                 Retrieved support will appear here.
               </div>
@@ -245,6 +251,10 @@
                     value="12"
                   />
                 </div>
+                <div class="control-group">
+                  <label class="field-label" for="replay-harness">Harness</label>
+                  <select id="replay-harness" name="harness_name"></select>
+                </div>
                 <button class="primary-button" type="submit">Run replay</button>
               </form>
               <div id="search-replays" class="tables-list empty">
@@ -264,6 +274,9 @@
               <div id="replay-feedback" class="feedback muted" aria-live="polite"></div>
               <div id="replay-comparison" class="tables-list empty">
                 Replay comparison will appear here.
+              </div>
+              <div id="replay-detail" class="tables-list empty">
+                Replay drilldown will appear here.
               </div>
             </section>
 
@@ -290,6 +303,10 @@
                     <option value="keyword">Keyword</option>
                     <option value="semantic">Semantic</option>
                   </select>
+                </div>
+                <div class="control-group">
+                  <label class="field-label" for="search-harness">Harness</label>
+                  <select id="search-harness" name="harness_name"></select>
                 </div>
                 <button class="primary-button" type="submit">Search</button>
               </form>

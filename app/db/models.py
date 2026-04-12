@@ -252,7 +252,32 @@ class SearchRequestRecord(Base):
         default=False,
         server_default=sql_text("false"),
     )
+    harness_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
     reranker_name: Mapped[str] = mapped_column(Text, nullable=False)
+    reranker_version: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="v1",
+        server_default=sql_text("'v1'"),
+    )
+    retrieval_profile_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
+    harness_config_json: Mapped[dict] = mapped_column(
+        "harness_config",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     embedding_status: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_error: Mapped[str | None] = mapped_column(Text)
     candidate_count: Mapped[int] = mapped_column(
@@ -364,6 +389,37 @@ class SearchReplayRun(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_type: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(Text, nullable=False)
+    harness_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
+    reranker_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="linear_feature_reranker",
+        server_default=sql_text("'linear_feature_reranker'"),
+    )
+    reranker_version: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="v1",
+        server_default=sql_text("'v1'"),
+    )
+    retrieval_profile_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
+    harness_config_json: Mapped[dict] = mapped_column(
+        "harness_config",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     query_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=sql_text("0")
     )
@@ -477,6 +533,89 @@ class SearchReplayQuery(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ChatAnswerRecord(Base):
+    __tablename__ = "chat_answer_records"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('keyword', 'semantic', 'hybrid')",
+            name="ck_chat_answer_records_mode",
+        ),
+        Index("ix_chat_answer_records_search_request_id", "search_request_id"),
+        Index("ix_chat_answer_records_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+    )
+    question_text: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, nullable=False)
+    answer_text: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str | None] = mapped_column(Text)
+    used_fallback: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    warning: Mapped[str | None] = mapped_column(Text)
+    citations_json: Mapped[list] = mapped_column(
+        "citations",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    harness_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
+    reranker_name: Mapped[str] = mapped_column(Text, nullable=False)
+    reranker_version: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="v1",
+        server_default=sql_text("'v1'"),
+    )
+    retrieval_profile_name: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="default_v1",
+        server_default=sql_text("'default_v1'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ChatAnswerFeedback(Base):
+    __tablename__ = "chat_answer_feedback"
+    __table_args__ = (
+        CheckConstraint(
+            "feedback_type IN ('helpful', 'unhelpful', 'unsupported', 'incomplete')",
+            name="ck_chat_answer_feedback_type",
+        ),
+        Index("ix_chat_answer_feedback_answer_id", "chat_answer_id"),
+        Index("ix_chat_answer_feedback_feedback_type", "feedback_type"),
+        Index("ix_chat_answer_feedback_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    chat_answer_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_answer_records.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    feedback_type: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

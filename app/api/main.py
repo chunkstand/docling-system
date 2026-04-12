@@ -5,14 +5,19 @@ from pathlib import Path
 from uuid import UUID
 
 import uvicorn
-from fastapi import Depends, FastAPI, File, Response, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.chat import (
+    ChatAnswerFeedbackCreateRequest,
+    ChatAnswerFeedbackResponse,
+    ChatRequest,
+    ChatResponse,
+)
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
     DocumentDetailResponse,
@@ -32,6 +37,9 @@ from app.schemas.quality import (
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
+    SearchHarnessEvaluationRequest,
+    SearchHarnessEvaluationResponse,
+    SearchHarnessResponse,
     SearchReplayComparisonResponse,
     SearchReplayResponse,
     SearchReplayRunDetailResponse,
@@ -42,7 +50,7 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
-from app.services.chat import answer_question
+from app.services.chat import answer_question, record_chat_answer_feedback
 from app.services.chunks import get_active_chunks
 from app.services.documents import (
     get_document_detail,
@@ -61,6 +69,10 @@ from app.services.quality import (
     list_quality_evaluations,
 )
 from app.services.search import execute_search
+from app.services.search_harness_evaluations import (
+    evaluate_search_harness,
+    list_search_harness_definitions,
+)
 from app.services.search_history import (
     get_search_request_detail,
     record_search_feedback,
@@ -349,7 +361,10 @@ def search_corpus(
     response: Response,
     session: Session = Depends(get_db_session),
 ) -> list[SearchResult]:
-    execution = execute_search(session, request, origin="api")
+    try:
+        execution = execute_search(session, request, origin="api")
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     session.commit()
     if execution.request_id is not None:
         response.headers["X-Search-Request-Id"] = str(execution.request_id)
@@ -395,12 +410,33 @@ def read_search_replays(
     return list_search_replay_runs(session)
 
 
+@app.get("/search/harnesses", response_model=list[SearchHarnessResponse])
+def read_search_harnesses() -> list[SearchHarnessResponse]:
+    return list_search_harness_definitions()
+
+
+@app.post("/search/harness-evaluations", response_model=SearchHarnessEvaluationResponse)
+def create_search_harness_evaluation(
+    payload: SearchHarnessEvaluationRequest,
+    session: Session = Depends(get_db_session),
+) -> SearchHarnessEvaluationResponse:
+    try:
+        evaluation = evaluate_search_harness(session, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    session.commit()
+    return evaluation
+
+
 @app.post("/search/replays", response_model=SearchReplayRunDetailResponse)
 def create_search_replay_run(
     payload: SearchReplayRunRequest,
     session: Session = Depends(get_db_session),
 ) -> SearchReplayRunDetailResponse:
-    replay_run = run_search_replay_suite(session, payload)
+    try:
+        replay_run = run_search_replay_suite(session, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     session.commit()
     return replay_run
 
@@ -431,7 +467,24 @@ def chat_with_corpus(
     request: ChatRequest,
     session: Session = Depends(get_db_session),
 ) -> ChatResponse:
-    response = answer_question(session, request)
+    try:
+        response = answer_question(session, request)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    session.commit()
+    return response
+
+
+@app.post(
+    "/chat/answers/{chat_answer_id}/feedback",
+    response_model=ChatAnswerFeedbackResponse,
+)
+def create_chat_answer_feedback(
+    chat_answer_id: UUID,
+    payload: ChatAnswerFeedbackCreateRequest,
+    session: Session = Depends(get_db_session),
+) -> ChatAnswerFeedbackResponse:
+    response = record_chat_answer_feedback(session, chat_answer_id, payload)
     session.commit()
     return response
 

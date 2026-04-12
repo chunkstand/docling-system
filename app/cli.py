@@ -7,12 +7,13 @@ from uuid import UUID
 
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
-from app.schemas.search import SearchReplayRunRequest
+from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
 from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
 from app.services.quality import list_quality_eval_candidates
+from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_history import replay_search_request
 from app.services.search_replays import (
     export_ranking_dataset,
@@ -185,13 +186,22 @@ def run_replay_suite() -> None:
         help="Replay source to execute.",
     )
     parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
+    parser.add_argument(
+        "--harness-name",
+        default=None,
+        help="Optional search harness name for replay execution.",
+    )
     args = parser.parse_args()
 
     session_factory = get_session_factory()
     with session_factory() as session:
         payload = run_search_replay_suite(
             session,
-            SearchReplayRunRequest(source_type=args.source_type, limit=args.limit),
+            SearchReplayRunRequest(
+                source_type=args.source_type,
+                limit=args.limit,
+                harness_name=args.harness_name,
+            ),
         )
         session.commit()
     print(json.dumps(payload.model_dump(mode="json")))
@@ -208,3 +218,39 @@ def run_export_ranking_dataset() -> None:
     with session_factory() as session:
         payload = export_ranking_dataset(session, limit=args.limit)
     print(json.dumps(payload))
+
+
+def run_eval_reranker() -> None:
+    parser = argparse.ArgumentParser(
+        description="Evaluate a candidate search harness against replay and corpus query sets."
+    )
+    parser.add_argument("candidate_harness_name", help="Candidate search harness name.")
+    parser.add_argument(
+        "--baseline-harness-name",
+        default="default_v1",
+        help="Baseline harness name to compare against.",
+    )
+    parser.add_argument(
+        "--source-type",
+        action="append",
+        dest="source_types",
+        choices=["evaluation_queries", "feedback", "live_search_gaps"],
+        help="Replay source type to include. Can be passed multiple times.",
+    )
+    parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = evaluate_search_harness(
+            session,
+            SearchHarnessEvaluationRequest(
+                candidate_harness_name=args.candidate_harness_name,
+                baseline_harness_name=args.baseline_harness_name,
+                source_types=args.source_types
+                or ["evaluation_queries", "feedback", "live_search_gaps"],
+                limit=args.limit,
+            ),
+        )
+        session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))

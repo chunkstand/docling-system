@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Callable, Iterable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Protocol
@@ -23,9 +23,7 @@ from app.schemas.search import SearchFilters, SearchRequest, SearchResult, Searc
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.telemetry import observe_search_results
 
-TABULAR_QUERY_BOOST = 0.05
-TABLE_TITLE_EXACT_MATCH_BOOST = 0.04
-TABLE_TITLE_TOKEN_COVERAGE_BOOST = 0.02
+DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
 
 
 def _utcnow() -> datetime:
@@ -66,7 +64,11 @@ class RerankedResult:
 class SearchExecution:
     results: list[SearchResult]
     request_id: UUID | None
+    harness_name: str
     reranker_name: str
+    reranker_version: str
+    retrieval_profile_name: str
+    harness_config: dict
     embedding_status: str
     embedding_error: str | None
     candidate_count: int
@@ -89,8 +91,114 @@ class SearchReranker(Protocol):
         ...
 
 
-class HeuristicSearchReranker:
-    name = "heuristic_v1"
+@dataclass(frozen=True)
+class SearchRetrievalProfile:
+    name: str
+    keyword_candidate_multiplier: int
+    semantic_candidate_multiplier: int
+    min_candidate_limit: int
+
+    def snapshot(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class LinearRerankerConfig:
+    harness_name: str
+    reranker_name: str
+    reranker_version: str
+    retrieval_profile_name: str
+    tabular_table_bonus: float
+    title_exact_match_bonus: float
+    title_token_coverage_bonus: float
+    exact_filter_bonus: float
+    result_type_priority_bonus: float
+
+    def snapshot(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class SearchHarness:
+    name: str
+    retrieval_profile: SearchRetrievalProfile
+    reranker_config: LinearRerankerConfig
+
+    @property
+    def reranker_name(self) -> str:
+        return self.reranker_config.reranker_name
+
+    @property
+    def reranker_version(self) -> str:
+        return self.reranker_config.reranker_version
+
+    @property
+    def retrieval_profile_name(self) -> str:
+        return self.retrieval_profile.name
+
+    @property
+    def config_snapshot(self) -> dict:
+        return {
+            "harness_name": self.name,
+            "retrieval_profile": self.retrieval_profile.snapshot(),
+            "reranker": self.reranker_config.snapshot(),
+        }
+
+    def build_reranker(self) -> LinearFeatureSearchReranker:
+        return LinearFeatureSearchReranker(self.reranker_config)
+
+
+DEFAULT_RETRIEVAL_PROFILE = SearchRetrievalProfile(
+    name="default_v1",
+    keyword_candidate_multiplier=5,
+    semantic_candidate_multiplier=5,
+    min_candidate_limit=20,
+)
+WIDE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
+    name="wide_v2",
+    keyword_candidate_multiplier=7,
+    semantic_candidate_multiplier=7,
+    min_candidate_limit=28,
+)
+
+_HARNESS_REGISTRY: dict[str, SearchHarness] = {
+    "default_v1": SearchHarness(
+        name="default_v1",
+        retrieval_profile=DEFAULT_RETRIEVAL_PROFILE,
+        reranker_config=LinearRerankerConfig(
+            harness_name="default_v1",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v1",
+            retrieval_profile_name=DEFAULT_RETRIEVAL_PROFILE.name,
+            tabular_table_bonus=0.05,
+            title_exact_match_bonus=0.04,
+            title_token_coverage_bonus=0.02,
+            exact_filter_bonus=0.01,
+            result_type_priority_bonus=0.005,
+        ),
+    ),
+    "wide_v2": SearchHarness(
+        name="wide_v2",
+        retrieval_profile=WIDE_RETRIEVAL_PROFILE,
+        reranker_config=LinearRerankerConfig(
+            harness_name="wide_v2",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v2",
+            retrieval_profile_name=WIDE_RETRIEVAL_PROFILE.name,
+            tabular_table_bonus=0.08,
+            title_exact_match_bonus=0.05,
+            title_token_coverage_bonus=0.03,
+            exact_filter_bonus=0.02,
+            result_type_priority_bonus=0.008,
+        ),
+    ),
+}
+
+
+class LinearFeatureSearchReranker:
+    def __init__(self, config: LinearRerankerConfig) -> None:
+        self.config = config
+        self.name = config.reranker_name
 
     def rerank(
         self,
@@ -112,13 +220,27 @@ class HeuristicSearchReranker:
         annotated: list[RerankedResult] = []
         for base_rank, item in enumerate(base_ranked, start=1):
             base_score = score_getter(item)
-            tabular_boost = (
-                TABULAR_QUERY_BOOST if tabular_query and item.result_type == "table" else 0.0
-            )
-            title_match_boost = _table_title_match_boost(item, request.query)
+            tabular_table_signal = int(tabular_query and item.result_type == "table")
+            title_match_features = _table_title_match_features(item, request.query)
             exact_filter_priority = _exact_filter_priority(item, request.filters)
             result_type_priority = _result_type_priority(item, tabular_query)
-            final_score = base_score + tabular_boost + title_match_boost
+            title_match_boost = (
+                title_match_features["title_exact_match"] * self.config.title_exact_match_bonus
+                + title_match_features["title_token_coverage"]
+                * self.config.title_token_coverage_bonus
+            )
+            tabular_boost = tabular_table_signal * self.config.tabular_table_bonus
+            exact_filter_boost = exact_filter_priority * self.config.exact_filter_bonus
+            result_type_priority_boost = (
+                result_type_priority * self.config.result_type_priority_bonus
+            )
+            final_score = (
+                base_score
+                + tabular_boost
+                + title_match_boost
+                + exact_filter_boost
+                + result_type_priority_boost
+            )
             annotated.append(
                 RerankedResult(
                     item=item,
@@ -127,10 +249,19 @@ class HeuristicSearchReranker:
                     score=final_score,
                     features={
                         "base_score": base_score,
+                        "harness_name": self.config.harness_name,
+                        "reranker_name": self.config.reranker_name,
+                        "reranker_version": self.config.reranker_version,
+                        "retrieval_profile_name": self.config.retrieval_profile_name,
+                        "tabular_table_signal": tabular_table_signal,
                         "tabular_boost": tabular_boost,
+                        "title_exact_match": title_match_features["title_exact_match"],
+                        "title_token_coverage": title_match_features["title_token_coverage"],
                         "title_match_boost": title_match_boost,
                         "exact_filter_priority": exact_filter_priority,
+                        "exact_filter_boost": exact_filter_boost,
                         "result_type_priority": result_type_priority,
+                        "result_type_priority_boost": result_type_priority_boost,
                         "final_score": final_score,
                     },
                 )
@@ -152,8 +283,22 @@ class HeuristicSearchReranker:
         return ranked
 
 
+def list_search_harnesses() -> list[SearchHarness]:
+    return list(_HARNESS_REGISTRY.values())
+
+
+def get_search_harness(name: str | None = None) -> SearchHarness:
+    harness_name = name or DEFAULT_SEARCH_HARNESS_NAME
+    try:
+        return _HARNESS_REGISTRY[harness_name]
+    except KeyError as exc:
+        available = ", ".join(sorted(_HARNESS_REGISTRY))
+        msg = f"Unknown search harness '{harness_name}'. Available: {available}"
+        raise ValueError(msg) from exc
+
+
 def get_default_reranker() -> SearchReranker:
-    return HeuristicSearchReranker()
+    return get_search_harness().build_reranker()
 
 
 def _chunk_query(run_id: UUID | None = None) -> Select[tuple[DocumentChunk, Document]]:
@@ -384,23 +529,25 @@ def _normalize_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
 
 
-def _table_title_match_boost(item: RankedResult, query: str | None) -> float:
+def _table_title_match_features(item: RankedResult, query: str | None) -> dict[str, float]:
     if query is None or item.result_type != "table" or not item.table_title:
-        return 0.0
+        return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
     normalized_query = _normalize_text(query)
     normalized_title = _normalize_text(item.table_title)
     if not normalized_query or not normalized_title:
-        return 0.0
+        return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
+    exact_match = float(len(normalized_query) >= 4 and normalized_query in normalized_title)
     if len(normalized_query) >= 4 and normalized_query in normalized_title:
-        return TABLE_TITLE_EXACT_MATCH_BOOST
+        return {"title_exact_match": exact_match, "title_token_coverage": 1.0}
     query_tokens = set(normalized_query.split())
     if len(query_tokens) < 2:
-        return 0.0
+        return {"title_exact_match": exact_match, "title_token_coverage": 0.0}
     title_tokens = set(normalized_title.split())
     token_coverage = len(query_tokens & title_tokens) / len(query_tokens)
-    if token_coverage >= 0.8:
-        return TABLE_TITLE_TOKEN_COVERAGE_BOOST
-    return 0.0
+    return {
+        "title_exact_match": exact_match,
+        "title_token_coverage": token_coverage if token_coverage >= 0.5 else 0.0,
+    }
 
 
 def _exact_filter_priority(item: RankedResult, filters: SearchFilters | None) -> int:
@@ -570,7 +717,11 @@ def _persist_search_execution(
     evaluation_id: UUID | None,
     parent_request_id: UUID | None,
     tabular_query: bool,
+    harness_name: str,
     reranker_name: str,
+    reranker_version: str,
+    retrieval_profile_name: str,
+    harness_config: dict,
     embedding_status: str,
     embedding_error: str | None,
     candidate_count: int,
@@ -597,7 +748,11 @@ def _persist_search_execution(
         details_json=details,
         limit=request.limit,
         tabular_query=tabular_query,
+        harness_name=harness_name,
         reranker_name=reranker_name,
+        reranker_version=reranker_version,
+        retrieval_profile_name=retrieval_profile_name,
+        harness_config_json=harness_config,
         embedding_status=embedding_status,
         embedding_error=embedding_error,
         candidate_count=candidate_count,
@@ -652,9 +807,13 @@ def execute_search(
     reranker: SearchReranker | None = None,
 ) -> SearchExecution:
     start = perf_counter()
-    active_reranker = reranker or get_default_reranker()
+    harness = get_search_harness(request.harness_name)
+    active_reranker = reranker or harness.build_reranker()
     tabular_query = _is_tabular_query(request.query)
-    keyword_candidate_limit = max(request.limit * 5, 20)
+    keyword_candidate_limit = max(
+        request.limit * harness.retrieval_profile.keyword_candidate_multiplier,
+        harness.retrieval_profile.min_candidate_limit,
+    )
 
     if run_id is None:
         keyword_results = _run_keyword_chunk_search(
@@ -704,7 +863,10 @@ def execute_search(
             try:
                 query_embedding = provider.embed_texts([request.query])[0]
                 embedding_status = "completed"
-                semantic_candidate_limit = max(request.limit * 5, 20)
+                semantic_candidate_limit = max(
+                    request.limit * harness.retrieval_profile.semantic_candidate_multiplier,
+                    harness.retrieval_profile.min_candidate_limit,
+                )
                 if run_id is None:
                     semantic_results = _run_semantic_chunk_search(
                         session,
@@ -757,6 +919,10 @@ def execute_search(
         "semantic_candidate_count": len(semantic_results),
         "requested_mode": request.mode,
         "served_mode": served_mode,
+        "harness_name": harness.name,
+        "reranker_name": harness.reranker_name,
+        "reranker_version": harness.reranker_version,
+        "retrieval_profile_name": harness.retrieval_profile_name,
     }
     if fallback_reason is not None:
         details["fallback_reason"] = fallback_reason
@@ -784,7 +950,11 @@ def execute_search(
         evaluation_id=evaluation_id,
         parent_request_id=parent_request_id,
         tabular_query=tabular_query,
+        harness_name=harness.name,
         reranker_name=active_reranker.name,
+        reranker_version=harness.reranker_version,
+        retrieval_profile_name=harness.retrieval_profile_name,
+        harness_config=harness.config_snapshot,
         embedding_status=embedding_status,
         embedding_error=embedding_error,
         candidate_count=len(candidate_items),
@@ -796,7 +966,11 @@ def execute_search(
     return SearchExecution(
         results=results,
         request_id=request_id,
+        harness_name=harness.name,
         reranker_name=active_reranker.name,
+        reranker_version=harness.reranker_version,
+        retrieval_profile_name=harness.retrieval_profile_name,
+        harness_config=harness.config_snapshot,
         embedding_status=embedding_status,
         embedding_error=embedding_error,
         candidate_count=len(candidate_items),

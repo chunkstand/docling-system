@@ -109,4 +109,5 @@ class QualityReplayRunTrendResponse(BaseModel):
 class QualityTrendsResponse(BaseModel):
     search_request_days: list[QualitySearchTrendPointResponse]
     feedback_counts: list[QualityFeedbackTypeCountResponse]
+    answer_feedback_counts: list[QualityFeedbackTypeCountResponse] = []
     recent_replay_runs: list[QualityReplayRunTrendResponse]

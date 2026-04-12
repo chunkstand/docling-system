@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
+    ChatAnswerFeedback,
     Document,
     DocumentRun,
     DocumentRunEvaluation,
@@ -383,6 +384,7 @@ def get_quality_trends(
         .all()
     )
     feedback_rows = session.execute(select(SearchFeedback)).scalars().all()
+    answer_feedback_rows = session.execute(select(ChatAnswerFeedback)).scalars().all()
     replay_runs = (
         session.execute(select(SearchReplayRun).order_by(SearchReplayRun.created_at.desc()))
         .scalars()
@@ -409,6 +411,7 @@ def get_quality_trends(
         bucket["table_hit_requests"] += int(row.table_hit_count > 0)
 
     feedback_counts = Counter(row.feedback_type for row in feedback_rows)
+    answer_feedback_counts = Counter(row.feedback_type for row in answer_feedback_rows)
 
     return QualityTrendsResponse(
         search_request_days=[
@@ -428,6 +431,13 @@ def get_quality_trends(
             QualityFeedbackTypeCountResponse(feedback_type=feedback_type, count=count)
             for feedback_type, count in sorted(
                 feedback_counts.items(),
+                key=lambda item: (-item[1], item[0]),
+            )
+        ],
+        answer_feedback_counts=[
+            QualityFeedbackTypeCountResponse(feedback_type=feedback_type, count=count)
+            for feedback_type, count in sorted(
+                answer_feedback_counts.items(),
                 key=lambda item: (-item[1], item[0]),
             )
         ],

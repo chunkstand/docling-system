@@ -282,3 +282,67 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
     )
     assert compare_response.status_code == 200
     assert compare_response.json()["improved_count"] == 1
+
+
+def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
+    baseline_replay_run_id = uuid4()
+    candidate_replay_run_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.list_search_harness_definitions",
+        lambda: [
+            {
+                "harness_name": "default_v1",
+                "reranker_name": "linear_feature_reranker",
+                "reranker_version": "v1",
+                "retrieval_profile_name": "default_v1",
+                "harness_config": {},
+                "is_default": True,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.evaluate_search_harness",
+        lambda session, payload: {
+            "baseline_harness_name": payload.baseline_harness_name,
+            "candidate_harness_name": payload.candidate_harness_name,
+            "limit": payload.limit,
+            "total_shared_query_count": 3,
+            "total_improved_count": 1,
+            "total_regressed_count": 0,
+            "total_unchanged_count": 2,
+            "sources": [
+                {
+                    "source_type": "feedback",
+                    "baseline_replay_run_id": str(baseline_replay_run_id),
+                    "candidate_replay_run_id": str(candidate_replay_run_id),
+                    "baseline_query_count": 3,
+                    "candidate_query_count": 3,
+                    "baseline_passed_count": 1,
+                    "candidate_passed_count": 2,
+                    "shared_query_count": 3,
+                    "improved_count": 1,
+                    "regressed_count": 0,
+                    "unchanged_count": 2,
+                }
+            ],
+        },
+    )
+
+    client = TestClient(app)
+
+    list_response = client.get("/search/harnesses")
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["harness_name"] == "default_v1"
+
+    eval_response = client.post(
+        "/search/harness-evaluations",
+        json={
+            "candidate_harness_name": "wide_v2",
+            "baseline_harness_name": "default_v1",
+            "source_types": ["feedback"],
+            "limit": 5,
+        },
+    )
+    assert eval_response.status_code == 200
+    assert eval_response.json()["candidate_harness_name"] == "wide_v2"

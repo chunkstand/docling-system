@@ -197,6 +197,10 @@ def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:
         SimpleNamespace(feedback_type="missing_table"),
         SimpleNamespace(feedback_type="relevant"),
     ]
+    answer_feedback_rows = [
+        SimpleNamespace(feedback_type="helpful"),
+        SimpleNamespace(feedback_type="unsupported"),
+    ]
     replay_run_id = uuid4()
     replay_runs = [
         SimpleNamespace(
@@ -226,6 +230,7 @@ def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:
             mapping = {
                 "SearchRequestRecord": search_requests,
                 "SearchFeedback": feedback_rows,
+                "ChatAnswerFeedback": answer_feedback_rows,
                 "SearchReplayRun": replay_runs,
             }
             return FakeScalarResult(mapping[entity_name])
@@ -235,4 +240,5 @@ def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:
     assert trends.search_request_days[-1].request_count == 2
     assert trends.search_request_days[-1].zero_result_count == 1
     assert trends.feedback_counts[0].feedback_type == "missing_table"
+    assert trends.answer_feedback_counts[0].feedback_type == "helpful"
     assert trends.recent_replay_runs[0].replay_run_id == replay_run_id

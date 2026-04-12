@@ -342,7 +342,10 @@ def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> No
     result_rows = [row for row in session.added if isinstance(row, SearchRequestResult)]
 
     assert execution.request_id is not None
-    assert execution.reranker_name == "heuristic_v1"
+    assert execution.harness_name == "default_v1"
+    assert execution.reranker_name == "linear_feature_reranker"
+    assert execution.reranker_version == "v1"
+    assert execution.retrieval_profile_name == "default_v1"
     assert request_rows[0].origin == "api"
     assert request_rows[0].tabular_query is True
     assert request_rows[0].details_json["served_mode"] == "keyword"

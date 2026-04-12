@@ -180,6 +180,7 @@ def test_quality_trends_route_uses_quality_service(monkeypatch) -> None:
                 }
             ],
             "feedback_counts": [{"feedback_type": "missing_table", "count": 2}],
+            "answer_feedback_counts": [{"feedback_type": "helpful", "count": 1}],
             "recent_replay_runs": [
                 {
                     "replay_run_id": str(replay_run_id),

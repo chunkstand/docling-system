@@ -22,6 +22,7 @@ class SearchRequest(BaseModel):
     mode: str = Field(pattern="^(keyword|semantic|hybrid)$")
     filters: SearchFilters | None = None
     limit: int = Field(default=10, ge=1, le=50)
+    harness_name: str | None = None
 
 
 class SearchScores(BaseModel):
@@ -86,7 +87,11 @@ class SearchRequestDetailResponse(BaseModel):
     details: dict = Field(default_factory=dict)
     limit: int
     tabular_query: bool = False
+    harness_name: str = "default_v1"
     reranker_name: str
+    reranker_version: str = "v1"
+    retrieval_profile_name: str = "default_v1"
+    harness_config: dict = Field(default_factory=dict)
     embedding_status: str
     embedding_error: str | None = None
     candidate_count: int = 0
@@ -115,12 +120,18 @@ class SearchReplayResponse(BaseModel):
 class SearchReplayRunRequest(BaseModel):
     source_type: str = Field(pattern="^(evaluation_queries|live_search_gaps|feedback)$")
     limit: int = Field(default=25, ge=1, le=200)
+    harness_name: str | None = None
 
 
 class SearchReplayRunSummaryResponse(BaseModel):
     replay_run_id: UUID
     source_type: str
     status: str
+    harness_name: str = "default_v1"
+    reranker_name: str = "linear_feature_reranker"
+    reranker_version: str = "v1"
+    retrieval_profile_name: str = "default_v1"
+    harness_config: dict = Field(default_factory=dict)
     query_count: int = 0
     passed_count: int = 0
     failed_count: int = 0
@@ -182,3 +193,46 @@ class SearchReplayComparisonResponse(BaseModel):
     baseline_zero_result_count: int = 0
     candidate_zero_result_count: int = 0
     changed_queries: list[SearchReplayComparisonRowResponse] = Field(default_factory=list)
+
+
+class SearchHarnessResponse(BaseModel):
+    harness_name: str
+    reranker_name: str
+    reranker_version: str
+    retrieval_profile_name: str
+    harness_config: dict = Field(default_factory=dict)
+    is_default: bool = False
+
+
+class SearchHarnessEvaluationRequest(BaseModel):
+    candidate_harness_name: str
+    baseline_harness_name: str = "default_v1"
+    source_types: list[str] = Field(
+        default_factory=lambda: ["evaluation_queries", "feedback", "live_search_gaps"]
+    )
+    limit: int = Field(default=25, ge=1, le=200)
+
+
+class SearchHarnessEvaluationSourceResponse(BaseModel):
+    source_type: str
+    baseline_replay_run_id: UUID
+    candidate_replay_run_id: UUID
+    baseline_query_count: int = 0
+    candidate_query_count: int = 0
+    baseline_passed_count: int = 0
+    candidate_passed_count: int = 0
+    shared_query_count: int = 0
+    improved_count: int = 0
+    regressed_count: int = 0
+    unchanged_count: int = 0
+
+
+class SearchHarnessEvaluationResponse(BaseModel):
+    baseline_harness_name: str
+    candidate_harness_name: str
+    limit: int
+    total_shared_query_count: int = 0
+    total_improved_count: int = 0
+    total_regressed_count: int = 0
+    total_unchanged_count: int = 0
+    sources: list[SearchHarnessEvaluationSourceResponse] = Field(default_factory=list)

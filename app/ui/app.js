@@ -6,6 +6,9 @@ const state = {
   activeProcessKind: null,
   activeProcessStep: -1,
   lastSearchRequestId: null,
+  lastChatAnswerId: null,
+  harnesses: [],
+  selectedReplayRunId: null,
   replayRuns: [],
 };
 
@@ -92,23 +95,29 @@ const qualityTrends = document.getElementById("quality-trends");
 const replayRunForm = document.getElementById("replay-run-form");
 const replaySourceType = document.getElementById("replay-source-type");
 const replayLimit = document.getElementById("replay-limit");
+const replayHarness = document.getElementById("replay-harness");
 const searchReplays = document.getElementById("search-replays");
 const replayCompareForm = document.getElementById("replay-compare-form");
 const replayBaseline = document.getElementById("replay-baseline");
 const replayCandidate = document.getElementById("replay-candidate");
 const replayFeedback = document.getElementById("replay-feedback");
 const replayComparison = document.getElementById("replay-comparison");
+const replayDetail = document.getElementById("replay-detail");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
+const chatHarness = document.getElementById("chat-harness");
 const chatScope = document.getElementById("chat-scope");
 const chatScopeNote = document.getElementById("chat-scope-note");
 const chatWarning = document.getElementById("chat-warning");
 const chatResponse = document.getElementById("chat-response");
+const chatFeedback = document.getElementById("chat-feedback");
+const chatFeedbackActions = document.getElementById("chat-feedback-actions");
 const chatCitations = document.getElementById("chat-citations");
 const searchProcess = document.getElementById("search-process");
 const searchProcessCaption = document.getElementById("search-process-caption");
 const searchForm = document.getElementById("search-form");
+const searchHarness = document.getElementById("search-harness");
 const searchFeedback = document.getElementById("search-feedback");
 const searchFeedbackActions = document.getElementById("search-feedback-actions");
 const searchResults = document.getElementById("search-results");
@@ -144,6 +153,36 @@ function formatTimestamp(value) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function setSelectOptions(select, rows, fallbackLabel) {
+  if (!rows.length) {
+    select.innerHTML = `<option value="">${escapeHtml(fallbackLabel)}</option>`;
+    select.disabled = true;
+    return;
+  }
+
+  select.disabled = false;
+  const currentValue = select.value;
+  select.innerHTML = rows
+    .map(
+      (row) => `
+        <option value="${escapeHtml(row.harness_name)}">
+          ${escapeHtml(row.harness_name)} · ${escapeHtml(row.reranker_version)} · ${escapeHtml(row.retrieval_profile_name)}
+        </option>
+      `,
+    )
+    .join("");
+  const defaultValue =
+    rows.find((row) => row.is_default)?.harness_name || rows[0]?.harness_name || "";
+  select.value = rows.some((row) => row.harness_name === currentValue) ? currentValue : defaultValue;
+}
+
+function renderHarnessSelects(rows) {
+  state.harnesses = rows;
+  setSelectOptions(searchHarness, rows, "No harnesses available");
+  setSelectOptions(chatHarness, rows, "No harnesses available");
+  setSelectOptions(replayHarness, rows, "No harnesses available");
 }
 
 function setArtifactLink(link, href, enabled) {
@@ -720,10 +759,16 @@ function renderQualityTrends(payload) {
       .slice(0, 4)
       .map((row) => `${row.feedback_type}: ${formatInteger(row.count)}`)
       .join(" · ") || "No search feedback yet.";
+  const answerFeedbackSummary =
+    (payload.answer_feedback_counts || [])
+      .slice(0, 4)
+      .map((row) => `${row.feedback_type}: ${formatInteger(row.count)}`)
+      .join(" · ") || "No answer feedback yet.";
 
   qualityTrends.className = "tables-list";
   qualityTrends.innerHTML = [
     `<article class="table-card"><strong>Feedback labels</strong><p>${escapeHtml(feedbackSummary)}</p></article>`,
+    `<article class="table-card"><strong>Answer feedback</strong><p>${escapeHtml(answerFeedbackSummary)}</p></article>`,
     ...dayCards,
   ].join("");
 }
@@ -742,14 +787,15 @@ function renderSearchReplays(rows) {
     .slice(0, 6)
     .map(
       (row) => `
-        <article class="table-card">
+        <article class="table-card" data-replay-run-id="${escapeHtml(row.replay_run_id)}">
           <div class="table-meta">
             <span>${escapeHtml(row.source_type)}</span>
+            <span>${escapeHtml(row.harness_name)}</span>
             <span>${escapeHtml(row.status)}</span>
             <span>${escapeHtml(formatTimestamp(row.created_at))}</span>
           </div>
           <strong>${formatInteger(row.passed_count)} passed / ${formatInteger(row.query_count)} queries</strong>
-          <p>${formatInteger(row.failed_count)} failed · ${formatInteger(row.zero_result_count)} zero-result · ${formatInteger(row.top_result_changes)} top-result changes</p>
+          <p>${escapeHtml(row.reranker_version)} · ${escapeHtml(row.retrieval_profile_name)} · ${formatInteger(row.failed_count)} failed · ${formatInteger(row.zero_result_count)} zero-result · ${formatInteger(row.top_result_changes)} top-result changes</p>
         </article>
       `,
     )
@@ -849,6 +895,49 @@ function renderReplayComparison(payload) {
   ].join("");
 }
 
+function renderReplayDetail(payload) {
+  if (!payload) {
+    replayDetail.className = "tables-list empty";
+    replayDetail.textContent = "Replay drilldown will appear here.";
+    return;
+  }
+
+  const queryCards = (payload.query_results || []).length
+    ? payload.query_results.slice(0, 8).map(
+        (row) => `
+          <article class="table-card">
+            <div class="table-meta">
+              <span>${row.passed ? "passed" : "failed"}</span>
+              <span>${escapeHtml(row.mode)}</span>
+              <span>${formatInteger(row.result_count)} results</span>
+            </div>
+            <strong>${escapeHtml(row.query_text)}</strong>
+            <p>${escapeHtml(row.details?.source_reason || "replay_query")}</p>
+            <p>${formatInteger(row.overlap_count)} overlap · ${formatInteger(row.added_count)} added · ${formatInteger(row.removed_count)} removed · ${formatInteger(row.max_rank_shift)} max rank shift</p>
+          </article>
+        `,
+      )
+    : [
+        `<article class="table-card"><strong>No replay query rows</strong><p>This replay run persisted without query-level detail rows.</p></article>`,
+      ];
+
+  replayDetail.className = "tables-list";
+  replayDetail.innerHTML = [
+    `
+      <article class="table-card">
+        <div class="table-meta">
+          <span>${escapeHtml(payload.harness_name)}</span>
+          <span>${escapeHtml(payload.reranker_version)}</span>
+          <span>${escapeHtml(payload.retrieval_profile_name)}</span>
+        </div>
+        <strong>${formatInteger(payload.passed_count)} passed / ${formatInteger(payload.query_count)} queries</strong>
+        <p>${formatInteger(payload.failed_count)} failed · ${formatInteger(payload.zero_result_count)} zero-result · ${formatInteger(payload.top_result_changes)} top-result changes</p>
+      </article>
+    `,
+    ...queryCards,
+  ].join("");
+}
+
 function renderSearchFeedbackActions(searchRequestId, results) {
   if (!searchRequestId) {
     searchFeedbackActions.innerHTML = "";
@@ -867,6 +956,23 @@ function renderSearchFeedbackActions(searchRequestId, results) {
       `Request ${searchRequestId} logged with no results. Use the request-level labels if the miss is meaningful.`,
     );
   }
+}
+
+function renderChatFeedbackActions(chatAnswerId) {
+  state.lastChatAnswerId = chatAnswerId;
+  if (!chatAnswerId) {
+    chatFeedbackActions.innerHTML = "";
+    setFeedback(chatFeedback, "");
+    return;
+  }
+
+  chatFeedbackActions.className = "status-actions";
+  chatFeedbackActions.innerHTML = `
+    <button class="secondary-button" type="button" data-chat-feedback="helpful">Helpful</button>
+    <button class="secondary-button" type="button" data-chat-feedback="unsupported">Unsupported</button>
+    <button class="secondary-button" type="button" data-chat-feedback="incomplete">Incomplete</button>
+    <button class="secondary-button" type="button" data-chat-feedback="unhelpful">Unhelpful</button>
+  `;
 }
 
 function renderSearchResults(results, searchRequestId = null) {
@@ -947,20 +1053,24 @@ function syncChatScopeState() {
 
 function renderChatResponse(payload) {
   if (!payload) {
+    state.lastChatAnswerId = null;
     chatResponse.className = "chat-response empty";
     chatResponse.textContent = "Answers will appear here.";
     chatCitations.className = "chat-citations empty";
     chatCitations.textContent = "Retrieved support will appear here.";
     setFeedback(chatWarning, "");
+    renderChatFeedbackActions(null);
     return;
   }
 
+  renderChatFeedbackActions(payload.chat_answer_id);
   chatResponse.className = "chat-response";
   chatResponse.innerHTML = `
     <article class="answer-card">
       <div class="result-meta">
         <span>${escapeHtml(payload.mode)}</span>
         <span>${payload.used_fallback ? "extractive fallback" : "model-backed answer"}</span>
+        <span>${escapeHtml(payload.harness_name || "default_v1")}</span>
         ${payload.model ? `<span>${escapeHtml(payload.model)}</span>` : ""}
       </div>
       <p>${escapeHtml(payload.answer).replaceAll("\n", "<br />")}</p>
@@ -968,6 +1078,12 @@ function renderChatResponse(payload) {
   `;
 
   setFeedback(chatWarning, payload.warning || "");
+  setFeedback(
+    chatFeedback,
+    payload.chat_answer_id
+      ? `Answer ${payload.chat_answer_id} is persisted with search request ${payload.search_request_id || "unknown"}.`
+      : "",
+  );
 
   if (!payload.citations?.length) {
     chatCitations.className = "chat-citations empty";
@@ -1059,6 +1175,23 @@ async function fetchSearchReplays() {
   return response.json();
 }
 
+async function fetchSearchReplayDetail(replayRunId) {
+  const response = await fetch(`/search/replays/${replayRunId}`);
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to load replay drilldown.");
+  }
+  return body;
+}
+
+async function fetchSearchHarnesses() {
+  const response = await fetch("/search/harnesses");
+  if (!response.ok) {
+    throw new Error("Unable to load search harnesses.");
+  }
+  return response.json();
+}
+
 async function postSearchReplayRun(payload) {
   const response = await fetch("/search/replays", {
     method: "POST",
@@ -1068,6 +1201,19 @@ async function postSearchReplayRun(payload) {
   const body = await response.json();
   if (!response.ok) {
     throw new Error(body.detail || "Unable to run replay suite.");
+  }
+  return body;
+}
+
+async function postChatAnswerFeedback(chatAnswerId, payload) {
+  const response = await fetch(`/chat/answers/${chatAnswerId}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to record answer feedback.");
   }
   return body;
 }
@@ -1185,6 +1331,15 @@ async function refreshQualityPanel() {
     renderQualityEvalCandidates(evalCandidates);
     renderQualityTrends(trends);
     renderSearchReplays(replayRuns);
+    if (state.selectedReplayRunId) {
+      const replayExists = replayRuns.some((row) => row.replay_run_id === state.selectedReplayRunId);
+      if (replayExists) {
+        renderReplayDetail(await fetchSearchReplayDetail(state.selectedReplayRunId));
+      } else {
+        state.selectedReplayRunId = null;
+        renderReplayDetail(null);
+      }
+    }
   } catch (error) {
     renderQualitySummary(null);
     renderQualityEvaluations([]);
@@ -1194,6 +1349,7 @@ async function refreshQualityPanel() {
     renderQualityTrends(null);
     renderSearchReplays([]);
     renderReplayComparison(null);
+    renderReplayDetail(null);
     setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
   }
 }
@@ -1322,13 +1478,16 @@ chatForm.addEventListener("submit", async (event) => {
   }
 
   startProcessRail("chat");
+  state.lastChatAnswerId = null;
   chatResponse.className = "chat-response empty";
   chatResponse.textContent = "Retrieving evidence and building a cited answer...";
   chatCitations.className = "chat-citations empty";
   chatCitations.textContent = "Waiting for supporting passages...";
   setFeedback(chatWarning, "");
+  setFeedback(chatFeedback, "");
+  renderChatFeedbackActions(null);
 
-  const payload = { question, mode, top_k: 6 };
+  const payload = { question, mode, top_k: 6, harness_name: chatHarness.value || undefined };
   if (scope === "document" && state.currentDocumentId) {
     payload.document_id = state.currentDocumentId;
   }
@@ -1377,7 +1536,7 @@ searchForm.addEventListener("submit", async (event) => {
   searchResults.className = "search-results empty";
   searchResults.textContent = "Searching...";
 
-  const payload = { query, mode, limit: 8 };
+  const payload = { query, mode, limit: 8, harness_name: searchHarness.value || undefined };
   if (state.currentDocumentId) {
     payload.filters = { document_id: state.currentDocumentId };
   }
@@ -1457,11 +1616,35 @@ searchFeedbackActions.addEventListener("click", async (event) => {
   }
 });
 
+chatFeedbackActions.addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  const button = event.target.closest("[data-chat-feedback]");
+  if (!button || !state.lastChatAnswerId) {
+    return;
+  }
+
+  try {
+    const feedback = await postChatAnswerFeedback(state.lastChatAnswerId, {
+      feedback_type: button.dataset.chatFeedback,
+    });
+    setFeedback(
+      chatFeedback,
+      `Recorded ${feedback.feedback_type} feedback for answer ${feedback.chat_answer_id}.`,
+    );
+    await refreshQualityPanel();
+  } catch (error) {
+    setFeedback(chatFeedback, error.message || "Unable to record answer feedback.");
+  }
+});
+
 replayRunForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const payload = {
     source_type: replaySourceType.value,
     limit: Number(replayLimit.value) || 12,
+    harness_name: replayHarness.value || undefined,
   };
   setFeedback(
     replayFeedback,
@@ -1471,6 +1654,8 @@ replayRunForm.addEventListener("submit", async (event) => {
   try {
     const replayRun = await postSearchReplayRun(payload);
     await refreshQualityPanel();
+    state.selectedReplayRunId = replayRun.replay_run_id;
+    renderReplayDetail(replayRun);
     const baselineOption = Array.from(replayBaseline.options).find(
       (option) => option.value !== replayRun.replay_run_id,
     );
@@ -1486,6 +1671,30 @@ replayRunForm.addEventListener("submit", async (event) => {
   } catch (error) {
     renderReplayComparison(null);
     setFeedback(replayFeedback, error.message || "Unable to run replay suite.");
+  }
+});
+
+searchReplays.addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) {
+    return;
+  }
+  const card = event.target.closest("[data-replay-run-id]");
+  if (!card) {
+    return;
+  }
+
+  state.selectedReplayRunId = card.dataset.replayRunId;
+  setFeedback(replayFeedback, `Loading replay drilldown for ${state.selectedReplayRunId}...`);
+  try {
+    const detail = await fetchSearchReplayDetail(state.selectedReplayRunId);
+    renderReplayDetail(detail);
+    setFeedback(
+      replayFeedback,
+      `Loaded replay ${detail.replay_run_id} for harness ${detail.harness_name}.`,
+    );
+  } catch (error) {
+    renderReplayDetail(null);
+    setFeedback(replayFeedback, error.message || "Unable to load replay drilldown.");
   }
 });
 
@@ -1520,6 +1729,12 @@ setArtifactLink(jsonLink, "#", false);
 setArtifactLink(yamlLink, "#", false);
 syncChatScopeState();
 renderChatResponse(null);
+renderReplayDetail(null);
 resetProcessRail();
+fetchSearchHarnesses()
+  .then(renderHarnessSelects)
+  .catch((error) => {
+    setFeedback(statusFeedback, error.message || "Unable to load search harnesses.");
+  });
 refreshDocuments().then(refreshCurrentDocument);
 startPolling();
