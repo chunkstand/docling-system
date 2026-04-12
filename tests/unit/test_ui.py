@@ -12,7 +12,9 @@ def test_index_serves_ui() -> None:
     assert "Docling System" in response.text
     assert "Grounded Answer Workspace" in response.text
     assert "Live ingestion and telemetry" in response.text
+    assert "Corpus quality state" in response.text
     assert "Logical tables" in response.text
     assert "Recent processing attempts" in response.text
+    assert "Failed runs by stage will appear here." in response.text
     assert "Clear selection" in response.text
     assert "/ui/app.js" in response.text

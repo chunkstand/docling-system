@@ -75,6 +75,16 @@ const figuresList = document.getElementById("figures-list");
 const evaluationFeedback = document.getElementById("evaluation-feedback");
 const evaluationQueries = document.getElementById("evaluation-queries");
 const runsList = document.getElementById("runs-list");
+const qualityEvalCoverageValue = document.getElementById("quality-eval-coverage");
+const qualityFailedQueryCountValue = document.getElementById("quality-failed-query-count");
+const qualityStructuralFailureCountValue = document.getElementById(
+  "quality-structural-failure-count",
+);
+const qualityFailedRunCountValue = document.getElementById("quality-failed-run-count");
+const qualityFeedback = document.getElementById("quality-feedback");
+const qualityEvaluations = document.getElementById("quality-evaluations");
+const qualityFailureStages = document.getElementById("quality-failure-stages");
+const qualityFailures = document.getElementById("quality-failures");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
@@ -511,6 +521,123 @@ function renderRuns(runs) {
     .join("");
 }
 
+function renderQualitySummary(summary) {
+  if (!summary) {
+    qualityEvalCoverageValue.textContent = "0 / 0";
+    qualityFailedQueryCountValue.textContent = "0";
+    qualityStructuralFailureCountValue.textContent = "0";
+    qualityFailedRunCountValue.textContent = "0";
+    setFeedback(qualityFeedback, "Unable to load corpus quality summary.");
+    return;
+  }
+
+  qualityEvalCoverageValue.textContent = `${formatInteger(summary.documents_with_latest_evaluation)} / ${formatInteger(summary.document_count)}`;
+  qualityFailedQueryCountValue.textContent = formatInteger(summary.total_failed_queries);
+  qualityStructuralFailureCountValue.textContent = formatInteger(
+    summary.total_failed_structural_checks,
+  );
+  qualityFailedRunCountValue.textContent = formatInteger(summary.failed_run_count);
+  setFeedback(
+    qualityFeedback,
+    `${formatInteger(summary.documents_with_failed_queries)} documents have failed retrieval queries, ${formatInteger(summary.documents_with_structural_failures)} have structural check failures, and ${formatInteger(summary.missing_latest_evaluations)} are missing latest evaluations.`,
+  );
+}
+
+function renderQualityEvaluations(rows) {
+  if (!rows.length) {
+    qualityEvaluations.className = "tables-list empty";
+    qualityEvaluations.textContent = "Latest evaluation state will appear here.";
+    return;
+  }
+
+  qualityEvaluations.className = "tables-list";
+  qualityEvaluations.innerHTML = rows
+    .slice(0, 8)
+    .map(
+      (row) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>${escapeHtml(row.evaluation_status)}</span>
+            <span>${escapeHtml(row.latest_run_status || "no latest run")}</span>
+            <span>${escapeHtml(row.latest_validation_status || "pending")}</span>
+          </div>
+          <strong>${escapeHtml(row.title || row.source_filename)}</strong>
+          <p>${escapeHtml(row.source_filename)}</p>
+          <p>${formatInteger(row.failed_queries)} failed queries · ${formatInteger(row.failed_structural_checks)} structural failures</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderQualityFailureStages(stages) {
+  if (!stages.length) {
+    qualityFailureStages.className = "tables-list empty";
+    qualityFailureStages.textContent = "No failed runs grouped by stage.";
+    return;
+  }
+
+  qualityFailureStages.className = "tables-list";
+  qualityFailureStages.innerHTML = stages
+    .map(
+      (stage) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>${escapeHtml(stage.failure_stage)}</span>
+            <span>${formatInteger(stage.run_count)} failed run${stage.run_count === 1 ? "" : "s"}</span>
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderQualityFailures(payload) {
+  if (!payload) {
+    qualityFailures.className = "tables-list empty";
+    qualityFailures.textContent = "Quality failures will appear here.";
+    return;
+  }
+
+  const evaluationFailures = payload.evaluation_failures || [];
+  const runFailures = payload.run_failures || [];
+  const items = [
+    ...evaluationFailures.slice(0, 4).map(
+      (row) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>evaluation</span>
+            <span>${escapeHtml(row.evaluation_status)}</span>
+          </div>
+          <strong>${escapeHtml(row.title || row.source_filename)}</strong>
+          <p>${formatInteger(row.failed_queries)} failed queries · ${formatInteger(row.failed_structural_checks)} structural failures</p>
+        </article>
+      `,
+    ),
+    ...runFailures.slice(0, 4).map(
+      (run) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>run ${run.run_number}</span>
+            <span>${escapeHtml(run.failure_stage || "missing")}</span>
+          </div>
+          <strong>${escapeHtml(run.title || run.source_filename)}</strong>
+          <p>${escapeHtml(run.error_message || "No run error recorded.")}</p>
+        </article>
+      `,
+    ),
+  ];
+
+  if (!items.length) {
+    qualityFailures.className = "tables-list empty";
+    qualityFailures.textContent = "No quality failures are currently recorded.";
+    return;
+  }
+
+  qualityFailures.className = "tables-list";
+  qualityFailures.innerHTML = items.join("");
+}
+
 function renderSearchResults(results) {
   if (!results.length) {
     searchResults.className = "search-results empty";
@@ -634,6 +761,30 @@ async function fetchMetrics() {
   return response.json();
 }
 
+async function fetchQualitySummary() {
+  const response = await fetch("/quality/summary");
+  if (!response.ok) {
+    throw new Error("Unable to load quality summary.");
+  }
+  return response.json();
+}
+
+async function fetchQualityEvaluations() {
+  const response = await fetch("/quality/evaluations");
+  if (!response.ok) {
+    throw new Error("Unable to load quality evaluations.");
+  }
+  return response.json();
+}
+
+async function fetchQualityFailures() {
+  const response = await fetch("/quality/failures");
+  if (!response.ok) {
+    throw new Error("Unable to load quality failures.");
+  }
+  return response.json();
+}
+
 async function fetchDocumentStatus(documentId) {
   const response = await fetch(`/documents/${documentId}`);
   if (!response.ok) {
@@ -701,6 +852,27 @@ async function refreshDocuments() {
   renderIngestionLane(documents);
   renderTelemetry(metrics);
   syncChatScopeState();
+  await refreshQualityPanel();
+}
+
+async function refreshQualityPanel() {
+  try {
+    const [summary, evaluations, failures] = await Promise.all([
+      fetchQualitySummary(),
+      fetchQualityEvaluations(),
+      fetchQualityFailures(),
+    ]);
+    renderQualitySummary(summary);
+    renderQualityEvaluations(evaluations);
+    renderQualityFailureStages(summary.failed_runs_by_stage || []);
+    renderQualityFailures(failures);
+  } catch (error) {
+    renderQualitySummary(null);
+    renderQualityEvaluations([]);
+    renderQualityFailureStages([]);
+    renderQualityFailures(null);
+    setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
+  }
 }
 
 async function refreshCurrentDocument() {

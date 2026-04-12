@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from uuid import uuid4
+
+from app.services.quality import (
+    QualityContext,
+    build_quality_evaluation_rows,
+    build_quality_failures,
+    build_quality_summary,
+)
+
+
+def _timestamp(minutes: int = 0) -> datetime:
+    return datetime.now(UTC) + timedelta(minutes=minutes)
+
+
+def test_quality_summary_and_failures_aggregate_latest_eval_state() -> None:
+    doc_one_id = uuid4()
+    doc_two_id = uuid4()
+    run_one_id = uuid4()
+    run_two_id = uuid4()
+    documents = [
+        SimpleNamespace(
+            id=doc_one_id,
+            source_filename="chapter-1.pdf",
+            title="Chapter 1",
+            latest_run_id=run_one_id,
+            updated_at=_timestamp(2),
+        ),
+        SimpleNamespace(
+            id=doc_two_id,
+            source_filename="chapter-2.pdf",
+            title="Chapter 2",
+            latest_run_id=run_two_id,
+            updated_at=_timestamp(1),
+        ),
+    ]
+    runs = [
+        SimpleNamespace(
+            id=run_one_id,
+            document_id=doc_one_id,
+            run_number=3,
+            status="completed",
+            validation_status="passed",
+            failure_stage=None,
+            failure_artifact_path=None,
+            error_message=None,
+            created_at=_timestamp(),
+            completed_at=_timestamp(3),
+        ),
+        SimpleNamespace(
+            id=run_two_id,
+            document_id=doc_two_id,
+            run_number=4,
+            status="failed",
+            validation_status="failed",
+            failure_stage="validation",
+            failure_artifact_path="/tmp/failure.json",
+            error_message="validation failed",
+            created_at=_timestamp(),
+            completed_at=_timestamp(4),
+        ),
+    ]
+    evaluations = [
+        SimpleNamespace(
+            id=uuid4(),
+            run_id=run_one_id,
+            status="completed",
+            fixture_name="fixture-one",
+            error_message=None,
+            summary_json={
+                "query_count": 4,
+                "passed_queries": 2,
+                "failed_queries": 2,
+                "regressed_queries": 1,
+                "improved_queries": 0,
+                "stable_queries": 1,
+                "failed_structural_checks": 1,
+                "structural_passed": False,
+            },
+            created_at=_timestamp(5),
+        )
+    ]
+    context = QualityContext(documents=documents, runs=runs, evaluations=evaluations)
+
+    rows = build_quality_evaluation_rows(context)
+    summary = build_quality_summary(context, rows)
+    failures = build_quality_failures(context, rows)
+
+    assert len(rows) == 2
+    assert rows[0].source_filename == "chapter-1.pdf"
+    assert rows[1].evaluation_status == "missing"
+    assert summary.documents_with_latest_evaluation == 1
+    assert summary.missing_latest_evaluations == 1
+    assert summary.total_failed_queries == 2
+    assert summary.documents_with_structural_failures == 1
+    assert summary.failed_run_count == 1
+    assert summary.failed_runs_by_stage[0].failure_stage == "validation"
+    assert {row.source_filename for row in failures.evaluation_failures} == {
+        "chapter-1.pdf",
+        "chapter-2.pdf",
+    }
+    assert failures.run_failures[0].run_id == run_two_id

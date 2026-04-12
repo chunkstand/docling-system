@@ -22,6 +22,11 @@ from app.schemas.documents import (
 )
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
+from app.schemas.quality import (
+    QualityEvaluationStatusResponse,
+    QualityFailuresResponse,
+    QualitySummaryResponse,
+)
 from app.schemas.search import SearchRequest, SearchResult
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.chat import answer_question
@@ -35,6 +40,7 @@ from app.services.documents import (
     reprocess_document,
 )
 from app.services.figures import get_active_figure_detail, get_active_figures
+from app.services.quality import get_quality_failures, get_quality_summary, list_quality_evaluations
 from app.services.search import search_documents
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
@@ -63,6 +69,23 @@ def health() -> dict[str, str]:
 @app.get("/metrics")
 def metrics() -> dict[str, float]:
     return snapshot_metrics()
+
+
+@app.get("/quality/summary", response_model=QualitySummaryResponse)
+def read_quality_summary(session: Session = Depends(get_db_session)) -> QualitySummaryResponse:
+    return get_quality_summary(session)
+
+
+@app.get("/quality/failures", response_model=QualityFailuresResponse)
+def read_quality_failures(session: Session = Depends(get_db_session)) -> QualityFailuresResponse:
+    return get_quality_failures(session)
+
+
+@app.get("/quality/evaluations", response_model=list[QualityEvaluationStatusResponse])
+def read_quality_evaluations(
+    session: Session = Depends(get_db_session),
+) -> list[QualityEvaluationStatusResponse]:
+    return list_quality_evaluations(session)
 
 
 @app.get("/documents", response_model=list[DocumentSummaryResponse])

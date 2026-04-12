@@ -188,6 +188,41 @@
           <div class="details-grid">
             <section class="detail-block">
               <div class="panel-header compact">
+                <p class="section-label">Quality</p>
+                <h3>Corpus quality state</h3>
+              </div>
+              <div class="status-grid compact minor">
+                <div class="status-row">
+                  <span class="status-label">Latest eval coverage</span>
+                  <strong id="quality-eval-coverage">0 / 0</strong>
+                </div>
+                <div class="status-row">
+                  <span class="status-label">Failed query count</span>
+                  <strong id="quality-failed-query-count">0</strong>
+                </div>
+                <div class="status-row">
+                  <span class="status-label">Structural check failures</span>
+                  <strong id="quality-structural-failure-count">0</strong>
+                </div>
+                <div class="status-row">
+                  <span class="status-label">Failed runs</span>
+                  <strong id="quality-failed-run-count">0</strong>
+                </div>
+              </div>
+              <div id="quality-feedback" class="feedback muted" aria-live="polite"></div>
+              <div id="quality-evaluations" class="tables-list empty">
+                Latest evaluation state will appear here.
+              </div>
+              <div id="quality-failure-stages" class="tables-list empty">
+                Failed runs by stage will appear here.
+              </div>
+              <div id="quality-failures" class="tables-list empty">
+                Quality failures will appear here.
+              </div>
+            </section>
+
+            <section class="detail-block">
+              <div class="panel-header compact">
                 <p class="section-label">Raw Search</p>
                 <h3>Direct mixed retrieval</h3>
               </div>
