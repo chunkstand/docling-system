@@ -6,20 +6,27 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `5e98907` (`Backfill legacy audit fields`)
+Latest committed checkpoint before this handoff update: `ce4da3f` (`Add search feedback and replay lab`)
 
 ## Executive Summary
 
-This session completed Lopopolo milestone 2 and then repaired the historical corpus so the stricter audit contract passes live.
+The branch now includes:
+
+- Lopopolo milestone 2 quality surfaces
+- legacy audit-field backfill so historical rows satisfy the current audit contract
+- persisted search-request telemetry, feedback labels, replay suites, replay comparison, and ranking-dataset export
+- a replay/quality operator UI that now exposes both replay execution and replay comparison controls
+- a green live `docling-system-audit` result after migration `0011_search_feedback_replays`
 
 What is now true:
 
-- deeper audit invariants are implemented
-- corpus quality is exposed through dedicated API endpoints and an operator UI quality panel
-- legacy run rows were backfilled so historical data conforms to the current audit contract
-- `uv run docling-system-audit` now completes live with zero violations
+- validation still gates promotion
+- evaluation still does not gate promotion
+- search requests are durable first-class records
+- replay and trend surfaces exist in both the API and the operator UI
+- the local corpus passes the current audit contract live
 
-## What Landed This Session
+## What Landed Recently
 
 ### 1. Lopopolo Milestone 2
 
@@ -29,45 +36,14 @@ Commit:
 
 What changed:
 
-- expanded `docling-system-audit` in `app/services/audit.py` to verify:
-  - run chunk/table/figure summary counts against persisted DB rows
-  - latest evaluation presence for completed latest runs
-  - table and figure artifact path existence when rows claim artifacts
-  - required `failure.json` schema fields
-  - known failure-stage membership
-- added corpus quality aggregation service in `app/services/quality.py`
-- added typed quality schemas in `app/schemas/quality.py`
-- added new quality endpoints:
+- expanded `docling-system-audit` in `app/services/audit.py`
+- added quality aggregation in `app/services/quality.py`
+- added quality schemas in `app/schemas/quality.py`
+- added:
   - `GET /quality/summary`
   - `GET /quality/failures`
   - `GET /quality/evaluations`
-- added a quality panel to the operator UI showing:
-  - latest evaluation coverage
-  - failed query totals
-  - structural check failures
-  - failed runs grouped by stage
-  - evaluation and run failure rollups
-- added unit tests for the new audit rules, quality service logic, quality API routes, and UI presence
-
-Relevant files:
-
-- `app/api/main.py`
-- `app/schemas/quality.py`
-- `app/services/audit.py`
-- `app/services/quality.py`
-- `app/ui/index.html`
-- `app/ui/app.js`
-- `app/ui/styles.css`
-- `tests/unit/test_audit_service.py`
-- `tests/unit/test_quality_api.py`
-- `tests/unit/test_quality_service.py`
-- `tests/unit/test_ui.py`
-
-Durable outcome:
-
-- milestone 2 is implemented rather than still planned
-- the system now exposes corpus quality as a first-class operator surface
-- the audit contract is materially deeper than milestone 1
+- added a quality panel to the UI
 
 ### 2. Legacy Audit Backfill
 
@@ -75,97 +51,89 @@ Commit:
 
 - `5e98907` `Backfill legacy audit fields`
 
-Why this was needed:
+What changed:
 
-- after milestone 2, the first live audit no longer passed
-- the failures were historical-data drift, not current-run behavior regressions
-- old runs predated the current figure-count and failure-stage contract
+- added reusable backfill logic in `app/services/cleanup.py`
+- added CLI `docling-system-backfill-legacy-audit`
+- normalized historical `figure_count` and `failure_stage` drift
 
-Observed live audit failure before backfill:
+Durable result:
 
-```json
-{
-  "checked_documents": 8,
-  "checked_runs": 27,
-  "checked_evaluations": 14,
-  "checked_tables": 481,
-  "checked_figures": 344,
-  "violation_count": 15,
-  "violation_counts_by_code": {
-    "failed_run_unknown_failure_stage": 1,
-    "run_figure_count_mismatch": 14
-  }
-}
-```
+- live `docling-system-audit` returned zero violations after the backfill
+
+### 3. Retrieval Feedback And Replay Lab
+
+Commit:
+
+- `ce4da3f` `Add search feedback and replay lab`
 
 What changed:
 
-- added reusable legacy audit-field backfill logic in `app/services/cleanup.py`
-- added CLI entrypoint `docling-system-backfill-legacy-audit`
-- backfill now:
-  - fills missing `chunk_count`, `table_count`, and `figure_count` from persisted DB rows
-  - normalizes legacy failure stages using existing validation metadata
-  - rewrites persisted `failure.json` artifacts when the normalized failure stage changes
-- added unit coverage for the cleanup/backfill path and CLI wiring
+- added durable replay/feedback persistence in:
+  - `app/db/models.py`
+  - `alembic/versions/0011_search_feedback_replays.py`
+- added replay and dataset services in:
+  - `app/services/search_history.py`
+  - `app/services/search_replays.py`
+  - `app/services/quality.py`
+- added API routes in `app/api/main.py`:
+  - `POST /search/requests/{search_request_id}/feedback`
+  - `GET /search/replays`
+  - `POST /search/replays`
+  - `GET /search/replays/{replay_run_id}`
+  - `GET /search/replays/compare`
+  - `GET /quality/trends`
+- added CLI commands:
+  - `uv run docling-system-run-replay-suite <source_type> --limit N`
+  - `uv run docling-system-export-ranking-dataset --limit N`
+- updated the UI to show:
+  - search feedback labels
+  - replay-run history
+  - replay execution controls
+  - replay comparison controls
+  - search and feedback trend summaries
 
 Relevant files:
 
+- `app/api/main.py`
 - `app/cli.py`
-- `app/services/cleanup.py`
-- `pyproject.toml`
-- `tests/unit/test_cleanup.py`
+- `app/db/models.py`
+- `app/schemas/search.py`
+- `app/schemas/quality.py`
+- `app/services/search_history.py`
+- `app/services/search_replays.py`
+- `app/services/quality.py`
+- `app/ui/index.html`
+- `app/ui/app.js`
+- `app/ui/styles.css`
+- `README.md`
+- `tests/unit/test_search_api.py`
+- `tests/unit/test_search_replays.py`
+- `tests/unit/test_quality_api.py`
+- `tests/unit/test_quality_service.py`
 - `tests/unit/test_cli.py`
+- `tests/unit/test_ui.py`
 
-Live backfill result:
+### 4. Gap-Closing Follow-Up
 
-```json
-{
-  "runs_scanned": 27,
-  "chunk_count_backfilled": 0,
-  "table_count_backfilled": 0,
-  "figure_count_backfilled": 15,
-  "failure_stage_backfilled": 1,
-  "failure_artifacts_updated": 1
-}
-```
+This handoff update also closes the post-milestone gaps that were still open after `ce4da3f`:
 
-Durable outcome:
-
-- the stricter audit contract now works against the current local corpus, not only against fresh runs
-- legacy drift is normalized in a reusable way instead of being repaired by one-off SQL
-
-## Git State
-
-Current branch:
-
-- `codex/docling-system-build`
-
-Recent commits:
-
-```text
-5e98907 Backfill legacy audit fields
-0e41420 Implement Lopopolo milestone 2 quality surfaces
-f3a0e20 Update handoff with next Lopopolo milestone
-5a1659a Add replayable run failures and audit surfaces
-e8e867c Deepen evaluation coverage and harden caption checks
-```
-
-Push / PR state:
-
-- PR `#1` is still the correct PR for this work
-- the branch should remain aligned with `origin/codex/docling-system-build`
-- this handoff assumes the latest local commits are pushed before the next session starts
+- the UI now exposes replay creation and replay comparison instead of only listing replay runs
+- `README.md` now documents the replay/feedback endpoints and CLI commands
+- this handoff reflects the current migration head and runtime state instead of the older milestone-2 state
 
 ## Current Runtime State
 
 At handoff time:
 
 - API health check succeeds at `http://127.0.0.1:8000/health`
-- Alembic head in the running database is `0009_run_failure_artifacts`
+- the API was restarted after the `0011_search_feedback_replays` migration
+- the worker was restarted after the same migration
+- Alembic head in the running database is `0011_search_feedback_replays`
 - `docling-system-audit` completes live with zero violations
-- the active evaluated corpus remains eight documents
+- the active/evaluated corpus remains eight documents
 
-Live audit result after backfill:
+Live audit result:
 
 ```json
 {
@@ -180,14 +148,19 @@ Live audit result after backfill:
 }
 ```
 
-Additional live confirmation:
+Recent live replay/feedback verification:
 
-- `document_runs.figure_count is null` count: `0`
-- `document_runs.failure_stage = 'legacy_failure'` count: `0`
+- persisted direct search requests return `X-Search-Request-Id`
+- request detail includes persisted rerank features and feedback labels
+- `POST /search/requests/{id}/feedback` persists both ranked-result feedback and request-level `no_answer`
+- `POST /search/replays` succeeded for `feedback` and `live_search_gaps`
+- `GET /search/replays/compare` returned shared-query regression/improvement summaries
+- `uv run docling-system-run-replay-suite feedback --limit 3` completed live
+- `uv run docling-system-export-ranking-dataset --limit 5` emitted feedback and replay rows live
 
 ## Active Corpus State
 
-Current active/evaluated set remains:
+Current active/evaluated set:
 
 - `UPC_CH_5.pdf` -> fixture `upc_ch5`
 - `UPC_CH_4.pdf` -> fixture `upc_ch4`
@@ -198,30 +171,29 @@ Current active/evaluated set remains:
 - `UPC_CH_7.pdf` -> fixture `upc_ch7`
 - `UPC_CH_1.pdf` -> fixture `prose_control`
 
-## Verification Performed This Session
+## Verification Performed
 
-Commands run and observed passing:
+Commands run and observed passing recently:
 
 ```bash
-uv run ruff check app/services/audit.py app/services/quality.py app/schemas/quality.py app/api/main.py tests/unit/test_audit_service.py tests/unit/test_quality_service.py tests/unit/test_quality_api.py tests/unit/test_ui.py
+uv run ruff check app/api/main.py app/cli.py app/db/models.py app/schemas/search.py app/schemas/quality.py app/services/search_history.py app/services/search_replays.py app/services/quality.py alembic/versions/0011_search_feedback_replays.py tests/unit/test_search_api.py tests/unit/test_quality_api.py tests/unit/test_quality_service.py tests/unit/test_cli.py tests/unit/test_search_replays.py tests/unit/test_ui.py
 uv run pytest tests/unit -q
 uv run python -m compileall app tests
 node --check app/ui/app.js
-uv run ruff check app/services/cleanup.py app/cli.py tests/unit/test_cleanup.py tests/unit/test_cli.py pyproject.toml
-uv run pytest tests/unit/test_cleanup.py tests/unit/test_cli.py tests/unit/test_audit_service.py tests/unit/test_quality_service.py tests/unit/test_quality_api.py -q
-uv run docling-system-backfill-legacy-audit
+uv run alembic upgrade head
+uv run docling-system-run-replay-suite feedback --limit 3
+uv run docling-system-export-ranking-dataset --limit 5
 uv run docling-system-audit
 ```
 
 Key results:
 
-- `72 passed` on the full unit suite
-- milestone 2 lint checks passed
-- cleanup/backfill lint checks passed
+- full unit suite passed
 - JS syntax check passed
 - compileall passed
-- legacy audit-field backfill completed successfully
-- live audit passed with zero violations after the backfill
+- migration `0011_search_feedback_replays` applied live
+- replay and export commands completed live
+- audit stayed green after the new migration
 
 ## Current Contracts To Preserve
 
@@ -233,7 +205,19 @@ Key results:
 ### Evaluation
 
 - the fixed corpus in `docs/evaluation_corpus.yaml` remains the durable retrieval contract
-- quality endpoints should report persisted evaluation state, not recompute ad hoc document-by-document status in the UI
+- replay suites and mined candidates complement the fixed corpus; they do not replace it
+
+### Search Telemetry
+
+- every direct `/search` request persists a durable search-request record
+- feedback labels are durable operator annotations, not transient UI state
+- replay suites should consume persisted requests, feedback, and eval rows instead of recomputing ad hoc query lists in the browser
+
+### Replay
+
+- replay runs are persisted first-class records
+- comparison is keyed by shared `(query_text, mode, filters)` identity
+- ranking dataset export is a derived operator artifact, not a source of truth
 
 ### Audit
 
@@ -246,64 +230,54 @@ Key results:
   - table/figure artifact-path existence
   - required `failure.json` schema fields
   - known failure-stage membership
-- audit failures should still be treated as real invariants unless a row is explicitly identified as legacy data requiring backfill
-
-### Backfill
-
-- use `docling-system-backfill-legacy-audit` for historical normalization instead of manual SQL
-- the intended historical normalization behavior is:
-  - missing run counts are filled from persisted child rows
-  - legacy failure-stage values are normalized from existing validation metadata when possible
-  - matching persisted `failure.json` artifacts are rewritten to stay in sync
 
 ### Supplements
 
 - chapter PDFs remain canonical
 - supplement PDFs remain narrow repair inputs only
-- overlay outputs must preserve chapter-local page span and original source-segment provenance
+- overlay outputs must preserve chapter-local page spans and original source-segment provenance
 
-## Known Gaps / Risks
+## Remaining Gaps / Risks
 
 ### 1. Evaluation Still Does Not Gate Promotion
 
-This is still deliberate. A run can promote if validation passes even if retrieval quality is worse.
+Still deliberate. Retrieval quality can regress while promotion still advances if validation passes.
 
-### 2. Quality Surfaces Are First Useful Slice, Not Final Dashboard
+### 2. Replay UI Is Operational, Not Deeply Analytical Yet
 
-Milestone 2 now exposes summary/failures/evaluations, but it is still a thin operational dashboard:
+The UI now runs and compares replay suites, but it is still a thin operator surface:
 
-- no historical trend charts
-- no eval deltas over time across many runs
-- no explicit artifact-hash consistency audit yet
-- no richer regression drilldown UI yet
+- no per-query drilldown modal for replay rows
+- no persistent baseline pinning in the UI
+- no charted trend history beyond list cards
 
-### 3. Backfill Logic Is Heuristic for Truly Legacy Rows
+### 3. Reranking Is Still Heuristic
 
-The current backfill normalizes legacy rows using persisted run metadata and `validation_results`. That is the right operational move here, but if older datasets with different historical shapes appear later, additional mapping rules may be needed.
+The new harness is in place, but the reranker remains `heuristic_v1`. The main leverage now is harvesting labels and replay deltas to support a learned reranker or better scoring model later.
 
-### 4. PR Contains Full Branch History
+### 4. README And Handoff Are Current, But Product Docs Are Still Thin
 
-The PR is still correct, but it includes the full buildout since `main`, not only the milestone 2 and backfill commits.
+The operator-facing commands and endpoints are documented. The deeper design contract for search telemetry, replay semantics, and dataset export still lives mostly in code and tests.
 
 ## Recommended Next Steps
 
-### Priority 1: Better Quality Dashboards
+### Priority 1: Learned-Ranking Prep
 
-- corpus quality summaries over time
-- evaluation trend summaries
-- regression/improvement views from persisted eval data
-- clearer UI surfacing for which documents are missing evaluation vs failing evaluation
+- add richer rerank feature snapshots where useful
+- define the first offline ranking objective from replay and feedback rows
+- add a pluggable reranker interface for experiments behind eval/replay gates
 
-### Priority 2: Specify Nontrivial Transform Contracts
+### Priority 2: Replay Drilldown
 
-- document chunk normalization contract
-- document logical-table build contract
-- document overlay contract
-- document figure-caption resolution contract
+- expose replay-run detail in the UI
+- show changed queries, removed hits, and added hits per replay row
+- add a stable baseline pin or “compare to latest previous successful run” control
 
-### Priority 3: Consider Whether Completed Latest Runs Should Always Be Evaluated
+### Priority 3: Export And Operator Contracts
 
-The audit now expects persisted evaluation presence for completed latest runs. If there is ever a workflow where that should not be true, the product contract should be clarified explicitly rather than relaxed implicitly.
+- document the ranking-dataset export schema
+- document replay pass/fail semantics by source type
+- document when feedback labels should be used versus when fixed-corpus evals should be extended
 
 ## Handy Commands
 
@@ -313,33 +287,30 @@ Health:
 curl -sS http://127.0.0.1:8000/health
 ```
 
-Run the quality summary endpoint:
+Quality:
 
 ```bash
 curl -sS http://127.0.0.1:8000/quality/summary | jq
-```
-
-Run the quality failures endpoint:
-
-```bash
 curl -sS http://127.0.0.1:8000/quality/failures | jq
+curl -sS http://127.0.0.1:8000/quality/evaluations | jq
+curl -sS http://127.0.0.1:8000/quality/eval-candidates | jq
+curl -sS http://127.0.0.1:8000/quality/trends | jq
 ```
 
-Run the quality evaluations endpoint:
+Replay:
 
 ```bash
-curl -sS http://127.0.0.1:8000/quality/evaluations | jq
+uv run docling-system-replay-search <search_request_id>
+uv run docling-system-run-replay-suite feedback --limit 12
+uv run docling-system-run-replay-suite live_search_gaps --limit 12
+uv run docling-system-export-ranking-dataset --limit 200
+curl -sS "http://127.0.0.1:8000/search/replays/compare?baseline_replay_run_id=<id>&candidate_replay_run_id=<id>" | jq
 ```
 
-Run the legacy backfill:
+Audit / cleanup:
 
 ```bash
 uv run docling-system-backfill-legacy-audit
-```
-
-Run the integrity audit:
-
-```bash
 uv run docling-system-audit
 ```
 

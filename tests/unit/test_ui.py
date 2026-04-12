@@ -19,5 +19,8 @@ def test_index_serves_ui() -> None:
     assert "Mined evaluation candidates will appear here." in response.text
     assert "Search and feedback trends will appear here." in response.text
     assert "Replay suite runs will appear here." in response.text
+    assert "Run replay" in response.text
+    assert "Compare runs" in response.text
+    assert "Replay comparison will appear here." in response.text
     assert "Clear selection" in response.text
     assert "/ui/app.js" in response.text

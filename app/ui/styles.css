@@ -359,6 +359,13 @@ body::before {
   transform: translateY(-1px);
 }
 
+.primary-button:disabled,
+.secondary-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .primary-button {
   height: 46px;
   padding: 0 20px;

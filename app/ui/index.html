@@ -225,8 +225,45 @@
               <div id="quality-trends" class="tables-list empty">
                 Search and feedback trends will appear here.
               </div>
+              <form id="replay-run-form" class="search-form">
+                <div class="control-group">
+                  <label class="field-label" for="replay-source-type">Replay source</label>
+                  <select id="replay-source-type" name="source_type">
+                    <option value="feedback">Feedback labels</option>
+                    <option value="evaluation_queries">Evaluation queries</option>
+                    <option value="live_search_gaps">Live search gaps</option>
+                  </select>
+                </div>
+                <div class="control-group">
+                  <label class="field-label" for="replay-limit">Replay limit</label>
+                  <input
+                    id="replay-limit"
+                    name="limit"
+                    type="number"
+                    min="1"
+                    max="200"
+                    value="12"
+                  />
+                </div>
+                <button class="primary-button" type="submit">Run replay</button>
+              </form>
               <div id="search-replays" class="tables-list empty">
                 Replay suite runs will appear here.
+              </div>
+              <form id="replay-compare-form" class="search-form">
+                <div class="control-group">
+                  <label class="field-label" for="replay-baseline">Baseline replay</label>
+                  <select id="replay-baseline" name="baseline_replay_run_id"></select>
+                </div>
+                <div class="control-group">
+                  <label class="field-label" for="replay-candidate">Candidate replay</label>
+                  <select id="replay-candidate" name="candidate_replay_run_id"></select>
+                </div>
+                <button class="primary-button" type="submit">Compare runs</button>
+              </form>
+              <div id="replay-feedback" class="feedback muted" aria-live="polite"></div>
+              <div id="replay-comparison" class="tables-list empty">
+                Replay comparison will appear here.
               </div>
             </section>
 

@@ -10,7 +10,7 @@ The current workflow is operator-driven: use the CLI to ingest local PDFs, then 
 
 The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets.
 
-The system also records replayable failure artifacts for failed runs, exposes recent run history per document, and includes an audit CLI for checking run/promotion invariants against the local corpus.
+The system also records replayable failure artifacts for failed runs, exposes recent run history per document, persists direct-search telemetry with operator feedback labels, and includes replay/audit CLIs for checking run and retrieval invariants against the local corpus.
 
 ## Current Contracts
 
@@ -128,7 +128,19 @@ Local path ingest policy:
 - `POST /documents/{document_id}/reprocess`
 - `GET /runs/{run_id}/failure-artifact`
 - `POST /search`
+- `GET /search/requests/{search_request_id}`
+- `POST /search/requests/{search_request_id}/feedback`
+- `POST /search/requests/{search_request_id}/replay`
+- `GET /search/replays`
+- `POST /search/replays`
+- `GET /search/replays/{replay_run_id}`
+- `GET /search/replays/compare`
 - `POST /chat`
+- `GET /quality/summary`
+- `GET /quality/failures`
+- `GET /quality/evaluations`
+- `GET /quality/eval-candidates`
+- `GET /quality/trends`
 
 ## Search Contract
 
@@ -150,6 +162,13 @@ Supported filters:
 - `result_type`
 
 Keyword, semantic, and hybrid modes search active chunks and active tables independently, then merge results deterministically. Query embeddings are computed once per request and reused for chunk and table semantic retrieval. If embeddings fail, the system degrades to keyword-backed retrieval instead of blocking validated ingestion.
+
+Every direct search request is persisted and returned with an `X-Search-Request-Id` response header. That durable request ID supports:
+
+- request detail inspection through `GET /search/requests/{search_request_id}`
+- operator labeling through `POST /search/requests/{search_request_id}/feedback`
+- one-off replay through `POST /search/requests/{search_request_id}/replay`
+- batch replay suites and trend reporting through the replay and quality endpoints
 
 ## Tables
 
@@ -177,6 +196,10 @@ uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
+uv run docling-system-replay-search <search_request_id>
+uv run docling-system-run-replay-suite feedback --limit 12
+uv run docling-system-export-ranking-dataset --limit 200
+uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
 

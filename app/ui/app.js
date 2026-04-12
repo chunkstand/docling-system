@@ -6,6 +6,7 @@ const state = {
   activeProcessKind: null,
   activeProcessStep: -1,
   lastSearchRequestId: null,
+  replayRuns: [],
 };
 
 const PROCESS_PRESETS = {
@@ -88,7 +89,15 @@ const qualityFailureStages = document.getElementById("quality-failure-stages");
 const qualityFailures = document.getElementById("quality-failures");
 const qualityEvalCandidates = document.getElementById("quality-eval-candidates");
 const qualityTrends = document.getElementById("quality-trends");
+const replayRunForm = document.getElementById("replay-run-form");
+const replaySourceType = document.getElementById("replay-source-type");
+const replayLimit = document.getElementById("replay-limit");
 const searchReplays = document.getElementById("search-replays");
+const replayCompareForm = document.getElementById("replay-compare-form");
+const replayBaseline = document.getElementById("replay-baseline");
+const replayCandidate = document.getElementById("replay-candidate");
+const replayFeedback = document.getElementById("replay-feedback");
+const replayComparison = document.getElementById("replay-comparison");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
@@ -119,6 +128,22 @@ function formatInteger(value) {
 
 function formatPercent(value) {
   return `${Math.round((value ?? 0) * 100)}%`;
+}
+
+function formatTimestamp(value) {
+  if (!value) {
+    return "pending";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function setArtifactLink(link, href, enabled) {
@@ -704,6 +729,8 @@ function renderQualityTrends(payload) {
 }
 
 function renderSearchReplays(rows) {
+  state.replayRuns = rows;
+  renderReplayCompareOptions(rows);
   if (!rows.length) {
     searchReplays.className = "tables-list empty";
     searchReplays.textContent = "Replay suite runs will appear here.";
@@ -719,6 +746,7 @@ function renderSearchReplays(rows) {
           <div class="table-meta">
             <span>${escapeHtml(row.source_type)}</span>
             <span>${escapeHtml(row.status)}</span>
+            <span>${escapeHtml(formatTimestamp(row.created_at))}</span>
           </div>
           <strong>${formatInteger(row.passed_count)} passed / ${formatInteger(row.query_count)} queries</strong>
           <p>${formatInteger(row.failed_count)} failed · ${formatInteger(row.zero_result_count)} zero-result · ${formatInteger(row.top_result_changes)} top-result changes</p>
@@ -726,6 +754,99 @@ function renderSearchReplays(rows) {
       `,
     )
     .join("");
+}
+
+function renderReplayCompareOptions(rows) {
+  const compareButton = replayCompareForm.querySelector("button");
+  if (!rows.length) {
+    replayBaseline.innerHTML = '<option value="">No replay runs yet</option>';
+    replayCandidate.innerHTML = '<option value="">No replay runs yet</option>';
+    replayBaseline.disabled = true;
+    replayCandidate.disabled = true;
+    compareButton.disabled = true;
+    renderReplayComparison(null);
+    return;
+  }
+
+  const priorBaseline = replayBaseline.value;
+  const priorCandidate = replayCandidate.value;
+  const options = rows
+    .slice(0, 12)
+    .map(
+      (row) => `
+        <option value="${escapeHtml(row.replay_run_id)}">
+          ${escapeHtml(row.source_type)} · ${formatInteger(row.passed_count)}/${formatInteger(row.query_count)} · ${escapeHtml(formatTimestamp(row.created_at))}
+        </option>
+      `,
+    )
+    .join("");
+
+  replayBaseline.innerHTML = options;
+  replayCandidate.innerHTML = options;
+
+  const fallbackCandidate = rows[0]?.replay_run_id || "";
+  const fallbackBaseline =
+    rows.find((row) => row.replay_run_id !== fallbackCandidate)?.replay_run_id || fallbackCandidate;
+
+  replayCandidate.value = rows.some((row) => row.replay_run_id === priorCandidate)
+    ? priorCandidate
+    : fallbackCandidate;
+  replayBaseline.value =
+    rows.some((row) => row.replay_run_id === priorBaseline) && priorBaseline !== replayCandidate.value
+      ? priorBaseline
+      : rows.find((row) => row.replay_run_id !== replayCandidate.value)?.replay_run_id ||
+        replayCandidate.value;
+
+  const canCompare = rows.length > 1;
+  replayBaseline.disabled = !canCompare;
+  replayCandidate.disabled = !canCompare;
+  compareButton.disabled = !canCompare;
+  if (!canCompare) {
+    setFeedback(replayFeedback, "Create at least two replay runs to compare ranking changes.");
+    renderReplayComparison(null);
+  }
+}
+
+function renderReplayComparison(payload) {
+  if (!payload) {
+    replayComparison.className = "tables-list empty";
+    replayComparison.textContent = "Replay comparison will appear here.";
+    return;
+  }
+
+  const changedQueryCards = (payload.changed_queries || []).length
+    ? payload.changed_queries.slice(0, 6).map(
+        (row) => `
+          <article class="table-card">
+            <div class="table-meta">
+              <span>${escapeHtml(row.mode)}</span>
+              <span>${row.baseline_passed ? "baseline passed" : "baseline failed"}</span>
+              <span>${row.candidate_passed ? "candidate passed" : "candidate failed"}</span>
+            </div>
+            <strong>${escapeHtml(row.query_text)}</strong>
+            <p>${formatInteger(row.baseline_result_count)} baseline results · ${formatInteger(row.candidate_result_count)} candidate results</p>
+          </article>
+        `,
+      )
+    : [
+        `<article class="table-card"><strong>No changed shared queries</strong><p>The selected replay runs produced the same pass/fail outcomes for every shared query.</p></article>`,
+      ];
+
+  replayComparison.className = "tables-list";
+  replayComparison.innerHTML = [
+    `
+      <article class="table-card">
+        <div class="table-meta">
+          <span>${formatInteger(payload.shared_query_count)} shared queries</span>
+          <span>${formatInteger(payload.improved_count)} improved</span>
+          <span>${formatInteger(payload.regressed_count)} regressed</span>
+        </div>
+        <strong>${formatInteger(payload.unchanged_count)} unchanged queries</strong>
+        <p>${formatInteger(payload.baseline_zero_result_count)} baseline zero-result queries · ${formatInteger(payload.candidate_zero_result_count)} candidate zero-result queries</p>
+      </article>
+    `,
+    ...changedQueryCards,
+  ].join("");
 }
 
 function renderSearchFeedbackActions(searchRequestId, results) {
@@ -938,6 +1059,32 @@ async function fetchSearchReplays() {
   return response.json();
 }
 
+async function postSearchReplayRun(payload) {
+  const response = await fetch("/search/replays", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to run replay suite.");
+  }
+  return body;
+}
+
+async function fetchSearchReplayComparison(baselineReplayRunId, candidateReplayRunId) {
+  const params = new URLSearchParams({
+    baseline_replay_run_id: baselineReplayRunId,
+    candidate_replay_run_id: candidateReplayRunId,
+  });
+  const response = await fetch(`/search/replays/compare?${params.toString()}`);
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to compare replay runs.");
+  }
+  return body;
+}
+
 async function postSearchFeedback(searchRequestId, payload) {
   const response = await fetch(`/search/requests/${searchRequestId}/feedback`, {
     method: "POST",
@@ -1046,6 +1193,7 @@ async function refreshQualityPanel() {
     renderQualityEvalCandidates([]);
     renderQualityTrends(null);
     renderSearchReplays([]);
+    renderReplayComparison(null);
     setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
   }
 }
@@ -1306,6 +1454,64 @@ searchFeedbackActions.addEventListener("click", async (event) => {
     await refreshQualityPanel();
   } catch (error) {
     setFeedback(searchFeedback, error.message || "Unable to record search feedback.");
+  }
+});
+
+replayRunForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const payload = {
+    source_type: replaySourceType.value,
+    limit: Number(replayLimit.value) || 12,
+  };
+  setFeedback(
+    replayFeedback,
+    `Running ${payload.source_type} replay suite over up to ${formatInteger(payload.limit)} queries...`,
+  );
+
+  try {
+    const replayRun = await postSearchReplayRun(payload);
+    await refreshQualityPanel();
+    const baselineOption = Array.from(replayBaseline.options).find(
+      (option) => option.value !== replayRun.replay_run_id,
+    );
+    replayCandidate.value = replayRun.replay_run_id;
+    if (baselineOption) {
+      replayBaseline.value = baselineOption.value;
+    }
+    setFeedback(
+      replayFeedback,
+      `Replay ${replayRun.replay_run_id} completed: ${formatInteger(replayRun.passed_count)} passed / ${formatInteger(replayRun.query_count)} queries.`,
+      replayRun.failed_count ? "" : "muted",
+    );
+  } catch (error) {
+    renderReplayComparison(null);
+    setFeedback(replayFeedback, error.message || "Unable to run replay suite.");
+  }
+});
+
+replayCompareForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!replayBaseline.value || !replayCandidate.value) {
+    setFeedback(replayFeedback, "Choose replay runs before comparing.");
+    return;
+  }
+  if (replayBaseline.value === replayCandidate.value) {
+    setFeedback(replayFeedback, "Choose two different replay runs for comparison.");
+    return;
+  }
+
+  setFeedback(replayFeedback, "Comparing replay runs...");
+  try {
+    const comparison = await fetchSearchReplayComparison(replayBaseline.value, replayCandidate.value);
+    renderReplayComparison(comparison);
+    setFeedback(
+      replayFeedback,
+      `Compared ${comparison.baseline_replay_run_id} to ${comparison.candidate_replay_run_id}. ${formatInteger(comparison.regressed_count)} regressions and ${formatInteger(comparison.improved_count)} improvements across shared queries.`,
+      comparison.regressed_count ? "" : "muted",
+    );
+  } catch (error) {
+    renderReplayComparison(null);
+    setFeedback(replayFeedback, error.message || "Unable to compare replay runs.");
   }
 });
 
