@@ -5,6 +5,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from openai import OpenAI
@@ -237,11 +238,34 @@ def _normalize_question_query(question: str) -> str | None:
     return normalized
 
 
+def _execute_chat_search(
+    session: Session,
+    request: SearchRequest,
+    *,
+    origin: str,
+    run_id: UUID | None = None,
+    evaluation_id: UUID | None = None,
+    parent_request_id: UUID | None = None,
+):
+    kwargs = {"origin": origin}
+    if run_id is not None:
+        kwargs["run_id"] = run_id
+    if evaluation_id is not None:
+        kwargs["evaluation_id"] = evaluation_id
+    if parent_request_id is not None:
+        kwargs["parent_request_id"] = parent_request_id
+    return execute_search(session, request, **kwargs)
+
+
 def answer_question(
     session: Session,
     request: ChatRequest,
     *,
     answer_generator: AnswerGenerator | None = None,
+    run_id: UUID | None = None,
+    origin: str = "chat",
+    evaluation_id: UUID | None = None,
+    persist: bool = True,
 ) -> ChatResponse:
     filters = SearchFilters(document_id=request.document_id) if request.document_id else None
     search_request = SearchRequest(
@@ -251,7 +275,13 @@ def answer_question(
         limit=request.top_k,
         harness_name=request.harness_name,
     )
-    execution = execute_search(session, search_request, origin="chat")
+    execution = _execute_chat_search(
+        session,
+        search_request,
+        origin=origin,
+        run_id=run_id,
+        evaluation_id=evaluation_id,
+    )
     citations = _build_citations(execution.results)
 
     if not citations:
@@ -264,10 +294,12 @@ def answer_question(
                 limit=request.top_k,
                 harness_name=request.harness_name,
             )
-            retry_execution = execute_search(
+            retry_execution = _execute_chat_search(
                 session,
                 retry_request,
-                origin="chat",
+                origin=origin,
+                run_id=run_id,
+                evaluation_id=evaluation_id,
                 parent_request_id=execution.request_id,
             )
             retry_citations = _build_citations(retry_execution.results)
@@ -287,7 +319,9 @@ def answer_question(
             retrieval_profile_name=execution.retrieval_profile_name,
             used_fallback=True,
         )
-        return _persist_chat_answer(session, request=request, response=response)
+        if persist:
+            return _persist_chat_answer(session, request=request, response=response)
+        return response
 
     generator = answer_generator if answer_generator is not None else get_answer_generator()
     if generator is None:
@@ -303,7 +337,9 @@ def answer_question(
             used_fallback=True,
             warning="OpenAI is not configured, so the answer is extractive rather than generated.",
         )
-        return _persist_chat_answer(session, request=request, response=response)
+        if persist:
+            return _persist_chat_answer(session, request=request, response=response)
+        return response
 
     contexts = [
         AnswerContext(citation_index=item.citation_index, citation=item)
@@ -328,7 +364,9 @@ def answer_question(
                 "Model-backed answering failed, so the UI is showing retrieved evidence instead."
             ),
         )
-        return _persist_chat_answer(session, request=request, response=response)
+        if persist:
+            return _persist_chat_answer(session, request=request, response=response)
+        return response
 
     response = ChatResponse(
         answer=answer or _fallback_answer(request.question, citations),
@@ -342,7 +380,9 @@ def answer_question(
         model=generator.model,
         used_fallback=False,
     )
-    return _persist_chat_answer(session, request=request, response=response)
+    if persist:
+        return _persist_chat_answer(session, request=request, response=response)
+    return response
 
 
 def _persist_chat_answer(

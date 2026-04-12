@@ -86,6 +86,7 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: combination waste and vent system
           top_n: 3
+          mode: keyword
         - query: relief vents
           top_n: 3
         - query: vent stack
@@ -174,6 +175,7 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: uniform plumbing code
           top_n: 3
+          mode: keyword
         - query: conflicts between codes
           top_n: 3
         - query: authority having jurisdiction
@@ -195,3 +197,99 @@ documents:
           top_n: 3
         - query: search and learning
           top_n: 3
+        - query: What is the main claim of The Bitter Lesson?
+          top_n: 3
+          mode: keyword
+      expected_answer_queries:
+        - question: What is the main claim of The Bitter Lesson?
+          mode: hybrid
+          answer_contains:
+            - general methods
+            - computation
+          minimum_citation_count: 1
+  - name: test_pdf_prose
+    kind: cross_domain_prose_memo
+    path: /Users/chunkstand/Documents/TEST_PDF.pdf
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_chunk_hit_queries:
+        - query: government contract opportunity screening
+          top_n: 3
+          mode: keyword
+        - query: methodology and assumptions
+          top_n: 3
+        - query: publicly available solicitations
+          top_n: 3
+      expected_answer_queries:
+        - question: What is the due date in the opportunity screening memo?
+          mode: hybrid
+          answer_contains:
+            - April 9, 2026
+          minimum_citation_count: 1
+  - name: nsf_ai_ready_america_figures
+    kind: cross_domain_figure_heavy_program_notice
+    path: "/Users/chunkstand/Documents/NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf"
+    thresholds:
+      expected_logical_table_count: 0
+      logical_table_tolerance: 0
+      expected_figure_count: 6
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 6
+      minimum_figures_with_provenance: 6
+      minimum_figures_with_artifacts: 6
+      expected_figure_captions_present:
+        - Summary of Program Requirements
+        - "Randolph Building, 401 Dulany Street, Alexandria, VA 22314 Tel: (703) 292-5111"
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_chunk_hit_queries:
+        - query: summary of program requirements
+          top_n: 3
+          mode: keyword
+        - query: state territory coordination hubs
+          top_n: 3
+        - query: TechAccess AI-Ready America
+          top_n: 3
+      expected_answer_queries:
+        - question: "What is TechAccess: AI-Ready America?"
+          mode: hybrid
+          answer_contains:
+            - national-scale initiative
+            - State/Territory Coordination Hubs
+          minimum_citation_count: 1
+  - name: openrouter_spend_report_tables
+    kind: cross_domain_table_heavy_spend_report
+    path: /Users/chunkstand/Documents/docling-ingest-staging/openrouter_spend_report.pdf
+    thresholds:
+      expected_logical_table_count: 3
+      logical_table_tolerance: 0
+      expected_figure_count: 5
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 5
+      minimum_figures_with_provenance: 5
+      minimum_figures_with_artifacts: 5
+      expected_figure_captions_present:
+        - Spend By Model
+        - Mistral Large 3 2512
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: anthropic claude 3.7 sonnet credits
+          top_n: 3
+        - query: credits by model
+          top_n: 3
+        - query: spend by model
+          top_n: 3
+          mode: keyword
+      expected_answer_queries:
+        - question: Which model had the highest credits spend in the report?
+          mode: hybrid
+          answer_contains:
+            - anthropic/claude-3.7-sonnet
+            - "121.85"
+          minimum_citation_count: 1

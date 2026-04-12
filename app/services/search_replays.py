@@ -209,6 +209,8 @@ def _latest_evaluation_queries(session: Session, limit: int) -> list[ReplayCase]
             .all()
         )
         for row in query_rows:
+            if (row.details_json or {}).get("evaluation_kind") == "answer":
+                continue
             cases.append(
                 ReplayCase(
                     query_text=row.query_text,

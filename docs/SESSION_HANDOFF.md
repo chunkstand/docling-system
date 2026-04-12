@@ -26,6 +26,13 @@ The branch now includes:
   - keyword retrieval now relaxes to OR matching when strict full-text search returns zero hits
   - worker leasing now limits claim queries to one row so queued runs do not crash the worker
   - `The Bitter Lesson.pdf` is now part of the fixed corpus with a live passing evaluation
+- fixed-corpus expansion and answer-level evaluation coverage:
+  - `TEST_PDF.pdf` now has a fixed-corpus fixture and a live completed latest evaluation
+  - `NSF 26-508: TechAccess: AI-Ready America` now has a figure-heavy fixed-corpus fixture
+  - `openrouter_spend_report.pdf` now has a table-heavy fixed-corpus fixture
+  - fixed-corpus fixtures can now include grounded-answer checks in addition to retrieval hit checks
+  - latest evaluation detail rows now surface `evaluation_kind = retrieval | answer`
+  - stale `GET /quality/eval-candidates` rows now auto-resolve when later evidence closes the gap
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -42,6 +49,10 @@ What is now true:
 - persisted search-request details now record whether keyword serving used `strict` or `relaxed_or`
 - generic prose documents can promote with human-readable titles derived from parsed content
 - the worker can safely process multiple queued runs without tripping `MultipleResultsFound`
+- the fixed corpus now covers four non-UPC documents, not just `The Bitter Lesson.pdf`
+- all twelve active documents now have completed latest evaluations; none are `missing` or `skipped`
+- latest evaluation detail can now mix retrieval and grounded-answer checks in one persisted surface
+- `GET /quality/eval-candidates` defaults to unresolved rows, with resolved rows available via `include_resolved=true`
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently
@@ -227,28 +238,79 @@ Live result:
 - `POST /chat` for the same question now returns a cited, model-backed answer instead of a no-evidence fallback
 - `uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865` completed with fixture `bitter_lesson_prose`, `passed_queries = 3`, `failed_queries = 0`
 
+### 7. Fixed-Corpus Expansion And Answer-Level Evals
+
+Uncommitted changes captured by this handoff update:
+
+- `app/services/evaluations.py`
+  - fixtures now support `expected_answer_queries`
+  - evaluations now persist retrieval and answer checks in the same `document_run_evaluation_queries` table
+  - evaluation summaries now record retrieval-vs-answer query counts
+- `app/services/chat.py`
+  - `answer_question()` now supports evaluation-time execution against a specific `run_id`
+  - evaluation-time answer checks can skip persisting `chat_answer_records` while still persisting underlying search requests
+- `app/services/quality.py`
+  - mined eval candidates now record `evaluation_kind`
+  - stale candidates now resolve automatically when later evaluation, search, or helpful-answer evidence closes the gap
+  - unresolved rows remain the default response; resolved rows require `include_resolved=true`
+- `app/services/search_replays.py`
+  - replay sourcing now ignores answer-evaluation rows and stays retrieval-only
+- `app/api/main.py`
+  - `GET /quality/eval-candidates` now accepts `limit` and `include_resolved`
+- `app/cli.py`
+  - `uv run docling-system-eval-candidates --include-resolved`
+- `docs/evaluation_corpus.yaml`
+  - added fixtures:
+    - `test_pdf_prose`
+    - `nsf_ai_ready_america_figures`
+    - `openrouter_spend_report_tables`
+  - added explicit `mode: keyword` retrieval cases for prose fixtures
+  - added answer-level checks for `The Bitter Lesson`, `TEST_PDF`, `NSF 26-508`, and `openrouter_spend_report`
+- tests added or updated:
+  - `tests/unit/test_eval_config.py`
+  - `tests/unit/test_evaluation_service.py`
+  - `tests/unit/test_chat_service.py`
+  - `tests/unit/test_quality_service.py`
+  - `tests/unit/test_quality_api.py`
+  - `tests/unit/test_cli.py`
+
+Live result:
+
+- `uv run docling-system-eval-corpus` completed live across all active fixture-backed documents
+- `GET /quality/summary` now reports:
+  - `document_count = 12`
+  - `completed_latest_evaluations = 12`
+  - `skipped_latest_evaluations = 0`
+  - `missing_latest_evaluations = 0`
+- `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now includes an `evaluation_kind = "answer"` row for the Bitter Lesson answer contract
+- `GET /quality/eval-candidates?include_resolved=true` now shows historically fixed gaps as `resolution_status = "resolved"` when later evidence exists
+
 ## Current Runtime State
 
 At handoff time:
 
 - API health check succeeds at `http://127.0.0.1:8000/health`
-- the API was restarted after the `0012_harness_chat_feedback` migration
-- the worker was restarted after the same migration
+- the API was restarted after the answer-eval and quality-candidate changes
+- the worker was restarted after the same code update
 - Alembic head in the running database is `0012_harness_chat_feedback`
 - `docling-system-audit` completes live with zero violations
-- the active corpus now includes ten documents
-- the latest-evaluation surface is populated for all ten active documents
-- the fixed corpus now includes one non-UPC prose fixture (`bitter_lesson_prose`)
+- the active corpus now includes twelve documents
+- the latest-evaluation surface is populated for all twelve active documents
+- the fixed corpus now includes four non-UPC fixtures:
+  - `bitter_lesson_prose`
+  - `test_pdf_prose`
+  - `nsf_ai_ready_america_figures`
+  - `openrouter_spend_report_tables`
 
 Live audit result:
 
 ```json
 {
-  "checked_documents": 10,
-  "checked_runs": 31,
-  "checked_evaluations": 18,
-  "checked_tables": 481,
-  "checked_figures": 344,
+  "checked_documents": 12,
+  "checked_runs": 33,
+  "checked_evaluations": 20,
+  "checked_tables": 484,
+  "checked_figures": 355,
   "violation_count": 0,
   "violation_counts_by_code": {},
   "violations": []
@@ -277,9 +339,11 @@ Recent live replay/feedback verification:
 - `POST /search/harness-evaluations` completed live for `default_v1` vs `wide_v2`
 - `GET /quality/trends` now includes `answer_feedback_counts`
 - `GET /quality/eval-candidates` now includes `answer_feedback_gap` rows from grounded chat feedback
+- `GET /quality/eval-candidates` now defaults to unresolved rows and supports `include_resolved=true`
 - direct keyword search for `What is the main claim of The Bitter Lesson?` now persists `keyword_strategy = "relaxed_or"` and returns the expected prose chunks
 - `POST /chat` for the same query now returns a grounded answer with citations from `The Bitter Lesson.pdf`
-- `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now reports fixture `bitter_lesson_prose` with `passed_queries = 3`
+- `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now reports fixture `bitter_lesson_prose` with `passed_queries = 5`, including one answer-level check
+- `uv run docling-system-eval-corpus` completed live with completed latest evaluations for all twelve active documents
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
 - `uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3` completed live
 - `uv run docling-system-export-ranking-dataset --limit 5` now emits:
@@ -292,6 +356,10 @@ Recent live replay/feedback verification:
 
 Current active set:
 
+- `openrouter_spend_report.pdf` -> fixture `openrouter_spend_report_tables`
+- `NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf` -> fixture `nsf_ai_ready_america_figures`
+- `TEST_PDF.pdf` -> fixture `test_pdf_prose`
+- `The Bitter Lesson.pdf` -> fixture `bitter_lesson_prose`
 - `UPC_CH_5.pdf` -> fixture `upc_ch5`
 - `UPC_CH_4.pdf` -> fixture `upc_ch4`
 - `UPC_Appendix_N.pdf` -> fixture `born_digital_simple`
@@ -300,8 +368,6 @@ Current active set:
 - `UPC_Ch_2.pdf` -> fixture `upc_ch2_figures`
 - `UPC_CH_7.pdf` -> fixture `upc_ch7`
 - `UPC_CH_1.pdf` -> fixture `prose_control`
-- `The Bitter Lesson.pdf` -> fixture `bitter_lesson_prose`
-- `TEST_PDF.pdf` -> active, latest evaluation currently `skipped` (no fixed-corpus fixture yet)
 
 ## Verification Performed
 
@@ -329,8 +395,14 @@ uv run docling-system-export-ranking-dataset --limit 5
 uv run docling-system-audit
 uv run pytest tests/unit/test_run_logic.py tests/unit/test_docling_parser.py tests/unit/test_chat_service.py tests/unit/test_search_service.py tests/unit/test_eval_config.py tests/unit/test_evaluation_service.py -q
 uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865
+uv run docling-system-eval-corpus
+uv run docling-system-eval-run 12188f49-22a3-43c3-a774-00408386e9cf
+uv run docling-system-eval-run 18732576-bd9f-4b8f-977e-7d0e88a7a0aa
+uv run docling-system-eval-run 7531f905-2256-4cf2-bc1f-7e8ec02f92db
 curl -i -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json' --data '{"query":"What is the main claim of The Bitter Lesson?","mode":"keyword","limit":4,"filters":{"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}}'
 curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What is the main claim of The Bitter Lesson?","mode":"keyword","top_k":4,"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}'
+curl -sS http://127.0.0.1:8000/documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest
+curl -sS 'http://127.0.0.1:8000/quality/eval-candidates?include_resolved=true&limit=20'
 ```
 
 Key results:
@@ -347,6 +419,10 @@ Key results:
 - audit stayed green after the new migration
 - focused parser/chat/search/worker/eval tests passed after the data-agnostic hardening work
 - `The Bitter Lesson` fixed-corpus evaluation passed live
+- the three new non-UPC fixtures (`TEST_PDF`, `NSF 26-508`, `openrouter_spend_report`) all passed live against their active runs
+- `uv run docling-system-eval-corpus` completed live and eliminated the previously skipped latest evaluation rows
+- evaluation detail now shows persisted `evaluation_kind = "answer"` rows alongside retrieval checks
+- `GET /quality/eval-candidates?include_resolved=true` now shows resolved historical gaps with `resolution_status`, `resolved_at`, and `resolution_reason`
 - generic keyword questions over prose docs no longer fail closed when strict lexical matching returns zero hits
 
 ## Current Contracts To Preserve
@@ -358,7 +434,9 @@ Key results:
 
 ### Evaluation
 
-- the fixed corpus in `docs/evaluation_corpus.yaml` remains the durable retrieval contract
+- the fixed corpus in `docs/evaluation_corpus.yaml` remains the durable evaluation contract
+- the fixed corpus may now include grounded-answer contracts via `expected_answer_queries`
+- retrieval and answer checks now share the same persisted `document_run_evaluation_queries` surface and are distinguished by `evaluation_kind`
 - replay suites and mined candidates complement the fixed corpus; they do not replace it
 
 ### Search Telemetry
@@ -373,6 +451,7 @@ Key results:
 - every `/chat` response now persists a durable chat-answer record
 - answer feedback is first-class persisted operator data and should be mined alongside retrieval feedback, not treated as UI-only state
 - chat-answer rows should keep their originating `search_request_id` and harness metadata so answer quality can be evaluated against retrieval behavior
+- evaluation-time answer checks may skip persisting `chat_answer_records`, but the underlying search requests should remain durable for provenance
 
 ### Replay
 
@@ -402,9 +481,13 @@ Key results:
 
 ## Remaining Gaps / Risks
 
-### 1. Cross-Domain Fixed-Corpus Coverage Is Still Thin
+### 1. Cross-Domain Fixed-Corpus Coverage Is Better, But Still Thin
 
-The corpus is no longer all-UPC, but only one non-UPC document (`The Bitter Lesson.pdf`) is currently represented in the fixed evaluation corpus. `TEST_PDF.pdf` is active and searchable, but still has a `skipped` latest evaluation because it does not yet have fixture coverage.
+The corpus is no longer effectively UPC-only. Four non-UPC documents are now fixture-backed and passing live. The remaining gap is breadth, not existence:
+
+- there is still no scientific paper with dense referenced figures
+- there is still no spreadsheet-like financial PDF with many repeated table families
+- there is still no long-form policy/report PDF with varied section hierarchy and appendices
 
 ### 2. Evaluation Still Does Not Gate Promotion
 
@@ -428,14 +511,14 @@ The operator-facing commands and endpoints are documented, and the ranking datas
 
 ## Recommended Next Steps
 
-### Priority 1: Expand Cross-Domain Fixture Coverage
+### Priority 1: Broaden Cross-Domain Fixture Diversity
 
 - add at least:
-  - one table-heavy non-UPC fixture
-  - one figure-heavy/scientific fixture
-  - one additional prose-heavy report or policy document
+  - one scientific paper with dense figures and citations
+  - one longer policy/report PDF with appendices and section nesting
+  - one spreadsheet-like or invoice-heavy PDF with repeated table families
 - keep the fixture expectations generic and retrieval-focused
-- use the fixed corpus to make future reranker work harder and more representative
+- keep pairing new domains with answer-level checks where grounded chat matters
 
 ### Priority 2: Fit The First Offline Reranker
 
@@ -457,6 +540,7 @@ The operator-facing commands and endpoints are documented, and the ranking datas
 - add more answer-feedback coverage from real chat use
 - mine repeated `no_answer`, `unsupported`, and `incomplete` patterns into new eval fixtures
 - document when operator feedback should become a fixed corpus regression
+- decide whether resolved eval-candidates should eventually age out of the UI entirely or remain visible only through `include_resolved=true`
 
 ## Handy Commands
 

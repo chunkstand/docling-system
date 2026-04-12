@@ -168,11 +168,20 @@ def run_eval_candidates() -> None:
         description="List mined evaluation candidates from failed evals and live search gaps."
     )
     parser.add_argument("--limit", type=int, default=12, help="Maximum number of candidates.")
+    parser.add_argument(
+        "--include-resolved",
+        action="store_true",
+        help="Include candidates that later evidence has already resolved.",
+    )
     args = parser.parse_args()
 
     session_factory = get_session_factory()
     with session_factory() as session:
-        payload = list_quality_eval_candidates(session, limit=args.limit)
+        payload = list_quality_eval_candidates(
+            session,
+            limit=args.limit,
+            include_resolved=args.include_resolved,
+        )
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
 
 

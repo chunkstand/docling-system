@@ -201,11 +201,20 @@ def test_eval_candidates_cli_prints_summary(monkeypatch, capsys) -> None:
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr(sys, "argv", ["docling-system-eval-candidates", "--limit", "2"])
+    captured = {}
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-eval-candidates", "--limit", "2", "--include-resolved"],
+    )
     monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
         "app.cli.list_quality_eval_candidates",
-        lambda session, limit=12: [
+        lambda session, limit=12, include_resolved=False: captured.update(
+            {"limit": limit, "include_resolved": include_resolved}
+        )
+        or [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
                     "candidate_type": "live_search_gap",
@@ -213,10 +222,14 @@ def test_eval_candidates_cli_prints_summary(monkeypatch, capsys) -> None:
                     "query_text": "vent stack",
                     "mode": "hybrid",
                     "filters": {},
+                    "evaluation_kind": "retrieval",
                     "expected_result_type": None,
                     "fixture_name": None,
                     "occurrence_count": 2,
                     "latest_seen_at": "2026-04-12T00:00:00Z",
+                    "resolution_status": "resolved",
+                    "resolved_at": "2026-04-12T00:05:00Z",
+                    "resolution_reason": "later live search returned results",
                     "document_id": None,
                     "source_filename": None,
                     "evaluation_id": None,
@@ -229,6 +242,7 @@ def test_eval_candidates_cli_prints_summary(monkeypatch, capsys) -> None:
     run_eval_candidates()
 
     output = json.loads(capsys.readouterr().out.strip())
+    assert captured == {"limit": 2, "include_resolved": True}
     assert output[0]["candidate_type"] == "live_search_gap"
     assert output[0]["search_request_id"] == str(search_request_id)
 

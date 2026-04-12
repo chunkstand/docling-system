@@ -27,6 +27,7 @@ class EvaluationSummaryResponse(BaseModel):
 class EvaluationQueryResultResponse(BaseModel):
     query_text: str
     mode: str
+    evaluation_kind: str = "retrieval"
     expected_result_type: str | None = None
     expected_top_n: int | None = None
     passed: bool

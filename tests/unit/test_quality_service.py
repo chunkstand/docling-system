@@ -206,6 +206,78 @@ def test_list_quality_eval_candidates_mines_eval_failures_live_gaps_and_answer_f
     answer_gap = next(row for row in rows if row.candidate_type == "answer_feedback_gap")
     assert answer_gap.chat_answer_id == chat_answer_id
     assert answer_gap.harness_name == "wide_v2"
+    assert all(row.resolution_status == "unresolved" for row in rows)
+
+
+def test_list_quality_eval_candidates_marks_stale_candidates_resolved() -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    evaluation_id = uuid4()
+    now = _timestamp()
+
+    documents = [SimpleNamespace(id=document_id, source_filename="essay.pdf", title="Essay")]
+    runs = [SimpleNamespace(id=run_id, document_id=document_id)]
+    evaluations = [SimpleNamespace(id=evaluation_id, run_id=run_id, fixture_name="essay")]
+    evaluation_queries = [
+        SimpleNamespace(
+            id=uuid4(),
+            evaluation_id=evaluation_id,
+            query_text="main claim",
+            mode="keyword",
+            filters_json={"document_id": str(document_id)},
+            expected_result_type="chunk",
+            passed=False,
+            details_json={"evaluation_kind": "retrieval"},
+            created_at=now,
+        ),
+        SimpleNamespace(
+            id=uuid4(),
+            evaluation_id=evaluation_id,
+            query_text="main claim",
+            mode="keyword",
+            filters_json={"document_id": str(document_id)},
+            expected_result_type="chunk",
+            passed=True,
+            details_json={"evaluation_kind": "retrieval"},
+            created_at=now + timedelta(minutes=5),
+        ),
+    ]
+    search_requests = []
+    chat_answers = []
+    answer_feedback_rows = []
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            mapping = {
+                "Document": documents,
+                "DocumentRun": runs,
+                "DocumentRunEvaluation": evaluations,
+                "DocumentRunEvaluationQuery": evaluation_queries,
+                "SearchRequestRecord": search_requests,
+                "ChatAnswerRecord": chat_answers,
+                "ChatAnswerFeedback": answer_feedback_rows,
+            }
+            return FakeScalarResult(mapping[entity_name])
+
+    unresolved_rows = list_quality_eval_candidates(FakeSession(), limit=10)
+    resolved_rows = list_quality_eval_candidates(FakeSession(), limit=10, include_resolved=True)
+
+    assert unresolved_rows == []
+    assert len(resolved_rows) == 1
+    assert resolved_rows[0].resolution_status == "resolved"
+    assert resolved_rows[0].resolution_reason == "later retrieval evaluation passed"
+    assert resolved_rows[0].resolved_at == now + timedelta(minutes=5)
 
 
 def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:

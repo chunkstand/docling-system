@@ -74,10 +74,14 @@ class QualityEvaluationCandidateResponse(BaseModel):
     query_text: str
     mode: str
     filters: dict
+    evaluation_kind: str = "retrieval"
     expected_result_type: str | None = None
     fixture_name: str | None = None
     occurrence_count: int = 0
     latest_seen_at: datetime
+    resolution_status: str = "unresolved"
+    resolved_at: datetime | None = None
+    resolution_reason: str | None = None
     document_id: UUID | None = None
     source_filename: str | None = None
     evaluation_id: UUID | None = None

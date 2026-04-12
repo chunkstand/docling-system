@@ -240,7 +240,8 @@ def _candidate_key(
     mode: str,
     filters: dict,
     expected_result_type: str | None,
-) -> tuple[str, str, str, str, str, str]:
+    evaluation_kind: str,
+) -> tuple[str, str, str, str, str, str, str]:
     return (
         candidate_type,
         reason,
@@ -248,11 +249,109 @@ def _candidate_key(
         mode,
         json.dumps(filters or {}, sort_keys=True),
         expected_result_type or "",
+        evaluation_kind,
     )
 
 
+def _evaluation_kind(details: dict | None) -> str:
+    return (details or {}).get("evaluation_kind", "retrieval")
+
+
+def _filters_for_answer(
+    answer: ChatAnswerRecord,
+    request_row: SearchRequestRecord | None,
+) -> dict:
+    filters = request_row.filters_json if request_row is not None else {}
+    if not filters and answer.document_id is not None:
+        filters = {"document_id": str(answer.document_id)}
+    return filters
+
+
+def _resolve_candidate_status(
+    candidate: QualityEvaluationCandidateResponse,
+    *,
+    evaluation_queries: list[DocumentRunEvaluationQuery],
+    search_requests: list[SearchRequestRecord],
+    answer_feedback_rows: list[ChatAnswerFeedback],
+    chat_answers_by_id: dict[UUID, ChatAnswerRecord],
+    search_requests_by_id: dict[UUID, SearchRequestRecord],
+) -> tuple[str, datetime | None, str | None]:
+    candidate_filters_key = json.dumps(candidate.filters or {}, sort_keys=True)
+    resolution_options: list[tuple[datetime, str]] = []
+
+    if candidate.candidate_type == "evaluation_failure":
+        for row in evaluation_queries:
+            if row.created_at <= candidate.latest_seen_at or not row.passed:
+                continue
+            if row.query_text != candidate.query_text or row.mode != candidate.mode:
+                continue
+            if json.dumps(row.filters_json or {}, sort_keys=True) != candidate_filters_key:
+                continue
+            if row.expected_result_type != candidate.expected_result_type:
+                continue
+            if _evaluation_kind(getattr(row, "details_json", None)) != candidate.evaluation_kind:
+                continue
+            resolution_options.append(
+                (
+                    row.created_at,
+                    "later answer evaluation passed"
+                    if candidate.evaluation_kind == "answer"
+                    else "later retrieval evaluation passed",
+                )
+            )
+    elif candidate.candidate_type == "live_search_gap":
+        for row in search_requests:
+            if row.origin not in {"api", "chat"} or row.created_at <= candidate.latest_seen_at:
+                continue
+            if row.query_text != candidate.query_text or row.mode != candidate.mode:
+                continue
+            if json.dumps(row.filters_json or {}, sort_keys=True) != candidate_filters_key:
+                continue
+            if candidate.expected_result_type == "table":
+                if row.table_hit_count > 0:
+                    resolution_options.append(
+                        (row.created_at, "later live search returned table hits")
+                    )
+            elif row.result_count > 0:
+                resolution_options.append((row.created_at, "later live search returned results"))
+    elif candidate.candidate_type == "answer_feedback_gap":
+        for feedback in answer_feedback_rows:
+            if (
+                feedback.created_at <= candidate.latest_seen_at
+                or feedback.feedback_type != "helpful"
+            ):
+                continue
+            answer = chat_answers_by_id.get(feedback.chat_answer_id)
+            if answer is None:
+                continue
+            request_row = search_requests_by_id.get(answer.search_request_id)
+            filters = _filters_for_answer(answer, request_row)
+            if answer.question_text != candidate.query_text or answer.mode != candidate.mode:
+                continue
+            if json.dumps(filters or {}, sort_keys=True) != candidate_filters_key:
+                continue
+            resolution_options.append(
+                (feedback.created_at, "later chat answer feedback marked helpful")
+            )
+        for row in evaluation_queries:
+            if row.created_at <= candidate.latest_seen_at or not row.passed:
+                continue
+            if _evaluation_kind(getattr(row, "details_json", None)) != "answer":
+                continue
+            if row.query_text != candidate.query_text or row.mode != candidate.mode:
+                continue
+            if json.dumps(row.filters_json or {}, sort_keys=True) != candidate_filters_key:
+                continue
+            resolution_options.append((row.created_at, "later answer evaluation passed"))
+
+    if not resolution_options:
+        return "unresolved", None, None
+    resolved_at, resolution_reason = min(resolution_options, key=lambda item: item[0])
+    return "resolved", resolved_at, resolution_reason
+
+
 def list_quality_eval_candidates(
-    session: Session, *, limit: int = 12
+    session: Session, *, limit: int = 12, include_resolved: bool = False
 ) -> list[QualityEvaluationCandidateResponse]:
     documents = session.execute(select(Document)).scalars().all()
     runs = session.execute(select(DocumentRun)).scalars().all()
@@ -268,7 +367,10 @@ def list_quality_eval_candidates(
     search_requests_by_id = {request.id: request for request in search_requests}
     chat_answers_by_id = {answer.id: answer for answer in chat_answers}
 
-    candidates: dict[tuple[str, str, str, str, str, str], QualityEvaluationCandidateResponse] = {}
+    candidates: dict[
+        tuple[str, str, str, str, str, str, str],
+        QualityEvaluationCandidateResponse,
+    ] = {}
 
     for row in evaluation_queries:
         if row.passed:
@@ -277,22 +379,30 @@ def list_quality_eval_candidates(
         run = runs_by_id.get(getattr(evaluation, "run_id", None))
         document = documents_by_id.get(getattr(run, "document_id", None))
         filters = row.filters_json or {}
+        evaluation_kind = _evaluation_kind(getattr(row, "details_json", None))
+        reason = (
+            "failed answer evaluation"
+            if evaluation_kind == "answer"
+            else "failed evaluation query"
+        )
         key = _candidate_key(
             "evaluation_failure",
-            "failed evaluation query",
+            reason,
             row.query_text,
             row.mode,
             filters,
             row.expected_result_type,
+            evaluation_kind,
         )
         current = candidates.get(key)
         if current is None:
             current = QualityEvaluationCandidateResponse(
                 candidate_type="evaluation_failure",
-                reason="failed evaluation query",
+                reason=reason,
                 query_text=row.query_text,
                 mode=row.mode,
                 filters=filters,
+                evaluation_kind=evaluation_kind,
                 expected_result_type=row.expected_result_type,
                 fixture_name=getattr(evaluation, "fixture_name", None),
                 occurrence_count=0,
@@ -342,6 +452,7 @@ def list_quality_eval_candidates(
             row.mode,
             filters,
             expected_result_type,
+            "retrieval",
         )
         current = candidates.get(key)
         if current is None:
@@ -351,6 +462,7 @@ def list_quality_eval_candidates(
                 query_text=row.query_text,
                 mode=row.mode,
                 filters=filters,
+                evaluation_kind="retrieval",
                 expected_result_type=expected_result_type,
                 fixture_name=None,
                 occurrence_count=0,
@@ -381,9 +493,7 @@ def list_quality_eval_candidates(
             continue
 
         request_row = search_requests_by_id.get(answer.search_request_id)
-        filters = request_row.filters_json if request_row is not None else {}
-        if not filters and answer.document_id is not None:
-            filters = {"document_id": str(answer.document_id)}
+        filters = _filters_for_answer(answer, request_row)
 
         document_id = answer.document_id or _maybe_uuid(filters.get("document_id"))
         document = documents_by_id.get(document_id)
@@ -399,6 +509,7 @@ def list_quality_eval_candidates(
             answer.mode,
             filters,
             None,
+            "answer",
         )
         current = candidates.get(key)
         if current is None:
@@ -408,6 +519,7 @@ def list_quality_eval_candidates(
                 query_text=answer.question_text,
                 mode=answer.mode,
                 filters=filters,
+                evaluation_kind="answer",
                 expected_result_type=None,
                 fixture_name=None,
                 occurrence_count=0,
@@ -430,9 +542,27 @@ def list_quality_eval_candidates(
             current.chat_answer_id = answer.id
             current.harness_name = answer.harness_name
 
+    rows = list(candidates.values())
+    for row in rows:
+        resolution_status, resolved_at, resolution_reason = _resolve_candidate_status(
+            row,
+            evaluation_queries=evaluation_queries,
+            search_requests=search_requests,
+            answer_feedback_rows=answer_feedback_rows,
+            chat_answers_by_id=chat_answers_by_id,
+            search_requests_by_id=search_requests_by_id,
+        )
+        row.resolution_status = resolution_status
+        row.resolved_at = resolved_at
+        row.resolution_reason = resolution_reason
+
+    if not include_resolved:
+        rows = [row for row in rows if row.resolution_status != "resolved"]
+
     rows = sorted(
-        candidates.values(),
+        rows,
         key=lambda row: (
+            row.resolution_status == "resolved",
             -row.occurrence_count,
             -row.latest_seen_at.timestamp(),
             row.query_text.lower(),

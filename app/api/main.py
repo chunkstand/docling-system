@@ -132,9 +132,15 @@ def read_quality_evaluations(
 
 @app.get("/quality/eval-candidates", response_model=list[QualityEvaluationCandidateResponse])
 def read_quality_eval_candidates(
+    limit: int = 12,
+    include_resolved: bool = False,
     session: Session = Depends(get_db_session),
 ) -> list[QualityEvaluationCandidateResponse]:
-    return list_quality_eval_candidates(session)
+    return list_quality_eval_candidates(
+        session,
+        limit=limit,
+        include_resolved=include_resolved,
+    )
 
 
 @app.get("/quality/trends", response_model=QualityTrendsResponse)

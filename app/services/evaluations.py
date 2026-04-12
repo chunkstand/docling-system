@@ -18,12 +18,14 @@ from app.db.models import (
     DocumentRunEvaluationQuery,
     DocumentTable,
 )
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.evaluations import (
     EvaluationDetailResponse,
     EvaluationQueryResultResponse,
     EvaluationSummaryResponse,
 )
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
+from app.services.chat import answer_question
 from app.services.search import search_documents
 
 EVAL_VERSION = 1
@@ -36,6 +38,7 @@ class EvaluationFixture:
     name: str
     path: str
     queries: list[EvaluationQueryCase]
+    answer_queries: list[EvaluationAnswerCase]
     thresholds: EvaluationThresholds
 
 
@@ -46,6 +49,17 @@ class EvaluationQueryCase:
     filters: dict
     expected_result_type: str
     expected_top_n: int
+
+
+@dataclass
+class EvaluationAnswerCase:
+    question: str
+    mode: str
+    filters: dict
+    expected_answer_contains: list[str]
+    minimum_citation_count: int
+    allow_fallback: bool
+    top_k: int
 
 
 @dataclass
@@ -154,6 +168,21 @@ def _normalize_fixture_query(entry: dict, expected_result_type: str) -> Evaluati
     )
 
 
+def _normalize_fixture_answer(entry: dict) -> EvaluationAnswerCase:
+    answer_contains = entry.get("answer_contains") or entry.get("expected_answer_contains") or []
+    if isinstance(answer_contains, str):
+        answer_contains = [answer_contains]
+    return EvaluationAnswerCase(
+        question=entry.get("question") or entry["query"],
+        mode=entry.get("mode", "hybrid"),
+        filters=entry.get("filters") or {},
+        expected_answer_contains=answer_contains,
+        minimum_citation_count=entry.get("minimum_citation_count", 1),
+        allow_fallback=bool(entry.get("allow_fallback", False)),
+        top_k=entry.get("top_k", 6),
+    )
+
+
 def _normalize_thresholds(thresholds: dict) -> EvaluationThresholds:
     expectations = [
         EvaluationMergeExpectation(
@@ -197,6 +226,7 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
             continue
         thresholds = document.get("thresholds", {})
         queries: list[EvaluationQueryCase] = []
+        answer_queries: list[EvaluationAnswerCase] = []
         for entry in thresholds.get("expected_top_n_table_hit_queries", []):
             queries.append(_normalize_fixture_query(entry, "table"))
         for entry in thresholds.get("expected_top_n_chunk_hit_queries", []):
@@ -211,11 +241,14 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
                     expected_top_n=entry.get("top_n", 3),
                 )
             )
+        for entry in thresholds.get("expected_answer_queries", []):
+            answer_queries.append(_normalize_fixture_answer(entry))
         fixtures.append(
             EvaluationFixture(
                 name=document["name"],
                 path=doc_path,
                 queries=queries,
+                answer_queries=answer_queries,
                 thresholds=_normalize_thresholds(thresholds),
             )
         )
@@ -340,6 +373,134 @@ def _table_matches_merge_expectation(
 
 def _artifact_present(path_value: str | None) -> bool:
     return bool(path_value and Path(path_value).exists())
+
+
+def _answer_excerpt(answer_text: str, limit: int = 180) -> str:
+    normalized = " ".join(answer_text.split()).strip()
+    if len(normalized) <= limit:
+        return normalized
+    return f"{normalized[: limit - 3].rstrip()}..."
+
+
+def _missing_answer_substrings(answer_text: str, expected_substrings: list[str]) -> list[str]:
+    normalized_answer = answer_text.lower()
+    return [
+        substring
+        for substring in expected_substrings
+        if substring.lower() not in normalized_answer
+    ]
+
+
+def _evaluate_answer_case(
+    session: Session,
+    *,
+    document: Document,
+    run_id: UUID,
+    baseline_run_id: UUID | None,
+    evaluation_id: UUID,
+    case: EvaluationAnswerCase,
+) -> dict:
+    request = ChatRequest(
+        question=case.question,
+        mode=case.mode,
+        document_id=document.id,
+        top_k=case.top_k,
+    )
+    candidate_response = answer_question(
+        session,
+        request,
+        run_id=run_id,
+        origin="evaluation_answer_candidate",
+        evaluation_id=evaluation_id,
+        persist=False,
+    )
+    baseline_response = (
+        answer_question(
+            session,
+            request,
+            run_id=baseline_run_id,
+            origin="evaluation_answer_baseline",
+            evaluation_id=evaluation_id,
+            persist=False,
+        )
+        if baseline_run_id
+        else None
+    )
+
+    def _answer_passed(response: ChatResponse | None) -> tuple[bool, list[str], int]:
+        if response is None:
+            return False, case.expected_answer_contains, 0
+        missing_substrings = _missing_answer_substrings(
+            response.answer, case.expected_answer_contains
+        )
+        citation_count = len(response.citations)
+        passed = (
+            not missing_substrings
+            and citation_count >= case.minimum_citation_count
+            and (case.allow_fallback or not response.used_fallback)
+        )
+        return passed, missing_substrings, citation_count
+
+    candidate_passed, candidate_missing_substrings, candidate_citation_count = _answer_passed(
+        candidate_response
+    )
+    baseline_passed, baseline_missing_substrings, baseline_citation_count = _answer_passed(
+        baseline_response
+    )
+    delta_kind = _classify_delta(candidate_passed, baseline_passed, None)
+    filters_payload = {**case.filters, "document_id": str(document.id)}
+
+    return {
+        "query_text": case.question,
+        "mode": case.mode,
+        "filters_json": filters_payload,
+        "expected_result_type": None,
+        "expected_top_n": None,
+        "passed": candidate_passed,
+        "candidate_rank": None,
+        "baseline_rank": None,
+        "rank_delta": None,
+        "candidate_score": None,
+        "baseline_score": None,
+        "candidate_result_type": "answer" if candidate_response is not None else None,
+        "baseline_result_type": "answer" if baseline_response is not None else None,
+        "candidate_label": _answer_excerpt(candidate_response.answer),
+        "baseline_label": _answer_excerpt(baseline_response.answer)
+        if baseline_response is not None
+        else None,
+        "details_json": {
+            "evaluation_kind": "answer",
+            "delta_kind": delta_kind,
+            "expected_answer_contains": case.expected_answer_contains,
+            "minimum_citation_count": case.minimum_citation_count,
+            "allow_fallback": case.allow_fallback,
+            "candidate_missing_substrings": candidate_missing_substrings,
+            "candidate_citation_count": candidate_citation_count,
+            "candidate_used_fallback": candidate_response.used_fallback,
+            "candidate_warning": candidate_response.warning,
+            "candidate_search_request_id": str(candidate_response.search_request_id)
+            if candidate_response.search_request_id
+            else None,
+            "candidate_chat_answer_id": str(candidate_response.chat_answer_id)
+            if candidate_response.chat_answer_id
+            else None,
+            "baseline_missing_substrings": baseline_missing_substrings,
+            "baseline_citation_count": baseline_citation_count,
+            "baseline_used_fallback": baseline_response.used_fallback
+            if baseline_response is not None
+            else None,
+            "baseline_warning": (
+                baseline_response.warning if baseline_response is not None else None
+            ),
+            "baseline_search_request_id": str(baseline_response.search_request_id)
+            if baseline_response is not None and baseline_response.search_request_id
+            else None,
+            "baseline_chat_answer_id": str(baseline_response.chat_answer_id)
+            if baseline_response is not None and baseline_response.chat_answer_id
+            else None,
+        },
+        "delta_kind": delta_kind,
+    }
 
 
 def _summarize_structural_checks(
@@ -574,8 +735,14 @@ def evaluate_run(
             "status": "skipped",
             "reason": "No evaluation fixture matches the document source filename.",
             "query_count": 0,
+            "retrieval_query_count": 0,
+            "answer_query_count": 0,
             "passed_queries": 0,
             "failed_queries": 0,
+            "passed_retrieval_queries": 0,
+            "failed_retrieval_queries": 0,
+            "passed_answer_queries": 0,
+            "failed_answer_queries": 0,
             "regressed_queries": 0,
             "improved_queries": 0,
             "stable_queries": 0,
@@ -588,8 +755,14 @@ def evaluate_run(
     evaluation.fixture_name = fixture.name
     try:
         query_count = 0
+        retrieval_query_count = 0
+        answer_query_count = 0
         passed_queries = 0
         failed_queries = 0
+        passed_retrieval_queries = 0
+        failed_retrieval_queries = 0
+        passed_answer_queries = 0
+        failed_answer_queries = 0
         regressed_queries = 0
         improved_queries = 0
         stable_queries = 0
@@ -632,8 +805,11 @@ def evaluate_run(
             )
 
             query_count += 1
+            retrieval_query_count += 1
             passed_queries += int(candidate_passed)
             failed_queries += int(not candidate_passed)
+            passed_retrieval_queries += int(candidate_passed)
+            failed_retrieval_queries += int(not candidate_passed)
             regressed_queries += int(delta_kind == "regressed")
             improved_queries += int(delta_kind == "improved")
             stable_queries += int(delta_kind == "stable")
@@ -659,10 +835,53 @@ def evaluate_run(
                     candidate_label=_run_label(candidate_match),
                     baseline_label=_run_label(baseline_match),
                     details_json={
+                        "evaluation_kind": "retrieval",
                         "candidate_top_results": _top_result_details(candidate_results),
                         "baseline_top_results": _top_result_details(baseline_results),
                         "delta_kind": delta_kind,
                     },
+                    created_at=now,
+                )
+            )
+
+        for case in fixture.answer_queries:
+            outcome = _evaluate_answer_case(
+                session,
+                document=document,
+                run_id=run.id,
+                baseline_run_id=baseline_run_id,
+                evaluation_id=evaluation.id,
+                case=case,
+            )
+            query_count += 1
+            answer_query_count += 1
+            passed_queries += int(outcome["passed"])
+            failed_queries += int(not outcome["passed"])
+            passed_answer_queries += int(outcome["passed"])
+            failed_answer_queries += int(not outcome["passed"])
+            regressed_queries += int(outcome["delta_kind"] == "regressed")
+            improved_queries += int(outcome["delta_kind"] == "improved")
+            stable_queries += int(outcome["delta_kind"] == "stable")
+
+            session.add(
+                DocumentRunEvaluationQuery(
+                    evaluation_id=evaluation.id,
+                    query_text=outcome["query_text"],
+                    mode=outcome["mode"],
+                    filters_json=outcome["filters_json"],
+                    expected_result_type=outcome["expected_result_type"],
+                    expected_top_n=outcome["expected_top_n"],
+                    passed=outcome["passed"],
+                    candidate_rank=outcome["candidate_rank"],
+                    baseline_rank=outcome["baseline_rank"],
+                    rank_delta=outcome["rank_delta"],
+                    candidate_score=outcome["candidate_score"],
+                    baseline_score=outcome["baseline_score"],
+                    candidate_result_type=outcome["candidate_result_type"],
+                    baseline_result_type=outcome["baseline_result_type"],
+                    candidate_label=outcome["candidate_label"],
+                    baseline_label=outcome["baseline_label"],
+                    details_json=outcome["details_json"],
                     created_at=now,
                 )
             )
@@ -673,8 +892,14 @@ def evaluate_run(
             "status": "completed",
             "fixture_name": fixture.name,
             "query_count": query_count,
+            "retrieval_query_count": retrieval_query_count,
+            "answer_query_count": answer_query_count,
             "passed_queries": passed_queries,
             "failed_queries": failed_queries,
+            "passed_retrieval_queries": passed_retrieval_queries,
+            "failed_retrieval_queries": failed_retrieval_queries,
+            "passed_answer_queries": passed_answer_queries,
+            "failed_answer_queries": failed_answer_queries,
             "regressed_queries": regressed_queries,
             "improved_queries": improved_queries,
             "stable_queries": stable_queries,
@@ -700,8 +925,14 @@ def evaluate_run(
             "fixture_name": fixture.name,
             "reason": str(exc),
             "query_count": 0,
+            "retrieval_query_count": 0,
+            "answer_query_count": 0,
             "passed_queries": 0,
             "failed_queries": 0,
+            "passed_retrieval_queries": 0,
+            "failed_retrieval_queries": 0,
+            "passed_answer_queries": 0,
+            "failed_answer_queries": 0,
             "regressed_queries": 0,
             "improved_queries": 0,
             "stable_queries": 0,
@@ -773,7 +1004,10 @@ def get_latest_document_evaluation(
         session.execute(
             select(DocumentRunEvaluationQuery)
             .where(DocumentRunEvaluationQuery.evaluation_id == evaluation.id)
-            .order_by(DocumentRunEvaluationQuery.query_text.asc())
+            .order_by(
+                DocumentRunEvaluationQuery.created_at.asc(),
+                DocumentRunEvaluationQuery.query_text.asc(),
+            )
         )
         .scalars()
         .all()
@@ -786,6 +1020,7 @@ def get_latest_document_evaluation(
             EvaluationQueryResultResponse(
                 query_text=row.query_text,
                 mode=row.mode,
+                evaluation_kind=(row.details_json or {}).get("evaluation_kind", "retrieval"),
                 expected_result_type=row.expected_result_type,
                 expected_top_n=row.expected_top_n,
                 passed=row.passed,

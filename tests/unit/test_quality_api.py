@@ -134,20 +134,28 @@ def test_quality_failures_route_uses_quality_service(monkeypatch) -> None:
 
 def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None:
     search_request_id = uuid4()
+    captured = {}
 
     monkeypatch.setattr(
         "app.api.main.list_quality_eval_candidates",
-        lambda session: [
+        lambda session, limit=12, include_resolved=False: captured.update(
+            {"limit": limit, "include_resolved": include_resolved}
+        )
+        or [
             {
                 "candidate_type": "live_search_gap",
                 "reason": "tabular search returned no table hits",
                 "query_text": "table 701.2",
                 "mode": "hybrid",
                 "filters": {},
+                "evaluation_kind": "retrieval",
                 "expected_result_type": "table",
                 "fixture_name": None,
                 "occurrence_count": 3,
                 "latest_seen_at": "2026-04-12T00:00:00Z",
+                "resolution_status": "unresolved",
+                "resolved_at": None,
+                "resolution_reason": None,
                 "document_id": None,
                 "source_filename": None,
                 "evaluation_id": None,
@@ -157,11 +165,13 @@ def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None
     )
 
     client = TestClient(app)
-    response = client.get("/quality/eval-candidates")
+    response = client.get("/quality/eval-candidates?limit=5&include_resolved=true")
 
     assert response.status_code == 200
     body = response.json()
+    assert captured == {"limit": 5, "include_resolved": True}
     assert body[0]["candidate_type"] == "live_search_gap"
+    assert body[0]["evaluation_kind"] == "retrieval"
     assert body[0]["search_request_id"] == str(search_request_id)
 
 

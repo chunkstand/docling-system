@@ -171,3 +171,58 @@ def test_answer_question_retries_with_normalized_query_when_initial_search_misse
     assert queries[1] == "claim bitter lesson"
     assert response.used_fallback is False
     assert response.chat_answer_id is not None
+
+
+def test_answer_question_can_skip_persistence_for_evaluations(monkeypatch) -> None:
+    result = _chunk_result()
+    captured = {}
+    evaluation_id = uuid4()
+
+    class FakeExecution:
+        def __init__(self) -> None:
+            self.results = [result]
+            self.request_id = uuid4()
+            self.harness_name = "default_v1"
+            self.reranker_name = "linear_feature_reranker"
+            self.reranker_version = "v1"
+            self.retrieval_profile_name = "default_v1"
+
+    def fake_execute_search(
+        session,
+        request,
+        origin="api",
+        run_id=None,
+        evaluation_id=None,
+        parent_request_id=None,
+    ):
+        captured["origin"] = origin
+        captured["run_id"] = run_id
+        captured["evaluation_id"] = evaluation_id
+        captured["parent_request_id"] = parent_request_id
+        return FakeExecution()
+
+    monkeypatch.setattr("app.services.chat.execute_search", fake_execute_search)
+    generator = FakeAnswerGenerator()
+    session = FakeSession()
+
+    response = answer_question(
+        session=session,
+        request=ChatRequest(
+            question="What is the main claim of The Bitter Lesson?",
+            mode="hybrid",
+            document_id=result.document_id,
+            top_k=4,
+        ),
+        answer_generator=generator,
+        run_id=result.run_id,
+        origin="evaluation_answer_candidate",
+        evaluation_id=evaluation_id,
+        persist=False,
+    )
+
+    assert response.used_fallback is False
+    assert response.chat_answer_id is None
+    assert len(session.added) == 0
+    assert captured["origin"] == "evaluation_answer_candidate"
+    assert captured["run_id"] == result.run_id
+    assert captured["evaluation_id"] == evaluation_id

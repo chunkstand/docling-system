@@ -35,6 +35,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert appendix_b.thresholds.expected_logical_table_count == 0
     assert appendix_b.thresholds.expected_figure_count == 0
     assert all(query.expected_result_type == "chunk" for query in appendix_b.queries)
+    assert any(query.mode == "keyword" for query in appendix_b.queries)
 
     chapter_seven = next(fixture for fixture in fixtures if fixture.name == "upc_ch7")
     assert chapter_seven.thresholds.expected_figure_count == 10
@@ -49,6 +50,27 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert bitter_lesson.thresholds.expected_logical_table_count == 0
     assert bitter_lesson.thresholds.expected_figure_count == 0
     assert all(query.expected_result_type == "chunk" for query in bitter_lesson.queries)
+    assert any(query.mode == "keyword" for query in bitter_lesson.queries)
+    assert len(bitter_lesson.answer_queries) == 1
+    assert bitter_lesson.answer_queries[0].expected_answer_contains == [
+        "general methods",
+        "computation",
+    ]
+
+    test_pdf = next(fixture for fixture in fixtures if fixture.name == "test_pdf_prose")
+    assert test_pdf.path.endswith("TEST_PDF.pdf")
+    assert len(test_pdf.answer_queries) == 1
+    assert test_pdf.answer_queries[0].minimum_citation_count == 1
+
+    nsf = next(fixture for fixture in fixtures if fixture.name == "nsf_ai_ready_america_figures")
+    assert nsf.thresholds.expected_figure_count == 6
+    assert len(nsf.answer_queries) == 1
+
+    spend_report = next(
+        fixture for fixture in fixtures if fixture.name == "openrouter_spend_report_tables"
+    )
+    assert spend_report.thresholds.expected_logical_table_count == 3
+    assert len(spend_report.answer_queries) == 1
 
 
 def test_fixture_for_document_matches_by_source_filename() -> None:
