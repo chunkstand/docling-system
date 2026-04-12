@@ -293,3 +293,91 @@ documents:
             - anthropic/claude-3.7-sonnet
             - "121.85"
           minimum_citation_count: 1
+  - name: tyler_kitchen_soil_report
+    kind: cross_domain_soil_report_with_tables_and_figures
+    path: /Users/chunkstand/Documents/docling-ingest-staging/20251217_TK_SoilReport.pdf
+    thresholds:
+      expected_logical_table_count: 12
+      logical_table_tolerance: 0
+      expected_figure_count: 2
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 2
+      minimum_figures_with_provenance: 2
+      minimum_figures_with_artifacts: 2
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: percent detrimental soil disturbance
+          top_n: 3
+        - query: project-specific resource protection measures
+          top_n: 3
+          mode: keyword
+      expected_top_n_chunk_hit_queries:
+        - query: coarse woody debris
+          top_n: 3
+      expected_answer_queries:
+        - question: What is Table 3 about in the soil report?
+          mode: hybrid
+          answer_contains:
+            - Percent Detrimental Soil Disturbance
+            - 15%
+          minimum_citation_count: 1
+  - name: tyler_kitchen_transportation_report
+    kind: cross_domain_transportation_report_with_cost_tables
+    path: /Users/chunkstand/Documents/docling-ingest-staging/20251216_TK_TransportationReport.pdf
+    thresholds:
+      expected_logical_table_count: 8
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: estimated annual road maintenance cost
+          top_n: 3
+        - query: alternative b estimated road costs
+          top_n: 3
+          mode: keyword
+      expected_top_n_chunk_hit_queries:
+        - query: project-level travel analysis
+          top_n: 3
+      expected_answer_queries:
+        - question: What does Table 1 show in the transportation report?
+          mode: hybrid
+          answer_contains:
+            - estimated annual road maintenance costs
+            - operational maintenance levels
+          minimum_citation_count: 1
+  - name: tyler_kitchen_wildlife_report
+    kind: cross_domain_wildlife_report_with_species_tables
+    path: /Users/chunkstand/Documents/docling-ingest-staging/20251215_TK_WildlifeSpecReport.pdf
+    thresholds:
+      expected_logical_table_count: 18
+      logical_table_tolerance: 0
+      expected_figure_count: 2
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 2
+      minimum_figures_with_provenance: 2
+      minimum_figures_with_artifacts: 2
+      expected_figure_captions_present:
+        - Tyler's Kitchen Fuels Reduction and Forest Health Project
+        - Figure 1. Modeled fisher habitat in the Northern Rocky Mountains, from USFWS status assessment (2017).
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: modeled wolverine habitat
+          top_n: 3
+        - query: pileated woodpecker habitat remaining
+          top_n: 3
+      expected_top_n_chunk_hit_queries:
+        - query: radiotelemetry data from wolverines in the Yellowstone region
+          top_n: 3
+          mode: keyword
+      expected_answer_queries:
+        - question: What habitat does the wildlife report model for wolverines?
+          mode: hybrid
+          answer_contains:
+            - maternal
+            - primary
+            - dispersal
+          minimum_citation_count: 1

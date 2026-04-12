@@ -72,6 +72,38 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert spend_report.thresholds.expected_logical_table_count == 3
     assert len(spend_report.answer_queries) == 1
 
+    soil_report = next(
+        fixture for fixture in fixtures if fixture.name == "tyler_kitchen_soil_report"
+    )
+    assert soil_report.path.endswith("20251217_TK_SoilReport.pdf")
+    assert soil_report.thresholds.expected_logical_table_count == 12
+    assert soil_report.thresholds.expected_figure_count == 2
+    assert len(soil_report.answer_queries) == 1
+    assert any(query.mode == "keyword" for query in soil_report.queries)
+
+    transportation_report = next(
+        fixture for fixture in fixtures if fixture.name == "tyler_kitchen_transportation_report"
+    )
+    assert transportation_report.path.endswith("20251216_TK_TransportationReport.pdf")
+    assert transportation_report.thresholds.expected_logical_table_count == 8
+    assert transportation_report.thresholds.expected_figure_count == 0
+    assert len(transportation_report.answer_queries) == 1
+
+    wildlife_report = next(
+        fixture for fixture in fixtures if fixture.name == "tyler_kitchen_wildlife_report"
+    )
+    assert wildlife_report.path.endswith("20251215_TK_WildlifeSpecReport.pdf")
+    assert wildlife_report.thresholds.expected_logical_table_count == 18
+    assert wildlife_report.thresholds.expected_figure_count == 2
+    assert len(wildlife_report.answer_queries) == 1
+    assert wildlife_report.thresholds.expected_figure_captions_present == [
+        "Tyler's Kitchen Fuels Reduction and Forest Health Project",
+        (
+            "Figure 1. Modeled fisher habitat in the Northern Rocky Mountains, "
+            "from USFWS status assessment (2017)."
+        ),
+    ]
+
 
 def test_fixture_for_document_matches_by_source_filename() -> None:
     document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")

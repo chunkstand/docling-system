@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `69148e9` (`Expand eval coverage and resolve stale candidates`)
+Latest committed checkpoint before this handoff update: `ee58d2b` (`Close remaining eval candidate gaps`)
 
 ## Executive Summary
 
@@ -37,6 +37,11 @@ The branch now includes:
   - non-tabular chat questions now retry chunk-only retrieval when the first pass returns only tables
   - low-signal unscoped one-token zero-result searches no longer become eval candidates
   - the live unresolved candidate queue is now empty by default
+- corpus expansion and ingestion hardening for new Tyler's Kitchen analysis PDFs:
+  - added fixed-corpus fixtures for the soil, transportation, and wildlife reports
+  - latest-evaluation coverage is now live for those three documents
+  - embedding generation now clips overlong inputs token-safely and batches requests instead of dropping semantic coverage for an entire run
+  - the transportation report was reprocessed live to verify the former 8192-token overflow now degrades to a logged truncation event instead of an OpenAI 400
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -53,8 +58,9 @@ What is now true:
 - persisted search-request details now record whether keyword serving used `strict` or `relaxed_or`
 - generic prose documents can promote with human-readable titles derived from parsed content
 - the worker can safely process multiple queued runs without tripping `MultipleResultsFound`
-- the fixed corpus now covers four non-UPC documents, not just `The Bitter Lesson.pdf`
-- all twelve active documents now have completed latest evaluations; none are `missing` or `skipped`
+- the fixed corpus now covers seven non-UPC documents, not just `The Bitter Lesson.pdf`
+- the corpus now contains sixteen active documents
+- fifteen documents now have completed latest evaluations; one remains intentionally `skipped`
 - latest evaluation detail can now mix retrieval and grounded-answer checks in one persisted surface
 - `GET /quality/eval-candidates` defaults to unresolved rows, with resolved rows available via `include_resolved=true`
 - keyword chat can recover from table-heavy retrieval by switching to chunk-only evidence for non-tabular questions
@@ -215,7 +221,7 @@ Relevant files:
 
 ### 6. Data-Agnostic Hardening
 
-Uncommitted changes captured by this handoff update:
+What changed:
 
 - `app/services/docling_parser.py`
   - added UUID-aware title normalization and fallback title inference from the first meaningful parsed text chunk
@@ -246,7 +252,7 @@ Live result:
 
 ### 7. Fixed-Corpus Expansion And Answer-Level Evals
 
-Uncommitted changes captured by this handoff update:
+What changed:
 
 - `app/services/evaluations.py`
   - fixtures now support `expected_answer_queries`
@@ -258,6 +264,48 @@ Uncommitted changes captured by this handoff update:
 - `app/services/quality.py`
   - mined eval candidates now record `evaluation_kind`
   - stale candidates now resolve automatically when later evaluation, search, or helpful-answer evidence closes the gap
+
+### 8. Tyler's Kitchen Fixture Expansion And Embedding Overflow Fix
+
+What changed:
+
+- `docs/evaluation_corpus.yaml`
+  - added `tyler_kitchen_soil_report`
+  - added `tyler_kitchen_transportation_report`
+  - added `tyler_kitchen_wildlife_report`
+  - each fixture includes structural expectations, retrieval hit checks, and one grounded-answer check
+- `app/services/embeddings.py`
+  - added token-aware clipping for oversized embedding inputs using `tiktoken`
+  - batched embedding requests so ingestion no longer depends on a single all-or-nothing call
+  - logs `embedding_inputs_truncated` when clipping occurs
+- `pyproject.toml`
+  - added runtime dependency `tiktoken`
+- tests added or updated:
+  - `tests/unit/test_embeddings.py`
+  - `tests/unit/test_eval_config.py`
+  - `tests/unit/test_evaluation_service.py`
+
+Live result:
+
+- recovery run `021bc808-5da5-46a7-ad16-0259465e6203` for `20251216_TK_TransportationReport.pdf` completed successfully
+- the worker logged `embedding_inputs_truncated` with `clipped_input_count = 1`
+- the prior OpenAI `400` for `maximum input length is 8192 tokens` did not recur
+- latest transportation evaluation completed automatically with fixture `tyler_kitchen_transportation_report` and `4/4` queries passed
+- manual eval runs for:
+  - `20251217_TK_SoilReport.pdf`
+  - `20251215_TK_WildlifeSpecReport.pdf`
+  also completed with `4/4` queries passed
+- live quality summary now reports:
+  - `document_count = 16`
+  - `completed_latest_evaluations = 15`
+  - `skipped_latest_evaluations = 1`
+- live audit remains green with:
+  - `checked_documents = 16`
+  - `checked_runs = 38`
+  - `checked_evaluations = 25`
+  - `checked_tables = 530`
+  - `checked_figures = 364`
+  - `violation_count = 0`
   - unresolved rows remain the default response; resolved rows require `include_resolved=true`
 - `app/services/search_replays.py`
   - replay sourcing now ignores answer-evaluation rows and stays retrieval-only

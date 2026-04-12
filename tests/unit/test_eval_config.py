@@ -11,7 +11,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert config["rollout_mode"] == "immediate_breaking_replacement"
     assert config["embedding_contract"]["model"] == "text-embedding-3-small"
     assert config["embedding_contract"]["dimension"] == 1536
-    assert len(config["documents"]) == 12
+    assert len(config["documents"]) == 15
 
     names = {document["name"] for document in config["documents"]}
     assert "appendix_b_prose_guidance" in names
@@ -23,6 +23,9 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert "test_pdf_prose" in names
     assert "nsf_ai_ready_america_figures" in names
     assert "openrouter_spend_report_tables" in names
+    assert "tyler_kitchen_soil_report" in names
+    assert "tyler_kitchen_transportation_report" in names
+    assert "tyler_kitchen_wildlife_report" in names
 
     figure_document = next(
         document for document in config["documents"] if document["name"] == "upc_ch2_figures"
@@ -159,6 +162,51 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert spend_thresholds["expected_figure_count"] == 5
     assert len(spend_thresholds["expected_top_n_table_hit_queries"]) == 3
     assert len(spend_thresholds["expected_answer_queries"]) == 1
+
+    soil_document = next(
+        document
+        for document in config["documents"]
+        if document["name"] == "tyler_kitchen_soil_report"
+    )
+    soil_thresholds = soil_document["thresholds"]
+    assert (
+        soil_document["path"]
+        == "/Users/chunkstand/Documents/docling-ingest-staging/20251217_TK_SoilReport.pdf"
+    )
+    assert soil_thresholds["expected_logical_table_count"] == 12
+    assert soil_thresholds["expected_figure_count"] == 2
+    assert len(soil_thresholds["expected_top_n_table_hit_queries"]) == 2
+    assert len(soil_thresholds["expected_answer_queries"]) == 1
+
+    transportation_document = next(
+        document
+        for document in config["documents"]
+        if document["name"] == "tyler_kitchen_transportation_report"
+    )
+    transportation_thresholds = transportation_document["thresholds"]
+    assert (
+        transportation_document["path"]
+        == "/Users/chunkstand/Documents/docling-ingest-staging/20251216_TK_TransportationReport.pdf"
+    )
+    assert transportation_thresholds["expected_logical_table_count"] == 8
+    assert transportation_thresholds["expected_figure_count"] == 0
+    assert len(transportation_thresholds["expected_top_n_table_hit_queries"]) == 2
+    assert len(transportation_thresholds["expected_answer_queries"]) == 1
+
+    wildlife_document = next(
+        document
+        for document in config["documents"]
+        if document["name"] == "tyler_kitchen_wildlife_report"
+    )
+    wildlife_thresholds = wildlife_document["thresholds"]
+    assert (
+        wildlife_document["path"]
+        == "/Users/chunkstand/Documents/docling-ingest-staging/20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert wildlife_thresholds["expected_logical_table_count"] == 18
+    assert wildlife_thresholds["expected_figure_count"] == 2
+    assert len(wildlife_thresholds["expected_figure_captions_present"]) == 2
+    assert len(wildlife_thresholds["expected_answer_queries"]) == 1
 
     for document in config["documents"]:
         thresholds = document["thresholds"]
