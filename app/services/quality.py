@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     ChatAnswerFeedback,
+    ChatAnswerRecord,
     Document,
     DocumentRun,
     DocumentRunEvaluation,
@@ -258,10 +259,14 @@ def list_quality_eval_candidates(
     evaluations = session.execute(select(DocumentRunEvaluation)).scalars().all()
     evaluation_queries = session.execute(select(DocumentRunEvaluationQuery)).scalars().all()
     search_requests = session.execute(select(SearchRequestRecord)).scalars().all()
+    chat_answers = session.execute(select(ChatAnswerRecord)).scalars().all()
+    answer_feedback_rows = session.execute(select(ChatAnswerFeedback)).scalars().all()
 
     documents_by_id = {document.id: document for document in documents}
     runs_by_id = {run.id: run for run in runs}
     evaluations_by_id = {evaluation.id: evaluation for evaluation in evaluations}
+    search_requests_by_id = {request.id: request for request in search_requests}
+    chat_answers_by_id = {answer.id: answer for answer in chat_answers}
 
     candidates: dict[tuple[str, str, str, str, str, str], QualityEvaluationCandidateResponse] = {}
 
@@ -296,6 +301,8 @@ def list_quality_eval_candidates(
                 source_filename=getattr(document, "source_filename", None),
                 evaluation_id=getattr(evaluation, "id", None),
                 search_request_id=None,
+                chat_answer_id=None,
+                harness_name=None,
             )
             candidates[key] = current
         current.occurrence_count += 1
@@ -352,6 +359,8 @@ def list_quality_eval_candidates(
                 source_filename=getattr(document, "source_filename", None),
                 evaluation_id=row.evaluation_id,
                 search_request_id=row.id,
+                chat_answer_id=None,
+                harness_name=row.harness_name,
             )
             candidates[key] = current
         current.occurrence_count += 1
@@ -361,6 +370,65 @@ def list_quality_eval_candidates(
             current.source_filename = getattr(document, "source_filename", None)
             current.evaluation_id = row.evaluation_id
             current.search_request_id = row.id
+            current.harness_name = row.harness_name
+
+    for feedback in answer_feedback_rows:
+        if feedback.feedback_type not in {"unsupported", "incomplete"}:
+            continue
+
+        answer = chat_answers_by_id.get(feedback.chat_answer_id)
+        if answer is None:
+            continue
+
+        request_row = search_requests_by_id.get(answer.search_request_id)
+        filters = request_row.filters_json if request_row is not None else {}
+        if not filters and answer.document_id is not None:
+            filters = {"document_id": str(answer.document_id)}
+
+        document_id = answer.document_id or _maybe_uuid(filters.get("document_id"))
+        document = documents_by_id.get(document_id)
+        reason = (
+            "chat answer marked unsupported"
+            if feedback.feedback_type == "unsupported"
+            else "chat answer marked incomplete"
+        )
+        key = _candidate_key(
+            "answer_feedback_gap",
+            reason,
+            answer.question_text,
+            answer.mode,
+            filters,
+            None,
+        )
+        current = candidates.get(key)
+        if current is None:
+            current = QualityEvaluationCandidateResponse(
+                candidate_type="answer_feedback_gap",
+                reason=reason,
+                query_text=answer.question_text,
+                mode=answer.mode,
+                filters=filters,
+                expected_result_type=None,
+                fixture_name=None,
+                occurrence_count=0,
+                latest_seen_at=feedback.created_at,
+                document_id=document_id,
+                source_filename=getattr(document, "source_filename", None),
+                evaluation_id=request_row.evaluation_id if request_row is not None else None,
+                search_request_id=answer.search_request_id,
+                chat_answer_id=answer.id,
+                harness_name=answer.harness_name,
+            )
+            candidates[key] = current
+        current.occurrence_count += 1
+        if feedback.created_at >= current.latest_seen_at:
+            current.latest_seen_at = feedback.created_at
+            current.document_id = document_id
+            current.source_filename = getattr(document, "source_filename", None)
+            current.evaluation_id = request_row.evaluation_id if request_row is not None else None
+            current.search_request_id = answer.search_request_id
+            current.chat_answer_id = answer.id
+            current.harness_name = answer.harness_name
 
     rows = sorted(
         candidates.values(),

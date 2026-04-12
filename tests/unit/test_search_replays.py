@@ -152,6 +152,7 @@ def test_export_ranking_dataset_includes_feedback_and_replay_rows() -> None:
                     reranker_name="linear_feature_reranker",
                     reranker_version="v1",
                     retrieval_profile_name="default_v1",
+                    harness_config_json={"harness_name": "default_v1"},
                 )
             if model.__name__ == "SearchRequestResult" and key == result_id:
                 return SimpleNamespace(
@@ -161,11 +162,26 @@ def test_export_ranking_dataset_includes_feedback_and_replay_rows() -> None:
                     chunk_id=uuid4(),
                     rerank_features_json={"base_score": 0.2},
                 )
+            if model.__name__ == "SearchReplayRun" and key == replay_run_id:
+                return SimpleNamespace(
+                    id=replay_run_id,
+                    source_type="feedback",
+                    harness_name="wide_v2",
+                    reranker_name="linear_feature_reranker",
+                    reranker_version="v2",
+                    retrieval_profile_name="wide_v2",
+                    harness_config_json={"harness_name": "wide_v2"},
+                )
             return None
 
     rows = export_ranking_dataset(FakeSession(), limit=10)
 
     assert rows[0]["dataset_type"] == "feedback"
+    assert rows[0]["row_schema_version"] == 2
+    assert rows[0]["metadata_era"] == "harness_v1"
     assert rows[0]["feedback_type"] == "relevant"
     assert rows[1]["dataset_type"] == "replay"
+    assert rows[1]["source_type"] == "feedback"
+    assert rows[1]["reranker_version"] == "v2"
+    assert rows[1]["metadata_era"] == "harness_v1"
     assert rows[1]["passed"] is True

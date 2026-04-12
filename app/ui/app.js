@@ -92,6 +92,13 @@ const qualityFailureStages = document.getElementById("quality-failure-stages");
 const qualityFailures = document.getElementById("quality-failures");
 const qualityEvalCandidates = document.getElementById("quality-eval-candidates");
 const qualityTrends = document.getElementById("quality-trends");
+const harnessEvalForm = document.getElementById("harness-eval-form");
+const harnessEvalBaseline = document.getElementById("harness-eval-baseline");
+const harnessEvalCandidate = document.getElementById("harness-eval-candidate");
+const harnessEvalLimit = document.getElementById("harness-eval-limit");
+const harnessEvalSources = document.getElementById("harness-eval-sources");
+const harnessEvalFeedback = document.getElementById("harness-eval-feedback");
+const harnessEvalResults = document.getElementById("harness-eval-results");
 const replayRunForm = document.getElementById("replay-run-form");
 const replaySourceType = document.getElementById("replay-source-type");
 const replayLimit = document.getElementById("replay-limit");
@@ -183,6 +190,19 @@ function renderHarnessSelects(rows) {
   setSelectOptions(searchHarness, rows, "No harnesses available");
   setSelectOptions(chatHarness, rows, "No harnesses available");
   setSelectOptions(replayHarness, rows, "No harnesses available");
+  setSelectOptions(harnessEvalBaseline, rows, "No harnesses available");
+  setSelectOptions(harnessEvalCandidate, rows, "No harnesses available");
+
+  const defaultHarness = rows.find((row) => row.is_default)?.harness_name || rows[0]?.harness_name || "";
+  const alternateHarness =
+    rows.find((row) => row.harness_name !== defaultHarness)?.harness_name || defaultHarness;
+
+  if (!harnessEvalBaseline.value) {
+    harnessEvalBaseline.value = defaultHarness;
+  }
+  if (!harnessEvalCandidate.value || harnessEvalCandidate.value === harnessEvalBaseline.value) {
+    harnessEvalCandidate.value = alternateHarness;
+  }
 }
 
 function setArtifactLink(link, href, enabled) {
@@ -723,6 +743,7 @@ function renderQualityEvalCandidates(rows) {
         <article class="table-card">
           <div class="table-meta">
             <span>${escapeHtml(row.candidate_type)}</span>
+            ${row.harness_name ? `<span>${escapeHtml(row.harness_name)}</span>` : ""}
             <span>${formatInteger(row.occurrence_count)} seen</span>
             <span>${escapeHtml(row.reason)}</span>
           </div>
@@ -733,6 +754,53 @@ function renderQualityEvalCandidates(rows) {
       `,
     )
     .join("");
+}
+
+function selectedHarnessEvalSources() {
+  return Array.from(
+    harnessEvalSources.querySelectorAll('input[type="checkbox"]:checked'),
+  ).map((input) => input.value);
+}
+
+function renderHarnessEvaluation(payload) {
+  if (!payload) {
+    harnessEvalResults.className = "tables-list empty";
+    harnessEvalResults.textContent = "Harness evaluation will appear here.";
+    return;
+  }
+
+  const sourceCards = (payload.sources || []).map(
+    (source) => `
+      <article class="table-card">
+        <div class="table-meta">
+          <span>${escapeHtml(source.source_type)}</span>
+          <span>${formatInteger(source.shared_query_count)} shared</span>
+          <span>${formatInteger(source.improved_count)} improved</span>
+          <span>${formatInteger(source.regressed_count)} regressed</span>
+        </div>
+        <strong>${escapeHtml(payload.baseline_harness_name)} ${formatInteger(source.baseline_passed_count)}/${formatInteger(source.baseline_query_count)} passed</strong>
+        <p>${formatInteger(source.baseline_zero_result_count)} zero-result · ${formatInteger(source.baseline_table_hit_count)} table-hit queries · ${formatInteger(source.baseline_top_result_changes)} top-result changes</p>
+        <strong>${escapeHtml(payload.candidate_harness_name)} ${formatInteger(source.candidate_passed_count)}/${formatInteger(source.candidate_query_count)} passed</strong>
+        <p>${formatInteger(source.candidate_zero_result_count)} zero-result · ${formatInteger(source.candidate_table_hit_count)} table-hit queries · ${formatInteger(source.candidate_top_result_changes)} top-result changes</p>
+      </article>
+    `,
+  );
+
+  harnessEvalResults.className = "tables-list";
+  harnessEvalResults.innerHTML = [
+    `
+      <article class="table-card">
+        <div class="table-meta">
+          <span>${escapeHtml(payload.baseline_harness_name)}</span>
+          <span>${escapeHtml(payload.candidate_harness_name)}</span>
+          <span>${formatInteger(payload.total_shared_query_count)} shared queries</span>
+        </div>
+        <strong>${formatInteger(payload.total_improved_count)} improved · ${formatInteger(payload.total_regressed_count)} regressed</strong>
+        <p>${formatInteger(payload.total_unchanged_count)} unchanged queries across ${formatInteger((payload.sources || []).length)} replay sources.</p>
+      </article>
+    `,
+    ...sourceCards,
+  ].join("");
 }
 
 function renderQualityTrends(payload) {
@@ -1218,6 +1286,19 @@ async function postChatAnswerFeedback(chatAnswerId, payload) {
   return body;
 }
 
+async function postSearchHarnessEvaluation(payload) {
+  const response = await fetch("/search/harness-evaluations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.detail || "Unable to evaluate harnesses.");
+  }
+  return body;
+}
+
 async function fetchSearchReplayComparison(baselineReplayRunId, candidateReplayRunId) {
   const params = new URLSearchParams({
     baseline_replay_run_id: baselineReplayRunId,
@@ -1348,6 +1429,7 @@ async function refreshQualityPanel() {
     renderQualityEvalCandidates([]);
     renderQualityTrends(null);
     renderSearchReplays([]);
+    renderHarnessEvaluation(null);
     renderReplayComparison(null);
     renderReplayDetail(null);
     setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
@@ -1674,6 +1756,48 @@ replayRunForm.addEventListener("submit", async (event) => {
   }
 });
 
+harnessEvalForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const sourceTypes = selectedHarnessEvalSources();
+  if (!sourceTypes.length) {
+    setFeedback(harnessEvalFeedback, "Choose at least one replay source for harness evaluation.");
+    return;
+  }
+  if (!harnessEvalBaseline.value || !harnessEvalCandidate.value) {
+    setFeedback(harnessEvalFeedback, "Choose baseline and candidate harnesses before evaluating.");
+    return;
+  }
+  if (harnessEvalBaseline.value === harnessEvalCandidate.value) {
+    setFeedback(harnessEvalFeedback, "Choose two different harnesses for evaluation.");
+    return;
+  }
+
+  const payload = {
+    baseline_harness_name: harnessEvalBaseline.value,
+    candidate_harness_name: harnessEvalCandidate.value,
+    source_types: sourceTypes,
+    limit: Number(harnessEvalLimit.value) || 12,
+  };
+  setFeedback(
+    harnessEvalFeedback,
+    `Running harness evaluation for ${payload.candidate_harness_name} against ${payload.baseline_harness_name}...`,
+  );
+
+  try {
+    const evaluation = await postSearchHarnessEvaluation(payload);
+    renderHarnessEvaluation(evaluation);
+    await refreshQualityPanel();
+    setFeedback(
+      harnessEvalFeedback,
+      `Harness evaluation completed: ${formatInteger(evaluation.total_improved_count)} improvements and ${formatInteger(evaluation.total_regressed_count)} regressions across ${formatInteger(evaluation.total_shared_query_count)} shared queries.`,
+      evaluation.total_regressed_count ? "" : "muted",
+    );
+  } catch (error) {
+    renderHarnessEvaluation(null);
+    setFeedback(harnessEvalFeedback, error.message || "Unable to evaluate harnesses.");
+  }
+});
+
 searchReplays.addEventListener("click", async (event) => {
   if (!(event.target instanceof Element)) {
     return;
@@ -1729,6 +1853,7 @@ setArtifactLink(jsonLink, "#", false);
 setArtifactLink(yamlLink, "#", false);
 syncChatScopeState();
 renderChatResponse(null);
+renderHarnessEvaluation(null);
 renderReplayDetail(null);
 resetProcessRail();
 fetchSearchHarnesses()

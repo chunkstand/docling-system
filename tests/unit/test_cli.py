@@ -342,7 +342,14 @@ def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
                 "baseline_harness_name": payload.baseline_harness_name,
                 "candidate_harness_name": payload.candidate_harness_name,
                 "limit": payload.limit,
-                "sources": [{"source_type": payload.source_types[0], "improved_count": 2}],
+                "sources": [
+                    {
+                        "source_type": payload.source_types[0],
+                        "improved_count": 2,
+                        "baseline_zero_result_count": 0,
+                        "candidate_zero_result_count": 0,
+                    }
+                ],
             }
         ),
     )

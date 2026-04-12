@@ -17,6 +17,10 @@ The branch now includes:
 - persisted search-request telemetry, feedback labels, replay suites, replay comparison, and ranking-dataset export
 - a replay/quality operator UI that now exposes both replay execution and replay comparison controls
 - Milestone 5 learned-reranking harness infrastructure with named search harnesses, harness evaluations, answer-feedback capture, and replay drilldown
+- follow-up gap closures for Milestone 5:
+  - answer-feedback gaps now flow into `GET /quality/eval-candidates`
+  - the operator UI now runs harness evaluations directly
+  - ranking-dataset export now marks row schema version and metadata era
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -28,6 +32,8 @@ What is now true:
 - search requests, replay runs, and chat answers now all carry harness metadata when available
 - replay and trend surfaces exist in both the API and the operator UI
 - named search harnesses can be replayed and compared through both the API and the CLI
+- harness evaluation is now exposed in the operator UI instead of only through API/CLI
+- exported ranking rows now self-identify as `legacy_pre_harness` or `harness_v1`
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently
@@ -229,9 +235,14 @@ Recent live replay/feedback verification:
 - `GET /search/replays/{id}` returns replay drilldown rows with harness metadata
 - `POST /search/harness-evaluations` completed live for `default_v1` vs `wide_v2`
 - `GET /quality/trends` now includes `answer_feedback_counts`
+- `GET /quality/eval-candidates` now includes `answer_feedback_gap` rows from grounded chat feedback
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
 - `uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3` completed live
-- `uv run docling-system-export-ranking-dataset --limit 5` emitted feedback and replay rows live
+- `uv run docling-system-export-ranking-dataset --limit 5` now emits:
+  - `row_schema_version`
+  - `metadata_era`
+  - replay `source_type`
+  - top-level reranker/profile/config fields
 
 ## Active Corpus State
 
@@ -261,6 +272,7 @@ curl -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json
 curl -sS http://127.0.0.1:8000/search/requests/<search_request_id>
 curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":3,"harness_name":"wide_v2"}'
 curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"incomplete","note":"Keyword harness did not surface a usable vent stack answer."}'
+curl -sS http://127.0.0.1:8000/quality/eval-candidates | jq
 curl -sS -X POST http://127.0.0.1:8000/search/replays -H 'content-type: application/json' --data '{"source_type":"feedback","limit":3,"harness_name":"wide_v2"}'
 curl -sS http://127.0.0.1:8000/search/replays/<replay_run_id>
 curl -sS -X POST http://127.0.0.1:8000/search/harness-evaluations -H 'content-type: application/json' --data '{"baseline_harness_name":"default_v1","candidate_harness_name":"wide_v2","source_types":["feedback","evaluation_queries"],"limit":3}'
@@ -278,6 +290,9 @@ Key results:
 - compileall passed
 - migration `0012_harness_chat_feedback` applied live
 - harness catalog, harness-backed search, chat answer feedback, replay detail, harness evaluation, and trend endpoints all completed live
+- served UI now includes harness-evaluation controls and source toggles
+- eval candidates now mine grounded-answer `unsupported` and `incomplete` feedback into first-class candidate rows
+- ranking export now distinguishes `legacy_pre_harness` rows from `harness_v1` rows
 - replay, harness-evaluation, and export commands completed live
 - audit stayed green after the new migration
 
@@ -312,6 +327,7 @@ Key results:
 - replay runs now persist the harness metadata they were executed with
 - comparison is keyed by shared `(query_text, mode, filters)` identity
 - ranking dataset export is a derived operator artifact, not a source of truth
+- export rows now carry `row_schema_version`, `metadata_era`, and persisted harness config snapshots so mixed-era data is machine-visible
 
 ### Audit
 
@@ -345,9 +361,9 @@ Milestone 5 establishes the harness and data path, but the current rerankers are
 - harness evaluation currently compares named configs, not learned checkpoints
 - the next leverage is using feedback, replay deltas, and eval rows to fit and validate a model-backed reranker offline
 
-### 3. Historical Search Rows Still Carry Legacy Reranker Metadata
+### 3. Historical Search Rows Still Carry Legacy Signals
 
-Older feedback rows in the local database still export their original reranker metadata, including legacy `heuristic_v1` labels. That is correct for provenance, but downstream training/export consumers need to treat historical rows as mixed-era data.
+Older feedback rows in the local database still export their original reranker metadata, including legacy `heuristic_v1` labels. The export now marks these rows as `legacy_pre_harness`, which removes ambiguity, but downstream fitting code still needs an explicit policy for whether to include them.
 
 ### 4. README And Handoff Are Current, But Product Docs Are Still Thin
 
@@ -373,7 +389,7 @@ The operator-facing commands and endpoints are documented, and the ranking datas
 ### Priority 3: Expand Feedback Coverage
 
 - add more answer-feedback coverage from real chat use
-- mine repeated `no_answer` and `incomplete` patterns into new eval fixtures
+- mine repeated `no_answer`, `unsupported`, and `incomplete` patterns into new eval fixtures
 - document when operator feedback should become a fixed corpus regression
 
 ## Handy Commands

@@ -36,6 +36,8 @@ from app.services.search_history import (
     get_search_request_detail,
 )
 
+RANKING_DATASET_SCHEMA_VERSION = 2
+
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
@@ -587,6 +589,10 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
     )
 
     dataset: list[dict] = []
+
+    def metadata_era(harness_config: dict | None) -> str:
+        return "harness_v1" if harness_config else "legacy_pre_harness"
+
     for feedback in feedback_rows:
         request_row = session.get(SearchRequestRecord, feedback.search_request_id)
         result_row = (
@@ -596,9 +602,12 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
         )
         if request_row is None:
             continue
+        harness_config = getattr(request_row, "harness_config_json", {}) or {}
         dataset.append(
             {
                 "dataset_type": "feedback",
+                "row_schema_version": RANKING_DATASET_SCHEMA_VERSION,
+                "metadata_era": metadata_era(harness_config),
                 "feedback_id": str(feedback.id),
                 "feedback_type": feedback.feedback_type,
                 "search_request_id": str(request_row.id),
@@ -606,6 +615,7 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
                 "reranker_name": request_row.reranker_name,
                 "reranker_version": request_row.reranker_version,
                 "retrieval_profile_name": request_row.retrieval_profile_name,
+                "harness_config": harness_config,
                 "query_text": request_row.query_text,
                 "mode": request_row.mode,
                 "filters": request_row.filters_json or {},
@@ -626,16 +636,21 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
         )
 
     for row in replay_rows:
+        replay_run = session.get(SearchReplayRun, row.replay_run_id)
+        harness_config = getattr(replay_run, "harness_config_json", {}) or {}
         dataset.append(
             {
                 "dataset_type": "replay",
+                "row_schema_version": RANKING_DATASET_SCHEMA_VERSION,
+                "metadata_era": metadata_era(harness_config),
                 "replay_query_id": str(row.id),
                 "replay_run_id": str(row.replay_run_id),
-                "harness_name": getattr(
-                    session.get(SearchReplayRun, row.replay_run_id),
-                    "harness_name",
-                    None,
-                ),
+                "source_type": getattr(replay_run, "source_type", None),
+                "harness_name": getattr(replay_run, "harness_name", None),
+                "reranker_name": getattr(replay_run, "reranker_name", None),
+                "reranker_version": getattr(replay_run, "reranker_version", None),
+                "retrieval_profile_name": getattr(replay_run, "retrieval_profile_name", None),
+                "harness_config": harness_config,
                 "query_text": row.query_text,
                 "mode": row.mode,
                 "filters": row.filters_json or {},

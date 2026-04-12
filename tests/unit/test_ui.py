@@ -18,8 +18,10 @@ def test_index_serves_ui() -> None:
     assert "Failed runs by stage will appear here." in response.text
     assert "Mined evaluation candidates will appear here." in response.text
     assert "Search and feedback trends will appear here." in response.text
+    assert "Harness evaluation will appear here." in response.text
     assert "Replay suite runs will appear here." in response.text
     assert "Harness" in response.text
+    assert "Run harness eval" in response.text
     assert "Run replay" in response.text
     assert "Compare runs" in response.text
     assert "Replay comparison will appear here." in response.text

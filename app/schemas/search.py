@@ -221,6 +221,12 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
     candidate_query_count: int = 0
     baseline_passed_count: int = 0
     candidate_passed_count: int = 0
+    baseline_zero_result_count: int = 0
+    candidate_zero_result_count: int = 0
+    baseline_table_hit_count: int = 0
+    candidate_table_hit_count: int = 0
+    baseline_top_result_changes: int = 0
+    candidate_top_result_changes: int = 0
     shared_query_count: int = 0
     improved_count: int = 0
     regressed_count: int = 0

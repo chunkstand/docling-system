@@ -39,6 +39,9 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
             replay_run_id=replay_run_id,
             query_count=3,
             passed_count=passed_count,
+            zero_result_count=0,
+            table_hit_count=1,
+            top_result_changes=0,
         )
 
     def fake_compare_search_replay_runs(session, baseline_replay_run_id, candidate_replay_run_id):
@@ -75,3 +78,4 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
     assert response.total_shared_query_count == 6
     assert response.total_improved_count == 2
     assert response.sources[0].source_type == "evaluation_queries"
+    assert response.sources[0].baseline_table_hit_count == 1

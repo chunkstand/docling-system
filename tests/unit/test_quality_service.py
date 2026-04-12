@@ -107,11 +107,12 @@ def test_quality_summary_and_failures_aggregate_latest_eval_state() -> None:
     assert failures.run_failures[0].run_id == run_two_id
 
 
-def test_list_quality_eval_candidates_mines_eval_failures_and_live_search_gaps() -> None:
+def test_list_quality_eval_candidates_mines_eval_failures_live_gaps_and_answer_feedback() -> None:
     document_id = uuid4()
     run_id = uuid4()
     evaluation_id = uuid4()
     search_request_id = uuid4()
+    chat_answer_id = uuid4()
     now = _timestamp()
 
     documents = [
@@ -146,6 +147,24 @@ def test_list_quality_eval_candidates_mines_eval_failures_and_live_search_gaps()
             result_count=3,
             created_at=now + timedelta(minutes=1),
             evaluation_id=None,
+            harness_name="wide_v2",
+        )
+    ]
+    chat_answers = [
+        SimpleNamespace(
+            id=chat_answer_id,
+            search_request_id=search_request_id,
+            document_id=document_id,
+            question_text="What does the corpus say about vent stack sizing?",
+            mode="hybrid",
+            harness_name="wide_v2",
+        )
+    ]
+    answer_feedback_rows = [
+        SimpleNamespace(
+            chat_answer_id=chat_answer_id,
+            feedback_type="incomplete",
+            created_at=now + timedelta(minutes=2),
         )
     ]
 
@@ -168,14 +187,25 @@ def test_list_quality_eval_candidates_mines_eval_failures_and_live_search_gaps()
                 "DocumentRunEvaluation": evaluations,
                 "DocumentRunEvaluationQuery": evaluation_queries,
                 "SearchRequestRecord": search_requests,
+                "ChatAnswerRecord": chat_answers,
+                "ChatAnswerFeedback": answer_feedback_rows,
             }
             return FakeScalarResult(mapping[entity_name])
 
     rows = list_quality_eval_candidates(FakeSession(), limit=10)
 
-    assert len(rows) == 2
-    assert {row.candidate_type for row in rows} == {"evaluation_failure", "live_search_gap"}
-    assert {row.expected_result_type for row in rows} == {"table"}
+    assert len(rows) == 3
+    assert {row.candidate_type for row in rows} == {
+        "evaluation_failure",
+        "live_search_gap",
+        "answer_feedback_gap",
+    }
+    assert {
+        row.expected_result_type for row in rows if row.expected_result_type is not None
+    } == {"table"}
+    answer_gap = next(row for row in rows if row.candidate_type == "answer_feedback_gap")
+    assert answer_gap.chat_answer_id == chat_answer_id
+    assert answer_gap.harness_name == "wide_v2"
 
 
 def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:

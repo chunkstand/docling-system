@@ -184,6 +184,7 @@ Named harnesses bundle:
 - a persisted config snapshot captured on every search request and replay run
 
 Use `GET /search/harnesses` to inspect the currently available harnesses.
+Use `POST /search/harness-evaluations` to compare two named harnesses across replay sources without leaving the operator surface.
 
 ## Tables
 
@@ -221,6 +222,11 @@ uv run docling-system-audit
 ```
 
 The ranking dataset export schema is documented in [docs/ranking_dataset_schema.md](./docs/ranking_dataset_schema.md).
+`GET /quality/eval-candidates` now mines three gap classes:
+
+- failed fixed-corpus evaluation queries
+- live search gaps such as zero-result or missing-table requests
+- unsupported or incomplete grounded chat answers
 
 ## Evaluation
 

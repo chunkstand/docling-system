@@ -313,6 +313,34 @@ body::before {
   gap: 8px;
 }
 
+.source-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(211, 180, 112, 0.14);
+  border-radius: 999px;
+  background: rgba(5, 8, 10, 0.45);
+  color: var(--muted);
+}
+
+.toggle-chip input {
+  margin: 0;
+  accent-color: var(--accent-hot);
+}
+
+.toggle-chip span {
+  font-size: 0.92rem;
+}
+
 .chat-form textarea,
 .search-form input,
 .chat-form select,

@@ -17,6 +17,8 @@ These rows are mined from persisted direct-search operator labels and are intend
 Fields:
 
 - `dataset_type`
+- `row_schema_version`
+- `metadata_era`
 - `feedback_id`
 - `feedback_type`
 - `search_request_id`
@@ -24,6 +26,7 @@ Fields:
 - `reranker_name`
 - `reranker_version`
 - `retrieval_profile_name`
+- `harness_config`
 - `query_text`
 - `mode`
 - `filters`
@@ -36,6 +39,8 @@ Fields:
 
 Notes:
 
+- `row_schema_version = 2` for the current export contract.
+- `metadata_era` distinguishes `harness_v1` rows from `legacy_pre_harness` rows so downstream fitting code can choose whether to include older feedback.
 - `result_rank`, `result_type`, `result_id`, and `rerank_features` are null or empty for request-level labels such as `no_answer`, `missing_table`, and `missing_chunk`.
 - `rerank_features` is the persisted feature snapshot from the original ranked result row.
 
@@ -48,9 +53,16 @@ These rows are mined from persisted replay-suite query executions and are intend
 Fields:
 
 - `dataset_type`
+- `row_schema_version`
+- `metadata_era`
 - `replay_query_id`
 - `replay_run_id`
+- `source_type`
 - `harness_name`
+- `reranker_name`
+- `reranker_version`
+- `retrieval_profile_name`
+- `harness_config`
 - `query_text`
 - `mode`
 - `filters`
@@ -69,6 +81,8 @@ Fields:
 
 Notes:
 
+- `row_schema_version = 2` for the current export contract.
+- `metadata_era` distinguishes modern harness-era replay rows from older replay rows that predate persisted harness snapshots.
 - `details` includes source metadata such as `source_reason`, `feedback_type`, `embedding_status`, `harness_name`, `reranker_name`, `reranker_version`, and `retrieval_profile_name` when available.
 - Replay rows are useful for offline harness comparison because they preserve both the query and the observed delta signals.
 

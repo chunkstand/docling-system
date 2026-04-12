@@ -231,6 +231,46 @@
               <div id="quality-trends" class="tables-list empty">
                 Search and feedback trends will appear here.
               </div>
+              <form id="harness-eval-form" class="search-form">
+                <div class="control-group">
+                  <label class="field-label" for="harness-eval-baseline">Baseline harness</label>
+                  <select id="harness-eval-baseline" name="baseline_harness_name"></select>
+                </div>
+                <div class="control-group">
+                  <label class="field-label" for="harness-eval-candidate">Candidate harness</label>
+                  <select id="harness-eval-candidate" name="candidate_harness_name"></select>
+                </div>
+                <div class="control-group">
+                  <label class="field-label" for="harness-eval-limit">Eval limit</label>
+                  <input
+                    id="harness-eval-limit"
+                    name="limit"
+                    type="number"
+                    min="1"
+                    max="200"
+                    value="12"
+                  />
+                </div>
+                <button class="primary-button" type="submit">Run harness eval</button>
+              </form>
+              <div id="harness-eval-sources" class="source-toggle-group" role="group" aria-label="Harness evaluation sources">
+                <label class="toggle-chip">
+                  <input type="checkbox" value="evaluation_queries" checked />
+                  <span>Evaluation queries</span>
+                </label>
+                <label class="toggle-chip">
+                  <input type="checkbox" value="feedback" checked />
+                  <span>Feedback labels</span>
+                </label>
+                <label class="toggle-chip">
+                  <input type="checkbox" value="live_search_gaps" checked />
+                  <span>Live search gaps</span>
+                </label>
+              </div>
+              <div id="harness-eval-feedback" class="feedback muted" aria-live="polite"></div>
+              <div id="harness-eval-results" class="tables-list empty">
+                Harness evaluation will appear here.
+              </div>
               <form id="replay-run-form" class="search-form">
                 <div class="control-group">
                   <label class="field-label" for="replay-source-type">Replay source</label>

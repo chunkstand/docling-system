@@ -82,6 +82,8 @@ class QualityEvaluationCandidateResponse(BaseModel):
     source_filename: str | None = None
     evaluation_id: UUID | None = None
     search_request_id: UUID | None = None
+    chat_answer_id: UUID | None = None
+    harness_name: str | None = None
 
 
 class QualitySearchTrendPointResponse(BaseModel):
