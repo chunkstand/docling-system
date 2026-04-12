@@ -39,6 +39,7 @@ docling-system-cleanup = "app.maintenance:run_cleanup"
 docling-system-ingest-file = "app.cli:run_ingest_file"
 docling-system-eval-run = "app.cli:run_eval_run"
 docling-system-eval-corpus = "app.cli:run_eval_corpus"
+docling-system-audit = "app.cli:run_audit"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

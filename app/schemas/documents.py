@@ -57,3 +57,21 @@ class DocumentDetailResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     latest_error_message: str | None = None
+
+
+class DocumentRunSummaryResponse(BaseModel):
+    run_id: UUID
+    run_number: int
+    status: str
+    attempts: int
+    validation_status: str | None = None
+    chunk_count: int | None = None
+    table_count: int | None = None
+    figure_count: int | None = None
+    error_message: str | None = None
+    failure_stage: str | None = None
+    has_failure_artifact: bool = False
+    is_active_run: bool = False
+    created_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None

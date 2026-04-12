@@ -84,6 +84,8 @@ def cleanup_superseded_runs(session: Session, storage_service: StorageService) -
             run = session.get(DocumentRun, run_id)
             if run is None:
                 continue
+            if run.failure_artifact_path:
+                Path(run.failure_artifact_path).unlink(missing_ok=True)
             if run.docling_json_path:
                 Path(run.docling_json_path).unlink(missing_ok=True)
             if run.yaml_path:
@@ -129,6 +131,8 @@ def cleanup_expired_failed_run_artifacts(
         if run_dir.exists():
             storage_service.delete_tree_if_exists(run_dir)
             cleaned += 1
+        if run.failure_artifact_path:
+            run.failure_artifact_path = None
         if run.docling_json_path:
             run.docling_json_path = None
         if run.yaml_path:

@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
 from app.schemas.documents import (
     DocumentDetailResponse,
+    DocumentRunSummaryResponse,
     DocumentSummaryResponse,
     DocumentUploadResponse,
 )
@@ -429,6 +430,46 @@ def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadRes
         status=run.status,
         duplicate=False,
     )
+
+
+def list_document_runs(
+    session: Session, document_id: UUID, limit: int = 20
+) -> list[DocumentRunSummaryResponse]:
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+
+    runs = (
+        session.execute(
+            select(DocumentRun)
+            .where(DocumentRun.document_id == document_id)
+            .order_by(DocumentRun.run_number.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+
+    return [
+        DocumentRunSummaryResponse(
+            run_id=run.id,
+            run_number=run.run_number,
+            status=run.status,
+            attempts=run.attempts,
+            validation_status=run.validation_status,
+            chunk_count=run.chunk_count,
+            table_count=run.table_count,
+            figure_count=run.figure_count,
+            error_message=run.error_message,
+            failure_stage=run.failure_stage,
+            has_failure_artifact=bool(run.failure_artifact_path),
+            is_active_run=run.id == document.active_run_id,
+            created_at=run.created_at,
+            started_at=run.started_at,
+            completed_at=run.completed_at,
+        )
+        for run in runs
+    ]
 
 
 def get_latest_document_evaluation_detail(session: Session, document_id: UUID):

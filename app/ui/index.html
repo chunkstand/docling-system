@@ -151,6 +151,9 @@
             </div>
             <div class="status-actions">
               <button class="secondary-button" id="refresh-button" type="button">Refresh</button>
+              <button class="secondary-button" id="clear-selection-button" type="button">
+                Clear selection
+              </button>
               <button class="secondary-button" id="reprocess-button" type="button">Reprocess</button>
             </div>
             <div id="status-feedback" class="feedback muted" aria-live="polite"></div>
@@ -236,6 +239,14 @@
               </div>
               <div id="evaluation-feedback" class="feedback muted" aria-live="polite"></div>
               <div id="evaluation-queries" class="tables-list empty">No evaluation results yet.</div>
+            </section>
+
+            <section class="detail-block">
+              <div class="panel-header compact">
+                <p class="section-label">Run History</p>
+                <h3>Recent processing attempts</h3>
+              </div>
+              <div id="runs-list" class="tables-list empty">No recent runs yet.</div>
             </section>
           </div>
 

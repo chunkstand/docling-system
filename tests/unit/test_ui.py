@@ -13,4 +13,6 @@ def test_index_serves_ui() -> None:
     assert "Grounded Answer Workspace" in response.text
     assert "Live ingestion and telemetry" in response.text
     assert "Logical tables" in response.text
+    assert "Recent processing attempts" in response.text
+    assert "Clear selection" in response.text
     assert "/ui/app.js" in response.text

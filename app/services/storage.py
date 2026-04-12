@@ -98,6 +98,9 @@ class StorageService:
     ) -> Path:
         return self.get_figure_dir(document_id, run_id) / f"{figure_index}.yaml"
 
+    def get_failure_artifact_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.get_run_dir(document_id, run_id) / "failure.json"
+
     def delete_file_if_exists(self, path: Path) -> None:
         if path.exists():
             path.unlink()

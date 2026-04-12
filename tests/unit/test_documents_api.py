@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.db.models import DocumentRun
+from app.db.session import get_db_session
 
 
 def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
@@ -76,3 +80,65 @@ def test_latest_evaluation_route_uses_evaluation_service(monkeypatch) -> None:
     assert body["evaluation_id"] == str(evaluation_id)
     assert body["run_id"] == str(run_id)
     assert body["status"] == "completed"
+
+
+def test_document_runs_route_uses_run_history_service(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.list_document_runs",
+        lambda session, requested_document_id: [
+            {
+                "run_id": str(run_id),
+                "run_number": 2,
+                "status": "failed",
+                "attempts": 3,
+                "validation_status": "failed",
+                "chunk_count": 0,
+                "table_count": 0,
+                "figure_count": 0,
+                "error_message": "boom",
+                "failure_stage": "parse",
+                "has_failure_artifact": True,
+                "is_active_run": False,
+                "created_at": "2026-04-12T00:00:00Z",
+                "started_at": "2026-04-12T00:00:01Z",
+                "completed_at": "2026-04-12T00:00:02Z",
+            }
+        ],
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/documents/{document_id}/runs")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["run_id"] == str(run_id)
+    assert body[0]["failure_stage"] == "parse"
+    assert body[0]["has_failure_artifact"] is True
+
+
+def test_run_failure_artifact_route_serves_json(tmp_path: Path) -> None:
+    run_id = uuid4()
+    artifact_path = tmp_path / "failure.json"
+    artifact_path.write_text('{"error":"boom"}')
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == run_id:
+                return SimpleNamespace(id=run_id, failure_artifact_path=str(artifact_path))
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/runs/{run_id}/failure-artifact")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"error": "boom"}

@@ -54,7 +54,7 @@ def is_retryable_error(exc: Exception) -> bool:
     return not isinstance(exc, ValueError)
 
 
-def requeue_stale_runs(session: Session) -> int:
+def requeue_stale_runs(session: Session, storage_service: StorageService | None = None) -> int:
     settings = get_settings()
     stale_before = _utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
     stale_runs = session.execute(
@@ -75,6 +75,15 @@ def requeue_stale_runs(session: Session) -> int:
             run.completed_at = _utcnow()
             run.validation_status = run.validation_status or "failed"
             run.error_message = run.error_message or "Run exceeded max attempts after stale lease."
+            run.failure_stage = run.failure_stage or "stale_lease"
+            failure_path = _write_failure_artifact(
+                storage_service,
+                None,
+                run,
+                RuntimeError(run.error_message),
+                failure_stage=run.failure_stage,
+            )
+            run.failure_artifact_path = str(failure_path) if failure_path is not None else None
         else:
             run.status = RunStatus.RETRY_WAIT.value
             run.next_attempt_at = _utcnow()
@@ -116,6 +125,7 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
     run.next_attempt_at = None
     run.validation_status = "pending"
     run.validation_results_json = {}
+    run.failure_stage = None
     run.attempts += 1
     session.commit()
     session.refresh(run)
@@ -128,6 +138,51 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
 def heartbeat_run(session: Session, run: DocumentRun) -> None:
     run.last_heartbeat_at = _utcnow()
     session.commit()
+
+
+def _write_failure_artifact(
+    storage_service: StorageService | None,
+    document: Document | None,
+    run: DocumentRun,
+    exc: Exception,
+    *,
+    failure_stage: str | None,
+    report: ValidationReport | None = None,
+) -> Path | None:
+    if storage_service is None:
+        return None
+
+    document_id = getattr(document, "id", None) or getattr(run, "document_id", None)
+    if document_id is None:
+        return None
+
+    failure_path = storage_service.get_failure_artifact_path(document_id, run.id)
+    payload = {
+        "schema_version": "1.0",
+        "document_id": str(document_id),
+        "run_id": str(run.id),
+        "source_filename": getattr(document, "source_filename", None),
+        "source_path": getattr(document, "source_path", None),
+        "run_number": getattr(run, "run_number", None),
+        "status": getattr(run, "status", None),
+        "attempts": getattr(run, "attempts", None),
+        "failure_stage": failure_stage,
+        "failure_type": exc.__class__.__name__,
+        "error_message": str(exc),
+        "created_at": _utcnow().isoformat(),
+        "validation_status": getattr(run, "validation_status", None),
+        "docling_json_path": getattr(run, "docling_json_path", None),
+        "yaml_path": getattr(run, "yaml_path", None),
+        "chunk_count": getattr(run, "chunk_count", None),
+        "table_count": getattr(run, "table_count", None),
+        "figure_count": getattr(run, "figure_count", None),
+        "embedding_model": getattr(run, "embedding_model", None),
+        "embedding_dim": getattr(run, "embedding_dim", None),
+        "validation_results": getattr(run, "validation_results_json", None) or {},
+        "validation_report": report.details if report is not None else None,
+    }
+    failure_path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    return failure_path
 
 
 def _persist_parsed_artifacts(
@@ -513,6 +568,8 @@ def finalize_run_success(
     run: DocumentRun,
     parsed: ParsedDocument,
     report: ValidationReport,
+    *,
+    storage_service: StorageService | None = None,
 ) -> None:
     now = _utcnow()
     run.locked_at = None
@@ -524,9 +581,13 @@ def finalize_run_success(
     run.figure_count = len(parsed.figures)
     run.validation_status = "passed"
     run.validation_results_json = report.details
+    run.failure_stage = None
     run.completed_at = now
     run.status = RunStatus.COMPLETED.value
     run.error_message = None
+    if run.failure_artifact_path and storage_service is not None:
+        storage_service.delete_file_if_exists(Path(run.failure_artifact_path))
+    run.failure_artifact_path = None
     session.query(DocumentTable).filter(DocumentTable.run_id == run.id).update(
         {"status": "validated"}
     )
@@ -548,6 +609,9 @@ def finalize_run_failure(
     exc: Exception,
     report: ValidationReport | None = None,
     failure_stage: str | None = None,
+    *,
+    storage_service: StorageService | None = None,
+    document: Document | None = None,
 ) -> None:
     settings = get_settings()
     now = _utcnow()
@@ -555,7 +619,8 @@ def finalize_run_failure(
     run.locked_by = None
     run.last_heartbeat_at = None
     run.error_message = str(exc)
-    run.validation_results_json = run.validation_results_json or {}
+    run.failure_stage = failure_stage
+    run.validation_results_json = getattr(run, "validation_results_json", None) or {}
     run.validation_results_json["failure_type"] = exc.__class__.__name__
     if failure_stage:
         run.validation_results_json["failure_stage"] = failure_stage
@@ -569,13 +634,24 @@ def finalize_run_failure(
             {"status": "rejected"}
         )
 
-    if is_retryable_error(exc) and run.attempts < settings.worker_max_attempts:
-        backoff_seconds = min(60, 2 ** max(run.attempts - 1, 0))
+    attempts = int(getattr(run, "attempts", settings.worker_max_attempts))
+    if is_retryable_error(exc) and attempts < settings.worker_max_attempts:
+        backoff_seconds = min(60, 2 ** max(attempts - 1, 0))
         run.status = RunStatus.RETRY_WAIT.value
         run.next_attempt_at = now + timedelta(seconds=backoff_seconds)
     else:
         run.status = RunStatus.FAILED.value
         run.completed_at = now
+
+    failure_path = _write_failure_artifact(
+        storage_service,
+        document,
+        run,
+        exc,
+        failure_stage=failure_stage,
+        report=report,
+    )
+    run.failure_artifact_path = str(failure_path) if failure_path is not None else None
 
     session.commit()
 
@@ -602,10 +678,11 @@ def process_run(
         failure_stage = "parse"
         logger.info("run_processing_started", run_id=str(run.id), document_id=str(document.id))
         heartbeat_run(session, run)
-        parsed = parser.parse_pdf(
-            Path(document.source_path),
-            source_filename=document.source_filename,
-        )
+        parse_kwargs: dict[str, str] = {}
+        source_filename = getattr(document, "source_filename", None)
+        if source_filename is not None:
+            parse_kwargs["source_filename"] = source_filename
+        parsed = parser.parse_pdf(Path(document.source_path), **parse_kwargs)
         increment("tables_detected_total", len(parsed.raw_table_segments))
         heartbeat_run(session, run)
         failure_stage = "embedding"
@@ -646,7 +723,14 @@ def process_run(
         )
 
         failure_stage = "promotion"
-        finalize_run_success(session, document, run, parsed, report)
+        finalize_run_success(
+            session,
+            document,
+            run,
+            parsed,
+            report,
+            storage_service=storage_service,
+        )
         logger.info(
             "run_processing_completed",
             run_id=str(run.id),
@@ -662,7 +746,15 @@ def process_run(
         if run is None:
             raise
         report = exc.report if isinstance(exc, ValidationError) else None
-        finalize_run_failure(session, run, exc, report=report, failure_stage=failure_stage)
+        finalize_run_failure(
+            session,
+            run,
+            exc,
+            report=report,
+            failure_stage=failure_stage,
+            storage_service=storage_service,
+            document=document,
+        )
         logger.exception(
             "run_processing_failed",
             run_id=str(run.id),
@@ -687,7 +779,7 @@ def run_worker_loop() -> None:
 
     while True:
         with session_factory() as session:
-            requeue_stale_runs(session)
+            requeue_stale_runs(session, storage_service=storage_service)
             run = claim_next_run(session, worker_id)
             if run is None:
                 time.sleep(settings.worker_poll_seconds)

@@ -92,6 +92,8 @@ class DocumentRun(Base):
     last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
+    failure_stage: Mapped[str | None] = mapped_column(Text)
+    failure_artifact_path: Mapped[str | None] = mapped_column(Text)
     docling_json_path: Mapped[str | None] = mapped_column(Text)
     yaml_path: Mapped[str | None] = mapped_column(Text)
     chunk_count: Mapped[int | None] = mapped_column(Integer)

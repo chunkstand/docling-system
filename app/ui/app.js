@@ -1,5 +1,6 @@
 const state = {
   currentDocumentId: null,
+  selectionCleared: false,
   pollTimer: null,
   processTimer: null,
   activeProcessKind: null,
@@ -66,12 +67,14 @@ const evaluationSummaryPillEl = document.getElementById("evaluation-summary-pill
 const jsonLink = document.getElementById("json-link");
 const yamlLink = document.getElementById("yaml-link");
 const refreshButton = document.getElementById("refresh-button");
+const clearSelectionButton = document.getElementById("clear-selection-button");
 const reprocessButton = document.getElementById("reprocess-button");
 const chunksList = document.getElementById("chunks-list");
 const tablesList = document.getElementById("tables-list");
 const figuresList = document.getElementById("figures-list");
 const evaluationFeedback = document.getElementById("evaluation-feedback");
 const evaluationQueries = document.getElementById("evaluation-queries");
+const runsList = document.getElementById("runs-list");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
@@ -240,10 +243,30 @@ function renderDocuments(documents) {
   documentsList.querySelectorAll("[data-document-id]").forEach((button) => {
     button.addEventListener("click", () => {
       state.currentDocumentId = button.dataset.documentId;
+      state.selectionCleared = false;
       renderDocuments(documents);
       refreshCurrentDocument();
     });
   });
+}
+
+function resetDocumentSelectionState() {
+  documentIdEl.textContent = "No document selected";
+  documentPill.textContent = "None selected";
+  documentPill.className = "signal-value subtle";
+  activeRunStatusEl.textContent = "Unknown";
+  latestRunStatusEl.textContent = "Unknown";
+  validationStatusEl.textContent = "Unknown";
+  promotionStatusEl.textContent = "Unknown";
+  evaluationStatusEl.textContent = "Missing";
+  evaluationSummaryPillEl.textContent = "No evaluation";
+  setArtifactLink(jsonLink, "#", false);
+  setArtifactLink(yamlLink, "#", false);
+  renderChunks([]);
+  renderTables([], "");
+  renderFigures([], "");
+  renderEvaluation(null);
+  renderRuns([]);
 }
 
 function renderOverview(documents, metrics) {
@@ -454,6 +477,40 @@ function renderEvaluation(evaluation) {
     .join("");
 }
 
+function renderRuns(runs) {
+  if (!runs.length) {
+    runsList.className = "tables-list empty";
+    runsList.textContent = "No recent runs yet.";
+    return;
+  }
+
+  runsList.className = "tables-list";
+  runsList.innerHTML = runs
+    .map(
+      (run) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>Run ${run.run_number}</span>
+            <span>${escapeHtml(run.status)}</span>
+            <span>${escapeHtml(run.validation_status || "pending")}</span>
+            <span>${run.attempts} attempt${run.attempts === 1 ? "" : "s"}</span>
+            ${run.is_active_run ? "<span>active</span>" : ""}
+          </div>
+          <strong>${run.failure_stage ? `Failure stage: ${escapeHtml(run.failure_stage)}` : "No recorded failure stage"}</strong>
+          <p>${escapeHtml(run.error_message || "No run error recorded.")}</p>
+          <div class="artifact-links">
+            ${
+              run.has_failure_artifact
+                ? `<a href="/runs/${run.run_id}/failure-artifact" target="_blank" rel="noreferrer">Failure artifact</a>`
+                : '<span class="muted">No failure artifact</span>'
+            }
+          </div>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 function renderSearchResults(results) {
   if (!results.length) {
     searchResults.className = "search-results empty";
@@ -620,9 +677,23 @@ async function fetchLatestEvaluation(documentId) {
   return response.json();
 }
 
+async function fetchDocumentRuns(documentId) {
+  const response = await fetch(`/documents/${documentId}/runs`);
+  if (!response.ok) {
+    throw new Error("Unable to load run history.");
+  }
+  return response.json();
+}
+
 async function refreshDocuments() {
   const [documents, metrics] = await Promise.all([fetchDocuments(), fetchMetrics()]);
-  if (!state.currentDocumentId && documents.length) {
+  const selectionStillExists = documents.some(
+    (document) => document.document_id === state.currentDocumentId,
+  );
+  if (state.currentDocumentId && !selectionStillExists) {
+    state.currentDocumentId = null;
+  }
+  if (!state.currentDocumentId && documents.length && !state.selectionCleared) {
     state.currentDocumentId = documents[0].document_id;
   }
   renderDocuments(documents);
@@ -634,25 +705,23 @@ async function refreshDocuments() {
 
 async function refreshCurrentDocument() {
   if (!state.currentDocumentId) {
+    resetDocumentSelectionState();
     setFeedback(
       statusFeedback,
-      "No validated documents are loaded yet. Use docling-system-ingest-file to queue PDFs.",
+      "No document selected. Choose a validated document or run whole-corpus search and chat.",
     );
-    renderChunks([]);
-    renderTables([], "");
-    renderFigures([], "");
-    renderEvaluation(null);
-    documentPill.textContent = "None selected";
+    syncChatScopeState();
     return;
   }
 
   try {
-    const [document, chunks, tables, figures, evaluation] = await Promise.all([
+    const [document, chunks, tables, figures, evaluation, runs] = await Promise.all([
       fetchDocumentStatus(state.currentDocumentId),
       fetchChunks(state.currentDocumentId),
       fetchTables(state.currentDocumentId),
       fetchFigures(state.currentDocumentId),
       fetchLatestEvaluation(state.currentDocumentId),
+      fetchDocumentRuns(state.currentDocumentId),
     ]);
 
     documentIdEl.textContent = document.document_id;
@@ -681,6 +750,7 @@ async function refreshCurrentDocument() {
     renderTables(tables, document.document_id);
     renderFigures(figures, document.document_id);
     renderEvaluation(evaluation || document.latest_evaluation);
+    renderRuns(runs);
     syncChatScopeState();
   } catch (error) {
     setFeedback(statusFeedback, error.message || "Unable to refresh document state.");
@@ -699,6 +769,14 @@ function startPolling() {
 
 refreshButton.addEventListener("click", async () => {
   await refreshDocuments();
+  await refreshCurrentDocument();
+});
+
+clearSelectionButton.addEventListener("click", async () => {
+  state.currentDocumentId = null;
+  state.selectionCleared = true;
+  const documents = await fetchDocuments();
+  renderDocuments(documents);
   await refreshCurrentDocument();
 });
 

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
+from app.services.audit import run_integrity_audit
 from app.services.documents import ingest_local_file
 from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
 from app.services.storage import StorageService
@@ -111,3 +112,15 @@ def run_eval_corpus() -> None:
                 }
             )
     print(json.dumps(summaries))
+
+
+def run_audit() -> None:
+    parser = argparse.ArgumentParser(
+        description="Audit durable run and promotion invariants across the local corpus."
+    )
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        summary = run_integrity_audit(session)
+    print(json.dumps(summary))

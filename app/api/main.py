@@ -16,6 +16,7 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
     DocumentDetailResponse,
+    DocumentRunSummaryResponse,
     DocumentSummaryResponse,
     DocumentUploadResponse,
 )
@@ -29,6 +30,7 @@ from app.services.documents import (
     get_document_detail,
     get_latest_document_evaluation_detail,
     ingest_upload,
+    list_document_runs,
     list_documents,
     reprocess_document,
 )
@@ -91,6 +93,14 @@ def read_document(
     return get_document_detail(session, document_id)
 
 
+@app.get("/documents/{document_id}/runs", response_model=list[DocumentRunSummaryResponse])
+def read_document_runs(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> list[DocumentRunSummaryResponse]:
+    return list_document_runs(session, document_id)
+
+
 @app.get("/documents/{document_id}/evaluations/latest", response_model=EvaluationDetailResponse)
 def read_latest_document_evaluation(
     document_id: UUID,
@@ -151,6 +161,17 @@ def reprocess_existing_document(
 ) -> DocumentUploadResponse:
     response.status_code = 202
     return reprocess_document(session, document_id)
+
+
+@app.get("/runs/{run_id}/failure-artifact")
+def read_run_failure_artifact(
+    run_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    run = session.get(DocumentRun, run_id)
+    if run is None or not run.failure_artifact_path or not Path(run.failure_artifact_path).exists():
+        return Response(status_code=404)
+    return FileResponse(Path(run.failure_artifact_path), media_type="application/json")
 
 
 @app.get("/documents/{document_id}/artifacts/json")

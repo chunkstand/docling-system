@@ -10,6 +10,8 @@ The current workflow is operator-driven: use the CLI to ingest local PDFs, then 
 
 The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets.
 
+The system also records replayable failure artifacts for failed runs, exposes recent run history per document, and includes an audit CLI for checking run/promotion invariants against the local corpus.
+
 ## Current Contracts
 
 - `docling.json` is the canonical machine-readable document parse artifact.
@@ -110,6 +112,7 @@ Local path ingest policy:
 - `GET /documents`
 - `POST /documents`
 - `GET /documents/{document_id}`
+- `GET /documents/{document_id}/runs`
 - `GET /documents/{document_id}/evaluations/latest`
 - `GET /documents/{document_id}/chunks`
 - `GET /documents/{document_id}/tables`
@@ -123,6 +126,7 @@ Local path ingest policy:
 - `GET /documents/{document_id}/figures/{figure_id}/artifacts/json`
 - `GET /documents/{document_id}/figures/{figure_id}/artifacts/yaml`
 - `POST /documents/{document_id}/reprocess`
+- `GET /runs/{run_id}/failure-artifact`
 - `POST /search`
 - `POST /chat`
 
@@ -173,6 +177,7 @@ uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
+uv run docling-system-audit
 ```
 
 ## Evaluation

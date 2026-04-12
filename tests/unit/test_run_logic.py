@@ -5,7 +5,8 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.db.models import Document, DocumentRun
-from app.services.runs import is_retryable_error, process_run
+from app.services.runs import finalize_run_failure, is_retryable_error, process_run
+from app.services.storage import StorageService
 from app.services.validation import ValidationReport
 
 
@@ -105,7 +106,9 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     monkeypatch.setattr("app.services.runs.evaluate_run", fake_evaluate_run)
     monkeypatch.setattr(
         "app.services.runs.finalize_run_success",
-        lambda session, document, run, parsed, report: setattr(document, "active_run_id", run.id),
+        lambda session, document, run, parsed, report, **kwargs: setattr(
+            document, "active_run_id", run.id
+        ),
     )
 
     process_run(
@@ -117,3 +120,59 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     )
 
     assert observed["baseline_run_id"] == prior_active_run_id
+
+
+def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    run = SimpleNamespace(
+        id=run_id,
+        document_id=document_id,
+        attempts=3,
+        status="processing",
+        validation_results_json={},
+        failure_artifact_path=None,
+        failure_stage=None,
+    )
+    document = SimpleNamespace(
+        id=document_id,
+        source_filename="report.pdf",
+        source_path=str(tmp_path / "report.pdf"),
+    )
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.committed = False
+
+        def commit(self) -> None:
+            self.committed = True
+
+        def query(self, *_args, **_kwargs):
+            class FakeQuery:
+                def filter(self, *_args, **_kwargs):
+                    return self
+
+                def update(self, *_args, **_kwargs):
+                    return 0
+
+            return FakeQuery()
+
+    session = FakeSession()
+    finalize_run_failure(
+        session,
+        run,
+        RuntimeError("boom"),
+        failure_stage="parse",
+        storage_service=storage_service,
+        document=document,
+    )
+
+    assert session.committed is True
+    assert run.failure_stage == "parse"
+    assert run.failure_artifact_path is not None
+    artifact_path = Path(run.failure_artifact_path)
+    assert artifact_path.exists() is True
+    artifact = artifact_path.read_text()
+    assert "boom" in artifact
+    assert "parse" in artifact
