@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `d12fe12` (`Close learned harness gaps`)
+Latest committed checkpoint before this handoff update: `69148e9` (`Expand eval coverage and resolve stale candidates`)
 
 ## Executive Summary
 
@@ -33,6 +33,10 @@ The branch now includes:
   - fixed-corpus fixtures can now include grounded-answer checks in addition to retrieval hit checks
   - latest evaluation detail rows now surface `evaluation_kind = retrieval | answer`
   - stale `GET /quality/eval-candidates` rows now auto-resolve when later evidence closes the gap
+- post-eval gap cleanup:
+  - non-tabular chat questions now retry chunk-only retrieval when the first pass returns only tables
+  - low-signal unscoped one-token zero-result searches no longer become eval candidates
+  - the live unresolved candidate queue is now empty by default
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -53,6 +57,8 @@ What is now true:
 - all twelve active documents now have completed latest evaluations; none are `missing` or `skipped`
 - latest evaluation detail can now mix retrieval and grounded-answer checks in one persisted surface
 - `GET /quality/eval-candidates` defaults to unresolved rows, with resolved rows available via `include_resolved=true`
+- keyword chat can recover from table-heavy retrieval by switching to chunk-only evidence for non-tabular questions
+- the default unresolved eval-candidate queue is currently empty live
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently
@@ -285,6 +291,27 @@ Live result:
 - `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now includes an `evaluation_kind = "answer"` row for the Bitter Lesson answer contract
 - `GET /quality/eval-candidates?include_resolved=true` now shows historically fixed gaps as `resolution_status = "resolved"` when later evidence exists
 
+### 8. Candidate Queue Cleanup And Non-Tabular Chat Recovery
+
+Uncommitted changes captured by this handoff update:
+
+- `app/services/chat.py`
+  - non-tabular chat questions now retry chunk-only retrieval when the initial evidence set is all tables
+  - this keeps keyword chat from synthesizing answers from irrelevant table context on prose-style questions
+- `app/services/quality.py`
+  - unscoped one-token zero-result searches no longer become live eval candidates
+  - answer-gap resolution now treats internal chunk-only chat retries as the same question even though the retry persists `result_type = "chunk"`
+- tests added or updated:
+  - `tests/unit/test_chat_service.py`
+  - `tests/unit/test_quality_service.py`
+
+Live result:
+
+- `POST /chat` for `What does the corpus say about vent stacks?` in `keyword` mode with `wide_v2` now returns chunk citations and a materially better grounded answer instead of table-only context
+- posting `helpful` feedback on the repaired vent-stack answer resolves the historical `answer_feedback_gap`
+- `GET /quality/eval-candidates` now returns an empty list live
+- resolved history is still available from `GET /quality/eval-candidates?include_resolved=true`
+
 ## Current Runtime State
 
 At handoff time:
@@ -301,6 +328,7 @@ At handoff time:
   - `test_pdf_prose`
   - `nsf_ai_ready_america_figures`
   - `openrouter_spend_report_tables`
+- the default unresolved eval-candidate queue is empty
 
 Live audit result:
 
@@ -340,8 +368,10 @@ Recent live replay/feedback verification:
 - `GET /quality/trends` now includes `answer_feedback_counts`
 - `GET /quality/eval-candidates` now includes `answer_feedback_gap` rows from grounded chat feedback
 - `GET /quality/eval-candidates` now defaults to unresolved rows and supports `include_resolved=true`
+- `GET /quality/eval-candidates` now returns `[]` live after the vent-stack repair and low-signal candidate filtering
 - direct keyword search for `What is the main claim of The Bitter Lesson?` now persists `keyword_strategy = "relaxed_or"` and returns the expected prose chunks
 - `POST /chat` for the same query now returns a grounded answer with citations from `The Bitter Lesson.pdf`
+- `POST /chat` for `What does the corpus say about vent stacks?` in `keyword` mode now returns chunk citations instead of table-only context
 - `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now reports fixture `bitter_lesson_prose` with `passed_queries = 5`, including one answer-level check
 - `uv run docling-system-eval-corpus` completed live with completed latest evaluations for all twelve active documents
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
@@ -403,6 +433,9 @@ curl -i -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/j
 curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What is the main claim of The Bitter Lesson?","mode":"keyword","top_k":4,"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}'
 curl -sS http://127.0.0.1:8000/documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest
 curl -sS 'http://127.0.0.1:8000/quality/eval-candidates?include_resolved=true&limit=20'
+curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":4,"harness_name":"wide_v2"}'
+curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"helpful","note":"Chunk-only retry surfaced usable vent stack context."}'
+curl -sS http://127.0.0.1:8000/quality/eval-candidates | jq
 ```
 
 Key results:
@@ -423,6 +456,8 @@ Key results:
 - `uv run docling-system-eval-corpus` completed live and eliminated the previously skipped latest evaluation rows
 - evaluation detail now shows persisted `evaluation_kind = "answer"` rows alongside retrieval checks
 - `GET /quality/eval-candidates?include_resolved=true` now shows resolved historical gaps with `resolution_status`, `resolved_at`, and `resolution_reason`
+- `GET /quality/eval-candidates` is now empty live because the remaining actionable gap was resolved and low-signal zero-result noise is filtered out
+- keyword chat over vent-stack questions now recovers with chunk citations instead of table-only evidence
 - generic keyword questions over prose docs no longer fail closed when strict lexical matching returns zero hits
 
 ## Current Contracts To Preserve

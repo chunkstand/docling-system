@@ -226,3 +226,72 @@ def test_answer_question_can_skip_persistence_for_evaluations(monkeypatch) -> No
     assert captured["origin"] == "evaluation_answer_candidate"
     assert captured["run_id"] == result.run_id
     assert captured["evaluation_id"] == evaluation_id
+
+
+def test_answer_question_retries_with_chunk_only_context_when_tables_dominate(
+    monkeypatch,
+) -> None:
+    table_result = SearchResult(
+        result_type="table",
+        document_id=uuid4(),
+        run_id=uuid4(),
+        score=6.7,
+        table_id=uuid4(),
+        table_title="TABLE 510.1.2",
+        table_heading="510.1.2 Elbows",
+        table_preview="preview",
+        row_count=10,
+        col_count=3,
+        page_from=10,
+        page_to=11,
+        source_filename="UPC_CH_5.pdf",
+        scores=SearchScores(keyword_score=6.7, semantic_score=None, hybrid_score=None),
+    )
+    chunk_result = _chunk_result()
+    calls: list[tuple[str | None, str]] = []
+
+    class FakeExecution:
+        def __init__(self, results, request_id):
+            self.results = results
+            self.request_id = request_id
+            self.harness_name = "wide_v2"
+            self.reranker_name = "linear_feature_reranker"
+            self.reranker_version = "v2"
+            self.retrieval_profile_name = "wide_v2"
+
+    def fake_execute_search(
+        session,
+        request,
+        origin="api",
+        run_id=None,
+        evaluation_id=None,
+        parent_request_id=None,
+    ):
+        result_type = request.filters.result_type if request.filters else None
+        calls.append((result_type, request.query))
+        if result_type == "chunk":
+            return FakeExecution([chunk_result], uuid4())
+        return FakeExecution([table_result], uuid4())
+
+    monkeypatch.setattr("app.services.chat.execute_search", fake_execute_search)
+    generator = FakeAnswerGenerator()
+    session = FakeSession()
+
+    response = answer_question(
+        session=session,
+        request=ChatRequest(
+            question="What does the corpus say about vent stacks?",
+            mode="keyword",
+            top_k=4,
+            harness_name="wide_v2",
+        ),
+        answer_generator=generator,
+    )
+
+    assert calls == [
+        (None, "What does the corpus say about vent stacks?"),
+        ("chunk", "What does the corpus say about vent stacks?"),
+    ]
+    assert response.used_fallback is False
+    assert response.citations[0].result_type == "chunk"
+    assert response.chat_answer_id is not None

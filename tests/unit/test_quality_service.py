@@ -280,6 +280,168 @@ def test_list_quality_eval_candidates_marks_stale_candidates_resolved() -> None:
     assert resolved_rows[0].resolved_at == now + timedelta(minutes=5)
 
 
+def test_list_quality_eval_candidates_ignores_low_signal_unscoped_zero_result_queries() -> None:
+    now = _timestamp()
+    search_requests = [
+        SimpleNamespace(
+            id=uuid4(),
+            origin="api",
+            query_text="docling",
+            mode="keyword",
+            filters_json={},
+            tabular_query=False,
+            table_hit_count=0,
+            result_count=0,
+            created_at=now,
+            evaluation_id=None,
+            harness_name="default_v1",
+        ),
+        SimpleNamespace(
+            id=uuid4(),
+            origin="api",
+            query_text="vent stack sizing",
+            mode="keyword",
+            filters_json={},
+            tabular_query=False,
+            table_hit_count=0,
+            result_count=0,
+            created_at=now + timedelta(minutes=1),
+            evaluation_id=None,
+            harness_name="default_v1",
+        ),
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            mapping = {
+                "Document": [],
+                "DocumentRun": [],
+                "DocumentRunEvaluation": [],
+                "DocumentRunEvaluationQuery": [],
+                "SearchRequestRecord": search_requests,
+                "ChatAnswerRecord": [],
+                "ChatAnswerFeedback": [],
+            }
+            return FakeScalarResult(mapping[entity_name])
+
+    rows = list_quality_eval_candidates(FakeSession(), limit=10)
+
+    assert len(rows) == 1
+    assert rows[0].query_text == "vent stack sizing"
+
+
+def test_answer_feedback_gap_resolves_when_helpful_retry_uses_chunk_only_filter() -> None:
+    search_request_id = uuid4()
+    helpful_search_request_id = uuid4()
+    original_answer_id = uuid4()
+    helpful_answer_id = uuid4()
+    now = _timestamp()
+
+    search_requests = [
+        SimpleNamespace(
+            id=search_request_id,
+            origin="chat",
+            query_text="What does the corpus say about vent stacks?",
+            mode="keyword",
+            filters_json={},
+            tabular_query=False,
+            table_hit_count=0,
+            result_count=0,
+            created_at=now,
+            evaluation_id=None,
+            harness_name="wide_v2",
+        ),
+        SimpleNamespace(
+            id=helpful_search_request_id,
+            origin="chat",
+            query_text="What does the corpus say about vent stacks?",
+            mode="keyword",
+            filters_json={"result_type": "chunk"},
+            tabular_query=False,
+            table_hit_count=0,
+            result_count=4,
+            created_at=now + timedelta(minutes=5),
+            evaluation_id=None,
+            harness_name="wide_v2",
+        ),
+    ]
+    chat_answers = [
+        SimpleNamespace(
+            id=original_answer_id,
+            search_request_id=search_request_id,
+            document_id=None,
+            question_text="What does the corpus say about vent stacks?",
+            mode="keyword",
+            harness_name="wide_v2",
+        ),
+        SimpleNamespace(
+            id=helpful_answer_id,
+            search_request_id=helpful_search_request_id,
+            document_id=None,
+            question_text="What does the corpus say about vent stacks?",
+            mode="keyword",
+            harness_name="wide_v2",
+        ),
+    ]
+    answer_feedback_rows = [
+        SimpleNamespace(
+            chat_answer_id=original_answer_id,
+            feedback_type="incomplete",
+            created_at=now + timedelta(minutes=1),
+        ),
+        SimpleNamespace(
+            chat_answer_id=helpful_answer_id,
+            feedback_type="helpful",
+            created_at=now + timedelta(minutes=6),
+        ),
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            mapping = {
+                "Document": [],
+                "DocumentRun": [],
+                "DocumentRunEvaluation": [],
+                "DocumentRunEvaluationQuery": [],
+                "SearchRequestRecord": search_requests,
+                "ChatAnswerRecord": chat_answers,
+                "ChatAnswerFeedback": answer_feedback_rows,
+            }
+            return FakeScalarResult(mapping[entity_name])
+
+    unresolved_rows = list_quality_eval_candidates(FakeSession(), limit=10)
+    resolved_rows = list_quality_eval_candidates(FakeSession(), limit=10, include_resolved=True)
+
+    assert len(unresolved_rows) == 1
+    assert unresolved_rows[0].candidate_type == "live_search_gap"
+    answer_rows = [row for row in resolved_rows if row.candidate_type == "answer_feedback_gap"]
+    assert len(answer_rows) == 1
+    assert answer_rows[0].resolution_status == "resolved"
+    assert answer_rows[0].resolution_reason == "later chat answer feedback marked helpful"
+
+
 def test_get_quality_trends_aggregates_search_feedback_and_replays() -> None:
     now = _timestamp()
     search_requests = [

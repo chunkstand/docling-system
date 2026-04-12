@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -257,6 +258,20 @@ def _evaluation_kind(details: dict | None) -> str:
     return (details or {}).get("evaluation_kind", "retrieval")
 
 
+def _is_actionable_zero_result_gap(query_text: str, filters: dict) -> bool:
+    if (filters or {}).get("document_id") is not None:
+        return True
+    tokens = [token for token in re.findall(r"[A-Za-z0-9]+", query_text.lower()) if len(token) > 2]
+    return len(tokens) >= 2
+
+
+def _normalize_answer_gap_filters(filters: dict | None) -> dict:
+    normalized = dict(filters or {})
+    if normalized.get("result_type") == "chunk":
+        normalized.pop("result_type", None)
+    return normalized
+
+
 def _filters_for_answer(
     answer: ChatAnswerRecord,
     request_row: SearchRequestRecord | None,
@@ -264,7 +279,7 @@ def _filters_for_answer(
     filters = request_row.filters_json if request_row is not None else {}
     if not filters and answer.document_id is not None:
         filters = {"document_id": str(answer.document_id)}
-    return filters
+    return _normalize_answer_gap_filters(filters)
 
 
 def _resolve_candidate_status(
@@ -432,6 +447,8 @@ def list_quality_eval_candidates(
         filters = row.filters_json or {}
         if row.result_count == 0:
             reason = "live search returned no results"
+            if not _is_actionable_zero_result_gap(row.query_text, filters):
+                continue
         elif (
             row.tabular_query
             and filters.get("result_type") != "chunk"

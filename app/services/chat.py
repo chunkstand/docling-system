@@ -22,7 +22,7 @@ from app.schemas.chat import (
     ChatResponse,
 )
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
-from app.services.search import execute_search
+from app.services.search import _is_tabular_query, execute_search
 
 MAX_CONTEXT_EXCERPT_CHARS = 700
 FALLBACK_CITATION_COUNT = 3
@@ -257,6 +257,14 @@ def _execute_chat_search(
     return execute_search(session, request, **kwargs)
 
 
+def _all_table_citations(citations: list[ChatCitation]) -> bool:
+    return bool(citations) and all(item.result_type == "table" for item in citations)
+
+
+def _chunk_only_filters(document_id: UUID | None) -> SearchFilters:
+    return SearchFilters(document_id=document_id, result_type="chunk")
+
+
 def answer_question(
     session: Session,
     request: ChatRequest,
@@ -306,6 +314,27 @@ def answer_question(
             if retry_citations:
                 execution = retry_execution
                 citations = retry_citations
+
+    if citations and not _is_tabular_query(request.question) and _all_table_citations(citations):
+        chunk_retry_request = SearchRequest(
+            query=request.question,
+            mode=request.mode,
+            filters=_chunk_only_filters(request.document_id),
+            limit=request.top_k,
+            harness_name=request.harness_name,
+        )
+        chunk_retry_execution = _execute_chat_search(
+            session,
+            chunk_retry_request,
+            origin=origin,
+            run_id=run_id,
+            evaluation_id=evaluation_id,
+            parent_request_id=execution.request_id,
+        )
+        chunk_retry_citations = _build_citations(chunk_retry_execution.results)
+        if chunk_retry_citations:
+            execution = chunk_retry_execution
+            citations = chunk_retry_citations
 
     if not citations:
         response = ChatResponse(
