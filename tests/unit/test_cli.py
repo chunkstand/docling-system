@@ -5,7 +5,7 @@ import sys
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.cli import run_audit, run_eval_run, run_ingest_file
+from app.cli import run_audit, run_backfill_legacy_audit, run_eval_run, run_ingest_file
 
 
 def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
@@ -116,3 +116,32 @@ def test_audit_cli_prints_summary(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output["checked_documents"] == 2
     assert output["violation_count"] == 1
+
+
+def test_backfill_legacy_audit_cli_prints_summary(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-backfill-legacy-audit"])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.backfill_legacy_run_audit_fields",
+        lambda session: {
+            "runs_scanned": 27,
+            "chunk_count_backfilled": 0,
+            "table_count_backfilled": 0,
+            "figure_count_backfilled": 14,
+            "failure_stage_backfilled": 1,
+            "failure_artifacts_updated": 1,
+        },
+    )
+
+    run_backfill_legacy_audit()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["runs_scanned"] == 27
+    assert output["figure_count_backfilled"] == 14
