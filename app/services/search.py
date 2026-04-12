@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
-from dataclasses import dataclass
+import uuid
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from time import perf_counter
+from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import Float, Select, and_, cast, false, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentChunk, DocumentTable
+from app.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentTable,
+    SearchRequestRecord,
+    SearchRequestResult,
+)
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult, SearchScores
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.telemetry import observe_search_results
@@ -16,6 +26,10 @@ from app.services.telemetry import observe_search_results
 TABULAR_QUERY_BOOST = 0.05
 TABLE_TITLE_EXACT_MATCH_BOOST = 0.04
 TABLE_TITLE_TOKEN_COVERAGE_BOOST = 0.02
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 @dataclass
@@ -37,6 +51,109 @@ class RankedResult:
     keyword_score: float | None = None
     semantic_score: float | None = None
     hybrid_score: float | None = None
+
+
+@dataclass
+class RerankedResult:
+    item: RankedResult
+    rank: int
+    base_rank: int | None
+    score: float
+    features: dict = field(default_factory=dict)
+
+
+@dataclass
+class SearchExecution:
+    results: list[SearchResult]
+    request_id: UUID | None
+    reranker_name: str
+    embedding_status: str
+    embedding_error: str | None
+    candidate_count: int
+    table_hit_count: int
+    duration_ms: float
+    details: dict = field(default_factory=dict)
+
+
+class SearchReranker(Protocol):
+    name: str
+
+    def rerank(
+        self,
+        items: list[RankedResult],
+        *,
+        request: SearchRequest,
+        score_getter: Callable[[RankedResult], float],
+        tabular_query: bool,
+    ) -> list[RerankedResult]:
+        ...
+
+
+class HeuristicSearchReranker:
+    name = "heuristic_v1"
+
+    def rerank(
+        self,
+        items: list[RankedResult],
+        *,
+        request: SearchRequest,
+        score_getter: Callable[[RankedResult], float],
+        tabular_query: bool,
+    ) -> list[RerankedResult]:
+        base_ranked = sorted(
+            items,
+            key=lambda item: (
+                -score_getter(item),
+                item.page_from if item.page_from is not None else 10**9,
+                str(item.result_id),
+            ),
+        )
+
+        annotated: list[RerankedResult] = []
+        for base_rank, item in enumerate(base_ranked, start=1):
+            base_score = score_getter(item)
+            tabular_boost = (
+                TABULAR_QUERY_BOOST if tabular_query and item.result_type == "table" else 0.0
+            )
+            title_match_boost = _table_title_match_boost(item, request.query)
+            exact_filter_priority = _exact_filter_priority(item, request.filters)
+            result_type_priority = _result_type_priority(item, tabular_query)
+            final_score = base_score + tabular_boost + title_match_boost
+            annotated.append(
+                RerankedResult(
+                    item=item,
+                    rank=0,
+                    base_rank=base_rank,
+                    score=final_score,
+                    features={
+                        "base_score": base_score,
+                        "tabular_boost": tabular_boost,
+                        "title_match_boost": title_match_boost,
+                        "exact_filter_priority": exact_filter_priority,
+                        "result_type_priority": result_type_priority,
+                        "final_score": final_score,
+                    },
+                )
+            )
+
+        ranked = sorted(
+            annotated,
+            key=lambda candidate: (
+                -candidate.score,
+                -candidate.features["exact_filter_priority"],
+                -candidate.features["result_type_priority"],
+                candidate.item.page_from if candidate.item.page_from is not None else 10**9,
+                str(candidate.item.result_id),
+            ),
+        )[: request.limit]
+
+        for rank, candidate in enumerate(ranked, start=1):
+            candidate.rank = rank
+        return ranked
+
+
+def get_default_reranker() -> SearchReranker:
+    return HeuristicSearchReranker()
 
 
 def _chunk_query(run_id: UUID | None = None) -> Select[tuple[DocumentChunk, Document]]:
@@ -305,84 +422,6 @@ def _result_type_priority(item: RankedResult, tabular_query: bool) -> int:
     return 1 if item.result_type == "chunk" else 0
 
 
-def _final_score(
-    item: RankedResult, base_score: float, tabular_query: bool, query: str | None = None
-) -> float:
-    boost = TABULAR_QUERY_BOOST if tabular_query and item.result_type == "table" else 0.0
-    boost += _table_title_match_boost(item, query)
-    return base_score + boost
-
-
-def _sort_ranked_results(
-    items: list[RankedResult],
-    *,
-    score_getter,
-    filters: SearchFilters | None,
-    tabular_query: bool,
-    limit: int,
-    query: str | None = None,
-) -> list[SearchResult]:
-    ranked = sorted(
-        items,
-        key=lambda item: (
-            -_final_score(item, score_getter(item), tabular_query, query),
-            -_exact_filter_priority(item, filters),
-            -_result_type_priority(item, tabular_query),
-            item.page_from if item.page_from is not None else 10**9,
-            str(item.result_id),
-        ),
-    )[:limit]
-    return [
-        _to_search_result(item, score=_final_score(item, score_getter(item), tabular_query, query))
-        for item in ranked
-    ]
-
-
-def _result_key(item: RankedResult) -> tuple[str, UUID]:
-    return item.result_type, item.result_id
-
-
-def _merge_hybrid_results(
-    keyword_results: list[RankedResult],
-    semantic_results: list[RankedResult],
-    limit: int,
-    filters: SearchFilters | None,
-    tabular_query: bool,
-    query: str | None = None,
-) -> list[SearchResult]:
-    merged: dict[tuple[str, UUID], RankedResult] = {}
-
-    for idx, result in enumerate(keyword_results, start=1):
-        current = merged.setdefault(_result_key(result), result)
-        current.keyword_score = result.keyword_score
-        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
-
-    for idx, result in enumerate(semantic_results, start=1):
-        current = merged.get(_result_key(result))
-        if current is None:
-            current = result
-            merged[_result_key(result)] = current
-        current.semantic_score = result.semantic_score
-        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
-
-    ranked = sorted(
-        merged.values(),
-        key=lambda item: (
-            -_final_score(item, item.hybrid_score or 0.0, tabular_query, query),
-            -_exact_filter_priority(item, filters),
-            -_result_type_priority(item, tabular_query),
-            item.page_from if item.page_from is not None else 10**9,
-            str(item.result_id),
-        ),
-    )[:limit]
-    return [
-        _to_search_result(
-            item, score=_final_score(item, item.hybrid_score or 0.0, tabular_query, query)
-        )
-        for item in ranked
-    ]
-
-
 def _to_search_result(item: RankedResult, score: float) -> SearchResult:
     return SearchResult(
         result_type=item.result_type,
@@ -409,15 +448,214 @@ def _to_search_result(item: RankedResult, score: float) -> SearchResult:
     )
 
 
-def search_documents(
+def _result_key(item: RankedResult) -> tuple[str, UUID]:
+    return item.result_type, item.result_id
+
+
+def _keyword_score(item: RankedResult) -> float:
+    return item.keyword_score or 0.0
+
+
+def _semantic_score(item: RankedResult) -> float:
+    return item.semantic_score or 0.0
+
+
+def _hybrid_score(item: RankedResult) -> float:
+    return item.hybrid_score or 0.0
+
+
+def _merge_hybrid_candidates(
+    keyword_results: list[RankedResult],
+    semantic_results: list[RankedResult],
+) -> list[RankedResult]:
+    merged: dict[tuple[str, UUID], RankedResult] = {}
+
+    for idx, result in enumerate(keyword_results, start=1):
+        current = merged.setdefault(_result_key(result), result)
+        current.keyword_score = result.keyword_score
+        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
+
+    for idx, result in enumerate(semantic_results, start=1):
+        current = merged.get(_result_key(result))
+        if current is None:
+            current = result
+            merged[_result_key(result)] = current
+        current.semantic_score = result.semantic_score
+        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
+
+    return list(merged.values())
+
+
+def _rerank_results(
+    items: list[RankedResult],
+    *,
+    request: SearchRequest,
+    score_getter: Callable[[RankedResult], float],
+    tabular_query: bool,
+    reranker: SearchReranker | None = None,
+) -> list[RerankedResult]:
+    active_reranker = reranker or get_default_reranker()
+    return active_reranker.rerank(
+        items,
+        request=request,
+        score_getter=score_getter,
+        tabular_query=tabular_query,
+    )
+
+
+def _sort_ranked_results(
+    items: list[RankedResult],
+    *,
+    score_getter,
+    filters: SearchFilters | None,
+    tabular_query: bool,
+    limit: int,
+    query: str | None = None,
+    reranker: SearchReranker | None = None,
+) -> list[SearchResult]:
+    reranked = _rerank_results(
+        items,
+        request=SearchRequest(
+            query=query or "ranked results",
+            mode="keyword",
+            filters=filters,
+            limit=limit,
+        ),
+        score_getter=score_getter,
+        tabular_query=tabular_query,
+        reranker=reranker,
+    )
+    return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
+
+
+def _merge_hybrid_results(
+    keyword_results: list[RankedResult],
+    semantic_results: list[RankedResult],
+    limit: int,
+    filters: SearchFilters | None,
+    tabular_query: bool,
+    query: str | None = None,
+) -> list[SearchResult]:
+    merged = _merge_hybrid_candidates(keyword_results, semantic_results)
+    reranked = _rerank_results(
+        merged,
+        request=SearchRequest(
+            query=query or "hybrid results",
+            mode="hybrid",
+            filters=filters,
+            limit=limit,
+        ),
+        score_getter=lambda item: item.hybrid_score or 0.0,
+        tabular_query=tabular_query,
+    )
+    return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
+
+
+def _result_label(item: RankedResult) -> str | None:
+    if item.result_type == "table":
+        return item.table_title or item.table_heading or item.table_preview
+    return item.heading or item.chunk_text
+
+
+def _result_preview(item: RankedResult) -> str | None:
+    return item.table_preview if item.result_type == "table" else item.chunk_text
+
+
+def _persist_search_execution(
+    session: Session | None,
+    *,
+    request: SearchRequest,
+    origin: str,
+    run_id: UUID | None,
+    evaluation_id: UUID | None,
+    parent_request_id: UUID | None,
+    tabular_query: bool,
+    reranker_name: str,
+    embedding_status: str,
+    embedding_error: str | None,
+    candidate_count: int,
+    duration_ms: float,
+    details: dict,
+    reranked_results: list[RerankedResult],
+) -> UUID | None:
+    if session is None or not hasattr(session, "add"):
+        return None
+
+    created_at = _utcnow()
+    filters_payload = (
+        request.filters.model_dump(mode="json", exclude_none=True) if request.filters else {}
+    )
+    search_request = SearchRequestRecord(
+        id=uuid.uuid4(),
+        parent_request_id=parent_request_id,
+        evaluation_id=evaluation_id,
+        run_id=run_id,
+        origin=origin,
+        query_text=request.query,
+        mode=request.mode,
+        filters_json=filters_payload,
+        details_json=details,
+        limit=request.limit,
+        tabular_query=tabular_query,
+        reranker_name=reranker_name,
+        embedding_status=embedding_status,
+        embedding_error=embedding_error,
+        candidate_count=candidate_count,
+        result_count=len(reranked_results),
+        table_hit_count=sum(1 for item in reranked_results if item.item.result_type == "table"),
+        duration_ms=duration_ms,
+        created_at=created_at,
+    )
+    session.add(search_request)
+    session.flush()
+
+    for candidate in reranked_results:
+        item = candidate.item
+        session.add(
+            SearchRequestResult(
+                id=uuid.uuid4(),
+                search_request_id=search_request.id,
+                rank=candidate.rank,
+                base_rank=candidate.base_rank,
+                result_type=item.result_type,
+                document_id=item.document_id,
+                run_id=item.run_id,
+                chunk_id=item.result_id if item.result_type == "chunk" else None,
+                table_id=item.result_id if item.result_type == "table" else None,
+                score=candidate.score,
+                keyword_score=item.keyword_score,
+                semantic_score=item.semantic_score,
+                hybrid_score=item.hybrid_score,
+                rerank_features_json=candidate.features,
+                page_from=item.page_from,
+                page_to=item.page_to,
+                source_filename=item.source_filename,
+                label=_result_label(item),
+                preview_text=_result_preview(item),
+                created_at=created_at,
+            )
+        )
+
+    session.flush()
+    return search_request.id
+
+
+def execute_search(
     session: Session,
     request: SearchRequest,
     embedding_provider: EmbeddingProvider | None = None,
     *,
     run_id: UUID | None = None,
-) -> list[SearchResult]:
+    origin: str = "api",
+    evaluation_id: UUID | None = None,
+    parent_request_id: UUID | None = None,
+    reranker: SearchReranker | None = None,
+) -> SearchExecution:
+    start = perf_counter()
+    active_reranker = reranker or get_default_reranker()
     tabular_query = _is_tabular_query(request.query)
     keyword_candidate_limit = max(request.limit * 5, 20)
+
     if run_id is None:
         keyword_results = _run_keyword_chunk_search(
             session, request, candidate_limit=keyword_candidate_limit
@@ -427,104 +665,165 @@ def search_documents(
         )
     else:
         keyword_results = _run_keyword_chunk_search(
-            session, request, candidate_limit=keyword_candidate_limit, run_id=run_id
+            session,
+            request,
+            candidate_limit=keyword_candidate_limit,
+            run_id=run_id,
         )
         keyword_results.extend(
             _run_keyword_table_search(
-                session, request, candidate_limit=keyword_candidate_limit, run_id=run_id
-            )
-        )
-
-    def keyword_fallback_results() -> list[SearchResult]:
-        return _sort_ranked_results(
-            keyword_results,
-            score_getter=lambda item: item.keyword_score or 0.0,
-            filters=request.filters,
-            tabular_query=tabular_query,
-            limit=request.limit,
-            query=request.query,
-        )
-
-    if request.mode == "keyword":
-        results = keyword_fallback_results()
-        observe_search_results(
-            sum(1 for item in results if item.result_type == "table"), mixed_request=False
-        )
-        return results
-
-    provider = embedding_provider
-    if provider is None:
-        try:
-            provider = get_embedding_provider()
-        except Exception:
-            results = keyword_fallback_results()
-            observe_search_results(
-                sum(1 for item in results if item.result_type == "table"),
-                mixed_request=request.mode == "hybrid",
-            )
-            return results
-
-    try:
-        query_embedding = provider.embed_texts([request.query])[0]
-    except Exception:
-        results = keyword_fallback_results()
-        observe_search_results(
-            sum(1 for item in results if item.result_type == "table"),
-            mixed_request=request.mode == "hybrid",
-        )
-        return results
-
-    semantic_candidate_limit = max(request.limit * 5, 20)
-    if run_id is None:
-        semantic_results = _run_semantic_chunk_search(
-            session, request, query_embedding, candidate_limit=semantic_candidate_limit
-        )
-        semantic_results.extend(
-            _run_semantic_table_search(
-                session, request, query_embedding, candidate_limit=semantic_candidate_limit
-            )
-        )
-    else:
-        semantic_results = _run_semantic_chunk_search(
-            session,
-            request,
-            query_embedding,
-            candidate_limit=semantic_candidate_limit,
-            run_id=run_id,
-        )
-        semantic_results.extend(
-            _run_semantic_table_search(
                 session,
                 request,
-                query_embedding,
-                candidate_limit=semantic_candidate_limit,
+                candidate_limit=keyword_candidate_limit,
                 run_id=run_id,
             )
         )
 
-    if request.mode == "semantic":
-        results = _sort_ranked_results(
-            semantic_results,
-            score_getter=lambda item: item.semantic_score or 0.0,
-            filters=request.filters,
-            tabular_query=tabular_query,
-            limit=request.limit,
-            query=request.query,
-        )
-        observe_search_results(
-            sum(1 for item in results if item.result_type == "table"), mixed_request=False
-        )
-        return results
+    keyword_details = {"keyword_candidate_count": len(keyword_results)}
+    embedding_status = "skipped"
+    embedding_error: str | None = None
+    served_mode = request.mode
+    fallback_reason: str | None = None
+    candidate_items: list[RankedResult] = keyword_results
+    score_getter: Callable[[RankedResult], float] = _keyword_score
+    semantic_results: list[RankedResult] = []
 
-    results = _merge_hybrid_results(
-        keyword_results,
-        semantic_results,
-        request.limit,
-        request.filters,
-        tabular_query,
-        query=request.query,
+    if request.mode != "keyword":
+        provider = embedding_provider
+        if provider is None:
+            try:
+                provider = get_embedding_provider()
+            except Exception as exc:
+                served_mode = "keyword"
+                embedding_status = "provider_unavailable"
+                embedding_error = str(exc)
+                fallback_reason = "embedding_provider_unavailable"
+                provider = None
+
+        if provider is not None:
+            try:
+                query_embedding = provider.embed_texts([request.query])[0]
+                embedding_status = "completed"
+                semantic_candidate_limit = max(request.limit * 5, 20)
+                if run_id is None:
+                    semantic_results = _run_semantic_chunk_search(
+                        session,
+                        request,
+                        query_embedding,
+                        candidate_limit=semantic_candidate_limit,
+                    )
+                    semantic_results.extend(
+                        _run_semantic_table_search(
+                            session,
+                            request,
+                            query_embedding,
+                            candidate_limit=semantic_candidate_limit,
+                        )
+                    )
+                else:
+                    semantic_results = _run_semantic_chunk_search(
+                        session,
+                        request,
+                        query_embedding,
+                        candidate_limit=semantic_candidate_limit,
+                        run_id=run_id,
+                    )
+                    semantic_results.extend(
+                        _run_semantic_table_search(
+                            session,
+                            request,
+                            query_embedding,
+                            candidate_limit=semantic_candidate_limit,
+                            run_id=run_id,
+                        )
+                    )
+            except Exception as exc:
+                served_mode = "keyword"
+                embedding_status = "embedding_failed"
+                embedding_error = str(exc)
+                fallback_reason = "embedding_failed"
+
+    if request.mode == "semantic" and embedding_status == "completed":
+        candidate_items = semantic_results
+        score_getter = _semantic_score
+        served_mode = "semantic"
+    elif request.mode == "hybrid" and embedding_status == "completed":
+        candidate_items = _merge_hybrid_candidates(keyword_results, semantic_results)
+        score_getter = _hybrid_score
+        served_mode = "hybrid"
+
+    details = {
+        **keyword_details,
+        "semantic_candidate_count": len(semantic_results),
+        "requested_mode": request.mode,
+        "served_mode": served_mode,
+    }
+    if fallback_reason is not None:
+        details["fallback_reason"] = fallback_reason
+
+    reranked_results = _rerank_results(
+        candidate_items,
+        request=request,
+        score_getter=score_getter,
+        tabular_query=tabular_query,
+        reranker=active_reranker,
     )
+    results = [_to_search_result(candidate.item, candidate.score) for candidate in reranked_results]
+
+    table_hit_count = sum(1 for item in results if item.result_type == "table")
     observe_search_results(
-        sum(1 for item in results if item.result_type == "table"), mixed_request=True
+        table_hit_count,
+        mixed_request=request.mode == "hybrid",
     )
-    return results
+    duration_ms = round((perf_counter() - start) * 1000, 3)
+    request_id = _persist_search_execution(
+        session,
+        request=request,
+        origin=origin,
+        run_id=run_id,
+        evaluation_id=evaluation_id,
+        parent_request_id=parent_request_id,
+        tabular_query=tabular_query,
+        reranker_name=active_reranker.name,
+        embedding_status=embedding_status,
+        embedding_error=embedding_error,
+        candidate_count=len(candidate_items),
+        duration_ms=duration_ms,
+        details=details,
+        reranked_results=reranked_results,
+    )
+
+    return SearchExecution(
+        results=results,
+        request_id=request_id,
+        reranker_name=active_reranker.name,
+        embedding_status=embedding_status,
+        embedding_error=embedding_error,
+        candidate_count=len(candidate_items),
+        table_hit_count=table_hit_count,
+        duration_ms=duration_ms,
+        details=details,
+    )
+
+
+def search_documents(
+    session: Session,
+    request: SearchRequest,
+    embedding_provider: EmbeddingProvider | None = None,
+    *,
+    run_id: UUID | None = None,
+    origin: str = "api",
+    evaluation_id: UUID | None = None,
+    parent_request_id: UUID | None = None,
+    reranker: SearchReranker | None = None,
+) -> list[SearchResult]:
+    return execute_search(
+        session,
+        request,
+        embedding_provider,
+        run_id=run_id,
+        origin=origin,
+        evaluation_id=evaluation_id,
+        parent_request_id=parent_request_id,
+        reranker=reranker,
+    ).results

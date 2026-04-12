@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Computed,
     DateTime,
@@ -198,6 +199,120 @@ class DocumentRunEvaluationQuery(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SearchRequestRecord(Base):
+    __tablename__ = "search_requests"
+    __table_args__ = (
+        CheckConstraint(
+            "mode IN ('keyword', 'semantic', 'hybrid')",
+            name="ck_search_requests_mode",
+        ),
+        Index("ix_search_requests_created_at", "created_at"),
+        Index("ix_search_requests_origin_created_at", "origin", "created_at"),
+        Index("ix_search_requests_evaluation_id", "evaluation_id"),
+        Index("ix_search_requests_parent_request_id", "parent_request_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parent_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    evaluation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_evaluations.id", ondelete="SET NULL"),
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_runs.id", ondelete="SET NULL"),
+    )
+    origin: Mapped[str] = mapped_column(Text, nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    mode: Mapped[str] = mapped_column(Text, nullable=False)
+    filters_json: Mapped[dict] = mapped_column(
+        "filters",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    tabular_query: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    reranker_name: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_status: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_error: Mapped[str | None] = mapped_column(Text)
+    candidate_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SearchRequestResult(Base):
+    __tablename__ = "search_request_results"
+    __table_args__ = (
+        CheckConstraint(
+            "result_type IN ('chunk', 'table')",
+            name="ck_search_request_results_result_type",
+        ),
+        UniqueConstraint(
+            "search_request_id",
+            "rank",
+            name="uq_search_request_results_request_rank",
+        ),
+        Index("ix_search_request_results_search_request_id", "search_request_id"),
+        Index("ix_search_request_results_result_type", "result_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_rank: Mapped[int | None] = mapped_column(Integer)
+    result_type: Mapped[str] = mapped_column(Text, nullable=False)
+    document_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    chunk_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    table_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    score: Mapped[float] = mapped_column(Float, nullable=False)
+    keyword_score: Mapped[float | None] = mapped_column(Float)
+    semantic_score: Mapped[float | None] = mapped_column(Float)
+    hybrid_score: Mapped[float | None] = mapped_column(Float)
+    rerank_features_json: Mapped[dict] = mapped_column(
+        "rerank_features",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    source_filename: Mapped[str] = mapped_column(Text, nullable=False)
+    label: Mapped[str | None] = mapped_column(Text)
+    preview_text: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

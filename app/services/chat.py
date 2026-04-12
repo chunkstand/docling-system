@@ -178,7 +178,7 @@ def answer_question(
         filters=filters,
         limit=request.top_k,
     )
-    results = search_documents(session, search_request)
+    results = search_documents(session, search_request, origin="chat")
     citations = _build_citations(results)
 
     if not citations:

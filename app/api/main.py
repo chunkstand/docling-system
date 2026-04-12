@@ -23,11 +23,17 @@ from app.schemas.documents import (
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.quality import (
+    QualityEvaluationCandidateResponse,
     QualityEvaluationStatusResponse,
     QualityFailuresResponse,
     QualitySummaryResponse,
 )
-from app.schemas.search import SearchRequest, SearchResult
+from app.schemas.search import (
+    SearchReplayResponse,
+    SearchRequest,
+    SearchRequestDetailResponse,
+    SearchResult,
+)
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.chat import answer_question
 from app.services.chunks import get_active_chunks
@@ -40,8 +46,14 @@ from app.services.documents import (
     reprocess_document,
 )
 from app.services.figures import get_active_figure_detail, get_active_figures
-from app.services.quality import get_quality_failures, get_quality_summary, list_quality_evaluations
-from app.services.search import search_documents
+from app.services.quality import (
+    get_quality_failures,
+    get_quality_summary,
+    list_quality_eval_candidates,
+    list_quality_evaluations,
+)
+from app.services.search import execute_search
+from app.services.search_history import get_search_request_detail, replay_search_request
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
@@ -86,6 +98,13 @@ def read_quality_evaluations(
     session: Session = Depends(get_db_session),
 ) -> list[QualityEvaluationStatusResponse]:
     return list_quality_evaluations(session)
+
+
+@app.get("/quality/eval-candidates", response_model=list[QualityEvaluationCandidateResponse])
+def read_quality_eval_candidates(
+    session: Session = Depends(get_db_session),
+) -> list[QualityEvaluationCandidateResponse]:
+    return list_quality_eval_candidates(session)
 
 
 @app.get("/documents", response_model=list[DocumentSummaryResponse])
@@ -304,9 +323,32 @@ def read_figure_yaml_artifact(
 @app.post("/search", response_model=list[SearchResult])
 def search_corpus(
     request: SearchRequest,
+    response: Response,
     session: Session = Depends(get_db_session),
 ) -> list[SearchResult]:
-    return search_documents(session, request)
+    execution = execute_search(session, request, origin="api")
+    session.commit()
+    if execution.request_id is not None:
+        response.headers["X-Search-Request-Id"] = str(execution.request_id)
+    return execution.results
+
+
+@app.get("/search/requests/{search_request_id}", response_model=SearchRequestDetailResponse)
+def read_search_request(
+    search_request_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchRequestDetailResponse:
+    return get_search_request_detail(session, search_request_id)
+
+
+@app.post("/search/requests/{search_request_id}/replay", response_model=SearchReplayResponse)
+def replay_logged_search(
+    search_request_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchReplayResponse:
+    replay = replay_search_request(session, search_request_id)
+    session.commit()
+    return replay
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -314,7 +356,9 @@ def chat_with_corpus(
     request: ChatRequest,
     session: Session = Depends(get_db_session),
 ) -> ChatResponse:
-    return answer_question(session, request)
+    response = answer_question(session, request)
+    session.commit()
+    return response
 
 
 def run() -> None:

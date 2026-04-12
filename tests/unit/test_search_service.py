@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from app.db.models import SearchRequestRecord, SearchRequestResult
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search import (
     RankedResult,
     _is_tabular_query,
     _merge_hybrid_results,
+    execute_search,
     search_documents,
 )
 
@@ -274,3 +276,74 @@ def test_search_documents_passes_explicit_run_scope(monkeypatch) -> None:
     assert results == []
     assert observed["chunk_run_id"] == scoped_run_id
     assert observed["table_run_id"] == scoped_run_id
+
+
+def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="doc.pdf",
+                page_from=3,
+                page_to=3,
+                chunk_text="vent stack content",
+                heading="Venting",
+                keyword_score=0.6,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="doc.pdf",
+                page_from=2,
+                page_to=2,
+                table_title="TABLE 1",
+                table_heading="Vent stack sizes",
+                table_preview="Diameter | Height",
+                row_count=2,
+                col_count=2,
+                keyword_score=0.7,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(query="table 1", mode="keyword", limit=5),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+    result_rows = [row for row in session.added if isinstance(row, SearchRequestResult)]
+
+    assert execution.request_id is not None
+    assert execution.reranker_name == "heuristic_v1"
+    assert request_rows[0].origin == "api"
+    assert request_rows[0].tabular_query is True
+    assert request_rows[0].details_json["served_mode"] == "keyword"
+    assert result_rows[0].rerank_features_json["final_score"] >= result_rows[0].score

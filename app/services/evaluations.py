@@ -313,9 +313,15 @@ def _table_matches_merge_expectation(
         return False
     if not _text_contains(getattr(table, "heading", None), expectation.heading_contains):
         return False
-    if expectation.page_from is not None and getattr(table, "page_from", None) != expectation.page_from:
+    if (
+        expectation.page_from is not None
+        and getattr(table, "page_from", None) != expectation.page_from
+    ):
         return False
-    if expectation.page_to is not None and getattr(table, "page_to", None) != expectation.page_to:
+    if (
+        expectation.page_to is not None
+        and getattr(table, "page_to", None) != expectation.page_to
+    ):
         return False
     if _source_segment_count(table) < expectation.minimum_source_segment_count:
         return False
@@ -439,7 +445,11 @@ def _summarize_structural_checks(
     matched_merged_ids: set[object] = set()
     expectation_results: list[dict] = []
     for expectation in thresholds.expected_merged_tables:
-        matches = [table for table in merged_tables if _table_matches_merge_expectation(table, expectation)]
+        matches = [
+            table
+            for table in merged_tables
+            if _table_matches_merge_expectation(table, expectation)
+        ]
         matched_merged_ids.update(id(table) for table in matches)
         expectation_results.append(
             {
@@ -459,7 +469,9 @@ def _summarize_structural_checks(
             }
         )
 
-    missing_expected_merges = [item["description"] for item in expectation_results if not item["passed"]]
+    missing_expected_merges = [
+        item["description"] for item in expectation_results if not item["passed"]
+    ]
     checks.append(
         {
             "name": "expected_merged_tables",
@@ -592,9 +604,21 @@ def evaluate_run(
                 limit=max(case.expected_top_n, 10),
             )
 
-            candidate_results = search_documents(session, request, run_id=run.id)
+            candidate_results = search_documents(
+                session,
+                request,
+                run_id=run.id,
+                origin="evaluation_candidate",
+                evaluation_id=evaluation.id,
+            )
             baseline_results = (
-                search_documents(session, request, run_id=baseline_run_id)
+                search_documents(
+                    session,
+                    request,
+                    run_id=baseline_run_id,
+                    origin="evaluation_baseline",
+                    evaluation_id=evaluation.id,
+                )
                 if baseline_run_id
                 else []
             )

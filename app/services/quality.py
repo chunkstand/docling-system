@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import dataclass
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentRun, DocumentRunEvaluation, RunStatus
+from app.db.models import (
+    Document,
+    DocumentRun,
+    DocumentRunEvaluation,
+    DocumentRunEvaluationQuery,
+    RunStatus,
+    SearchRequestRecord,
+)
 from app.schemas.quality import (
+    QualityEvaluationCandidateResponse,
     QualityEvaluationStatusResponse,
     QualityFailuresResponse,
     QualityFailureStageCountResponse,
@@ -201,3 +211,155 @@ def get_quality_failures(session: Session) -> QualityFailuresResponse:
     context = _load_quality_context(session)
     rows = build_quality_evaluation_rows(context)
     return build_quality_failures(context, rows)
+
+
+def _maybe_uuid(value: object) -> UUID | None:
+    if isinstance(value, UUID):
+        return value
+    if not value:
+        return None
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _candidate_key(
+    candidate_type: str,
+    reason: str,
+    query_text: str,
+    mode: str,
+    filters: dict,
+    expected_result_type: str | None,
+) -> tuple[str, str, str, str, str, str]:
+    return (
+        candidate_type,
+        reason,
+        query_text,
+        mode,
+        json.dumps(filters or {}, sort_keys=True),
+        expected_result_type or "",
+    )
+
+
+def list_quality_eval_candidates(
+    session: Session, *, limit: int = 12
+) -> list[QualityEvaluationCandidateResponse]:
+    documents = session.execute(select(Document)).scalars().all()
+    runs = session.execute(select(DocumentRun)).scalars().all()
+    evaluations = session.execute(select(DocumentRunEvaluation)).scalars().all()
+    evaluation_queries = session.execute(select(DocumentRunEvaluationQuery)).scalars().all()
+    search_requests = session.execute(select(SearchRequestRecord)).scalars().all()
+
+    documents_by_id = {document.id: document for document in documents}
+    runs_by_id = {run.id: run for run in runs}
+    evaluations_by_id = {evaluation.id: evaluation for evaluation in evaluations}
+
+    candidates: dict[tuple[str, str, str, str, str, str], QualityEvaluationCandidateResponse] = {}
+
+    for row in evaluation_queries:
+        if row.passed:
+            continue
+        evaluation = evaluations_by_id.get(row.evaluation_id)
+        run = runs_by_id.get(getattr(evaluation, "run_id", None))
+        document = documents_by_id.get(getattr(run, "document_id", None))
+        filters = row.filters_json or {}
+        key = _candidate_key(
+            "evaluation_failure",
+            "failed evaluation query",
+            row.query_text,
+            row.mode,
+            filters,
+            row.expected_result_type,
+        )
+        current = candidates.get(key)
+        if current is None:
+            current = QualityEvaluationCandidateResponse(
+                candidate_type="evaluation_failure",
+                reason="failed evaluation query",
+                query_text=row.query_text,
+                mode=row.mode,
+                filters=filters,
+                expected_result_type=row.expected_result_type,
+                fixture_name=getattr(evaluation, "fixture_name", None),
+                occurrence_count=0,
+                latest_seen_at=row.created_at,
+                document_id=getattr(document, "id", None),
+                source_filename=getattr(document, "source_filename", None),
+                evaluation_id=getattr(evaluation, "id", None),
+                search_request_id=None,
+            )
+            candidates[key] = current
+        current.occurrence_count += 1
+        if row.created_at >= current.latest_seen_at:
+            current.latest_seen_at = row.created_at
+            current.fixture_name = getattr(evaluation, "fixture_name", None)
+            current.document_id = getattr(document, "id", None)
+            current.source_filename = getattr(document, "source_filename", None)
+            current.evaluation_id = getattr(evaluation, "id", None)
+
+    for row in search_requests:
+        if row.origin not in {"api", "chat"}:
+            continue
+
+        reason: str | None = None
+        expected_result_type: str | None = None
+        filters = row.filters_json or {}
+        if row.result_count == 0:
+            reason = "live search returned no results"
+        elif (
+            row.tabular_query
+            and filters.get("result_type") != "chunk"
+            and row.table_hit_count == 0
+        ):
+            reason = "tabular search returned no table hits"
+            expected_result_type = "table"
+
+        if reason is None:
+            continue
+
+        document_id = _maybe_uuid(filters.get("document_id"))
+        document = documents_by_id.get(document_id)
+        key = _candidate_key(
+            "live_search_gap",
+            reason,
+            row.query_text,
+            row.mode,
+            filters,
+            expected_result_type,
+        )
+        current = candidates.get(key)
+        if current is None:
+            current = QualityEvaluationCandidateResponse(
+                candidate_type="live_search_gap",
+                reason=reason,
+                query_text=row.query_text,
+                mode=row.mode,
+                filters=filters,
+                expected_result_type=expected_result_type,
+                fixture_name=None,
+                occurrence_count=0,
+                latest_seen_at=row.created_at,
+                document_id=document_id,
+                source_filename=getattr(document, "source_filename", None),
+                evaluation_id=row.evaluation_id,
+                search_request_id=row.id,
+            )
+            candidates[key] = current
+        current.occurrence_count += 1
+        if row.created_at >= current.latest_seen_at:
+            current.latest_seen_at = row.created_at
+            current.document_id = document_id
+            current.source_filename = getattr(document, "source_filename", None)
+            current.evaluation_id = row.evaluation_id
+            current.search_request_id = row.id
+
+    rows = sorted(
+        candidates.values(),
+        key=lambda row: (
+            -row.occurrence_count,
+            -row.latest_seen_at.timestamp(),
+            row.query_text.lower(),
+        ),
+    )
+    return rows[:limit]

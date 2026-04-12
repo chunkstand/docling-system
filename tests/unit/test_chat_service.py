@@ -39,8 +39,9 @@ def test_answer_question_uses_retrieval_and_generator(monkeypatch) -> None:
     result = _chunk_result()
     captured = {}
 
-    def fake_search_documents(session, request):
+    def fake_search_documents(session, request, origin="api"):
         captured["request"] = request
+        captured["origin"] = origin
         return [result]
 
     monkeypatch.setattr("app.services.chat.search_documents", fake_search_documents)
@@ -63,12 +64,13 @@ def test_answer_question_uses_retrieval_and_generator(monkeypatch) -> None:
     assert response.citations[0].excerpt.startswith("Plastic vent joints shall be installed")
     assert captured["request"].filters.document_id == result.document_id
     assert captured["request"].limit == 4
+    assert captured["origin"] == "chat"
 
 
 def test_answer_question_falls_back_without_generator(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.chat.search_documents",
-        lambda session, request: [_chunk_result()],
+        lambda session, request, origin="api": [_chunk_result()],
     )
     monkeypatch.setattr("app.services.chat.get_answer_generator", lambda: None)
 

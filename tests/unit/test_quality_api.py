@@ -130,3 +130,36 @@ def test_quality_failures_route_uses_quality_service(monkeypatch) -> None:
     body = response.json()
     assert body["evaluation_failures"][0]["evaluation_status"] == "missing"
     assert body["run_failures"][0]["failure_stage"] == "validation"
+
+
+def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None:
+    search_request_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.list_quality_eval_candidates",
+        lambda session: [
+            {
+                "candidate_type": "live_search_gap",
+                "reason": "tabular search returned no table hits",
+                "query_text": "table 701.2",
+                "mode": "hybrid",
+                "filters": {},
+                "expected_result_type": "table",
+                "fixture_name": None,
+                "occurrence_count": 3,
+                "latest_seen_at": "2026-04-12T00:00:00Z",
+                "document_id": None,
+                "source_filename": None,
+                "evaluation_id": None,
+                "search_request_id": str(search_request_id),
+            }
+        ],
+    )
+
+    client = TestClient(app)
+    response = client.get("/quality/eval-candidates")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["candidate_type"] == "live_search_gap"
+    assert body[0]["search_request_id"] == str(search_request_id)

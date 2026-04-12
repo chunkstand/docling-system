@@ -66,3 +66,19 @@ class QualitySummaryResponse(BaseModel):
 class QualityFailuresResponse(BaseModel):
     evaluation_failures: list[QualityEvaluationStatusResponse]
     run_failures: list[QualityRunFailureResponse]
+
+
+class QualityEvaluationCandidateResponse(BaseModel):
+    candidate_type: str
+    reason: str
+    query_text: str
+    mode: str
+    filters: dict
+    expected_result_type: str | None = None
+    fixture_name: str | None = None
+    occurrence_count: int = 0
+    latest_seen_at: datetime
+    document_id: UUID | None = None
+    source_filename: str | None = None
+    evaluation_id: UUID | None = None
+    search_request_id: UUID | None = None

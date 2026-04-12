@@ -9,6 +9,7 @@ from app.services.quality import (
     build_quality_evaluation_rows,
     build_quality_failures,
     build_quality_summary,
+    list_quality_eval_candidates,
 )
 
 
@@ -103,3 +104,74 @@ def test_quality_summary_and_failures_aggregate_latest_eval_state() -> None:
         "chapter-2.pdf",
     }
     assert failures.run_failures[0].run_id == run_two_id
+
+
+def test_list_quality_eval_candidates_mines_eval_failures_and_live_search_gaps() -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    evaluation_id = uuid4()
+    search_request_id = uuid4()
+    now = _timestamp()
+
+    documents = [
+        SimpleNamespace(
+            id=document_id,
+            source_filename="chapter-5.pdf",
+            title="Chapter 5",
+        )
+    ]
+    runs = [SimpleNamespace(id=run_id, document_id=document_id)]
+    evaluations = [SimpleNamespace(id=evaluation_id, run_id=run_id, fixture_name="fixture-one")]
+    evaluation_queries = [
+        SimpleNamespace(
+            evaluation_id=evaluation_id,
+            query_text="vent stack",
+            mode="hybrid",
+            filters_json={"document_id": str(document_id)},
+            expected_result_type="table",
+            passed=False,
+            created_at=now,
+        )
+    ]
+    search_requests = [
+        SimpleNamespace(
+            id=search_request_id,
+            origin="api",
+            query_text="table 701.2",
+            mode="hybrid",
+            filters_json={"document_id": str(document_id)},
+            tabular_query=True,
+            table_hit_count=0,
+            result_count=3,
+            created_at=now + timedelta(minutes=1),
+            evaluation_id=None,
+        )
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            mapping = {
+                "Document": documents,
+                "DocumentRun": runs,
+                "DocumentRunEvaluation": evaluations,
+                "DocumentRunEvaluationQuery": evaluation_queries,
+                "SearchRequestRecord": search_requests,
+            }
+            return FakeScalarResult(mapping[entity_name])
+
+    rows = list_quality_eval_candidates(FakeSession(), limit=10)
+
+    assert len(rows) == 2
+    assert {row.candidate_type for row in rows} == {"evaluation_failure", "live_search_gap"}
+    assert {row.expected_result_type for row in rows} == {"table"}

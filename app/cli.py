@@ -11,6 +11,8 @@ from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
 from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
+from app.services.quality import list_quality_eval_candidates
+from app.services.search_history import replay_search_request
 from app.services.storage import StorageService
 
 
@@ -139,3 +141,30 @@ def run_backfill_legacy_audit() -> None:
     with session_factory() as session:
         summary = backfill_legacy_run_audit_fields(session)
     print(json.dumps(summary))
+
+
+def run_replay_search() -> None:
+    parser = argparse.ArgumentParser(
+        description="Replay one persisted search request against the current search stack."
+    )
+    parser.add_argument("search_request_id", help="Persisted search request UUID to replay.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = replay_search_request(session, UUID(args.search_request_id))
+        session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_eval_candidates() -> None:
+    parser = argparse.ArgumentParser(
+        description="List mined evaluation candidates from failed evals and live search gaps."
+    )
+    parser.add_argument("--limit", type=int, default=12, help="Maximum number of candidates.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_quality_eval_candidates(session, limit=args.limit)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))

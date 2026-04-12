@@ -85,6 +85,7 @@ const qualityFeedback = document.getElementById("quality-feedback");
 const qualityEvaluations = document.getElementById("quality-evaluations");
 const qualityFailureStages = document.getElementById("quality-failure-stages");
 const qualityFailures = document.getElementById("quality-failures");
+const qualityEvalCandidates = document.getElementById("quality-eval-candidates");
 const chatForm = document.getElementById("chat-form");
 const chatQuestion = document.getElementById("chat-question");
 const chatMode = document.getElementById("chat-mode");
@@ -96,6 +97,7 @@ const chatCitations = document.getElementById("chat-citations");
 const searchProcess = document.getElementById("search-process");
 const searchProcessCaption = document.getElementById("search-process-caption");
 const searchForm = document.getElementById("search-form");
+const searchFeedback = document.getElementById("search-feedback");
 const searchResults = document.getElementById("search-results");
 
 function escapeHtml(text) {
@@ -638,13 +640,47 @@ function renderQualityFailures(payload) {
   qualityFailures.innerHTML = items.join("");
 }
 
-function renderSearchResults(results) {
+function renderQualityEvalCandidates(rows) {
+  if (!rows.length) {
+    qualityEvalCandidates.className = "tables-list empty";
+    qualityEvalCandidates.textContent = "Mined evaluation candidates will appear here.";
+    return;
+  }
+
+  qualityEvalCandidates.className = "tables-list";
+  qualityEvalCandidates.innerHTML = rows
+    .slice(0, 6)
+    .map(
+      (row) => `
+        <article class="table-card">
+          <div class="table-meta">
+            <span>${escapeHtml(row.candidate_type)}</span>
+            <span>${formatInteger(row.occurrence_count)} seen</span>
+            <span>${escapeHtml(row.reason)}</span>
+          </div>
+          <strong>${escapeHtml(row.query_text)}</strong>
+          <p>${escapeHtml(row.source_filename || "whole corpus")}</p>
+          <p>${escapeHtml(row.expected_result_type || "no expected type yet")} · ${escapeHtml(row.mode)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderSearchResults(results, searchRequestId = null) {
   if (!results.length) {
+    setFeedback(searchFeedback, searchRequestId ? `Request ${searchRequestId} returned no results.` : "");
     searchResults.className = "search-results empty";
     searchResults.textContent = "No results yet.";
     return;
   }
 
+  setFeedback(
+    searchFeedback,
+    searchRequestId
+      ? `Request ${searchRequestId} persisted ${results.length} ranked result${results.length === 1 ? "" : "s"} for replay.`
+      : "",
+  );
   searchResults.className = "search-results";
   searchResults.innerHTML = results
     .map((result) => {
@@ -785,6 +821,14 @@ async function fetchQualityFailures() {
   return response.json();
 }
 
+async function fetchQualityEvalCandidates() {
+  const response = await fetch("/quality/eval-candidates");
+  if (!response.ok) {
+    throw new Error("Unable to load mined evaluation candidates.");
+  }
+  return response.json();
+}
+
 async function fetchDocumentStatus(documentId) {
   const response = await fetch(`/documents/${documentId}`);
   if (!response.ok) {
@@ -857,20 +901,23 @@ async function refreshDocuments() {
 
 async function refreshQualityPanel() {
   try {
-    const [summary, evaluations, failures] = await Promise.all([
+    const [summary, evaluations, failures, evalCandidates] = await Promise.all([
       fetchQualitySummary(),
       fetchQualityEvaluations(),
       fetchQualityFailures(),
+      fetchQualityEvalCandidates(),
     ]);
     renderQualitySummary(summary);
     renderQualityEvaluations(evaluations);
     renderQualityFailureStages(summary.failed_runs_by_stage || []);
     renderQualityFailures(failures);
+    renderQualityEvalCandidates(evalCandidates);
   } catch (error) {
     renderQualitySummary(null);
     renderQualityEvaluations([]);
     renderQualityFailureStages([]);
     renderQualityFailures(null);
+    renderQualityEvalCandidates([]);
     setFeedback(qualityFeedback, error.message || "Unable to load corpus quality state.");
   }
 }
@@ -1048,6 +1095,7 @@ searchForm.addEventListener("submit", async (event) => {
   }
 
   startProcessRail("search");
+  setFeedback(searchFeedback, "");
   searchResults.className = "search-results empty";
   searchResults.textContent = "Searching...";
 
@@ -1066,7 +1114,7 @@ searchForm.addEventListener("submit", async (event) => {
     if (!response.ok) {
       throw new Error(body.detail || "Search failed.");
     }
-    renderSearchResults(body);
+    renderSearchResults(body, response.headers.get("X-Search-Request-Id"));
     finishProcessRail(
       "search",
       true,
@@ -1075,6 +1123,7 @@ searchForm.addEventListener("submit", async (event) => {
     const metrics = await fetchMetrics();
     renderTelemetry(metrics);
   } catch (error) {
+    setFeedback(searchFeedback, "");
     searchResults.className = "search-results empty";
     searchResults.textContent = error.message || "Search failed.";
     finishProcessRail("search", false, error.message || "Direct search failed.");
