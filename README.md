@@ -184,6 +184,7 @@ Current configured fixtures include:
 - `upc_ch7`
 - `upc_ch2_figures`
 - `born_digital_simple`
+- `appendix_b_prose_guidance`
 - `awkward_headers`
 - `upc_ch4`
 - `upc_ch5`

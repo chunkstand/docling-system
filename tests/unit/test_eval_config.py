@@ -38,6 +38,11 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     awkward_thresholds = awkward_document["thresholds"]
     assert awkward_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_3.pdf"
     assert awkward_thresholds["expected_logical_table_count"] >= 1
+    assert awkward_thresholds["expected_figure_count"] >= 1
+    assert awkward_thresholds["minimum_captioned_figure_count"] >= 1
+    assert awkward_thresholds["minimum_figures_with_provenance"] >= 1
+    assert awkward_thresholds["minimum_figures_with_artifacts"] >= 1
+    assert all(isinstance(caption, str) for caption in awkward_thresholds["expected_figure_captions_present"])
     assert len(awkward_thresholds["expected_top_n_table_hit_queries"]) >= 1
 
     simple_document = next(
@@ -46,7 +51,9 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     simple_thresholds = simple_document["thresholds"]
     assert simple_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf"
     assert simple_thresholds["expected_logical_table_count"] == 1
-    assert len(simple_thresholds["expected_top_n_table_hit_queries"]) >= 1
+    assert simple_thresholds["expected_figure_count"] == 0
+    assert len(simple_thresholds["expected_top_n_table_hit_queries"]) >= 2
+    assert len(simple_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
 
     appendix_b_document = next(
         document for document in config["documents"] if document["name"] == "appendix_b_prose_guidance"
@@ -65,7 +72,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert chapter_four_thresholds["expected_logical_table_count"] == 3
     assert chapter_four_thresholds["expected_figure_count"] == 0
     assert len(chapter_four_thresholds["expected_top_n_table_hit_queries"]) >= 1
-    assert len(chapter_four_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
+    assert len(chapter_four_thresholds["expected_top_n_chunk_hit_queries"]) >= 3
 
     chapter_five_document = next(
         document for document in config["documents"] if document["name"] == "upc_ch5"
@@ -75,11 +82,29 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert chapter_five_thresholds["expected_logical_table_count"] == 41
     assert chapter_five_thresholds["expected_figure_count"] == 41
     assert len(chapter_five_thresholds["expected_merged_tables"]) >= 1
-    assert len(chapter_five_thresholds["expected_top_n_table_hit_queries"]) >= 1
-    assert len(chapter_five_thresholds["expected_top_n_chunk_hit_queries"]) >= 1
+    assert len(chapter_five_thresholds["expected_top_n_table_hit_queries"]) >= 2
+    assert len(chapter_five_thresholds["expected_top_n_chunk_hit_queries"]) >= 2
+
+    chapter_seven_document = next(
+        document for document in config["documents"] if document["name"] == "upc_ch7"
+    )
+    chapter_seven_thresholds = chapter_seven_document["thresholds"]
+    assert chapter_seven_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_7.pdf"
+    assert chapter_seven_thresholds["expected_figure_count"] >= 1
+    assert chapter_seven_thresholds["minimum_captioned_figure_count"] >= 1
+    assert chapter_seven_thresholds["minimum_figures_with_provenance"] >= 1
+    assert chapter_seven_thresholds["minimum_figures_with_artifacts"] >= 1
+    assert len(chapter_seven_thresholds["expected_top_n_table_hit_queries"]) >= 2
+    assert len(chapter_seven_thresholds["expected_top_n_chunk_hit_queries"]) >= 2
 
     for document in config["documents"]:
         thresholds = document["thresholds"]
         assert "expected_logical_table_count" in thresholds
         assert "maximum_unexpected_merges" in thresholds
         assert "maximum_unexpected_splits" in thresholds
+        query_count = (
+            len(thresholds.get("expected_top_n_table_hit_queries", []))
+            + len(thresholds.get("expected_top_n_chunk_hit_queries", []))
+            + len(thresholds.get("queries", []))
+        )
+        assert query_count >= 3

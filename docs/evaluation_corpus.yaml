@@ -9,13 +9,25 @@ documents:
     thresholds:
       expected_logical_table_count: 11
       logical_table_tolerance: 1
+      expected_figure_count: 10
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 10
+      minimum_figures_with_provenance: 10
+      minimum_figures_with_artifacts: 10
+      expected_figure_captions_present:
+        - Venting for Island Fixtures (UPC)
+        - No Additional Cleanouts (UPC)
       maximum_unexpected_merges: 1
       maximum_unexpected_splits: 1
       expected_top_n_table_hit_queries:
         - query: drainage fixture unit values
           top_n: 3
+        - query: caulking ferrules
+          top_n: 3
       expected_top_n_chunk_hit_queries:
         - query: backwater valves
+          top_n: 3
+        - query: galvanized steel pipe underground
           top_n: 3
   - name: upc_ch2_figures
     kind: figure_heavy_definitions
@@ -39,16 +51,27 @@ documents:
           top_n: 3
         - query: air gap
           top_n: 3
+        - query: acrylonitrile butadiene styrene
+          top_n: 3
+        - query: definitions are arranged alphabetically
+          top_n: 3
   - name: born_digital_simple
     kind: born_digital_simple_tables
     path: /Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf
     thresholds:
       expected_logical_table_count: 1
       logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
       maximum_unexpected_merges: 0
       maximum_unexpected_splits: 0
       expected_top_n_table_hit_queries:
         - query: correlation between temperature ranges
+          top_n: 3
+        - query: scald potential
+          top_n: 3
+      expected_top_n_chunk_hit_queries:
+        - query: single-family residential buildings
           top_n: 3
   - name: appendix_b_prose_guidance
     kind: prose_only_guidance
@@ -65,12 +88,21 @@ documents:
           top_n: 3
         - query: relief vents
           top_n: 3
+        - query: vent stack
+          top_n: 3
   - name: awkward_headers
     kind: awkward_headers_and_footnotes
     path: /Users/chunkstand/Documents/UPC/UPC_CH_3.pdf
     thresholds:
       expected_logical_table_count: 2
       logical_table_tolerance: 0
+      expected_figure_count: 29
+      figure_count_tolerance: 0
+      minimum_captioned_figure_count: 29
+      minimum_figures_with_provenance: 29
+      minimum_figures_with_artifacts: 29
+      expected_figure_captions_present:
+        - "Flood: M/P/E Systems"
       maximum_unexpected_merges: 0
       maximum_unexpected_splits: 0
       expected_top_n_table_hit_queries:
@@ -97,6 +129,10 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: public lavatories
           top_n: 3
+        - query: easy access for repairs and cleaning
+          top_n: 3
+        - query: dense durable non absorbent materials
+          top_n: 3
   - name: upc_ch5
     kind: repaired_table_family_and_figures
     path: /Users/chunkstand/Documents/UPC/UPC_CH_5.pdf
@@ -118,8 +154,12 @@ documents:
       expected_top_n_table_hit_queries:
         - query: exterior masonry chimney
           top_n: 3
+        - query: type of venting system
+          top_n: 3
       expected_top_n_chunk_hit_queries:
         - query: plastic vent joints
+          top_n: 3
+        - query: water heater installation instructions
           top_n: 3
   - name: prose_control
     kind: prose_heavy_control
@@ -127,6 +167,8 @@ documents:
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
       maximum_unexpected_merges: 0
       maximum_unexpected_splits: 0
       expected_top_n_chunk_hit_queries:

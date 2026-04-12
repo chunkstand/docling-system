@@ -291,6 +291,20 @@ def _text_contains(value: str | None, expected_substring: str | None) -> bool:
     return expected_substring.lower() in (value or "").lower()
 
 
+def _normalized_caption_text(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ("text", "caption", "value", "label"):
+            nested = value.get(key)
+            if isinstance(nested, str):
+                return nested
+        return ""
+    return str(value)
+
+
 def _table_matches_merge_expectation(
     table: object, expectation: EvaluationMergeExpectation
 ) -> bool:
@@ -400,17 +414,23 @@ def _summarize_structural_checks(
         )
 
     if thresholds.expected_figure_captions_present:
-        available_captions = [getattr(figure, "caption", None) or "" for figure in figures]
+        expected_captions = [
+            _normalized_caption_text(expected)
+            for expected in thresholds.expected_figure_captions_present
+        ]
+        available_captions = [
+            _normalized_caption_text(getattr(figure, "caption", None)) for figure in figures
+        ]
         missing_captions = [
             expected
-            for expected in thresholds.expected_figure_captions_present
+            for expected in expected_captions
             if not any(expected.lower() in caption.lower() for caption in available_captions)
         ]
         checks.append(
             {
                 "name": "expected_figure_captions_present",
                 "passed": not missing_captions,
-                "expected": thresholds.expected_figure_captions_present,
+                "expected": expected_captions,
                 "missing": missing_captions,
             }
         )
