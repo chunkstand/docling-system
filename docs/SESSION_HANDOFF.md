@@ -1,194 +1,213 @@
 # Session Handoff
 
-Date: 2026-04-11 local / 2026-04-12 UTC verification
+Date: 2026-04-12 local / 2026-04-12 UTC verification
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: `69f21bb` (`Refine operator UI and add Appendix B evaluation fixture`)
+PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
+PR URL: `https://github.com/chunkstand/docling-system/pull/1`
+Latest committed checkpoint: `5a1659a` (`Add replayable run failures and audit surfaces`)
 
 ## Executive Summary
 
-The system remains healthy and usable as a local Docling-based ingestion, retrieval, and evaluation harness.
+This session closed two substantive areas of work and split them cleanly in git history:
 
-Current durable state:
+1. evaluation deepening
+2. harness milestone 1 for replayable failures and auditability
 
-- validation still gates promotion through `documents.active_run_id`
-- evaluations are persisted per run and exposed through API and UI
-- production search still supports explicit `run_id` evaluation comparisons through the same ranking path
-- the chapter 5 supplement overlay workflow remains active and structurally pinned in evaluation
-- the UI now includes a grounded chat surface and a calmer operator-focused layout
+The branch is pushed, the PR is open, the working tree is clean, Alembic is at `0009_run_failure_artifacts`, the audit passes with zero violations, and the active eight-document corpus still evaluates cleanly.
 
-Two meaningful changes landed after the prior handoff:
+## What Landed This Session
 
-1. The internal UI was reworked into an operator workspace centered on grounded answers, process visibility, and compact inspection instead of showing every surface at once.
-2. `UPC_Appendix_B.pdf` now has a real evaluation fixture (`appendix_b_prose_guidance`), so the active validated set and active evaluated set are both eight documents.
+### 1. Evaluation Deepening
+
+Commit:
+
+- `e8e867c` `Deepen evaluation coverage and harden caption checks`
+
+What changed:
+
+- expanded `docs/evaluation_corpus.yaml` so every fixture now has at least three retrieval queries
+- increased query depth for thin fixtures such as:
+  - `born_digital_simple`
+  - `appendix_b_prose_guidance`
+  - `upc_ch4`
+  - `upc_ch5`
+  - `upc_ch7`
+- added figure structural assertions for active documents that previously lacked them:
+  - `awkward_headers` (`UPC_CH_3.pdf`)
+  - `upc_ch7` (`UPC_CH_7.pdf`)
+- hardened evaluation caption checks in `app/services/evaluations.py` so non-string caption-like values no longer crash structural evaluation
+- fixed a YAML fixture parsing issue by quoting `Flood: M/P/E Systems`
+
+Relevant files:
+
+- `docs/evaluation_corpus.yaml`
+- `app/services/evaluations.py`
+- `tests/unit/test_eval_config.py`
+- `tests/unit/test_evaluation_service.py`
+
+Durable outcome:
+
+- all active documents still evaluate successfully
+- the fixed corpus is materially stronger than the prior session
+
+### 2. Harness Milestone 1
+
+Commit:
+
+- `5a1659a` `Add replayable run failures and audit surfaces`
+
+What changed:
+
+- added `document_runs.failure_stage`
+- added `document_runs.failure_artifact_path`
+- added migration `0009_run_failure_artifacts`
+- failed runs now persist replayable `failure.json` artifacts in the run directory
+- successful runs clear stale failure artifacts
+- terminal stale-lease failures also emit failure artifacts
+- added `GET /documents/{document_id}/runs`
+- added `GET /runs/{run_id}/failure-artifact`
+- added `docling-system-audit` CLI
+- added a basic integrity audit service for:
+  - active-run completion invariant
+  - active-run validation invariant
+  - completed-run artifact presence
+  - failed-run replayability
+- added operator UI support for recent processing attempts and failure artifact links
+- backfilled one legacy failed run locally so the new audit contract is clean on the current dataset
+
+Relevant files:
+
+- `alembic/versions/0009_run_failure_artifacts.py`
+- `app/api/main.py`
+- `app/cli.py`
+- `app/db/models.py`
+- `app/schemas/documents.py`
+- `app/services/audit.py`
+- `app/services/cleanup.py`
+- `app/services/documents.py`
+- `app/services/runs.py`
+- `app/services/storage.py`
+- `app/ui/index.html`
+- `app/ui/app.js`
+- `app/ui/styles.css`
+- `tests/unit/test_cli.py`
+- `tests/unit/test_documents_api.py`
+- `tests/unit/test_run_logic.py`
+- `tests/unit/test_ui.py`
+
+Durable outcome:
+
+- failed runs are now inspectable and replay-oriented rather than just error-message oriented
+- the system has a machine-checkable audit surface, not only ad hoc inspection
+
+## Git State
+
+Current branch:
+
+- `codex/docling-system-build`
+
+Recent commits:
+
+```text
+5a1659a Add replayable run failures and audit surfaces
+e8e867c Deepen evaluation coverage and harden caption checks
+cb47ba0 Update session handoff
+69f21bb Refine operator UI and add Appendix B evaluation fixture
+```
+
+Push / PR state:
+
+- branch pushed to `origin/codex/docling-system-build`
+- PR open against `main`
+- PR URL: `https://github.com/chunkstand/docling-system/pull/1`
+
+Working tree:
+
+```text
+[clean worktree]
+```
 
 ## Current Runtime State
 
 At handoff time:
 
 - API health check succeeds at `http://127.0.0.1:8000/health`
-- Alembic head is `0008_run_evaluations`
-- the branch is clean
-- at least one worker process appears to be running
+- Alembic head is `0009_run_failure_artifacts`
+- `docling-system-audit` reports zero violations
+- active evaluated corpus remains eight documents
 
 Verification:
 
 ```bash
 curl -sS http://127.0.0.1:8000/health
 uv run alembic current
+uv run docling-system-audit
 git status --short
 ```
 
-Results:
+Observed results:
 
 ```json
 {"status":"ok"}
 ```
 
 ```text
-0008_run_evaluations (head)
+0009_run_failure_artifacts (head)
+```
+
+```json
+{"checked_documents":8,"checked_runs":27,"violation_count":0,"violations":[]}
 ```
 
 ```text
 [clean worktree]
 ```
 
-Current active/evaluated document set:
+## Active Corpus State
 
-```json
-[
-  {
-    "source_filename": "UPC_CH_5.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "upc_ch5"
-  },
-  {
-    "source_filename": "UPC_CH_4.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "upc_ch4"
-  },
-  {
-    "source_filename": "UPC_Appendix_N.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "born_digital_simple"
-  },
-  {
-    "source_filename": "UPC_Appendix_B.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "appendix_b_prose_guidance"
-  },
-  {
-    "source_filename": "UPC_CH_3.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "awkward_headers"
-  },
-  {
-    "source_filename": "UPC_Ch_2.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "upc_ch2_figures"
-  },
-  {
-    "source_filename": "UPC_CH_7.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "upc_ch7"
-  },
-  {
-    "source_filename": "UPC_CH_1.pdf",
-    "latest_validation_status": "passed",
-    "latest_evaluation_status": "completed",
-    "latest_evaluation_fixture": "prose_control"
-  }
-]
-```
+Current active/evaluated set remains:
 
-## What Changed Most Recently
+- `UPC_CH_5.pdf` -> fixture `upc_ch5`
+- `UPC_CH_4.pdf` -> fixture `upc_ch4`
+- `UPC_Appendix_N.pdf` -> fixture `born_digital_simple`
+- `UPC_Appendix_B.pdf` -> fixture `appendix_b_prose_guidance`
+- `UPC_CH_3.pdf` -> fixture `awkward_headers`
+- `UPC_Ch_2.pdf` -> fixture `upc_ch2_figures`
+- `UPC_CH_7.pdf` -> fixture `upc_ch7`
+- `UPC_CH_1.pdf` -> fixture `prose_control`
 
-### 1. Grounded Chat And Operator UI
+Notable current eval depth:
 
-The UI now exposes:
+- `upc_ch5` now evaluates `4` queries and still passes all structural checks
+- `upc_ch7` now evaluates `4` queries and now also pins figure-count/caption/provenance/artifact coverage
+- `awkward_headers` now pins `29` figures structurally and passes
+- `appendix_b_prose_guidance` now evaluates `3` prose queries
 
-- a grounded chat surface backed by `/chat`
-- direct raw retrieval through `/search`
-- process-stage telemetry while search/chat requests run
-- compact selected-document inspection
-- lower-priority detail surfaces for eval trace and evidence preview
+## Verification Performed This Session
 
-Important implementation detail:
-
-- the answer surface is now primary
-- unrelated operational detail was moved away from the answer block to avoid overload
-- chat still uses retrieved evidence first, then model synthesis second
-
-Relevant files:
-
-- `app/api/main.py`
-- `app/schemas/chat.py`
-- `app/services/chat.py`
-- `app/ui/index.html`
-- `app/ui/app.js`
-- `app/ui/styles.css`
-- `.env.example`
-- `README.md`
-
-### 2. Appendix B Evaluation Fixture
-
-`UPC_Appendix_B.pdf` is no longer uncovered by the fixed evaluation corpus.
-
-Added fixture:
-
-- `appendix_b_prose_guidance`
-
-Current fixture shape:
-
-- prose-only guidance fixture
-- `expected_logical_table_count: 0`
-- `expected_figure_count: 0`
-- expected chunk-hit queries:
-  - `combination waste and vent system`
-  - `relief vents`
-
-Relevant files:
-
-- `docs/evaluation_corpus.yaml`
-- `tests/unit/test_eval_config.py`
-- `tests/unit/test_evaluation_service.py`
-
-Live verification:
+Commands run and observed passing:
 
 ```bash
-uv run docling-system-eval-run 79bba82b-37b7-4e07-a915-380b83f98527
+uv run pytest -q
+uv run pytest tests/unit/test_eval_config.py tests/unit/test_evaluation_service.py -q
+node --check app/ui/app.js
+uv run python -m compileall app tests
+uv run alembic upgrade head
+uv run docling-system-eval-corpus
+uv run docling-system-audit
 ```
 
-Result summary:
+Key results:
 
-- fixture: `appendix_b_prose_guidance`
-- status: `completed`
-- `passed_queries: 2`
-- `failed_queries: 0`
-- `structural_passed: true`
-
-### 3. Current Model Usage
-
-The system uses OpenAI in two distinct ways:
-
-- embedding model
-  - `text-embedding-3-small`
-  - used during ingestion to embed chunks and tables
-  - used during semantic/hybrid retrieval to embed incoming queries
-- chat model
-  - currently `gpt-4.1-mini`
-  - used only in the grounded answer path after retrieval
-  - answer generation is citation-bounded by retrieved evidence
-
-Everything else in the ingestion/validation/promotion path is deterministic orchestration around Docling, Postgres, filesystem artifacts, validation, and stored evaluations.
+- `64 passed, 1 skipped` on the full pytest suite
+- `8 passed` for eval-config / evaluation-service focused tests
+- JS syntax check passed
+- compileall passed
+- migration to `0009_run_failure_artifacts` succeeded
+- full corpus eval succeeded for all eight active fixtures
+- audit passed with zero violations
 
 ## Current Contracts To Preserve
 
@@ -197,89 +216,98 @@ Everything else in the ingestion/validation/promotion path is deterministic orch
 - validation still hard-gates promotion
 - evaluation still does not block promotion
 
-### Search And Chat
+### Evaluation
 
-- `/search` remains the direct mixed typed retrieval endpoint
-- `/chat` is a retrieval-backed answer endpoint, not a second source of truth
-- model-generated answers must remain grounded in retrieved evidence
-- fallback behavior should remain evidence-forward when the chat model is unavailable
+- the fixed corpus in `docs/evaluation_corpus.yaml` is now stronger and should remain the durable contract
+- fixture regressions should be fixed by corpus/ranking/provenance work before adding more ad hoc heuristics
+- figure assertions now matter for `UPC_CH_3.pdf` and `UPC_CH_7.pdf`; do not silently weaken them
+
+### Harness
+
+- failed runs should continue to emit replayable `failure.json`
+- `docling-system-audit` should stay green or failures should be treated as real invariant regressions
+- `GET /documents/{document_id}/runs` and `GET /runs/{run_id}/failure-artifact` are now part of the operator surface
 
 ### Supplements
 
-- chapter PDFs remain canonical documents
+- chapter PDFs remain canonical
 - supplement PDFs remain narrow repair inputs only
 - overlay outputs must preserve chapter-local page span and original source-segment provenance
-- every supplement-backed repair should be pinned by fixed-corpus evaluation coverage
-
-## Verification Performed Recently
-
-Commands run across the most recent sessions:
-
-```bash
-curl -sS http://127.0.0.1:8000/health
-curl -sS http://127.0.0.1:8000/documents | jq
-curl -sS -X POST http://127.0.0.1:8000/chat -H 'Content-Type: application/json' -d '{"question":"How should plastic vent joints be installed?","mode":"hybrid","top_k":4}'
-uv run pytest tests/unit/test_chat_api.py tests/unit/test_chat_service.py tests/unit/test_ui.py -q
-uv run pytest tests/unit/test_eval_config.py tests/unit/test_evaluation_service.py -q
-uv run docling-system-eval-run 79bba82b-37b7-4e07-a915-380b83f98527
-node --check app/ui/app.js
-uv run python -m compileall app tests
-```
-
-Passing/observed results:
-
-- API health check succeeded
-- live `/chat` request succeeded and returned grounded citations from `UPC_CH_5.pdf`
-- chat/UI tests passed
-- eval config/service tests passed
-- Appendix B live evaluation completed successfully
-- JS syntax check passed
-- compileall passed
 
 ## Known Gaps / Risks
 
 ### 1. Evaluation Still Does Not Gate Promotion
 
-This remains deliberate. A retrieval regression can still promote if validation passes.
+This is still deliberate. A run can promote if validation passes even if retrieval quality is worse.
 
-### 2. Evaluation Corpus Is Broader, But Still Thin
+### 2. Audit Is Foundational, Not Yet Deep
 
-The document count is now fully covered for the active set, but most fixtures still have only a small number of queries. The next quality lever is richer eval depth, not just more fixture presence.
+The new audit currently checks a useful first set of invariants, but it is still a thin harness:
 
-### 3. UI Is Better Prioritized, But Still Needs Iteration
+- no count-crosschecks between DB rows and run summaries
+- no artifact-hash consistency checks
+- no evaluation-presence invariant for all completed latest runs
+- no richer corpus quality dashboard yet
 
-The answer area is now less overloaded, but there is still room to:
+### 3. Failure Artifacts Are Replay-Oriented But Minimal
 
-- add a true clear-selection control
-- clarify operator terminology around raw retrieval vs eval trace
-- decide whether some lower detail surfaces should collapse by default
+Current `failure.json` is useful, but stage-local snapshots are still limited. There is still room to persist:
 
-### 4. Branch Push Status Is Unverified
+- parsed previews
+- partial normalized tables/chunks/figures
+- richer config/runtime metadata
 
-The local branch is committed through `69f21bb`, but do not assume it has been pushed unless you verify it explicitly.
+### 4. PR Contains Full Branch History
+
+The PR is correct, but it includes the full buildout since `main`, not only the final two commits.
 
 ## Recommended Next Steps
 
-### Priority 1: Continue Corpus Expansion
+### Priority 1: Lopopolo Milestone 2
 
-- ingest additional UPC chapters or related PDFs
-- for each new document, add fixed-corpus eval coverage as soon as retrieval is stable
+Deepen the audit contract and expose corpus quality.
 
-### Priority 2: Deepen Evaluation Quality
+Target implementation scope:
 
-- add more queries per fixture
-- add adversarial/ambiguous queries
-- add more explicit mode/filter coverage where ranking behavior matters
+- expand `docling-system-audit` to verify:
+  - run summary counts against persisted DB rows
+  - latest evaluation presence for completed latest runs
+  - table/figure artifact path existence when DB rows claim artifacts
+  - required `failure.json` schema fields
+  - known failure-stage membership
+- add corpus quality API endpoints such as:
+  - `GET /quality/summary`
+  - `GET /quality/failures`
+  - `GET /quality/evaluations`
+- add a UI quality panel for:
+  - latest eval status across documents
+  - failed query counts
+  - structural check failures
+  - failed runs grouped by stage
+- add unit/API tests for each audit rule and quality endpoint
 
-### Priority 3: Decide On UI/Operator Fit
+Why this is next:
 
-- add a clear selected-document reset if the operator workflow still feels sticky
-- consider collapsing or tabbing lower evidence surfaces if the inspection area still feels dense
+- milestone 1 made failures replayable
+- milestone 2 should make the system judge itself more rigorously and expose that quality state without manual inspection
 
-### Priority 4: Revisit Eval Influence On Promotion
+### Priority 2: Add Better Quality Dashboards
 
-- keep validation as the hard gate for now
-- decide whether future eval failures should warn, soft-block, or hard-block promotion
+- corpus quality summaries
+- evaluation trend summaries
+- explicit regression/improvement views from persisted eval data
+
+### Priority 3: Specify Nontrivial Transform Contracts
+
+- document chunk normalization contract
+- document logical-table build contract
+- document overlay contract
+- document figure-caption resolution contract
+
+### Priority 4: Decide PR Strategy
+
+- either merge the current PR as the full v1 build branch
+- or split future work into narrower follow-up branches after this one lands
 
 ## Handy Commands
 
@@ -289,46 +317,32 @@ Health:
 curl -sS http://127.0.0.1:8000/health
 ```
 
-List documents:
+Read document runs:
 
 ```bash
-curl -sS http://127.0.0.1:8000/documents | jq
+curl -sS http://127.0.0.1:8000/documents/<document_id>/runs | jq
 ```
 
-Read latest evaluation:
+Read a failure artifact:
 
 ```bash
-curl -sS http://127.0.0.1:8000/documents/<document_id>/evaluations/latest | jq
+curl -sS http://127.0.0.1:8000/runs/<run_id>/failure-artifact | jq
 ```
 
-Grounded chat request:
-
-```bash
-curl -sS -X POST http://127.0.0.1:8000/chat \
-  -H 'Content-Type: application/json' \
-  -d '{"question":"How should plastic vent joints be installed?","mode":"hybrid","top_k":4}' | jq
-```
-
-Evaluate one run:
-
-```bash
-uv run docling-system-eval-run <run_id>
-```
-
-Evaluate all matching active fixtures:
+Run the corpus eval sweep:
 
 ```bash
 uv run docling-system-eval-corpus
 ```
 
-Run targeted UI tests:
+Run the integrity audit:
 
 ```bash
-uv run pytest tests/unit/test_ui.py -q
+uv run docling-system-audit
 ```
 
-Run full tests:
+Open the PR:
 
-```bash
-uv run pytest tests
+```text
+https://github.com/chunkstand/docling-system/pull/1
 ```
