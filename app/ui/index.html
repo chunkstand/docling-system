@@ -11,11 +11,12 @@
       <header class="hero">
         <div class="hero-copy">
           <p class="eyebrow">Plumbing Code Retrieval Console</p>
-          <h1>Browse active documents. Inspect tables and diagrams. Search the validated corpus.</h1>
+          <h1>Browse active documents. Ask grounded questions. Inspect the validated corpus.</h1>
           <p class="hero-text">
             This interface is read-only. Ingest new PDFs with the local
             <code>docling-system-ingest-file</code> command, then use this dashboard to inspect
-            validated runs, table and diagram artifacts, and mixed retrieval results.
+            validated runs, grounded chat answers, table and diagram artifacts, and mixed retrieval
+            results.
           </p>
         </div>
         <div class="hero-panel">
@@ -31,6 +32,39 @@
       </header>
 
       <main class="dashboard">
+        <section class="panel chat-panel">
+          <div class="panel-header">
+            <p class="section-label">Chat</p>
+            <h2>Ask the knowledge base</h2>
+          </div>
+          <form id="chat-form" class="chat-form">
+            <textarea
+              id="chat-question"
+              name="question"
+              rows="4"
+              placeholder="Ask a grounded question about the ingested code books"
+            ></textarea>
+            <div class="chat-controls">
+              <select id="chat-mode" name="mode">
+                <option value="hybrid">Hybrid retrieval</option>
+                <option value="keyword">Keyword retrieval</option>
+                <option value="semantic">Semantic retrieval</option>
+              </select>
+              <select id="chat-scope" name="scope">
+                <option value="document">Selected document</option>
+                <option value="corpus">Whole corpus</option>
+              </select>
+              <button class="primary-button" type="submit">Ask</button>
+            </div>
+          </form>
+          <div id="chat-scope-note" class="feedback muted" aria-live="polite">
+            Answers can be scoped to the selected document or the whole active corpus.
+          </div>
+          <div id="chat-warning" class="feedback muted" aria-live="polite"></div>
+          <div id="chat-response" class="chat-response empty">Answers will appear here.</div>
+          <div id="chat-citations" class="chat-citations empty">Retrieved support will appear here.</div>
+        </section>
+
         <section class="panel documents-panel">
           <div class="panel-header">
             <p class="section-label">Documents</p>

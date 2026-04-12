@@ -23,6 +23,14 @@ const tablesList = document.getElementById("tables-list");
 const figuresList = document.getElementById("figures-list");
 const evaluationFeedback = document.getElementById("evaluation-feedback");
 const evaluationQueries = document.getElementById("evaluation-queries");
+const chatForm = document.getElementById("chat-form");
+const chatQuestion = document.getElementById("chat-question");
+const chatMode = document.getElementById("chat-mode");
+const chatScope = document.getElementById("chat-scope");
+const chatScopeNote = document.getElementById("chat-scope-note");
+const chatWarning = document.getElementById("chat-warning");
+const chatResponse = document.getElementById("chat-response");
+const chatCitations = document.getElementById("chat-citations");
 const searchForm = document.getElementById("search-form");
 const searchResults = document.getElementById("search-results");
 
@@ -43,6 +51,16 @@ function setArtifactLink(link, href, enabled) {
 function setFeedback(element, message, tone = "muted") {
   element.textContent = message;
   element.className = `feedback ${tone}`;
+}
+
+function formatPages(pageFrom, pageTo) {
+  if (pageFrom == null && pageTo == null) {
+    return "unknown pages";
+  }
+  if (pageFrom == null || pageFrom === pageTo || pageTo == null) {
+    return `page ${pageFrom ?? pageTo}`;
+  }
+  return `pages ${pageFrom}-${pageTo}`;
 }
 
 async function checkHealth() {
@@ -264,6 +282,71 @@ function renderSearchResults(results) {
     .join("");
 }
 
+function syncChatScopeState() {
+  const hasDocument = Boolean(state.currentDocumentId);
+  const documentOption = chatScope.querySelector('option[value="document"]');
+  documentOption.disabled = !hasDocument;
+  if (!hasDocument && chatScope.value === "document") {
+    chatScope.value = "corpus";
+  }
+
+  if (chatScope.value === "document" && hasDocument) {
+    chatScopeNote.textContent = `Answer scope: ${documentPill.textContent || "selected document"}.`;
+  } else {
+    chatScopeNote.textContent = "Answer scope: whole active corpus.";
+  }
+}
+
+function renderChatResponse(payload) {
+  if (!payload) {
+    chatResponse.className = "chat-response empty";
+    chatResponse.textContent = "Answers will appear here.";
+    chatCitations.className = "chat-citations empty";
+    chatCitations.textContent = "Retrieved support will appear here.";
+    setFeedback(chatWarning, "");
+    return;
+  }
+
+  chatResponse.className = "chat-response";
+  chatResponse.innerHTML = `
+    <article class="answer-card">
+      <div class="result-meta">
+        <span>${escapeHtml(payload.mode)}</span>
+        <span>${payload.used_fallback ? "extractive fallback" : "model answer"}</span>
+        ${payload.model ? `<span>${escapeHtml(payload.model)}</span>` : ""}
+      </div>
+      <p>${escapeHtml(payload.answer).replaceAll("\n", "<br />")}</p>
+    </article>
+  `;
+
+  setFeedback(chatWarning, payload.warning || "");
+
+  if (!payload.citations?.length) {
+    chatCitations.className = "chat-citations empty";
+    chatCitations.textContent = "No supporting passages were retrieved.";
+    return;
+  }
+
+  chatCitations.className = "chat-citations";
+  chatCitations.innerHTML = payload.citations
+    .map(
+      (citation) => `
+        <article class="citation-card">
+          <div class="result-meta">
+            <span>[${citation.citation_index}]</span>
+            <span>${escapeHtml(citation.result_type)}</span>
+            <span>${escapeHtml(citation.source_filename)}</span>
+            <span>${escapeHtml(formatPages(citation.page_from, citation.page_to))}</span>
+            <span>Score ${Number(citation.score).toFixed(3)}</span>
+          </div>
+          <strong>${escapeHtml(citation.label)}</strong>
+          <p>${escapeHtml(citation.excerpt)}</p>
+        </article>
+      `,
+    )
+    .join("");
+}
+
 async function fetchDocuments() {
   const response = await fetch("/documents");
   if (!response.ok) {
@@ -321,6 +404,7 @@ async function refreshDocuments() {
     state.currentDocumentId = documents[0].document_id;
   }
   renderDocuments(documents);
+  syncChatScopeState();
 }
 
 async function refreshCurrentDocument() {
@@ -363,6 +447,7 @@ async function refreshCurrentDocument() {
     renderTables(tables, document.document_id);
     renderFigures(figures, document.document_id);
     renderEvaluation(evaluation || document.latest_evaluation);
+    syncChatScopeState();
   } catch (error) {
     setFeedback(statusFeedback, error.message || "Unable to refresh document state.");
   }
@@ -407,6 +492,57 @@ reprocessButton.addEventListener("click", async () => {
   }
 });
 
+chatScope.addEventListener("change", syncChatScopeState);
+
+chatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const question = chatQuestion.value.trim();
+  const mode = chatMode.value;
+  const scope = chatScope.value;
+
+  if (!question) {
+    renderChatResponse(null);
+    chatResponse.className = "chat-response empty";
+    chatResponse.textContent = "Enter a question before asking.";
+    return;
+  }
+
+  if (scope === "document" && !state.currentDocumentId) {
+    renderChatResponse(null);
+    chatResponse.className = "chat-response empty";
+    chatResponse.textContent = "Select a document or switch scope to the whole corpus.";
+    return;
+  }
+
+  chatResponse.className = "chat-response empty";
+  chatResponse.textContent = "Retrieving evidence and drafting an answer...";
+  chatCitations.className = "chat-citations empty";
+  chatCitations.textContent = "Waiting for supporting passages...";
+  setFeedback(chatWarning, "");
+
+  const payload = { question, mode, top_k: 6 };
+  if (scope === "document" && state.currentDocumentId) {
+    payload.document_id = state.currentDocumentId;
+  }
+
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body.detail || "Chat request failed.");
+    }
+    renderChatResponse(body);
+  } catch (error) {
+    renderChatResponse(null);
+    chatResponse.className = "chat-response empty";
+    chatResponse.textContent = error.message || "Chat request failed.";
+  }
+});
+
 searchForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const query = document.getElementById("search-query").value.trim();
@@ -446,5 +582,7 @@ searchForm.addEventListener("submit", async (event) => {
 checkHealth();
 setArtifactLink(jsonLink, "#", false);
 setArtifactLink(yamlLink, "#", false);
+syncChatScopeState();
+renderChatResponse(null);
 refreshDocuments().then(refreshCurrentDocument);
 startPolling();

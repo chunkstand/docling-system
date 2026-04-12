@@ -8,6 +8,8 @@ This system ingests PDF code books, parses them with Docling, stores versioned r
 
 The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, figures, artifacts, validation status, evaluation status, metrics, and mixed chunk/table search.
 
+The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets.
+
 ## Current Contracts
 
 - `docling.json` is the canonical machine-readable document parse artifact.
@@ -122,6 +124,7 @@ Local path ingest policy:
 - `GET /documents/{document_id}/figures/{figure_id}/artifacts/yaml`
 - `POST /documents/{document_id}/reprocess`
 - `POST /search`
+- `POST /chat`
 
 ## Search Contract
 

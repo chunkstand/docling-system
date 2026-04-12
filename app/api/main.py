@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
+from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
     DocumentDetailResponse,
@@ -22,6 +23,7 @@ from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.search import SearchRequest, SearchResult
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
+from app.services.chat import answer_question
 from app.services.chunks import get_active_chunks
 from app.services.documents import (
     get_document_detail,
@@ -261,6 +263,14 @@ def search_corpus(
     session: Session = Depends(get_db_session),
 ) -> list[SearchResult]:
     return search_documents(session, request)
+
+
+@app.post("/chat", response_model=ChatResponse)
+def chat_with_corpus(
+    request: ChatRequest,
+    session: Session = Depends(get_db_session),
+) -> ChatResponse:
+    return answer_question(session, request)
 
 
 def run() -> None:

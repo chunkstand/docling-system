@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     storage_root: Path = Field(default=Path("./storage"))
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_chat_model: str = "gpt-4.1-mini"
     embedding_dim: int = 1536
     worker_poll_seconds: int = 2
     worker_lease_timeout_seconds: int = 300

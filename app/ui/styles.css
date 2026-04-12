@@ -164,7 +164,16 @@ body::before {
   min-height: 320px;
 }
 
+.chat-panel {
+  grid-column: 1 / -1;
+}
+
 .search-form {
+  display: grid;
+  gap: 16px;
+}
+
+.chat-form {
   display: grid;
   gap: 16px;
 }
@@ -203,6 +212,13 @@ body::before {
   min-height: 24px;
   margin-top: 16px;
   color: var(--accent-dark);
+}
+
+.chat-controls {
+  display: grid;
+  grid-template-columns: 180px 180px auto;
+  gap: 12px;
+  align-items: center;
 }
 
 .documents-list {
@@ -279,20 +295,26 @@ body::before {
 
 .chunks-list,
 .tables-list,
-.search-results {
+.search-results,
+.chat-citations,
+.chat-response {
   display: grid;
   gap: 12px;
 }
 
 .chunks-list.empty,
 .tables-list.empty,
-.search-results.empty {
+.search-results.empty,
+.chat-citations.empty,
+.chat-response.empty {
   color: var(--muted);
 }
 
 .chunk-card,
 .table-card,
-.result-card {
+.result-card,
+.answer-card,
+.citation-card {
   padding: 16px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.58);
@@ -312,9 +334,17 @@ body::before {
 
 .chunk-card p,
 .table-card p,
-.result-card p {
+.result-card p,
+.answer-card p,
+.citation-card p {
   margin: 0;
   line-height: 1.6;
+}
+
+.answer-card {
+  background:
+    linear-gradient(135deg, rgba(181, 82, 51, 0.1), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.66);
 }
 
 .table-heading {
@@ -332,14 +362,29 @@ body::before {
 }
 
 .search-form input,
-.search-form select {
+.search-form select,
+.chat-form textarea,
+.chat-form select {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
-  padding: 13px 18px;
   color: var(--ink);
   font: inherit;
+}
+
+.search-form input,
+.search-form select,
+.chat-form select {
+  border-radius: 999px;
+  padding: 13px 18px;
+}
+
+.chat-form textarea {
+  min-height: 120px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  resize: vertical;
+  line-height: 1.6;
 }
 
 @media (max-width: 920px) {
@@ -348,7 +393,8 @@ body::before {
     grid-template-columns: 1fr;
   }
 
-  .search-form {
+  .search-form,
+  .chat-controls {
     grid-template-columns: 1fr;
   }
 }
