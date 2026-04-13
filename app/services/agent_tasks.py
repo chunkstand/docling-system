@@ -15,11 +15,15 @@ from app.db.models import (
     AgentTaskStatus,
 )
 from app.schemas.agent_tasks import (
-    AgentTaskApprovalRequest,
     AgentTaskActionDefinitionResponse,
+    AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
     AgentTaskSummaryResponse,
+)
+from app.services.agent_task_verifications import (
+    count_agent_task_verifications,
+    list_agent_task_verifications,
 )
 
 
@@ -69,13 +73,17 @@ def _count_task_attempts(session: Session, task_id: UUID) -> int:
     from app.db.models import AgentTaskAttempt
 
     return session.execute(
-        select(func.count()).select_from(AgentTaskAttempt).where(AgentTaskAttempt.task_id == task_id)
+        select(func.count())
+        .select_from(AgentTaskAttempt)
+        .where(AgentTaskAttempt.task_id == task_id)
     ).scalar_one()
 
 
 def _count_task_artifacts(session: Session, task_id: UUID) -> int:
     return session.execute(
-        select(func.count()).select_from(AgentTaskArtifact).where(AgentTaskArtifact.task_id == task_id)
+        select(func.count())
+        .select_from(AgentTaskArtifact)
+        .where(AgentTaskArtifact.task_id == task_id)
     ).scalar_one()
 
 
@@ -99,6 +107,8 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
         approval_note=task.approval_note,
         artifact_count=_count_task_artifacts(session, task.id),
         attempt_count=_count_task_attempts(session, task.id),
+        verification_count=count_agent_task_verifications(session, task.id),
+        verifications=list_agent_task_verifications(session, task.id),
     )
 
 
@@ -240,6 +250,7 @@ def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionRespon
         rows.append(
             AgentTaskActionDefinitionResponse(
                 task_type=action.task_type,
+                definition_kind=action.definition_kind,
                 description=action.description,
                 side_effect_level=action.side_effect_level,
                 requires_approval=action.requires_approval,

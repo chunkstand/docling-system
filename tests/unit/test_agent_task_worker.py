@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
 from uuid import uuid4
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
@@ -35,6 +35,10 @@ def test_agent_task_validation_errors_are_terminal() -> None:
         )
     except ValidationError as exc:
         assert is_retryable_agent_task_error(exc) is False
+
+
+def test_agent_task_http_errors_are_terminal() -> None:
+    assert is_retryable_agent_task_error(HTTPException(status_code=404, detail="missing")) is False
 
 
 def test_claim_next_agent_task_limits_worker_lease_query_to_one_row() -> None:

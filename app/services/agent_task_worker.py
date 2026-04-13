@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
@@ -34,7 +35,7 @@ logger = get_logger(__name__)
 
 
 def is_retryable_agent_task_error(exc: Exception) -> bool:
-    return not isinstance(exc, (ValueError, ValidationError))
+    return not isinstance(exc, (HTTPException, ValueError, ValidationError))
 
 
 def _current_attempt(session: Session, task: AgentTask) -> AgentTaskAttempt | None:
@@ -213,7 +214,12 @@ def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
     session.add(attempt)
     session.commit()
     session.refresh(task)
-    logger.info("agent_task_claimed", task_id=str(task.id), task_type=task.task_type, worker_id=worker_id)
+    logger.info(
+        "agent_task_claimed",
+        task_id=str(task.id),
+        task_type=task.task_type,
+        worker_id=worker_id,
+    )
     return task
 
 
@@ -324,7 +330,11 @@ def process_agent_task(
         heartbeat_agent_task(session, task)
         failure_stage = "complete"
         finalize_agent_task_success(session, task, result, storage_service=storage_service)
-        logger.info("agent_task_processing_completed", task_id=str(task.id), task_type=task.task_type)
+        logger.info(
+            "agent_task_processing_completed",
+            task_id=str(task.id),
+            task_type=task.task_type,
+        )
     except Exception as exc:
         session.rollback()
         task = session.get(AgentTask, task_id)

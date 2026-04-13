@@ -58,6 +58,12 @@ class AgentTaskAttemptStatus(StrEnum):
     ABANDONED = "abandoned"
 
 
+class AgentTaskVerificationOutcome(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+    ERROR = "error"
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -656,7 +662,12 @@ class AgentTask(Base):
             "side_effect_level IN ('read_only', 'draft_change', 'promotable')",
             name="ck_agent_tasks_side_effect_level",
         ),
-        Index("ix_agent_tasks_status_priority_next_attempt_at", "status", "priority", "next_attempt_at"),
+        Index(
+            "ix_agent_tasks_status_priority_next_attempt_at",
+            "status",
+            "priority",
+            "next_attempt_at",
+        ),
         Index("ix_agent_tasks_locked_at", "locked_at"),
         Index("ix_agent_tasks_parent_task_id", "parent_task_id"),
         Index("ix_agent_tasks_task_type_created_at", "task_type", "created_at"),
@@ -732,7 +743,10 @@ class AgentTask(Base):
 class AgentTaskDependency(Base):
     __tablename__ = "agent_task_dependencies"
     __table_args__ = (
-        CheckConstraint("task_id <> depends_on_task_id", name="ck_agent_task_dependencies_not_self"),
+        CheckConstraint(
+            "task_id <> depends_on_task_id",
+            name="ck_agent_task_dependencies_not_self",
+        ),
         UniqueConstraint(
             "task_id",
             "depends_on_task_id",
@@ -816,6 +830,54 @@ class AgentTaskArtifact(Base):
         server_default=sql_text("'{}'::jsonb"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTaskVerification(Base):
+    __tablename__ = "agent_task_verifications"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('passed', 'failed', 'error')",
+            name="ck_agent_task_verifications_outcome",
+        ),
+        Index("ix_agent_task_verifications_target_task_id", "target_task_id"),
+        Index("ix_agent_task_verifications_verification_task_id", "verification_task_id"),
+        Index("ix_agent_task_verifications_verifier_type", "verifier_type"),
+        Index("ix_agent_task_verifications_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    target_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    verification_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    verifier_type: Mapped[str] = mapped_column(Text, nullable=False)
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    metrics_json: Mapped[dict] = mapped_column(
+        "metrics",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    reasons_json: Mapped[list] = mapped_column(
+        "reasons",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class DocumentChunk(Base):

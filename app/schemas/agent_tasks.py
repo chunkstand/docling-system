@@ -31,6 +31,7 @@ class AgentTaskApprovalRequest(BaseModel):
 
 class AgentTaskActionDefinitionResponse(BaseModel):
     task_type: str
+    definition_kind: str = "action"
     description: str
     side_effect_level: str
     requires_approval: bool
@@ -56,6 +57,19 @@ class AgentTaskSummaryResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+class AgentTaskVerificationResponse(BaseModel):
+    verification_id: UUID
+    target_task_id: UUID
+    verification_task_id: UUID | None = None
+    verifier_type: str
+    outcome: str
+    metrics: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    details: dict = Field(default_factory=dict)
+    created_at: datetime
+    completed_at: datetime | None = None
+
+
 class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     dependency_task_ids: list[UUID] = Field(default_factory=list)
     input: dict = Field(default_factory=dict)
@@ -73,6 +87,8 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     approval_note: str | None = None
     artifact_count: int = 0
     attempt_count: int = 0
+    verification_count: int = 0
+    verifications: list[AgentTaskVerificationResponse] = Field(default_factory=list)
 
 
 class LatestEvaluationTaskInput(BaseModel):
@@ -86,3 +102,12 @@ class ReplaySearchRequestTaskInput(BaseModel):
 class QualityEvalCandidatesTaskInput(BaseModel):
     limit: int = Field(default=12, ge=1, le=200)
     include_resolved: bool = False
+
+
+class VerifySearchHarnessEvaluationTaskInput(BaseModel):
+    target_task_id: UUID
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=0)
