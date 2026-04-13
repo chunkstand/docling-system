@@ -497,3 +497,114 @@ def test_rejected_enqueue_document_reprocess_never_queues_new_run(
     assert detail_response.status_code == 200
     assert detail_response.json()["status"] == "rejected"
     assert detail_response.json()["rejected_by"] == "reviewer@example.com"
+
+
+def test_agent_task_learning_surfaces_roundtrip(postgres_integration_harness) -> None:
+    document_id, _run_id = _create_processed_document(postgres_integration_harness)
+    client = postgres_integration_harness.client
+
+    with postgres_integration_harness.session_factory() as session:
+        triage_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="triage_replay_regression",
+                input={
+                    "candidate_harness_name": "wide_v2",
+                    "baseline_harness_name": "default_v1",
+                    "source_types": ["evaluation_queries"],
+                    "replay_limit": 10,
+                    "quality_candidate_limit": 10,
+                    "min_total_shared_query_count": 1,
+                },
+                workflow_version="milestone7_integration",
+            ),
+        )
+        triage_task_id = triage_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == triage_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        reprocess_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="enqueue_document_reprocess",
+                input={
+                    "document_id": str(document_id),
+                    "source_task_id": str(triage_task_id),
+                    "reason": "learning-surface integration coverage",
+                },
+                workflow_version="milestone7_integration",
+            ),
+        )
+        reprocess_task_id = reprocess_task.task_id
+        reject_agent_task(
+            session,
+            reprocess_task_id,
+            AgentTaskRejectionRequest(
+                rejected_by="reviewer@example.com",
+                rejection_note="not enough evidence for promotion",
+            ),
+        )
+
+    useful_outcome_response = client.post(
+        f"/agent-tasks/{triage_task_id}/outcomes",
+        json={
+            "outcome_label": "useful",
+            "created_by": "operator@example.com",
+            "note": "shadow-mode recommendation was helpful",
+        },
+    )
+    assert useful_outcome_response.status_code == 200
+    assert useful_outcome_response.json()["outcome_label"] == "useful"
+
+    correct_outcome_response = client.post(
+        f"/agent-tasks/{reprocess_task_id}/outcomes",
+        json={
+            "outcome_label": "correct",
+            "created_by": "reviewer@example.com",
+            "note": "rejection was the right call",
+        },
+    )
+    assert correct_outcome_response.status_code == 200
+    assert correct_outcome_response.json()["outcome_label"] == "correct"
+
+    outcome_list_response = client.get(f"/agent-tasks/{triage_task_id}/outcomes")
+    assert outcome_list_response.status_code == 200
+    assert outcome_list_response.json()[0]["outcome_label"] == "useful"
+
+    analytics_response = client.get("/agent-tasks/analytics/summary")
+    assert analytics_response.status_code == 200
+    analytics = analytics_response.json()
+    assert analytics["task_count"] == 2
+    assert analytics["completed_count"] == 1
+    assert analytics["rejected_count"] == 1
+    assert analytics["labeled_task_count"] == 2
+    assert analytics["outcome_label_counts"]["useful"] == 1
+    assert analytics["outcome_label_counts"]["correct"] == 1
+    assert analytics["verification_outcome_counts"]
+
+    workflow_response = client.get("/agent-tasks/analytics/workflow-versions")
+    assert workflow_response.status_code == 200
+    workflow_row = next(
+        row
+        for row in workflow_response.json()
+        if row["workflow_version"] == "milestone7_integration"
+    )
+    assert workflow_row["task_count"] == 2
+    assert workflow_row["labeled_task_count"] == 2
+    assert workflow_row["outcome_label_counts"]["useful"] == 1
+
+    export_response = client.get(
+        "/agent-tasks/traces/export?workflow_version=milestone7_integration&limit=10"
+    )
+    assert export_response.status_code == 200
+    export_payload = export_response.json()
+    assert export_payload["export_count"] == 2
+    assert export_payload["workflow_version"] == "milestone7_integration"
+    traced_task_ids = {row["task_id"] for row in export_payload["traces"]}
+    assert traced_task_ids == {str(triage_task_id), str(reprocess_task_id)}
+    assert all("outcomes" in row for row in export_payload["traces"])

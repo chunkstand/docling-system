@@ -65,6 +65,13 @@ class AgentTaskVerificationOutcome(StrEnum):
     ERROR = "error"
 
 
+class AgentTaskOutcomeLabel(StrEnum):
+    USEFUL = "useful"
+    NOT_USEFUL = "not_useful"
+    CORRECT = "correct"
+    INCORRECT = "incorrect"
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -833,6 +840,28 @@ class AgentTaskArtifact(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTaskOutcome(Base):
+    __tablename__ = "agent_task_outcomes"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome_label IN ('useful', 'not_useful', 'correct', 'incorrect')",
+            name="ck_agent_task_outcomes_outcome_label",
+        ),
+        Index("ix_agent_task_outcomes_task_id", "task_id"),
+        Index("ix_agent_task_outcomes_outcome_label", "outcome_label"),
+        Index("ix_agent_task_outcomes_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    outcome_label: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str] = mapped_column(Text, nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

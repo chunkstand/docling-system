@@ -52,12 +52,17 @@ docling-system-agent-task-actions = "app.cli:run_agent_task_actions"
 docling-system-agent-task-create = "app.cli:run_agent_task_create"
 docling-system-agent-task-list = "app.cli:run_agent_task_list"
 docling-system-agent-task-show = "app.cli:run_agent_task_show"
+docling-system-agent-task-outcomes = "app.cli:run_agent_task_outcomes"
+docling-system-agent-task-label = "app.cli:run_agent_task_label"
 docling-system-agent-task-artifacts = "app.cli:run_agent_task_artifacts"
 docling-system-agent-task-artifact = "app.cli:run_agent_task_artifact"
 docling-system-agent-task-verifications = "app.cli:run_agent_task_verifications"
 docling-system-agent-task-failure-artifact = "app.cli:run_agent_task_failure_artifact"
 docling-system-agent-task-approve = "app.cli:run_agent_task_approve"
 docling-system-agent-task-reject = "app.cli:run_agent_task_reject"
+docling-system-agent-task-analytics = "app.cli:run_agent_task_analytics"
+docling-system-agent-task-workflow-versions = "app.cli:run_agent_task_workflow_versions"
+docling-system-agent-task-export-traces = "app.cli:run_agent_task_export_traces"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

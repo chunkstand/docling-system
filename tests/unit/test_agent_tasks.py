@@ -9,12 +9,14 @@ from app.db.models import AgentTask, AgentTaskDependency, AgentTaskStatus
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
+    AgentTaskOutcomeCreateRequest,
     AgentTaskRejectionRequest,
 )
 from app.services.agent_tasks import (
     _initial_task_status,
     approve_agent_task,
     create_agent_task,
+    create_agent_task_outcome,
     reject_agent_task,
 )
 
@@ -27,6 +29,8 @@ class FakeSession:
         self.committed = False
 
     def add(self, row: object) -> None:
+        if getattr(row, "id", None) is None:
+            row.id = uuid4()
         self.added.append(row)
 
     def flush(self) -> None:
@@ -276,6 +280,75 @@ def test_reject_agent_task_rejects_already_approved_task(monkeypatch) -> None:
         assert "Approved tasks cannot be rejected" in exc.detail
     else:
         raise AssertionError("Expected approved task rejection to fail")
+
+
+def test_create_agent_task_outcome_records_label_for_terminal_task() -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(task=task)
+
+    outcome = create_agent_task_outcome(
+        session,
+        task.id,
+        AgentTaskOutcomeCreateRequest(
+            outcome_label="useful",
+            created_by="operator@example.com",
+            note="recommendation matched operator judgment",
+        ),
+    )
+
+    assert outcome.task_id == task.id
+    assert outcome.outcome_label == "useful"
+    assert outcome.created_by == "operator@example.com"
+    assert session.flushed is True
+    assert session.committed is True
+
+
+def test_create_agent_task_outcome_rejects_non_terminal_task() -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.PROCESSING.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(task=task)
+
+    try:
+        create_agent_task_outcome(
+            session,
+            task.id,
+            AgentTaskOutcomeCreateRequest(
+                outcome_label="useful",
+                created_by="operator@example.com",
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "Only terminal tasks can receive outcome labels" in exc.detail
+    else:
+        raise AssertionError("Expected non-terminal task labeling to fail")
 
 
 def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:

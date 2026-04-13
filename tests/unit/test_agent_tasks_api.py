@@ -33,6 +33,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     task_id = uuid4()
     artifact_id = uuid4()
     verification_id = uuid4()
+    outcome_id = uuid4()
     failure_path = "/tmp/agent-task-failure.json"
 
     monkeypatch.setattr(
@@ -91,8 +92,103 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "approved_at": None,
             "approved_by": None,
             "approval_note": None,
+            "rejected_at": None,
+            "rejected_by": None,
+            "rejection_note": None,
             "artifact_count": 0,
             "attempt_count": 0,
+            "verification_count": 0,
+            "outcome_count": 0,
+            "artifacts": [],
+            "verifications": [],
+            "outcomes": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_analytics_summary",
+        lambda session: {
+            "task_count": 4,
+            "completed_count": 2,
+            "failed_count": 0,
+            "rejected_count": 1,
+            "awaiting_approval_count": 1,
+            "processing_count": 0,
+            "approval_required_count": 2,
+            "approved_task_count": 1,
+            "rejected_task_count": 1,
+            "labeled_task_count": 1,
+            "outcome_label_counts": {"useful": 1},
+            "verification_outcome_counts": {"passed": 1},
+            "avg_terminal_duration_seconds": 12.5,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.list_agent_task_workflow_summaries",
+        lambda session: [
+            {
+                "workflow_version": "v1",
+                "task_count": 4,
+                "completed_count": 2,
+                "failed_count": 0,
+                "rejected_count": 1,
+                "approved_task_count": 1,
+                "rejected_task_count": 1,
+                "labeled_task_count": 1,
+                "outcome_label_counts": {"useful": 1},
+                "verification_outcome_counts": {"passed": 1},
+                "avg_terminal_duration_seconds": 12.5,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.export_agent_task_traces",
+        lambda session, limit=50, workflow_version=None, task_type=None: {
+            "export_count": 1,
+            "workflow_version": workflow_version,
+            "task_type": task_type,
+            "traces": [
+                {
+                    "task_id": str(task_id),
+                    "task_type": "triage_replay_regression",
+                    "status": "completed",
+                    "priority": 100,
+                    "side_effect_level": "read_only",
+                    "requires_approval": False,
+                    "parent_task_id": None,
+                    "workflow_version": "v1",
+                    "tool_version": None,
+                    "prompt_version": None,
+                    "model": None,
+                    "created_at": "2026-04-12T00:00:00Z",
+                    "updated_at": "2026-04-12T00:00:00Z",
+                    "started_at": None,
+                    "completed_at": None,
+                    "dependency_task_ids": [],
+                    "input": {},
+                    "result": {},
+                    "model_settings": {},
+                    "error_message": None,
+                    "failure_artifact_path": None,
+                    "attempts": 1,
+                    "locked_at": None,
+                    "locked_by": None,
+                    "last_heartbeat_at": None,
+                    "next_attempt_at": None,
+                    "approved_at": None,
+                    "approved_by": None,
+                    "approval_note": None,
+                    "rejected_at": None,
+                    "rejected_by": None,
+                    "rejection_note": None,
+                    "artifact_count": 0,
+                    "attempt_count": 1,
+                    "verification_count": 0,
+                    "outcome_count": 1,
+                    "artifacts": [],
+                    "verifications": [],
+                    "outcomes": [],
+                }
+            ],
         },
     )
     monkeypatch.setattr(
@@ -127,11 +223,40 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "approved_at": None,
             "approved_by": None,
             "approval_note": None,
+            "rejected_at": None,
+            "rejected_by": None,
+            "rejection_note": None,
             "artifact_count": 0,
             "attempt_count": 0,
             "verification_count": 1,
+            "outcome_count": 1,
             "artifacts": [],
             "verifications": [],
+            "outcomes": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.list_agent_task_outcomes",
+        lambda session, incoming_task_id, limit=20: [
+            {
+                "outcome_id": str(outcome_id),
+                "task_id": str(incoming_task_id),
+                "outcome_label": "useful",
+                "created_by": "operator@example.com",
+                "note": "accurate recommendation",
+                "created_at": "2026-04-12T00:03:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.create_agent_task_outcome",
+        lambda session, incoming_task_id, payload: {
+            "outcome_id": str(outcome_id),
+            "task_id": str(incoming_task_id),
+            "outcome_label": payload.outcome_label,
+            "created_by": payload.created_by,
+            "note": payload.note,
+            "created_at": "2026-04-12T00:03:00Z",
         },
     )
     monkeypatch.setattr(
@@ -216,8 +341,10 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "artifact_count": 0,
             "attempt_count": 0,
             "verification_count": 0,
+            "outcome_count": 0,
             "artifacts": [],
             "verifications": [],
+            "outcomes": [],
         },
     )
     monkeypatch.setattr(
@@ -284,9 +411,36 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     assert create_response.status_code == 201
     assert create_response.json()["task_type"] == "list_quality_eval_candidates"
 
+    analytics_response = client.get("/agent-tasks/analytics/summary")
+    assert analytics_response.status_code == 200
+    assert analytics_response.json()["task_count"] == 4
+
+    workflow_response = client.get("/agent-tasks/analytics/workflow-versions")
+    assert workflow_response.status_code == 200
+    assert workflow_response.json()[0]["workflow_version"] == "v1"
+
+    export_response = client.get("/agent-tasks/traces/export?limit=10&workflow_version=v1")
+    assert export_response.status_code == 200
+    assert export_response.json()["export_count"] == 1
+
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["task_id"] == str(task_id)
+
+    outcomes_response = client.get(f"/agent-tasks/{task_id}/outcomes")
+    assert outcomes_response.status_code == 200
+    assert outcomes_response.json()[0]["outcome_id"] == str(outcome_id)
+
+    create_outcome_response = client.post(
+        f"/agent-tasks/{task_id}/outcomes",
+        json={
+            "outcome_label": "useful",
+            "created_by": "operator@example.com",
+            "note": "accurate recommendation",
+        },
+    )
+    assert create_outcome_response.status_code == 200
+    assert create_outcome_response.json()["outcome_label"] == "useful"
 
     artifact_response = client.get(f"/agent-tasks/{task_id}/artifacts")
     assert artifact_response.status_code == 200

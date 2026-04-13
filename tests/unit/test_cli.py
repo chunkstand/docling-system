@@ -7,15 +7,20 @@ from uuid import uuid4
 
 from app.cli import (
     run_agent_task_actions,
+    run_agent_task_analytics,
     run_agent_task_approve,
     run_agent_task_artifact,
     run_agent_task_artifacts,
     run_agent_task_create,
+    run_agent_task_export_traces,
     run_agent_task_failure_artifact,
+    run_agent_task_label,
     run_agent_task_list,
+    run_agent_task_outcomes,
     run_agent_task_reject,
     run_agent_task_show,
     run_agent_task_verifications,
+    run_agent_task_workflow_versions,
     run_audit,
     run_backfill_legacy_audit,
     run_eval_candidates,
@@ -568,6 +573,93 @@ def test_agent_task_show_cli_prints_task_detail(monkeypatch, capsys) -> None:
     assert output["task_type"] == "replay_search_request"
 
 
+def test_agent_task_outcomes_cli_prints_rows(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+    outcome_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-outcomes", str(task_id), "--limit", "5"],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.list_agent_task_outcomes",
+        lambda session, incoming_task_id, limit=20: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "outcome_id": str(outcome_id),
+                    "task_id": str(incoming_task_id),
+                    "outcome_label": "useful",
+                    "created_by": "operator@example.com",
+                    "limit": limit,
+                }
+            )
+        ],
+    )
+
+    run_agent_task_outcomes()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["outcome_id"] == str(outcome_id)
+    assert output[0]["task_id"] == str(task_id)
+    assert output[0]["limit"] == 5
+
+
+def test_agent_task_label_cli_prints_row(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+    outcome_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-label",
+            str(task_id),
+            "--outcome-label",
+            "useful",
+            "--created-by",
+            "operator@example.com",
+            "--note",
+            "accurate recommendation",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.create_agent_task_outcome",
+        lambda session, incoming_task_id, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "outcome_id": str(outcome_id),
+                "task_id": str(incoming_task_id),
+                "outcome_label": payload.outcome_label,
+                "created_by": payload.created_by,
+                "note": payload.note,
+            }
+        ),
+    )
+
+    run_agent_task_label()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["outcome_id"] == str(outcome_id)
+    assert output["outcome_label"] == "useful"
+    assert output["created_by"] == "operator@example.com"
+
+
 def test_agent_task_artifacts_cli_prints_artifact_rows(monkeypatch, capsys) -> None:
     task_id = uuid4()
     artifact_id = uuid4()
@@ -796,3 +888,99 @@ def test_agent_task_reject_cli_prints_updated_task(monkeypatch, capsys) -> None:
     assert output["rejected_by"] == "reviewer@example.com"
     assert output["rejection_note"] == "not enough evidence"
     assert output["status"] == "rejected"
+
+
+def test_agent_task_analytics_cli_prints_summary(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-analytics"])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_analytics_summary",
+        lambda session: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_count": 4,
+                "labeled_task_count": 2,
+                "outcome_label_counts": {"useful": 1, "correct": 1},
+            }
+        ),
+    )
+
+    run_agent_task_analytics()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_count"] == 4
+    assert output["labeled_task_count"] == 2
+
+
+def test_agent_task_workflow_versions_cli_prints_rows(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-workflow-versions"])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.list_agent_task_workflow_summaries",
+        lambda session: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "workflow_version": "v1",
+                    "task_count": 4,
+                }
+            )
+        ],
+    )
+
+    run_agent_task_workflow_versions()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["workflow_version"] == "v1"
+    assert output[0]["task_count"] == 4
+
+
+def test_agent_task_export_traces_cli_prints_payload(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-export-traces",
+            "--limit",
+            "10",
+            "--workflow-version",
+            "v1",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.export_agent_task_traces",
+        lambda session, limit=50, workflow_version=None, task_type=None: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "export_count": 1,
+                "workflow_version": workflow_version,
+                "task_type": task_type,
+                "traces": [{"task_type": "triage_replay_regression"}],
+            }
+        ),
+    )
+
+    run_agent_task_export_traces()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["export_count"] == 1
+    assert output["workflow_version"] == "v1"

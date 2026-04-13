@@ -162,7 +162,12 @@ Local path ingest policy:
 - `GET /agent-tasks/actions`
 - `GET /agent-tasks`
 - `POST /agent-tasks`
+- `GET /agent-tasks/analytics/summary`
+- `GET /agent-tasks/analytics/workflow-versions`
+- `GET /agent-tasks/traces/export`
 - `GET /agent-tasks/{task_id}`
+- `GET /agent-tasks/{task_id}/outcomes`
+- `POST /agent-tasks/{task_id}/outcomes`
 - `GET /agent-tasks/{task_id}/artifacts`
 - `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - `GET /agent-tasks/{task_id}/verifications`
@@ -255,17 +260,24 @@ Current task guarantees:
 - task creation inherits the registry-declared `side_effect_level` and `requires_approval` when callers omit them, and rejects mismatches when callers override them incorrectly
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
 - promotion-style tasks can link back to a `source_task_id`, which is persisted as a dependency so recommendation lineage remains visible in the task graph
+- operators can attach durable outcome labels like `useful`, `not_useful`, `correct`, and `incorrect` to terminal tasks
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
 - task artifacts can be inspected through `GET /agent-tasks/{task_id}/artifacts`
 - persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
+- task outcome labels can be inspected through `GET /agent-tasks/{task_id}/outcomes`
 - failed tasks expose a direct failure-artifact endpoint through `GET /agent-tasks/{task_id}/failure-artifact`
 - approval-gated tasks remain `awaiting_approval` until an operator approves or rejects them
 - rejected tasks move to terminal `rejected` status, remain unclaimable by the worker, and preserve the previously live system state unchanged
+- aggregate analytics are available through `GET /agent-tasks/analytics/summary`
+- workflow-version comparisons are available through `GET /agent-tasks/analytics/workflow-versions`
+- full task traces, including outcomes, artifacts, verifications, and approval metadata, can be exported through `GET /agent-tasks/traces/export`
 
 The first workflow-style task is `triage_replay_regression`. It runs in shadow mode, mines unresolved quality candidates, evaluates a candidate harness against a baseline across replay sources, records a verifier-style recommendation on the triage task itself, and writes a durable `triage_summary.json` artifact under `storage/agent_tasks/<task_id>/`.
 
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
+
+The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
 
 ## Tables
 
@@ -308,7 +320,12 @@ uv run docling-system-agent-task-create verify_search_harness_evaluation --input
 uv run docling-system-agent-task-create triage_replay_regression --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"replay_limit":12,"quality_candidate_limit":12}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
+uv run docling-system-agent-task-analytics
+uv run docling-system-agent-task-workflow-versions
+uv run docling-system-agent-task-export-traces --limit 25 --workflow-version v1
 uv run docling-system-agent-task-show <task_id>
+uv run docling-system-agent-task-outcomes <task_id>
+uv run docling-system-agent-task-label <task_id> --outcome-label useful --created-by operator@example.com --note "recommendation was accurate"
 uv run docling-system-agent-task-artifacts <task_id>
 uv run docling-system-agent-task-artifact <task_id> <artifact_id>
 uv run docling-system-agent-task-verifications <task_id>

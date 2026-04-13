@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -12,16 +13,23 @@ from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskDependency,
+    AgentTaskOutcome,
     AgentTaskStatus,
+    AgentTaskVerification,
 )
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
+    AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalRequest,
     AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
+    AgentTaskOutcomeCreateRequest,
+    AgentTaskOutcomeResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
+    AgentTaskTraceExportResponse,
+    AgentTaskWorkflowVersionSummaryResponse,
 )
 from app.services.agent_task_artifacts import list_agent_task_artifacts
 from app.services.agent_task_verifications import (
@@ -94,6 +102,39 @@ def _list_task_artifacts(session: Session, task_id: UUID) -> list[AgentTaskArtif
     return list_agent_task_artifacts(session, task_id, limit=20)
 
 
+def _to_outcome_response(row: AgentTaskOutcome) -> AgentTaskOutcomeResponse:
+    return AgentTaskOutcomeResponse(
+        outcome_id=row.id,
+        task_id=row.task_id,
+        outcome_label=row.outcome_label,
+        created_by=row.created_by,
+        note=row.note,
+        created_at=row.created_at,
+    )
+
+
+def _count_task_outcomes(session: Session, task_id: UUID) -> int:
+    return session.execute(
+        select(func.count())
+        .select_from(AgentTaskOutcome)
+        .where(AgentTaskOutcome.task_id == task_id)
+    ).scalar_one()
+
+
+def _list_task_outcomes(session: Session, task_id: UUID) -> list[AgentTaskOutcomeResponse]:
+    rows = (
+        session.execute(
+            select(AgentTaskOutcome)
+            .where(AgentTaskOutcome.task_id == task_id)
+            .order_by(AgentTaskOutcome.created_at.desc())
+            .limit(20)
+        )
+        .scalars()
+        .all()
+    )
+    return [_to_outcome_response(row) for row in rows]
+
+
 def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
     summary = _build_summary(task)
     return AgentTaskDetailResponse(
@@ -118,8 +159,10 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
         artifact_count=_count_task_artifacts(session, task.id),
         attempt_count=_count_task_attempts(session, task.id),
         verification_count=count_agent_task_verifications(session, task.id),
+        outcome_count=_count_task_outcomes(session, task.id),
         artifacts=_list_task_artifacts(session, task.id),
         verifications=list_agent_task_verifications(session, task.id),
+        outcomes=_list_task_outcomes(session, task.id),
     )
 
 
@@ -320,6 +363,186 @@ def get_agent_task_detail(session: Session, task_id: UUID) -> AgentTaskDetailRes
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
     return _build_detail(session, task)
+
+
+def list_agent_task_outcomes(
+    session: Session,
+    task_id: UUID,
+    *,
+    limit: int = 20,
+) -> list[AgentTaskOutcomeResponse]:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    rows = (
+        session.execute(
+            select(AgentTaskOutcome)
+            .where(AgentTaskOutcome.task_id == task_id)
+            .order_by(AgentTaskOutcome.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    return [_to_outcome_response(row) for row in rows]
+
+
+def create_agent_task_outcome(
+    session: Session,
+    task_id: UUID,
+    payload: AgentTaskOutcomeCreateRequest,
+) -> AgentTaskOutcomeResponse:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    if task.status not in {
+        AgentTaskStatus.COMPLETED.value,
+        AgentTaskStatus.FAILED.value,
+        AgentTaskStatus.REJECTED.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only terminal tasks can receive outcome labels.",
+        )
+
+    row = AgentTaskOutcome(
+        task_id=task_id,
+        outcome_label=payload.outcome_label,
+        created_by=payload.created_by,
+        note=payload.note,
+        created_at=_utcnow(),
+    )
+    session.add(row)
+    session.flush()
+    session.commit()
+    return _to_outcome_response(row)
+
+
+def _average_terminal_duration_seconds(tasks: list[AgentTask]) -> float | None:
+    durations = [
+        (task.completed_at - task.started_at).total_seconds()
+        for task in tasks
+        if task.status
+        in {
+            AgentTaskStatus.COMPLETED.value,
+            AgentTaskStatus.FAILED.value,
+            AgentTaskStatus.REJECTED.value,
+        }
+        and task.started_at is not None
+        and task.completed_at is not None
+    ]
+    if not durations:
+        return None
+    return sum(durations) / len(durations)
+
+
+def get_agent_task_analytics_summary(session: Session) -> AgentTaskAnalyticsSummaryResponse:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    verifications = session.execute(select(AgentTaskVerification)).scalars().all()
+
+    status_counts = Counter(task.status for task in tasks)
+    outcome_counts = Counter(row.outcome_label for row in outcomes)
+    verification_counts = Counter(row.outcome for row in verifications)
+
+    return AgentTaskAnalyticsSummaryResponse(
+        task_count=len(tasks),
+        completed_count=status_counts.get(AgentTaskStatus.COMPLETED.value, 0),
+        failed_count=status_counts.get(AgentTaskStatus.FAILED.value, 0),
+        rejected_count=status_counts.get(AgentTaskStatus.REJECTED.value, 0),
+        awaiting_approval_count=status_counts.get(AgentTaskStatus.AWAITING_APPROVAL.value, 0),
+        processing_count=status_counts.get(AgentTaskStatus.PROCESSING.value, 0),
+        approval_required_count=sum(1 for task in tasks if task.requires_approval),
+        approved_task_count=sum(1 for task in tasks if task.approved_at is not None),
+        rejected_task_count=sum(1 for task in tasks if task.rejected_at is not None),
+        labeled_task_count=len({row.task_id for row in outcomes}),
+        outcome_label_counts=dict(outcome_counts),
+        verification_outcome_counts=dict(verification_counts),
+        avg_terminal_duration_seconds=_average_terminal_duration_seconds(tasks),
+    )
+
+
+def list_agent_task_workflow_summaries(
+    session: Session,
+) -> list[AgentTaskWorkflowVersionSummaryResponse]:
+    tasks = (
+        session.execute(select(AgentTask).order_by(AgentTask.workflow_version.asc()))
+        .scalars()
+        .all()
+    )
+    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    verifications = session.execute(select(AgentTaskVerification)).scalars().all()
+
+    tasks_by_version: dict[str, list[AgentTask]] = defaultdict(list)
+    task_by_id = {}
+    for task in tasks:
+        tasks_by_version[task.workflow_version].append(task)
+        task_by_id[task.id] = task
+
+    outcomes_by_version: dict[str, list[AgentTaskOutcome]] = defaultdict(list)
+    for row in outcomes:
+        task = task_by_id.get(row.task_id)
+        if task is not None:
+            outcomes_by_version[task.workflow_version].append(row)
+
+    verifications_by_version: dict[str, list[AgentTaskVerification]] = defaultdict(list)
+    for row in verifications:
+        task = task_by_id.get(row.target_task_id)
+        if task is not None:
+            verifications_by_version[task.workflow_version].append(row)
+
+    summaries: list[AgentTaskWorkflowVersionSummaryResponse] = []
+    for workflow_version, version_tasks in sorted(tasks_by_version.items()):
+        status_counts = Counter(task.status for task in version_tasks)
+        outcome_counts = Counter(row.outcome_label for row in outcomes_by_version[workflow_version])
+        verification_counts = Counter(
+            row.outcome for row in verifications_by_version[workflow_version]
+        )
+        summaries.append(
+            AgentTaskWorkflowVersionSummaryResponse(
+                workflow_version=workflow_version,
+                task_count=len(version_tasks),
+                completed_count=status_counts.get(AgentTaskStatus.COMPLETED.value, 0),
+                failed_count=status_counts.get(AgentTaskStatus.FAILED.value, 0),
+                rejected_count=status_counts.get(AgentTaskStatus.REJECTED.value, 0),
+                approved_task_count=sum(
+                    1 for task in version_tasks if task.approved_at is not None
+                ),
+                rejected_task_count=sum(
+                    1 for task in version_tasks if task.rejected_at is not None
+                ),
+                labeled_task_count=len(
+                    {row.task_id for row in outcomes_by_version[workflow_version]}
+                ),
+                outcome_label_counts=dict(outcome_counts),
+                verification_outcome_counts=dict(verification_counts),
+                avg_terminal_duration_seconds=_average_terminal_duration_seconds(version_tasks),
+            )
+        )
+    summaries.sort(key=lambda row: (-row.task_count, row.workflow_version))
+    return summaries
+
+
+def export_agent_task_traces(
+    session: Session,
+    *,
+    limit: int = 50,
+    workflow_version: str | None = None,
+    task_type: str | None = None,
+) -> AgentTaskTraceExportResponse:
+    statement = select(AgentTask).order_by(AgentTask.created_at.desc())
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    if task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    tasks = session.execute(statement.limit(limit)).scalars().all()
+    traces = [_build_detail(session, task) for task in tasks]
+    return AgentTaskTraceExportResponse(
+        export_count=len(traces),
+        workflow_version=workflow_version,
+        task_type=task_type,
+        traces=traces,
+    )
 
 
 def approve_agent_task(

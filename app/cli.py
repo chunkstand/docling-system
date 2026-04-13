@@ -10,6 +10,7 @@ from app.db.session import get_session_factory
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
+    AgentTaskOutcomeCreateRequest,
     AgentTaskRejectionRequest,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
@@ -18,8 +19,13 @@ from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
+    create_agent_task_outcome,
+    export_agent_task_traces,
+    get_agent_task_analytics_summary,
     get_agent_task_detail,
     list_agent_task_action_definitions,
+    list_agent_task_outcomes,
+    list_agent_task_workflow_summaries,
     list_agent_tasks,
     reject_agent_task,
 )
@@ -371,6 +377,45 @@ def run_agent_task_show() -> None:
     print(json.dumps(payload.model_dump(mode="json")))
 
 
+def run_agent_task_outcomes() -> None:
+    parser = argparse.ArgumentParser(description="List outcome labels for one agent task.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument("--limit", type=int, default=20, help="Maximum outcome rows to return.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_agent_task_outcomes(session, UUID(args.task_id), limit=args.limit)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_label() -> None:
+    parser = argparse.ArgumentParser(description="Record one outcome label for a terminal task.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument(
+        "--outcome-label",
+        required=True,
+        choices=["useful", "not_useful", "correct", "incorrect"],
+        help="Outcome label to record.",
+    )
+    parser.add_argument("--created-by", required=True, help="Operator identifier.")
+    parser.add_argument("--note", default=None, help="Optional note.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = create_agent_task_outcome(
+            session,
+            UUID(args.task_id),
+            AgentTaskOutcomeCreateRequest(
+                outcome_label=args.outcome_label,
+                created_by=args.created_by,
+                note=args.note,
+            ),
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
 def run_agent_task_artifacts() -> None:
     parser = argparse.ArgumentParser(description="List artifact records for one agent task.")
     parser.add_argument("task_id", help="Agent task UUID.")
@@ -466,5 +511,49 @@ def run_agent_task_reject() -> None:
                 rejected_by=args.rejected_by,
                 rejection_note=args.rejection_note,
             ),
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_analytics() -> None:
+    parser = argparse.ArgumentParser(description="Show aggregate agent task analytics.")
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_analytics_summary(session)
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_workflow_versions() -> None:
+    parser = argparse.ArgumentParser(
+        description="Show agent task analytics grouped by workflow version."
+    )
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_agent_task_workflow_summaries(session)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_export_traces() -> None:
+    parser = argparse.ArgumentParser(description="Export durable agent task traces.")
+    parser.add_argument("--limit", type=int, default=50, help="Maximum tasks to export.")
+    parser.add_argument(
+        "--workflow-version",
+        default=None,
+        help="Optional workflow version filter.",
+    )
+    parser.add_argument("--task-type", default=None, help="Optional task type filter.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = export_agent_task_traces(
+            session,
+            limit=args.limit,
+            workflow_version=args.workflow_version,
+            task_type=args.task_type,
         )
     print(json.dumps(payload.model_dump(mode="json")))

@@ -14,13 +14,18 @@ from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
+    AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalRequest,
     AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
+    AgentTaskOutcomeCreateRequest,
+    AgentTaskOutcomeResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
+    AgentTaskTraceExportResponse,
     AgentTaskVerificationResponse,
+    AgentTaskWorkflowVersionSummaryResponse,
 )
 from app.schemas.chat import (
     ChatAnswerFeedbackCreateRequest,
@@ -65,8 +70,13 @@ from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
+    create_agent_task_outcome,
+    export_agent_task_traces,
+    get_agent_task_analytics_summary,
     get_agent_task_detail,
     list_agent_task_action_definitions,
+    list_agent_task_outcomes,
+    list_agent_task_workflow_summaries,
     list_agent_tasks,
     reject_agent_task,
 )
@@ -198,12 +208,62 @@ def create_agent_task_route(
     return response
 
 
+@app.get("/agent-tasks/analytics/summary", response_model=AgentTaskAnalyticsSummaryResponse)
+def read_agent_task_analytics_summary(
+    session: Session = Depends(get_db_session),
+) -> AgentTaskAnalyticsSummaryResponse:
+    return get_agent_task_analytics_summary(session)
+
+
+@app.get(
+    "/agent-tasks/analytics/workflow-versions",
+    response_model=list[AgentTaskWorkflowVersionSummaryResponse],
+)
+def read_agent_task_workflow_summaries(
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskWorkflowVersionSummaryResponse]:
+    return list_agent_task_workflow_summaries(session)
+
+
+@app.get("/agent-tasks/traces/export", response_model=AgentTaskTraceExportResponse)
+def read_agent_task_trace_export(
+    limit: int = 50,
+    workflow_version: str | None = None,
+    task_type: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskTraceExportResponse:
+    return export_agent_task_traces(
+        session,
+        limit=limit,
+        workflow_version=workflow_version,
+        task_type=task_type,
+    )
+
+
 @app.get("/agent-tasks/{task_id}", response_model=AgentTaskDetailResponse)
 def read_agent_task_detail(
     task_id: UUID,
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     return get_agent_task_detail(session, task_id)
+
+
+@app.get("/agent-tasks/{task_id}/outcomes", response_model=list[AgentTaskOutcomeResponse])
+def read_agent_task_outcomes(
+    task_id: UUID,
+    limit: int = 20,
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskOutcomeResponse]:
+    return list_agent_task_outcomes(session, task_id, limit=limit)
+
+
+@app.post("/agent-tasks/{task_id}/outcomes", response_model=AgentTaskOutcomeResponse)
+def create_agent_task_outcome_route(
+    task_id: UUID,
+    payload: AgentTaskOutcomeCreateRequest,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskOutcomeResponse:
+    return create_agent_task_outcome(session, task_id, payload)
 
 
 @app.get("/agent-tasks/{task_id}/artifacts", response_model=list[AgentTaskArtifactResponse])

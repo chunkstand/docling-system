@@ -34,6 +34,12 @@ class AgentTaskRejectionRequest(BaseModel):
     rejection_note: str | None = None
 
 
+class AgentTaskOutcomeCreateRequest(BaseModel):
+    outcome_label: str = Field(pattern="^(useful|not_useful|correct|incorrect)$")
+    created_by: str = Field(min_length=1)
+    note: str | None = None
+
+
 class AgentTaskActionDefinitionResponse(BaseModel):
     task_type: str
     definition_kind: str = "action"
@@ -85,6 +91,45 @@ class AgentTaskArtifactResponse(BaseModel):
     created_at: datetime
 
 
+class AgentTaskOutcomeResponse(BaseModel):
+    outcome_id: UUID
+    task_id: UUID
+    outcome_label: str
+    created_by: str
+    note: str | None = None
+    created_at: datetime
+
+
+class AgentTaskAnalyticsSummaryResponse(BaseModel):
+    task_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    awaiting_approval_count: int = 0
+    processing_count: int = 0
+    approval_required_count: int = 0
+    approved_task_count: int = 0
+    rejected_task_count: int = 0
+    labeled_task_count: int = 0
+    outcome_label_counts: dict[str, int] = Field(default_factory=dict)
+    verification_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    avg_terminal_duration_seconds: float | None = None
+
+
+class AgentTaskWorkflowVersionSummaryResponse(BaseModel):
+    workflow_version: str
+    task_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    approved_task_count: int = 0
+    rejected_task_count: int = 0
+    labeled_task_count: int = 0
+    outcome_label_counts: dict[str, int] = Field(default_factory=dict)
+    verification_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    avg_terminal_duration_seconds: float | None = None
+
+
 class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     dependency_task_ids: list[UUID] = Field(default_factory=list)
     input: dict = Field(default_factory=dict)
@@ -106,8 +151,17 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     artifact_count: int = 0
     attempt_count: int = 0
     verification_count: int = 0
+    outcome_count: int = 0
     artifacts: list[AgentTaskArtifactResponse] = Field(default_factory=list)
     verifications: list[AgentTaskVerificationResponse] = Field(default_factory=list)
+    outcomes: list[AgentTaskOutcomeResponse] = Field(default_factory=list)
+
+
+class AgentTaskTraceExportResponse(BaseModel):
+    export_count: int = 0
+    workflow_version: str | None = None
+    task_type: str | None = None
+    traces: list[AgentTaskDetailResponse] = Field(default_factory=list)
 
 
 class LatestEvaluationTaskInput(BaseModel):
