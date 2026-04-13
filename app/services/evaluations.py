@@ -45,6 +45,8 @@ TABLE_PREFIX_PATTERN = re.compile(
     re.IGNORECASE,
 )
 AUTO_FIXTURE_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
+AUTO_FILENAME_SPLIT_PATTERN = re.compile(r"\s*(?:[-|:]+)\s*")
+AUTO_FILENAME_DATE_PREFIX_PATTERN = re.compile(r"^\d{6,8}\s+")
 
 
 @dataclass
@@ -373,10 +375,33 @@ def _auto_table_query(table: object) -> str | None:
     return None
 
 
+def _source_filename_queries(source_filename: str) -> list[str]:
+    stem = Path(source_filename).stem.replace("_", " ")
+    stem = AUTO_FILENAME_DATE_PREFIX_PATTERN.sub("", stem).strip()
+    candidates = [stem]
+    candidates.extend(
+        part.strip()
+        for part in AUTO_FILENAME_SPLIT_PATTERN.split(stem)
+        if part.strip() and part.strip() != stem
+    )
+    queries: list[str] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        query = _normalize_query_candidate(candidate)
+        if query is None:
+            continue
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(query)
+    return queries
+
+
 def _auto_chunk_queries(title: str | None, source_filename: str, chunks: list[object]) -> list[str]:
     queries: list[str] = []
     seen: set[str] = set()
-    candidates: list[str | None] = [title, Path(source_filename).stem.replace("_", " ")]
+    candidates: list[str | None] = [title, *_source_filename_queries(source_filename)]
     for chunk in chunks[:24]:
         candidates.extend(
             [
@@ -444,8 +469,9 @@ def build_auto_evaluation_fixture_document(
             break
 
     if not chunk_queries:
-        fallback = _normalize_query_candidate(Path(source_filename).stem.replace("_", " "))
-        if fallback:
+        filename_queries = _source_filename_queries(source_filename)
+        if filename_queries:
+            fallback = filename_queries[0]
             chunk_queries.append({"query": fallback, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
 
     thresholds: dict[str, object] = {

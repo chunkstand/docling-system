@@ -188,8 +188,24 @@ def test_build_auto_evaluation_fixture_document_skips_low_signal_queries() -> No
 
     chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
     assert chunk_queries[0]["query"] == "Standing Framework LLC - MT filed evidence"
+    assert chunk_queries[1]["query"] == "Standing Framework LLC"
+    assert chunk_queries[2]["query"] == "MT filed evidence"
     assert all("@" not in entry["query"] for entry in chunk_queries)
     assert "February 18, 2026" not in {entry["query"] for entry in chunk_queries}
+    assert not any("CHRISTI JACOBSEN" in entry["query"] for entry in chunk_queries)
+
+
+def test_build_auto_evaluation_fixture_document_strips_date_prefix_from_filename() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "20251217_TK_SoilReport.pdf",
+        title=None,
+        chunks=[],
+        tables=[],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert chunk_queries[0]["query"] == "TK SoilReport"
 
 
 def test_ensure_auto_evaluation_fixture_writes_auto_corpus_entry(monkeypatch, tmp_path) -> None:

@@ -46,6 +46,7 @@ The branch now includes:
   - every successful validated run now writes an auto-generated fixture to `storage/evaluation_corpus.auto.yaml` before evaluation
   - manual fixtures in `docs/evaluation_corpus.yaml` still win when both exist for the same source filename
   - older runs without fixtures can now backfill one on first evaluation instead of staying permanently `skipped`
+  - generated retrieval queries now prefer parsed titles and normalized source-filename segments, with chunk text only as fallback
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
