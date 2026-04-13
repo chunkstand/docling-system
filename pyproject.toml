@@ -36,6 +36,7 @@ dev = [
 [project.scripts]
 docling-system-api = "app.api.main:run"
 docling-system-worker = "app.workers.poller:run"
+docling-system-agent-worker = "app.workers.agent_poller:run"
 docling-system-cleanup = "app.maintenance:run_cleanup"
 docling-system-ingest-file = "app.cli:run_ingest_file"
 docling-system-eval-run = "app.cli:run_eval_run"

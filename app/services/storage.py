@@ -101,6 +101,14 @@ class StorageService:
     def get_failure_artifact_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
         return self.get_run_dir(document_id, run_id) / "failure.json"
 
+    def get_agent_task_dir(self, task_id: uuid.UUID) -> Path:
+        path = self.storage_root / "agent_tasks" / str(task_id)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_agent_task_failure_artifact_path(self, task_id: uuid.UUID) -> Path:
+        return self.get_agent_task_dir(task_id) / "failure.json"
+
     def delete_file_if_exists(self, path: Path) -> None:
         if path.exists():
             path.unlink()
