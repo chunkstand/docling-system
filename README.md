@@ -26,6 +26,8 @@ The system also records replayable failure artifacts for failed runs, exposes re
 - `/search` is the immediate mixed typed search contract for both chunks and tables.
 - `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
 - Run evaluations are first-class persisted records with summary and per-query detail.
+- Every successful validated ingest also writes an auto-generated evaluation fixture to `storage/evaluation_corpus.auto.yaml` so new documents do not remain unevaluated while waiting for a hand-authored fixture.
+- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins.
 - `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 - Table supplements are registry-driven via `config/table_supplements.yaml`; the registry selects document-specific clean supplement PDFs without changing the canonical source document contract.
@@ -92,6 +94,8 @@ uv run docling-system-ingest-file /absolute/path/to/file.pdf
 ```
 
 The CLI passes through the same checksum dedupe, run queue, worker processing, validation gate, and active-run promotion path as upload ingest.
+
+After a run validates successfully, the worker also writes or refreshes an auto-generated evaluation fixture under `storage/evaluation_corpus.auto.yaml` and immediately evaluates the run against the combined manual-plus-auto corpus.
 
 Local path ingest policy:
 
@@ -231,6 +235,8 @@ The ranking dataset export schema is documented in [docs/ranking_dataset_schema.
 ## Evaluation
 
 The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance.
+
+The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as an append-only auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
 
 Current configured fixtures include:
 

@@ -4,7 +4,10 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.services.evaluations import (
+    AUTO_FIXTURE_KIND,
     _summarize_structural_checks,
+    build_auto_evaluation_fixture_document,
+    ensure_auto_evaluation_fixture,
     fixture_for_document,
     load_evaluation_fixtures,
     resolve_baseline_run_id,
@@ -112,6 +115,179 @@ def test_fixture_for_document_matches_by_source_filename() -> None:
 
     assert fixture is not None
     assert fixture.name == "born_digital_simple"
+
+
+def test_build_auto_evaluation_fixture_document_generates_structural_queries() -> None:
+    run_id = uuid4()
+
+    fixture = build_auto_evaluation_fixture_document(
+        "auto_generated_report.pdf",
+        title="Forest Health Assessment",
+        chunks=[
+            SimpleNamespace(
+                heading="Project Overview",
+                text="The report summarizes forest health assessment methods and scope.",
+            ),
+            SimpleNamespace(
+                heading="Drainage Analysis",
+                text="Drainage and erosion considerations are evaluated for site access.",
+            ),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Table 1 Soil Stability Measurements",
+                heading="Slope stability results",
+                preview_text="Soil stability measurements by slope segment.",
+                search_text="Soil stability measurements by slope segment.",
+            )
+        ],
+        figures=[
+            SimpleNamespace(
+                caption="Figure 1. Project area map.",
+                json_path="/tmp/figure.json",
+                yaml_path="/tmp/figure.yaml",
+                metadata_json={"provenance": [{"page_no": 1}]},
+            )
+        ],
+        run_id=run_id,
+    )
+
+    assert fixture["name"] == "auto_auto_generated_report"
+    assert fixture["kind"] == AUTO_FIXTURE_KIND
+    assert fixture["generated_from_run_id"] == str(run_id)
+    assert fixture["thresholds"]["expected_logical_table_count"] == 1
+    assert fixture["thresholds"]["expected_figure_count"] == 1
+    assert fixture["thresholds"]["minimum_captioned_figure_count"] == 1
+    assert fixture["thresholds"]["minimum_figures_with_provenance"] == 1
+    assert fixture["thresholds"]["minimum_figures_with_artifacts"] == 1
+    assert fixture["thresholds"]["expected_top_n_table_hit_queries"][0]["query"] == (
+        "Soil Stability Measurements"
+    )
+    assert fixture["thresholds"]["expected_top_n_chunk_hit_queries"][0]["query"] == (
+        "Forest Health Assessment"
+    )
+
+
+def test_build_auto_evaluation_fixture_document_skips_low_signal_queries() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "Standing Framework LLC - MT filed evidence.pdf",
+        title=None,
+        chunks=[
+            SimpleNamespace(
+                heading="February 18, 2026",
+                text="Mitch Wilde fulfillment@zenbusiness.com",
+            ),
+            SimpleNamespace(
+                heading=None,
+                text="I, CHRISTI JACOBSEN, Secretary of State for the State of Montana.",
+            ),
+        ],
+        tables=[],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert chunk_queries[0]["query"] == "Standing Framework LLC - MT filed evidence"
+    assert all("@" not in entry["query"] for entry in chunk_queries)
+    assert "February 18, 2026" not in {entry["query"] for entry in chunk_queries}
+
+
+def test_ensure_auto_evaluation_fixture_writes_auto_corpus_entry(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
+    tables = [
+        SimpleNamespace(
+            title="Table 3 Transportation Mitigations",
+            heading="Transportation mitigations",
+            preview_text="Transportation mitigations by route segment.",
+            search_text="Transportation mitigations by route segment.",
+        )
+    ]
+    figures = [
+        SimpleNamespace(
+            caption="Figure 1. Proposed access route.",
+            json_path="/tmp/figure.json",
+            yaml_path="/tmp/figure.yaml",
+            metadata_json={"provenance": [{"page_no": 2}]},
+        )
+    ]
+    chunks = [
+        SimpleNamespace(
+            heading="Executive Summary",
+            text="Transportation mitigation measures are required for the proposed route.",
+        )
+    ]
+
+    class FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self._rows
+
+    class FakeSession:
+        def __init__(self):
+            self._results = [tables, figures, chunks]
+            self.calls = 0
+
+        def execute(self, _query):
+            rows = self._results[self.calls]
+            self.calls += 1
+            return FakeResult(rows)
+
+    fixture = ensure_auto_evaluation_fixture(
+        FakeSession(),
+        SimpleNamespace(id=uuid4(), source_filename="autogen_doc.pdf", title="Autogen Document"),
+        SimpleNamespace(id=uuid4()),
+    )
+
+    auto_corpus_path = storage_root / "evaluation_corpus.auto.yaml"
+    assert auto_corpus_path.exists() is True
+    assert fixture["path"] == "autogen_doc.pdf"
+    assert fixture["thresholds"]["expected_logical_table_count"] == 1
+    loaded = fixture_for_document(SimpleNamespace(source_filename="autogen_doc.pdf"))
+    assert loaded is not None
+    assert loaded.name == fixture["name"]
+
+
+def test_fixture_for_document_prefers_manual_fixture_over_auto(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+    storage_root.mkdir(parents=True, exist_ok=True)
+    (storage_root / "evaluation_corpus.auto.yaml").write_text(
+        """
+documents:
+  - name: auto_test_pdf
+    kind: auto_generated_document
+    path: TEST_PDF.pdf
+    thresholds:
+      expected_top_n_chunk_hit_queries:
+        - query: Automatic query
+"""
+    )
+
+    fixture = fixture_for_document(SimpleNamespace(source_filename="TEST_PDF.pdf"))
+
+    assert fixture is not None
+    assert fixture.name == "test_pdf_prose"
 
 
 def test_resolve_baseline_run_id_prefers_prior_active_run_for_reprocess() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -10,8 +11,10 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import (
     Document,
+    DocumentChunk,
     DocumentFigure,
     DocumentRun,
     DocumentRunEvaluation,
@@ -31,6 +34,17 @@ from app.services.search import search_documents
 EVAL_VERSION = 1
 DEFAULT_CORPUS_NAME = "default"
 DEFAULT_CORPUS_PATH = Path("docs") / "evaluation_corpus.yaml"
+AUTO_CORPUS_FILENAME = "evaluation_corpus.auto.yaml"
+AUTO_FIXTURE_KIND = "auto_generated_document"
+AUTO_QUERY_TOP_N = 3
+AUTO_TABLE_QUERY_LIMIT = 2
+AUTO_CHUNK_QUERY_LIMIT = 3
+AUTO_QUERY_MAX_WORDS = 8
+TABLE_PREFIX_PATTERN = re.compile(
+    r"^(?:table|figure|appendix)\s+[0-9A-Z().:-]+\s*",
+    re.IGNORECASE,
+)
+AUTO_FIXTURE_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 
 
 @dataclass
@@ -92,6 +106,32 @@ class EvaluationThresholds:
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+def _auto_corpus_path() -> Path:
+    return get_settings().storage_root.resolve() / AUTO_CORPUS_FILENAME
+
+
+def _load_corpus_documents(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    config = yaml.safe_load(path.read_text()) or {}
+    documents = config.get("documents") or []
+    return [document for document in documents if isinstance(document, dict)]
+
+
+def _write_corpus_documents(path: Path, documents: list[dict]) -> None:
+    settings = get_settings()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "rollout_mode": "auto_generated_append_only",
+        "embedding_contract": {
+            "model": settings.openai_embedding_model,
+            "dimension": settings.embedding_dim,
+        },
+        "documents": documents,
+    }
+    path.write_text(yaml.safe_dump(payload, sort_keys=False))
 
 
 def resolve_baseline_run_id(
@@ -216,42 +256,55 @@ def _normalize_thresholds(thresholds: dict) -> EvaluationThresholds:
     )
 
 
+def _fixture_paths(corpus_path: Path | None = None) -> list[Path]:
+    primary_path = corpus_path or DEFAULT_CORPUS_PATH
+    paths = [primary_path]
+    auto_path = _auto_corpus_path()
+    if auto_path != primary_path and auto_path.exists():
+        paths.append(auto_path)
+    return paths
+
+
 def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[EvaluationFixture]:
-    path = corpus_path or DEFAULT_CORPUS_PATH
-    config = yaml.safe_load(path.read_text()) or {}
     fixtures: list[EvaluationFixture] = []
-    for document in config.get("documents", []):
-        doc_path = document.get("path")
-        if not doc_path:
-            continue
-        thresholds = document.get("thresholds", {})
-        queries: list[EvaluationQueryCase] = []
-        answer_queries: list[EvaluationAnswerCase] = []
-        for entry in thresholds.get("expected_top_n_table_hit_queries", []):
-            queries.append(_normalize_fixture_query(entry, "table"))
-        for entry in thresholds.get("expected_top_n_chunk_hit_queries", []):
-            queries.append(_normalize_fixture_query(entry, "chunk"))
-        for entry in thresholds.get("queries", []):
-            queries.append(
-                EvaluationQueryCase(
-                    query=entry["query"],
-                    mode=entry.get("mode", "hybrid"),
-                    filters=entry.get("filters") or {},
-                    expected_result_type=entry["expected_result_type"],
-                    expected_top_n=entry.get("top_n", 3),
+    seen_filenames: set[str] = set()
+    for path in _fixture_paths(corpus_path):
+        for document in _load_corpus_documents(path):
+            doc_path = document.get("path")
+            if not doc_path:
+                continue
+            source_filename = Path(doc_path).name
+            if source_filename in seen_filenames:
+                continue
+            seen_filenames.add(source_filename)
+            thresholds = document.get("thresholds", {})
+            queries: list[EvaluationQueryCase] = []
+            answer_queries: list[EvaluationAnswerCase] = []
+            for entry in thresholds.get("expected_top_n_table_hit_queries", []):
+                queries.append(_normalize_fixture_query(entry, "table"))
+            for entry in thresholds.get("expected_top_n_chunk_hit_queries", []):
+                queries.append(_normalize_fixture_query(entry, "chunk"))
+            for entry in thresholds.get("queries", []):
+                queries.append(
+                    EvaluationQueryCase(
+                        query=entry["query"],
+                        mode=entry.get("mode", "hybrid"),
+                        filters=entry.get("filters") or {},
+                        expected_result_type=entry["expected_result_type"],
+                        expected_top_n=entry.get("top_n", 3),
+                    )
+                )
+            for entry in thresholds.get("expected_answer_queries", []):
+                answer_queries.append(_normalize_fixture_answer(entry))
+            fixtures.append(
+                EvaluationFixture(
+                    name=document["name"],
+                    path=doc_path,
+                    queries=queries,
+                    answer_queries=answer_queries,
+                    thresholds=_normalize_thresholds(thresholds),
                 )
             )
-        for entry in thresholds.get("expected_answer_queries", []):
-            answer_queries.append(_normalize_fixture_answer(entry))
-        fixtures.append(
-            EvaluationFixture(
-                name=document["name"],
-                path=doc_path,
-                queries=queries,
-                answer_queries=answer_queries,
-                thresholds=_normalize_thresholds(thresholds),
-            )
-        )
     return fixtures
 
 
@@ -262,6 +315,227 @@ def fixture_for_document(
         if Path(fixture.path).name == document.source_filename:
             return fixture
     return None
+
+
+def _collapse_whitespace(value: str | None) -> str:
+    return " ".join((value or "").split()).strip()
+
+
+def _first_sentence(value: str | None) -> str:
+    collapsed = _collapse_whitespace(value)
+    if not collapsed:
+        return ""
+    return re.split(r"(?<=[.!?])\s+", collapsed, maxsplit=1)[0]
+
+
+def _normalize_query_candidate(
+    value: str | None,
+    *,
+    strip_table_prefix: bool = False,
+    max_words: int = AUTO_QUERY_MAX_WORDS,
+) -> str | None:
+    text = _collapse_whitespace(value)
+    if not text:
+        return None
+    if strip_table_prefix:
+        text = TABLE_PREFIX_PATTERN.sub("", text)
+    text = text.strip(" .,:;|-")
+    words = text.split()
+    if len(words) < 2:
+        return None
+    if "@" in text:
+        return None
+    alphabetic_words = [word for word in words if re.search(r"[A-Za-z]", word)]
+    if len(alphabetic_words) < 2:
+        return None
+    if text.upper() == text and len(words) <= 4:
+        return None
+    if len(words) > max_words:
+        text = " ".join(words[:max_words])
+    return text.strip(" .,:;|-") or None
+
+
+def _auto_fixture_name(source_filename: str) -> str:
+    stem = Path(source_filename).stem.lower()
+    slug = AUTO_FIXTURE_NAME_PATTERN.sub("_", stem).strip("_")
+    return f"auto_{slug or 'document'}"
+
+
+def _auto_table_query(table: object) -> str | None:
+    for candidate in (
+        getattr(table, "title", None),
+        getattr(table, "heading", None),
+        _first_sentence(getattr(table, "preview_text", None)),
+        _first_sentence(getattr(table, "search_text", None)),
+    ):
+        if query := _normalize_query_candidate(candidate, strip_table_prefix=True):
+            return query
+    return None
+
+
+def _auto_chunk_queries(title: str | None, source_filename: str, chunks: list[object]) -> list[str]:
+    queries: list[str] = []
+    seen: set[str] = set()
+    candidates: list[str | None] = [title, Path(source_filename).stem.replace("_", " ")]
+    for chunk in chunks[:24]:
+        candidates.extend(
+            [
+                getattr(chunk, "heading", None),
+                _first_sentence(getattr(chunk, "text", None)),
+            ]
+        )
+    for candidate in candidates:
+        query = _normalize_query_candidate(candidate)
+        if query is None:
+            continue
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(query)
+        if len(queries) >= AUTO_CHUNK_QUERY_LIMIT:
+            break
+    return queries
+
+
+def _figure_provenance_count(figures: list[object]) -> int:
+    count = 0
+    for figure in figures:
+        metadata = _metadata_for_row(figure)
+        if metadata.get("provenance"):
+            count += 1
+    return count
+
+
+def _figure_artifact_count(figures: list[object]) -> int:
+    return sum(
+        int(bool(getattr(figure, "json_path", None) and getattr(figure, "yaml_path", None)))
+        for figure in figures
+    )
+
+
+def build_auto_evaluation_fixture_document(
+    source_filename: str,
+    *,
+    title: str | None,
+    chunks: list[object],
+    tables: list[object],
+    figures: list[object],
+    run_id: UUID | None = None,
+) -> dict:
+    table_queries: list[dict[str, object]] = []
+    used_queries: set[str] = set()
+    for table in tables:
+        query = _auto_table_query(table)
+        if query is None or query.lower() in used_queries:
+            continue
+        used_queries.add(query.lower())
+        table_queries.append({"query": query, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
+        if len(table_queries) >= AUTO_TABLE_QUERY_LIMIT:
+            break
+
+    chunk_queries: list[dict[str, object]] = []
+    for query in _auto_chunk_queries(title, source_filename, chunks):
+        if query.lower() in used_queries:
+            continue
+        used_queries.add(query.lower())
+        chunk_queries.append({"query": query, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
+        if len(chunk_queries) >= AUTO_CHUNK_QUERY_LIMIT:
+            break
+
+    if not chunk_queries:
+        fallback = _normalize_query_candidate(Path(source_filename).stem.replace("_", " "))
+        if fallback:
+            chunk_queries.append({"query": fallback, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
+
+    thresholds: dict[str, object] = {
+        "expected_logical_table_count": len(tables),
+        "logical_table_tolerance": 0,
+        "expected_figure_count": len(figures),
+        "figure_count_tolerance": 0,
+        "maximum_unexpected_merges": 0,
+        "maximum_unexpected_splits": 0,
+    }
+
+    captioned_figure_count = sum(
+        int(bool(_normalized_caption_text(getattr(figure, "caption", None)))) for figure in figures
+    )
+    if captioned_figure_count:
+        thresholds["minimum_captioned_figure_count"] = captioned_figure_count
+    figures_with_provenance = _figure_provenance_count(figures)
+    if figures_with_provenance:
+        thresholds["minimum_figures_with_provenance"] = figures_with_provenance
+    figures_with_artifacts = _figure_artifact_count(figures)
+    if figures_with_artifacts:
+        thresholds["minimum_figures_with_artifacts"] = figures_with_artifacts
+    if table_queries:
+        thresholds["expected_top_n_table_hit_queries"] = table_queries
+    if chunk_queries:
+        thresholds["expected_top_n_chunk_hit_queries"] = chunk_queries
+
+    return {
+        "name": _auto_fixture_name(source_filename),
+        "kind": AUTO_FIXTURE_KIND,
+        "path": source_filename,
+        "autogenerated": True,
+        "generated_from_run_id": str(run_id) if run_id else None,
+        "thresholds": thresholds,
+    }
+
+
+def ensure_auto_evaluation_fixture(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    *,
+    title: str | None = None,
+) -> dict:
+    tables = (
+        session.execute(
+            select(DocumentTable)
+            .where(DocumentTable.document_id == document.id, DocumentTable.run_id == run.id)
+            .order_by(DocumentTable.table_index.asc())
+        )
+        .scalars()
+        .all()
+    )
+    figures = (
+        session.execute(
+            select(DocumentFigure)
+            .where(DocumentFigure.document_id == document.id, DocumentFigure.run_id == run.id)
+            .order_by(DocumentFigure.figure_index.asc())
+        )
+        .scalars()
+        .all()
+    )
+    chunks = (
+        session.execute(
+            select(DocumentChunk)
+            .where(DocumentChunk.document_id == document.id, DocumentChunk.run_id == run.id)
+            .order_by(DocumentChunk.chunk_index.asc())
+        )
+        .scalars()
+        .all()
+    )
+
+    fixture_document = build_auto_evaluation_fixture_document(
+        document.source_filename,
+        title=title or getattr(document, "title", None),
+        chunks=chunks,
+        tables=tables,
+        figures=figures,
+        run_id=run.id,
+    )
+    path = _auto_corpus_path()
+    documents = [
+        entry
+        for entry in _load_corpus_documents(path)
+        if Path(entry.get("path", "")).name != document.source_filename
+    ]
+    documents.append(fixture_document)
+    documents.sort(key=lambda entry: Path(entry.get("path", "")).name.lower())
+    _write_corpus_documents(path, documents)
+    return fixture_document
 
 
 def _upsert_evaluation_row(
@@ -727,6 +1001,9 @@ def evaluate_run(
 
     evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=None)
     fixture = fixture_for_document(document, corpus_path)
+    if fixture is None:
+        ensure_auto_evaluation_fixture(session, document, run)
+        fixture = fixture_for_document(document, corpus_path)
     now = _utcnow()
     if fixture is None:
         evaluation.fixture_name = None

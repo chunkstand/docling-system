@@ -9,6 +9,7 @@ from app.cli import (
     run_audit,
     run_backfill_legacy_audit,
     run_eval_candidates,
+    run_eval_corpus,
     run_eval_reranker,
     run_eval_run,
     run_export_ranking_dataset,
@@ -99,6 +100,60 @@ def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
     assert output["document_id"] == str(document_id)
     assert output["status"] == "completed"
     assert observed["baseline_run_id"] == active_run_id
+
+
+def test_eval_corpus_cli_evaluates_active_documents_without_manual_fixture(
+    monkeypatch, capsys
+) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+
+    class FakeQuery:
+        def order_by(self, *_args, **_kwargs):
+            return self
+
+        def all(self):
+            return [
+                SimpleNamespace(
+                    id=document_id,
+                    source_filename="autogen_doc.pdf",
+                    active_run_id=run_id,
+                    updated_at=None,
+                )
+            ]
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def query(self, _model):
+            return FakeQuery()
+
+        def get(self, model, key):
+            if model.__name__ == "DocumentRun" and key == run_id:
+                return SimpleNamespace(id=run_id)
+            return None
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-eval-corpus"])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.evaluate_run",
+        lambda session, document, run: SimpleNamespace(
+            status="completed",
+            fixture_name="auto_autogen_doc",
+            summary_json={"query_count": 2, "passed_queries": 2},
+        ),
+    )
+
+    run_eval_corpus()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["document_id"] == str(document_id)
+    assert output[0]["run_id"] == str(run_id)
+    assert output[0]["fixture_name"] == "auto_autogen_doc"
 
 
 def test_audit_cli_prints_summary(monkeypatch, capsys) -> None:

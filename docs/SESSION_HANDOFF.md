@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `ee58d2b` (`Close remaining eval candidate gaps`)
+Latest committed checkpoint before this handoff update: `6d8980c` (`Add Tyler's Kitchen eval fixtures and clip embedding inputs`)
 
 ## Executive Summary
 
@@ -42,6 +42,10 @@ The branch now includes:
   - latest-evaluation coverage is now live for those three documents
   - embedding generation now clips overlong inputs token-safely and batches requests instead of dropping semantic coverage for an entire run
   - the transportation report was reprocessed live to verify the former 8192-token overflow now degrades to a logged truncation event instead of an OpenAI 400
+- automatic post-ingest evaluation fixture generation:
+  - every successful validated run now writes an auto-generated fixture to `storage/evaluation_corpus.auto.yaml` before evaluation
+  - manual fixtures in `docs/evaluation_corpus.yaml` still win when both exist for the same source filename
+  - older runs without fixtures can now backfill one on first evaluation instead of staying permanently `skipped`
 - a green live `docling-system-audit` result after migration `0012_harness_chat_feedback`
 
 What is now true:
@@ -60,11 +64,12 @@ What is now true:
 - the worker can safely process multiple queued runs without tripping `MultipleResultsFound`
 - the fixed corpus now covers seven non-UPC documents, not just `The Bitter Lesson.pdf`
 - the corpus now contains sixteen active documents
-- fifteen documents now have completed latest evaluations; one remains intentionally `skipped`
+- all sixteen active documents now have completed latest evaluations
 - latest evaluation detail can now mix retrieval and grounded-answer checks in one persisted surface
 - `GET /quality/eval-candidates` defaults to unresolved rows, with resolved rows available via `include_resolved=true`
 - keyword chat can recover from table-heavy retrieval by switching to chunk-only evidence for non-tabular questions
 - the default unresolved eval-candidate queue is currently empty live
+- successful ingests now create immediate evaluation coverage even when no hand-authored fixture exists yet
 - the local corpus passes the current audit contract live
 
 ## What Landed Recently

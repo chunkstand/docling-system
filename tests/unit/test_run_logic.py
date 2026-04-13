@@ -100,6 +100,12 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
             passed=True, summary="ok", details={}
         ),
     )
+    monkeypatch.setattr(
+        "app.services.runs.ensure_auto_evaluation_fixture",
+        lambda session, document, run, title=None: observed.update(
+            {"auto_fixture_title": title, "auto_fixture_run_id": run.id}
+        ),
+    )
 
     def fake_evaluate_run(session, document, run, baseline_run_id=None):
         observed["baseline_run_id"] = baseline_run_id
@@ -122,6 +128,8 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     )
 
     assert observed["baseline_run_id"] == prior_active_run_id
+    assert observed["auto_fixture_title"] == "Report"
+    assert observed["auto_fixture_run_id"] == candidate_run_id
 
 
 def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path) -> None:

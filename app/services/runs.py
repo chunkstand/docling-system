@@ -27,7 +27,11 @@ from app.db.models import (
 )
 from app.services.docling_parser import DoclingParser, ParsedDocument, ParsedFigure, ParsedTable
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
-from app.services.evaluations import evaluate_run, resolve_baseline_run_id
+from app.services.evaluations import (
+    ensure_auto_evaluation_fixture,
+    evaluate_run,
+    resolve_baseline_run_id,
+)
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -708,6 +712,7 @@ def process_run(
         if not report.passed:
             raise ValidationError(report)
 
+        ensure_auto_evaluation_fixture(session, document, run, title=parsed.title)
         heartbeat_run(session, run)
         evaluation = evaluate_run(
             session,

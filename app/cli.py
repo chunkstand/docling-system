@@ -11,7 +11,7 @@ from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRe
 from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
-from app.services.evaluations import evaluate_run, fixture_for_document, resolve_baseline_run_id
+from app.services.evaluations import evaluate_run, resolve_baseline_run_id
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_history import replay_search_request
@@ -104,7 +104,7 @@ def run_eval_corpus() -> None:
     with session_factory() as session:
         documents = session.query(Document).order_by(Document.updated_at.desc()).all()
         for document in documents:
-            if document.active_run_id is None or fixture_for_document(document) is None:
+            if document.active_run_id is None:
                 continue
             run = session.get(DocumentRun, document.active_run_id)
             if run is None:
