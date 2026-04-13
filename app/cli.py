@@ -5,11 +5,11 @@ import json
 from pathlib import Path
 from uuid import UUID
 
-from app.db.models import Document, DocumentRun
+from app.db.models import AgentTask, Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
-from app.services.agent_task_artifacts import list_agent_task_artifacts
+from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -378,6 +378,21 @@ def run_agent_task_artifacts() -> None:
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
 
 
+def run_agent_task_artifact() -> None:
+    parser = argparse.ArgumentParser(description="Show one agent task artifact payload.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument("artifact_id", help="Artifact UUID.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        artifact = get_agent_task_artifact(session, UUID(args.task_id), UUID(args.artifact_id))
+    if artifact.storage_path and Path(artifact.storage_path).exists():
+        print(Path(artifact.storage_path).read_text())
+        return
+    print(json.dumps(artifact.payload_json or {}))
+
+
 def run_agent_task_verifications() -> None:
     parser = argparse.ArgumentParser(description="List verifier records for one agent task.")
     parser.add_argument("task_id", help="Agent task UUID.")
@@ -393,6 +408,21 @@ def run_agent_task_verifications() -> None:
     with session_factory() as session:
         payload = get_agent_task_verifications(session, UUID(args.task_id), limit=args.limit)
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_failure_artifact() -> None:
+    parser = argparse.ArgumentParser(description="Show one agent task failure artifact payload.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        task = session.get(AgentTask, UUID(args.task_id))
+        if task is None:
+            raise SystemExit(f"Agent task not found: {args.task_id}")
+        if task.failure_artifact_path is None or not Path(task.failure_artifact_path).exists():
+            raise SystemExit(f"Failure artifact not found for agent task: {args.task_id}")
+        print(Path(task.failure_artifact_path).read_text())
 
 
 def run_agent_task_approve() -> None:

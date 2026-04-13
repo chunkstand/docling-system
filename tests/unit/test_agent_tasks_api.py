@@ -33,6 +33,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     task_id = uuid4()
     artifact_id = uuid4()
     verification_id = uuid4()
+    failure_path = "/tmp/agent-task-failure.json"
 
     monkeypatch.setattr(
         "app.api.main.list_agent_tasks",
@@ -115,7 +116,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "result": {},
             "model_settings": {},
             "error_message": None,
-            "failure_artifact_path": None,
+            "failure_artifact_path": failure_path,
             "attempts": 0,
             "locked_at": None,
             "locked_by": None,
@@ -144,6 +145,19 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
                 "created_at": "2026-04-12T00:00:00Z",
             }
         ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_artifact",
+        lambda session, incoming_task_id, incoming_artifact_id: type(
+            "ArtifactRow",
+            (),
+            {
+                "id": incoming_artifact_id,
+                "task_id": incoming_task_id,
+                "storage_path": None,
+                "payload_json": {"shadow_mode": True, "triage_kind": "replay_regression"},
+            },
+        )(),
     )
     monkeypatch.setattr(
         "app.api.main.get_agent_task_verifications",
@@ -185,7 +199,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "result": {},
             "model_settings": {},
             "error_message": None,
-            "failure_artifact_path": None,
+            "failure_artifact_path": failure_path,
             "attempts": 0,
             "locked_at": None,
             "locked_by": None,
@@ -200,6 +214,11 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "artifacts": [],
             "verifications": [],
         },
+    )
+    monkeypatch.setattr("app.api.main.Path.exists", lambda self: str(self) == failure_path)
+    monkeypatch.setattr(
+        "app.api.main.FileResponse",
+        lambda path, media_type=None: {"path": str(path), "media_type": media_type},
     )
 
     client = TestClient(app)
@@ -226,9 +245,17 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     assert artifact_response.status_code == 200
     assert artifact_response.json()[0]["artifact_id"] == str(artifact_id)
 
+    artifact_detail_response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
+    assert artifact_detail_response.status_code == 200
+    assert artifact_detail_response.json()["triage_kind"] == "replay_regression"
+
     verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
     assert verification_response.status_code == 200
     assert verification_response.json()[0]["verification_id"] == str(verification_id)
+
+    failure_response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
+    assert failure_response.status_code == 200
+    assert failure_response.json()["path"] == failure_path
 
     approve_response = client.post(
         f"/agent-tasks/{task_id}/approve",
@@ -236,6 +263,54 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     )
     assert approve_response.status_code == 200
     assert approve_response.json()["approved_by"] == "operator@example.com"
+
+
+def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:
+    task_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_detail",
+        lambda session, incoming_task_id: {
+            "task_id": str(incoming_task_id),
+            "task_type": "triage_replay_regression",
+            "status": "failed",
+            "priority": 100,
+            "side_effect_level": "read_only",
+            "requires_approval": False,
+            "parent_task_id": None,
+            "workflow_version": "v1",
+            "tool_version": None,
+            "prompt_version": None,
+            "model": None,
+            "created_at": "2026-04-12T00:00:00Z",
+            "updated_at": "2026-04-12T00:00:00Z",
+            "started_at": None,
+            "completed_at": None,
+            "dependency_task_ids": [],
+            "input": {},
+            "result": {},
+            "model_settings": {},
+            "error_message": "failed",
+            "failure_artifact_path": None,
+            "attempts": 1,
+            "locked_at": None,
+            "locked_by": None,
+            "last_heartbeat_at": None,
+            "next_attempt_at": None,
+            "approved_at": None,
+            "approved_by": None,
+            "approval_note": None,
+            "artifact_count": 0,
+            "attempt_count": 1,
+            "verification_count": 0,
+            "artifacts": [],
+            "verifications": [],
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
+
+    assert response.status_code == 404
 
 
 def test_create_agent_task_route_returns_bad_request_on_unknown_task_type(monkeypatch) -> None:

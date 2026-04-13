@@ -164,7 +164,9 @@ Local path ingest policy:
 - `POST /agent-tasks`
 - `GET /agent-tasks/{task_id}`
 - `GET /agent-tasks/{task_id}/artifacts`
+- `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - `GET /agent-tasks/{task_id}/verifications`
+- `GET /agent-tasks/{task_id}/failure-artifact`
 - `POST /agent-tasks/{task_id}/approve`
 
 ## Search Contract
@@ -252,7 +254,9 @@ Current task guarantees:
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
 - task artifacts can be inspected through `GET /agent-tasks/{task_id}/artifacts`
+- persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
+- failed tasks expose a direct failure-artifact endpoint through `GET /agent-tasks/{task_id}/failure-artifact`
 - approval-gated routes exist in the API and CLI, but the current registered task set does not require approval
 
 The first workflow-style task is `triage_replay_regression`. It runs in shadow mode, mines unresolved quality candidates, evaluates a candidate harness against a baseline across replay sources, records a verifier-style recommendation on the triage task itself, and writes a durable `triage_summary.json` artifact under `storage/agent_tasks/<task_id>/`.
@@ -299,7 +303,9 @@ uv run docling-system-agent-task-create triage_replay_regression --input-json '{
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-show <task_id>
 uv run docling-system-agent-task-artifacts <task_id>
+uv run docling-system-agent-task-artifact <task_id> <artifact_id>
 uv run docling-system-agent-task-verifications <task_id>
+uv run docling-system-agent-task-failure-artifact <task_id>
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
@@ -316,6 +322,7 @@ The repository also includes a real Postgres-backed integration harness:
 
 ```bash
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_agent_task_triage_roundtrip.py -q
 ```
 
 That integration harness:

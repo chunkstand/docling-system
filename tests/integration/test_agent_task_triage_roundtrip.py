@@ -295,6 +295,21 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert document.active_run_id == active_run_before == run_id
         assert document.latest_run_id == latest_run_before == run_id
 
+    client = postgres_integration_harness.client
+    artifact_list_response = client.get(f"/agent-tasks/{task_id}/artifacts")
+    assert artifact_list_response.status_code == 200
+    assert len(artifact_list_response.json()) == 1
+    artifact_id = artifact_list_response.json()[0]["artifact_id"]
+
+    artifact_detail_response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
+    assert artifact_detail_response.status_code == 200
+    assert artifact_detail_response.json()["triage_kind"] == "replay_regression"
+
+    verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
+    assert verification_response.status_code == 200
+    assert len(verification_response.json()) == 1
+    assert verification_response.json()[0]["verifier_type"] == "shadow_mode_triage_gate"
+
 
 def test_triage_replay_regression_failure_writes_failure_artifact(
     postgres_integration_harness,
@@ -344,3 +359,9 @@ def test_triage_replay_regression_failure_writes_failure_artifact(
         assert failure_payload["failure_type"] == "ValueError"
         assert failure_payload["failure_stage"] == "execute"
         assert "Unknown search harness 'does_not_exist'" in failure_payload["error_message"]
+
+    failure_response = postgres_integration_harness.client.get(
+        f"/agent-tasks/{task_id}/failure-artifact"
+    )
+    assert failure_response.status_code == 200
+    assert failure_response.json()["failure_type"] == "ValueError"

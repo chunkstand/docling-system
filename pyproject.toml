@@ -53,7 +53,9 @@ docling-system-agent-task-create = "app.cli:run_agent_task_create"
 docling-system-agent-task-list = "app.cli:run_agent_task_list"
 docling-system-agent-task-show = "app.cli:run_agent_task_show"
 docling-system-agent-task-artifacts = "app.cli:run_agent_task_artifacts"
+docling-system-agent-task-artifact = "app.cli:run_agent_task_artifact"
 docling-system-agent-task-verifications = "app.cli:run_agent_task_verifications"
+docling-system-agent-task-failure-artifact = "app.cli:run_agent_task_failure_artifact"
 docling-system-agent-task-approve = "app.cli:run_agent_task_approve"
 
 [tool.hatch.build.targets.wheel]

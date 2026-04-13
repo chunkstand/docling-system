@@ -6,7 +6,7 @@ from uuid import UUID
 
 import uvicorn
 from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
@@ -59,7 +59,7 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
-from app.services.agent_task_artifacts import list_agent_task_artifacts
+from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -213,6 +213,18 @@ def read_agent_task_artifacts(
     return list_agent_task_artifacts(session, task_id, limit=limit)
 
 
+@app.get("/agent-tasks/{task_id}/artifacts/{artifact_id}")
+def read_agent_task_artifact(
+    task_id: UUID,
+    artifact_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    artifact = get_agent_task_artifact(session, task_id, artifact_id)
+    if artifact.storage_path and Path(artifact.storage_path).exists():
+        return FileResponse(Path(artifact.storage_path), media_type="application/json")
+    return JSONResponse(artifact.payload_json or {})
+
+
 @app.get("/agent-tasks/{task_id}/verifications", response_model=list[AgentTaskVerificationResponse])
 def read_agent_task_verifications(
     task_id: UUID,
@@ -220,6 +232,20 @@ def read_agent_task_verifications(
     session: Session = Depends(get_db_session),
 ) -> list[AgentTaskVerificationResponse]:
     return get_agent_task_verifications(session, task_id, limit=limit)
+
+
+@app.get("/agent-tasks/{task_id}/failure-artifact")
+def read_agent_task_failure_artifact(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    task = get_agent_task_detail(session, task_id)
+    failure_artifact_path = getattr(task, "failure_artifact_path", None)
+    if failure_artifact_path is None and isinstance(task, dict):
+        failure_artifact_path = task.get("failure_artifact_path")
+    if not failure_artifact_path or not Path(failure_artifact_path).exists():
+        return Response(status_code=404)
+    return FileResponse(Path(failure_artifact_path), media_type="application/json")
 
 
 @app.post("/agent-tasks/{task_id}/approve", response_model=AgentTaskDetailResponse)

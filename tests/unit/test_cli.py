@@ -8,8 +8,10 @@ from uuid import uuid4
 from app.cli import (
     run_agent_task_actions,
     run_agent_task_approve,
+    run_agent_task_artifact,
     run_agent_task_artifacts,
     run_agent_task_create,
+    run_agent_task_failure_artifact,
     run_agent_task_list,
     run_agent_task_show,
     run_agent_task_verifications,
@@ -604,6 +606,41 @@ def test_agent_task_artifacts_cli_prints_artifact_rows(monkeypatch, capsys) -> N
     assert output[0]["limit"] == 5
 
 
+def test_agent_task_artifact_cli_prints_artifact_payload(monkeypatch, capsys, tmp_path) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+    artifact_path = tmp_path / "triage_summary.json"
+    artifact_path.write_text('{"shadow_mode": true, "triage_kind": "replay_regression"}')
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-artifact", str(task_id), str(artifact_id)],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_artifact",
+        lambda session, incoming_task_id, incoming_artifact_id: SimpleNamespace(
+            task_id=incoming_task_id,
+            id=incoming_artifact_id,
+            storage_path=str(artifact_path),
+            payload_json={"shadow_mode": True},
+        ),
+    )
+
+    run_agent_task_artifact()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["triage_kind"] == "replay_regression"
+
+
 def test_agent_task_verifications_cli_prints_verification_rows(monkeypatch, capsys) -> None:
     task_id = uuid4()
     verification_id = uuid4()
@@ -641,6 +678,37 @@ def test_agent_task_verifications_cli_prints_verification_rows(monkeypatch, caps
     assert output[0]["verification_id"] == str(verification_id)
     assert output[0]["target_task_id"] == str(task_id)
     assert output[0]["limit"] == 5
+
+
+def test_agent_task_failure_artifact_cli_prints_failure_payload(
+    monkeypatch, capsys, tmp_path
+) -> None:
+    task_id = uuid4()
+    failure_path = tmp_path / "failure.json"
+    failure_path.write_text('{"failure_type": "ValueError", "failure_stage": "execute"}')
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get(self, model, key):
+            return SimpleNamespace(failure_artifact_path=str(failure_path))
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-failure-artifact", str(task_id)],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+
+    run_agent_task_failure_artifact()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["failure_type"] == "ValueError"
+    assert output["failure_stage"] == "execute"
 
 
 def test_agent_task_approve_cli_prints_updated_task(monkeypatch, capsys) -> None:

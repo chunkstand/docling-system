@@ -84,6 +84,23 @@ def list_agent_task_artifacts(
     return [_to_artifact_response(row) for row in rows]
 
 
+def get_agent_task_artifact(
+    session: Session,
+    task_id: UUID,
+    artifact_id: UUID,
+) -> AgentTaskArtifact:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    row = session.get(AgentTaskArtifact, artifact_id)
+    if row is None or row.task_id != task_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent task artifact not found.",
+        )
+    return row
+
+
 def delete_agent_task_artifact_file(
     storage_service: StorageService,
     *,
