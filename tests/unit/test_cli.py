@@ -320,7 +320,7 @@ def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
         "argv",
         [
             "docling-system-run-replay-suite",
-            "feedback",
+            "cross_document_prose_regressions",
             "--limit",
             "3",
             "--harness-name",
@@ -344,7 +344,7 @@ def test_replay_suite_cli_prints_summary(monkeypatch, capsys) -> None:
 
     output = json.loads(capsys.readouterr().out.strip())
     assert output["replay_run_id"] == str(replay_run_id)
-    assert output["source_type"] == "feedback"
+    assert output["source_type"] == "cross_document_prose_regressions"
     assert output["query_count"] == 3
     assert output["harness_name"] == "wide_v2"
 
@@ -398,7 +398,7 @@ def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
             "--baseline-harness-name",
             "default_v1",
             "--source-type",
-            "evaluation_queries",
+            "cross_document_prose_regressions",
             "--limit",
             "5",
         ],
@@ -428,4 +428,4 @@ def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output["candidate_harness_name"] == "wide_v2"
     assert output["baseline_harness_name"] == "default_v1"
-    assert output["sources"][0]["source_type"] == "evaluation_queries"
+    assert output["sources"][0]["source_type"] == "cross_document_prose_regressions"

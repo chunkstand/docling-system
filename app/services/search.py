@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from time import perf_counter
 from typing import Protocol
 from uuid import UUID
 
-from sqlalchemy import Float, Select, and_, cast, false, func, select
+from sqlalchemy import Float, Select, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -24,6 +26,12 @@ from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.telemetry import observe_search_results
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
+QUERY_INTENT_TABULAR = "tabular"
+QUERY_INTENT_PROSE_LOOKUP = "prose_lookup"
+QUERY_INTENT_PROSE_BROAD = "prose_broad"
+PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
+PROSE_ADJACENT_EXPANSION_LIMIT = 12
+PROSE_ADJACENT_SEED_LIMIT = 6
 
 
 def _utcnow() -> datetime:
@@ -39,6 +47,9 @@ class RankedResult:
     source_filename: str
     page_from: int | None
     page_to: int | None
+    chunk_index: int | None = None
+    table_index: int | None = None
+    document_title: str | None = None
     chunk_text: str | None = None
     heading: str | None = None
     table_title: str | None = None
@@ -49,6 +60,7 @@ class RankedResult:
     keyword_score: float | None = None
     semantic_score: float | None = None
     hybrid_score: float | None = None
+    retrieval_sources: tuple[str, ...] = ()
 
 
 @dataclass
@@ -87,6 +99,7 @@ class SearchReranker(Protocol):
         request: SearchRequest,
         score_getter: Callable[[RankedResult], float],
         tabular_query: bool,
+        query_intent: str,
     ) -> list[RerankedResult]:
         ...
 
@@ -111,6 +124,14 @@ class LinearRerankerConfig:
     tabular_table_bonus: float
     title_exact_match_bonus: float
     title_token_coverage_bonus: float
+    source_filename_token_coverage_bonus: float
+    document_title_token_coverage_bonus: float
+    prose_document_cluster_bonus: float
+    heading_token_coverage_bonus: float
+    phrase_overlap_bonus: float
+    rare_token_overlap_bonus: float
+    adjacent_chunk_context_bonus: float
+    prose_table_penalty: float
     exact_filter_bonus: float
     result_type_priority_bonus: float
 
@@ -160,6 +181,12 @@ WIDE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
     semantic_candidate_multiplier=7,
     min_candidate_limit=28,
 )
+PROSE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
+    name="prose_v3",
+    keyword_candidate_multiplier=10,
+    semantic_candidate_multiplier=10,
+    min_candidate_limit=40,
+)
 
 _HARNESS_REGISTRY: dict[str, SearchHarness] = {
     "default_v1": SearchHarness(
@@ -173,6 +200,14 @@ _HARNESS_REGISTRY: dict[str, SearchHarness] = {
             tabular_table_bonus=0.05,
             title_exact_match_bonus=0.04,
             title_token_coverage_bonus=0.02,
+            source_filename_token_coverage_bonus=0.035,
+            document_title_token_coverage_bonus=0.03,
+            prose_document_cluster_bonus=0.025,
+            heading_token_coverage_bonus=0.0,
+            phrase_overlap_bonus=0.0,
+            rare_token_overlap_bonus=0.0,
+            adjacent_chunk_context_bonus=0.0,
+            prose_table_penalty=0.0,
             exact_filter_bonus=0.01,
             result_type_priority_bonus=0.005,
         ),
@@ -188,6 +223,37 @@ _HARNESS_REGISTRY: dict[str, SearchHarness] = {
             tabular_table_bonus=0.08,
             title_exact_match_bonus=0.05,
             title_token_coverage_bonus=0.03,
+            source_filename_token_coverage_bonus=0.045,
+            document_title_token_coverage_bonus=0.04,
+            prose_document_cluster_bonus=0.035,
+            heading_token_coverage_bonus=0.0,
+            phrase_overlap_bonus=0.0,
+            rare_token_overlap_bonus=0.0,
+            adjacent_chunk_context_bonus=0.0,
+            prose_table_penalty=0.0,
+            exact_filter_bonus=0.02,
+            result_type_priority_bonus=0.008,
+        ),
+    ),
+    "prose_v3": SearchHarness(
+        name="prose_v3",
+        retrieval_profile=PROSE_RETRIEVAL_PROFILE,
+        reranker_config=LinearRerankerConfig(
+            harness_name="prose_v3",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v3",
+            retrieval_profile_name=PROSE_RETRIEVAL_PROFILE.name,
+            tabular_table_bonus=0.08,
+            title_exact_match_bonus=0.05,
+            title_token_coverage_bonus=0.03,
+            source_filename_token_coverage_bonus=0.05,
+            document_title_token_coverage_bonus=0.045,
+            prose_document_cluster_bonus=0.07,
+            heading_token_coverage_bonus=0.03,
+            phrase_overlap_bonus=0.04,
+            rare_token_overlap_bonus=0.045,
+            adjacent_chunk_context_bonus=0.025,
+            prose_table_penalty=0.02,
             exact_filter_bonus=0.02,
             result_type_priority_bonus=0.008,
         ),
@@ -207,6 +273,7 @@ class LinearFeatureSearchReranker:
         request: SearchRequest,
         score_getter: Callable[[RankedResult], float],
         tabular_query: bool,
+        query_intent: str,
     ) -> list[RerankedResult]:
         base_ranked = sorted(
             items,
@@ -217,19 +284,57 @@ class LinearFeatureSearchReranker:
             ),
         )
 
+        document_cluster_strengths = _document_cluster_strengths(
+            base_ranked,
+            score_getter=score_getter,
+            query_intent=query_intent,
+        )
         annotated: list[RerankedResult] = []
         for base_rank, item in enumerate(base_ranked, start=1):
             base_score = score_getter(item)
             tabular_table_signal = int(tabular_query and item.result_type == "table")
             title_match_features = _table_title_match_features(item, request.query)
+            document_overlap_features = _document_query_overlap_features(item, request.query)
+            prose_match_features = _prose_query_match_features(item, request.query)
             exact_filter_priority = _exact_filter_priority(item, request.filters)
             result_type_priority = _result_type_priority(item, tabular_query)
+            document_cluster_strength = document_cluster_strengths.get(item.document_id, 0.0)
             title_match_boost = (
                 title_match_features["title_exact_match"] * self.config.title_exact_match_bonus
                 + title_match_features["title_token_coverage"]
                 * self.config.title_token_coverage_bonus
             )
+            source_filename_boost = (
+                document_overlap_features["source_filename_token_coverage"]
+                * self.config.source_filename_token_coverage_bonus
+            )
+            document_title_boost = (
+                document_overlap_features["document_title_token_coverage"]
+                * self.config.document_title_token_coverage_bonus
+            )
+            prose_document_cluster_boost = (
+                document_cluster_strength * self.config.prose_document_cluster_bonus
+            )
+            heading_boost = (
+                prose_match_features["heading_token_coverage"]
+                * self.config.heading_token_coverage_bonus
+            )
+            phrase_overlap_boost = (
+                prose_match_features["phrase_overlap"] * self.config.phrase_overlap_bonus
+            )
+            rare_token_overlap_boost = (
+                prose_match_features["rare_token_overlap"] * self.config.rare_token_overlap_bonus
+            )
+            adjacent_chunk_context_boost = (
+                prose_match_features["adjacent_chunk_context_signal"]
+                * self.config.adjacent_chunk_context_bonus
+            )
             tabular_boost = tabular_table_signal * self.config.tabular_table_bonus
+            prose_table_penalty = (
+                self.config.prose_table_penalty
+                if query_intent != QUERY_INTENT_TABULAR and item.result_type == "table"
+                else 0.0
+            )
             exact_filter_boost = exact_filter_priority * self.config.exact_filter_bonus
             result_type_priority_boost = (
                 result_type_priority * self.config.result_type_priority_bonus
@@ -238,6 +343,14 @@ class LinearFeatureSearchReranker:
                 base_score
                 + tabular_boost
                 + title_match_boost
+                + source_filename_boost
+                + document_title_boost
+                + prose_document_cluster_boost
+                + heading_boost
+                + phrase_overlap_boost
+                + rare_token_overlap_boost
+                + adjacent_chunk_context_boost
+                - prose_table_penalty
                 + exact_filter_boost
                 + result_type_priority_boost
             )
@@ -258,10 +371,35 @@ class LinearFeatureSearchReranker:
                         "title_exact_match": title_match_features["title_exact_match"],
                         "title_token_coverage": title_match_features["title_token_coverage"],
                         "title_match_boost": title_match_boost,
+                        "source_filename_token_coverage": document_overlap_features[
+                            "source_filename_token_coverage"
+                        ],
+                        "source_filename_boost": source_filename_boost,
+                        "document_title_token_coverage": document_overlap_features[
+                            "document_title_token_coverage"
+                        ],
+                        "document_title_boost": document_title_boost,
+                        "document_cluster_strength": document_cluster_strength,
+                        "prose_document_cluster_boost": prose_document_cluster_boost,
+                        "heading_token_coverage": prose_match_features[
+                            "heading_token_coverage"
+                        ],
+                        "heading_boost": heading_boost,
+                        "phrase_overlap": prose_match_features["phrase_overlap"],
+                        "phrase_overlap_boost": phrase_overlap_boost,
+                        "rare_token_overlap": prose_match_features["rare_token_overlap"],
+                        "rare_token_overlap_boost": rare_token_overlap_boost,
+                        "adjacent_chunk_context_signal": prose_match_features[
+                            "adjacent_chunk_context_signal"
+                        ],
+                        "adjacent_chunk_context_boost": adjacent_chunk_context_boost,
+                        "prose_table_penalty": prose_table_penalty,
                         "exact_filter_priority": exact_filter_priority,
                         "exact_filter_boost": exact_filter_boost,
                         "result_type_priority": result_type_priority,
                         "result_type_priority_boost": result_type_priority_boost,
+                        "query_intent": query_intent,
+                        "retrieval_sources": list(item.retrieval_sources),
                         "final_score": final_score,
                     },
                 )
@@ -378,7 +516,10 @@ def _apply_table_filters(statement: Select, filters: SearchFilters | None) -> Se
 
 
 def _hydrate_ranked_chunks(
-    rows: Iterable[tuple[DocumentChunk, Document, float]], score_kind: str
+    rows: Iterable[tuple[DocumentChunk, Document, float]],
+    score_kind: str,
+    *,
+    retrieval_source: str,
 ) -> list[RankedResult]:
     hydrated: list[RankedResult] = []
     for chunk, document, score in rows:
@@ -388,10 +529,13 @@ def _hydrate_ranked_chunks(
             document_id=chunk.document_id,
             run_id=chunk.run_id,
             source_filename=document.source_filename,
+            document_title=document.title,
             page_from=chunk.page_from,
             page_to=chunk.page_to,
+            chunk_index=chunk.chunk_index,
             chunk_text=chunk.text,
             heading=chunk.heading,
+            retrieval_sources=(retrieval_source,),
         )
         if score_kind == "keyword":
             ranked.keyword_score = float(score)
@@ -402,7 +546,10 @@ def _hydrate_ranked_chunks(
 
 
 def _hydrate_ranked_tables(
-    rows: Iterable[tuple[DocumentTable, Document, float]], score_kind: str
+    rows: Iterable[tuple[DocumentTable, Document, float]],
+    score_kind: str,
+    *,
+    retrieval_source: str,
 ) -> list[RankedResult]:
     hydrated: list[RankedResult] = []
     for table, document, score in rows:
@@ -412,13 +559,16 @@ def _hydrate_ranked_tables(
             document_id=table.document_id,
             run_id=table.run_id,
             source_filename=document.source_filename,
+            document_title=document.title,
             page_from=table.page_from,
             page_to=table.page_to,
+            table_index=table.table_index,
             table_title=table.title,
             table_heading=table.heading,
             table_preview=table.preview_text,
             row_count=table.row_count,
             col_count=table.col_count,
+            retrieval_sources=(retrieval_source,),
         )
         if score_kind == "keyword":
             ranked.keyword_score = float(score)
@@ -462,7 +612,11 @@ def _run_keyword_chunk_search(
         .order_by(rank.desc(), DocumentChunk.chunk_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_chunks(session.execute(statement).all(), "keyword")
+    return _hydrate_ranked_chunks(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="keyword_primary",
+    )
 
 
 def _run_relaxed_keyword_chunk_search(
@@ -484,7 +638,11 @@ def _run_relaxed_keyword_chunk_search(
         .order_by(rank.desc(), DocumentChunk.chunk_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_chunks(session.execute(statement).all(), "keyword")
+    return _hydrate_ranked_chunks(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="keyword_relaxed",
+    )
 
 
 def _run_keyword_table_search(
@@ -503,7 +661,11 @@ def _run_keyword_table_search(
         .order_by(rank.desc(), DocumentTable.table_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_tables(session.execute(statement).all(), "keyword")
+    return _hydrate_ranked_tables(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="keyword_primary",
+    )
 
 
 def _run_relaxed_keyword_table_search(
@@ -525,7 +687,11 @@ def _run_relaxed_keyword_table_search(
         .order_by(rank.desc(), DocumentTable.table_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_tables(session.execute(statement).all(), "keyword")
+    return _hydrate_ranked_tables(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="keyword_relaxed",
+    )
 
 
 def _run_semantic_chunk_search(
@@ -545,7 +711,11 @@ def _run_semantic_chunk_search(
         .order_by(distance.asc(), DocumentChunk.chunk_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_chunks(session.execute(statement).all(), "semantic")
+    return _hydrate_ranked_chunks(
+        session.execute(statement).all(),
+        "semantic",
+        retrieval_source="semantic_primary",
+    )
 
 
 def _run_semantic_table_search(
@@ -565,7 +735,11 @@ def _run_semantic_table_search(
         .order_by(distance.asc(), DocumentTable.table_index.asc())
         .limit(candidate_limit or request.limit)
     )
-    return _hydrate_ranked_tables(session.execute(statement).all(), "semantic")
+    return _hydrate_ranked_tables(
+        session.execute(statement).all(),
+        "semantic",
+        retrieval_source="semantic_primary",
+    )
 
 
 def _reciprocal_rank(rank: int) -> float:
@@ -585,10 +759,174 @@ def _is_tabular_query(query: str) -> bool:
     return False
 
 
+def _classify_query_intent(query: str) -> str:
+    if _is_tabular_query(query):
+        return QUERY_INTENT_TABULAR
+    normalized = _normalize_text(query)
+    if not normalized:
+        return QUERY_INTENT_PROSE_LOOKUP
+    salient_count = len(_salient_tokens(query))
+    if (
+        "?" in query
+        or normalized.startswith(
+            (
+                "what ",
+                "what is ",
+                "what does ",
+                "which ",
+                "who ",
+                "when ",
+                "where ",
+                "how many ",
+                "how much ",
+                "does ",
+                "is ",
+                "are ",
+            )
+        )
+        or any(
+            phrase in normalized
+            for phrase in (
+                "main claim",
+                "due date",
+                "what habitat",
+                "what does table",
+            )
+        )
+        or salient_count <= 6
+    ):
+        return QUERY_INTENT_PROSE_LOOKUP
+    return QUERY_INTENT_PROSE_BROAD
+
+
 def _normalize_text(value: str | None) -> str:
     if not value:
         return ""
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
+
+
+_QUERY_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "how",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "this",
+        "to",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+    }
+)
+
+
+def _salient_tokens(value: str | None) -> set[str]:
+    normalized = _normalize_text(value)
+    if not normalized:
+        return set()
+    return {
+        token
+        for token in normalized.split()
+        if len(token) >= 3 and token not in _QUERY_STOPWORDS
+    }
+
+
+def _rare_query_tokens(value: str | None) -> set[str]:
+    return {token for token in _salient_tokens(value) if len(token) >= 7}
+
+
+def _query_phrases(value: str | None, phrase_size: int = 2) -> set[str]:
+    tokens = [token for token in _normalize_text(value).split() if token not in _QUERY_STOPWORDS]
+    if len(tokens) < phrase_size:
+        return set()
+    return {
+        " ".join(tokens[idx : idx + phrase_size])
+        for idx in range(len(tokens) - phrase_size + 1)
+    }
+
+
+def _token_coverage(query: str | None, value: str | None) -> float:
+    query_tokens = _salient_tokens(query)
+    value_tokens = _salient_tokens(value)
+    if not query_tokens or not value_tokens:
+        return 0.0
+    return len(query_tokens & value_tokens) / len(query_tokens)
+
+
+def _document_query_overlap_features(item: RankedResult, query: str | None) -> dict[str, float]:
+    return {
+        "source_filename_token_coverage": _token_coverage(
+            query,
+            Path(item.source_filename).stem,
+        ),
+        "document_title_token_coverage": _token_coverage(query, item.document_title),
+    }
+
+
+def _prose_result_text(item: RankedResult) -> str:
+    return " ".join(
+        part
+        for part in (
+            item.document_title,
+            Path(item.source_filename).stem,
+            item.heading,
+            item.chunk_text,
+            item.table_title,
+            item.table_heading,
+            item.table_preview,
+        )
+        if part
+    )
+
+
+def _prose_query_match_features(item: RankedResult, query: str | None) -> dict[str, float]:
+    result_text = _normalize_text(_prose_result_text(item))
+    query_phrases = _query_phrases(query)
+    rare_tokens = _rare_query_tokens(query)
+    heading_value = item.heading or item.table_heading
+    return {
+        "heading_token_coverage": _token_coverage(query, heading_value),
+        "phrase_overlap": (
+            sum(1 for phrase in query_phrases if phrase in result_text) / len(query_phrases)
+            if query_phrases
+            else 0.0
+        ),
+        "rare_token_overlap": (
+            len(rare_tokens & set(result_text.split())) / len(rare_tokens) if rare_tokens else 0.0
+        ),
+        "adjacent_chunk_context_signal": float("adjacent_context" in item.retrieval_sources),
+    }
+
+
+def _merge_retrieval_sources(*source_groups: tuple[str, ...]) -> tuple[str, ...]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for group in source_groups:
+        for source in group:
+            if source in seen:
+                continue
+            seen.add(source)
+            merged.append(source)
+    return tuple(merged)
 
 
 def _table_title_match_features(item: RankedResult, query: str | None) -> dict[str, float]:
@@ -629,6 +967,39 @@ def _result_type_priority(item: RankedResult, tabular_query: bool) -> int:
     if tabular_query:
         return 1 if item.result_type == "table" else 0
     return 1 if item.result_type == "chunk" else 0
+
+
+def _document_cluster_strengths(
+    items: list[RankedResult],
+    *,
+    score_getter: Callable[[RankedResult], float],
+    query_intent: str,
+) -> dict[UUID, float]:
+    if query_intent == QUERY_INTENT_TABULAR or len(items) < 2:
+        return {}
+
+    document_counts: dict[UUID, int] = {}
+    document_score_sums: dict[UUID, float] = {}
+    for item in items:
+        document_counts[item.document_id] = document_counts.get(item.document_id, 0) + 1
+        document_score_sums[item.document_id] = (
+            document_score_sums.get(item.document_id, 0.0) + score_getter(item)
+        )
+
+    max_count = max(document_counts.values(), default=0)
+    max_score_sum = max(document_score_sums.values(), default=0.0)
+    if max_count <= 1 or max_score_sum <= 0:
+        return {}
+
+    strengths: dict[UUID, float] = {}
+    for document_id, count in document_counts.items():
+        if count <= 1:
+            strengths[document_id] = 0.0
+            continue
+        count_strength = (count - 1) / (max_count - 1)
+        score_strength = document_score_sums[document_id] / max_score_sum
+        strengths[document_id] = count_strength * score_strength
+    return strengths
 
 
 def _to_search_result(item: RankedResult, score: float) -> SearchResult:
@@ -683,6 +1054,10 @@ def _merge_hybrid_candidates(
         current = merged.setdefault(_result_key(result), result)
         current.keyword_score = result.keyword_score
         current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
+        current.retrieval_sources = _merge_retrieval_sources(
+            current.retrieval_sources,
+            result.retrieval_sources,
+        )
 
     for idx, result in enumerate(semantic_results, start=1):
         current = merged.get(_result_key(result))
@@ -691,8 +1066,187 @@ def _merge_hybrid_candidates(
             merged[_result_key(result)] = current
         current.semantic_score = result.semantic_score
         current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
+        current.retrieval_sources = _merge_retrieval_sources(
+            current.retrieval_sources,
+            result.retrieval_sources,
+        )
 
     return list(merged.values())
+
+
+def _dedupe_ranked_results(items: list[RankedResult]) -> list[RankedResult]:
+    merged: dict[tuple[str, UUID], RankedResult] = {}
+
+    for item in items:
+        key = _result_key(item)
+        current = merged.get(key)
+        if current is None:
+            merged[key] = item
+            continue
+        if item.keyword_score is not None:
+            current.keyword_score = max(current.keyword_score or 0.0, item.keyword_score)
+        if item.semantic_score is not None:
+            current.semantic_score = max(current.semantic_score or 0.0, item.semantic_score)
+        if item.hybrid_score is not None:
+            current.hybrid_score = max(current.hybrid_score or 0.0, item.hybrid_score)
+        current.retrieval_sources = _merge_retrieval_sources(
+            current.retrieval_sources,
+            item.retrieval_sources,
+        )
+    return list(merged.values())
+
+
+def _strongest_ranked_score(item: RankedResult) -> float:
+    return max(
+        item.keyword_score or 0.0,
+        item.semantic_score or 0.0,
+        item.hybrid_score or 0.0,
+    )
+
+
+def _ranked_metadata_overlap_score(
+    query: str,
+    *,
+    document_title: str | None,
+    heading: str | None,
+    source_filename: str,
+) -> float:
+    title_overlap = _token_coverage(query, document_title)
+    heading_overlap = _token_coverage(query, heading)
+    filename_overlap = _token_coverage(query, Path(source_filename).stem)
+    return max(title_overlap, heading_overlap, filename_overlap) + (
+        0.2 * title_overlap + 0.2 * heading_overlap + 0.15 * filename_overlap
+    )
+
+
+def _run_prose_metadata_chunk_search(
+    session: Session,
+    request: SearchRequest,
+    *,
+    run_id: UUID | None = None,
+    candidate_limit: int = PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT,
+) -> list[RankedResult]:
+    tokens = sorted(_salient_tokens(request.query))
+    if not tokens:
+        return []
+
+    conditions = []
+    for token in tokens:
+        pattern = f"%{token}%"
+        conditions.extend(
+            [
+                Document.title.ilike(pattern),
+                DocumentChunk.heading.ilike(pattern),
+                Document.source_filename.ilike(pattern),
+            ]
+        )
+
+    statement = (
+        _apply_chunk_filters(_chunk_query(run_id), request.filters)
+        .where(or_(*conditions))
+        .order_by(DocumentChunk.chunk_index.asc())
+        .limit(candidate_limit * 4)
+    )
+    rows = session.execute(statement).all()
+    candidates: list[RankedResult] = []
+    for chunk, document in rows:
+        score = _ranked_metadata_overlap_score(
+            request.query,
+            document_title=document.title,
+            heading=chunk.heading,
+            source_filename=document.source_filename,
+        )
+        if score <= 0:
+            continue
+        candidates.append(
+            RankedResult(
+                result_type="chunk",
+                result_id=chunk.id,
+                document_id=chunk.document_id,
+                run_id=chunk.run_id,
+                source_filename=document.source_filename,
+                document_title=document.title,
+                page_from=chunk.page_from,
+                page_to=chunk.page_to,
+                chunk_index=chunk.chunk_index,
+                chunk_text=chunk.text,
+                heading=chunk.heading,
+                keyword_score=score,
+                retrieval_sources=("metadata_supplement",),
+            )
+        )
+    candidates.sort(
+        key=lambda item: (
+            -_strongest_ranked_score(item),
+            item.page_from if item.page_from is not None else 10**9,
+            str(item.result_id),
+        )
+    )
+    return _dedupe_ranked_results(candidates)[:candidate_limit]
+
+
+def _expand_adjacent_chunk_context(
+    session: Session,
+    request: SearchRequest,
+    *,
+    seed_candidates: list[RankedResult],
+    run_id: UUID | None = None,
+    expansion_limit: int = PROSE_ADJACENT_EXPANSION_LIMIT,
+) -> list[RankedResult]:
+    expanded: list[RankedResult] = []
+    seen_keys: set[tuple[str, UUID]] = set()
+    chunk_seeds = [candidate for candidate in seed_candidates if candidate.result_type == "chunk"]
+    chunk_seeds.sort(
+        key=lambda item: (
+            -_strongest_ranked_score(item),
+            item.page_from if item.page_from is not None else 10**9,
+            str(item.result_id),
+        )
+    )
+
+    for seed in chunk_seeds[:PROSE_ADJACENT_SEED_LIMIT]:
+        if seed.result_type != "chunk" or seed.chunk_index is None:
+            continue
+        chunk_statement = _apply_chunk_filters(_chunk_query(run_id), request.filters).where(
+            DocumentChunk.document_id == seed.document_id,
+            DocumentChunk.run_id == seed.run_id,
+            DocumentChunk.chunk_index.in_(
+                (max(seed.chunk_index - 1, -1), seed.chunk_index + 1)
+            ),
+        )
+        for chunk, document in session.execute(chunk_statement).all():
+            key = ("chunk", chunk.id)
+            if key in seen_keys or chunk.id == seed.result_id:
+                continue
+            seen_keys.add(key)
+            expanded.append(
+                RankedResult(
+                    result_type="chunk",
+                    result_id=chunk.id,
+                    document_id=chunk.document_id,
+                    run_id=chunk.run_id,
+                    source_filename=document.source_filename,
+                    document_title=document.title,
+                    page_from=chunk.page_from,
+                    page_to=chunk.page_to,
+                    chunk_index=chunk.chunk_index,
+                    chunk_text=chunk.text,
+                    heading=chunk.heading,
+                    keyword_score=_strongest_ranked_score(seed) * 0.85,
+                    retrieval_sources=("adjacent_context",),
+                )
+            )
+            if len(expanded) >= expansion_limit:
+                return expanded
+    return expanded
+
+
+def _candidate_source_breakdown(items: list[RankedResult]) -> dict[str, int]:
+    counter: Counter[str] = Counter()
+    for item in items:
+        for source in item.retrieval_sources:
+            counter[source] += 1
+    return dict(sorted(counter.items()))
 
 
 def _rerank_results(
@@ -701,6 +1255,7 @@ def _rerank_results(
     request: SearchRequest,
     score_getter: Callable[[RankedResult], float],
     tabular_query: bool,
+    query_intent: str,
     reranker: SearchReranker | None = None,
 ) -> list[RerankedResult]:
     active_reranker = reranker or get_default_reranker()
@@ -709,6 +1264,7 @@ def _rerank_results(
         request=request,
         score_getter=score_getter,
         tabular_query=tabular_query,
+        query_intent=query_intent,
     )
 
 
@@ -718,6 +1274,7 @@ def _sort_ranked_results(
     score_getter,
     filters: SearchFilters | None,
     tabular_query: bool,
+    query_intent: str,
     limit: int,
     query: str | None = None,
     reranker: SearchReranker | None = None,
@@ -732,6 +1289,7 @@ def _sort_ranked_results(
         ),
         score_getter=score_getter,
         tabular_query=tabular_query,
+        query_intent=query_intent,
         reranker=reranker,
     )
     return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
@@ -743,6 +1301,7 @@ def _merge_hybrid_results(
     limit: int,
     filters: SearchFilters | None,
     tabular_query: bool,
+    query_intent: str = QUERY_INTENT_PROSE_LOOKUP,
     query: str | None = None,
 ) -> list[SearchResult]:
     merged = _merge_hybrid_candidates(keyword_results, semantic_results)
@@ -756,6 +1315,7 @@ def _merge_hybrid_results(
         ),
         score_getter=lambda item: item.hybrid_score or 0.0,
         tabular_query=tabular_query,
+        query_intent=query_intent,
     )
     return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
 
@@ -872,6 +1432,11 @@ def execute_search(
     harness = get_search_harness(request.harness_name)
     active_reranker = reranker or harness.build_reranker()
     tabular_query = _is_tabular_query(request.query)
+    query_intent = _classify_query_intent(request.query)
+    prose_v3_query = harness.name == "prose_v3" and query_intent in {
+        QUERY_INTENT_PROSE_LOOKUP,
+        QUERY_INTENT_PROSE_BROAD,
+    }
     keyword_candidate_limit = max(
         request.limit * harness.retrieval_profile.keyword_candidate_multiplier,
         harness.retrieval_profile.min_candidate_limit,
@@ -930,6 +1495,15 @@ def execute_search(
         if keyword_results:
             keyword_strategy = "relaxed_or"
 
+    metadata_candidates: list[RankedResult] = []
+    if prose_v3_query:
+        metadata_candidates = _run_prose_metadata_chunk_search(
+            session,
+            request,
+            run_id=run_id,
+        )
+        keyword_results = _dedupe_ranked_results([*keyword_results, *metadata_candidates])
+
     keyword_details = {
         "keyword_candidate_count": len(keyword_results),
         "keyword_strict_candidate_count": strict_keyword_count,
@@ -942,6 +1516,7 @@ def execute_search(
     candidate_items: list[RankedResult] = keyword_results
     score_getter: Callable[[RankedResult], float] = _keyword_score
     semantic_results: list[RankedResult] = []
+    adjacent_candidates: list[RankedResult] = []
 
     if request.mode != "keyword":
         provider = embedding_provider
@@ -1001,18 +1576,47 @@ def execute_search(
                 embedding_error = str(exc)
                 fallback_reason = "embedding_failed"
 
+    if prose_v3_query:
+        adjacent_seed_candidates = _dedupe_ranked_results(
+            [*keyword_results, *semantic_results, *metadata_candidates]
+        )
+        adjacent_candidates = _expand_adjacent_chunk_context(
+            session,
+            request,
+            seed_candidates=adjacent_seed_candidates,
+            run_id=run_id,
+        )
+        if adjacent_candidates:
+            keyword_results = _dedupe_ranked_results([*keyword_results, *adjacent_candidates])
+
+    semantic_augmented_with_keyword_context = False
     if request.mode == "semantic" and embedding_status == "completed":
-        candidate_items = semantic_results
-        score_getter = _semantic_score
+        if prose_v3_query:
+            candidate_items = _merge_hybrid_candidates(keyword_results, semantic_results)
+            score_getter = _hybrid_score
+            semantic_augmented_with_keyword_context = True
+        else:
+            candidate_items = semantic_results
+            score_getter = _semantic_score
         served_mode = "semantic"
     elif request.mode == "hybrid" and embedding_status == "completed":
         candidate_items = _merge_hybrid_candidates(keyword_results, semantic_results)
         score_getter = _hybrid_score
         served_mode = "hybrid"
+    elif request.mode == "keyword":
+        candidate_items = _dedupe_ranked_results(keyword_results)
 
     details = {
         **keyword_details,
         "semantic_candidate_count": len(semantic_results),
+        "query_intent": query_intent,
+        "candidate_source_breakdown": _candidate_source_breakdown(candidate_items),
+        "metadata_candidate_count": sum(
+            1 for item in candidate_items if "metadata_supplement" in item.retrieval_sources
+        ),
+        "context_expansion_count": sum(
+            1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
+        ),
         "requested_mode": request.mode,
         "served_mode": served_mode,
         "harness_name": harness.name,
@@ -1020,6 +1624,8 @@ def execute_search(
         "reranker_version": harness.reranker_version,
         "retrieval_profile_name": harness.retrieval_profile_name,
     }
+    if semantic_augmented_with_keyword_context:
+        details["semantic_augmented_with_keyword_context"] = True
     if fallback_reason is not None:
         details["fallback_reason"] = fallback_reason
 
@@ -1028,6 +1634,7 @@ def execute_search(
         request=request,
         score_getter=score_getter,
         tabular_query=tabular_query,
+        query_intent=query_intent,
         reranker=active_reranker,
     )
     results = [_to_search_result(candidate.item, candidate.score) for candidate in reranked_results]

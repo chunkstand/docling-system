@@ -42,6 +42,10 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
             zero_result_count=0,
             table_hit_count=1,
             top_result_changes=0,
+            rank_metrics={
+                "mrr": 0.6 if payload.harness_name == "default_v1" else 0.8,
+                "foreign_top_result_count": 1 if payload.harness_name == "default_v1" else 0,
+            },
         )
 
     def fake_compare_search_replay_runs(session, baseline_replay_run_id, candidate_replay_run_id):
@@ -69,13 +73,18 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
         SearchHarnessEvaluationRequest(
             candidate_harness_name="wide_v2",
             baseline_harness_name="default_v1",
-            source_types=["evaluation_queries", "feedback"],
+            source_types=["evaluation_queries", "feedback", "cross_document_prose_regressions"],
             limit=5,
         ),
     )
 
     assert response.candidate_harness_name == "wide_v2"
-    assert response.total_shared_query_count == 6
-    assert response.total_improved_count == 2
+    assert response.total_shared_query_count == 9
+    assert response.total_improved_count == 3
     assert response.sources[0].source_type == "evaluation_queries"
     assert response.sources[0].baseline_table_hit_count == 1
+    assert response.sources[0].baseline_mrr == 0.6
+    assert response.sources[0].candidate_mrr == 0.8
+    assert response.sources[0].baseline_foreign_top_result_count == 1
+    assert response.sources[0].candidate_foreign_top_result_count == 0
+    assert response.sources[0].acceptance_checks["mrr_not_lower"] is True

@@ -197,9 +197,15 @@ documents:
           top_n: 3
         - query: search and learning
           top_n: 3
+        - query: Why does the essay favor general methods over hand-built approaches?
+          top_n: 3
         - query: What is the main claim of The Bitter Lesson?
           top_n: 3
           mode: keyword
+          expected_source_filename: The Bitter Lesson.pdf
+          expected_top_result_source_filename: The Bitter Lesson.pdf
+          minimum_top_n_hits_from_expected_document: 2
+          maximum_foreign_results_before_first_expected_hit: 0
       expected_answer_queries:
         - question: What is the main claim of The Bitter Lesson?
           mode: hybrid
@@ -207,6 +213,8 @@ documents:
             - general methods
             - computation
           minimum_citation_count: 1
+          expected_citation_source_filename: The Bitter Lesson.pdf
+          maximum_foreign_citations: 0
   - name: test_pdf_prose
     kind: cross_domain_prose_memo
     path: /Users/chunkstand/Documents/TEST_PDF.pdf
@@ -225,12 +233,27 @@ documents:
           top_n: 3
         - query: publicly available solicitations
           top_n: 3
+        - query: When is the submission due in the opportunity screening memo?
+          top_n: 3
+        - query: What is the due date in the opportunity screening memo?
+          top_n: 3
+          mode: keyword
+          expected_source_filename: TEST_PDF.pdf
+          expected_top_result_source_filename: TEST_PDF.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
       expected_answer_queries:
         - question: What is the due date in the opportunity screening memo?
           mode: hybrid
           answer_contains:
             - April 9, 2026
           minimum_citation_count: 1
+          expected_citation_source_filename: TEST_PDF.pdf
+          maximum_foreign_citations: 0
+        - question: What launch date does the opportunity screening memo announce?
+          mode: hybrid
+          expect_no_answer: true
+          maximum_citation_count: 0
   - name: nsf_ai_ready_america_figures
     kind: cross_domain_figure_heavy_program_notice
     path: "/Users/chunkstand/Documents/NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf"
@@ -341,6 +364,13 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: project-level travel analysis
           top_n: 3
+        - query: What does the transportation report say about annual road maintenance costs?
+          top_n: 3
+          mode: keyword
+          expected_source_filename: 20251216_TK_TransportationReport.pdf
+          expected_top_result_source_filename: 20251216_TK_TransportationReport.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
       expected_answer_queries:
         - question: What does Table 1 show in the transportation report?
           mode: hybrid
@@ -348,6 +378,8 @@ documents:
             - estimated annual road maintenance costs
             - operational maintenance levels
           minimum_citation_count: 1
+          expected_citation_source_filename: 20251216_TK_TransportationReport.pdf
+          maximum_foreign_citations: 0
   - name: tyler_kitchen_wildlife_report
     kind: cross_domain_wildlife_report_with_species_tables
     path: /Users/chunkstand/Documents/docling-ingest-staging/20251215_TK_WildlifeSpecReport.pdf
@@ -373,6 +405,15 @@ documents:
         - query: radiotelemetry data from wolverines in the Yellowstone region
           top_n: 3
           mode: keyword
+        - query: Which wolverine habitat types are modeled in the wildlife report?
+          top_n: 3
+        - query: What habitat does the wildlife report model for wolverines?
+          top_n: 3
+          mode: keyword
+          expected_source_filename: 20251215_TK_WildlifeSpecReport.pdf
+          expected_top_result_source_filename: 20251215_TK_WildlifeSpecReport.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
       expected_answer_queries:
         - question: What habitat does the wildlife report model for wolverines?
           mode: hybrid
@@ -381,3 +422,5 @@ documents:
             - primary
             - dispersal
           minimum_citation_count: 1
+          expected_citation_source_filename: 20251215_TK_WildlifeSpecReport.pdf
+          maximum_foreign_citations: 0

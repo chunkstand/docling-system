@@ -8,6 +8,21 @@ PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audi
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
 Latest committed checkpoint before this handoff update: `6d8980c` (`Add Tyler's Kitchen eval fixtures and clip embedding inputs`)
 
+## Later Update
+
+Later local verification after this handoff:
+
+- the repository now includes a real Postgres-backed end-to-end integration harness in `tests/integration/`
+- the harness provisions an isolated temporary schema and temp storage per test, and disables live embedding calls for deterministic execution
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q` passes locally
+- a leaked integration document created during early harness bring-up was removed from the live corpus
+- live state is back to:
+  - `document_count = 16`
+  - `completed_latest_evaluations = 16`
+  - `violation_count = 0`
+
+Use the counts in this section instead of the older 12-document snapshots later in this historical handoff narrative.
+
 ## Executive Summary
 
 The branch now includes:
@@ -303,8 +318,8 @@ Live result:
   also completed with `4/4` queries passed
 - live quality summary now reports:
   - `document_count = 16`
-  - `completed_latest_evaluations = 15`
-  - `skipped_latest_evaluations = 1`
+  - `completed_latest_evaluations = 16`
+  - `skipped_latest_evaluations = 0`
 - live audit remains green with:
   - `checked_documents = 16`
   - `checked_runs = 38`
@@ -333,6 +348,8 @@ Live result:
   - `tests/unit/test_quality_service.py`
   - `tests/unit/test_quality_api.py`
   - `tests/unit/test_cli.py`
+  - `tests/integration/conftest.py`
+  - `tests/integration/test_postgres_roundtrip.py`
 
 Live result:
 
@@ -375,24 +392,25 @@ At handoff time:
 - the worker was restarted after the same code update
 - Alembic head in the running database is `0012_harness_chat_feedback`
 - `docling-system-audit` completes live with zero violations
-- the active corpus now includes twelve documents
-- the latest-evaluation surface is populated for all twelve active documents
+- the active corpus now includes sixteen documents
+- the latest-evaluation surface is populated for all sixteen active documents
 - the fixed corpus now includes four non-UPC fixtures:
   - `bitter_lesson_prose`
   - `test_pdf_prose`
   - `nsf_ai_ready_america_figures`
   - `openrouter_spend_report_tables`
 - the default unresolved eval-candidate queue is empty
+- the repository now includes a real Postgres-backed end-to-end integration harness under `tests/integration/`
 
 Live audit result:
 
 ```json
 {
-  "checked_documents": 12,
-  "checked_runs": 33,
-  "checked_evaluations": 20,
-  "checked_tables": 484,
-  "checked_figures": 355,
+  "checked_documents": 16,
+  "checked_runs": 40,
+  "checked_evaluations": 27,
+  "checked_tables": 530,
+  "checked_figures": 374,
   "violation_count": 0,
   "violation_counts_by_code": {},
   "violations": []

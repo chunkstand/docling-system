@@ -268,10 +268,10 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
 
     create_response = client.post(
         "/search/replays",
-        json={"source_type": "live_search_gaps", "limit": 3},
+        json={"source_type": "cross_document_prose_regressions", "limit": 3},
     )
     assert create_response.status_code == 200
-    assert create_response.json()["source_type"] == "live_search_gaps"
+    assert create_response.json()["source_type"] == "cross_document_prose_regressions"
 
     detail_response = client.get(f"/search/replays/{replay_run_id}")
     assert detail_response.status_code == 200
@@ -313,7 +313,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
             "total_unchanged_count": 2,
             "sources": [
                 {
-                    "source_type": "feedback",
+                    "source_type": "cross_document_prose_regressions",
                     "baseline_replay_run_id": str(baseline_replay_run_id),
                     "candidate_replay_run_id": str(candidate_replay_run_id),
                     "baseline_query_count": 3,
@@ -346,9 +346,10 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         json={
             "candidate_harness_name": "wide_v2",
             "baseline_harness_name": "default_v1",
-            "source_types": ["feedback"],
+            "source_types": ["cross_document_prose_regressions"],
             "limit": 5,
         },
     )
     assert eval_response.status_code == 200
     assert eval_response.json()["candidate_harness_name"] == "wide_v2"
+    assert eval_response.json()["sources"][0]["source_type"] == "cross_document_prose_regressions"

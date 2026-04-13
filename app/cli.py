@@ -191,7 +191,12 @@ def run_replay_suite() -> None:
     )
     parser.add_argument(
         "source_type",
-        choices=["evaluation_queries", "live_search_gaps", "feedback"],
+        choices=[
+            "evaluation_queries",
+            "live_search_gaps",
+            "feedback",
+            "cross_document_prose_regressions",
+        ],
         help="Replay source to execute.",
     )
     parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
@@ -243,7 +248,12 @@ def run_eval_reranker() -> None:
         "--source-type",
         action="append",
         dest="source_types",
-        choices=["evaluation_queries", "feedback", "live_search_gaps"],
+        choices=[
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ],
         help="Replay source type to include. Can be passed multiple times.",
     )
     parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
@@ -257,7 +267,12 @@ def run_eval_reranker() -> None:
                 candidate_harness_name=args.candidate_harness_name,
                 baseline_harness_name=args.baseline_harness_name,
                 source_types=args.source_types
-                or ["evaluation_queries", "feedback", "live_search_gaps"],
+                or [
+                    "evaluation_queries",
+                    "feedback",
+                    "live_search_gaps",
+                    "cross_document_prose_regressions",
+                ],
                 limit=args.limit,
             ),
         )

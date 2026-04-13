@@ -124,8 +124,20 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert bitter_lesson_document["kind"] == "cross_domain_prose_essay"
     assert bitter_lesson_thresholds["expected_logical_table_count"] == 0
     assert bitter_lesson_thresholds["expected_figure_count"] == 0
-    assert len(bitter_lesson_thresholds["expected_top_n_chunk_hit_queries"]) == 4
+    assert len(bitter_lesson_thresholds["expected_top_n_chunk_hit_queries"]) == 5
     assert len(bitter_lesson_thresholds["expected_answer_queries"]) == 1
+    contaminated_query = bitter_lesson_thresholds["expected_top_n_chunk_hit_queries"][-1]
+    assert contaminated_query["expected_source_filename"] == "The Bitter Lesson.pdf"
+    assert contaminated_query["expected_top_result_source_filename"] == "The Bitter Lesson.pdf"
+    assert contaminated_query["minimum_top_n_hits_from_expected_document"] == 2
+    assert contaminated_query["maximum_foreign_results_before_first_expected_hit"] == 0
+    assert (
+        bitter_lesson_thresholds["expected_answer_queries"][0][
+            "expected_citation_source_filename"
+        ]
+        == "The Bitter Lesson.pdf"
+    )
+    assert bitter_lesson_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     test_pdf_document = next(
         document for document in config["documents"] if document["name"] == "test_pdf_prose"
@@ -134,8 +146,20 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert test_pdf_document["path"] == "/Users/chunkstand/Documents/TEST_PDF.pdf"
     assert test_pdf_thresholds["expected_logical_table_count"] == 0
     assert test_pdf_thresholds["expected_figure_count"] == 0
-    assert len(test_pdf_thresholds["expected_top_n_chunk_hit_queries"]) == 3
-    assert len(test_pdf_thresholds["expected_answer_queries"]) == 1
+    assert len(test_pdf_thresholds["expected_top_n_chunk_hit_queries"]) == 5
+    assert len(test_pdf_thresholds["expected_answer_queries"]) == 2
+    test_pdf_contamination_query = test_pdf_thresholds["expected_top_n_chunk_hit_queries"][-1]
+    assert test_pdf_contamination_query["expected_source_filename"] == "TEST_PDF.pdf"
+    assert test_pdf_contamination_query["expected_top_result_source_filename"] == "TEST_PDF.pdf"
+    assert test_pdf_contamination_query["minimum_top_n_hits_from_expected_document"] == 1
+    assert test_pdf_contamination_query["maximum_foreign_results_before_first_expected_hit"] == 0
+    assert (
+        test_pdf_thresholds["expected_answer_queries"][0]["expected_citation_source_filename"]
+        == "TEST_PDF.pdf"
+    )
+    assert test_pdf_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
+    assert test_pdf_thresholds["expected_answer_queries"][1]["expect_no_answer"] is True
+    assert test_pdf_thresholds["expected_answer_queries"][1]["maximum_citation_count"] == 0
 
     nsf_document = next(
         document
@@ -191,7 +215,31 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert transportation_thresholds["expected_logical_table_count"] == 8
     assert transportation_thresholds["expected_figure_count"] == 0
     assert len(transportation_thresholds["expected_top_n_table_hit_queries"]) == 2
+    assert len(transportation_thresholds["expected_top_n_chunk_hit_queries"]) == 2
     assert len(transportation_thresholds["expected_answer_queries"]) == 1
+    transportation_contamination_query = transportation_thresholds[
+        "expected_top_n_chunk_hit_queries"
+    ][-1]
+    assert (
+        transportation_contamination_query["expected_source_filename"]
+        == "20251216_TK_TransportationReport.pdf"
+    )
+    assert (
+        transportation_contamination_query["expected_top_result_source_filename"]
+        == "20251216_TK_TransportationReport.pdf"
+    )
+    assert transportation_contamination_query["minimum_top_n_hits_from_expected_document"] == 1
+    assert (
+        transportation_contamination_query["maximum_foreign_results_before_first_expected_hit"]
+        == 0
+    )
+    assert (
+        transportation_thresholds["expected_answer_queries"][0][
+            "expected_citation_source_filename"
+        ]
+        == "20251216_TK_TransportationReport.pdf"
+    )
+    assert transportation_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     wildlife_document = next(
         document
@@ -206,7 +254,24 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert wildlife_thresholds["expected_logical_table_count"] == 18
     assert wildlife_thresholds["expected_figure_count"] == 2
     assert len(wildlife_thresholds["expected_figure_captions_present"]) == 2
+    assert len(wildlife_thresholds["expected_top_n_chunk_hit_queries"]) == 3
     assert len(wildlife_thresholds["expected_answer_queries"]) == 1
+    wildlife_contamination_query = wildlife_thresholds["expected_top_n_chunk_hit_queries"][-1]
+    assert (
+        wildlife_contamination_query["expected_source_filename"]
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert (
+        wildlife_contamination_query["expected_top_result_source_filename"]
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert wildlife_contamination_query["minimum_top_n_hits_from_expected_document"] == 1
+    assert wildlife_contamination_query["maximum_foreign_results_before_first_expected_hit"] == 0
+    assert (
+        wildlife_thresholds["expected_answer_queries"][0]["expected_citation_source_filename"]
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert wildlife_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     for document in config["documents"]:
         thresholds = document["thresholds"]

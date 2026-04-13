@@ -146,6 +146,13 @@ function formatPercent(value) {
   return `${Math.round((value ?? 0) * 100)}%`;
 }
 
+function formatDecimal(value, digits = 2) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value ?? 0);
+}
+
 function formatTimestamp(value) {
   if (!value) {
     return "pending";
@@ -780,8 +787,11 @@ function renderHarnessEvaluation(payload) {
         </div>
         <strong>${escapeHtml(payload.baseline_harness_name)} ${formatInteger(source.baseline_passed_count)}/${formatInteger(source.baseline_query_count)} passed</strong>
         <p>${formatInteger(source.baseline_zero_result_count)} zero-result · ${formatInteger(source.baseline_table_hit_count)} table-hit queries · ${formatInteger(source.baseline_top_result_changes)} top-result changes</p>
+        <p>MRR ${formatDecimal(source.baseline_mrr || 0, 3)} · foreign-top ${formatInteger(source.baseline_foreign_top_result_count || 0)}</p>
         <strong>${escapeHtml(payload.candidate_harness_name)} ${formatInteger(source.candidate_passed_count)}/${formatInteger(source.candidate_query_count)} passed</strong>
         <p>${formatInteger(source.candidate_zero_result_count)} zero-result · ${formatInteger(source.candidate_table_hit_count)} table-hit queries · ${formatInteger(source.candidate_top_result_changes)} top-result changes</p>
+        <p>MRR ${formatDecimal(source.candidate_mrr || 0, 3)} · foreign-top ${formatInteger(source.candidate_foreign_top_result_count || 0)}</p>
+        <p>${source.acceptance_checks?.no_regressions ? "No regressions" : "Has regressions"} · ${source.acceptance_checks?.mrr_not_lower ? "MRR not lower" : "MRR lower"} · ${source.acceptance_checks?.foreign_top_result_count_not_higher ? "Foreign-top not higher" : "Foreign-top higher"}</p>
       </article>
     `,
   );

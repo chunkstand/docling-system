@@ -8,9 +8,18 @@ from app.schemas.search import (
     SearchReplayRunRequest,
 )
 from app.services.search import DEFAULT_SEARCH_HARNESS_NAME, list_search_harnesses
-from app.services.search_replays import compare_search_replay_runs, run_search_replay_suite
+from app.services.search_replays import (
+    CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+    compare_search_replay_runs,
+    run_search_replay_suite,
+)
 
-VALID_SOURCE_TYPES = {"evaluation_queries", "feedback", "live_search_gaps"}
+VALID_SOURCE_TYPES = {
+    "evaluation_queries",
+    "feedback",
+    "live_search_gaps",
+    CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+}
 
 
 def list_search_harness_definitions() -> list[SearchHarnessResponse]:
@@ -31,6 +40,12 @@ def evaluate_search_harness(
     session,
     request: SearchHarnessEvaluationRequest,
 ) -> SearchHarnessEvaluationResponse:
+    def rank_metrics(detail) -> dict:
+        return getattr(detail, "rank_metrics", None) or getattr(detail, "summary", {}).get(
+            "rank_metrics",
+            {},
+        )
+
     source_types = []
     for source_type in request.source_types:
         if source_type not in VALID_SOURCE_TYPES:
@@ -67,6 +82,19 @@ def evaluate_search_harness(
             baseline.replay_run_id,
             candidate.replay_run_id,
         )
+        baseline_rank_metrics = rank_metrics(baseline)
+        candidate_rank_metrics = rank_metrics(candidate)
+        acceptance_checks = {
+            "no_regressions": comparison.regressed_count == 0,
+            "mrr_not_lower": float(candidate_rank_metrics.get("mrr") or 0.0)
+            >= float(baseline_rank_metrics.get("mrr") or 0.0),
+            "foreign_top_result_count_not_higher": int(
+                candidate_rank_metrics.get("foreign_top_result_count") or 0
+            )
+            <= int(baseline_rank_metrics.get("foreign_top_result_count") or 0),
+            "zero_result_count_not_higher": candidate.zero_result_count
+            <= baseline.zero_result_count,
+        }
         source_summaries.append(
             SearchHarnessEvaluationSourceResponse(
                 source_type=source_type,
@@ -82,6 +110,15 @@ def evaluate_search_harness(
                 candidate_table_hit_count=candidate.table_hit_count,
                 baseline_top_result_changes=baseline.top_result_changes,
                 candidate_top_result_changes=candidate.top_result_changes,
+                baseline_mrr=float(baseline_rank_metrics.get("mrr") or 0.0),
+                candidate_mrr=float(candidate_rank_metrics.get("mrr") or 0.0),
+                baseline_foreign_top_result_count=int(
+                    baseline_rank_metrics.get("foreign_top_result_count") or 0
+                ),
+                candidate_foreign_top_result_count=int(
+                    candidate_rank_metrics.get("foreign_top_result_count") or 0
+                ),
+                acceptance_checks=acceptance_checks,
                 shared_query_count=comparison.shared_query_count,
                 improved_count=comparison.improved_count,
                 regressed_count=comparison.regressed_count,

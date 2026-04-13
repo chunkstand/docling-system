@@ -65,6 +65,10 @@ class EvaluationQueryCase:
     filters: dict
     expected_result_type: str
     expected_top_n: int
+    expected_source_filename: str | None = None
+    expected_top_result_source_filename: str | None = None
+    minimum_top_n_hits_from_expected_document: int | None = None
+    maximum_foreign_results_before_first_expected_hit: int | None = None
 
 
 @dataclass
@@ -76,6 +80,10 @@ class EvaluationAnswerCase:
     minimum_citation_count: int
     allow_fallback: bool
     top_k: int
+    expect_no_answer: bool = False
+    maximum_citation_count: int | None = None
+    expected_citation_source_filename: str | None = None
+    maximum_foreign_citations: int | None = None
 
 
 @dataclass
@@ -166,14 +174,35 @@ def _top_result_details(results: list[SearchResult], limit: int = 3) -> list[dic
             "score": result.score,
             "page_from": result.page_from,
             "page_to": result.page_to,
+            "source_filename": result.source_filename,
         }
         for idx, result in enumerate(results[:limit], start=1)
     ]
 
 
-def _matching_rank(results: list[SearchResult], expected_result_type: str) -> int | None:
+def _normalized_source_filename(value: str | None) -> str | None:
+    if not value:
+        return None
+    return Path(value).name.lower()
+
+
+def _source_filename_matches(actual: str | None, expected: str | None) -> bool:
+    normalized_expected = _normalized_source_filename(expected)
+    if normalized_expected is None:
+        return True
+    return _normalized_source_filename(actual) == normalized_expected
+
+
+def _matching_rank(
+    results: list[SearchResult],
+    expected_result_type: str,
+    *,
+    expected_source_filename: str | None = None,
+) -> int | None:
     for idx, result in enumerate(results, start=1):
-        if result.result_type == expected_result_type:
+        if result.result_type == expected_result_type and _source_filename_matches(
+            result.source_filename, expected_source_filename
+        ):
             return idx
     return None
 
@@ -182,6 +211,17 @@ def _result_at_rank(results: list[SearchResult], rank: int | None) -> SearchResu
     if rank is None or rank <= 0 or rank > len(results):
         return None
     return results[rank - 1]
+
+
+def _result_matches_expected(
+    result: SearchResult,
+    expected_result_type: str,
+    *,
+    expected_source_filename: str | None = None,
+) -> bool:
+    return result.result_type == expected_result_type and _source_filename_matches(
+        result.source_filename, expected_source_filename
+    )
 
 
 def _rank_delta(candidate_rank: int | None, baseline_rank: int | None) -> int | None:
@@ -207,6 +247,14 @@ def _normalize_fixture_query(entry: dict, expected_result_type: str) -> Evaluati
         filters=entry.get("filters") or {},
         expected_result_type=entry.get("expected_result_type", expected_result_type),
         expected_top_n=entry.get("top_n", 3),
+        expected_source_filename=entry.get("expected_source_filename"),
+        expected_top_result_source_filename=entry.get("expected_top_result_source_filename"),
+        minimum_top_n_hits_from_expected_document=entry.get(
+            "minimum_top_n_hits_from_expected_document"
+        ),
+        maximum_foreign_results_before_first_expected_hit=entry.get(
+            "maximum_foreign_results_before_first_expected_hit"
+        ),
     )
 
 
@@ -222,6 +270,10 @@ def _normalize_fixture_answer(entry: dict) -> EvaluationAnswerCase:
         minimum_citation_count=entry.get("minimum_citation_count", 1),
         allow_fallback=bool(entry.get("allow_fallback", False)),
         top_k=entry.get("top_k", 6),
+        expect_no_answer=bool(entry.get("expect_no_answer", False)),
+        maximum_citation_count=entry.get("maximum_citation_count"),
+        expected_citation_source_filename=entry.get("expected_citation_source_filename"),
+        maximum_foreign_citations=entry.get("maximum_foreign_citations"),
     )
 
 
@@ -288,12 +340,9 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
                 queries.append(_normalize_fixture_query(entry, "chunk"))
             for entry in thresholds.get("queries", []):
                 queries.append(
-                    EvaluationQueryCase(
-                        query=entry["query"],
-                        mode=entry.get("mode", "hybrid"),
-                        filters=entry.get("filters") or {},
-                        expected_result_type=entry["expected_result_type"],
-                        expected_top_n=entry.get("top_n", 3),
+                    _normalize_fixture_query(
+                        entry,
+                        entry["expected_result_type"],
                     )
                 )
             for entry in thresholds.get("expected_answer_queries", []):
@@ -691,6 +740,391 @@ def _missing_answer_substrings(answer_text: str, expected_substrings: list[str])
     ]
 
 
+def _expected_document_source(case: EvaluationQueryCase) -> str | None:
+    return case.expected_source_filename or case.expected_top_result_source_filename
+
+
+def _top_n_source_hit_count(
+    results: list[SearchResult], expected_source_filename: str | None, top_n: int
+) -> int | None:
+    if expected_source_filename is None:
+        return None
+    return sum(
+        1
+        for result in results[:top_n]
+        if _source_filename_matches(result.source_filename, expected_source_filename)
+    )
+
+
+def _foreign_results_before_first_expected_hit(
+    results: list[SearchResult],
+    expected_result_type: str,
+    *,
+    expected_source_filename: str | None = None,
+) -> int | None:
+    rank = _matching_rank(
+        results,
+        expected_result_type,
+        expected_source_filename=expected_source_filename,
+    )
+    if rank is None or expected_source_filename is None:
+        return None
+    return sum(
+        1
+        for result in results[: rank - 1]
+        if not _source_filename_matches(result.source_filename, expected_source_filename)
+    )
+
+
+def _top_result_source_filename(results: list[SearchResult]) -> str | None:
+    return results[0].source_filename if results else None
+
+
+def _expected_hit_count_in_window(
+    results: list[SearchResult],
+    *,
+    expected_result_type: str,
+    expected_source_filename: str | None,
+    window: int,
+) -> int:
+    return sum(
+        1
+        for result in results[:window]
+        if _result_matches_expected(
+            result,
+            expected_result_type,
+            expected_source_filename=expected_source_filename,
+        )
+    )
+
+
+def _reciprocal_rank(rank: int | None) -> float:
+    if rank is None or rank <= 0:
+        return 0.0
+    return 1.0 / rank
+
+
+def _has_foreign_top_result(
+    results: list[SearchResult], expected_source_filename: str | None
+) -> bool:
+    if not results or expected_source_filename is None:
+        return False
+    return not _source_filename_matches(results[0].source_filename, expected_source_filename)
+
+
+def _retrieval_failure_kind(
+    *,
+    case: EvaluationQueryCase,
+    results: list[SearchResult],
+    passed: bool,
+    rank: int | None,
+    top_result_is_foreign: bool,
+    expected_hits_in_top_n: int | None,
+    foreign_results_before_first_expected_hit: int | None,
+) -> str | None:
+    if passed:
+        return None
+    if not results:
+        return "zero_results"
+    if rank is None:
+        return "wrong_result"
+    if case.expected_top_result_source_filename is not None and top_result_is_foreign:
+        return "foreign_top_result"
+    if (
+        case.maximum_foreign_results_before_first_expected_hit is not None
+        and foreign_results_before_first_expected_hit is not None
+        and foreign_results_before_first_expected_hit
+        > case.maximum_foreign_results_before_first_expected_hit
+    ):
+        return "foreign_results_before_expected_hit"
+    if (
+        case.minimum_top_n_hits_from_expected_document is not None
+        and (expected_hits_in_top_n or 0) < case.minimum_top_n_hits_from_expected_document
+    ):
+        return "insufficient_expected_hits"
+    if rank > case.expected_top_n:
+        return "rank_miss"
+    return "constraint_failed"
+
+
+def _empty_retrieval_rank_metrics() -> dict:
+    return {
+        "candidate_mrr": 0.0,
+        "baseline_mrr": 0.0,
+        "candidate_top_1_hit_queries": 0,
+        "candidate_top_3_hit_queries": 0,
+        "candidate_top_5_hit_queries": 0,
+        "baseline_top_1_hit_queries": 0,
+        "baseline_top_3_hit_queries": 0,
+        "baseline_top_5_hit_queries": 0,
+        "candidate_zero_result_queries": 0,
+        "candidate_wrong_result_queries": 0,
+        "candidate_foreign_top_result_queries": 0,
+        "baseline_zero_result_queries": 0,
+        "baseline_wrong_result_queries": 0,
+        "baseline_foreign_top_result_queries": 0,
+        "candidate_failure_kind_counts": {},
+        "baseline_failure_kind_counts": {},
+    }
+
+
+def _increment_failure_kind(counts: dict[str, int], failure_kind: str | None) -> None:
+    if failure_kind is None:
+        return
+    counts[failure_kind] = counts.get(failure_kind, 0) + 1
+
+
+def _summarize_retrieval_rank_metrics(outcomes: list[dict]) -> dict:
+    metrics = _empty_retrieval_rank_metrics()
+    retrieval_query_count = len(outcomes)
+    if retrieval_query_count == 0:
+        return metrics
+
+    candidate_mrr_sum = 0.0
+    baseline_mrr_sum = 0.0
+    for outcome in outcomes:
+        details = outcome["details_json"]
+        candidate_mrr_sum += float(details.get("candidate_reciprocal_rank") or 0.0)
+        baseline_mrr_sum += float(details.get("baseline_reciprocal_rank") or 0.0)
+        metrics["candidate_top_1_hit_queries"] += int(
+            (details.get("candidate_expected_hits_in_top_1") or 0) > 0
+        )
+        metrics["candidate_top_3_hit_queries"] += int(
+            (details.get("candidate_expected_hits_in_top_3") or 0) > 0
+        )
+        metrics["candidate_top_5_hit_queries"] += int(
+            (details.get("candidate_expected_hits_in_top_5") or 0) > 0
+        )
+        metrics["baseline_top_1_hit_queries"] += int(
+            (details.get("baseline_expected_hits_in_top_1") or 0) > 0
+        )
+        metrics["baseline_top_3_hit_queries"] += int(
+            (details.get("baseline_expected_hits_in_top_3") or 0) > 0
+        )
+        metrics["baseline_top_5_hit_queries"] += int(
+            (details.get("baseline_expected_hits_in_top_5") or 0) > 0
+        )
+        metrics["candidate_zero_result_queries"] += int(details.get("candidate_zero_results") or 0)
+        metrics["candidate_wrong_result_queries"] += int(
+            details.get("candidate_failure_kind") == "wrong_result"
+        )
+        metrics["candidate_foreign_top_result_queries"] += int(
+            details.get("candidate_foreign_top_result") or 0
+        )
+        metrics["baseline_zero_result_queries"] += int(details.get("baseline_zero_results") or 0)
+        metrics["baseline_wrong_result_queries"] += int(
+            details.get("baseline_failure_kind") == "wrong_result"
+        )
+        metrics["baseline_foreign_top_result_queries"] += int(
+            details.get("baseline_foreign_top_result") or 0
+        )
+        _increment_failure_kind(
+            metrics["candidate_failure_kind_counts"],
+            details.get("candidate_failure_kind"),
+        )
+        _increment_failure_kind(
+            metrics["baseline_failure_kind_counts"],
+            details.get("baseline_failure_kind"),
+        )
+
+    metrics["candidate_mrr"] = candidate_mrr_sum / retrieval_query_count
+    metrics["baseline_mrr"] = baseline_mrr_sum / retrieval_query_count
+    return metrics
+
+
+def _evaluate_retrieval_case(
+    *,
+    case: EvaluationQueryCase,
+    filters_payload: dict,
+    candidate_results: list[SearchResult],
+    baseline_results: list[SearchResult],
+) -> dict:
+    expected_document_source = _expected_document_source(case)
+    candidate_rank = _matching_rank(
+        candidate_results,
+        case.expected_result_type,
+        expected_source_filename=expected_document_source,
+    )
+    baseline_rank = _matching_rank(
+        baseline_results,
+        case.expected_result_type,
+        expected_source_filename=expected_document_source,
+    )
+    candidate_top_result_source = _top_result_source_filename(candidate_results)
+    baseline_top_result_source = _top_result_source_filename(baseline_results)
+    candidate_source_hit_count = _top_n_source_hit_count(
+        candidate_results, expected_document_source, case.expected_top_n
+    )
+    baseline_source_hit_count = _top_n_source_hit_count(
+        baseline_results, expected_document_source, case.expected_top_n
+    )
+    candidate_foreign_before_first_hit = _foreign_results_before_first_expected_hit(
+        candidate_results,
+        case.expected_result_type,
+        expected_source_filename=expected_document_source,
+    )
+    baseline_foreign_before_first_hit = _foreign_results_before_first_expected_hit(
+        baseline_results,
+        case.expected_result_type,
+        expected_source_filename=expected_document_source,
+    )
+    candidate_expected_hits_top_1 = _expected_hit_count_in_window(
+        candidate_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=1,
+    )
+    candidate_expected_hits_top_3 = _expected_hit_count_in_window(
+        candidate_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=3,
+    )
+    candidate_expected_hits_top_5 = _expected_hit_count_in_window(
+        candidate_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=5,
+    )
+    baseline_expected_hits_top_1 = _expected_hit_count_in_window(
+        baseline_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=1,
+    )
+    baseline_expected_hits_top_3 = _expected_hit_count_in_window(
+        baseline_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=3,
+    )
+    baseline_expected_hits_top_5 = _expected_hit_count_in_window(
+        baseline_results,
+        expected_result_type=case.expected_result_type,
+        expected_source_filename=expected_document_source,
+        window=5,
+    )
+    candidate_foreign_top_result = _has_foreign_top_result(
+        candidate_results, expected_document_source
+    )
+    baseline_foreign_top_result = _has_foreign_top_result(
+        baseline_results, expected_document_source
+    )
+
+    candidate_passed = candidate_rank is not None and candidate_rank <= case.expected_top_n
+    baseline_passed = baseline_rank is not None and baseline_rank <= case.expected_top_n
+
+    if case.expected_top_result_source_filename is not None:
+        candidate_passed = candidate_passed and _source_filename_matches(
+            candidate_top_result_source, case.expected_top_result_source_filename
+        )
+        baseline_passed = baseline_passed and _source_filename_matches(
+            baseline_top_result_source, case.expected_top_result_source_filename
+        )
+    if case.minimum_top_n_hits_from_expected_document is not None:
+        candidate_passed = candidate_passed and (
+            (candidate_source_hit_count or 0) >= case.minimum_top_n_hits_from_expected_document
+        )
+        baseline_passed = baseline_passed and (
+            (baseline_source_hit_count or 0) >= case.minimum_top_n_hits_from_expected_document
+        )
+    if case.maximum_foreign_results_before_first_expected_hit is not None:
+        candidate_passed = candidate_passed and (
+            candidate_foreign_before_first_hit is not None
+            and candidate_foreign_before_first_hit
+            <= case.maximum_foreign_results_before_first_expected_hit
+        )
+        baseline_passed = baseline_passed and (
+            baseline_foreign_before_first_hit is not None
+            and baseline_foreign_before_first_hit
+            <= case.maximum_foreign_results_before_first_expected_hit
+        )
+
+    delta_kind = _classify_delta(
+        candidate_passed,
+        baseline_passed,
+        _rank_delta(candidate_rank, baseline_rank),
+    )
+    candidate_failure_kind = _retrieval_failure_kind(
+        case=case,
+        results=candidate_results,
+        passed=candidate_passed,
+        rank=candidate_rank,
+        top_result_is_foreign=candidate_foreign_top_result,
+        expected_hits_in_top_n=candidate_source_hit_count,
+        foreign_results_before_first_expected_hit=candidate_foreign_before_first_hit,
+    )
+    baseline_failure_kind = _retrieval_failure_kind(
+        case=case,
+        results=baseline_results,
+        passed=baseline_passed,
+        rank=baseline_rank,
+        top_result_is_foreign=baseline_foreign_top_result,
+        expected_hits_in_top_n=baseline_source_hit_count,
+        foreign_results_before_first_expected_hit=baseline_foreign_before_first_hit,
+    )
+    candidate_match = _result_at_rank(candidate_results, candidate_rank)
+    baseline_match = _result_at_rank(baseline_results, baseline_rank)
+    return {
+        "query_text": case.query,
+        "mode": case.mode,
+        "filters_json": filters_payload,
+        "expected_result_type": case.expected_result_type,
+        "expected_top_n": case.expected_top_n,
+        "passed": candidate_passed,
+        "candidate_rank": candidate_rank,
+        "baseline_rank": baseline_rank,
+        "rank_delta": _rank_delta(candidate_rank, baseline_rank),
+        "candidate_score": candidate_match.score if candidate_match else None,
+        "baseline_score": baseline_match.score if baseline_match else None,
+        "candidate_result_type": candidate_match.result_type if candidate_match else None,
+        "baseline_result_type": baseline_match.result_type if baseline_match else None,
+        "candidate_label": _run_label(candidate_match),
+        "baseline_label": _run_label(baseline_match),
+        "details_json": {
+            "evaluation_kind": "retrieval",
+            "candidate_top_results": _top_result_details(candidate_results),
+            "baseline_top_results": _top_result_details(baseline_results),
+            "delta_kind": delta_kind,
+            "expected_source_filename": case.expected_source_filename,
+            "expected_top_result_source_filename": case.expected_top_result_source_filename,
+            "minimum_top_n_hits_from_expected_document": (
+                case.minimum_top_n_hits_from_expected_document
+            ),
+            "maximum_foreign_results_before_first_expected_hit": (
+                case.maximum_foreign_results_before_first_expected_hit
+            ),
+            "candidate_result_count": len(candidate_results),
+            "baseline_result_count": len(baseline_results),
+            "candidate_zero_results": not candidate_results,
+            "baseline_zero_results": not baseline_results,
+            "candidate_reciprocal_rank": _reciprocal_rank(candidate_rank),
+            "baseline_reciprocal_rank": _reciprocal_rank(baseline_rank),
+            "candidate_expected_hits_in_top_1": candidate_expected_hits_top_1,
+            "candidate_expected_hits_in_top_3": candidate_expected_hits_top_3,
+            "candidate_expected_hits_in_top_5": candidate_expected_hits_top_5,
+            "baseline_expected_hits_in_top_1": baseline_expected_hits_top_1,
+            "baseline_expected_hits_in_top_3": baseline_expected_hits_top_3,
+            "baseline_expected_hits_in_top_5": baseline_expected_hits_top_5,
+            "candidate_top_result_source_filename": candidate_top_result_source,
+            "baseline_top_result_source_filename": baseline_top_result_source,
+            "candidate_foreign_top_result": candidate_foreign_top_result,
+            "baseline_foreign_top_result": baseline_foreign_top_result,
+            "candidate_expected_source_hit_count": candidate_source_hit_count,
+            "baseline_expected_source_hit_count": baseline_source_hit_count,
+            "candidate_foreign_results_before_first_expected_hit": (
+                candidate_foreign_before_first_hit
+            ),
+            "baseline_foreign_results_before_first_expected_hit": (
+                baseline_foreign_before_first_hit
+            ),
+            "candidate_failure_kind": candidate_failure_kind,
+            "baseline_failure_kind": baseline_failure_kind,
+        },
+        "delta_kind": delta_kind,
+    }
+
+
 def _evaluate_answer_case(
     session: Session,
     *,
@@ -727,26 +1161,67 @@ def _evaluate_answer_case(
         else None
     )
 
-    def _answer_passed(response: ChatResponse | None) -> tuple[bool, list[str], int]:
+    def _answer_passed(
+        response: ChatResponse | None,
+    ) -> tuple[bool, list[str], int, int | None, int | None]:
         if response is None:
-            return False, case.expected_answer_contains, 0
+            return False, case.expected_answer_contains, 0, None, None
         missing_substrings = _missing_answer_substrings(
             response.answer, case.expected_answer_contains
         )
         citation_count = len(response.citations)
-        passed = (
-            not missing_substrings
-            and citation_count >= case.minimum_citation_count
-            and (case.allow_fallback or not response.used_fallback)
+        matching_citation_count = None
+        foreign_citation_count = None
+        if case.expected_citation_source_filename is not None:
+            matching_citation_count = sum(
+                1
+                for citation in response.citations
+                if _source_filename_matches(
+                    citation.source_filename, case.expected_citation_source_filename
+                )
+            )
+            foreign_citation_count = citation_count - matching_citation_count
+        if case.expect_no_answer:
+            maximum_citation_count = case.maximum_citation_count
+            if maximum_citation_count is None:
+                maximum_citation_count = 0
+            passed = response.used_fallback and citation_count <= maximum_citation_count
+        else:
+            passed = (
+                not missing_substrings
+                and citation_count >= case.minimum_citation_count
+                and (case.allow_fallback or not response.used_fallback)
+                and (
+                    case.expected_citation_source_filename is None
+                    or (matching_citation_count or 0) > 0
+                )
+                and (
+                    case.maximum_foreign_citations is None
+                    or (foreign_citation_count or 0) <= case.maximum_foreign_citations
+                )
+            )
+        return (
+            passed,
+            missing_substrings,
+            citation_count,
+            matching_citation_count,
+            foreign_citation_count,
         )
-        return passed, missing_substrings, citation_count
 
-    candidate_passed, candidate_missing_substrings, candidate_citation_count = _answer_passed(
-        candidate_response
-    )
-    baseline_passed, baseline_missing_substrings, baseline_citation_count = _answer_passed(
-        baseline_response
-    )
+    (
+        candidate_passed,
+        candidate_missing_substrings,
+        candidate_citation_count,
+        candidate_matching_citation_count,
+        candidate_foreign_citation_count,
+    ) = _answer_passed(candidate_response)
+    (
+        baseline_passed,
+        baseline_missing_substrings,
+        baseline_citation_count,
+        baseline_matching_citation_count,
+        baseline_foreign_citation_count,
+    ) = _answer_passed(baseline_response)
     delta_kind = _classify_delta(candidate_passed, baseline_passed, None)
     filters_payload = {**case.filters, "document_id": str(document.id)}
 
@@ -774,8 +1249,14 @@ def _evaluate_answer_case(
             "expected_answer_contains": case.expected_answer_contains,
             "minimum_citation_count": case.minimum_citation_count,
             "allow_fallback": case.allow_fallback,
+            "expect_no_answer": case.expect_no_answer,
+            "maximum_citation_count": case.maximum_citation_count,
+            "expected_citation_source_filename": case.expected_citation_source_filename,
+            "maximum_foreign_citations": case.maximum_foreign_citations,
             "candidate_missing_substrings": candidate_missing_substrings,
             "candidate_citation_count": candidate_citation_count,
+            "candidate_matching_citation_count": candidate_matching_citation_count,
+            "candidate_foreign_citation_count": candidate_foreign_citation_count,
             "candidate_used_fallback": candidate_response.used_fallback,
             "candidate_warning": candidate_response.warning,
             "candidate_search_request_id": str(candidate_response.search_request_id)
@@ -786,6 +1267,8 @@ def _evaluate_answer_case(
             else None,
             "baseline_missing_substrings": baseline_missing_substrings,
             "baseline_citation_count": baseline_citation_count,
+            "baseline_matching_citation_count": baseline_matching_citation_count,
+            "baseline_foreign_citation_count": baseline_foreign_citation_count,
             "baseline_used_fallback": baseline_response.used_fallback
             if baseline_response is not None
             else None,
@@ -1049,6 +1532,7 @@ def evaluate_run(
             "regressed_queries": 0,
             "improved_queries": 0,
             "stable_queries": 0,
+            "retrieval_rank_metrics": _empty_retrieval_rank_metrics(),
             "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
         }
         evaluation.completed_at = now
@@ -1069,6 +1553,7 @@ def evaluate_run(
         regressed_queries = 0
         improved_queries = 0
         stable_queries = 0
+        retrieval_outcomes: list[dict] = []
 
         for case in fixture.queries:
             filters_payload = {**case.filters, "document_id": str(document.id)}
@@ -1098,51 +1583,43 @@ def evaluate_run(
                 if baseline_run_id
                 else []
             )
-
-            candidate_rank = _matching_rank(candidate_results, case.expected_result_type)
-            baseline_rank = _matching_rank(baseline_results, case.expected_result_type)
-            candidate_passed = candidate_rank is not None and candidate_rank <= case.expected_top_n
-            baseline_passed = baseline_rank is not None and baseline_rank <= case.expected_top_n
-            delta_kind = _classify_delta(
-                candidate_passed, baseline_passed, _rank_delta(candidate_rank, baseline_rank)
+            outcome = _evaluate_retrieval_case(
+                case=case,
+                filters_payload=filters.model_dump(mode="json", exclude_none=True),
+                candidate_results=candidate_results,
+                baseline_results=baseline_results,
             )
+            retrieval_outcomes.append(outcome)
 
             query_count += 1
             retrieval_query_count += 1
-            passed_queries += int(candidate_passed)
-            failed_queries += int(not candidate_passed)
-            passed_retrieval_queries += int(candidate_passed)
-            failed_retrieval_queries += int(not candidate_passed)
-            regressed_queries += int(delta_kind == "regressed")
-            improved_queries += int(delta_kind == "improved")
-            stable_queries += int(delta_kind == "stable")
+            passed_queries += int(outcome["passed"])
+            failed_queries += int(not outcome["passed"])
+            passed_retrieval_queries += int(outcome["passed"])
+            failed_retrieval_queries += int(not outcome["passed"])
+            regressed_queries += int(outcome["delta_kind"] == "regressed")
+            improved_queries += int(outcome["delta_kind"] == "improved")
+            stable_queries += int(outcome["delta_kind"] == "stable")
 
-            candidate_match = _result_at_rank(candidate_results, candidate_rank)
-            baseline_match = _result_at_rank(baseline_results, baseline_rank)
             session.add(
                 DocumentRunEvaluationQuery(
                     evaluation_id=evaluation.id,
-                    query_text=case.query,
-                    mode=case.mode,
-                    filters_json=filters.model_dump(mode="json", exclude_none=True),
-                    expected_result_type=case.expected_result_type,
-                    expected_top_n=case.expected_top_n,
-                    passed=candidate_passed,
-                    candidate_rank=candidate_rank,
-                    baseline_rank=baseline_rank,
-                    rank_delta=_rank_delta(candidate_rank, baseline_rank),
-                    candidate_score=candidate_match.score if candidate_match else None,
-                    baseline_score=baseline_match.score if baseline_match else None,
-                    candidate_result_type=candidate_match.result_type if candidate_match else None,
-                    baseline_result_type=baseline_match.result_type if baseline_match else None,
-                    candidate_label=_run_label(candidate_match),
-                    baseline_label=_run_label(baseline_match),
-                    details_json={
-                        "evaluation_kind": "retrieval",
-                        "candidate_top_results": _top_result_details(candidate_results),
-                        "baseline_top_results": _top_result_details(baseline_results),
-                        "delta_kind": delta_kind,
-                    },
+                    query_text=outcome["query_text"],
+                    mode=outcome["mode"],
+                    filters_json=outcome["filters_json"],
+                    expected_result_type=outcome["expected_result_type"],
+                    expected_top_n=outcome["expected_top_n"],
+                    passed=outcome["passed"],
+                    candidate_rank=outcome["candidate_rank"],
+                    baseline_rank=outcome["baseline_rank"],
+                    rank_delta=outcome["rank_delta"],
+                    candidate_score=outcome["candidate_score"],
+                    baseline_score=outcome["baseline_score"],
+                    candidate_result_type=outcome["candidate_result_type"],
+                    baseline_result_type=outcome["baseline_result_type"],
+                    candidate_label=outcome["candidate_label"],
+                    baseline_label=outcome["baseline_label"],
+                    details_json=outcome["details_json"],
                     created_at=now,
                 )
             )
@@ -1190,6 +1667,7 @@ def evaluate_run(
             )
 
         structural_summary = _evaluate_structural_checks(session, run, fixture.thresholds)
+        retrieval_rank_metrics = _summarize_retrieval_rank_metrics(retrieval_outcomes)
         evaluation.status = "completed"
         evaluation.summary_json = {
             "status": "completed",
@@ -1206,6 +1684,7 @@ def evaluate_run(
             "regressed_queries": regressed_queries,
             "improved_queries": improved_queries,
             "stable_queries": stable_queries,
+            "retrieval_rank_metrics": retrieval_rank_metrics,
             "structural_check_count": structural_summary["check_count"],
             "passed_structural_checks": structural_summary["passed_checks"],
             "failed_structural_checks": structural_summary["failed_checks"],
@@ -1239,6 +1718,7 @@ def evaluate_run(
             "regressed_queries": 0,
             "improved_queries": 0,
             "stable_queries": 0,
+            "retrieval_rank_metrics": _empty_retrieval_rank_metrics(),
             "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
         }
         evaluation.completed_at = now

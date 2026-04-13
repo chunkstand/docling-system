@@ -37,6 +37,8 @@ from app.services.search_history import (
 )
 
 RANKING_DATASET_SCHEMA_VERSION = 2
+CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE = "cross_document_prose_regressions"
+EVALUATION_QUERY_SOURCE_TYPE = "evaluation_queries"
 
 
 def _utcnow() -> datetime:
@@ -57,6 +59,10 @@ class ReplayCase:
     feedback_type: str | None = None
     target_result_type: str | None = None
     target_result_id: UUID | None = None
+    expected_source_filename: str | None = None
+    expected_top_result_source_filename: str | None = None
+    minimum_top_n_hits_from_expected_document: int | None = None
+    maximum_foreign_results_before_first_expected_hit: int | None = None
     source_reason: str | None = None
 
 
@@ -82,19 +88,100 @@ def _request_result_key(
     return result_type, result_id
 
 
-def _matching_rank(results, expected_result_type: str | None) -> int | None:
+def _normalized_source_filename(value: str | None) -> str | None:
+    if not value:
+        return None
+    return value.rsplit("/", maxsplit=1)[-1].lower()
+
+
+def _source_filename_matches(actual: str | None, expected: str | None) -> bool:
+    normalized_expected = _normalized_source_filename(expected)
+    if normalized_expected is None:
+        return True
+    return _normalized_source_filename(actual) == normalized_expected
+
+
+def _matching_rank(
+    results,
+    expected_result_type: str | None,
+    *,
+    expected_source_filename: str | None = None,
+) -> int | None:
     if expected_result_type is None:
         return None
     for idx, result in enumerate(results, start=1):
-        if result.result_type == expected_result_type:
+        if result.result_type == expected_result_type and _source_filename_matches(
+            result.source_filename,
+            expected_source_filename,
+        ):
             return idx
     return None
+
+
+def _top_n_source_hit_count(
+    results,
+    expected_source_filename: str | None,
+    top_n: int | None,
+) -> int | None:
+    if expected_source_filename is None or top_n is None:
+        return None
+    return sum(
+        1
+        for result in results[:top_n]
+        if _source_filename_matches(result.source_filename, expected_source_filename)
+    )
+
+
+def _foreign_results_before_first_expected_hit(
+    results,
+    expected_result_type: str | None,
+    *,
+    expected_source_filename: str | None = None,
+) -> int | None:
+    rank = _matching_rank(
+        results,
+        expected_result_type,
+        expected_source_filename=expected_source_filename,
+    )
+    if rank is None or expected_source_filename is None:
+        return None
+    return sum(
+        1
+        for result in results[: rank - 1]
+        if not _source_filename_matches(result.source_filename, expected_source_filename)
+    )
+
+
+def _effective_replay_source_type(row: SearchReplayRun) -> str:
+    return (getattr(row, "summary_json", None) or {}).get("source_type") or row.source_type
+
+
+def _storage_source_type(source_type: str) -> str:
+    if source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE:
+        return EVALUATION_QUERY_SOURCE_TYPE
+    return source_type
+
+
+def _empty_replay_rank_metrics() -> dict:
+    return {
+        "query_count": 0,
+        "mrr": 0.0,
+        "foreign_top_result_count": 0,
+        "source_constrained_query_count": 0,
+    }
+
+
+def _finalize_replay_rank_metrics(metrics: dict) -> dict:
+    query_count = int(metrics.get("query_count") or 0)
+    reciprocal_rank_sum = float(metrics.pop("reciprocal_rank_sum", 0.0) or 0.0)
+    metrics["mrr"] = reciprocal_rank_sum / query_count if query_count else 0.0
+    return metrics
 
 
 def _to_replay_run_summary(row: SearchReplayRun) -> SearchReplayRunSummaryResponse:
     return SearchReplayRunSummaryResponse(
         replay_run_id=row.id,
-        source_type=row.source_type,
+        source_type=_effective_replay_source_type(row),
         status=row.status,
         harness_name=row.harness_name,
         reranker_name=row.reranker_name,
@@ -108,6 +195,7 @@ def _to_replay_run_summary(row: SearchReplayRun) -> SearchReplayRunSummaryRespon
         table_hit_count=row.table_hit_count,
         top_result_changes=row.top_result_changes,
         max_rank_shift=row.max_rank_shift,
+        rank_metrics=(row.summary_json or {}).get("rank_metrics") or {},
         created_at=row.created_at,
         completed_at=row.completed_at,
     )
@@ -181,7 +269,65 @@ def get_search_replay_run_detail(
     )
 
 
-def _latest_evaluation_queries(session: Session, limit: int) -> list[ReplayCase]:
+def _cross_document_prose_replay_case(
+    row: DocumentRunEvaluationQuery,
+    details: dict,
+) -> ReplayCase | None:
+    evaluation_kind = details.get("evaluation_kind")
+    if evaluation_kind == "retrieval":
+        if not any(
+            details.get(key) is not None
+            for key in (
+                "expected_source_filename",
+                "expected_top_result_source_filename",
+                "minimum_top_n_hits_from_expected_document",
+                "maximum_foreign_results_before_first_expected_hit",
+            )
+        ):
+            return None
+        return ReplayCase(
+            query_text=row.query_text,
+            mode=row.mode,
+            filters=row.filters_json or {},
+            limit=max(row.expected_top_n or 3, 10),
+            expected_result_type=row.expected_result_type,
+            expected_top_n=row.expected_top_n,
+            evaluation_query_id=row.id,
+            expected_source_filename=details.get("expected_source_filename"),
+            expected_top_result_source_filename=details.get("expected_top_result_source_filename"),
+            minimum_top_n_hits_from_expected_document=details.get(
+                "minimum_top_n_hits_from_expected_document"
+            ),
+            maximum_foreign_results_before_first_expected_hit=details.get(
+                "maximum_foreign_results_before_first_expected_hit"
+            ),
+            source_reason="cross_document_prose_regression",
+        )
+    expected_citation_source_filename = details.get("expected_citation_source_filename")
+    if evaluation_kind == "answer" and expected_citation_source_filename:
+        return ReplayCase(
+            query_text=row.query_text,
+            mode=row.mode,
+            filters=row.filters_json or {},
+            limit=10,
+            expected_result_type="chunk",
+            expected_top_n=3,
+            evaluation_query_id=row.id,
+            expected_source_filename=expected_citation_source_filename,
+            expected_top_result_source_filename=expected_citation_source_filename,
+            minimum_top_n_hits_from_expected_document=1,
+            maximum_foreign_results_before_first_expected_hit=0,
+            source_reason="cross_document_prose_regression",
+        )
+    return None
+
+
+def _latest_evaluation_queries(
+    session: Session,
+    limit: int,
+    *,
+    source_type: str = EVALUATION_QUERY_SOURCE_TYPE,
+) -> list[ReplayCase]:
     documents = session.execute(select(Document)).scalars().all()
     cases: list[ReplayCase] = []
 
@@ -209,20 +355,27 @@ def _latest_evaluation_queries(session: Session, limit: int) -> list[ReplayCase]
             .all()
         )
         for row in query_rows:
-            if (row.details_json or {}).get("evaluation_kind") == "answer":
-                continue
-            cases.append(
-                ReplayCase(
-                    query_text=row.query_text,
-                    mode=row.mode,
-                    filters=row.filters_json or {},
-                    limit=max(row.expected_top_n or 3, 10),
-                    expected_result_type=row.expected_result_type,
-                    expected_top_n=row.expected_top_n,
-                    evaluation_query_id=row.id,
-                    source_reason="evaluation_query",
+            details = row.details_json or {}
+            if source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE:
+                replay_case = _cross_document_prose_replay_case(row, details)
+                if replay_case is None:
+                    continue
+                cases.append(replay_case)
+            else:
+                if details.get("evaluation_kind") == "answer":
+                    continue
+                cases.append(
+                    ReplayCase(
+                        query_text=row.query_text,
+                        mode=row.mode,
+                        filters=row.filters_json or {},
+                        limit=max(row.expected_top_n or 3, 10),
+                        expected_result_type=row.expected_result_type,
+                        expected_top_n=row.expected_top_n,
+                        evaluation_query_id=row.id,
+                        source_reason="evaluation_query",
+                    )
                 )
-            )
             if len(cases) >= limit:
                 return cases
     return cases
@@ -315,8 +468,15 @@ def _feedback_cases(session: Session, limit: int) -> list[ReplayCase]:
 
 
 def _build_replay_cases(session: Session, request: SearchReplayRunRequest) -> list[ReplayCase]:
-    if request.source_type == "evaluation_queries":
-        return _latest_evaluation_queries(session, request.limit)
+    if request.source_type in {
+        EVALUATION_QUERY_SOURCE_TYPE,
+        CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+    }:
+        return _latest_evaluation_queries(
+            session,
+            request.limit,
+            source_type=request.source_type,
+        )
     if request.source_type == "live_search_gaps":
         return _live_search_gap_cases(session, request.limit)
     return _feedback_cases(session, request.limit)
@@ -324,9 +484,57 @@ def _build_replay_cases(session: Session, request: SearchReplayRunRequest) -> li
 
 def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
     if case.evaluation_query_id is not None:
-        matching_rank = _matching_rank(execution.results, case.expected_result_type)
+        matching_rank = _matching_rank(
+            execution.results,
+            case.expected_result_type,
+            expected_source_filename=case.expected_source_filename,
+        )
+        top_result_source_filename = (
+            execution.results[0].source_filename if execution.results else None
+        )
+        expected_source_hit_count = _top_n_source_hit_count(
+            execution.results,
+            case.expected_source_filename,
+            case.expected_top_n,
+        )
+        foreign_results_before_first_expected_hit = _foreign_results_before_first_expected_hit(
+            execution.results,
+            case.expected_result_type,
+            expected_source_filename=case.expected_source_filename,
+        )
         passed = matching_rank is not None and matching_rank <= (case.expected_top_n or 0)
-        return passed, {"matching_rank": matching_rank}
+        if case.expected_top_result_source_filename is not None:
+            passed = passed and _source_filename_matches(
+                top_result_source_filename,
+                case.expected_top_result_source_filename,
+            )
+        if case.minimum_top_n_hits_from_expected_document is not None:
+            passed = passed and (
+                (expected_source_hit_count or 0)
+                >= case.minimum_top_n_hits_from_expected_document
+            )
+        if case.maximum_foreign_results_before_first_expected_hit is not None:
+            passed = passed and (
+                foreign_results_before_first_expected_hit is not None
+                and foreign_results_before_first_expected_hit
+                <= case.maximum_foreign_results_before_first_expected_hit
+            )
+        return passed, {
+            "matching_rank": matching_rank,
+            "expected_source_filename": case.expected_source_filename,
+            "expected_top_result_source_filename": case.expected_top_result_source_filename,
+            "minimum_top_n_hits_from_expected_document": (
+                case.minimum_top_n_hits_from_expected_document
+            ),
+            "maximum_foreign_results_before_first_expected_hit": (
+                case.maximum_foreign_results_before_first_expected_hit
+            ),
+            "top_result_source_filename": top_result_source_filename,
+            "expected_source_hit_count": expected_source_hit_count,
+            "foreign_results_before_first_expected_hit": (
+                foreign_results_before_first_expected_hit
+            ),
+        }
 
     if case.feedback_type is not None:
         replay_keys = {
@@ -371,7 +579,7 @@ def run_search_replay_suite(
     harness = get_search_harness(request.harness_name)
     replay_run = SearchReplayRun(
         id=uuid.uuid4(),
-        source_type=request.source_type,
+        source_type=_storage_source_type(request.source_type),
         status="failed",
         harness_name=harness.name,
         created_at=_utcnow(),
@@ -384,6 +592,7 @@ def run_search_replay_suite(
         cases = _build_replay_cases(session, request)
         created_at = _utcnow()
         summary_counter: Counter[str] = Counter()
+        rank_metrics = _empty_replay_rank_metrics()
         last_execution = None
 
         for case in cases:
@@ -424,6 +633,30 @@ def run_search_replay_suite(
                 summary_counter["max_rank_shift"],
                 diff.max_rank_shift if diff else 0,
             )
+            if case.evaluation_query_id is not None:
+                rank_metrics["query_count"] += 1
+                matching_rank = pass_details.get("matching_rank")
+                if matching_rank:
+                    rank_metrics["reciprocal_rank_sum"] = (
+                        float(rank_metrics.get("reciprocal_rank_sum") or 0.0)
+                        + (1.0 / matching_rank)
+                    )
+                if any(
+                    (
+                        case.expected_source_filename,
+                        case.expected_top_result_source_filename,
+                        case.minimum_top_n_hits_from_expected_document,
+                        case.maximum_foreign_results_before_first_expected_hit,
+                    )
+                ):
+                    rank_metrics["source_constrained_query_count"] += 1
+                if case.expected_top_result_source_filename is not None:
+                    rank_metrics["foreign_top_result_count"] += int(
+                        not _source_filename_matches(
+                            pass_details.get("top_result_source_filename"),
+                            case.expected_top_result_source_filename,
+                        )
+                    )
 
             session.add(
                 SearchReplayQuery(
@@ -493,6 +726,7 @@ def run_search_replay_suite(
             "table_hit_count": replay_run.table_hit_count,
             "top_result_changes": replay_run.top_result_changes,
             "max_rank_shift": replay_run.max_rank_shift,
+            "rank_metrics": _finalize_replay_rank_metrics(rank_metrics),
         }
         replay_run.completed_at = _utcnow()
         session.flush()
@@ -647,7 +881,9 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
                 "metadata_era": metadata_era(harness_config),
                 "replay_query_id": str(row.id),
                 "replay_run_id": str(row.replay_run_id),
-                "source_type": getattr(replay_run, "source_type", None),
+                "source_type": (
+                    _effective_replay_source_type(replay_run) if replay_run is not None else None
+                ),
                 "harness_name": getattr(replay_run, "harness_name", None),
                 "reranker_name": getattr(replay_run, "reranker_name", None),
                 "reranker_version": getattr(replay_run, "reranker_version", None),

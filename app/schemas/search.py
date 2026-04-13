@@ -118,7 +118,9 @@ class SearchReplayResponse(BaseModel):
 
 
 class SearchReplayRunRequest(BaseModel):
-    source_type: str = Field(pattern="^(evaluation_queries|live_search_gaps|feedback)$")
+    source_type: str = Field(
+        pattern="^(evaluation_queries|live_search_gaps|feedback|cross_document_prose_regressions)$"
+    )
     limit: int = Field(default=25, ge=1, le=200)
     harness_name: str | None = None
 
@@ -139,6 +141,7 @@ class SearchReplayRunSummaryResponse(BaseModel):
     table_hit_count: int = 0
     top_result_changes: int = 0
     max_rank_shift: int = 0
+    rank_metrics: dict = Field(default_factory=dict)
     created_at: datetime
     completed_at: datetime | None = None
 
@@ -208,7 +211,12 @@ class SearchHarnessEvaluationRequest(BaseModel):
     candidate_harness_name: str
     baseline_harness_name: str = "default_v1"
     source_types: list[str] = Field(
-        default_factory=lambda: ["evaluation_queries", "feedback", "live_search_gaps"]
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
     )
     limit: int = Field(default=25, ge=1, le=200)
 
@@ -227,6 +235,11 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
     candidate_table_hit_count: int = 0
     baseline_top_result_changes: int = 0
     candidate_top_result_changes: int = 0
+    baseline_mrr: float = 0.0
+    candidate_mrr: float = 0.0
+    baseline_foreign_top_result_count: int = 0
+    candidate_foreign_top_result_count: int = 0
+    acceptance_checks: dict = Field(default_factory=dict)
     shared_query_count: int = 0
     improved_count: int = 0
     regressed_count: int = 0

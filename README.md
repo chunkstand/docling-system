@@ -211,6 +211,7 @@ Table telemetry is available from `GET /metrics`, including detected tables, per
 ```bash
 uv run pytest tests
 uv run pytest tests/unit
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q
 uv run alembic upgrade head
 uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
@@ -225,6 +226,27 @@ uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
 
+## Testing
+
+The default test path is the fast unit suite:
+
+```bash
+uv run pytest tests/unit -q
+```
+
+The repository also includes a real Postgres-backed integration harness:
+
+```bash
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q
+```
+
+That integration harness:
+
+- uses the local Postgres instance from `docker compose up -d db`
+- provisions an isolated temporary database schema per test
+- uses temporary filesystem storage instead of the repo `storage/` tree
+- stubs parser output and disables live embedding lookups so the run is deterministic and does not depend on OpenAI
+
 The ranking dataset export schema is documented in [docs/ranking_dataset_schema.md](./docs/ranking_dataset_schema.md).
 `GET /quality/eval-candidates` now mines three gap classes:
 
@@ -238,16 +260,18 @@ The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/eval
 
 The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as an append-only auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
 
-Current configured fixtures include:
+Current hand-authored fixtures include the UPC corpus plus non-UPC prose, table, figure, and Tyler's Kitchen documents such as:
 
 - `upc_ch7`
 - `upc_ch2_figures`
-- `born_digital_simple`
-- `appendix_b_prose_guidance`
-- `awkward_headers`
-- `upc_ch4`
 - `upc_ch5`
-- `prose_control`
+- `bitter_lesson_prose`
+- `test_pdf_prose`
+- `nsf_ai_ready_america_figures`
+- `openrouter_spend_report_tables`
+- `tyler_kitchen_soil_report`
+- `tyler_kitchen_transportation_report`
+- `tyler_kitchen_wildlife_report`
 
 ## Troubleshooting
 

@@ -3,8 +3,15 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
+from app.schemas.chat import ChatCitation, ChatResponse
+from app.schemas.search import SearchResult, SearchScores
 from app.services.evaluations import (
     AUTO_FIXTURE_KIND,
+    EvaluationAnswerCase,
+    EvaluationQueryCase,
+    _evaluate_answer_case,
+    _evaluate_retrieval_case,
+    _summarize_retrieval_rank_metrics,
     _summarize_structural_checks,
     build_auto_evaluation_fixture_document,
     ensure_auto_evaluation_fixture,
@@ -59,11 +66,31 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
         "general methods",
         "computation",
     ]
+    assert bitter_lesson.queries[-1].expected_source_filename == "The Bitter Lesson.pdf"
+    assert (
+        bitter_lesson.queries[-1].expected_top_result_source_filename == "The Bitter Lesson.pdf"
+    )
+    assert bitter_lesson.queries[-1].minimum_top_n_hits_from_expected_document == 2
+    assert bitter_lesson.queries[-1].maximum_foreign_results_before_first_expected_hit == 0
+    assert (
+        bitter_lesson.answer_queries[0].expected_citation_source_filename
+        == "The Bitter Lesson.pdf"
+    )
+    assert bitter_lesson.answer_queries[0].maximum_foreign_citations == 0
 
     test_pdf = next(fixture for fixture in fixtures if fixture.name == "test_pdf_prose")
     assert test_pdf.path.endswith("TEST_PDF.pdf")
-    assert len(test_pdf.answer_queries) == 1
+    assert len(test_pdf.queries) == 5
+    assert test_pdf.queries[-1].expected_source_filename == "TEST_PDF.pdf"
+    assert test_pdf.queries[-1].expected_top_result_source_filename == "TEST_PDF.pdf"
+    assert test_pdf.queries[-1].minimum_top_n_hits_from_expected_document == 1
+    assert test_pdf.queries[-1].maximum_foreign_results_before_first_expected_hit == 0
+    assert len(test_pdf.answer_queries) == 2
     assert test_pdf.answer_queries[0].minimum_citation_count == 1
+    assert test_pdf.answer_queries[0].expected_citation_source_filename == "TEST_PDF.pdf"
+    assert test_pdf.answer_queries[0].maximum_foreign_citations == 0
+    assert test_pdf.answer_queries[1].expect_no_answer is True
+    assert test_pdf.answer_queries[1].maximum_citation_count == 0
 
     nsf = next(fixture for fixture in fixtures if fixture.name == "nsf_ai_ready_america_figures")
     assert nsf.thresholds.expected_figure_count == 6
@@ -90,7 +117,20 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert transportation_report.path.endswith("20251216_TK_TransportationReport.pdf")
     assert transportation_report.thresholds.expected_logical_table_count == 8
     assert transportation_report.thresholds.expected_figure_count == 0
+    assert len(transportation_report.queries) == 4
     assert len(transportation_report.answer_queries) == 1
+    assert (
+        transportation_report.queries[-1].expected_source_filename
+        == "20251216_TK_TransportationReport.pdf"
+    )
+    assert (
+        transportation_report.queries[-1].expected_top_result_source_filename
+        == "20251216_TK_TransportationReport.pdf"
+    )
+    assert transportation_report.answer_queries[0].expected_citation_source_filename == (
+        "20251216_TK_TransportationReport.pdf"
+    )
+    assert transportation_report.answer_queries[0].maximum_foreign_citations == 0
 
     wildlife_report = next(
         fixture for fixture in fixtures if fixture.name == "tyler_kitchen_wildlife_report"
@@ -98,7 +138,23 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert wildlife_report.path.endswith("20251215_TK_WildlifeSpecReport.pdf")
     assert wildlife_report.thresholds.expected_logical_table_count == 18
     assert wildlife_report.thresholds.expected_figure_count == 2
+    assert len(wildlife_report.queries) == 5
     assert len(wildlife_report.answer_queries) == 1
+    assert (
+        wildlife_report.queries[-1].expected_source_filename
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert (
+        wildlife_report.queries[-1].expected_top_result_source_filename
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert wildlife_report.queries[-1].minimum_top_n_hits_from_expected_document == 1
+    assert wildlife_report.queries[-1].maximum_foreign_results_before_first_expected_hit == 0
+    assert (
+        wildlife_report.answer_queries[0].expected_citation_source_filename
+        == "20251215_TK_WildlifeSpecReport.pdf"
+    )
+    assert wildlife_report.answer_queries[0].maximum_foreign_citations == 0
     assert wildlife_report.thresholds.expected_figure_captions_present == [
         "Tyler's Kitchen Fuels Reduction and Forest Health Project",
         (
@@ -440,3 +496,232 @@ def test_summarize_structural_checks_tolerates_non_string_figure_captions(tmp_pa
         check for check in summary["checks"] if check["name"] == "expected_figure_captions_present"
     )
     assert caption_check["passed"] is True
+
+
+def test_evaluate_retrieval_case_flags_foreign_top_result_before_expected_hit() -> None:
+    case = EvaluationQueryCase(
+        query="What is the main claim of The Bitter Lesson?",
+        mode="keyword",
+        filters={},
+        expected_result_type="chunk",
+        expected_top_n=3,
+        expected_source_filename="The Bitter Lesson.pdf",
+        expected_top_result_source_filename="The Bitter Lesson.pdf",
+        minimum_top_n_hits_from_expected_document=2,
+        maximum_foreign_results_before_first_expected_hit=0,
+    )
+    candidate_results = [
+        SearchResult(
+            result_type="chunk",
+            document_id=uuid4(),
+            run_id=uuid4(),
+            score=0.95,
+            chunk_id=uuid4(),
+            chunk_text="Unrelated plumbing code result.",
+            heading="UPC",
+            page_from=1,
+            page_to=1,
+            source_filename="UPC_CH_5.pdf",
+            scores=SearchScores(keyword_score=0.95),
+        ),
+        SearchResult(
+            result_type="chunk",
+            document_id=uuid4(),
+            run_id=uuid4(),
+            score=0.94,
+            chunk_id=uuid4(),
+            chunk_text="General methods that leverage computation win over hand-coded ones.",
+            heading="The Bitter Lesson",
+            page_from=2,
+            page_to=2,
+            source_filename="The Bitter Lesson.pdf",
+            scores=SearchScores(keyword_score=0.94),
+        ),
+        SearchResult(
+            result_type="chunk",
+            document_id=uuid4(),
+            run_id=uuid4(),
+            score=0.90,
+            chunk_id=uuid4(),
+            chunk_text="Search and learning are central recurring themes.",
+            heading="The Bitter Lesson",
+            page_from=3,
+            page_to=3,
+            source_filename="The Bitter Lesson.pdf",
+            scores=SearchScores(keyword_score=0.90),
+        ),
+    ]
+
+    outcome = _evaluate_retrieval_case(
+        case=case,
+        filters_payload={"document_id": str(uuid4())},
+        candidate_results=candidate_results,
+        baseline_results=[],
+    )
+
+    assert outcome["passed"] is False
+    assert outcome["candidate_rank"] == 2
+    assert outcome["details_json"]["candidate_top_result_source_filename"] == "UPC_CH_5.pdf"
+    assert outcome["details_json"]["candidate_result_count"] == 3
+    assert outcome["details_json"]["candidate_reciprocal_rank"] == 0.5
+    assert outcome["details_json"]["candidate_expected_hits_in_top_1"] == 0
+    assert outcome["details_json"]["candidate_expected_hits_in_top_3"] == 2
+    assert outcome["details_json"]["candidate_expected_hits_in_top_5"] == 2
+    assert outcome["details_json"]["candidate_foreign_top_result"] is True
+    assert outcome["details_json"]["candidate_expected_source_hit_count"] == 2
+    assert outcome["details_json"]["candidate_foreign_results_before_first_expected_hit"] == 1
+    assert outcome["details_json"]["candidate_failure_kind"] == "foreign_top_result"
+
+
+def test_evaluate_answer_case_flags_foreign_citations(monkeypatch) -> None:
+    candidate_response = ChatResponse(
+        answer=(
+            "The essay argues that general methods powered by computation "
+            "outperform hand-built approaches."
+        ),
+        citations=[
+            ChatCitation(
+                citation_index=1,
+                result_type="chunk",
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="UPC_CH_5.pdf",
+                page_from=1,
+                page_to=1,
+                label="UPC",
+                excerpt="Unrelated plumbing text.",
+                score=0.8,
+            )
+        ],
+        mode="hybrid",
+        used_fallback=False,
+    )
+
+    monkeypatch.setattr(
+        "app.services.evaluations.answer_question",
+        lambda *args, **kwargs: candidate_response if kwargs["run_id"] else None,
+    )
+
+    outcome = _evaluate_answer_case(
+        session=None,
+        document=SimpleNamespace(id=uuid4()),
+        run_id=uuid4(),
+        baseline_run_id=None,
+        evaluation_id=uuid4(),
+        case=EvaluationAnswerCase(
+            question="What is the main claim of The Bitter Lesson?",
+            mode="hybrid",
+            filters={},
+            expected_answer_contains=["general methods", "computation"],
+            minimum_citation_count=1,
+            allow_fallback=False,
+            top_k=4,
+            expected_citation_source_filename="The Bitter Lesson.pdf",
+            maximum_foreign_citations=0,
+        ),
+    )
+
+    assert outcome["passed"] is False
+    assert outcome["details_json"]["candidate_matching_citation_count"] == 0
+    assert outcome["details_json"]["candidate_foreign_citation_count"] == 1
+
+
+def test_evaluate_answer_case_supports_expected_no_answer(monkeypatch) -> None:
+    candidate_response = ChatResponse(
+        answer="I couldn't find relevant support for that question in the ingested corpus.",
+        citations=[],
+        mode="hybrid",
+        used_fallback=True,
+    )
+
+    monkeypatch.setattr(
+        "app.services.evaluations.answer_question",
+        lambda *args, **kwargs: candidate_response if kwargs["run_id"] else None,
+    )
+
+    outcome = _evaluate_answer_case(
+        session=None,
+        document=SimpleNamespace(id=uuid4()),
+        run_id=uuid4(),
+        baseline_run_id=None,
+        evaluation_id=uuid4(),
+        case=EvaluationAnswerCase(
+            question="What launch date does the opportunity screening memo announce?",
+            mode="hybrid",
+            filters={},
+            expected_answer_contains=[],
+            minimum_citation_count=0,
+            allow_fallback=True,
+            top_k=4,
+            expect_no_answer=True,
+            maximum_citation_count=0,
+        ),
+    )
+
+    assert outcome["passed"] is True
+    assert outcome["details_json"]["expect_no_answer"] is True
+    assert outcome["details_json"]["candidate_citation_count"] == 0
+    assert outcome["details_json"]["candidate_used_fallback"] is True
+
+
+def test_summarize_retrieval_rank_metrics_rolls_up_query_metrics() -> None:
+    metrics = _summarize_retrieval_rank_metrics(
+        [
+            {
+                "details_json": {
+                    "candidate_reciprocal_rank": 1.0,
+                    "baseline_reciprocal_rank": 0.5,
+                    "candidate_expected_hits_in_top_1": 1,
+                    "candidate_expected_hits_in_top_3": 2,
+                    "candidate_expected_hits_in_top_5": 2,
+                    "baseline_expected_hits_in_top_1": 0,
+                    "baseline_expected_hits_in_top_3": 1,
+                    "baseline_expected_hits_in_top_5": 1,
+                    "candidate_zero_results": False,
+                    "baseline_zero_results": False,
+                    "candidate_foreign_top_result": False,
+                    "baseline_foreign_top_result": True,
+                    "candidate_failure_kind": None,
+                    "baseline_failure_kind": "foreign_top_result",
+                }
+            },
+            {
+                "details_json": {
+                    "candidate_reciprocal_rank": 0.0,
+                    "baseline_reciprocal_rank": 0.0,
+                    "candidate_expected_hits_in_top_1": 0,
+                    "candidate_expected_hits_in_top_3": 0,
+                    "candidate_expected_hits_in_top_5": 0,
+                    "baseline_expected_hits_in_top_1": 0,
+                    "baseline_expected_hits_in_top_3": 0,
+                    "baseline_expected_hits_in_top_5": 0,
+                    "candidate_zero_results": True,
+                    "baseline_zero_results": False,
+                    "candidate_foreign_top_result": False,
+                    "baseline_foreign_top_result": False,
+                    "candidate_failure_kind": "zero_results",
+                    "baseline_failure_kind": "wrong_result",
+                }
+            },
+        ]
+    )
+
+    assert metrics["candidate_mrr"] == 0.5
+    assert metrics["baseline_mrr"] == 0.25
+    assert metrics["candidate_top_1_hit_queries"] == 1
+    assert metrics["candidate_top_3_hit_queries"] == 1
+    assert metrics["candidate_top_5_hit_queries"] == 1
+    assert metrics["baseline_top_1_hit_queries"] == 0
+    assert metrics["baseline_top_3_hit_queries"] == 1
+    assert metrics["baseline_top_5_hit_queries"] == 1
+    assert metrics["candidate_zero_result_queries"] == 1
+    assert metrics["candidate_wrong_result_queries"] == 0
+    assert metrics["candidate_foreign_top_result_queries"] == 0
+    assert metrics["baseline_zero_result_queries"] == 0
+    assert metrics["baseline_wrong_result_queries"] == 1
+    assert metrics["baseline_foreign_top_result_queries"] == 1
+    assert metrics["candidate_failure_kind_counts"] == {"zero_results": 1}
+    assert metrics["baseline_failure_kind_counts"] == {
+        "foreign_top_result": 1,
+        "wrong_result": 1,
+    }
