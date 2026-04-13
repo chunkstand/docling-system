@@ -172,7 +172,8 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
         )
 
     assert batch.source_type == "local_directory"
-    assert batch.status == "completed"
+    assert batch.status == "running"
+    assert batch.completed_at is None
     assert batch.file_count == 2
     assert batch.queued_count == 2
     assert batch.failed_count == 0
@@ -188,5 +189,92 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
     with postgres_integration_harness.session_factory() as session:
         refreshed = get_ingest_batch_detail(session, batch.batch_id)
 
+    assert refreshed.status == "completed"
+    assert refreshed.completed_at is not None
     assert refreshed.run_status_counts == {"completed": 2}
     assert all(item.current_run_status == "completed" for item in refreshed.items)
+
+
+class FailingParser:
+    def parse_pdf(self, source_path, *, source_filename=None):
+        assert source_path.exists()
+        assert source_filename
+        raise ValueError("Intentional parse failure")
+
+
+def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fail(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "a.pdf").write_bytes(b"%PDF-1.7\nbatch-a")
+    (root / "b.pdf").write_bytes(b"%PDF-1.7\nbatch-b")
+
+    allowed_root = root.resolve()
+    monkeypatch.setattr(
+        "app.services.ingest_batches._allowed_ingest_roots",
+        lambda: [allowed_root],
+    )
+    monkeypatch.setattr(
+        "app.services.documents._allowed_ingest_roots",
+        lambda: [allowed_root],
+    )
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+    )
+    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
+
+    with postgres_integration_harness.session_factory() as session:
+        batch = queue_local_ingest_directory(
+            session,
+            root,
+            postgres_integration_harness.storage_service,
+        )
+
+    assert batch.status == "running"
+    assert batch.completed_at is None
+    assert batch.run_status_counts == {"queued": 2}
+
+    postgres_integration_harness.process_next_run(FailingParser())
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document(title="Recovered")))
+
+    with postgres_integration_harness.session_factory() as session:
+        refreshed = get_ingest_batch_detail(session, batch.batch_id)
+
+    assert refreshed.status == "completed_with_errors"
+    assert refreshed.completed_at is not None
+    assert refreshed.run_status_counts == {"completed": 1, "failed": 1}
+
+
+def test_queue_local_directory_ingest_marks_batch_failed_when_directory_scan_errors(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    root.mkdir()
+
+    allowed_root = root.resolve()
+    monkeypatch.setattr(
+        "app.services.ingest_batches._allowed_ingest_roots",
+        lambda: [allowed_root],
+    )
+    monkeypatch.setattr(
+        "app.services.ingest_batches._iter_directory_children",
+        lambda _directory_path: (_ for _ in ()).throw(PermissionError("scan denied")),
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        batch = queue_local_ingest_directory(
+            session,
+            root,
+            postgres_integration_harness.storage_service,
+        )
+
+    assert batch.status == "failed"
+    assert batch.file_count == 0
+    assert batch.completed_at is not None
+    assert batch.error_message == "Directory scan failed: scan denied"

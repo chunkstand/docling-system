@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentRun, IngestBatch, IngestBatchItem
+from app.db.models import Document, DocumentRun, IngestBatch, IngestBatchItem, RunStatus
 from app.schemas.ingest_batches import (
     IngestBatchDetailResponse,
     IngestBatchItemResponse,
@@ -45,20 +45,57 @@ def _validate_local_ingest_directory(directory_path: Path) -> Path:
     return resolved_path
 
 
+def _iter_directory_children(directory_path: Path) -> list[Path]:
+    return sorted(directory_path.iterdir(), key=lambda path: str(path).lower())
+
+
 def _iter_local_pdf_files(directory_path: Path, *, recursive: bool) -> list[Path]:
-    iterator = directory_path.rglob("*") if recursive else directory_path.glob("*")
-    return sorted(
-        (
-            path.resolve()
-            for path in iterator
-            if path.is_file() and path.suffix.lower() == ".pdf"
-        ),
-        key=lambda path: str(path).lower(),
-    )
+    pdf_paths: list[Path] = []
+    pending_directories = [directory_path]
+
+    while pending_directories:
+        current_directory = pending_directories.pop()
+        for path in _iter_directory_children(current_directory):
+            if path.is_symlink():
+                if path.suffix.lower() == ".pdf" and path.exists():
+                    pdf_paths.append(path)
+                continue
+            if path.is_dir():
+                if recursive:
+                    pending_directories.append(path)
+                continue
+            if path.is_file() and path.suffix.lower() == ".pdf":
+                pdf_paths.append(path)
+
+    return sorted(pdf_paths, key=lambda path: str(path).lower())
 
 
-def _batch_run_status_counts(session: Session, batch_id: UUID) -> dict[str, int]:
-    rows = (
+def _derive_batch_status(batch: IngestBatch, run_status_counts: dict[str, int]) -> str:
+    if batch.status == "failed":
+        return "failed"
+
+    if any(
+        run_status_counts.get(run_status, 0) > 0
+        for run_status in (
+            RunStatus.QUEUED.value,
+            RunStatus.PROCESSING.value,
+            RunStatus.VALIDATING.value,
+            RunStatus.RETRY_WAIT.value,
+        )
+    ):
+        return "running"
+
+    if batch.failed_count > 0 or run_status_counts.get(RunStatus.FAILED.value, 0) > 0:
+        return "completed_with_errors"
+
+    return "completed"
+
+
+def _load_batch_rows(
+    session: Session,
+    batch_id: UUID,
+) -> list[tuple[IngestBatchItem, DocumentRun | None]]:
+    return (
         session.execute(
             select(IngestBatchItem, DocumentRun)
             .outerjoin(DocumentRun, IngestBatchItem.run_id == DocumentRun.id)
@@ -67,6 +104,11 @@ def _batch_run_status_counts(session: Session, batch_id: UUID) -> dict[str, int]
         )
         .all()
     )
+
+
+def _batch_run_status_counts(
+    rows: list[tuple[IngestBatchItem, DocumentRun | None]],
+) -> dict[str, int]:
     counts: Counter[str] = Counter()
     for item, run in rows:
         if run is not None:
@@ -78,11 +120,40 @@ def _batch_run_status_counts(session: Session, batch_id: UUID) -> dict[str, int]
     return dict(sorted(counts.items()))
 
 
-def _to_batch_summary(session: Session, batch: IngestBatch) -> IngestBatchSummaryResponse:
+def _derive_batch_completed_at(
+    batch: IngestBatch,
+    rows: list[tuple[IngestBatchItem, DocumentRun | None]],
+    derived_status: str,
+) -> datetime | None:
+    if derived_status == "running":
+        return None
+
+    run_completed_at_values = [
+        run.completed_at
+        for _, run in rows
+        if run is not None and run.completed_at
+    ]
+    if run_completed_at_values:
+        if batch.completed_at is None:
+            return max(run_completed_at_values)
+        return max([batch.completed_at, *run_completed_at_values])
+
+    return batch.completed_at
+
+
+def _to_batch_summary(
+    session: Session,
+    batch: IngestBatch,
+    *,
+    rows: list[tuple[IngestBatchItem, DocumentRun | None]] | None = None,
+) -> IngestBatchSummaryResponse:
+    loaded_rows = rows if rows is not None else _load_batch_rows(session, batch.id)
+    run_status_counts = _batch_run_status_counts(loaded_rows)
+    derived_status = _derive_batch_status(batch, run_status_counts)
     return IngestBatchSummaryResponse(
         batch_id=batch.id,
         source_type=batch.source_type,
-        status=batch.status,
+        status=derived_status,
         root_path=batch.root_path,
         recursive=batch.recursive,
         file_count=batch.file_count,
@@ -90,10 +161,10 @@ def _to_batch_summary(session: Session, batch: IngestBatch) -> IngestBatchSummar
         recovery_queued_count=batch.recovery_queued_count,
         duplicate_count=batch.duplicate_count,
         failed_count=batch.failed_count,
-        run_status_counts=_batch_run_status_counts(session, batch.id),
+        run_status_counts=run_status_counts,
         error_message=batch.error_message,
         created_at=batch.created_at,
-        completed_at=batch.completed_at,
+        completed_at=_derive_batch_completed_at(batch, loaded_rows, derived_status),
     )
 
 
@@ -129,16 +200,8 @@ def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDeta
             detail=f"Ingest batch not found: {batch_id}",
         )
 
-    rows = (
-        session.execute(
-            select(IngestBatchItem, DocumentRun)
-            .outerjoin(DocumentRun, IngestBatchItem.run_id == DocumentRun.id)
-            .where(IngestBatchItem.batch_id == batch.id)
-            .order_by(IngestBatchItem.created_at.asc(), IngestBatchItem.relative_path.asc())
-        )
-        .all()
-    )
-    summary = _to_batch_summary(session, batch)
+    rows = _load_batch_rows(session, batch.id)
+    summary = _to_batch_summary(session, batch, rows=rows)
     return IngestBatchDetailResponse(
         **summary.model_dump(),
         items=[
@@ -255,7 +318,19 @@ def queue_local_ingest_directory(
     session.add(batch)
     session.commit()
 
-    pdf_paths = _iter_local_pdf_files(resolved_directory, recursive=recursive)
+    try:
+        pdf_paths = _iter_local_pdf_files(resolved_directory, recursive=recursive)
+    except Exception as exc:
+        session.rollback()
+        batch = session.get(IngestBatch, batch.id)
+        if batch is None:
+            raise
+        batch.status = "failed"
+        batch.error_message = f"Directory scan failed: {exc}"
+        batch.completed_at = _utcnow()
+        session.commit()
+        return get_ingest_batch_detail(session, batch.id)
+
     if not pdf_paths:
         batch.status = "failed"
         batch.error_message = "No PDF files found in the directory."

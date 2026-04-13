@@ -107,7 +107,7 @@ uv run docling-system-ingest-dir /absolute/path/to/folder --recursive
 
 The CLI passes through the same checksum dedupe, run queue, worker processing, validation gate, and active-run promotion path as upload ingest.
 
-Directory ingest creates a durable ingest batch, scans the directory for `.pdf` files, and queues each file through the same single-file ingest contract. Each batch item records whether the file queued a new run, attached to an existing in-flight recovery run, hit an already-active duplicate, or failed validation before queueing.
+Directory ingest creates a durable ingest batch, scans the directory for `.pdf` files, and queues each file through the same single-file ingest contract. Each batch item records whether the file queued a new run, attached to an existing in-flight recovery run, hit an already-active duplicate, or failed validation before queueing. Batch status stays `running` until the linked document runs reach terminal states, so `docling-system-ingest-batch-show` reflects end-to-end progress instead of only the initial fan-out step.
 
 After a run validates successfully, the worker also writes or refreshes an auto-generated evaluation fixture under `storage/evaluation_corpus.auto.yaml` and immediately evaluates the run against the combined manual-plus-auto corpus.
 
@@ -115,7 +115,7 @@ Local path ingest policy:
 
 - Paths must be under configured allowed roots.
 - If `DOCLING_SYSTEM_LOCAL_INGEST_ALLOWED_ROOTS` is unset, the default roots are the repo working directory and `~/Documents`.
-- Symlink file paths are rejected.
+- Symlink file paths are rejected, including symlinked PDFs discovered inside a queued directory.
 - Files must have a `.pdf` suffix and a `%PDF-` header.
 - Duplicate content is deduped by checksum, not by path string.
 - File size defaults to `104857600` bytes.
