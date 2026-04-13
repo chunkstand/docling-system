@@ -84,6 +84,37 @@ def test_create_agent_task_adds_dependency_rows_and_sets_status(monkeypatch) -> 
     assert session.committed is True
 
 
+def test_create_promotable_task_uses_registry_defaults_and_awaits_approval(monkeypatch) -> None:
+    source_task_id = uuid4()
+    session = FakeSession()
+
+    monkeypatch.setattr("app.services.agent_tasks._validate_parent_task_id", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._validate_dependency_ids", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._incomplete_dependency_count", lambda *args: 0)
+    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
+
+    task = create_agent_task(
+        session,
+        AgentTaskCreateRequest(
+            task_type="enqueue_document_reprocess",
+            input={
+                "document_id": str(uuid4()),
+                "source_task_id": str(source_task_id),
+                "reason": "triage requested a fresh run",
+            },
+        ),
+    )
+
+    dependency_rows = [row for row in session.added if isinstance(row, AgentTaskDependency)]
+
+    assert task.status == AgentTaskStatus.AWAITING_APPROVAL.value
+    assert task.side_effect_level == "promotable"
+    assert task.requires_approval is True
+    assert task.input_json["source_task_id"] == str(source_task_id)
+    assert len(dependency_rows) == 1
+    assert dependency_rows[0].depends_on_task_id == source_task_id
+
+
 def test_create_agent_task_rejects_parent_as_explicit_dependency() -> None:
     parent_task_id = uuid4()
     session = FakeSession()

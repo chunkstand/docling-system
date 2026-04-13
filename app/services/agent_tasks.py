@@ -178,12 +178,15 @@ def _augment_dependency_ids_for_action(
     validated_input,
     dependency_task_ids: list[UUID],
 ) -> list[UUID]:
-    if action.definition_kind != "verifier":
-        return dependency_task_ids
-    target_task_id = getattr(validated_input, "target_task_id", None)
-    if target_task_id is None or target_task_id in dependency_task_ids:
-        return dependency_task_ids
-    return [*dependency_task_ids, target_task_id]
+    augmented_ids = list(dependency_task_ids)
+    for linked_task_id in (
+        getattr(validated_input, "target_task_id", None),
+        getattr(validated_input, "source_task_id", None),
+    ):
+        if linked_task_id is None or linked_task_id in augmented_ids:
+            continue
+        augmented_ids.append(linked_task_id)
+    return augmented_ids
 
 
 def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
@@ -214,7 +217,8 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A task cannot depend on its parent task explicitly.",
         )
-    if payload.side_effect_level != action.side_effect_level:
+    effective_side_effect_level = payload.side_effect_level or action.side_effect_level
+    if effective_side_effect_level != action.side_effect_level:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -222,7 +226,12 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
                 f"'{action.side_effect_level}'."
             ),
         )
-    if payload.requires_approval != action.requires_approval:
+    effective_requires_approval = (
+        payload.requires_approval
+        if payload.requires_approval is not None
+        else action.requires_approval
+    )
+    if effective_requires_approval != action.requires_approval:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
@@ -238,12 +247,12 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
     task = AgentTask(
         task_type=payload.task_type,
         status=_initial_task_status(
-            requires_approval=payload.requires_approval,
+            requires_approval=effective_requires_approval,
             has_incomplete_dependencies=has_incomplete_dependencies,
         ),
         priority=payload.priority,
-        side_effect_level=payload.side_effect_level,
-        requires_approval=payload.requires_approval,
+        side_effect_level=effective_side_effect_level,
+        requires_approval=effective_requires_approval,
         parent_task_id=payload.parent_task_id,
         input_json=validated_input.model_dump(mode="json", exclude_none=True),
         result_json={},

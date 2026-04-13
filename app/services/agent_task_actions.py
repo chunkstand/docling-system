@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
+    EnqueueDocumentReprocessTaskInput,
     LatestEvaluationTaskInput,
     QualityEvalCandidatesTaskInput,
     ReplaySearchRequestTaskInput,
@@ -23,7 +24,10 @@ from app.services.agent_task_verifications import (
     evaluate_search_harness_verification,
     verify_search_harness_evaluation_task,
 )
-from app.services.documents import get_latest_document_evaluation_detail
+from app.services.documents import (
+    get_latest_document_evaluation_detail,
+    reprocess_document,
+)
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_history import replay_search_request
@@ -107,6 +111,20 @@ def _verify_search_harness_evaluation_executor(
     payload: VerifySearchHarnessEvaluationTaskInput,
 ) -> dict:
     return verify_search_harness_evaluation_task(session, task, payload)
+
+
+def _enqueue_document_reprocess_executor(
+    session: Session,
+    _task: AgentTask,
+    payload: EnqueueDocumentReprocessTaskInput,
+) -> dict:
+    response = reprocess_document(session, payload.document_id)
+    return {
+        "document_id": str(payload.document_id),
+        "source_task_id": str(payload.source_task_id) if payload.source_task_id else None,
+        "reason": payload.reason,
+        "reprocess": jsonable_encoder(response),
+    }
 
 
 def _recommend_triage_next_action(
@@ -310,6 +328,22 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_zero_result_count_increase": 0,
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
+        },
+    ),
+    "enqueue_document_reprocess": AgentTaskActionDefinition(
+        task_type="enqueue_document_reprocess",
+        definition_kind="promotion",
+        description=(
+            "Queue a new processing run for an existing document after explicit approval."
+        ),
+        payload_model=EnqueueDocumentReprocessTaskInput,
+        executor=_enqueue_document_reprocess_executor,
+        side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
+        requires_approval=True,
+        input_example={
+            "document_id": "00000000-0000-0000-0000-000000000000",
+            "source_task_id": "00000000-0000-0000-0000-000000000000",
+            "reason": "Triaged replay regression needs a fresh parse.",
         },
     ),
 }

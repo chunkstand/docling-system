@@ -64,8 +64,10 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "task_type": payload.task_type,
             "status": "queued",
             "priority": payload.priority,
-            "side_effect_level": payload.side_effect_level,
-            "requires_approval": payload.requires_approval,
+            "side_effect_level": payload.side_effect_level or "read_only",
+            "requires_approval": (
+                payload.requires_approval if payload.requires_approval is not None else False
+            ),
             "parent_task_id": None,
             "workflow_version": payload.workflow_version,
             "tool_version": payload.tool_version,

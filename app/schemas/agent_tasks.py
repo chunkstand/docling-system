@@ -9,11 +9,11 @@ from pydantic import BaseModel, Field
 class AgentTaskCreateRequest(BaseModel):
     task_type: str = Field(min_length=1)
     priority: int = Field(default=100, ge=0, le=1000)
-    side_effect_level: str = Field(
-        default="read_only",
+    side_effect_level: str | None = Field(
+        default=None,
         pattern="^(read_only|draft_change|promotable)$",
     )
-    requires_approval: bool = False
+    requires_approval: bool | None = None
     parent_task_id: UUID | None = None
     dependency_task_ids: list[UUID] = Field(default_factory=list)
     input: dict = Field(default_factory=dict)
@@ -143,3 +143,9 @@ class TriageReplayRegressionTaskInput(BaseModel):
     max_zero_result_count_increase: int = Field(default=0, ge=0)
     max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
     min_total_shared_query_count: int = Field(default=1, ge=0)
+
+
+class EnqueueDocumentReprocessTaskInput(BaseModel):
+    document_id: UUID
+    source_task_id: UUID | None = None
+    reason: str | None = None

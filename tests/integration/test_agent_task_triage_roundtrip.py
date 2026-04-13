@@ -17,9 +17,9 @@ from app.db.models import (
     DocumentRunEvaluation,
     DocumentRunEvaluationQuery,
 )
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
-from app.services.agent_tasks import create_agent_task
+from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.docling_parser import (
     ParsedChunk,
     ParsedDocument,
@@ -365,3 +365,81 @@ def test_triage_replay_regression_failure_writes_failure_artifact(
     )
     assert failure_response.status_code == 200
     assert failure_response.json()["failure_type"] == "ValueError"
+
+
+def test_enqueue_document_reprocess_requires_approval_before_queuing_new_run(
+    postgres_integration_harness,
+) -> None:
+    document_id, original_run_id = _create_processed_document(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        task_detail = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="enqueue_document_reprocess",
+                input={
+                    "document_id": str(document_id),
+                    "reason": "shadow-mode triage recommended a fresh parse",
+                },
+                workflow_version="milestone6_integration",
+            ),
+        )
+        task_id = task_detail.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = session.get(AgentTask, task_id)
+        document = session.get(Document, document_id)
+        assert task is not None
+        assert document is not None
+        assert task.status == AgentTaskStatus.AWAITING_APPROVAL.value
+        assert task.side_effect_level == "promotable"
+        assert task.requires_approval is True
+        assert task.approved_at is None
+        assert document.active_run_id == original_run_id
+        assert document.latest_run_id == original_run_id
+        assert claim_next_agent_task(session, "integration-agent-worker") is None
+
+    with postgres_integration_harness.session_factory() as session:
+        approved_task = approve_agent_task(
+            session,
+            task_id,
+            AgentTaskApprovalRequest(
+                approved_by="operator@example.com",
+                approval_note="approved for milestone-6 integration coverage",
+            ),
+        )
+        assert approved_task.status == AgentTaskStatus.QUEUED.value
+        assert approved_task.approved_by == "operator@example.com"
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        task = session.get(AgentTask, task_id)
+        document = session.get(Document, document_id)
+        assert task is not None
+        assert document is not None
+        assert task.status == AgentTaskStatus.COMPLETED.value
+        assert task.approved_by == "operator@example.com"
+        assert task.approved_at is not None
+        assert task.result_json["payload"]["document_id"] == str(document_id)
+        assert (
+            task.result_json["payload"]["reason"]
+            == "shadow-mode triage recommended a fresh parse"
+        )
+        reprocess_payload = task.result_json["payload"]["reprocess"]
+        assert reprocess_payload["document_id"] == str(document_id)
+        assert reprocess_payload["status"] == "queued"
+        assert reprocess_payload["run_id"] is not None
+
+        new_run_id = UUID(reprocess_payload["run_id"])
+        assert new_run_id != original_run_id
+        assert document.active_run_id == original_run_id
+        assert document.latest_run_id == new_run_id
+
+    detail_response = postgres_integration_harness.client.get(f"/agent-tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["approved_by"] == "operator@example.com"
