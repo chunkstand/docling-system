@@ -211,3 +211,37 @@ class EnqueueDocumentReprocessTaskInput(BaseModel):
     document_id: UUID
     source_task_id: UUID | None = None
     reason: str | None = None
+
+
+class DraftHarnessConfigUpdateTaskInput(BaseModel):
+    draft_harness_name: str = Field(min_length=1)
+    base_harness_name: str = Field(default="default_v1", min_length=1)
+    source_task_id: UUID | None = None
+    rationale: str | None = None
+    retrieval_profile_overrides: dict[str, int] = Field(default_factory=dict)
+    reranker_overrides: dict[str, float] = Field(default_factory=dict)
+
+
+class VerifyDraftHarnessConfigTaskInput(BaseModel):
+    target_task_id: UUID
+    baseline_harness_name: str | None = Field(default=None, min_length=1)
+    source_types: list[str] = Field(
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
+    )
+    limit: int = Field(default=25, ge=1, le=200)
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=0)
+
+
+class ApplyHarnessConfigUpdateTaskInput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    reason: str | None = None

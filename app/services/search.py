@@ -4,7 +4,7 @@ import re
 import uuid
 from collections import Counter
 from collections.abc import Callable, Iterable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
@@ -23,6 +23,7 @@ from app.db.models import (
 )
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult, SearchScores
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
+from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.telemetry import observe_search_results
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
@@ -144,6 +145,8 @@ class SearchHarness:
     name: str
     retrieval_profile: SearchRetrievalProfile
     reranker_config: LinearRerankerConfig
+    base_harness_name: str | None = None
+    metadata: dict = field(default_factory=dict)
 
     @property
     def reranker_name(self) -> str:
@@ -159,11 +162,16 @@ class SearchHarness:
 
     @property
     def config_snapshot(self) -> dict:
-        return {
+        snapshot = {
             "harness_name": self.name,
             "retrieval_profile": self.retrieval_profile.snapshot(),
             "reranker": self.reranker_config.snapshot(),
         }
+        if self.base_harness_name is not None:
+            snapshot["base_harness_name"] = self.base_harness_name
+        if self.metadata:
+            snapshot["metadata"] = self.metadata
+        return snapshot
 
     def build_reranker(self) -> LinearFeatureSearchReranker:
         return LinearFeatureSearchReranker(self.reranker_config)
@@ -187,6 +195,28 @@ PROSE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
     semantic_candidate_multiplier=10,
     min_candidate_limit=40,
 )
+
+SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS = {
+    "keyword_candidate_multiplier",
+    "semantic_candidate_multiplier",
+    "min_candidate_limit",
+}
+
+SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS = {
+    "tabular_table_bonus",
+    "title_exact_match_bonus",
+    "title_token_coverage_bonus",
+    "source_filename_token_coverage_bonus",
+    "document_title_token_coverage_bonus",
+    "prose_document_cluster_bonus",
+    "heading_token_coverage_bonus",
+    "phrase_overlap_bonus",
+    "rare_token_overlap_bonus",
+    "adjacent_chunk_context_bonus",
+    "prose_table_penalty",
+    "exact_filter_bonus",
+    "result_type_priority_bonus",
+}
 
 _HARNESS_REGISTRY: dict[str, SearchHarness] = {
     "default_v1": SearchHarness(
@@ -421,16 +451,116 @@ class LinearFeatureSearchReranker:
         return ranked
 
 
-def list_search_harnesses() -> list[SearchHarness]:
-    return list(_HARNESS_REGISTRY.values())
-
-
-def get_search_harness(name: str | None = None) -> SearchHarness:
-    harness_name = name or DEFAULT_SEARCH_HARNESS_NAME
+def _build_derived_search_harness(
+    *,
+    harness_name: str,
+    spec: dict,
+    registry: dict[str, SearchHarness],
+) -> SearchHarness:
+    base_harness_name = str(spec.get("base_harness_name") or DEFAULT_SEARCH_HARNESS_NAME)
     try:
-        return _HARNESS_REGISTRY[harness_name]
+        base_harness = registry[base_harness_name]
     except KeyError as exc:
-        available = ", ".join(sorted(_HARNESS_REGISTRY))
+        msg = f"Unknown base search harness '{base_harness_name}' for override '{harness_name}'."
+        raise ValueError(msg) from exc
+
+    retrieval_overrides = dict(spec.get("retrieval_profile_overrides") or {})
+    reranker_overrides = dict(spec.get("reranker_overrides") or {})
+    invalid_retrieval_keys = sorted(
+        set(retrieval_overrides) - SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS
+    )
+    if invalid_retrieval_keys:
+        msg = (
+            f"Invalid retrieval override field(s) for '{harness_name}': "
+            f"{', '.join(invalid_retrieval_keys)}"
+        )
+        raise ValueError(msg)
+    invalid_reranker_keys = sorted(
+        set(reranker_overrides) - SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS
+    )
+    if invalid_reranker_keys:
+        msg = (
+            f"Invalid reranker override field(s) for '{harness_name}': "
+            f"{', '.join(invalid_reranker_keys)}"
+        )
+        raise ValueError(msg)
+
+    retrieval_profile = replace(
+        base_harness.retrieval_profile,
+        name=harness_name,
+        **retrieval_overrides,
+    )
+    reranker_config = replace(
+        base_harness.reranker_config,
+        harness_name=harness_name,
+        retrieval_profile_name=harness_name,
+        reranker_version=f"{base_harness.reranker_version}+override",
+        **reranker_overrides,
+    )
+    metadata = {
+        "override_type": spec.get("override_type") or "derived_harness",
+        "override_source": spec.get("override_source") or "unknown",
+    }
+    for key in (
+        "draft_task_id",
+        "source_task_id",
+        "verification_task_id",
+        "applied_by",
+        "applied_at",
+        "rationale",
+    ):
+        value = spec.get(key)
+        if value is not None:
+            metadata[key] = value
+
+    return SearchHarness(
+        name=harness_name,
+        retrieval_profile=retrieval_profile,
+        reranker_config=reranker_config,
+        base_harness_name=base_harness.name,
+        metadata=metadata,
+    )
+
+
+def _build_search_harness_registry(
+    harness_overrides: dict[str, dict] | None = None,
+) -> dict[str, SearchHarness]:
+    registry = dict(_HARNESS_REGISTRY)
+    applied_overrides = load_applied_search_harness_overrides()
+    for source_name, overrides in (
+        ("applied", applied_overrides),
+        ("transient", harness_overrides or {}),
+    ):
+        for harness_name, spec in overrides.items():
+            override_spec = dict(spec)
+            override_spec.setdefault("override_source", source_name)
+            registry[harness_name] = _build_derived_search_harness(
+                harness_name=harness_name,
+                spec=override_spec,
+                registry=registry,
+            )
+    return registry
+
+
+def list_search_harnesses(
+    harness_overrides: dict[str, dict] | None = None,
+) -> list[SearchHarness]:
+    return sorted(
+        _build_search_harness_registry(harness_overrides).values(),
+        key=lambda harness: harness.name,
+    )
+
+
+def get_search_harness(
+    name: str | None = None,
+    harness_overrides: dict[str, dict] | None = None,
+) -> SearchHarness:
+    harness_name = name or DEFAULT_SEARCH_HARNESS_NAME
+    registry = _build_search_harness_registry(harness_overrides)
+    try:
+        return registry[harness_name]
+    except KeyError as exc:
+        available = ", ".join(sorted(registry))
         msg = f"Unknown search harness '{harness_name}'. Available: {available}"
         raise ValueError(msg) from exc
 
@@ -1427,9 +1557,10 @@ def execute_search(
     evaluation_id: UUID | None = None,
     parent_request_id: UUID | None = None,
     reranker: SearchReranker | None = None,
+    harness_overrides: dict[str, dict] | None = None,
 ) -> SearchExecution:
     start = perf_counter()
-    harness = get_search_harness(request.harness_name)
+    harness = get_search_harness(request.harness_name, harness_overrides)
     active_reranker = reranker or harness.build_reranker()
     tabular_query = _is_tabular_query(request.query)
     query_intent = _classify_query_intent(request.query)

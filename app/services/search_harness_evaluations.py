@@ -39,6 +39,8 @@ def list_search_harness_definitions() -> list[SearchHarnessResponse]:
 def evaluate_search_harness(
     session,
     request: SearchHarnessEvaluationRequest,
+    *,
+    harness_overrides: dict[str, dict] | None = None,
 ) -> SearchHarnessEvaluationResponse:
     def rank_metrics(detail) -> dict:
         return getattr(detail, "rank_metrics", None) or getattr(detail, "summary", {}).get(
@@ -61,22 +63,30 @@ def evaluate_search_harness(
     total_unchanged_count = 0
 
     for source_type in source_types:
-        baseline = run_search_replay_suite(
-            session,
-            SearchReplayRunRequest(
-                source_type=source_type,
-                limit=request.limit,
-                harness_name=request.baseline_harness_name,
-            ),
+        baseline_request = SearchReplayRunRequest(
+            source_type=source_type,
+            limit=request.limit,
+            harness_name=request.baseline_harness_name,
         )
-        candidate = run_search_replay_suite(
-            session,
-            SearchReplayRunRequest(
-                source_type=source_type,
-                limit=request.limit,
-                harness_name=request.candidate_harness_name,
-            ),
+        candidate_request = SearchReplayRunRequest(
+            source_type=source_type,
+            limit=request.limit,
+            harness_name=request.candidate_harness_name,
         )
+        if harness_overrides is None:
+            baseline = run_search_replay_suite(session, baseline_request)
+            candidate = run_search_replay_suite(session, candidate_request)
+        else:
+            baseline = run_search_replay_suite(
+                session,
+                baseline_request,
+                harness_overrides=harness_overrides,
+            )
+            candidate = run_search_replay_suite(
+                session,
+                candidate_request,
+                harness_overrides=harness_overrides,
+            )
         comparison = compare_search_replay_runs(
             session,
             baseline.replay_run_id,

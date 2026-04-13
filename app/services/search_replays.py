@@ -575,8 +575,10 @@ def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
 def run_search_replay_suite(
     session: Session,
     request: SearchReplayRunRequest,
+    *,
+    harness_overrides: dict[str, dict] | None = None,
 ) -> SearchReplayRunDetailResponse:
-    harness = get_search_harness(request.harness_name)
+    harness = get_search_harness(request.harness_name, harness_overrides)
     replay_run = SearchReplayRun(
         id=uuid.uuid4(),
         source_type=_storage_source_type(request.source_type),
@@ -610,6 +612,7 @@ def run_search_replay_suite(
                 filters,
                 origin="replay_suite",
                 parent_request_id=case.source_search_request_id,
+                harness_overrides=harness_overrides,
             )
             last_execution = execution
             replay_detail = (

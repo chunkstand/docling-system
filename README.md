@@ -234,6 +234,8 @@ Durable search telemetry now records:
 - metadata-supplement and adjacent-context candidate counts
 - per-result rerank feature snapshots
 
+Applied review harnesses are persisted in `config/search_harness_overrides.json`, while draft harnesses remain task artifacts until verified and approved.
+
 Use `GET /search/harnesses` to inspect the currently available harnesses.
 Use `POST /search/harness-evaluations` to compare two named harnesses across replay sources without leaving the operator surface.
 
@@ -241,7 +243,7 @@ Use `POST /search/harness-evaluations` to compare two named harnesses across rep
 
 The agent-task layer is a durable orchestration substrate, not a second prompt-only control plane. Each task has structured input, status, dependency edges, attempt history, version metadata, approval fields, and optional failure artifacts under `storage/agent_tasks/`.
 
-The current registry is mostly read-only, with one approval-gated promotable action. Supported task types are:
+The current registry includes read-only, draft-change, and approval-gated promotable actions. Supported task types are:
 
 - `get_latest_evaluation`
 - `list_quality_eval_candidates`
@@ -249,8 +251,11 @@ The current registry is mostly read-only, with one approval-gated promotable act
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
+- `draft_harness_config_update`
+- `verify_draft_harness_config`
 - `triage_replay_regression`
 - `enqueue_document_reprocess`
+- `apply_harness_config_update`
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`.
 
@@ -259,7 +264,7 @@ Current task guarantees:
 - task creation validates the requested `task_type` and typed input payload against the registry
 - task creation inherits the registry-declared `side_effect_level` and `requires_approval` when callers omit them, and rejects mismatches when callers override them incorrectly
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
-- promotion-style tasks can link back to a `source_task_id`, which is persisted as a dependency so recommendation lineage remains visible in the task graph
+- draft and promotion-style tasks can link back to `source_task_id`, `draft_task_id`, and `verification_task_id`, which are persisted as dependencies so lineage remains visible in the task graph
 - operators can attach durable outcome labels like `useful`, `not_useful`, `correct`, and `incorrect` to terminal tasks
 - duplicate outcome labels from the same actor on the same task are rejected so analytics and exported traces stay clean
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
@@ -275,6 +280,8 @@ Current task guarantees:
 - full task traces, including outcomes, artifacts, verifications, and approval metadata, can be exported through `GET /agent-tasks/traces/export`
 
 The first workflow-style task is `triage_replay_regression`. It runs in shadow mode, mines unresolved quality candidates, evaluates a candidate harness against a baseline across replay sources, records a verifier-style recommendation on the triage task itself, and writes a durable `triage_summary.json` artifact under `storage/agent_tasks/<task_id>/`.
+
+The first draft/apply flow is the harness review path. `draft_harness_config_update` creates a review-harness artifact without changing live search behavior, `verify_draft_harness_config` evaluates that draft ephemerally against replay sources and writes a verifier record, and `apply_harness_config_update` publishes the verified review harness into `config/search_harness_overrides.json` only after approval.
 
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
 
@@ -319,6 +326,9 @@ uv run docling-system-agent-task-actions
 uv run docling-system-agent-task-create evaluate_search_harness --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"limit":12}'
 uv run docling-system-agent-task-create verify_search_harness_evaluation --input-json '{"target_task_id":"<task_id>","max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
 uv run docling-system-agent-task-create triage_replay_regression --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"replay_limit":12,"quality_candidate_limit":12}'
+uv run docling-system-agent-task-create draft_harness_config_update --input-json '{"draft_harness_name":"wide_v2_review","base_harness_name":"wide_v2","source_task_id":"<triage_task_id>","rationale":"publish a review harness","reranker_overrides":{"result_type_priority_bonus":0.009}}'
+uv run docling-system-agent-task-create verify_draft_harness_config --input-json '{"target_task_id":"<draft_task_id>","baseline_harness_name":"wide_v2","source_types":["evaluation_queries"],"limit":12,"max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
+uv run docling-system-agent-task-create apply_harness_config_update --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish review harness"}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-analytics

@@ -483,3 +483,38 @@ def test_create_verifier_task_auto_adds_target_dependency_and_blocks_until_ready
     assert task.status == AgentTaskStatus.BLOCKED.value
     assert len(dependency_rows) == 1
     assert dependency_rows[0].depends_on_task_id == target_task_id
+
+
+def test_create_apply_harness_task_auto_adds_draft_and_verification_dependencies(
+    monkeypatch,
+) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    session = FakeSession()
+
+    monkeypatch.setattr("app.services.agent_tasks._validate_parent_task_id", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._validate_dependency_ids", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._incomplete_dependency_count", lambda *args: 0)
+    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
+
+    task = create_agent_task(
+        session,
+        AgentTaskCreateRequest(
+            task_type="apply_harness_config_update",
+            input={
+                "draft_task_id": str(draft_task_id),
+                "verification_task_id": str(verification_task_id),
+                "reason": "publish review harness",
+            },
+        ),
+    )
+
+    dependency_rows = [row for row in session.added if isinstance(row, AgentTaskDependency)]
+
+    assert task.status == AgentTaskStatus.AWAITING_APPROVAL.value
+    assert task.side_effect_level == "promotable"
+    assert task.requires_approval is True
+    assert {row.depends_on_task_id for row in dependency_rows} == {
+        draft_task_id,
+        verification_task_id,
+    }

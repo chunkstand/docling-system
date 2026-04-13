@@ -229,6 +229,8 @@ def _augment_dependency_ids_for_action(
     for linked_task_id in (
         getattr(validated_input, "target_task_id", None),
         getattr(validated_input, "source_task_id", None),
+        getattr(validated_input, "draft_task_id", None),
+        getattr(validated_input, "verification_task_id", None),
     ):
         if linked_task_id is None or linked_task_id in augmented_ids:
             continue

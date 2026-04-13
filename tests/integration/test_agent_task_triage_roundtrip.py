@@ -619,3 +619,167 @@ def test_agent_task_learning_surfaces_roundtrip(postgres_integration_harness) ->
     traced_task_ids = {row["task_id"] for row in export_payload["traces"]}
     assert traced_task_ids == {str(triage_task_id), str(reprocess_task_id)}
     assert all("outcomes" in row for row in export_payload["traces"])
+
+
+def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> None:
+    _document_id, _run_id = _create_processed_document(postgres_integration_harness)
+    client = postgres_integration_harness.client
+
+    with postgres_integration_harness.session_factory() as session:
+        triage_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="triage_replay_regression",
+                input={
+                    "candidate_harness_name": "wide_v2",
+                    "baseline_harness_name": "default_v1",
+                    "source_types": ["evaluation_queries"],
+                    "replay_limit": 10,
+                    "quality_candidate_limit": 10,
+                    "min_total_shared_query_count": 1,
+                },
+                workflow_version="milestone8_integration",
+            ),
+        )
+        triage_task_id = triage_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == triage_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_harness_config_update",
+                input={
+                    "draft_harness_name": "wide_v2_review_integration",
+                    "base_harness_name": "wide_v2",
+                    "source_task_id": str(triage_task_id),
+                    "rationale": "publish a review harness with a small reranker tweak",
+                    "reranker_overrides": {"result_type_priority_bonus": 0.009},
+                },
+                workflow_version="milestone8_integration",
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == draft_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        assert draft_task_row.status == AgentTaskStatus.COMPLETED.value
+        assert draft_task_row.result_json["payload"]["draft"]["draft_harness_name"] == (
+            "wide_v2_review_integration"
+        )
+
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_draft_harness_config",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "baseline_harness_name": "wide_v2",
+                    "source_types": ["evaluation_queries"],
+                    "limit": 10,
+                    "min_total_shared_query_count": 1,
+                },
+                workflow_version="milestone8_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == verify_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task_row = session.get(AgentTask, verify_task_id)
+        assert verify_task_row is not None
+        assert verify_task_row.status == AgentTaskStatus.COMPLETED.value
+        verification = verify_task_row.result_json["payload"]["verification"]
+        assert verification["outcome"] == "passed"
+
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_harness_config_update",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "publish verified review harness",
+                },
+                workflow_version="milestone8_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_task_row = session.get(AgentTask, apply_task_id)
+        assert apply_task_row is not None
+        assert apply_task_row.status == AgentTaskStatus.AWAITING_APPROVAL.value
+        assert claim_next_agent_task(session, "integration-agent-worker") is None
+
+    with postgres_integration_harness.session_factory() as session:
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="operator@example.com",
+                approval_note="publish the verified review harness",
+            ),
+        )
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == apply_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_task_row = session.get(AgentTask, apply_task_id)
+        assert apply_task_row is not None
+        assert apply_task_row.status == AgentTaskStatus.COMPLETED.value
+        apply_payload = apply_task_row.result_json["payload"]
+        assert apply_payload["draft_harness_name"] == "wide_v2_review_integration"
+        assert Path(apply_payload["config_path"]).exists()
+
+    harnesses_response = client.get("/search/harnesses")
+    assert harnesses_response.status_code == 200
+    harness_row = next(
+        row
+        for row in harnesses_response.json()
+        if row["harness_name"] == "wide_v2_review_integration"
+    )
+    assert harness_row["harness_config"]["base_harness_name"] == "wide_v2"
+    assert harness_row["harness_config"]["metadata"]["override_type"] == (
+        "applied_harness_config_update"
+    )
+
+    search_response = client.post(
+        "/search",
+        json={
+            "query": "integration threshold",
+            "mode": "keyword",
+            "limit": 5,
+            "harness_name": "wide_v2_review_integration",
+        },
+    )
+    assert search_response.status_code == 200
+    assert search_response.json()
+
+    request_id = search_response.headers["X-Search-Request-Id"]
+    detail_response = client.get(f"/search/requests/{request_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["harness_name"] == "wide_v2_review_integration"
+    assert detail["harness_config"]["base_harness_name"] == "wide_v2"

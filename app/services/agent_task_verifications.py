@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -16,9 +17,11 @@ from app.db.models import (
 )
 from app.schemas.agent_tasks import (
     AgentTaskVerificationResponse,
+    VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,
 )
-from app.schemas.search import SearchHarnessEvaluationResponse
+from app.schemas.search import SearchHarnessEvaluationRequest, SearchHarnessEvaluationResponse
+from app.services.search_harness_evaluations import evaluate_search_harness
 
 
 def _utcnow() -> datetime:
@@ -317,5 +320,75 @@ def verify_search_harness_evaluation_task(
         details=details,
     )
     return {
+        "verification": record.model_dump(mode="json"),
+    }
+
+
+def verify_draft_harness_config_task(
+    session: Session,
+    verification_task: AgentTask,
+    payload: VerifyDraftHarnessConfigTaskInput,
+) -> dict:
+    target_task = session.get(AgentTask, payload.target_task_id)
+    if target_task is None:
+        msg = f"Target task not found: {payload.target_task_id}"
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    if target_task.task_type != "draft_harness_config_update":
+        msg = "Target task must be a draft_harness_config_update task."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+    if target_task.status != "completed":
+        msg = "Target task must be completed before verification."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+    draft_payload = (((target_task.result_json or {}).get("payload") or {}).get("draft") or {})
+    override_spec = draft_payload.get("override_spec") or {}
+    draft_harness_name = draft_payload.get("draft_harness_name")
+    base_harness_name = draft_payload.get("base_harness_name")
+    if not draft_harness_name or not base_harness_name:
+        msg = "Target draft task is missing harness draft metadata."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+    evaluation = evaluate_search_harness(
+        session,
+        SearchHarnessEvaluationRequest(
+            candidate_harness_name=draft_harness_name,
+            baseline_harness_name=payload.baseline_harness_name or base_harness_name,
+            source_types=payload.source_types,
+            limit=payload.limit,
+        ),
+        harness_overrides={draft_harness_name: override_spec},
+    )
+    outcome = evaluate_search_harness_verification(
+        session,
+        evaluation,
+        VerifySearchHarnessEvaluationTaskInput(
+            target_task_id=payload.target_task_id,
+            max_total_regressed_count=payload.max_total_regressed_count,
+            max_mrr_drop=payload.max_mrr_drop,
+            max_zero_result_count_increase=payload.max_zero_result_count_increase,
+            max_foreign_top_result_count_increase=payload.max_foreign_top_result_count_increase,
+            min_total_shared_query_count=payload.min_total_shared_query_count,
+        ),
+    )
+    details = {
+        **outcome.details,
+        "target_task_id": str(target_task.id),
+        "target_task_type": target_task.task_type,
+        "draft_harness_name": draft_harness_name,
+        "base_harness_name": base_harness_name,
+    }
+    record = create_agent_task_verification_record(
+        session,
+        target_task_id=target_task.id,
+        verification_task_id=verification_task.id,
+        verifier_type="draft_harness_config_gate",
+        outcome=outcome.outcome,
+        metrics=outcome.metrics,
+        reasons=outcome.reasons,
+        details=details,
+    )
+    return {
+        "draft": draft_payload,
+        "evaluation": jsonable_encoder(evaluation),
         "verification": record.model_dump(mode="json"),
     }
