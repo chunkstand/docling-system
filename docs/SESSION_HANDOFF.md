@@ -6,7 +6,7 @@ Branch: `codex/docling-system-build`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `6d8980c` (`Add Tyler's Kitchen eval fixtures and clip embedding inputs`)
+Latest committed checkpoint before this handoff update: `cd0220f` (`Improve retrieval replay evaluation and integration coverage`)
 
 ## Later Update
 
@@ -15,6 +15,14 @@ Later local verification after this handoff:
 - the repository now includes a real Postgres-backed end-to-end integration harness in `tests/integration/`
 - the harness provisions an isolated temporary schema and temp storage per test, and disables live embedding calls for deterministic execution
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q` passes locally
+- retrieval-accuracy phase 1 now exists as a non-default harness rollout:
+  - `prose_v3` adds query-intent-aware prose retrieval and reranking
+  - replay suites now accept `cross_document_prose_regressions`
+  - harness-evaluation summaries now expose MRR and foreign-top-result counts for rollout gating
+- fixed-corpus evaluation now supports explicit "no confident answer" cases in addition to retrieval, citation-purity, and structural checks
+- current local verification on April 12, 2026:
+  - `uv run pytest tests/unit -q` -> `121 passed`
+  - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q` -> `2 passed`
 - a leaked integration document created during early harness bring-up was removed from the live corpus
 - live state is back to:
   - `document_count = 16`
@@ -36,6 +44,11 @@ The branch now includes:
   - answer-feedback gaps now flow into `GET /quality/eval-candidates`
   - the operator UI now runs harness evaluations directly
   - ranking-dataset export now marks row schema version and metadata era
+- retrieval-accuracy phase 1 hardening after the initial harness work:
+  - internal query intent classification now distinguishes `tabular`, `prose_lookup`, and `prose_broad`
+  - `prose_v3` now widens prose candidate recall with metadata-supplement and adjacent-chunk expansion
+  - replay suites can now mine and evaluate `cross_document_prose_regressions`
+  - harness-evaluation summaries now surface gate-facing metrics such as MRR and foreign-top-result counts
 - data-agnostic hardening after ingesting non-UPC PDFs:
   - generic prose docs now infer usable titles instead of falling back to UUID-like names
   - keyword retrieval now relaxes to OR matching when strict full-text search returns zero hits
@@ -73,15 +86,19 @@ What is now true:
 - search requests, replay runs, and chat answers now all carry harness metadata when available
 - replay and trend surfaces exist in both the API and the operator UI
 - named search harnesses can be replayed and compared through both the API and the CLI
+- the harness catalog now includes `prose_v3` as a non-default experimental retrieval profile
 - harness evaluation is now exposed in the operator UI instead of only through API/CLI
+- harness evaluation now carries enough rank-sensitive replay metrics to apply rollout gates instead of relying only on pass/fail counts
 - exported ranking rows now self-identify as `legacy_pre_harness` or `harness_v1`
 - persisted search-request details now record whether keyword serving used `strict` or `relaxed_or`
+- persisted search-request details now also record `query_intent`, candidate-source breakdown, metadata-supplement counts, and adjacent-context expansion counts
 - generic prose documents can promote with human-readable titles derived from parsed content
 - the worker can safely process multiple queued runs without tripping `MultipleResultsFound`
 - the fixed corpus now covers seven non-UPC documents, not just `The Bitter Lesson.pdf`
 - the corpus now contains sixteen active documents
 - all sixteen active documents now have completed latest evaluations
 - latest evaluation detail can now mix retrieval and grounded-answer checks in one persisted surface
+- answer evaluation can now explicitly require a fallback-style "no confident answer" outcome for negative questions
 - `GET /quality/eval-candidates` defaults to unresolved rows, with resolved rows available via `include_resolved=true`
 - keyword chat can recover from table-heavy retrieval by switching to chunk-only evidence for non-tabular questions
 - the default unresolved eval-candidate queue is currently empty live
@@ -258,11 +275,51 @@ What changed:
   - added `bitter_lesson_prose` as the first non-UPC fixed-corpus fixture
 - tests added or updated:
   - `tests/unit/test_docling_parser.py`
-  - `tests/unit/test_chat_service.py`
-  - `tests/unit/test_search_service.py`
-  - `tests/unit/test_run_logic.py`
-  - `tests/unit/test_eval_config.py`
-  - `tests/unit/test_evaluation_service.py`
+
+### 7. Retrieval Accuracy Phase 1
+
+Committed changes through `cd0220f`:
+
+- `app/services/search.py`
+  - added internal query-intent classification for `tabular`, `prose_lookup`, and `prose_broad`
+  - added non-default harness `prose_v3`
+  - widened prose candidate generation with:
+    - metadata-supplement chunk retrieval over title, heading, and filename stem
+    - adjacent chunk expansion around top prose chunk seeds
+  - persisted search telemetry for `query_intent`, candidate-source breakdown, metadata candidate count, and context-expansion count
+  - persisted new prose rerank features including heading overlap, phrase overlap, rare-token overlap, adjacent-context signal, and stronger document-cluster behavior
+- `app/services/search_replays.py`
+  - added replay source type `cross_document_prose_regressions`
+  - mined source-purity replay cases from evaluation rows without adding a DB migration
+  - replay summaries now persist rank metrics including MRR and foreign-top-result counts
+- `app/services/search_harness_evaluations.py`
+  - harness-evaluation summaries now expose baseline/candidate MRR, foreign-top-result counts, and acceptance-check booleans
+- `app/services/evaluations.py`
+  - added explicit negative answer support via `expect_no_answer`
+- `docs/evaluation_corpus.yaml`
+  - added prose paraphrases, an additional Tyler's Kitchen contamination guard, and a negative prose answer case
+
+Relevant files:
+
+- `app/cli.py`
+- `app/schemas/search.py`
+- `app/services/evaluations.py`
+- `app/services/search.py`
+- `app/services/search_harness_evaluations.py`
+- `app/services/search_replays.py`
+- `app/ui/index.html`
+- `app/ui/app.js`
+- `docs/evaluation_corpus.yaml`
+- `tests/unit/test_search_service.py`
+- `tests/unit/test_search_replays.py`
+- `tests/unit/test_search_harness_evaluations.py`
+- `tests/unit/test_search_api.py`
+- `tests/unit/test_cli.py`
+- `tests/unit/test_eval_config.py`
+- `tests/unit/test_evaluation_service.py`
+- `tests/integration/test_postgres_roundtrip.py`
+- `tests/unit/test_chat_service.py`
+- `tests/unit/test_run_logic.py`
 
 Live result:
 
@@ -271,7 +328,7 @@ Live result:
 - `POST /chat` for the same question now returns a cited, model-backed answer instead of a no-evidence fallback
 - `uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865` completed with fixture `bitter_lesson_prose`, `passed_queries = 3`, `failed_queries = 0`
 
-### 7. Fixed-Corpus Expansion And Answer-Level Evals
+### 8. Fixed-Corpus Expansion And Answer-Level Evals
 
 What changed:
 
@@ -286,7 +343,7 @@ What changed:
   - mined eval candidates now record `evaluation_kind`
   - stale candidates now resolve automatically when later evaluation, search, or helpful-answer evidence closes the gap
 
-### 8. Tyler's Kitchen Fixture Expansion And Embedding Overflow Fix
+### 9. Tyler's Kitchen Fixture Expansion And Embedding Overflow Fix
 
 What changed:
 
@@ -362,7 +419,7 @@ Live result:
 - `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now includes an `evaluation_kind = "answer"` row for the Bitter Lesson answer contract
 - `GET /quality/eval-candidates?include_resolved=true` now shows historically fixed gaps as `resolution_status = "resolved"` when later evidence exists
 
-### 8. Candidate Queue Cleanup And Non-Tabular Chat Recovery
+### 10. Candidate Queue Cleanup And Non-Tabular Chat Recovery
 
 Uncommitted changes captured by this handoff update:
 

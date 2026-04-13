@@ -12,6 +12,10 @@ The UI also includes a grounded chat box that answers questions from retrieved c
 
 The system also records replayable failure artifacts for failed runs, exposes recent run history per document, persists direct-search telemetry with operator feedback labels, stores answer-level feedback for grounded chat responses, and includes replay/audit CLIs for checking run and retrieval invariants against the local corpus.
 
+The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
+
+The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, and failure artifacts. A separate agent worker can execute registry-backed task types, but the current registered actions are intentionally read-only and focused on evaluation, replay, and harness-analysis flows rather than autonomous write or promotion operations.
+
 ## Current Contracts
 
 - `docling.json` is the canonical machine-readable document parse artifact.
@@ -41,6 +45,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 - Docling PDF parsing
 - OpenAI embeddings with `text-embedding-3-small` and a pinned 1536-dimension contract
 - One polling worker with DB-backed leasing and retries
+- One additional agent-task worker with DB-backed leasing and retries
 - Local filesystem storage under `storage/`
 - Docker Compose for local Postgres
 - Read-only local UI mounted at `http://localhost:8000/`
@@ -73,13 +78,19 @@ uv run alembic upgrade head
 uv run docling-system-api
 ```
 
-7. Start the worker in a second shell:
+7. Start the ingest/search worker in a second shell:
 
 ```bash
 uv run docling-system-worker
 ```
 
-8. Open the UI:
+8. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
+
+```bash
+uv run docling-system-agent-worker
+```
+
+9. Open the UI:
 
 ```text
 http://localhost:8000/
@@ -148,6 +159,11 @@ Local path ingest policy:
 - `GET /quality/evaluations`
 - `GET /quality/eval-candidates`
 - `GET /quality/trends`
+- `GET /agent-tasks/actions`
+- `GET /agent-tasks`
+- `POST /agent-tasks`
+- `GET /agent-tasks/{task_id}`
+- `POST /agent-tasks/{task_id}/approve`
 
 ## Search Contract
 
@@ -187,8 +203,50 @@ Named harnesses bundle:
 - a reranker implementation name and version
 - a persisted config snapshot captured on every search request and replay run
 
+Current harnesses:
+
+- `default_v1` as the production default
+- `wide_v2` as the wider candidate/replay comparison harness
+- `prose_v3` as the non-default prose-accuracy experiment
+
+Replay suites currently support:
+
+- `evaluation_queries`
+- `feedback`
+- `live_search_gaps`
+- `cross_document_prose_regressions`
+
+Durable search telemetry now records:
+
+- requested and served mode
+- internal `query_intent`
+- candidate-source breakdown
+- metadata-supplement and adjacent-context candidate counts
+- per-result rerank feature snapshots
+
 Use `GET /search/harnesses` to inspect the currently available harnesses.
 Use `POST /search/harness-evaluations` to compare two named harnesses across replay sources without leaving the operator surface.
+
+## Agent Tasks
+
+The agent-task layer is a durable orchestration substrate, not a second prompt-only control plane. Each task has structured input, status, dependency edges, attempt history, version metadata, approval fields, and optional failure artifacts under `storage/agent_tasks/`.
+
+The current registry is read-only. Supported task types are:
+
+- `get_latest_evaluation`
+- `list_quality_eval_candidates`
+- `replay_search_request`
+- `run_search_replay_suite`
+- `evaluate_search_harness`
+
+Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`.
+
+Current task guarantees:
+
+- task creation validates the requested `task_type` and typed input payload against the registry
+- task creation enforces the registry-declared `side_effect_level` and `requires_approval`
+- the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
+- approval-gated routes exist in the API and CLI, but the current registered task set does not require approval
 
 ## Tables
 
@@ -215,13 +273,20 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_r
 uv run alembic upgrade head
 uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
+uv run docling-system-agent-worker
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
 uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 12
+uv run docling-system-run-replay-suite cross_document_prose_regressions --harness-name prose_v3 --limit 12
 uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 25
+uv run docling-system-eval-reranker prose_v3 --baseline-harness-name default_v1 --source-type cross_document_prose_regressions --limit 25
 uv run docling-system-export-ranking-dataset --limit 200
+uv run docling-system-agent-task-actions
+uv run docling-system-agent-task-create evaluate_search_harness --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"limit":12}'
+uv run docling-system-agent-task-list --status queued
+uv run docling-system-agent-task-show <task_id>
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
@@ -257,6 +322,8 @@ The ranking dataset export schema is documented in [docs/ranking_dataset_schema.
 ## Evaluation
 
 The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance.
+
+The current corpus also includes explicit cross-document prose-contamination guards and answer-side citation-purity checks for non-UPC prose documents, plus negative answer cases that require a fallback-style "no confident answer" outcome.
 
 The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as an append-only auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
 
