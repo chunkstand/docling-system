@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
 from app.db.models import AgentTask, AgentTaskStatus
@@ -12,6 +13,7 @@ from app.services.agent_task_worker import (
     claim_next_agent_task,
     finalize_agent_task_failure,
     is_retryable_agent_task_error,
+    process_agent_task,
     unblock_ready_agent_tasks,
 )
 from app.services.storage import StorageService
@@ -23,6 +25,16 @@ def test_agent_task_value_errors_are_terminal() -> None:
 
 def test_agent_task_unknown_errors_are_retryable() -> None:
     assert is_retryable_agent_task_error(RuntimeError("transient")) is True
+
+
+def test_agent_task_validation_errors_are_terminal() -> None:
+    try:
+        raise ValidationError.from_exception_data(
+            "SearchReplayRunRequest",
+            [{"type": "missing", "loc": ("source_type",), "input": {}, "msg": "Field required"}],
+        )
+    except ValidationError as exc:
+        assert is_retryable_agent_task_error(exc) is False
 
 
 def test_claim_next_agent_task_limits_worker_lease_query_to_one_row() -> None:
@@ -168,3 +180,50 @@ def test_unblock_ready_agent_tasks_transitions_when_dependencies_clear() -> None
     assert awaiting_approval_task.status == AgentTaskStatus.AWAITING_APPROVAL.value
     assert queued_task.status == AgentTaskStatus.QUEUED.value
 
+
+def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path) -> None:
+    task_id = uuid4()
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=task_id,
+        task_type="list_quality_eval_candidates",
+        status=AgentTaskStatus.PROCESSING.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={"limit": 3, "include_resolved": False},
+        result_json={},
+        attempts=1,
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+
+    class FakeSession:
+        def __init__(self):
+            self.commits = 0
+            self.rollbacks = 0
+
+        def get(self, model, key):
+            return task if key == task_id else None
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.execute_agent_task_action",
+        lambda session, task: {"task_type": task.task_type, "payload": {"candidate_count": 2}},
+    )
+    monkeypatch.setattr("app.services.agent_task_worker._current_attempt", lambda *args: None)
+
+    session = FakeSession()
+    process_agent_task(session, task_id, storage_service)
+
+    assert session.rollbacks == 0
+    assert task.status == AgentTaskStatus.COMPLETED.value
+    assert task.result_json["payload"]["candidate_count"] == 2

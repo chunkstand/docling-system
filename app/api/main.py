@@ -18,6 +18,13 @@ from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
 )
+from app.schemas.agent_tasks import (
+    AgentTaskActionDefinitionResponse,
+    AgentTaskApprovalRequest,
+    AgentTaskCreateRequest,
+    AgentTaskDetailResponse,
+    AgentTaskSummaryResponse,
+)
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
     DocumentDetailResponse,
@@ -51,6 +58,13 @@ from app.schemas.search import (
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.chat import answer_question, record_chat_answer_feedback
+from app.services.agent_tasks import (
+    approve_agent_task,
+    create_agent_task,
+    get_agent_task_detail,
+    list_agent_task_action_definitions,
+    list_agent_tasks,
+)
 from app.services.chunks import get_active_chunks
 from app.services.documents import (
     get_document_detail,
@@ -146,6 +160,49 @@ def read_quality_eval_candidates(
 @app.get("/quality/trends", response_model=QualityTrendsResponse)
 def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTrendsResponse:
     return get_quality_trends(session)
+
+
+@app.get("/agent-tasks/actions", response_model=list[AgentTaskActionDefinitionResponse])
+def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
+    return list_agent_task_action_definitions()
+
+
+@app.get("/agent-tasks", response_model=list[AgentTaskSummaryResponse])
+def read_agent_tasks(
+    status: list[str] | None = None,
+    limit: int = 50,
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskSummaryResponse]:
+    return list_agent_tasks(session, statuses=status, limit=limit)
+
+
+@app.post("/agent-tasks", response_model=AgentTaskDetailResponse, status_code=status.HTTP_201_CREATED)
+def create_agent_task_route(
+    payload: AgentTaskCreateRequest,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskDetailResponse:
+    try:
+        response = create_agent_task(session, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return response
+
+
+@app.get("/agent-tasks/{task_id}", response_model=AgentTaskDetailResponse)
+def read_agent_task_detail(
+    task_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskDetailResponse:
+    return get_agent_task_detail(session, task_id)
+
+
+@app.post("/agent-tasks/{task_id}/approve", response_model=AgentTaskDetailResponse)
+def approve_agent_task_route(
+    task_id: UUID,
+    payload: AgentTaskApprovalRequest,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskDetailResponse:
+    return approve_agent_task(session, task_id, payload)
 
 
 @app.get("/documents", response_model=list[DocumentSummaryResponse])

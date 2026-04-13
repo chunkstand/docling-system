@@ -7,7 +7,15 @@ from uuid import UUID
 
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
+from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
+from app.services.agent_tasks import (
+    approve_agent_task,
+    create_agent_task,
+    get_agent_task_detail,
+    list_agent_task_action_definitions,
+    list_agent_tasks,
+)
 from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
@@ -20,6 +28,16 @@ from app.services.search_replays import (
     run_search_replay_suite,
 )
 from app.services.storage import StorageService
+
+
+def _parse_json_arg(raw_json: str) -> dict:
+    try:
+        payload = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Invalid JSON payload: {exc.msg}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit("JSON payload must be an object.")
+    return payload
 
 
 def run_ingest_file() -> None:
@@ -277,4 +295,90 @@ def run_eval_reranker() -> None:
             ),
         )
         session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_actions() -> None:
+    parser = argparse.ArgumentParser(description="List supported agent task action definitions.")
+    parser.parse_args()
+
+    payload = list_agent_task_action_definitions()
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_create() -> None:
+    parser = argparse.ArgumentParser(description="Create one agent task.")
+    parser.add_argument("task_type", help="Registered agent task type.")
+    parser.add_argument(
+        "--input-json",
+        default="{}",
+        help="JSON object payload for the registered task input.",
+    )
+    parser.add_argument("--priority", type=int, default=100, help="Task priority.")
+    parser.add_argument(
+        "--workflow-version",
+        default="v1",
+        help="Workflow version label to persist with the task.",
+    )
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type=args.task_type,
+                input=_parse_json_arg(args.input_json),
+                priority=args.priority,
+                workflow_version=args.workflow_version,
+            ),
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_list() -> None:
+    parser = argparse.ArgumentParser(description="List agent tasks.")
+    parser.add_argument(
+        "--status",
+        action="append",
+        dest="statuses",
+        help="Optional task status filter. Can be passed multiple times.",
+    )
+    parser.add_argument("--limit", type=int, default=50, help="Maximum number of tasks to return.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_agent_tasks(session, statuses=args.statuses, limit=args.limit)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_show() -> None:
+    parser = argparse.ArgumentParser(description="Show one agent task in detail.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_detail(session, UUID(args.task_id))
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_approve() -> None:
+    parser = argparse.ArgumentParser(description="Approve one approval-gated agent task.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument("--approved-by", required=True, help="Approval actor identifier.")
+    parser.add_argument("--approval-note", default=None, help="Optional approval note.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = approve_agent_task(
+            session,
+            UUID(args.task_id),
+            AgentTaskApprovalRequest(
+                approved_by=args.approved_by,
+                approval_note=args.approval_note,
+            ),
+        )
     print(json.dumps(payload.model_dump(mode="json")))

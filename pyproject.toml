@@ -48,6 +48,11 @@ docling-system-eval-candidates = "app.cli:run_eval_candidates"
 docling-system-run-replay-suite = "app.cli:run_replay_suite"
 docling-system-eval-reranker = "app.cli:run_eval_reranker"
 docling-system-export-ranking-dataset = "app.cli:run_export_ranking_dataset"
+docling-system-agent-task-actions = "app.cli:run_agent_task_actions"
+docling-system-agent-task-create = "app.cli:run_agent_task_create"
+docling-system-agent-task-list = "app.cli:run_agent_task_list"
+docling-system-agent-task-show = "app.cli:run_agent_task_show"
+docling-system-agent-task-approve = "app.cli:run_agent_task_approve"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

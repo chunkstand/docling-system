@@ -29,6 +29,15 @@ class AgentTaskApprovalRequest(BaseModel):
     approval_note: str | None = None
 
 
+class AgentTaskActionDefinitionResponse(BaseModel):
+    task_type: str
+    description: str
+    side_effect_level: str
+    requires_approval: bool
+    input_schema: dict = Field(default_factory=dict)
+    input_example: dict = Field(default_factory=dict)
+
+
 class AgentTaskSummaryResponse(BaseModel):
     task_id: UUID
     task_type: str
@@ -64,3 +73,16 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     approval_note: str | None = None
     artifact_count: int = 0
     attempt_count: int = 0
+
+
+class LatestEvaluationTaskInput(BaseModel):
+    document_id: UUID
+
+
+class ReplaySearchRequestTaskInput(BaseModel):
+    search_request_id: UUID
+
+
+class QualityEvalCandidatesTaskInput(BaseModel):
+    limit: int = Field(default=12, ge=1, le=200)
+    include_resolved: bool = False

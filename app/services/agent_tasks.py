@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from app.db.models import (
 )
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
+    AgentTaskActionDefinitionResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
     AgentTaskSummaryResponse,
@@ -154,6 +156,8 @@ def _task_has_incomplete_dependencies(session: Session, task_id: UUID) -> bool:
 
 
 def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
+    from app.services.agent_task_actions import get_agent_task_action, validate_agent_task_input
+
     now = _utcnow()
     dependency_task_ids = list(dict.fromkeys(payload.dependency_task_ids))
 
@@ -161,6 +165,31 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A task cannot depend on its parent task explicitly.",
+        )
+
+    action = get_agent_task_action(payload.task_type)
+    try:
+        validated_input = validate_agent_task_input(payload.task_type, payload.input)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=exc.errors(),
+        ) from exc
+    if payload.side_effect_level != action.side_effect_level:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Task type '{payload.task_type}' requires side_effect_level "
+                f"'{action.side_effect_level}'."
+            ),
+        )
+    if payload.requires_approval != action.requires_approval:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Task type '{payload.task_type}' requires requires_approval="
+                f"{str(action.requires_approval).lower()}."
+            ),
         )
 
     _validate_parent_task_id(session, payload.parent_task_id)
@@ -177,7 +206,7 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
         side_effect_level=payload.side_effect_level,
         requires_approval=payload.requires_approval,
         parent_task_id=payload.parent_task_id,
-        input_json=payload.input,
+        input_json=validated_input.model_dump(mode="json", exclude_none=True),
         result_json={},
         workflow_version=payload.workflow_version,
         tool_version=payload.tool_version,
@@ -201,6 +230,24 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
 
     session.commit()
     return _build_detail(session, task)
+
+
+def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionResponse]:
+    from app.services.agent_task_actions import list_agent_task_actions
+
+    rows: list[AgentTaskActionDefinitionResponse] = []
+    for action in list_agent_task_actions():
+        rows.append(
+            AgentTaskActionDefinitionResponse(
+                task_type=action.task_type,
+                description=action.description,
+                side_effect_level=action.side_effect_level,
+                requires_approval=action.requires_approval,
+                input_schema=action.payload_model.model_json_schema(),
+                input_example=action.input_example or {},
+            )
+        )
+    return rows
 
 
 def list_agent_tasks(

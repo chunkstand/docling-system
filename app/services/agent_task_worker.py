@@ -9,12 +9,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
+from pydantic import ValidationError
 from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
+from app.services.agent_task_actions import execute_agent_task_action
 from app.services.storage import StorageService
 
 AgentTaskExecutor = Callable[[Session, AgentTask], dict]
@@ -32,7 +34,7 @@ logger = get_logger(__name__)
 
 
 def is_retryable_agent_task_error(exc: Exception) -> bool:
-    return not isinstance(exc, ValueError)
+    return not isinstance(exc, (ValueError, ValidationError))
 
 
 def _current_attempt(session: Session, task: AgentTask) -> AgentTaskAttempt | None:
@@ -317,7 +319,7 @@ def process_agent_task(
         failure_stage = "execute"
         logger.info("agent_task_processing_started", task_id=str(task.id), task_type=task.task_type)
         heartbeat_agent_task(session, task)
-        active_executor = executor or _unsupported_task_executor
+        active_executor = executor or execute_agent_task_action
         result = active_executor(session, task)
         heartbeat_agent_task(session, task)
         failure_stage = "complete"
@@ -341,11 +343,6 @@ def process_agent_task(
             task_type=task.task_type,
             error=str(exc),
         )
-
-
-def _unsupported_task_executor(_session: Session, task: AgentTask) -> dict:
-    raise ValueError(f"No agent task executor registered for task type '{task.task_type}'.")
-
 
 def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> None:
     from app.db.session import get_session_factory

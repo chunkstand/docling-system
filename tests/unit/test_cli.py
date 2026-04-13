@@ -6,6 +6,11 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 from app.cli import (
+    run_agent_task_actions,
+    run_agent_task_approve,
+    run_agent_task_create,
+    run_agent_task_list,
+    run_agent_task_show,
     run_audit,
     run_backfill_legacy_audit,
     run_eval_candidates,
@@ -429,3 +434,172 @@ def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
     assert output["candidate_harness_name"] == "wide_v2"
     assert output["baseline_harness_name"] == "default_v1"
     assert output["sources"][0]["source_type"] == "cross_document_prose_regressions"
+
+
+def test_agent_task_actions_cli_prints_action_catalog(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-actions"])
+    monkeypatch.setattr(
+        "app.cli.list_agent_task_action_definitions",
+        lambda: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "task_type": "get_latest_evaluation",
+                    "description": "Fetch one latest evaluation.",
+                }
+            )
+        ],
+    )
+
+    run_agent_task_actions()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["task_type"] == "get_latest_evaluation"
+
+
+def test_agent_task_create_cli_prints_created_task(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-create",
+            "list_quality_eval_candidates",
+            "--input-json",
+            '{"limit": 5}',
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.create_agent_task",
+        lambda session, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(task_id),
+                "task_type": payload.task_type,
+                "status": "queued",
+                "input": payload.input,
+            }
+        ),
+    )
+
+    run_agent_task_create()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_id"] == str(task_id)
+    assert output["task_type"] == "list_quality_eval_candidates"
+    assert output["input"]["limit"] == 5
+
+
+def test_agent_task_list_cli_prints_tasks(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-list", "--status", "queued", "--limit", "3"],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.list_agent_tasks",
+        lambda session, statuses=None, limit=50: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "task_id": str(task_id),
+                    "status": statuses[0],
+                    "limit": limit,
+                }
+            )
+        ],
+    )
+
+    run_agent_task_list()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["task_id"] == str(task_id)
+    assert output[0]["status"] == "queued"
+    assert output[0]["limit"] == 3
+
+
+def test_agent_task_show_cli_prints_task_detail(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-show", str(task_id)])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_detail",
+        lambda session, incoming_task_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "task_type": "replay_search_request",
+            }
+        ),
+    )
+
+    run_agent_task_show()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_id"] == str(task_id)
+    assert output["task_type"] == "replay_search_request"
+
+
+def test_agent_task_approve_cli_prints_updated_task(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-approve",
+            str(task_id),
+            "--approved-by",
+            "operator@example.com",
+            "--approval-note",
+            "ok",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.approve_agent_task",
+        lambda session, incoming_task_id, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "approved_by": payload.approved_by,
+                "approval_note": payload.approval_note,
+            }
+        ),
+    )
+
+    run_agent_task_approve()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_id"] == str(task_id)
+    assert output["approved_by"] == "operator@example.com"
+    assert output["approval_note"] == "ok"

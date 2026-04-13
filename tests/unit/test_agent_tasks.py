@@ -62,8 +62,8 @@ def test_create_agent_task_adds_dependency_rows_and_sets_status(monkeypatch) -> 
         session,
         AgentTaskCreateRequest(
             task_type="evaluate_search_harness",
-            side_effect_level="promotable",
-            requires_approval=True,
+            side_effect_level="read_only",
+            requires_approval=False,
             dependency_task_ids=[dependency_a, dependency_b, dependency_a],
             input={"candidate_harness_name": "prose_v3"},
             model_settings={"temperature": 0},
@@ -73,9 +73,10 @@ def test_create_agent_task_adds_dependency_rows_and_sets_status(monkeypatch) -> 
     dependency_rows = [row for row in session.added if isinstance(row, AgentTaskDependency)]
 
     assert isinstance(task, AgentTask)
-    assert task.status == AgentTaskStatus.AWAITING_APPROVAL.value
-    assert task.requires_approval is True
-    assert task.input_json == {"candidate_harness_name": "prose_v3"}
+    assert task.status == AgentTaskStatus.QUEUED.value
+    assert task.requires_approval is False
+    assert task.input_json["candidate_harness_name"] == "prose_v3"
+    assert task.input_json["baseline_harness_name"] == "default_v1"
     assert task.model_settings_json == {"temperature": 0}
     assert len(dependency_rows) == 2
     assert {row.depends_on_task_id for row in dependency_rows} == {dependency_a, dependency_b}
@@ -166,3 +167,23 @@ def test_approve_agent_task_rejects_non_approval_task(monkeypatch) -> None:
         assert "does not require approval" in exc.detail
     else:
         raise AssertionError("Expected non-approval task to reject approval")
+
+
+def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:
+    session = FakeSession()
+
+    try:
+        create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_search_harness",
+                side_effect_level="promotable",
+                requires_approval=False,
+                input={"candidate_harness_name": "wide_v2"},
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 400
+        assert "requires side_effect_level 'read_only'" in exc.detail
+    else:
+        raise AssertionError("Expected side-effect mismatch to be rejected")
