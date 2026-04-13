@@ -102,9 +102,12 @@ Local-file ingest is CLI-only:
 
 ```bash
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
+uv run docling-system-ingest-dir /absolute/path/to/folder --recursive
 ```
 
 The CLI passes through the same checksum dedupe, run queue, worker processing, validation gate, and active-run promotion path as upload ingest.
+
+Directory ingest creates a durable ingest batch, scans the directory for `.pdf` files, and queues each file through the same single-file ingest contract. Each batch item records whether the file queued a new run, attached to an existing in-flight recovery run, hit an already-active duplicate, or failed validation before queueing.
 
 After a run validates successfully, the worker also writes or refreshes an auto-generated evaluation fixture under `storage/evaluation_corpus.auto.yaml` and immediately evaluates the run against the combined manual-plus-auto corpus.
 
@@ -119,6 +122,11 @@ Local path ingest policy:
 - Page count defaults to a maximum of `750` pages.
 
 `POST /documents` remains multipart upload-based for compatibility. No arbitrary path-based ingest is exposed through public HTTP.
+
+Batch CLI commands:
+
+- `uv run docling-system-ingest-batch-list`
+- `uv run docling-system-ingest-batch-show <batch_id>`
 
 ## API Overview
 
@@ -331,6 +339,9 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_r
 uv run alembic upgrade head
 uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
+uv run docling-system-ingest-dir /absolute/path/to/folder --recursive
+uv run docling-system-ingest-batch-list --limit 10
+uv run docling-system-ingest-batch-show <batch_id>
 uv run docling-system-agent-worker
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus

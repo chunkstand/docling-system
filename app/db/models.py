@@ -72,6 +72,106 @@ class AgentTaskOutcomeLabel(StrEnum):
     INCORRECT = "incorrect"
 
 
+class IngestBatch(Base):
+    __tablename__ = "ingest_batches"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('local_directory', 'zip_upload')",
+            name="ck_ingest_batches_source_type",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'completed', 'completed_with_errors', 'failed')",
+            name="ck_ingest_batches_status",
+        ),
+        Index("ix_ingest_batches_created_at", "created_at"),
+        Index("ix_ingest_batches_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    root_path: Mapped[str | None] = mapped_column(Text)
+    recursive: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    file_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    queued_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    recovery_queued_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    duplicate_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    failed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class IngestBatchItem(Base):
+    __tablename__ = "ingest_batch_items"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'queued_recovery', 'duplicate', 'failed')",
+            name="ck_ingest_batch_items_status",
+        ),
+        UniqueConstraint(
+            "batch_id",
+            "relative_path",
+            name="uq_ingest_batch_items_batch_relative_path",
+        ),
+        Index("ix_ingest_batch_items_batch_id", "batch_id"),
+        Index("ix_ingest_batch_items_document_id", "document_id"),
+        Index("ix_ingest_batch_items_run_id", "run_id"),
+        Index("ix_ingest_batch_items_status", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    batch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ingest_batches.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    source_filename: Mapped[str] = mapped_column(Text, nullable=False)
+    source_path: Mapped[str] = mapped_column(Text, nullable=False)
+    file_size_bytes: Mapped[int | None] = mapped_column(Integer)
+    sha256: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_runs.id", ondelete="SET NULL"),
+    )
+    duplicate: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    recovery_run: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Document(Base):
     __tablename__ = "documents"
 

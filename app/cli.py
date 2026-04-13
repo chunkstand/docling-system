@@ -44,6 +44,11 @@ from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
 from app.services.documents import ingest_local_file
 from app.services.evaluations import evaluate_run, resolve_baseline_run_id
+from app.services.ingest_batches import (
+    get_ingest_batch_detail,
+    list_ingest_batches,
+    queue_local_ingest_directory,
+)
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_history import replay_search_request
@@ -94,6 +99,53 @@ def run_ingest_file() -> None:
                     }
                 )
             )
+
+
+def run_ingest_dir() -> None:
+    parser = argparse.ArgumentParser(
+        description="Queue all PDF files under one local directory for ingestion."
+    )
+    parser.add_argument("directory_path", help="Directory containing PDF files.")
+    parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Recurse into nested directories while collecting PDFs.",
+    )
+    args = parser.parse_args()
+
+    storage_service = StorageService()
+    session_factory = get_session_factory()
+
+    with session_factory() as session:
+        payload = queue_local_ingest_directory(
+            session,
+            Path(args.directory_path).expanduser().resolve(),
+            storage_service,
+            recursive=args.recursive,
+        )
+        print(json.dumps(payload.model_dump(mode="json", exclude={"items"})))
+
+
+def run_ingest_batch_list() -> None:
+    parser = argparse.ArgumentParser(description="List recent local ingest batches.")
+    parser.add_argument("--limit", type=int, default=20, help="Maximum number of batches.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_ingest_batches(session, limit=args.limit)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_ingest_batch_show() -> None:
+    parser = argparse.ArgumentParser(description="Show one local ingest batch and its items.")
+    parser.add_argument("batch_id", help="Ingest batch UUID.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_ingest_batch_detail(session, UUID(args.batch_id))
+    print(json.dumps(payload.model_dump(mode="json")))
 
 
 def run_eval_run() -> None:
