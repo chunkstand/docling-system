@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System | Search</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/styles.css" />
+    <script defer src="/ui/app.js"></script>
+  </head>
+  <body data-page="search">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link is-active" href="/ui/search.html">Search</a>
+          <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Validated corpus</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
+        </div>
+      </header>
+
+      <main class="page-stack">
+        <section class="hero reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Search workspace</p>
+            <h1>Query the active corpus, compare harnesses, and inspect ranked evidence directly.</h1>
+            <p class="hero-summary">
+              Search operates only over validated active runs. Harness selection, result type
+              filters, and persisted request history make retrieval behavior reviewable instead of implicit.
+            </p>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Default harness</span>
+              <strong id="search-default-harness">default_v1</strong>
+              <p>Live production baseline for mixed retrieval.</p>
+            </article>
+            <article class="metric-card">
+              <span>Search requests with table hits</span>
+              <strong id="search-table-hit-rate">0%</strong>
+              <p>Live mixed retrieval evidence rate.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="search-stage reveal">
+          <div class="panel search-primary">
+            <div class="section-heading">
+              <p class="eyebrow">Direct retrieval</p>
+              <h2>Search the validated corpus</h2>
+            </div>
+            <form id="search-form" class="search-compose">
+              <label class="search-box">
+                <span class="field-caption">Query</span>
+                <input
+                  id="search-query"
+                  name="query"
+                  type="text"
+                  placeholder="Ask for a section, table family, threshold, or requirement"
+                  required
+                />
+              </label>
+              <div class="search-controls">
+                <label>
+                  <span class="field-caption">Mode</span>
+                  <select id="search-mode" name="mode">
+                    <option value="hybrid">Hybrid</option>
+                    <option value="keyword">Keyword</option>
+                    <option value="semantic">Semantic</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-caption">Harness</span>
+                  <select id="search-harness"></select>
+                </label>
+                <label>
+                  <span class="field-caption">Document</span>
+                  <select id="search-document"></select>
+                </label>
+                <label>
+                  <span class="field-caption">Result type</span>
+                  <select id="search-result-type">
+                    <option value="">Chunks and tables</option>
+                    <option value="chunk">Chunks only</option>
+                    <option value="table">Tables only</option>
+                  </select>
+                </label>
+                <label>
+                  <span class="field-caption">Limit</span>
+                  <input id="search-limit" type="number" min="1" max="25" value="8" />
+                </label>
+                <button class="primary-link button-link" type="submit">Run search</button>
+              </div>
+            </form>
+            <div id="search-meta" class="inline-note">Search requests are persisted for replay and audit.</div>
+            <div id="search-results" class="result-grid empty-state">No results yet.</div>
+          </div>
+
+          <aside class="search-sidebar">
+            <section class="panel">
+              <div class="section-heading compact-heading">
+                <p class="eyebrow">Harness registry</p>
+                <h2>Why harnesses matter</h2>
+              </div>
+              <p class="body-copy">
+                Harnesses bundle retrieval width and reranker behavior. They let operators compare
+                search quality under a named, reviewable configuration instead of hidden tuning.
+              </p>
+              <div id="search-harness-list" class="stack-list empty-state">
+                Harness descriptions will appear here.
+              </div>
+            </section>
+            <section class="panel">
+              <div class="section-heading compact-heading">
+                <p class="eyebrow">Governance notes</p>
+                <h2>Search discipline</h2>
+              </div>
+              <div class="narrative-list compact">
+                <article>
+                  <strong>Validated input only</strong>
+                  <p>Search reads the active validated run, not the newest failed attempt.</p>
+                </article>
+                <article>
+                  <strong>Persisted request history</strong>
+                  <p>Every request can be replayed, compared, and attached to evaluation work.</p>
+                </article>
+                <article>
+                  <strong>Review harnesses separately</strong>
+                  <p>Applied review harnesses are published only after verification and approval.</p>
+                </article>
+              </div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

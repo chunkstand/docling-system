@@ -3,425 +3,210 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Docling System</title>
+    <title>Docling System | Governance Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/ui/styles.css" />
+    <script defer src="/ui/app.js"></script>
   </head>
-  <body>
-    <div class="app-shell">
-      <header class="system-header">
-        <div class="brand-lockup">
-          <p class="kicker">Internal Operator Surface</p>
-          <h1>Docling System</h1>
-          <p class="brand-summary">
-            Grounded retrieval, validation-gated promotion, persisted evaluations, and docling
-            evidence in one operator console.
-          </p>
-        </div>
-        <div class="header-status">
-          <div class="signal-item">
-            <span class="signal-label">API</span>
-            <strong id="health-pill" class="signal-value pending">Checking</strong>
-          </div>
-          <div class="signal-item">
-            <span class="signal-label">Selected document</span>
-            <strong id="document-pill" class="signal-value subtle">None selected</strong>
-          </div>
-          <div class="signal-item">
-            <span class="signal-label">Current ingestion</span>
-            <strong id="ingestion-status-value" class="signal-value subtle">Idle</strong>
-          </div>
+  <body data-page="landing">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link is-active" href="/">Overview</a>
+          <a class="nav-link" href="/ui/search.html">Search</a>
+          <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Validated corpus</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
         </div>
       </header>
 
-      <section class="overview-strip">
-        <div class="overview-item">
-          <span class="overview-label">Corpus</span>
-          <strong id="doc-count-value" class="overview-value">0</strong>
-          <span class="overview-note">Active documents</span>
-        </div>
-        <div class="overview-item">
-          <span class="overview-label">Validated</span>
-          <strong id="verified-count-value" class="overview-value">0</strong>
-          <span class="overview-note">Promotion-safe runs</span>
-        </div>
-        <div class="overview-item">
-          <span class="overview-label">Evaluated</span>
-          <strong id="evaluated-count-value" class="overview-value">0</strong>
-          <span class="overview-note">Persisted latest evals</span>
-        </div>
-        <div class="overview-item">
-          <span class="overview-label">Table hit rate</span>
-          <strong id="table-hit-rate-value" class="overview-value">0%</strong>
-          <span class="overview-note">Mixed retrieval requests with table evidence</span>
-        </div>
-      </section>
-
-      <main class="workspace-grid">
-        <section class="workspace-panel console-panel">
-          <div class="panel-header">
-            <p class="section-label">Grounded Answer Workspace</p>
-            <h2>Ask the corpus and inspect exactly what supported the answer</h2>
-            <p class="section-copy">
-              The answer surface is primary. Process state and citations stay close; everything else
-              moves to secondary detail areas below.
+      <main class="page-stack">
+        <section class="hero hero-overview reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Governance-first operator surface</p>
+            <h1>Observe the corpus, verify every change, and promote only what is earned.</h1>
+            <p class="hero-summary">
+              Docling System ingests PDFs into durable, versioned runs; validates chunks, tables,
+              and figures before activation; exposes grounded retrieval; and uses bounded agent
+              workflows to evaluate, draft, verify, and approval-gate retrieval changes.
             </p>
-          </div>
-
-          <form id="chat-form" class="chat-form">
-            <label class="field-label" for="chat-question">Question</label>
-            <textarea
-              id="chat-question"
-              name="question"
-              rows="4"
-              placeholder="Ask a grounded question about the ingested standards corpus"
-            ></textarea>
-            <div class="control-row">
-              <div class="control-group">
-                <label class="field-label" for="chat-mode">Retrieval mode</label>
-                <select id="chat-mode" name="mode">
-                  <option value="hybrid">Hybrid retrieval</option>
-                  <option value="keyword">Keyword retrieval</option>
-                  <option value="semantic">Semantic retrieval</option>
-                </select>
-              </div>
-              <div class="control-group">
-                <label class="field-label" for="chat-scope">Scope</label>
-                <select id="chat-scope" name="scope">
-                  <option value="document">Selected document</option>
-                  <option value="corpus">Whole corpus</option>
-                </select>
-              </div>
-              <div class="control-group">
-                <label class="field-label" for="chat-harness">Harness</label>
-                <select id="chat-harness" name="harness_name"></select>
-              </div>
-              <button class="primary-button" type="submit">Run grounded query</button>
+            <div class="hero-actions">
+              <a class="primary-link" href="/ui/search.html">Open search workspace</a>
+              <a class="secondary-link" href="/ui/agents.html">Review agent workflows</a>
             </div>
-          </form>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Documents</span>
+              <strong id="landing-doc-count">0</strong>
+              <p>Active source set under governance.</p>
+            </article>
+            <article class="metric-card">
+              <span>Latest eval coverage</span>
+              <strong id="landing-eval-coverage">0 / 0</strong>
+              <p>Documents with a persisted latest evaluation.</p>
+            </article>
+            <article class="metric-card">
+              <span>Agent tasks</span>
+              <strong id="landing-agent-count">0</strong>
+              <p>Durable task substrate tracking recommendations and promotion gates.</p>
+            </article>
+            <article class="metric-card accent">
+              <span>Decision signals</span>
+              <strong id="landing-signal-count">0</strong>
+              <p>Live workflow signals requiring attention or confirming healthy operation.</p>
+            </article>
+          </aside>
+        </section>
 
-          <div class="console-flow">
-            <section class="process-panel">
-              <div class="panel-header compact">
-                <p class="section-label">Realtime Process</p>
-                <h3>Search and grounding stages</h3>
-              </div>
-              <div id="search-process-caption" class="process-caption">
-                Waiting for a query. The rail will animate through retrieval and verification
-                stages.
-              </div>
-              <div id="search-process" class="process-rail"></div>
-            </section>
-
-            <section class="answer-panel">
-              <div id="chat-scope-note" class="feedback muted" aria-live="polite">
-                Answers can be scoped to the selected document or the whole active corpus.
-              </div>
-              <div id="chat-warning" class="feedback muted" aria-live="polite"></div>
-              <div id="chat-response" class="chat-response empty">Answers will appear here.</div>
-              <div id="chat-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="chat-feedback-actions" class="status-actions"></div>
-              <div id="chat-citations" class="chat-citations empty">
-                Retrieved support will appear here.
-              </div>
-            </section>
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">System diagram</p>
+            <h2>Two loops share one contract: durable state first, live promotion second.</h2>
+          </div>
+          <div class="diagram-shell">
+            <div class="diagram-lane">
+              <article class="diagram-node">
+                <span class="node-kicker">Input</span>
+                <strong>PDF ingest</strong>
+                <p>Upload or local-file CLI queues a durable `document_run`.</p>
+              </article>
+              <article class="diagram-node">
+                <span class="node-kicker">Persistence</span>
+                <strong>Versioned run artifacts</strong>
+                <p>Chunks, tables, figures, `docling.json`, YAML, and run metadata are stored.</p>
+              </article>
+              <article class="diagram-node emphasis">
+                <span class="node-kicker">Gate</span>
+                <strong>Validation before activation</strong>
+                <p>The active corpus only advances when document and table validation pass.</p>
+              </article>
+              <article class="diagram-node">
+                <span class="node-kicker">Serving</span>
+                <strong>Search and grounded chat</strong>
+                <p>Operators query only the last validated active run.</p>
+              </article>
+            </div>
+            <div class="diagram-branch">
+              <article class="diagram-node ghost">
+                <span class="node-kicker">Oversight</span>
+                <strong>Replay, eval, and telemetry</strong>
+                <p>Search history, replay suites, evaluation corpora, and operator labels stay durable.</p>
+              </article>
+              <article class="diagram-node ghost">
+                <span class="node-kicker">Agent layer</span>
+                <strong>Draft, verify, approve</strong>
+                <p>Agent tasks triage regressions, draft harnesses, verify them, and wait for approval.</p>
+              </article>
+              <article class="diagram-node emphasis">
+                <span class="node-kicker">Promotion discipline</span>
+                <strong>Gated change publication</strong>
+                <p>Agents can recommend and prepare changes; humans approve any promotable step.</p>
+              </article>
+            </div>
           </div>
         </section>
 
-        <aside class="workspace-panel context-panel">
-          <section class="context-section">
-            <div class="panel-header compact">
-              <p class="section-label">Current Run</p>
-              <h3>Selected document</h3>
-            </div>
-            <div class="status-grid compact">
-              <div class="status-row">
-                <span class="status-label">Document ID</span>
-                <code id="document-id">No document selected</code>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Active run</span>
-                <strong id="active-run-status">Unknown</strong>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Validation</span>
-                <strong id="validation-status">Unknown</strong>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Promotion</span>
-                <strong id="promotion-status">Unknown</strong>
-              </div>
-              <div class="status-row">
-                <span class="status-label">Latest evaluation</span>
-                <strong id="evaluation-summary-pill">No evaluation</strong>
-              </div>
-            </div>
-            <div class="status-actions">
-              <button class="secondary-button" id="refresh-button" type="button">Refresh</button>
-              <button class="secondary-button" id="clear-selection-button" type="button">
-                Clear selection
-              </button>
-              <button class="secondary-button" id="reprocess-button" type="button">Reprocess</button>
-            </div>
-            <div id="status-feedback" class="feedback muted" aria-live="polite"></div>
-          </section>
+        <section class="feature-grid reveal">
+          <article class="feature-card">
+            <p class="eyebrow">Validation-gated promotion</p>
+            <h3>Broken reprocesses never replace the live corpus.</h3>
+            <p>
+              `documents.active_run_id` only advances after validation passes. Failed runs remain
+              non-active and searchable content stays stable.
+            </p>
+          </article>
+          <article class="feature-card">
+            <p class="eyebrow">Observability</p>
+            <h3>Artifacts, outcomes, verifier rows, traces, and replay deltas stay inspectable.</h3>
+            <p>
+              The system persists enough evidence to explain why a run, recommendation, or harness
+              change was considered safe or unsafe.
+            </p>
+          </article>
+          <article class="feature-card">
+            <p class="eyebrow">Governed retrieval</p>
+            <h3>Named harnesses make retrieval behavior reviewable and comparable.</h3>
+            <p>
+              Operators can compare default, wide, prose, and applied review harnesses against the
+              same replay sources before any promotion.
+            </p>
+          </article>
+          <article class="feature-card">
+            <p class="eyebrow">Agent orchestration</p>
+            <h3>Agents improve the system through bounded workflows, not hidden side effects.</h3>
+            <p>
+              Triage, drafting, verification, approval, and rejection all move through durable task
+              records with explicit lineage.
+            </p>
+          </article>
+        </section>
 
-          <section class="context-section">
-            <div class="panel-header compact">
-              <p class="section-label">Corpus</p>
-              <h3>Validated document set</h3>
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">What the system does</p>
+              <h2>It is a retrieval platform and a governed improvement loop.</h2>
             </div>
-            <div id="documents-list" class="documents-list empty">No documents loaded yet.</div>
-          </section>
-
-          <section class="context-section">
-            <div class="panel-header compact">
-              <p class="section-label">Operational Signal</p>
-              <h3>Live ingestion and telemetry</h3>
+            <div class="narrative-list">
+              <article>
+                <strong>Ingest</strong>
+                <p>PDFs become versioned document runs with normalized storage and durable artifacts.</p>
+              </article>
+              <article>
+                <strong>Validate</strong>
+                <p>Document and table validations decide whether a run may become active.</p>
+              </article>
+              <article>
+                <strong>Retrieve</strong>
+                <p>Search returns mixed chunk and table evidence under named harnesses.</p>
+              </article>
+              <article>
+                <strong>Evaluate</strong>
+                <p>Replay suites and evaluation corpora measure retrieval quality over time.</p>
+              </article>
+              <article>
+                <strong>Improve</strong>
+                <p>Agent tasks draft bounded changes, verify them, and wait for explicit approval.</p>
+              </article>
             </div>
-            <div id="ingestion-run-lane" class="ingestion-lane empty">No current ingestion run.</div>
-            <div id="telemetry-strip" class="telemetry-strip empty">
-              Retrieval telemetry will appear here.
-            </div>
-          </section>
-        </aside>
-
-        <section class="workspace-panel details-panel">
-          <div class="panel-header">
-            <p class="section-label">Details</p>
-            <h2>Raw retrieval, evaluation trace, and evidence surfaces</h2>
           </div>
-
-          <div class="details-grid">
-            <section class="detail-block">
-              <div class="panel-header compact">
-                <p class="section-label">Quality</p>
-                <h3>Corpus quality state</h3>
-              </div>
-              <div class="status-grid compact minor">
-                <div class="status-row">
-                  <span class="status-label">Latest eval coverage</span>
-                  <strong id="quality-eval-coverage">0 / 0</strong>
-                </div>
-                <div class="status-row">
-                  <span class="status-label">Failed query count</span>
-                  <strong id="quality-failed-query-count">0</strong>
-                </div>
-                <div class="status-row">
-                  <span class="status-label">Structural check failures</span>
-                  <strong id="quality-structural-failure-count">0</strong>
-                </div>
-                <div class="status-row">
-                  <span class="status-label">Failed runs</span>
-                  <strong id="quality-failed-run-count">0</strong>
-                </div>
-              </div>
-              <div id="quality-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="quality-evaluations" class="tables-list empty">
-                Latest evaluation state will appear here.
-              </div>
-              <div id="quality-failure-stages" class="tables-list empty">
-                Failed runs by stage will appear here.
-              </div>
-              <div id="quality-failures" class="tables-list empty">
-                Quality failures will appear here.
-              </div>
-              <div id="quality-eval-candidates" class="tables-list empty">
-                Mined evaluation candidates will appear here.
-              </div>
-              <div id="quality-trends" class="tables-list empty">
-                Search and feedback trends will appear here.
-              </div>
-              <form id="harness-eval-form" class="search-form">
-                <div class="control-group">
-                  <label class="field-label" for="harness-eval-baseline">Baseline harness</label>
-                  <select id="harness-eval-baseline" name="baseline_harness_name"></select>
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="harness-eval-candidate">Candidate harness</label>
-                  <select id="harness-eval-candidate" name="candidate_harness_name"></select>
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="harness-eval-limit">Eval limit</label>
-                  <input
-                    id="harness-eval-limit"
-                    name="limit"
-                    type="number"
-                    min="1"
-                    max="200"
-                    value="12"
-                  />
-                </div>
-                <button class="primary-button" type="submit">Run harness eval</button>
-              </form>
-              <div id="harness-eval-sources" class="source-toggle-group" role="group" aria-label="Harness evaluation sources">
-                <label class="toggle-chip">
-                  <input type="checkbox" value="evaluation_queries" checked />
-                  <span>Evaluation queries</span>
-                </label>
-                <label class="toggle-chip">
-                  <input type="checkbox" value="feedback" checked />
-                  <span>Feedback labels</span>
-                </label>
-                <label class="toggle-chip">
-                  <input type="checkbox" value="live_search_gaps" checked />
-                  <span>Live search gaps</span>
-                </label>
-                <label class="toggle-chip">
-                  <input type="checkbox" value="cross_document_prose_regressions" checked />
-                  <span>Cross-document prose regressions</span>
-                </label>
-              </div>
-              <div id="harness-eval-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="harness-eval-results" class="tables-list empty">
-                Harness evaluation will appear here.
-              </div>
-              <form id="replay-run-form" class="search-form">
-                <div class="control-group">
-                  <label class="field-label" for="replay-source-type">Replay source</label>
-                  <select id="replay-source-type" name="source_type">
-                    <option value="feedback">Feedback labels</option>
-                    <option value="evaluation_queries">Evaluation queries</option>
-                    <option value="live_search_gaps">Live search gaps</option>
-                    <option value="cross_document_prose_regressions">Cross-document prose regressions</option>
-                  </select>
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="replay-limit">Replay limit</label>
-                  <input
-                    id="replay-limit"
-                    name="limit"
-                    type="number"
-                    min="1"
-                    max="200"
-                    value="12"
-                  />
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="replay-harness">Harness</label>
-                  <select id="replay-harness" name="harness_name"></select>
-                </div>
-                <button class="primary-button" type="submit">Run replay</button>
-              </form>
-              <div id="search-replays" class="tables-list empty">
-                Replay suite runs will appear here.
-              </div>
-              <form id="replay-compare-form" class="search-form">
-                <div class="control-group">
-                  <label class="field-label" for="replay-baseline">Baseline replay</label>
-                  <select id="replay-baseline" name="baseline_replay_run_id"></select>
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="replay-candidate">Candidate replay</label>
-                  <select id="replay-candidate" name="candidate_replay_run_id"></select>
-                </div>
-                <button class="primary-button" type="submit">Compare runs</button>
-              </form>
-              <div id="replay-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="replay-comparison" class="tables-list empty">
-                Replay comparison will appear here.
-              </div>
-              <div id="replay-detail" class="tables-list empty">
-                Replay drilldown will appear here.
-              </div>
-            </section>
-
-            <section class="detail-block">
-              <div class="panel-header compact">
-                <p class="section-label">Raw Search</p>
-                <h3>Direct mixed retrieval</h3>
-              </div>
-              <form id="search-form" class="search-form">
-                <div class="control-group">
-                  <label class="field-label" for="search-query">Query</label>
-                  <input
-                    id="search-query"
-                    name="query"
-                    type="text"
-                    placeholder="Run a direct retrieval query"
-                    autocomplete="off"
-                  />
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="search-mode">Mode</label>
-                  <select id="search-mode" name="mode">
-                    <option value="hybrid">Hybrid</option>
-                    <option value="keyword">Keyword</option>
-                    <option value="semantic">Semantic</option>
-                  </select>
-                </div>
-                <div class="control-group">
-                  <label class="field-label" for="search-harness">Harness</label>
-                  <select id="search-harness" name="harness_name"></select>
-                </div>
-                <button class="primary-button" type="submit">Search</button>
-              </form>
-              <div id="search-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="search-feedback-actions" class="status-actions"></div>
-              <div id="search-results" class="search-results empty">Search results will appear here.</div>
-            </section>
-
-            <section class="detail-block">
-              <div class="panel-header compact">
-                <p class="section-label">Evaluation</p>
-                <h3>Latest verification trace</h3>
-              </div>
-              <div class="status-grid compact minor">
-                <div class="status-row">
-                  <span class="status-label">Latest run</span>
-                  <strong id="latest-run-status">Unknown</strong>
-                </div>
-                <div class="status-row">
-                  <span class="status-label">Latest evaluation status</span>
-                  <strong id="evaluation-status">Unknown</strong>
-                </div>
-                <div class="status-row">
-                  <span class="status-label">Artifacts</span>
-                  <div class="artifact-links">
-                    <a id="json-link" href="#" target="_blank" rel="noreferrer">JSON</a>
-                    <a id="yaml-link" href="#" target="_blank" rel="noreferrer">YAML</a>
-                  </div>
-                </div>
-              </div>
-              <div id="evaluation-feedback" class="feedback muted" aria-live="polite"></div>
-              <div id="evaluation-queries" class="tables-list empty">No evaluation results yet.</div>
-            </section>
-
-            <section class="detail-block">
-              <div class="panel-header compact">
-                <p class="section-label">Run History</p>
-                <h3>Recent processing attempts</h3>
-              </div>
-              <div id="runs-list" class="tables-list empty">No recent runs yet.</div>
-            </section>
-          </div>
-
-          <div class="evidence-grid">
-            <section class="evidence-column">
-              <div class="panel-header compact">
-                <p class="section-label">Chunks</p>
-                <h3>Chunk preview</h3>
-              </div>
-              <div id="chunks-list" class="chunks-list empty">No active chunks yet.</div>
-            </section>
-            <section class="evidence-column">
-              <div class="panel-header compact">
-                <p class="section-label">Tables</p>
-                <h3>Logical tables</h3>
-              </div>
-              <div id="tables-list" class="tables-list empty">No active tables yet.</div>
-            </section>
-            <section class="evidence-column">
-              <div class="panel-header compact">
-                <p class="section-label">Figures</p>
-                <h3>Diagram outputs</h3>
-              </div>
-              <div id="figures-list" class="tables-list empty">No active figures yet.</div>
-            </section>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Live governance signals</p>
+              <h2>Current workflow posture</h2>
+            </div>
+            <div id="landing-decision-signals" class="stack-list empty-state">
+              Decision signals will appear here.
+            </div>
           </div>
         </section>
       </main>
     </div>
-
-    <script src="/ui/app.js" defer></script>
   </body>
 </html>

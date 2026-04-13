@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System | Agent Workflows</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/styles.css" />
+    <script defer src="/ui/app.js"></script>
+  </head>
+  <body data-page="agents">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link" href="/ui/search.html">Search</a>
+          <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link is-active" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Validated corpus</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
+        </div>
+      </header>
+
+      <main class="page-stack">
+        <section class="hero reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Agent workflows</p>
+            <h1>Bounded agents evaluate the system, draft retrieval changes, and stop at governance gates.</h1>
+            <p class="hero-summary">
+              The agent layer is durable workflow infrastructure, not hidden autonomy. Tasks,
+              attempts, artifacts, verifier rows, outcomes, and approvals all stay inspectable.
+            </p>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Active agent tasks</span>
+              <strong id="agent-active-count">0</strong>
+              <p>Queued, processing, retry, blocked, or waiting for approval.</p>
+            </article>
+            <article class="metric-card">
+              <span>Recommendation improvement rate</span>
+              <strong id="agent-improvement-rate">0%</strong>
+              <p>Current downstream improvement rate for recommendation workflows.</p>
+            </article>
+            <article class="metric-card accent">
+              <span>Decision signals</span>
+              <strong id="agent-signal-count">0</strong>
+              <p>Workflow families requiring investigation, watch, or approval.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Active agents</p>
+              <h2>Current live work items</h2>
+            </div>
+            <p class="body-copy">
+              The system does not expose anthropomorphic agent identities. What is durable and
+              inspectable is the active agent task queue and each task’s workflow lineage.
+            </p>
+            <div id="active-agent-tasks" class="stack-list empty-state">
+              Active agent tasks will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Workflow map</p>
+              <h2>How the agent layer behaves</h2>
+            </div>
+            <div class="narrative-list">
+              <article>
+                <strong>Triage replay regression</strong>
+                <p>Shadow-mode comparison across replay sources produces a durable recommendation artifact.</p>
+              </article>
+              <article>
+                <strong>Draft harness config update</strong>
+                <p>Agents propose a review harness instead of changing live retrieval directly.</p>
+              </article>
+              <article>
+                <strong>Verify draft harness config</strong>
+                <p>Replay and verifier checks determine whether the draft is safe enough for review.</p>
+              </article>
+              <article>
+                <strong>Apply harness config update</strong>
+                <p>Publication requires explicit approval and records applied lineage.</p>
+              </article>
+              <article>
+                <strong>Enqueue document reprocess</strong>
+                <p>Reprocessing is approval-gated and still depends on the normal validation gate.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Why agents draft harnesses</p>
+              <h2>Drafting creates a reviewable middle state</h2>
+            </div>
+            <div class="narrative-list">
+              <article>
+                <strong>No direct mutation</strong>
+                <p>A draft harness makes the proposed retrieval change inspectable before publication.</p>
+              </article>
+              <article>
+                <strong>Replay evidence stays attached</strong>
+                <p>Verification rows and replay deltas stay tied to the exact draft under review.</p>
+              </article>
+              <article>
+                <strong>Approval stays explicit</strong>
+                <p>Agents can recommend and prepare; humans decide whether a verified draft gets applied.</p>
+              </article>
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Decision posture</p>
+              <h2>Signals and value density</h2>
+            </div>
+            <div id="agent-decision-signals" class="stack-list empty-state">
+              Decision signals will appear here.
+            </div>
+            <div id="agent-value-density" class="stack-list empty-state">
+              Workflow value density will appear here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Harness registry</p>
+            <h2>What each harness is for</h2>
+          </div>
+          <div id="agent-harnesses" class="feature-grid empty-state">
+            Harness descriptions will appear here.
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System | Eval &amp; Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/styles.css" />
+    <script defer src="/ui/app.js"></script>
+  </head>
+  <body data-page="evals">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link" href="/ui/search.html">Search</a>
+          <a class="nav-link is-active" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Validated corpus</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
+        </div>
+      </header>
+
+      <main class="page-stack">
+        <section class="hero reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Eval and verification</p>
+            <h1>Measure retrieval quality, inspect failure modes, and keep promotion evidence explicit.</h1>
+            <p class="hero-summary">
+              Evaluation corpora, replay comparisons, verifier rows, and decision signals are the
+              control surface for deciding whether a recommendation is safe enough to review.
+            </p>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Evaluation coverage</span>
+              <strong id="eval-coverage">0 / 0</strong>
+              <p>Documents with a latest persisted evaluation.</p>
+            </article>
+            <article class="metric-card">
+              <span>Failed queries</span>
+              <strong id="eval-failed-queries">0</strong>
+              <p>Current retrieval misses in the latest quality view.</p>
+            </article>
+            <article class="metric-card accent">
+              <span>Verification trend</span>
+              <strong id="eval-verification-pass">0</strong>
+              <p>Recent passed verifier rows visible through the agent layer.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Quality summary</p>
+              <h2>Corpus quality posture</h2>
+            </div>
+            <div id="quality-summary-cards" class="mini-grid empty-state">Summary will appear here.</div>
+            <div id="quality-failures" class="stack-list empty-state">Quality failures will appear here.</div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Decision signals</p>
+              <h2>What needs review now</h2>
+            </div>
+            <div id="eval-decision-signals" class="stack-list empty-state">
+              Decision signals will appear here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Harness evaluation</p>
+            <h2>Compare baseline and candidate retrieval behavior</h2>
+          </div>
+          <form id="harness-eval-form" class="search-controls search-controls-wide">
+            <label>
+              <span class="field-caption">Baseline harness</span>
+              <select id="harness-eval-baseline"></select>
+            </label>
+            <label>
+              <span class="field-caption">Candidate harness</span>
+              <select id="harness-eval-candidate"></select>
+            </label>
+            <label>
+              <span class="field-caption">Replay limit</span>
+              <input id="harness-eval-limit" type="number" min="1" max="100" value="12" />
+            </label>
+            <div class="source-toggle-group" id="harness-eval-sources">
+              <label class="toggle-chip"><input type="checkbox" value="evaluation_queries" checked /><span>Evaluation queries</span></label>
+              <label class="toggle-chip"><input type="checkbox" value="feedback" checked /><span>Feedback</span></label>
+              <label class="toggle-chip"><input type="checkbox" value="live_search_gaps" checked /><span>Live search gaps</span></label>
+              <label class="toggle-chip"><input type="checkbox" value="cross_document_prose_regressions" checked /><span>Cross-document prose</span></label>
+            </div>
+            <button class="primary-link button-link" type="submit">Run harness eval</button>
+          </form>
+          <div id="harness-eval-results" class="result-grid empty-state">
+            Harness evaluation results will appear here.
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Evaluation candidates</p>
+              <h2>Mined gaps and likely fixture additions</h2>
+            </div>
+            <div id="eval-candidates" class="stack-list empty-state">
+              Evaluation candidates will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Verification and trend trace</p>
+              <h2>Recent verifier movement</h2>
+            </div>
+            <div id="verification-trends" class="stack-list empty-state">
+              Verification trends will appear here.
+            </div>
+            <div id="quality-trends" class="stack-list empty-state">
+              Search and feedback trends will appear here.
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
