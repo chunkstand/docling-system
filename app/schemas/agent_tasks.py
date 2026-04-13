@@ -111,3 +111,24 @@ class VerifySearchHarnessEvaluationTaskInput(BaseModel):
     max_zero_result_count_increase: int = Field(default=0, ge=0)
     max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
     min_total_shared_query_count: int = Field(default=1, ge=0)
+
+
+class TriageReplayRegressionTaskInput(BaseModel):
+    candidate_harness_name: str
+    baseline_harness_name: str = "default_v1"
+    source_types: list[str] = Field(
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
+    )
+    replay_limit: int = Field(default=12, ge=1, le=200)
+    quality_candidate_limit: int = Field(default=12, ge=1, le=200)
+    include_resolved_candidates: bool = False
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=0)

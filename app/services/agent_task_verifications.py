@@ -107,6 +107,29 @@ def _create_verification_record(
     return _to_verification_response(row)
 
 
+def create_agent_task_verification_record(
+    session: Session,
+    *,
+    target_task_id: UUID,
+    verification_task_id: UUID | None,
+    verifier_type: str,
+    outcome: str,
+    metrics: dict,
+    reasons: list[str],
+    details: dict,
+) -> AgentTaskVerificationResponse:
+    return _create_verification_record(
+        session,
+        target_task_id=target_task_id,
+        verification_task_id=verification_task_id,
+        verifier_type=verifier_type,
+        outcome=outcome,
+        metrics=metrics,
+        reasons=reasons,
+        details=details,
+    )
+
+
 @dataclass(frozen=True)
 class VerificationOutcome:
     outcome: str
@@ -134,23 +157,11 @@ def _load_replay_run(
     return replay_run
 
 
-def _verify_harness_evaluation_payload(
+def evaluate_search_harness_verification(
     session: Session,
-    target_task: AgentTask,
+    evaluation: SearchHarnessEvaluationResponse,
     payload: VerifySearchHarnessEvaluationTaskInput,
 ) -> VerificationOutcome:
-    if target_task.task_type != "evaluate_search_harness":
-        msg = "Target task must be an evaluate_search_harness task."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-    if target_task.status != "completed":
-        msg = "Target task must be completed before verification."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-
-    evaluation_payload = (
-        ((target_task.result_json or {}).get("payload") or {}).get("evaluation") or {}
-    )
-    evaluation = SearchHarnessEvaluationResponse.model_validate(evaluation_payload)
-
     reasons: list[str] = []
     per_source: dict[str, dict] = {}
     max_observed_mrr_drop = 0.0
@@ -251,8 +262,6 @@ def _verify_harness_evaluation_payload(
         ),
     }
     details = {
-        "target_task_id": str(target_task.id),
-        "target_task_type": target_task.task_type,
         "candidate_harness_name": evaluation.candidate_harness_name,
         "baseline_harness_name": evaluation.baseline_harness_name,
         "per_source": per_source,
@@ -280,9 +289,24 @@ def verify_search_harness_evaluation_task(
     if target_task is None:
         msg = f"Target task not found: {payload.target_task_id}"
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+    if target_task.task_type != "evaluate_search_harness":
+        msg = "Target task must be an evaluate_search_harness task."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+    if target_task.status != "completed":
+        msg = "Target task must be completed before verification."
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
 
-    outcome = _verify_harness_evaluation_payload(session, target_task, payload)
-    record = _create_verification_record(
+    evaluation_payload = (
+        ((target_task.result_json or {}).get("payload") or {}).get("evaluation") or {}
+    )
+    evaluation = SearchHarnessEvaluationResponse.model_validate(evaluation_payload)
+    outcome = evaluate_search_harness_verification(session, evaluation, payload)
+    details = {
+        **outcome.details,
+        "target_task_id": str(target_task.id),
+        "target_task_type": target_task.task_type,
+    }
+    record = create_agent_task_verification_record(
         session,
         target_task_id=target_task.id,
         verification_task_id=verification_task.id,
@@ -290,7 +314,7 @@ def verify_search_harness_evaluation_task(
         outcome=outcome.outcome,
         metrics=outcome.metrics,
         reasons=outcome.reasons,
-        details=outcome.details,
+        details=details,
     )
     return {
         "verification": record.model_dump(mode="json"),
