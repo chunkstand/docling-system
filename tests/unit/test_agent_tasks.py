@@ -122,7 +122,10 @@ def test_approve_agent_task_moves_ready_task_to_queue(monkeypatch) -> None:
     )
     session = FakeSession(task=task)
 
-    monkeypatch.setattr("app.services.agent_tasks._task_has_incomplete_dependencies", lambda *args: False)
+    monkeypatch.setattr(
+        "app.services.agent_tasks._task_has_incomplete_dependencies",
+        lambda *args: False,
+    )
     monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
 
     approved = approve_agent_task(
@@ -187,3 +190,31 @@ def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:
         assert "requires side_effect_level 'read_only'" in exc.detail
     else:
         raise AssertionError("Expected side-effect mismatch to be rejected")
+
+
+def test_create_verifier_task_auto_adds_target_dependency_and_blocks_until_ready(
+    monkeypatch,
+) -> None:
+    target_task_id = uuid4()
+    session = FakeSession()
+
+    monkeypatch.setattr("app.services.agent_tasks._validate_parent_task_id", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._validate_dependency_ids", lambda *args: None)
+    monkeypatch.setattr("app.services.agent_tasks._incomplete_dependency_count", lambda *args: 1)
+    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
+
+    task = create_agent_task(
+        session,
+        AgentTaskCreateRequest(
+            task_type="verify_search_harness_evaluation",
+            side_effect_level="read_only",
+            requires_approval=False,
+            input={"target_task_id": str(target_task_id)},
+        ),
+    )
+
+    dependency_rows = [row for row in session.added if isinstance(row, AgentTaskDependency)]
+
+    assert task.status == AgentTaskStatus.BLOCKED.value
+    assert len(dependency_rows) == 1
+    assert dependency_rows[0].depends_on_task_id == target_task_id

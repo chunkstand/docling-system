@@ -31,6 +31,7 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
 
 def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     task_id = uuid4()
+    verification_id = uuid4()
 
     monkeypatch.setattr(
         "app.api.main.list_agent_tasks",
@@ -124,7 +125,26 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "approval_note": None,
             "artifact_count": 0,
             "attempt_count": 0,
+            "verification_count": 1,
+            "verifications": [],
         },
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_verifications",
+        lambda session, incoming_task_id, limit=20: [
+            {
+                "verification_id": str(verification_id),
+                "target_task_id": str(incoming_task_id),
+                "verification_task_id": None,
+                "verifier_type": "search_harness_evaluation_gate",
+                "outcome": "passed",
+                "metrics": {"total_regressed_count": 0},
+                "reasons": [],
+                "details": {},
+                "created_at": "2026-04-12T00:00:00Z",
+                "completed_at": "2026-04-12T00:00:00Z",
+            }
+        ],
     )
     monkeypatch.setattr(
         "app.api.main.approve_agent_task",
@@ -160,6 +180,8 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "approval_note": payload.approval_note,
             "artifact_count": 0,
             "attempt_count": 0,
+            "verification_count": 0,
+            "verifications": [],
         },
     )
 
@@ -182,6 +204,10 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["task_id"] == str(task_id)
+
+    verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
+    assert verification_response.status_code == 200
+    assert verification_response.json()[0]["verification_id"] == str(verification_id)
 
     approve_response = client.post(
         f"/agent-tasks/{task_id}/approve",

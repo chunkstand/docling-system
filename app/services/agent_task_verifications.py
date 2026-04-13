@@ -67,6 +67,18 @@ def list_agent_task_verifications(
     return [_to_verification_response(row) for row in rows]
 
 
+def get_agent_task_verifications(
+    session: Session,
+    task_id: UUID,
+    *,
+    limit: int = 20,
+) -> list[AgentTaskVerificationResponse]:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    return list_agent_task_verifications(session, task_id, limit=limit)
+
+
 def _create_verification_record(
     session: Session,
     *,

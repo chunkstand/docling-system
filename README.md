@@ -163,6 +163,7 @@ Local path ingest policy:
 - `GET /agent-tasks`
 - `POST /agent-tasks`
 - `GET /agent-tasks/{task_id}`
+- `GET /agent-tasks/{task_id}/verifications`
 - `POST /agent-tasks/{task_id}/approve`
 
 ## Search Contract
@@ -238,6 +239,7 @@ The current registry is read-only. Supported task types are:
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
+- `verify_search_harness_evaluation`
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`.
 
@@ -245,7 +247,9 @@ Current task guarantees:
 
 - task creation validates the requested `task_type` and typed input payload against the registry
 - task creation enforces the registry-declared `side_effect_level` and `requires_approval`
+- verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
+- verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - approval-gated routes exist in the API and CLI, but the current registered task set does not require approval
 
 ## Tables
@@ -285,8 +289,10 @@ uv run docling-system-eval-reranker prose_v3 --baseline-harness-name default_v1 
 uv run docling-system-export-ranking-dataset --limit 200
 uv run docling-system-agent-task-actions
 uv run docling-system-agent-task-create evaluate_search_harness --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"limit":12}'
+uv run docling-system-agent-task-create verify_search_harness_evaluation --input-json '{"target_task_id":"<task_id>","max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-show <task_id>
+uv run docling-system-agent-task-verifications <task_id>
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```

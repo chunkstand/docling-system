@@ -12,18 +12,19 @@ from sqlalchemy.orm import Session
 
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
-from app.schemas.chat import (
-    ChatAnswerFeedbackCreateRequest,
-    ChatAnswerFeedbackResponse,
-    ChatRequest,
-    ChatResponse,
-)
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
     AgentTaskSummaryResponse,
+    AgentTaskVerificationResponse,
+)
+from app.schemas.chat import (
+    ChatAnswerFeedbackCreateRequest,
+    ChatAnswerFeedbackResponse,
+    ChatRequest,
+    ChatResponse,
 )
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
@@ -57,7 +58,7 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
-from app.services.chat import answer_question, record_chat_answer_feedback
+from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
@@ -65,6 +66,7 @@ from app.services.agent_tasks import (
     list_agent_task_action_definitions,
     list_agent_tasks,
 )
+from app.services.chat import answer_question, record_chat_answer_feedback
 from app.services.chunks import get_active_chunks
 from app.services.documents import (
     get_document_detail,
@@ -176,7 +178,11 @@ def read_agent_tasks(
     return list_agent_tasks(session, statuses=status, limit=limit)
 
 
-@app.post("/agent-tasks", response_model=AgentTaskDetailResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/agent-tasks",
+    response_model=AgentTaskDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_agent_task_route(
     payload: AgentTaskCreateRequest,
     session: Session = Depends(get_db_session),
@@ -194,6 +200,15 @@ def read_agent_task_detail(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     return get_agent_task_detail(session, task_id)
+
+
+@app.get("/agent-tasks/{task_id}/verifications", response_model=list[AgentTaskVerificationResponse])
+def read_agent_task_verifications(
+    task_id: UUID,
+    limit: int = 20,
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskVerificationResponse]:
+    return get_agent_task_verifications(session, task_id, limit=limit)
 
 
 @app.post("/agent-tasks/{task_id}/approve", response_model=AgentTaskDetailResponse)

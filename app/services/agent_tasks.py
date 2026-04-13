@@ -165,18 +165,30 @@ def _task_has_incomplete_dependencies(session: Session, task_id: UUID) -> bool:
     )
 
 
+def _augment_dependency_ids_for_action(
+    *,
+    action,
+    validated_input,
+    dependency_task_ids: list[UUID],
+) -> list[UUID]:
+    if action.definition_kind != "verifier":
+        return dependency_task_ids
+    target_task_id = getattr(validated_input, "target_task_id", None)
+    if target_task_id is None or target_task_id in dependency_task_ids:
+        return dependency_task_ids
+    return [*dependency_task_ids, target_task_id]
+
+
 def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
     from app.services.agent_task_actions import get_agent_task_action, validate_agent_task_input
 
     now = _utcnow()
     dependency_task_ids = list(dict.fromkeys(payload.dependency_task_ids))
-
     if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A task cannot depend on its parent task explicitly.",
         )
-
     action = get_agent_task_action(payload.task_type)
     try:
         validated_input = validate_agent_task_input(payload.task_type, payload.input)
@@ -185,6 +197,16 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=exc.errors(),
         ) from exc
+    dependency_task_ids = _augment_dependency_ids_for_action(
+        action=action,
+        validated_input=validated_input,
+        dependency_task_ids=dependency_task_ids,
+    )
+    if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A task cannot depend on its parent task explicitly.",
+        )
     if payload.side_effect_level != action.side_effect_level:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
