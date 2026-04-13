@@ -850,6 +850,12 @@ class AgentTaskOutcome(Base):
             "outcome_label IN ('useful', 'not_useful', 'correct', 'incorrect')",
             name="ck_agent_task_outcomes_outcome_label",
         ),
+        UniqueConstraint(
+            "task_id",
+            "outcome_label",
+            "created_by",
+            name="uq_agent_task_outcomes_task_label_actor",
+        ),
         Index("ix_agent_task_outcomes_task_id", "task_id"),
         Index("ix_agent_task_outcomes_outcome_label", "outcome_label"),
         Index("ix_agent_task_outcomes_created_at", "created_at"),

@@ -261,6 +261,7 @@ Current task guarantees:
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
 - promotion-style tasks can link back to a `source_task_id`, which is persisted as a dependency so recommendation lineage remains visible in the task graph
 - operators can attach durable outcome labels like `useful`, `not_useful`, `correct`, and `incorrect` to terminal tasks
+- duplicate outcome labels from the same actor on the same task are rejected so analytics and exported traces stay clean
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
 - task artifacts can be inspected through `GET /agent-tasks/{task_id}/artifacts`
 - persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`

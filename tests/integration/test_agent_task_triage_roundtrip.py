@@ -572,6 +572,17 @@ def test_agent_task_learning_surfaces_roundtrip(postgres_integration_harness) ->
     assert correct_outcome_response.status_code == 200
     assert correct_outcome_response.json()["outcome_label"] == "correct"
 
+    duplicate_outcome_response = client.post(
+        f"/agent-tasks/{triage_task_id}/outcomes",
+        json={
+            "outcome_label": "useful",
+            "created_by": "operator@example.com",
+            "note": "attempted duplicate label",
+        },
+    )
+    assert duplicate_outcome_response.status_code == 409
+    assert "already been recorded" in duplicate_outcome_response.json()["detail"]
+
     outcome_list_response = client.get(f"/agent-tasks/{triage_task_id}/outcomes")
     assert outcome_list_response.status_code == 200
     assert outcome_list_response.json()[0]["outcome_label"] == "useful"

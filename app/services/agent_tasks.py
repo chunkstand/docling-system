@@ -404,6 +404,18 @@ def create_agent_task_outcome(
             status_code=status.HTTP_409_CONFLICT,
             detail="Only terminal tasks can receive outcome labels.",
         )
+    existing = session.execute(
+        select(AgentTaskOutcome).where(
+            AgentTaskOutcome.task_id == task_id,
+            AgentTaskOutcome.outcome_label == payload.outcome_label,
+            AgentTaskOutcome.created_by == payload.created_by,
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This outcome label has already been recorded by that actor for this task.",
+        )
 
     row = AgentTaskOutcome(
         task_id=task_id,

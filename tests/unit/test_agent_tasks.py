@@ -21,9 +21,43 @@ from app.services.agent_tasks import (
 )
 
 
+class FakeScalarResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def all(self):
+        return list(self._rows)
+
+    def first(self):
+        return self._rows[0] if self._rows else None
+
+    def one_or_none(self):
+        if len(self._rows) > 1:
+            raise AssertionError("Expected zero or one row")
+        return self._rows[0] if self._rows else None
+
+
+class FakeExecuteResult:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self):
+        return FakeScalarResult(self._rows)
+
+    def scalar_one_or_none(self):
+        if len(self._rows) > 1:
+            raise AssertionError("Expected zero or one row")
+        return self._rows[0] if self._rows else None
+
+
 class FakeSession:
-    def __init__(self, task: AgentTask | None = None) -> None:
+    def __init__(
+        self,
+        task: AgentTask | None = None,
+        outcome_rows: list[object] | None = None,
+    ) -> None:
         self.task = task
+        self.outcome_rows = outcome_rows or []
         self.added: list[object] = []
         self.flushed = False
         self.committed = False
@@ -41,6 +75,12 @@ class FakeSession:
 
     def get(self, model, task_id):
         return self.task
+
+    def execute(self, statement):
+        rendered = str(statement)
+        if "agent_task_outcomes" in rendered:
+            return FakeExecuteResult(self.outcome_rows)
+        raise AssertionError(f"Unexpected execute statement: {rendered}")
 
 
 def test_initial_task_status_prefers_blocked_over_approval() -> None:
@@ -349,6 +389,52 @@ def test_create_agent_task_outcome_rejects_non_terminal_task() -> None:
         assert "Only terminal tasks can receive outcome labels" in exc.detail
     else:
         raise AssertionError("Expected non-terminal task labeling to fail")
+
+
+def test_create_agent_task_outcome_rejects_duplicate_label_from_same_actor() -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    existing_outcome = type(
+        "OutcomeRow",
+        (),
+        {
+            "id": uuid4(),
+            "task_id": task.id,
+            "outcome_label": "useful",
+            "created_by": "operator@example.com",
+            "note": "already recorded",
+            "created_at": now,
+        },
+    )()
+    session = FakeSession(task=task, outcome_rows=[existing_outcome])
+
+    try:
+        create_agent_task_outcome(
+            session,
+            task.id,
+            AgentTaskOutcomeCreateRequest(
+                outcome_label="useful",
+                created_by="operator@example.com",
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "already been recorded" in exc.detail
+    else:
+        raise AssertionError("Expected duplicate outcome labeling to fail")
 
 
 def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:
