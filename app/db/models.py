@@ -35,6 +35,29 @@ class RunStatus(StrEnum):
     FAILED = "failed"
 
 
+class AgentTaskStatus(StrEnum):
+    BLOCKED = "blocked"
+    AWAITING_APPROVAL = "awaiting_approval"
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    RETRY_WAIT = "retry_wait"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AgentTaskSideEffectLevel(StrEnum):
+    READ_ONLY = "read_only"
+    DRAFT_CHANGE = "draft_change"
+    PROMOTABLE = "promotable"
+
+
+class AgentTaskAttemptStatus(StrEnum):
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ABANDONED = "abandoned"
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -616,6 +639,182 @@ class ChatAnswerFeedback(Base):
     )
     feedback_type: Mapped[str] = mapped_column(Text, nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTask(Base):
+    __tablename__ = "agent_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ("
+            "'blocked', 'awaiting_approval', 'queued', 'processing', "
+            "'retry_wait', 'completed', 'failed'"
+            ")",
+            name="ck_agent_tasks_status",
+        ),
+        CheckConstraint(
+            "side_effect_level IN ('read_only', 'draft_change', 'promotable')",
+            name="ck_agent_tasks_side_effect_level",
+        ),
+        Index("ix_agent_tasks_status_priority_next_attempt_at", "status", "priority", "next_attempt_at"),
+        Index("ix_agent_tasks_locked_at", "locked_at"),
+        Index("ix_agent_tasks_parent_task_id", "parent_task_id"),
+        Index("ix_agent_tasks_task_type_created_at", "task_type", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_type: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    priority: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=100, server_default=sql_text("100")
+    )
+    side_effect_level: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=AgentTaskSideEffectLevel.READ_ONLY.value,
+        server_default=sql_text("'read_only'"),
+    )
+    requires_approval: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=sql_text("false"),
+    )
+    parent_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    input_json: Mapped[dict] = mapped_column(
+        "input",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    result_json: Mapped[dict] = mapped_column(
+        "result",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    failure_artifact_path: Mapped[str | None] = mapped_column(Text)
+    attempts: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    locked_by: Mapped[str | None] = mapped_column(Text)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    workflow_version: Mapped[str] = mapped_column(
+        Text, nullable=False, default="v1", server_default=sql_text("'v1'")
+    )
+    tool_version: Mapped[str | None] = mapped_column(Text)
+    prompt_version: Mapped[str | None] = mapped_column(Text)
+    model: Mapped[str | None] = mapped_column(Text)
+    model_settings_json: Mapped[dict] = mapped_column(
+        "model_settings",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(Text)
+    approval_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentTaskDependency(Base):
+    __tablename__ = "agent_task_dependencies"
+    __table_args__ = (
+        CheckConstraint("task_id <> depends_on_task_id", name="ck_agent_task_dependencies_not_self"),
+        UniqueConstraint(
+            "task_id",
+            "depends_on_task_id",
+            name="uq_agent_task_dependencies_task_depends_on",
+        ),
+        Index("ix_agent_task_dependencies_depends_on_task_id", "depends_on_task_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    depends_on_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTaskAttempt(Base):
+    __tablename__ = "agent_task_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('processing', 'completed', 'failed', 'abandoned')",
+            name="ck_agent_task_attempts_status",
+        ),
+        UniqueConstraint("task_id", "attempt_number", name="uq_agent_task_attempts_task_attempt"),
+        Index("ix_agent_task_attempts_task_id", "task_id"),
+        Index("ix_agent_task_attempts_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    worker_id: Mapped[str | None] = mapped_column(Text)
+    input_json: Mapped[dict] = mapped_column(
+        "input",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    result_json: Mapped[dict] = mapped_column(
+        "result",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AgentTaskArtifact(Base):
+    __tablename__ = "agent_task_artifacts"
+    __table_args__ = (
+        Index("ix_agent_task_artifacts_task_id", "task_id"),
+        Index("ix_agent_task_artifacts_attempt_id", "attempt_id"),
+        Index("ix_agent_task_artifacts_artifact_kind", "artifact_kind"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    attempt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_attempts.id", ondelete="SET NULL"),
+    )
+    artifact_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_path: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
