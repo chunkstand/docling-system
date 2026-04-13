@@ -70,6 +70,7 @@ def postgres_integration_harness(monkeypatch, tmp_path) -> Generator[PostgresInt
     monkeypatch.setattr("app.services.evaluations.get_settings", lambda: settings_stub)
     monkeypatch.setattr("app.services.validation.get_settings", lambda: settings_stub)
     monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: None)
+    monkeypatch.setattr("app.services.storage.get_settings", lambda: settings_stub)
 
     def override_db_session() -> Generator[Session, None, None]:
         session = session_factory()
