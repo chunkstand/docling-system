@@ -809,6 +809,20 @@ class AgentTaskAttempt(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    cost_json: Mapped[dict] = mapped_column(
+        "cost",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    performance_json: Mapped[dict] = mapped_column(
+        "performance",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     error_message: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

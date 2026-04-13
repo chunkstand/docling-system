@@ -84,6 +84,92 @@ def _write_failure_artifact(
     return failure_path
 
 
+def _duration_ms(started_at: datetime | None, completed_at: datetime | None) -> float | None:
+    if started_at is None or completed_at is None:
+        return None
+    return max(0.0, (completed_at - started_at).total_seconds() * 1000.0)
+
+
+def _evaluation_query_count_from_evaluation(evaluation: dict) -> int:
+    return int(evaluation.get("total_shared_query_count") or 0)
+
+
+def _replay_query_count_from_evaluation(evaluation: dict) -> int:
+    return sum(
+        int(source.get("baseline_query_count") or 0) + int(source.get("candidate_query_count") or 0)
+        for source in (evaluation.get("sources") or [])
+        if isinstance(source, dict)
+    )
+
+
+def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
+    payload = (result or {}).get("payload") or result or {}
+    evaluation = payload.get("evaluation") or {}
+    verification = payload.get("verification") or {}
+    replay_run = payload.get("replay_run") or {}
+    replay = payload.get("replay") or {}
+
+    replay_query_count = 0
+    evaluation_query_count = 0
+    embedding_count = 0
+    call_count = 0
+
+    if task.task_type == "run_search_replay_suite":
+        replay_query_count = int(replay_run.get("query_count") or 0)
+        call_count = 1
+    elif task.task_type == "evaluate_search_harness":
+        replay_query_count = _replay_query_count_from_evaluation(evaluation)
+        evaluation_query_count = _evaluation_query_count_from_evaluation(evaluation)
+        call_count = max(len(evaluation.get("sources") or []), 1)
+    elif task.task_type == "triage_replay_regression":
+        replay_query_count = _replay_query_count_from_evaluation(evaluation)
+        evaluation_query_count = _evaluation_query_count_from_evaluation(evaluation)
+        call_count = max(len(evaluation.get("sources") or []), 1)
+    elif task.task_type in {"verify_search_harness_evaluation", "verify_draft_harness_config"}:
+        metrics = verification.get("metrics") or {}
+        evaluation_query_count = int(metrics.get("total_shared_query_count") or 0)
+        call_count = max(int(metrics.get("source_count") or 0), 1) if metrics else 0
+    elif task.task_type == "replay_search_request":
+        replay_query_count = 1 if replay else 0
+        call_count = 1 if replay else 0
+
+    return {
+        "provider": None,
+        "model": task.model,
+        "billing_status": "model_pricing_not_integrated",
+        "call_count": call_count,
+        "input_tokens": None,
+        "output_tokens": None,
+        "embedding_count": embedding_count,
+        "replay_query_count": replay_query_count,
+        "evaluation_query_count": evaluation_query_count,
+        "estimated_usd": 0.0,
+    }
+
+
+def _derive_attempt_performance(
+    task: AgentTask,
+    attempt: AgentTaskAttempt,
+    completed_at: datetime,
+) -> dict:
+    queue_latency_ms = _duration_ms(task.created_at, attempt.started_at)
+    execution_latency_ms = _duration_ms(attempt.started_at, completed_at)
+    approval_latency_ms = _duration_ms(task.created_at, task.approved_at)
+    end_to_end_latency_ms = _duration_ms(task.created_at, completed_at)
+    verification_latency_ms = (
+        execution_latency_ms
+        if task.task_type.startswith("verify_") or task.task_type == "triage_replay_regression"
+        else None
+    )
+    return {
+        "queue_latency_ms": queue_latency_ms,
+        "execution_latency_ms": execution_latency_ms,
+        "approval_latency_ms": approval_latency_ms,
+        "verification_latency_ms": verification_latency_ms,
+        "end_to_end_latency_ms": end_to_end_latency_ms,
+    }
+
+
 def unblock_ready_agent_tasks(session: Session) -> int:
     blocked_tasks = session.execute(
         select(AgentTask).where(AgentTask.status == AgentTaskStatus.BLOCKED.value)
@@ -254,6 +340,8 @@ def finalize_agent_task_success(
     if attempt is not None:
         attempt.status = "completed"
         attempt.result_json = result
+        attempt.cost_json = _derive_attempt_cost(task, result)
+        attempt.performance_json = _derive_attempt_performance(task, attempt, now)
         attempt.error_message = None
         attempt.completed_at = now
 
@@ -290,6 +378,8 @@ def finalize_agent_task_failure(
             "failure_type": exc.__class__.__name__,
             "failure_stage": failure_stage,
         }
+        attempt.cost_json = _derive_attempt_cost(task, attempt.result_json)
+        attempt.performance_json = _derive_attempt_performance(task, attempt, now)
         attempt.completed_at = now
 
     if is_retryable_agent_task_error(exc) and task.attempts < settings.worker_max_attempts:

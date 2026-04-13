@@ -21,8 +21,19 @@ from app.services.agent_tasks import (
     create_agent_task,
     create_agent_task_outcome,
     export_agent_task_traces,
+    get_agent_approval_trends,
     get_agent_task_analytics_summary,
+    get_agent_task_cost_summary,
+    get_agent_task_cost_trends,
+    get_agent_task_decision_signals,
     get_agent_task_detail,
+    get_agent_task_performance_summary,
+    get_agent_task_performance_trends,
+    get_agent_task_recommendation_summary,
+    get_agent_task_recommendation_trends,
+    get_agent_task_trends,
+    get_agent_task_value_density,
+    get_agent_verification_trends,
     list_agent_task_action_definitions,
     list_agent_task_outcomes,
     list_agent_task_workflow_summaries,
@@ -523,6 +534,184 @@ def run_agent_task_analytics() -> None:
     with session_factory() as session:
         payload = get_agent_task_analytics_summary(session)
     print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_trends() -> None:
+    parser = argparse.ArgumentParser(description="Show time-bucketed agent task trends.")
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_verification_trends() -> None:
+    parser = argparse.ArgumentParser(description="Show time-bucketed verifier trends.")
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_verification_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_approval_trends() -> None:
+    parser = argparse.ArgumentParser(
+        description="Show time-bucketed approval and rejection trends."
+    )
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_approval_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_recommendation_summary() -> None:
+    parser = argparse.ArgumentParser(description="Show recommendation success summary.")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_recommendation_summary(
+            session,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_recommendation_trends() -> None:
+    parser = argparse.ArgumentParser(description="Show recommendation success trends.")
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_recommendation_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_cost_summary() -> None:
+    parser = argparse.ArgumentParser(description="Show agent task cost summary.")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_cost_summary(
+            session,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_cost_trends() -> None:
+    parser = argparse.ArgumentParser(description="Show agent task cost trends.")
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_cost_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_performance_summary() -> None:
+    parser = argparse.ArgumentParser(description="Show agent task performance summary.")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_performance_summary(
+            session,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_performance_trends() -> None:
+    parser = argparse.ArgumentParser(description="Show agent task performance trends.")
+    parser.add_argument("--bucket", choices=["day", "week"], default="day")
+    parser.add_argument("--task-type", default=None)
+    parser.add_argument("--workflow-version", default=None)
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_performance_trends(
+            session,
+            bucket=args.bucket,
+            task_type=args.task_type,
+            workflow_version=args.workflow_version,
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_value_density() -> None:
+    parser = argparse.ArgumentParser(description="Show agent workflow value-density summaries.")
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_value_density(session)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_agent_task_decision_signals() -> None:
+    parser = argparse.ArgumentParser(description="Show workflow decision signals.")
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_agent_task_decision_signals(session)
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
 
 
 def run_agent_task_workflow_versions() -> None:

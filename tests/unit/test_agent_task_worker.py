@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.dialects import postgresql
 
-from app.db.models import AgentTask, AgentTaskStatus
+from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskStatus
 from app.services.agent_task_worker import (
     claim_next_agent_task,
     finalize_agent_task_failure,
@@ -231,3 +231,73 @@ def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path
     assert session.rollbacks == 0
     assert task.status == AgentTaskStatus.COMPLETED.value
     assert task.result_json["payload"]["candidate_count"] == 2
+
+
+def test_process_agent_task_records_attempt_cost_and_performance(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_id = uuid4()
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=task_id,
+        task_type="run_search_replay_suite",
+        status=AgentTaskStatus.PROCESSING.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={"source_type": "evaluation_queries"},
+        result_json={},
+        attempts=1,
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        started_at=now,
+        updated_at=now,
+    )
+    attempt = AgentTaskAttempt(
+        id=uuid4(),
+        task_id=task_id,
+        attempt_number=1,
+        status="processing",
+        worker_id="worker-1",
+        input_json=task.input_json,
+        result_json={},
+        cost_json={},
+        performance_json={},
+        created_at=now,
+        started_at=now,
+    )
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+
+    class FakeSession:
+        def __init__(self):
+            self.commits = 0
+            self.rollbacks = 0
+
+        def get(self, model, key):
+            return task if key == task_id else None
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.execute_agent_task_action",
+        lambda session, task: {
+            "task_type": task.task_type,
+            "payload": {"replay_run": {"query_count": 12}},
+        },
+    )
+    monkeypatch.setattr("app.services.agent_task_worker._current_attempt", lambda *args: attempt)
+
+    session = FakeSession()
+    process_agent_task(session, task_id, storage_service)
+
+    assert session.rollbacks == 0
+    assert attempt.status == "completed"
+    assert attempt.cost_json["replay_query_count"] == 12
+    assert attempt.cost_json["estimated_usd"] == 0.0
+    assert attempt.performance_json["execution_latency_ms"] is not None
+    assert attempt.performance_json["queue_latency_ms"] is not None

@@ -100,6 +100,59 @@ class AgentTaskOutcomeResponse(BaseModel):
     created_at: datetime
 
 
+class AgentTaskTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    created_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    awaiting_approval_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+
+
+class AgentTaskTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskVerificationTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    passed_count: int = 0
+    failed_count: int = 0
+    error_count: int = 0
+
+
+class AgentTaskVerificationTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskVerificationTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskApprovalTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    approval_count: int = 0
+    rejection_count: int = 0
+
+
+class AgentTaskApprovalTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskApprovalTrendPointResponse] = Field(default_factory=list)
+
+
 class AgentTaskAnalyticsSummaryResponse(BaseModel):
     task_count: int = 0
     completed_count: int = 0
@@ -128,6 +181,127 @@ class AgentTaskWorkflowVersionSummaryResponse(BaseModel):
     outcome_label_counts: dict[str, int] = Field(default_factory=dict)
     verification_outcome_counts: dict[str, int] = Field(default_factory=dict)
     avg_terminal_duration_seconds: float | None = None
+
+
+class AgentTaskRecommendationSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    recommendation_task_count: int = 0
+    draft_count: int = 0
+    verified_draft_count: int = 0
+    passed_verification_count: int = 0
+    approved_apply_count: int = 0
+    rejected_apply_count: int = 0
+    applied_count: int = 0
+    useful_label_count: int = 0
+    correct_label_count: int = 0
+    downstream_improved_count: int = 0
+    downstream_regressed_count: int = 0
+    triage_to_draft_rate: float | None = None
+    verification_pass_rate: float | None = None
+    apply_rate: float | None = None
+    downstream_improvement_rate: float | None = None
+
+
+class AgentTaskRecommendationTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    recommendation_task_count: int = 0
+    draft_count: int = 0
+    applied_count: int = 0
+    downstream_improved_count: int = 0
+    downstream_regressed_count: int = 0
+
+
+class AgentTaskRecommendationTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskRecommendationTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskCostSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    instrumented_attempt_count: int = 0
+    estimated_usd_total: float = 0.0
+    model_call_count: int = 0
+    embedding_count: int = 0
+    replay_query_count: int = 0
+    evaluation_query_count: int = 0
+
+
+class AgentTaskCostTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    estimated_usd_total: float = 0.0
+    replay_query_count: int = 0
+    evaluation_query_count: int = 0
+    embedding_count: int = 0
+
+
+class AgentTaskCostTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskCostTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskPerformanceSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    instrumented_attempt_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+    median_end_to_end_latency_ms: float | None = None
+    p95_end_to_end_latency_ms: float | None = None
+
+
+class AgentTaskPerformanceTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+
+
+class AgentTaskPerformanceTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskPerformanceTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskValueDensityRowResponse(BaseModel):
+    task_type: str
+    workflow_version: str
+    recommendation_task_count: int = 0
+    downstream_improved_count: int = 0
+    estimated_usd_total: float = 0.0
+    median_end_to_end_latency_ms: float | None = None
+    useful_recommendation_rate: float | None = None
+    downstream_improvement_rate: float | None = None
+    improvements_per_dollar: float | None = None
+    improvements_per_hour: float | None = None
+
+
+class AgentTaskDecisionSignalResponse(BaseModel):
+    task_type: str
+    workflow_version: str
+    status: str
+    reason: str
+    threshold_crossed: str
+    recommended_action: str
 
 
 class AgentTaskDetailResponse(AgentTaskSummaryResponse):

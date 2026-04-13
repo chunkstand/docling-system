@@ -16,15 +16,26 @@ from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
     AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalRequest,
+    AgentTaskApprovalTrendResponse,
     AgentTaskArtifactResponse,
+    AgentTaskCostSummaryResponse,
+    AgentTaskCostTrendResponse,
     AgentTaskCreateRequest,
+    AgentTaskDecisionSignalResponse,
     AgentTaskDetailResponse,
     AgentTaskOutcomeCreateRequest,
     AgentTaskOutcomeResponse,
+    AgentTaskPerformanceSummaryResponse,
+    AgentTaskPerformanceTrendResponse,
+    AgentTaskRecommendationSummaryResponse,
+    AgentTaskRecommendationTrendResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
     AgentTaskTraceExportResponse,
+    AgentTaskTrendResponse,
+    AgentTaskValueDensityRowResponse,
     AgentTaskVerificationResponse,
+    AgentTaskVerificationTrendResponse,
     AgentTaskWorkflowVersionSummaryResponse,
 )
 from app.schemas.chat import (
@@ -72,8 +83,19 @@ from app.services.agent_tasks import (
     create_agent_task,
     create_agent_task_outcome,
     export_agent_task_traces,
+    get_agent_approval_trends,
     get_agent_task_analytics_summary,
+    get_agent_task_cost_summary,
+    get_agent_task_cost_trends,
+    get_agent_task_decision_signals,
     get_agent_task_detail,
+    get_agent_task_performance_summary,
+    get_agent_task_performance_trends,
+    get_agent_task_recommendation_summary,
+    get_agent_task_recommendation_trends,
+    get_agent_task_trends,
+    get_agent_task_value_density,
+    get_agent_verification_trends,
     list_agent_task_action_definitions,
     list_agent_task_outcomes,
     list_agent_task_workflow_summaries,
@@ -213,6 +235,170 @@ def read_agent_task_analytics_summary(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskAnalyticsSummaryResponse:
     return get_agent_task_analytics_summary(session)
+
+
+@app.get("/agent-tasks/analytics/trends", response_model=AgentTaskTrendResponse)
+def read_agent_task_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskTrendResponse:
+    return get_agent_task_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/verifications",
+    response_model=AgentTaskVerificationTrendResponse,
+)
+def read_agent_task_verification_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskVerificationTrendResponse:
+    return get_agent_verification_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get("/agent-tasks/analytics/approvals", response_model=AgentTaskApprovalTrendResponse)
+def read_agent_task_approval_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskApprovalTrendResponse:
+    return get_agent_approval_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/recommendations",
+    response_model=AgentTaskRecommendationSummaryResponse,
+)
+def read_agent_task_recommendation_summary(
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskRecommendationSummaryResponse:
+    return get_agent_task_recommendation_summary(
+        session,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/recommendations/trends",
+    response_model=AgentTaskRecommendationTrendResponse,
+)
+def read_agent_task_recommendation_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskRecommendationTrendResponse:
+    return get_agent_task_recommendation_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get("/agent-tasks/analytics/costs", response_model=AgentTaskCostSummaryResponse)
+def read_agent_task_cost_summary(
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskCostSummaryResponse:
+    return get_agent_task_cost_summary(
+        session,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get("/agent-tasks/analytics/costs/trends", response_model=AgentTaskCostTrendResponse)
+def read_agent_task_cost_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskCostTrendResponse:
+    return get_agent_task_cost_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/performance",
+    response_model=AgentTaskPerformanceSummaryResponse,
+)
+def read_agent_task_performance_summary(
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskPerformanceSummaryResponse:
+    return get_agent_task_performance_summary(
+        session,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/performance/trends",
+    response_model=AgentTaskPerformanceTrendResponse,
+)
+def read_agent_task_performance_trends(
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskPerformanceTrendResponse:
+    return get_agent_task_performance_trends(
+        session,
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+
+
+@app.get(
+    "/agent-tasks/analytics/value-density",
+    response_model=list[AgentTaskValueDensityRowResponse],
+)
+def read_agent_task_value_density(
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskValueDensityRowResponse]:
+    return get_agent_task_value_density(session)
+
+
+@app.get(
+    "/agent-tasks/analytics/decision-signals",
+    response_model=list[AgentTaskDecisionSignalResponse],
+)
+def read_agent_task_decision_signals(
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskDecisionSignalResponse]:
+    return get_agent_task_decision_signals(session)
 
 
 @app.get(

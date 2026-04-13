@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
+from math import ceil
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -12,23 +13,42 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskAttempt,
     AgentTaskDependency,
     AgentTaskOutcome,
     AgentTaskStatus,
     AgentTaskVerification,
+    AgentTaskVerificationOutcome,
 )
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
     AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalRequest,
+    AgentTaskApprovalTrendPointResponse,
+    AgentTaskApprovalTrendResponse,
     AgentTaskArtifactResponse,
+    AgentTaskCostSummaryResponse,
+    AgentTaskCostTrendPointResponse,
+    AgentTaskCostTrendResponse,
     AgentTaskCreateRequest,
+    AgentTaskDecisionSignalResponse,
     AgentTaskDetailResponse,
     AgentTaskOutcomeCreateRequest,
     AgentTaskOutcomeResponse,
+    AgentTaskPerformanceSummaryResponse,
+    AgentTaskPerformanceTrendPointResponse,
+    AgentTaskPerformanceTrendResponse,
+    AgentTaskRecommendationSummaryResponse,
+    AgentTaskRecommendationTrendPointResponse,
+    AgentTaskRecommendationTrendResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
     AgentTaskTraceExportResponse,
+    AgentTaskTrendPointResponse,
+    AgentTaskTrendResponse,
+    AgentTaskValueDensityRowResponse,
+    AgentTaskVerificationTrendPointResponse,
+    AgentTaskVerificationTrendResponse,
     AgentTaskWorkflowVersionSummaryResponse,
 )
 from app.services.agent_task_artifacts import list_agent_task_artifacts
@@ -450,6 +470,230 @@ def _average_terminal_duration_seconds(tasks: list[AgentTask]) -> float | None:
     return sum(durations) / len(durations)
 
 
+def _task_duration_ms(started_at: datetime | None, completed_at: datetime | None) -> float | None:
+    if started_at is None or completed_at is None:
+        return None
+    return max(0.0, (completed_at - started_at).total_seconds() * 1000.0)
+
+
+def _percentile(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return ordered[0]
+    index = max(0, min(len(ordered) - 1, ceil(percentile * len(ordered)) - 1))
+    return ordered[index]
+
+
+def _median(values: list[float]) -> float | None:
+    return _percentile(values, 0.5)
+
+
+def _bucket_start(value: datetime, bucket: str) -> datetime:
+    if bucket == "week":
+        start_date: date = value.date() - timedelta(days=value.weekday())
+    else:
+        start_date = value.date()
+    return datetime.combine(start_date, datetime.min.time(), tzinfo=UTC)
+
+
+def _list_task_attempt_rows(session: Session) -> list[AgentTaskAttempt]:
+    return session.execute(select(AgentTaskAttempt)).scalars().all()
+
+
+def _filter_task_rows(
+    tasks: list[AgentTask],
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> list[AgentTask]:
+    rows = tasks
+    if task_type is not None:
+        rows = [task for task in rows if task.task_type == task_type]
+    if workflow_version is not None:
+        rows = [task for task in rows if task.workflow_version == workflow_version]
+    return rows
+
+
+def _task_ids(tasks: list[AgentTask]) -> set[UUID]:
+    return {task.id for task in tasks}
+
+
+def _is_recommendation_task(task: AgentTask) -> bool:
+    return task.task_type == "triage_replay_regression" or bool(
+        (task.result_json or {}).get("recommendation")
+    )
+
+
+def _task_input_task_id(task: AgentTask, key: str) -> UUID | None:
+    raw_value = (task.input_json or {}).get(key)
+    if not raw_value:
+        return None
+    try:
+        return UUID(str(raw_value))
+    except ValueError:
+        return None
+
+
+def _attempt_group_values(
+    attempts: list[AgentTaskAttempt],
+    task_lookup: dict[UUID, AgentTask],
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> list[tuple[AgentTaskAttempt, AgentTask]]:
+    rows: list[tuple[AgentTaskAttempt, AgentTask]] = []
+    for attempt in attempts:
+        task = task_lookup.get(attempt.task_id)
+        if task is None:
+            continue
+        if task_type is not None and task.task_type != task_type:
+            continue
+        if workflow_version is not None and task.workflow_version != workflow_version:
+            continue
+        rows.append((attempt, task))
+    return rows
+
+
+def _float_value(payload: dict, key: str) -> float:
+    try:
+        return float(payload.get(key) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _int_value(payload: dict, key: str) -> int:
+    try:
+        return int(payload.get(key) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _recommendation_summary_from_tasks(
+    tasks: list[AgentTask],
+    outcomes: list[AgentTaskOutcome],
+) -> AgentTaskRecommendationSummaryResponse:
+    recommendation_tasks = [task for task in tasks if _is_recommendation_task(task)]
+    task_by_id = {task.id: task for task in tasks}
+    drafts_by_source: dict[UUID, list[AgentTask]] = defaultdict(list)
+    verifications_by_draft: dict[UUID, list[AgentTask]] = defaultdict(list)
+    applies_by_draft: dict[UUID, list[AgentTask]] = defaultdict(list)
+
+    for task in tasks:
+        source_task_id = _task_input_task_id(task, "source_task_id")
+        target_task_id = _task_input_task_id(task, "target_task_id")
+        draft_task_id = _task_input_task_id(task, "draft_task_id")
+        if source_task_id is not None and task.task_type == "draft_harness_config_update":
+            drafts_by_source[source_task_id].append(task)
+        if target_task_id is not None and task.task_type == "verify_draft_harness_config":
+            verifications_by_draft[target_task_id].append(task)
+        if draft_task_id is not None and task.task_type == "apply_harness_config_update":
+            applies_by_draft[draft_task_id].append(task)
+
+    outcomes_by_task_id: dict[UUID, list[AgentTaskOutcome]] = defaultdict(list)
+    for row in outcomes:
+        if row.task_id in task_by_id:
+            outcomes_by_task_id[row.task_id].append(row)
+
+    draft_count = 0
+    verified_draft_count = 0
+    passed_verification_count = 0
+    approved_apply_count = 0
+    rejected_apply_count = 0
+    applied_count = 0
+    useful_label_count = 0
+    correct_label_count = 0
+    downstream_improved_count = 0
+    downstream_regressed_count = 0
+
+    for recommendation_task in recommendation_tasks:
+        draft_tasks = drafts_by_source.get(recommendation_task.id, [])
+        if draft_tasks:
+            draft_count += 1
+
+        positive_labels = outcomes_by_task_id.get(recommendation_task.id, [])
+        useful_label_count += sum(
+            1 for row in positive_labels if row.outcome_label == "useful"
+        )
+        correct_label_count += sum(
+            1 for row in positive_labels if row.outcome_label == "correct"
+        )
+
+        saw_improvement = False
+        saw_regression = False
+        for draft_task in draft_tasks:
+            verification_tasks = verifications_by_draft.get(draft_task.id, [])
+            if verification_tasks:
+                verified_draft_count += 1
+            passed_tasks = []
+            for verification_task in verification_tasks:
+                verification = (((verification_task.result_json or {}).get("payload") or {}).get(
+                    "verification"
+                ) or {})
+                if verification.get("outcome") == AgentTaskVerificationOutcome.PASSED.value:
+                    passed_tasks.append(verification_task)
+                    metrics = verification.get("metrics") or {}
+                    if _int_value(metrics, "total_improved_count") > _int_value(
+                        metrics, "total_regressed_count"
+                    ):
+                        saw_improvement = True
+                    if _int_value(metrics, "total_regressed_count") > 0:
+                        saw_regression = True
+                elif verification.get("outcome") == AgentTaskVerificationOutcome.FAILED.value:
+                    saw_regression = True
+            if passed_tasks:
+                passed_verification_count += 1
+
+            apply_tasks = applies_by_draft.get(draft_task.id, [])
+            if any(task.approved_at is not None for task in apply_tasks):
+                approved_apply_count += 1
+            if any(task.rejected_at is not None for task in apply_tasks):
+                rejected_apply_count += 1
+            if any(task.status == AgentTaskStatus.COMPLETED.value for task in apply_tasks):
+                applied_count += 1
+            for apply_task in apply_tasks:
+                apply_outcomes = outcomes_by_task_id.get(apply_task.id, [])
+                if any(row.outcome_label in {"useful", "correct"} for row in apply_outcomes):
+                    saw_improvement = True
+                if any(
+                    row.outcome_label in {"not_useful", "incorrect"} for row in apply_outcomes
+                ):
+                    saw_regression = True
+
+        if saw_improvement:
+            downstream_improved_count += 1
+        if saw_regression:
+            downstream_regressed_count += 1
+
+    recommendation_task_count = len(recommendation_tasks)
+    return AgentTaskRecommendationSummaryResponse(
+        recommendation_task_count=recommendation_task_count,
+        draft_count=draft_count,
+        verified_draft_count=verified_draft_count,
+        passed_verification_count=passed_verification_count,
+        approved_apply_count=approved_apply_count,
+        rejected_apply_count=rejected_apply_count,
+        applied_count=applied_count,
+        useful_label_count=useful_label_count,
+        correct_label_count=correct_label_count,
+        downstream_improved_count=downstream_improved_count,
+        downstream_regressed_count=downstream_regressed_count,
+        triage_to_draft_rate=(
+            draft_count / recommendation_task_count if recommendation_task_count else None
+        ),
+        verification_pass_rate=(
+            passed_verification_count / verified_draft_count if verified_draft_count else None
+        ),
+        apply_rate=(applied_count / draft_count if draft_count else None),
+        downstream_improvement_rate=(
+            downstream_improved_count / recommendation_task_count
+            if recommendation_task_count
+            else None
+        ),
+    )
+
+
 def get_agent_task_analytics_summary(session: Session) -> AgentTaskAnalyticsSummaryResponse:
     tasks = session.execute(select(AgentTask)).scalars().all()
     outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
@@ -535,6 +779,520 @@ def list_agent_task_workflow_summaries(
         )
     summaries.sort(key=lambda row: (-row.task_count, row.workflow_version))
     return summaries
+
+
+def get_agent_task_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskTrendResponse:
+    tasks = _filter_task_rows(
+        session.execute(select(AgentTask)).scalars().all(),
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    attempts = _attempt_group_values(
+        _list_task_attempt_rows(session),
+        {task.id: task for task in tasks},
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    bucket_rows: dict[datetime, dict] = defaultdict(
+        lambda: {
+            "created_count": 0,
+            "completed_count": 0,
+            "failed_count": 0,
+            "rejected_count": 0,
+            "awaiting_approval_count": 0,
+            "queue_latencies": [],
+            "execution_latencies": [],
+        }
+    )
+    for task in tasks:
+        bucket_key = _bucket_start(task.created_at, bucket)
+        row = bucket_rows[bucket_key]
+        row["created_count"] += 1
+        if task.status == AgentTaskStatus.COMPLETED.value:
+            row["completed_count"] += 1
+        elif task.status == AgentTaskStatus.FAILED.value:
+            row["failed_count"] += 1
+        elif task.status == AgentTaskStatus.REJECTED.value:
+            row["rejected_count"] += 1
+        elif task.status == AgentTaskStatus.AWAITING_APPROVAL.value:
+            row["awaiting_approval_count"] += 1
+    for attempt, _task in attempts:
+        bucket_key = _bucket_start(task.created_at, bucket)
+        performance = attempt.performance_json or {}
+        queue_latency_ms = _float_value(performance, "queue_latency_ms")
+        execution_latency_ms = _float_value(performance, "execution_latency_ms")
+        if queue_latency_ms > 0:
+            bucket_rows[bucket_key]["queue_latencies"].append(queue_latency_ms)
+        if execution_latency_ms > 0:
+            bucket_rows[bucket_key]["execution_latencies"].append(execution_latency_ms)
+
+    series = [
+        AgentTaskTrendPointResponse(
+            bucket_start=bucket_key,
+            task_type=task_type,
+            workflow_version=workflow_version,
+            created_count=values["created_count"],
+            completed_count=values["completed_count"],
+            failed_count=values["failed_count"],
+            rejected_count=values["rejected_count"],
+            awaiting_approval_count=values["awaiting_approval_count"],
+            median_queue_latency_ms=_median(values["queue_latencies"]),
+            p95_queue_latency_ms=_percentile(values["queue_latencies"], 0.95),
+            median_execution_latency_ms=_median(values["execution_latencies"]),
+            p95_execution_latency_ms=_percentile(values["execution_latencies"], 0.95),
+        )
+        for bucket_key, values in sorted(bucket_rows.items())
+    ]
+    return AgentTaskTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=series,
+    )
+
+
+def get_agent_verification_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskVerificationTrendResponse:
+    tasks = _filter_task_rows(
+        session.execute(select(AgentTask)).scalars().all(),
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    task_lookup = {task.id: task for task in tasks}
+    bucket_rows: dict[datetime, dict] = defaultdict(
+        lambda: {"passed_count": 0, "failed_count": 0, "error_count": 0}
+    )
+    for row in session.execute(select(AgentTaskVerification)).scalars().all():
+        task = task_lookup.get(row.target_task_id)
+        if task is None:
+            continue
+        bucket_key = _bucket_start(row.created_at, bucket)
+        if row.outcome == AgentTaskVerificationOutcome.PASSED.value:
+            bucket_rows[bucket_key]["passed_count"] += 1
+        elif row.outcome == AgentTaskVerificationOutcome.FAILED.value:
+            bucket_rows[bucket_key]["failed_count"] += 1
+        else:
+            bucket_rows[bucket_key]["error_count"] += 1
+    return AgentTaskVerificationTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=[
+            AgentTaskVerificationTrendPointResponse(
+                bucket_start=bucket_key,
+                task_type=task_type,
+                workflow_version=workflow_version,
+                **values,
+            )
+            for bucket_key, values in sorted(bucket_rows.items())
+        ],
+    )
+
+
+def get_agent_approval_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskApprovalTrendResponse:
+    tasks = _filter_task_rows(
+        session.execute(select(AgentTask)).scalars().all(),
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    bucket_rows: dict[datetime, dict] = defaultdict(
+        lambda: {"approval_count": 0, "rejection_count": 0}
+    )
+    for task in tasks:
+        if task.approved_at is not None:
+            bucket_rows[_bucket_start(task.approved_at, bucket)]["approval_count"] += 1
+        if task.rejected_at is not None:
+            bucket_rows[_bucket_start(task.rejected_at, bucket)]["rejection_count"] += 1
+    return AgentTaskApprovalTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=[
+            AgentTaskApprovalTrendPointResponse(
+                bucket_start=bucket_key,
+                task_type=task_type,
+                workflow_version=workflow_version,
+                **values,
+            )
+            for bucket_key, values in sorted(bucket_rows.items())
+        ],
+    )
+
+
+def get_agent_task_recommendation_summary(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskRecommendationSummaryResponse:
+    tasks = _filter_task_rows(
+        session.execute(select(AgentTask)).scalars().all(),
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    summary = _recommendation_summary_from_tasks(tasks, outcomes)
+    summary.task_type = task_type
+    summary.workflow_version = workflow_version
+    return summary
+
+
+def get_agent_task_recommendation_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskRecommendationTrendResponse:
+    tasks = _filter_task_rows(
+        session.execute(select(AgentTask)).scalars().all(),
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    bucket_rows: dict[datetime, list[AgentTask]] = defaultdict(list)
+    for task in tasks:
+        if _is_recommendation_task(task):
+            bucket_rows[_bucket_start(task.created_at, bucket)].append(task)
+    series: list[AgentTaskRecommendationTrendPointResponse] = []
+    for bucket_key, bucket_tasks in sorted(bucket_rows.items()):
+        task_ids = _task_ids(bucket_tasks)
+        draft_ids = {
+            task.id
+            for task in tasks
+            if _task_input_task_id(task, "source_task_id") in task_ids
+        }
+        related_tasks = [
+            task
+            for task in tasks
+            if task.id in task_ids
+            or _task_input_task_id(task, "source_task_id") in task_ids
+            or _task_input_task_id(task, "target_task_id") in draft_ids
+            or _task_input_task_id(task, "draft_task_id") in draft_ids
+        ]
+        summary = _recommendation_summary_from_tasks(related_tasks, outcomes)
+        series.append(
+            AgentTaskRecommendationTrendPointResponse(
+                bucket_start=bucket_key,
+                task_type=task_type,
+                workflow_version=workflow_version,
+                recommendation_task_count=summary.recommendation_task_count,
+                draft_count=summary.draft_count,
+                applied_count=summary.applied_count,
+                downstream_improved_count=summary.downstream_improved_count,
+                downstream_regressed_count=summary.downstream_regressed_count,
+            )
+        )
+    return AgentTaskRecommendationTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=series,
+    )
+
+
+def get_agent_task_cost_summary(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskCostSummaryResponse:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    task_lookup = {task.id: task for task in tasks}
+    attempts = _attempt_group_values(
+        _list_task_attempt_rows(session),
+        task_lookup,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    instrumented_attempt_count = 0
+    estimated_usd_total = 0.0
+    model_call_count = 0
+    embedding_count = 0
+    replay_query_count = 0
+    evaluation_query_count = 0
+    for attempt, _task in attempts:
+        cost = attempt.cost_json or {}
+        if cost:
+            instrumented_attempt_count += 1
+        estimated_usd_total += _float_value(cost, "estimated_usd")
+        model_call_count += _int_value(cost, "call_count")
+        embedding_count += _int_value(cost, "embedding_count")
+        replay_query_count += _int_value(cost, "replay_query_count")
+        evaluation_query_count += _int_value(cost, "evaluation_query_count")
+    return AgentTaskCostSummaryResponse(
+        task_type=task_type,
+        workflow_version=workflow_version,
+        attempt_count=len(attempts),
+        instrumented_attempt_count=instrumented_attempt_count,
+        estimated_usd_total=estimated_usd_total,
+        model_call_count=model_call_count,
+        embedding_count=embedding_count,
+        replay_query_count=replay_query_count,
+        evaluation_query_count=evaluation_query_count,
+    )
+
+
+def get_agent_task_cost_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskCostTrendResponse:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    task_lookup = {task.id: task for task in tasks}
+    attempts = _attempt_group_values(
+        _list_task_attempt_rows(session),
+        task_lookup,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    bucket_rows: dict[datetime, dict] = defaultdict(
+        lambda: {
+            "attempt_count": 0,
+            "estimated_usd_total": 0.0,
+            "replay_query_count": 0,
+            "evaluation_query_count": 0,
+            "embedding_count": 0,
+        }
+    )
+    for attempt, _task in attempts:
+        row = bucket_rows[_bucket_start(attempt.created_at, bucket)]
+        row["attempt_count"] += 1
+        cost = attempt.cost_json or {}
+        row["estimated_usd_total"] += _float_value(cost, "estimated_usd")
+        row["replay_query_count"] += _int_value(cost, "replay_query_count")
+        row["evaluation_query_count"] += _int_value(cost, "evaluation_query_count")
+        row["embedding_count"] += _int_value(cost, "embedding_count")
+    return AgentTaskCostTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=[
+            AgentTaskCostTrendPointResponse(
+                bucket_start=bucket_key,
+                task_type=task_type,
+                workflow_version=workflow_version,
+                **values,
+            )
+            for bucket_key, values in sorted(bucket_rows.items())
+        ],
+    )
+
+
+def get_agent_task_performance_summary(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskPerformanceSummaryResponse:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    task_lookup = {task.id: task for task in tasks}
+    attempts = _attempt_group_values(
+        _list_task_attempt_rows(session),
+        task_lookup,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    queue_latencies: list[float] = []
+    execution_latencies: list[float] = []
+    end_to_end_latencies: list[float] = []
+    instrumented_attempt_count = 0
+    for attempt, _task in attempts:
+        performance = attempt.performance_json or {}
+        if performance:
+            instrumented_attempt_count += 1
+        queue_latency = _float_value(performance, "queue_latency_ms")
+        execution_latency = _float_value(performance, "execution_latency_ms")
+        end_to_end_latency = _float_value(performance, "end_to_end_latency_ms")
+        if queue_latency > 0:
+            queue_latencies.append(queue_latency)
+        if execution_latency > 0:
+            execution_latencies.append(execution_latency)
+        if end_to_end_latency > 0:
+            end_to_end_latencies.append(end_to_end_latency)
+    return AgentTaskPerformanceSummaryResponse(
+        task_type=task_type,
+        workflow_version=workflow_version,
+        attempt_count=len(attempts),
+        instrumented_attempt_count=instrumented_attempt_count,
+        median_queue_latency_ms=_median(queue_latencies),
+        p95_queue_latency_ms=_percentile(queue_latencies, 0.95),
+        median_execution_latency_ms=_median(execution_latencies),
+        p95_execution_latency_ms=_percentile(execution_latencies, 0.95),
+        median_end_to_end_latency_ms=_median(end_to_end_latencies),
+        p95_end_to_end_latency_ms=_percentile(end_to_end_latencies, 0.95),
+    )
+
+
+def get_agent_task_performance_trends(
+    session: Session,
+    *,
+    bucket: str = "day",
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> AgentTaskPerformanceTrendResponse:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    task_lookup = {task.id: task for task in tasks}
+    attempts = _attempt_group_values(
+        _list_task_attempt_rows(session),
+        task_lookup,
+        task_type=task_type,
+        workflow_version=workflow_version,
+    )
+    bucket_rows: dict[datetime, dict] = defaultdict(
+        lambda: {
+            "attempt_count": 0,
+            "queue_latencies": [],
+            "execution_latencies": [],
+        }
+    )
+    for attempt, _task in attempts:
+        row = bucket_rows[_bucket_start(attempt.created_at, bucket)]
+        row["attempt_count"] += 1
+        performance = attempt.performance_json or {}
+        queue_latency = _float_value(performance, "queue_latency_ms")
+        execution_latency = _float_value(performance, "execution_latency_ms")
+        if queue_latency > 0:
+            row["queue_latencies"].append(queue_latency)
+        if execution_latency > 0:
+            row["execution_latencies"].append(execution_latency)
+    return AgentTaskPerformanceTrendResponse(
+        bucket=bucket,
+        task_type=task_type,
+        workflow_version=workflow_version,
+        series=[
+            AgentTaskPerformanceTrendPointResponse(
+                bucket_start=bucket_key,
+                task_type=task_type,
+                workflow_version=workflow_version,
+                attempt_count=values["attempt_count"],
+                median_queue_latency_ms=_median(values["queue_latencies"]),
+                p95_queue_latency_ms=_percentile(values["queue_latencies"], 0.95),
+                median_execution_latency_ms=_median(values["execution_latencies"]),
+                p95_execution_latency_ms=_percentile(values["execution_latencies"], 0.95),
+            )
+            for bucket_key, values in sorted(bucket_rows.items())
+        ],
+    )
+
+
+def get_agent_task_value_density(
+    session: Session,
+) -> list[AgentTaskValueDensityRowResponse]:
+    tasks = session.execute(select(AgentTask)).scalars().all()
+    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    rows: list[AgentTaskValueDensityRowResponse] = []
+    grouped_tasks: dict[tuple[str, str], list[AgentTask]] = defaultdict(list)
+    for task in tasks:
+        if _is_recommendation_task(task):
+            grouped_tasks[(task.task_type, task.workflow_version)].append(task)
+    for (task_type, workflow_version), grouped in sorted(grouped_tasks.items()):
+        recommendation_summary = _recommendation_summary_from_tasks(grouped, outcomes)
+        performance_summary = get_agent_task_performance_summary(
+            session,
+            task_type=task_type,
+            workflow_version=workflow_version,
+        )
+        cost_summary = get_agent_task_cost_summary(
+            session,
+            task_type=task_type,
+            workflow_version=workflow_version,
+        )
+        total_hours = (
+            (performance_summary.median_end_to_end_latency_ms or 0.0) / 1000.0 / 3600.0
+        ) * max(recommendation_summary.recommendation_task_count, 1)
+        improvements = recommendation_summary.downstream_improved_count
+        rows.append(
+            AgentTaskValueDensityRowResponse(
+                task_type=task_type,
+                workflow_version=workflow_version,
+                recommendation_task_count=recommendation_summary.recommendation_task_count,
+                downstream_improved_count=improvements,
+                estimated_usd_total=cost_summary.estimated_usd_total,
+                median_end_to_end_latency_ms=performance_summary.median_end_to_end_latency_ms,
+                useful_recommendation_rate=(
+                    recommendation_summary.useful_label_count
+                    / recommendation_summary.recommendation_task_count
+                    if recommendation_summary.recommendation_task_count
+                    else None
+                ),
+                downstream_improvement_rate=recommendation_summary.downstream_improvement_rate,
+                improvements_per_dollar=(
+                    improvements / cost_summary.estimated_usd_total
+                    if cost_summary.estimated_usd_total > 0
+                    else None
+                ),
+                improvements_per_hour=(
+                    improvements / total_hours if total_hours > 0 else None
+                ),
+            )
+        )
+    return rows
+
+
+def get_agent_task_decision_signals(
+    session: Session,
+) -> list[AgentTaskDecisionSignalResponse]:
+    rows: list[AgentTaskDecisionSignalResponse] = []
+    for value_row in get_agent_task_value_density(session):
+        if value_row.recommendation_task_count == 0:
+            continue
+        if (value_row.downstream_improvement_rate or 0.0) < 0.4:
+            rows.append(
+                AgentTaskDecisionSignalResponse(
+                    task_type=value_row.task_type,
+                    workflow_version=value_row.workflow_version,
+                    status="degraded",
+                    reason="Downstream improvement rate is below 40%.",
+                    threshold_crossed="downstream_improvement_rate<0.40",
+                    recommended_action="Review recommendation thresholds and verifier gating.",
+                )
+            )
+        elif (
+            value_row.median_end_to_end_latency_ms is not None
+            and value_row.median_end_to_end_latency_ms > 60_000
+        ):
+            rows.append(
+                AgentTaskDecisionSignalResponse(
+                    task_type=value_row.task_type,
+                    workflow_version=value_row.workflow_version,
+                    status="watch",
+                    reason="Median end-to-end latency exceeds 60 seconds.",
+                    threshold_crossed="median_end_to_end_latency_ms>60000",
+                    recommended_action="Investigate queue, replay, or verification bottlenecks.",
+                )
+            )
+        else:
+            rows.append(
+                AgentTaskDecisionSignalResponse(
+                    task_type=value_row.task_type,
+                    workflow_version=value_row.workflow_version,
+                    status="healthy",
+                    reason="Recommendation quality and latency are within current thresholds.",
+                    threshold_crossed="none",
+                    recommended_action="Continue collecting outcome labels and replay evidence.",
+                )
+            )
+    return rows
 
 
 def export_agent_task_traces(

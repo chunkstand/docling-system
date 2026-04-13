@@ -11,6 +11,7 @@ from sqlalchemy import select
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskAttempt,
     AgentTaskStatus,
     AgentTaskVerification,
     Document,
@@ -752,6 +753,14 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         apply_payload = apply_task_row.result_json["payload"]
         assert apply_payload["draft_harness_name"] == "wide_v2_review_integration"
         assert Path(apply_payload["config_path"]).exists()
+        apply_attempt = session.execute(
+            select(AgentTaskAttempt)
+            .where(AgentTaskAttempt.task_id == apply_task_id)
+            .order_by(AgentTaskAttempt.attempt_number.desc())
+        ).scalars().first()
+        assert apply_attempt is not None
+        assert apply_attempt.cost_json["estimated_usd"] == 0.0
+        assert apply_attempt.performance_json["execution_latency_ms"] is not None
 
     harnesses_response = client.get("/search/harnesses")
     assert harnesses_response.status_code == 200
@@ -783,3 +792,45 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     detail = detail_response.json()
     assert detail["harness_name"] == "wide_v2_review_integration"
     assert detail["harness_config"]["base_harness_name"] == "wide_v2"
+
+    recommendation_summary_response = client.get(
+        "/agent-tasks/analytics/recommendations?workflow_version=milestone8_integration"
+    )
+    assert recommendation_summary_response.status_code == 200
+    recommendation_summary = recommendation_summary_response.json()
+    assert recommendation_summary["recommendation_task_count"] >= 1
+    assert recommendation_summary["draft_count"] >= 1
+    assert recommendation_summary["passed_verification_count"] >= 1
+    assert recommendation_summary["applied_count"] >= 1
+
+    trends_response = client.get(
+        "/agent-tasks/analytics/trends?workflow_version=milestone8_integration"
+    )
+    assert trends_response.status_code == 200
+    assert trends_response.json()["series"]
+
+    cost_summary_response = client.get(
+        "/agent-tasks/analytics/costs?workflow_version=milestone8_integration"
+    )
+    assert cost_summary_response.status_code == 200
+    assert cost_summary_response.json()["attempt_count"] >= 4
+
+    performance_summary_response = client.get(
+        "/agent-tasks/analytics/performance?workflow_version=milestone8_integration"
+    )
+    assert performance_summary_response.status_code == 200
+    assert performance_summary_response.json()["median_execution_latency_ms"] is not None
+
+    value_density_response = client.get("/agent-tasks/analytics/value-density")
+    assert value_density_response.status_code == 200
+    assert any(
+        row["workflow_version"] == "milestone8_integration"
+        for row in value_density_response.json()
+    )
+
+    decision_signals_response = client.get("/agent-tasks/analytics/decision-signals")
+    assert decision_signals_response.status_code == 200
+    assert any(
+        row["workflow_version"] == "milestone8_integration"
+        for row in decision_signals_response.json()
+    )

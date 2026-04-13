@@ -14,7 +14,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
-The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, and failure artifacts. A separate agent worker can execute registry-backed task types. Most current actions are read-only and focused on evaluation, replay, and harness-analysis flows, with one approval-gated promotable action for queuing document reprocess runs.
+The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
 ## Current Contracts
 
@@ -163,6 +163,17 @@ Local path ingest policy:
 - `GET /agent-tasks`
 - `POST /agent-tasks`
 - `GET /agent-tasks/analytics/summary`
+- `GET /agent-tasks/analytics/trends`
+- `GET /agent-tasks/analytics/verifications`
+- `GET /agent-tasks/analytics/approvals`
+- `GET /agent-tasks/analytics/recommendations`
+- `GET /agent-tasks/analytics/recommendations/trends`
+- `GET /agent-tasks/analytics/costs`
+- `GET /agent-tasks/analytics/costs/trends`
+- `GET /agent-tasks/analytics/performance`
+- `GET /agent-tasks/analytics/performance/trends`
+- `GET /agent-tasks/analytics/value-density`
+- `GET /agent-tasks/analytics/decision-signals`
 - `GET /agent-tasks/analytics/workflow-versions`
 - `GET /agent-tasks/traces/export`
 - `GET /agent-tasks/{task_id}`
@@ -218,6 +229,14 @@ Current harnesses:
 - `default_v1` as the production default
 - `wide_v2` as the wider candidate/replay comparison harness
 - `prose_v3` as the non-default prose-accuracy experiment
+
+Current agent-task analytics can answer:
+
+- how task, verifier, approval, and rejection rates are trending by day or week
+- whether recommendation tasks are actually producing verified drafts and applied changes
+- how much replay/evaluation workload each workflow is driving
+- where queueing and execution latency are accumulating
+- which workflow versions are delivering the best improvement density per unit time
 
 Replay suites currently support:
 
