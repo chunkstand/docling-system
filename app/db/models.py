@@ -38,6 +38,7 @@ class RunStatus(StrEnum):
 class AgentTaskStatus(StrEnum):
     BLOCKED = "blocked"
     AWAITING_APPROVAL = "awaiting_approval"
+    REJECTED = "rejected"
     QUEUED = "queued"
     PROCESSING = "processing"
     RETRY_WAIT = "retry_wait"
@@ -653,7 +654,7 @@ class AgentTask(Base):
     __table_args__ = (
         CheckConstraint(
             "status IN ("
-            "'blocked', 'awaiting_approval', 'queued', 'processing', "
+            "'blocked', 'awaiting_approval', 'rejected', 'queued', 'processing', "
             "'retry_wait', 'completed', 'failed'"
             ")",
             name="ck_agent_tasks_status",
@@ -734,6 +735,9 @@ class AgentTask(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     approved_by: Mapped[str | None] = mapped_column(Text)
     approval_note: Mapped[str | None] = mapped_column(Text)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_by: Mapped[str | None] = mapped_column(Text)
+    rejection_note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

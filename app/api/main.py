@@ -18,6 +18,7 @@ from app.schemas.agent_tasks import (
     AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
+    AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
     AgentTaskVerificationResponse,
 )
@@ -67,6 +68,7 @@ from app.services.agent_tasks import (
     get_agent_task_detail,
     list_agent_task_action_definitions,
     list_agent_tasks,
+    reject_agent_task,
 )
 from app.services.chat import answer_question, record_chat_answer_feedback
 from app.services.chunks import get_active_chunks
@@ -255,6 +257,15 @@ def approve_agent_task_route(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     return approve_agent_task(session, task_id, payload)
+
+
+@app.post("/agent-tasks/{task_id}/reject", response_model=AgentTaskDetailResponse)
+def reject_agent_task_route(
+    task_id: UUID,
+    payload: AgentTaskRejectionRequest,
+    session: Session = Depends(get_db_session),
+) -> AgentTaskDetailResponse:
+    return reject_agent_task(session, task_id, payload)
 
 
 @app.get("/documents", response_model=list[DocumentSummaryResponse])

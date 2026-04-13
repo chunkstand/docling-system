@@ -6,11 +6,16 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.db.models import AgentTask, AgentTaskDependency, AgentTaskStatus
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_tasks import (
+    AgentTaskApprovalRequest,
+    AgentTaskCreateRequest,
+    AgentTaskRejectionRequest,
+)
 from app.services.agent_tasks import (
     _initial_task_status,
     approve_agent_task,
     create_agent_task,
+    reject_agent_task,
 )
 
 
@@ -201,6 +206,76 @@ def test_approve_agent_task_rejects_non_approval_task(monkeypatch) -> None:
         assert "does not require approval" in exc.detail
     else:
         raise AssertionError("Expected non-approval task to reject approval")
+
+
+def test_reject_agent_task_marks_pending_task_as_rejected(monkeypatch) -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="enqueue_document_reprocess",
+        status=AgentTaskStatus.AWAITING_APPROVAL.value,
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(task=task)
+
+    monkeypatch.setattr("app.services.agent_tasks._build_detail", lambda session, task: task)
+
+    rejected = reject_agent_task(
+        session,
+        task.id,
+        AgentTaskRejectionRequest(
+            rejected_by="operator@example.com",
+            rejection_note="not enough evidence",
+        ),
+    )
+
+    assert rejected.status == AgentTaskStatus.REJECTED.value
+    assert rejected.rejected_by == "operator@example.com"
+    assert rejected.rejection_note == "not enough evidence"
+    assert rejected.rejected_at is not None
+    assert rejected.completed_at is not None
+    assert session.committed is True
+
+
+def test_reject_agent_task_rejects_already_approved_task(monkeypatch) -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="enqueue_document_reprocess",
+        status=AgentTaskStatus.QUEUED.value,
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=now,
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(task=task)
+
+    try:
+        reject_agent_task(
+            session,
+            task.id,
+            AgentTaskRejectionRequest(rejected_by="reviewer@example.com"),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "Approved tasks cannot be rejected" in exc.detail
+    else:
+        raise AssertionError("Expected approved task rejection to fail")
 
 
 def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:

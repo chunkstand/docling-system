@@ -29,6 +29,11 @@ class AgentTaskApprovalRequest(BaseModel):
     approval_note: str | None = None
 
 
+class AgentTaskRejectionRequest(BaseModel):
+    rejected_by: str = Field(min_length=1)
+    rejection_note: str | None = None
+
+
 class AgentTaskActionDefinitionResponse(BaseModel):
     task_type: str
     definition_kind: str = "action"
@@ -95,6 +100,9 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     approved_at: datetime | None = None
     approved_by: str | None = None
     approval_note: str | None = None
+    rejected_at: datetime | None = None
+    rejected_by: str | None = None
+    rejection_note: str | None = None
     artifact_count: int = 0
     attempt_count: int = 0
     verification_count: int = 0

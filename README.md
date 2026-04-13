@@ -14,7 +14,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
-The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, and failure artifacts. A separate agent worker can execute registry-backed task types, but the current registered actions are intentionally read-only and focused on evaluation, replay, and harness-analysis flows rather than autonomous write or promotion operations.
+The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, and failure artifacts. A separate agent worker can execute registry-backed task types. Most current actions are read-only and focused on evaluation, replay, and harness-analysis flows, with one approval-gated promotable action for queuing document reprocess runs.
 
 ## Current Contracts
 
@@ -168,6 +168,7 @@ Local path ingest policy:
 - `GET /agent-tasks/{task_id}/verifications`
 - `GET /agent-tasks/{task_id}/failure-artifact`
 - `POST /agent-tasks/{task_id}/approve`
+- `POST /agent-tasks/{task_id}/reject`
 
 ## Search Contract
 
@@ -259,7 +260,8 @@ Current task guarantees:
 - persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - failed tasks expose a direct failure-artifact endpoint through `GET /agent-tasks/{task_id}/failure-artifact`
-- approval-gated tasks remain `awaiting_approval` until an operator approves them, and the worker only executes them after that transition
+- approval-gated tasks remain `awaiting_approval` until an operator approves or rejects them
+- rejected tasks move to terminal `rejected` status, remain unclaimable by the worker, and preserve the previously live system state unchanged
 
 The first workflow-style task is `triage_replay_regression`. It runs in shadow mode, mines unresolved quality candidates, evaluates a candidate harness against a baseline across replay sources, records a verifier-style recommendation on the triage task itself, and writes a durable `triage_summary.json` artifact under `storage/agent_tasks/<task_id>/`.
 
@@ -312,6 +314,7 @@ uv run docling-system-agent-task-artifact <task_id> <artifact_id>
 uv run docling-system-agent-task-verifications <task_id>
 uv run docling-system-agent-task-failure-artifact <task_id>
 uv run docling-system-agent-task-approve <task_id> --approved-by operator@example.com --approval-note "approved for reprocess"
+uv run docling-system-agent-task-reject <task_id> --rejected-by reviewer@example.com --rejection-note "not enough evidence"
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```

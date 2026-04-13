@@ -17,9 +17,13 @@ from app.db.models import (
     DocumentRunEvaluation,
     DocumentRunEvaluationQuery,
 )
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_tasks import (
+    AgentTaskApprovalRequest,
+    AgentTaskCreateRequest,
+    AgentTaskRejectionRequest,
+)
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
-from app.services.agent_tasks import approve_agent_task, create_agent_task
+from app.services.agent_tasks import approve_agent_task, create_agent_task, reject_agent_task
 from app.services.docling_parser import (
     ParsedChunk,
     ParsedDocument,
@@ -443,3 +447,53 @@ def test_enqueue_document_reprocess_requires_approval_before_queuing_new_run(
     detail_response = postgres_integration_harness.client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["approved_by"] == "operator@example.com"
+
+
+def test_rejected_enqueue_document_reprocess_never_queues_new_run(
+    postgres_integration_harness,
+) -> None:
+    document_id, original_run_id = _create_processed_document(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        task_detail = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="enqueue_document_reprocess",
+                input={
+                    "document_id": str(document_id),
+                    "reason": "operator rejected this promotion request",
+                },
+                workflow_version="milestone6_integration",
+            ),
+        )
+        task_id = task_detail.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        rejected_task = reject_agent_task(
+            session,
+            task_id,
+            AgentTaskRejectionRequest(
+                rejected_by="reviewer@example.com",
+                rejection_note="not enough evidence for reprocess",
+            ),
+        )
+        assert rejected_task.status == AgentTaskStatus.REJECTED.value
+
+    with postgres_integration_harness.session_factory() as session:
+        task = session.get(AgentTask, task_id)
+        document = session.get(Document, document_id)
+        assert task is not None
+        assert document is not None
+        assert task.status == AgentTaskStatus.REJECTED.value
+        assert task.rejected_by == "reviewer@example.com"
+        assert task.rejected_at is not None
+        assert task.completed_at is not None
+        assert task.approved_at is None
+        assert claim_next_agent_task(session, "integration-agent-worker") is None
+        assert document.active_run_id == original_run_id
+        assert document.latest_run_id == original_run_id
+
+    detail_response = postgres_integration_harness.client.get(f"/agent-tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["status"] == "rejected"
+    assert detail_response.json()["rejected_by"] == "reviewer@example.com"

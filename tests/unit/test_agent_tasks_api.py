@@ -210,6 +210,51 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "approved_at": "2026-04-12T00:00:01Z",
             "approved_by": payload.approved_by,
             "approval_note": payload.approval_note,
+            "rejected_at": None,
+            "rejected_by": None,
+            "rejection_note": None,
+            "artifact_count": 0,
+            "attempt_count": 0,
+            "verification_count": 0,
+            "artifacts": [],
+            "verifications": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.reject_agent_task",
+        lambda session, incoming_task_id, payload: {
+            "task_id": str(incoming_task_id),
+            "task_type": "enqueue_document_reprocess",
+            "status": "rejected",
+            "priority": 100,
+            "side_effect_level": "promotable",
+            "requires_approval": True,
+            "parent_task_id": None,
+            "workflow_version": "v1",
+            "tool_version": None,
+            "prompt_version": None,
+            "model": None,
+            "created_at": "2026-04-12T00:00:00Z",
+            "updated_at": "2026-04-12T00:00:02Z",
+            "started_at": None,
+            "completed_at": "2026-04-12T00:00:02Z",
+            "dependency_task_ids": [],
+            "input": {},
+            "result": {},
+            "model_settings": {},
+            "error_message": None,
+            "failure_artifact_path": None,
+            "attempts": 0,
+            "locked_at": None,
+            "locked_by": None,
+            "last_heartbeat_at": None,
+            "next_attempt_at": None,
+            "approved_at": None,
+            "approved_by": None,
+            "approval_note": None,
+            "rejected_at": "2026-04-12T00:00:02Z",
+            "rejected_by": payload.rejected_by,
+            "rejection_note": payload.rejection_note,
             "artifact_count": 0,
             "attempt_count": 0,
             "verification_count": 0,
@@ -265,6 +310,14 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     )
     assert approve_response.status_code == 200
     assert approve_response.json()["approved_by"] == "operator@example.com"
+
+    reject_response = client.post(
+        f"/agent-tasks/{task_id}/reject",
+        json={"rejected_by": "reviewer@example.com", "rejection_note": "not enough evidence"},
+    )
+    assert reject_response.status_code == 200
+    assert reject_response.json()["status"] == "rejected"
+    assert reject_response.json()["rejected_by"] == "reviewer@example.com"
 
 
 def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:

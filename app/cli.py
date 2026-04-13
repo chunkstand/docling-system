@@ -7,7 +7,11 @@ from uuid import UUID
 
 from app.db.models import AgentTask, Document, DocumentRun
 from app.db.session import get_session_factory
-from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
+from app.schemas.agent_tasks import (
+    AgentTaskApprovalRequest,
+    AgentTaskCreateRequest,
+    AgentTaskRejectionRequest,
+)
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_verifications import get_agent_task_verifications
@@ -17,6 +21,7 @@ from app.services.agent_tasks import (
     get_agent_task_detail,
     list_agent_task_action_definitions,
     list_agent_tasks,
+    reject_agent_task,
 )
 from app.services.audit import run_integrity_audit
 from app.services.cleanup import backfill_legacy_run_audit_fields
@@ -440,6 +445,26 @@ def run_agent_task_approve() -> None:
             AgentTaskApprovalRequest(
                 approved_by=args.approved_by,
                 approval_note=args.approval_note,
+            ),
+        )
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_reject() -> None:
+    parser = argparse.ArgumentParser(description="Reject one approval-gated agent task.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument("--rejected-by", required=True, help="Rejection actor identifier.")
+    parser.add_argument("--rejection-note", default=None, help="Optional rejection note.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = reject_agent_task(
+            session,
+            UUID(args.task_id),
+            AgentTaskRejectionRequest(
+                rejected_by=args.rejected_by,
+                rejection_note=args.rejection_note,
             ),
         )
     print(json.dumps(payload.model_dump(mode="json")))

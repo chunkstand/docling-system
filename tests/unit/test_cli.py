@@ -13,6 +13,7 @@ from app.cli import (
     run_agent_task_create,
     run_agent_task_failure_artifact,
     run_agent_task_list,
+    run_agent_task_reject,
     run_agent_task_show,
     run_agent_task_verifications,
     run_audit,
@@ -751,3 +752,47 @@ def test_agent_task_approve_cli_prints_updated_task(monkeypatch, capsys) -> None
     assert output["task_id"] == str(task_id)
     assert output["approved_by"] == "operator@example.com"
     assert output["approval_note"] == "ok"
+
+
+def test_agent_task_reject_cli_prints_updated_task(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-reject",
+            str(task_id),
+            "--rejected-by",
+            "reviewer@example.com",
+            "--rejection-note",
+            "not enough evidence",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.reject_agent_task",
+        lambda session, incoming_task_id, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "rejected_by": payload.rejected_by,
+                "rejection_note": payload.rejection_note,
+                "status": "rejected",
+            }
+        ),
+    )
+
+    run_agent_task_reject()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_id"] == str(task_id)
+    assert output["rejected_by"] == "reviewer@example.com"
+    assert output["rejection_note"] == "not enough evidence"
+    assert output["status"] == "rejected"

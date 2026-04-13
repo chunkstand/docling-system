@@ -20,6 +20,7 @@ from app.schemas.agent_tasks import (
     AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
+    AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
 )
 from app.services.agent_task_artifacts import list_agent_task_artifacts
@@ -111,6 +112,9 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
         approved_at=task.approved_at,
         approved_by=task.approved_by,
         approval_note=task.approval_note,
+        rejected_at=task.rejected_at,
+        rejected_by=task.rejected_by,
+        rejection_note=task.rejection_note,
         artifact_count=_count_task_artifacts(session, task.id),
         attempt_count=_count_task_attempts(session, task.id),
         verification_count=count_agent_task_verifications(session, task.id),
@@ -336,6 +340,11 @@ def approve_agent_task(
             status_code=status.HTTP_409_CONFLICT,
             detail="This task has already been approved.",
         )
+    if task.rejected_at is not None or task.status == AgentTaskStatus.REJECTED.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Rejected tasks cannot be approved.",
+        )
     if task.status in {AgentTaskStatus.COMPLETED.value, AgentTaskStatus.FAILED.value}:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -352,5 +361,52 @@ def approve_agent_task(
         if _task_has_incomplete_dependencies(session, task.id)
         else AgentTaskStatus.QUEUED.value
     )
+    session.commit()
+    return _build_detail(session, task)
+
+
+def reject_agent_task(
+    session: Session,
+    task_id: UUID,
+    payload: AgentTaskRejectionRequest,
+) -> AgentTaskDetailResponse:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    if not task.requires_approval:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This task does not require approval.",
+        )
+    if task.approved_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Approved tasks cannot be rejected.",
+        )
+    if task.rejected_at is not None or task.status == AgentTaskStatus.REJECTED.value:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This task has already been rejected.",
+        )
+    if task.status in {
+        AgentTaskStatus.COMPLETED.value,
+        AgentTaskStatus.FAILED.value,
+        AgentTaskStatus.PROCESSING.value,
+        AgentTaskStatus.RETRY_WAIT.value,
+        AgentTaskStatus.QUEUED.value,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending approval tasks can be rejected.",
+        )
+
+    now = _utcnow()
+    task.status = AgentTaskStatus.REJECTED.value
+    task.rejected_at = now
+    task.rejected_by = payload.rejected_by
+    task.rejection_note = payload.rejection_note
+    task.updated_at = now
+    task.completed_at = now
+    task.next_attempt_at = None
     session.commit()
     return _build_detail(session, task)
