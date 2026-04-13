@@ -17,10 +17,12 @@ from app.db.models import (
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,
+    AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
     AgentTaskSummaryResponse,
 )
+from app.services.agent_task_artifacts import list_agent_task_artifacts
 from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
@@ -87,6 +89,10 @@ def _count_task_artifacts(session: Session, task_id: UUID) -> int:
     ).scalar_one()
 
 
+def _list_task_artifacts(session: Session, task_id: UUID) -> list[AgentTaskArtifactResponse]:
+    return list_agent_task_artifacts(session, task_id, limit=20)
+
+
 def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
     summary = _build_summary(task)
     return AgentTaskDetailResponse(
@@ -108,6 +114,7 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
         artifact_count=_count_task_artifacts(session, task.id),
         attempt_count=_count_task_attempts(session, task.id),
         verification_count=count_agent_task_verifications(session, task.id),
+        artifacts=_list_task_artifacts(session, task.id),
         verifications=list_agent_task_verifications(session, task.id),
     )
 

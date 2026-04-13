@@ -70,6 +70,16 @@ class AgentTaskVerificationResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+class AgentTaskArtifactResponse(BaseModel):
+    artifact_id: UUID
+    task_id: UUID
+    attempt_id: UUID | None = None
+    artifact_kind: str
+    storage_path: str | None = None
+    payload: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
 class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     dependency_task_ids: list[UUID] = Field(default_factory=list)
     input: dict = Field(default_factory=dict)
@@ -88,6 +98,7 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     artifact_count: int = 0
     attempt_count: int = 0
     verification_count: int = 0
+    artifacts: list[AgentTaskArtifactResponse] = Field(default_factory=list)
     verifications: list[AgentTaskVerificationResponse] = Field(default_factory=list)
 
 

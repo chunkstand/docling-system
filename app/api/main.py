@@ -15,6 +15,7 @@ from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
     AgentTaskApprovalRequest,
+    AgentTaskArtifactResponse,
     AgentTaskCreateRequest,
     AgentTaskDetailResponse,
     AgentTaskSummaryResponse,
@@ -58,6 +59,7 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
+from app.services.agent_task_artifacts import list_agent_task_artifacts
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -200,6 +202,15 @@ def read_agent_task_detail(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     return get_agent_task_detail(session, task_id)
+
+
+@app.get("/agent-tasks/{task_id}/artifacts", response_model=list[AgentTaskArtifactResponse])
+def read_agent_task_artifacts(
+    task_id: UUID,
+    limit: int = 20,
+    session: Session = Depends(get_db_session),
+) -> list[AgentTaskArtifactResponse]:
+    return list_agent_task_artifacts(session, task_id, limit=limit)
 
 
 @app.get("/agent-tasks/{task_id}/verifications", response_model=list[AgentTaskVerificationResponse])

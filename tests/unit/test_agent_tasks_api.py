@@ -31,6 +31,7 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
 
 def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     task_id = uuid4()
+    artifact_id = uuid4()
     verification_id = uuid4()
 
     monkeypatch.setattr(
@@ -126,8 +127,23 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "artifact_count": 0,
             "attempt_count": 0,
             "verification_count": 1,
+            "artifacts": [],
             "verifications": [],
         },
+    )
+    monkeypatch.setattr(
+        "app.api.main.list_agent_task_artifacts",
+        lambda session, incoming_task_id, limit=20: [
+            {
+                "artifact_id": str(artifact_id),
+                "task_id": str(incoming_task_id),
+                "attempt_id": None,
+                "artifact_kind": "triage_summary",
+                "storage_path": "/tmp/triage_summary.json",
+                "payload": {"shadow_mode": True},
+                "created_at": "2026-04-12T00:00:00Z",
+            }
+        ],
     )
     monkeypatch.setattr(
         "app.api.main.get_agent_task_verifications",
@@ -181,6 +197,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "artifact_count": 0,
             "attempt_count": 0,
             "verification_count": 0,
+            "artifacts": [],
             "verifications": [],
         },
     )
@@ -204,6 +221,10 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["task_id"] == str(task_id)
+
+    artifact_response = client.get(f"/agent-tasks/{task_id}/artifacts")
+    assert artifact_response.status_code == 200
+    assert artifact_response.json()[0]["artifact_id"] == str(artifact_id)
 
     verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
     assert verification_response.status_code == 200

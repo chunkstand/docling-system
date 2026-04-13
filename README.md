@@ -163,6 +163,7 @@ Local path ingest policy:
 - `GET /agent-tasks`
 - `POST /agent-tasks`
 - `GET /agent-tasks/{task_id}`
+- `GET /agent-tasks/{task_id}/artifacts`
 - `GET /agent-tasks/{task_id}/verifications`
 - `POST /agent-tasks/{task_id}/approve`
 
@@ -250,6 +251,7 @@ Current task guarantees:
 - task creation enforces the registry-declared `side_effect_level` and `requires_approval`
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
+- task artifacts can be inspected through `GET /agent-tasks/{task_id}/artifacts`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - approval-gated routes exist in the API and CLI, but the current registered task set does not require approval
 
@@ -296,6 +298,7 @@ uv run docling-system-agent-task-create verify_search_harness_evaluation --input
 uv run docling-system-agent-task-create triage_replay_regression --input-json '{"candidate_harness_name":"wide_v2","baseline_harness_name":"default_v1","source_types":["evaluation_queries","feedback"],"replay_limit":12,"quality_candidate_limit":12}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-show <task_id>
+uv run docling-system-agent-task-artifacts <task_id>
 uv run docling-system-agent-task-verifications <task_id>
 uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit

@@ -8,6 +8,7 @@ from uuid import uuid4
 from app.cli import (
     run_agent_task_actions,
     run_agent_task_approve,
+    run_agent_task_artifacts,
     run_agent_task_create,
     run_agent_task_list,
     run_agent_task_show,
@@ -562,6 +563,45 @@ def test_agent_task_show_cli_prints_task_detail(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output["task_id"] == str(task_id)
     assert output["task_type"] == "replay_search_request"
+
+
+def test_agent_task_artifacts_cli_prints_artifact_rows(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-artifacts", str(task_id), "--limit", "5"],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.list_agent_task_artifacts",
+        lambda session, incoming_task_id, limit=20: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "artifact_id": str(artifact_id),
+                    "task_id": str(incoming_task_id),
+                    "artifact_kind": "triage_summary",
+                    "limit": limit,
+                }
+            )
+        ],
+    )
+
+    run_agent_task_artifacts()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["artifact_id"] == str(artifact_id)
+    assert output[0]["task_id"] == str(task_id)
+    assert output[0]["limit"] == 5
 
 
 def test_agent_task_verifications_cli_prints_verification_rows(monkeypatch, capsys) -> None:

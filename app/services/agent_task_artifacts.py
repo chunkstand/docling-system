@@ -5,10 +5,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTaskArtifact
+from app.db.models import AgentTask, AgentTaskArtifact
+from app.schemas.agent_tasks import AgentTaskArtifactResponse
 from app.services.storage import StorageService
 
 
@@ -45,6 +48,40 @@ def create_agent_task_artifact(
     session.add(row)
     session.flush()
     return row
+
+
+def _to_artifact_response(row: AgentTaskArtifact) -> AgentTaskArtifactResponse:
+    return AgentTaskArtifactResponse(
+        artifact_id=row.id,
+        task_id=row.task_id,
+        attempt_id=row.attempt_id,
+        artifact_kind=row.artifact_kind,
+        storage_path=row.storage_path,
+        payload=row.payload_json or {},
+        created_at=row.created_at,
+    )
+
+
+def list_agent_task_artifacts(
+    session: Session,
+    task_id: UUID,
+    *,
+    limit: int = 20,
+) -> list[AgentTaskArtifactResponse]:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+    rows = (
+        session.execute(
+            select(AgentTaskArtifact)
+            .where(AgentTaskArtifact.task_id == task_id)
+            .order_by(AgentTaskArtifact.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    return [_to_artifact_response(row) for row in rows]
 
 
 def delete_agent_task_artifact_file(
