@@ -156,12 +156,6 @@ def _effective_replay_source_type(row: SearchReplayRun) -> str:
     return (getattr(row, "summary_json", None) or {}).get("source_type") or row.source_type
 
 
-def _storage_source_type(source_type: str) -> str:
-    if source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE:
-        return EVALUATION_QUERY_SOURCE_TYPE
-    return source_type
-
-
 def _empty_replay_rank_metrics() -> dict:
     return {
         "query_count": 0,
@@ -581,7 +575,7 @@ def run_search_replay_suite(
     harness = get_search_harness(request.harness_name, harness_overrides)
     replay_run = SearchReplayRun(
         id=uuid.uuid4(),
-        source_type=_storage_source_type(request.source_type),
+        source_type=request.source_type,
         status="failed",
         harness_name=harness.name,
         created_at=_utcnow(),

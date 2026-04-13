@@ -20,9 +20,10 @@ Later local verification after this handoff:
   - replay suites now accept `cross_document_prose_regressions`
   - harness-evaluation summaries now expose MRR and foreign-top-result counts for rollout gating
 - fixed-corpus evaluation now supports explicit "no confident answer" cases in addition to retrieval, citation-purity, and structural checks
-- current local verification on April 12, 2026:
-  - `uv run pytest tests/unit -q` -> `121 passed`
+- current local verification on April 13, 2026:
+  - `uv run pytest tests/unit -q` -> `184 passed`
   - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q` -> `2 passed`
+  - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_agent_task_triage_roundtrip.py -q` -> `6 passed`
 - a leaked integration document created during early harness bring-up was removed from the live corpus
 - live state is back to:
   - `document_count = 16`
@@ -451,11 +452,15 @@ At handoff time:
 - `docling-system-audit` completes live with zero violations
 - the active corpus now includes sixteen documents
 - the latest-evaluation surface is populated for all sixteen active documents
-- the fixed corpus now includes four non-UPC fixtures:
+- the latest-evaluation surface now includes seven hand-authored non-UPC fixtures plus one auto-generated fixture:
   - `bitter_lesson_prose`
   - `test_pdf_prose`
   - `nsf_ai_ready_america_figures`
   - `openrouter_spend_report_tables`
+  - `tyler_kitchen_soil_report`
+  - `tyler_kitchen_transportation_report`
+  - `tyler_kitchen_wildlife_report`
+  - `auto_standing_framework_llc_mt_filed_evidence`
 - the default unresolved eval-candidate queue is empty
 - the repository now includes a real Postgres-backed end-to-end integration harness under `tests/integration/`
 
@@ -502,7 +507,7 @@ Recent live replay/feedback verification:
 - `POST /chat` for the same query now returns a grounded answer with citations from `The Bitter Lesson.pdf`
 - `POST /chat` for `What does the corpus say about vent stacks?` in `keyword` mode now returns chunk citations instead of table-only context
 - `GET /documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest` now reports fixture `bitter_lesson_prose` with `passed_queries = 5`, including one answer-level check
-- `uv run docling-system-eval-corpus` completed live with completed latest evaluations for all twelve active documents
+- `uv run docling-system-eval-corpus` completed live with completed latest evaluations for all sixteen active documents
 - `uv run docling-system-run-replay-suite feedback --limit 3` completed live
 - `uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3` completed live
 - `uv run docling-system-export-ranking-dataset --limit 5` now emits:
@@ -516,9 +521,13 @@ Recent live replay/feedback verification:
 Current active set:
 
 - `openrouter_spend_report.pdf` -> fixture `openrouter_spend_report_tables`
+- `Standing Framework LLC - MT filed evidence.pdf` -> fixture `auto_standing_framework_llc_mt_filed_evidence`
 - `NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf` -> fixture `nsf_ai_ready_america_figures`
 - `TEST_PDF.pdf` -> fixture `test_pdf_prose`
 - `The Bitter Lesson.pdf` -> fixture `bitter_lesson_prose`
+- `20251217_TK_SoilReport.pdf` -> fixture `tyler_kitchen_soil_report`
+- `20251216_TK_TransportationReport.pdf` -> fixture `tyler_kitchen_transportation_report`
+- `20251215_TK_WildlifeSpecReport.pdf` -> fixture `tyler_kitchen_wildlife_report`
 - `UPC_CH_5.pdf` -> fixture `upc_ch5`
 - `UPC_CH_4.pdf` -> fixture `upc_ch4`
 - `UPC_Appendix_N.pdf` -> fixture `born_digital_simple`

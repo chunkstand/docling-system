@@ -222,6 +222,33 @@ def test_replay_run_summary_prefers_external_source_type_from_summary() -> None:
     assert summary.source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE
 
 
+def test_replay_run_summary_uses_native_cross_document_source_type() -> None:
+    row = SimpleNamespace(
+        id=uuid4(),
+        source_type=CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+        status="completed",
+        harness_name="prose_v3",
+        reranker_name="linear_feature_reranker",
+        reranker_version="v3",
+        retrieval_profile_name="prose_v3",
+        harness_config_json={},
+        query_count=2,
+        passed_count=2,
+        failed_count=0,
+        zero_result_count=0,
+        table_hit_count=0,
+        top_result_changes=0,
+        max_rank_shift=0,
+        created_at=_timestamp(),
+        completed_at=_timestamp(),
+        summary_json={},
+    )
+
+    summary = _to_replay_run_summary(row)
+
+    assert summary.source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE
+
+
 def test_evaluate_case_passed_enforces_source_purity_constraints() -> None:
     execution = SimpleNamespace(
         results=[

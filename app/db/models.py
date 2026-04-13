@@ -412,7 +412,12 @@ class SearchReplayRun(Base):
     __tablename__ = "search_replay_runs"
     __table_args__ = (
         CheckConstraint(
-            "source_type IN ('evaluation_queries', 'live_search_gaps', 'feedback')",
+            "source_type IN ("
+            "'evaluation_queries', "
+            "'live_search_gaps', "
+            "'feedback', "
+            "'cross_document_prose_regressions'"
+            ")",
             name="ck_search_replay_runs_source_type",
         ),
         CheckConstraint(

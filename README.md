@@ -31,7 +31,7 @@ The repository now also includes a Postgres-backed agent-task substrate for orch
 - `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
 - Run evaluations are first-class persisted records with summary and per-query detail.
 - Every successful validated ingest also writes an auto-generated evaluation fixture to `storage/evaluation_corpus.auto.yaml` so new documents do not remain unevaluated while waiting for a hand-authored fixture.
-- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins.
+- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; fixtures are matched by `source_filename`, and if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins.
 - `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 - Table supplements are registry-driven via `config/table_supplements.yaml`; the registry selects document-specific clean supplement PDFs without changing the canonical source document contract.
@@ -401,7 +401,7 @@ The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/eval
 
 The current corpus also includes explicit cross-document prose-contamination guards and answer-side citation-purity checks for non-UPC prose documents, plus negative answer cases that require a fallback-style "no confident answer" outcome.
 
-The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as an append-only auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
+The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as a source-filename-keyed auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they are refreshed per source filename and provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
 
 Current hand-authored fixtures include the UPC corpus plus non-UPC prose, table, figure, and Tyler's Kitchen documents such as:
 

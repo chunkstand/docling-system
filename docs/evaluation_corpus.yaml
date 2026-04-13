@@ -5,7 +5,7 @@ embedding_contract:
 documents:
   - name: upc_ch7
     kind: standards_multi_page_tables
-    path: /Users/chunkstand/Documents/UPC/UPC_CH_7.pdf
+    source_filename: UPC_CH_7.pdf
     thresholds:
       expected_logical_table_count: 11
       logical_table_tolerance: 1
@@ -31,7 +31,7 @@ documents:
           top_n: 3
   - name: upc_ch2_figures
     kind: figure_heavy_definitions
-    path: /Users/chunkstand/Documents/UPC/UPC_Ch_2.pdf
+    source_filename: UPC_Ch_2.pdf
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -57,7 +57,7 @@ documents:
           top_n: 3
   - name: born_digital_simple
     kind: born_digital_simple_tables
-    path: /Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf
+    source_filename: UPC_Appendix_N.pdf
     thresholds:
       expected_logical_table_count: 1
       logical_table_tolerance: 0
@@ -75,7 +75,7 @@ documents:
           top_n: 3
   - name: appendix_b_prose_guidance
     kind: prose_only_guidance
-    path: /Users/chunkstand/Documents/UPC/UPC_Appendix_B.pdf
+    source_filename: UPC_Appendix_B.pdf
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -93,7 +93,7 @@ documents:
           top_n: 3
   - name: awkward_headers
     kind: awkward_headers_and_footnotes
-    path: /Users/chunkstand/Documents/UPC/UPC_CH_3.pdf
+    source_filename: UPC_CH_3.pdf
     thresholds:
       expected_logical_table_count: 2
       logical_table_tolerance: 0
@@ -116,7 +116,7 @@ documents:
           top_n: 3
   - name: upc_ch4
     kind: fixture_count_tables
-    path: /Users/chunkstand/Documents/UPC/UPC_CH_4.pdf
+    source_filename: UPC_CH_4.pdf
     thresholds:
       expected_logical_table_count: 3
       logical_table_tolerance: 0
@@ -136,7 +136,7 @@ documents:
           top_n: 3
   - name: upc_ch5
     kind: repaired_table_family_and_figures
-    path: /Users/chunkstand/Documents/UPC/UPC_CH_5.pdf
+    source_filename: UPC_CH_5.pdf
     thresholds:
       expected_logical_table_count: 41
       logical_table_tolerance: 0
@@ -164,7 +164,7 @@ documents:
           top_n: 3
   - name: prose_control
     kind: prose_heavy_control
-    path: /Users/chunkstand/Documents/UPC/UPC_CH_1.pdf
+    source_filename: UPC_CH_1.pdf
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -182,7 +182,7 @@ documents:
           top_n: 3
   - name: bitter_lesson_prose
     kind: cross_domain_prose_essay
-    path: /Users/chunkstand/Documents/docling-ingest-staging/The Bitter Lesson.pdf
+    source_filename: The Bitter Lesson.pdf
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -217,7 +217,7 @@ documents:
           maximum_foreign_citations: 0
   - name: test_pdf_prose
     kind: cross_domain_prose_memo
-    path: /Users/chunkstand/Documents/TEST_PDF.pdf
+    source_filename: TEST_PDF.pdf
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -256,7 +256,7 @@ documents:
           maximum_citation_count: 0
   - name: nsf_ai_ready_america_figures
     kind: cross_domain_figure_heavy_program_notice
-    path: "/Users/chunkstand/Documents/NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf"
+    source_filename: "NSF 26-508: TechAccess: AI-Ready America | NSF - U.S. National Science Foundation.pdf"
     thresholds:
       expected_logical_table_count: 0
       logical_table_tolerance: 0
@@ -287,7 +287,7 @@ documents:
           minimum_citation_count: 1
   - name: openrouter_spend_report_tables
     kind: cross_domain_table_heavy_spend_report
-    path: /Users/chunkstand/Documents/docling-ingest-staging/openrouter_spend_report.pdf
+    source_filename: openrouter_spend_report.pdf
     thresholds:
       expected_logical_table_count: 3
       logical_table_tolerance: 0
@@ -318,7 +318,7 @@ documents:
           minimum_citation_count: 1
   - name: tyler_kitchen_soil_report
     kind: cross_domain_soil_report_with_tables_and_figures
-    path: /Users/chunkstand/Documents/docling-ingest-staging/20251217_TK_SoilReport.pdf
+    source_filename: 20251217_TK_SoilReport.pdf
     thresholds:
       expected_logical_table_count: 12
       logical_table_tolerance: 0
@@ -347,7 +347,7 @@ documents:
           minimum_citation_count: 1
   - name: tyler_kitchen_transportation_report
     kind: cross_domain_transportation_report_with_cost_tables
-    path: /Users/chunkstand/Documents/docling-ingest-staging/20251216_TK_TransportationReport.pdf
+    source_filename: 20251216_TK_TransportationReport.pdf
     thresholds:
       expected_logical_table_count: 8
       logical_table_tolerance: 0
@@ -382,7 +382,7 @@ documents:
           maximum_foreign_citations: 0
   - name: tyler_kitchen_wildlife_report
     kind: cross_domain_wildlife_report_with_species_tables
-    path: /Users/chunkstand/Documents/docling-ingest-staging/20251215_TK_WildlifeSpecReport.pdf
+    source_filename: 20251215_TK_WildlifeSpecReport.pdf
     thresholds:
       expected_logical_table_count: 18
       logical_table_tolerance: 0

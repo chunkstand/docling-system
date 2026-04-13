@@ -25,7 +25,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     fixtures = load_evaluation_fixtures()
 
     born_digital = next(fixture for fixture in fixtures if fixture.name == "born_digital_simple")
-    assert born_digital.path.endswith("UPC_Appendix_N.pdf")
+    assert born_digital.source_filename == "UPC_Appendix_N.pdf"
     assert len(born_digital.queries) >= 3
     assert born_digital.queries[0].expected_result_type == "table"
     assert born_digital.queries[0].expected_top_n >= 1
@@ -41,7 +41,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     appendix_b = next(
         fixture for fixture in fixtures if fixture.name == "appendix_b_prose_guidance"
     )
-    assert appendix_b.path.endswith("UPC_Appendix_B.pdf")
+    assert appendix_b.source_filename == "UPC_Appendix_B.pdf"
     assert appendix_b.thresholds.expected_logical_table_count == 0
     assert appendix_b.thresholds.expected_figure_count == 0
     assert all(query.expected_result_type == "chunk" for query in appendix_b.queries)
@@ -56,7 +56,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert awkward.thresholds.minimum_figures_with_provenance == 29
 
     bitter_lesson = next(fixture for fixture in fixtures if fixture.name == "bitter_lesson_prose")
-    assert bitter_lesson.path.endswith("The Bitter Lesson.pdf")
+    assert bitter_lesson.source_filename == "The Bitter Lesson.pdf"
     assert bitter_lesson.thresholds.expected_logical_table_count == 0
     assert bitter_lesson.thresholds.expected_figure_count == 0
     assert all(query.expected_result_type == "chunk" for query in bitter_lesson.queries)
@@ -79,7 +79,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert bitter_lesson.answer_queries[0].maximum_foreign_citations == 0
 
     test_pdf = next(fixture for fixture in fixtures if fixture.name == "test_pdf_prose")
-    assert test_pdf.path.endswith("TEST_PDF.pdf")
+    assert test_pdf.source_filename == "TEST_PDF.pdf"
     assert len(test_pdf.queries) == 5
     assert test_pdf.queries[-1].expected_source_filename == "TEST_PDF.pdf"
     assert test_pdf.queries[-1].expected_top_result_source_filename == "TEST_PDF.pdf"
@@ -105,7 +105,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     soil_report = next(
         fixture for fixture in fixtures if fixture.name == "tyler_kitchen_soil_report"
     )
-    assert soil_report.path.endswith("20251217_TK_SoilReport.pdf")
+    assert soil_report.source_filename == "20251217_TK_SoilReport.pdf"
     assert soil_report.thresholds.expected_logical_table_count == 12
     assert soil_report.thresholds.expected_figure_count == 2
     assert len(soil_report.answer_queries) == 1
@@ -114,7 +114,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     transportation_report = next(
         fixture for fixture in fixtures if fixture.name == "tyler_kitchen_transportation_report"
     )
-    assert transportation_report.path.endswith("20251216_TK_TransportationReport.pdf")
+    assert transportation_report.source_filename == "20251216_TK_TransportationReport.pdf"
     assert transportation_report.thresholds.expected_logical_table_count == 8
     assert transportation_report.thresholds.expected_figure_count == 0
     assert len(transportation_report.queries) == 4
@@ -135,7 +135,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     wildlife_report = next(
         fixture for fixture in fixtures if fixture.name == "tyler_kitchen_wildlife_report"
     )
-    assert wildlife_report.path.endswith("20251215_TK_WildlifeSpecReport.pdf")
+    assert wildlife_report.source_filename == "20251215_TK_WildlifeSpecReport.pdf"
     assert wildlife_report.thresholds.expected_logical_table_count == 18
     assert wildlife_report.thresholds.expected_figure_count == 2
     assert len(wildlife_report.queries) == 5
@@ -326,7 +326,7 @@ def test_ensure_auto_evaluation_fixture_writes_auto_corpus_entry(monkeypatch, tm
 
     auto_corpus_path = storage_root / "evaluation_corpus.auto.yaml"
     assert auto_corpus_path.exists() is True
-    assert fixture["path"] == "autogen_doc.pdf"
+    assert fixture["source_filename"] == "autogen_doc.pdf"
     assert fixture["thresholds"]["expected_logical_table_count"] == 1
     loaded = fixture_for_document(SimpleNamespace(source_filename="autogen_doc.pdf"))
     assert loaded is not None
@@ -349,7 +349,7 @@ def test_fixture_for_document_prefers_manual_fixture_over_auto(monkeypatch, tmp_
 documents:
   - name: auto_test_pdf
     kind: auto_generated_document
-    path: TEST_PDF.pdf
+    source_filename: TEST_PDF.pdf
     thresholds:
       expected_top_n_chunk_hit_queries:
         - query: Automatic query

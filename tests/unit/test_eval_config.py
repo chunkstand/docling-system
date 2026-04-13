@@ -43,7 +43,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "awkward_headers"
     )
     awkward_thresholds = awkward_document["thresholds"]
-    assert awkward_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_3.pdf"
+    assert awkward_document["source_filename"] == "UPC_CH_3.pdf"
     assert awkward_thresholds["expected_logical_table_count"] >= 1
     assert awkward_thresholds["expected_figure_count"] >= 1
     assert awkward_thresholds["minimum_captioned_figure_count"] >= 1
@@ -59,7 +59,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "born_digital_simple"
     )
     simple_thresholds = simple_document["thresholds"]
-    assert simple_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_N.pdf"
+    assert simple_document["source_filename"] == "UPC_Appendix_N.pdf"
     assert simple_thresholds["expected_logical_table_count"] == 1
     assert simple_thresholds["expected_figure_count"] == 0
     assert len(simple_thresholds["expected_top_n_table_hit_queries"]) >= 2
@@ -71,7 +71,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         if document["name"] == "appendix_b_prose_guidance"
     )
     appendix_b_thresholds = appendix_b_document["thresholds"]
-    assert appendix_b_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_Appendix_B.pdf"
+    assert appendix_b_document["source_filename"] == "UPC_Appendix_B.pdf"
     assert appendix_b_thresholds["expected_logical_table_count"] == 0
     assert appendix_b_thresholds["expected_figure_count"] == 0
     assert len(appendix_b_thresholds["expected_top_n_chunk_hit_queries"]) >= 2
@@ -84,7 +84,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "upc_ch4"
     )
     chapter_four_thresholds = chapter_four_document["thresholds"]
-    assert chapter_four_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_4.pdf"
+    assert chapter_four_document["source_filename"] == "UPC_CH_4.pdf"
     assert chapter_four_thresholds["expected_logical_table_count"] == 3
     assert chapter_four_thresholds["expected_figure_count"] == 0
     assert len(chapter_four_thresholds["expected_top_n_table_hit_queries"]) >= 1
@@ -94,7 +94,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "upc_ch5"
     )
     chapter_five_thresholds = chapter_five_document["thresholds"]
-    assert chapter_five_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_5.pdf"
+    assert chapter_five_document["source_filename"] == "UPC_CH_5.pdf"
     assert chapter_five_thresholds["expected_logical_table_count"] == 41
     assert chapter_five_thresholds["expected_figure_count"] == 41
     assert len(chapter_five_thresholds["expected_merged_tables"]) >= 1
@@ -105,7 +105,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "upc_ch7"
     )
     chapter_seven_thresholds = chapter_seven_document["thresholds"]
-    assert chapter_seven_document["path"] == "/Users/chunkstand/Documents/UPC/UPC_CH_7.pdf"
+    assert chapter_seven_document["source_filename"] == "UPC_CH_7.pdf"
     assert chapter_seven_thresholds["expected_figure_count"] >= 1
     assert chapter_seven_thresholds["minimum_captioned_figure_count"] >= 1
     assert chapter_seven_thresholds["minimum_figures_with_provenance"] >= 1
@@ -117,10 +117,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "bitter_lesson_prose"
     )
     bitter_lesson_thresholds = bitter_lesson_document["thresholds"]
-    assert (
-        bitter_lesson_document["path"]
-        == "/Users/chunkstand/Documents/docling-ingest-staging/The Bitter Lesson.pdf"
-    )
+    assert bitter_lesson_document["source_filename"] == "The Bitter Lesson.pdf"
     assert bitter_lesson_document["kind"] == "cross_domain_prose_essay"
     assert bitter_lesson_thresholds["expected_logical_table_count"] == 0
     assert bitter_lesson_thresholds["expected_figure_count"] == 0
@@ -143,7 +140,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         document for document in config["documents"] if document["name"] == "test_pdf_prose"
     )
     test_pdf_thresholds = test_pdf_document["thresholds"]
-    assert test_pdf_document["path"] == "/Users/chunkstand/Documents/TEST_PDF.pdf"
+    assert test_pdf_document["source_filename"] == "TEST_PDF.pdf"
     assert test_pdf_thresholds["expected_logical_table_count"] == 0
     assert test_pdf_thresholds["expected_figure_count"] == 0
     assert len(test_pdf_thresholds["expected_top_n_chunk_hit_queries"]) == 5
@@ -178,10 +175,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         if document["name"] == "openrouter_spend_report_tables"
     )
     spend_thresholds = spend_document["thresholds"]
-    assert (
-        spend_document["path"]
-        == "/Users/chunkstand/Documents/docling-ingest-staging/openrouter_spend_report.pdf"
-    )
+    assert spend_document["source_filename"] == "openrouter_spend_report.pdf"
     assert spend_thresholds["expected_logical_table_count"] == 3
     assert spend_thresholds["expected_figure_count"] == 5
     assert len(spend_thresholds["expected_top_n_table_hit_queries"]) == 3
@@ -193,10 +187,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         if document["name"] == "tyler_kitchen_soil_report"
     )
     soil_thresholds = soil_document["thresholds"]
-    assert (
-        soil_document["path"]
-        == "/Users/chunkstand/Documents/docling-ingest-staging/20251217_TK_SoilReport.pdf"
-    )
+    assert soil_document["source_filename"] == "20251217_TK_SoilReport.pdf"
     assert soil_thresholds["expected_logical_table_count"] == 12
     assert soil_thresholds["expected_figure_count"] == 2
     assert len(soil_thresholds["expected_top_n_table_hit_queries"]) == 2
@@ -208,10 +199,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         if document["name"] == "tyler_kitchen_transportation_report"
     )
     transportation_thresholds = transportation_document["thresholds"]
-    assert (
-        transportation_document["path"]
-        == "/Users/chunkstand/Documents/docling-ingest-staging/20251216_TK_TransportationReport.pdf"
-    )
+    assert transportation_document["source_filename"] == "20251216_TK_TransportationReport.pdf"
     assert transportation_thresholds["expected_logical_table_count"] == 8
     assert transportation_thresholds["expected_figure_count"] == 0
     assert len(transportation_thresholds["expected_top_n_table_hit_queries"]) == 2
@@ -247,10 +235,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         if document["name"] == "tyler_kitchen_wildlife_report"
     )
     wildlife_thresholds = wildlife_document["thresholds"]
-    assert (
-        wildlife_document["path"]
-        == "/Users/chunkstand/Documents/docling-ingest-staging/20251215_TK_WildlifeSpecReport.pdf"
-    )
+    assert wildlife_document["source_filename"] == "20251215_TK_WildlifeSpecReport.pdf"
     assert wildlife_thresholds["expected_logical_table_count"] == 18
     assert wildlife_thresholds["expected_figure_count"] == 2
     assert len(wildlife_thresholds["expected_figure_captions_present"]) == 2
@@ -274,6 +259,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert wildlife_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     for document in config["documents"]:
+        assert "source_filename" in document
         thresholds = document["thresholds"]
         assert "expected_logical_table_count" in thresholds
         assert "maximum_unexpected_merges" in thresholds
