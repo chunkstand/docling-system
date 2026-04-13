@@ -5,7 +5,13 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskDependency, AgentTaskStatus
+from app.db.models import (
+    AgentTask,
+    AgentTaskAttempt,
+    AgentTaskDependency,
+    AgentTaskOutcome,
+    AgentTaskStatus,
+)
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
     AgentTaskCreateRequest,
@@ -17,6 +23,9 @@ from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
     create_agent_task_outcome,
+    get_agent_task_recommendation_summary,
+    get_agent_task_trends,
+    get_agent_task_value_density,
     reject_agent_task,
 )
 
@@ -55,9 +64,13 @@ class FakeSession:
         self,
         task: AgentTask | None = None,
         outcome_rows: list[object] | None = None,
+        task_rows: list[object] | None = None,
+        attempt_rows: list[object] | None = None,
     ) -> None:
         self.task = task
         self.outcome_rows = outcome_rows or []
+        self.task_rows = task_rows or ([] if task is None else [task])
+        self.attempt_rows = attempt_rows or []
         self.added: list[object] = []
         self.flushed = False
         self.committed = False
@@ -78,6 +91,10 @@ class FakeSession:
 
     def execute(self, statement):
         rendered = str(statement)
+        if "agent_task_attempts" in rendered:
+            return FakeExecuteResult(self.attempt_rows)
+        if "FROM agent_tasks" in rendered:
+            return FakeExecuteResult(self.task_rows)
         if "agent_task_outcomes" in rendered:
             return FakeExecuteResult(self.outcome_rows)
         raise AssertionError(f"Unexpected execute statement: {rendered}")
@@ -518,3 +535,181 @@ def test_create_apply_harness_task_auto_adds_draft_and_verification_dependencies
         draft_task_id,
         verification_task_id,
     }
+
+
+def test_agent_task_trends_bucket_attempt_metrics_with_attempt_task() -> None:
+    first_created = datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
+    second_created = datetime(2026, 4, 13, 10, 0, tzinfo=UTC)
+    first_task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=first_created,
+        updated_at=first_created,
+    )
+    second_task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=second_created,
+        updated_at=second_created,
+    )
+    first_attempt = AgentTaskAttempt(
+        id=uuid4(),
+        task_id=first_task.id,
+        attempt_number=1,
+        status="completed",
+        input_json={},
+        result_json={},
+        cost_json={},
+        performance_json={"queue_latency_ms": 5.0, "execution_latency_ms": 10.0},
+        created_at=first_created,
+    )
+    second_attempt = AgentTaskAttempt(
+        id=uuid4(),
+        task_id=second_task.id,
+        attempt_number=1,
+        status="completed",
+        input_json={},
+        result_json={},
+        cost_json={},
+        performance_json={"queue_latency_ms": 7.0, "execution_latency_ms": 14.0},
+        created_at=second_created,
+    )
+    session = FakeSession(
+        task_rows=[first_task, second_task],
+        attempt_rows=[first_attempt, second_attempt],
+    )
+
+    response = get_agent_task_trends(session)
+
+    assert len(response.series) == 2
+    assert response.series[0].median_execution_latency_ms == 10.0
+    assert response.series[1].median_execution_latency_ms == 14.0
+
+
+def test_recommendation_summary_task_type_filter_keeps_linked_tasks() -> None:
+    now = datetime.now(UTC)
+    triage_task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        result_json={"recommendation": {"next_action": "candidate_ready_for_review"}},
+        input_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    draft_task = AgentTask(
+        id=uuid4(),
+        task_type="draft_harness_config_update",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={"source_task_id": str(triage_task.id)},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(task_rows=[triage_task, draft_task])
+
+    summary = get_agent_task_recommendation_summary(
+        session,
+        task_type="triage_replay_regression",
+        workflow_version="v1",
+    )
+
+    assert summary.recommendation_task_count == 1
+    assert summary.draft_count == 1
+
+
+def test_value_density_includes_linked_workflow_attempt_costs() -> None:
+    now = datetime.now(UTC)
+    triage_task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        result_json={"recommendation": {"next_action": "candidate_ready_for_review"}},
+        input_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    draft_task = AgentTask(
+        id=uuid4(),
+        task_type="draft_harness_config_update",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={"source_task_id": str(triage_task.id)},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    triage_attempt = AgentTaskAttempt(
+        id=uuid4(),
+        task_id=triage_task.id,
+        attempt_number=1,
+        status="completed",
+        input_json={},
+        result_json={},
+        cost_json={"estimated_usd": 1.0},
+        performance_json={"end_to_end_latency_ms": 1000.0},
+        created_at=now,
+    )
+    draft_attempt = AgentTaskAttempt(
+        id=uuid4(),
+        task_id=draft_task.id,
+        attempt_number=1,
+        status="completed",
+        input_json={},
+        result_json={},
+        cost_json={"estimated_usd": 2.0},
+        performance_json={"end_to_end_latency_ms": 2000.0},
+        created_at=now,
+    )
+    useful_outcome = AgentTaskOutcome(
+        id=uuid4(),
+        task_id=triage_task.id,
+        outcome_label="useful",
+        created_by="operator@example.com",
+        created_at=now,
+    )
+    session = FakeSession(
+        task_rows=[triage_task, draft_task],
+        attempt_rows=[triage_attempt, draft_attempt],
+        outcome_rows=[useful_outcome],
+    )
+
+    rows = get_agent_task_value_density(session)
+
+    assert len(rows) == 1
+    assert rows[0].estimated_usd_total == 3.0
