@@ -237,12 +237,20 @@ def _apply_harness_config_update_executor(
     if verification.get("outcome") != "passed":
         msg = "Only passed draft harness verifications can be applied."
         raise ValueError(msg)
+    verification_details = verification.get("details") or {}
+    verified_target_task_id = verification_details.get("target_task_id")
+    if verified_target_task_id != str(payload.draft_task_id):
+        msg = "Verification task does not target the requested draft task."
+        raise ValueError(msg)
 
     draft_payload = (((draft_task.result_json or {}).get("payload") or {}).get("draft") or {})
     draft_harness_name = draft_payload.get("draft_harness_name")
     override_spec = dict(draft_payload.get("override_spec") or {})
     if not draft_harness_name or not override_spec:
         msg = "Draft task is missing draft harness metadata."
+        raise ValueError(msg)
+    if verification_details.get("draft_harness_name") not in {None, draft_harness_name}:
+        msg = "Verification task does not match the requested draft harness name."
         raise ValueError(msg)
 
     existing_harness_names = {row.name for row in list_search_harnesses()}

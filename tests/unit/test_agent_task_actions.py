@@ -245,7 +245,17 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         side_effect_level="read_only",
         requires_approval=False,
         input_json={},
-        result_json={"payload": {"verification": {"outcome": "passed"}}},
+        result_json={
+            "payload": {
+                "verification": {
+                    "outcome": "passed",
+                    "details": {
+                        "target_task_id": str(draft_task_id),
+                        "draft_harness_name": "wide_v2_review",
+                    },
+                }
+            }
+        },
         workflow_version="v1",
         model_settings_json={},
         created_at=datetime.now(UTC),
@@ -293,3 +303,105 @@ def test_apply_harness_config_update_executor_persists_review_harness(
     assert Path(result["config_path"]).exists()
     payload = json.loads(Path(result["config_path"]).read_text())
     assert payload["harnesses"]["wide_v2_review"]["base_harness_name"] == "wide_v2"
+
+
+def test_apply_harness_config_update_executor_rejects_mismatched_verification_target(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    other_draft_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    draft_task = AgentTask(
+        id=draft_task_id,
+        task_type="draft_harness_config_update",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={
+            "payload": {
+                "draft": {
+                    "draft_harness_name": "wide_v2_review",
+                    "base_harness_name": "wide_v2",
+                    "override_spec": {
+                        "base_harness_name": "wide_v2",
+                        "retrieval_profile_overrides": {},
+                        "reranker_overrides": {"result_type_priority_bonus": 0.009},
+                        "draft_task_id": str(draft_task_id),
+                        "override_type": "draft_harness_config_update",
+                    },
+                }
+            }
+        },
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    verification_task = AgentTask(
+        id=verification_task_id,
+        task_type="verify_draft_harness_config",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={
+            "payload": {
+                "verification": {
+                    "outcome": "passed",
+                    "details": {
+                        "target_task_id": str(other_draft_task_id),
+                        "draft_harness_name": "wide_v2_review",
+                    },
+                }
+            }
+        },
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    rows = {
+        draft_task_id: draft_task,
+        verification_task_id: verification_task,
+    }
+
+    monkeypatch.setattr(
+        "app.services.search_harness_overrides.get_search_harness_override_path",
+        lambda: tmp_path / "config" / "search_harness_overrides.json",
+    )
+    session = type("FakeSession", (), {"get": lambda self, model, key: rows.get(key)})()
+
+    try:
+        _apply_harness_config_update_executor(
+            session=session,
+            task=apply_task,
+            payload=ApplyHarnessConfigUpdateTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish review harness",
+            ),
+        )
+    except ValueError as exc:
+        assert "does not target the requested draft task" in str(exc)
+    else:
+        raise AssertionError("Expected mismatched verifier target to be rejected")
