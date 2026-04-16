@@ -652,10 +652,22 @@ def test_enqueue_document_reprocess_requires_approval_before_queuing_new_run(
         assert new_run_id != original_run_id
         assert document.active_run_id == original_run_id
         assert document.latest_run_id == new_run_id
+        reprocess_context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(task_id)
+        )
+        assert reprocess_context_path.exists()
+        reprocess_context_payload = json.loads(reprocess_context_path.read_text())
+        assert reprocess_context_payload["output"]["document_id"] == str(document_id)
 
     detail_response = postgres_integration_harness.client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["approved_by"] == "operator@example.com"
+    assert detail_response.json()["context_summary"]["headline"] == (
+        "enqueue_document_reprocess produced typed output."
+    )
+    context_response = postgres_integration_harness.client.get(f"/agent-tasks/{task_id}/context")
+    assert context_response.status_code == 200
+    assert context_response.json()["output"]["document_id"] == str(document_id)
 
 
 def test_rejected_enqueue_document_reprocess_never_queues_new_run(

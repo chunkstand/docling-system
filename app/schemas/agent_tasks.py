@@ -6,7 +6,11 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.documents import DocumentUploadResponse
+from app.schemas.evaluations import EvaluationDetailResponse
+from app.schemas.quality import QualityEvaluationCandidateResponse
 from app.schemas.search import SearchHarnessEvaluationResponse
+from app.schemas.search import SearchReplayResponse, SearchReplayRunDetailResponse
 
 
 class AgentTaskCreateRequest(BaseModel):
@@ -409,13 +413,30 @@ class LatestEvaluationTaskInput(BaseModel):
     document_id: UUID
 
 
+class LatestEvaluationTaskOutput(BaseModel):
+    document_id: UUID
+    evaluation: EvaluationDetailResponse
+
+
 class ReplaySearchRequestTaskInput(BaseModel):
     search_request_id: UUID
+
+
+class ReplaySearchRequestTaskOutput(BaseModel):
+    search_request_id: UUID
+    replay: SearchReplayResponse
 
 
 class QualityEvalCandidatesTaskInput(BaseModel):
     limit: int = Field(default=12, ge=1, le=200)
     include_resolved: bool = False
+
+
+class QualityEvalCandidatesTaskOutput(BaseModel):
+    limit: int
+    include_resolved: bool
+    candidate_count: int = 0
+    candidates: list[QualityEvaluationCandidateResponse] = Field(default_factory=list)
 
 
 class VerifySearchHarnessEvaluationTaskInput(BaseModel):
@@ -452,6 +473,19 @@ class EnqueueDocumentReprocessTaskInput(BaseModel):
     document_id: UUID
     source_task_id: UUID | None = None
     reason: str | None = None
+
+
+class EnqueueDocumentReprocessTaskOutput(BaseModel):
+    document_id: UUID
+    source_task_id: UUID | None = None
+    reason: str | None = None
+    reprocess: DocumentUploadResponse
+
+
+class RunSearchReplaySuiteTaskOutput(BaseModel):
+    source_type: str
+    harness_name: str | None = None
+    replay_run: SearchReplayRunDetailResponse
 
 
 class DraftHarnessConfigUpdateTaskInput(BaseModel):

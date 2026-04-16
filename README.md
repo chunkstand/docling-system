@@ -286,6 +286,8 @@ The current registry includes read-only, draft-change, and approval-gated promot
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`. Migrated task types also advertise `output_schema_name`, `output_schema_version`, and `output_schema` metadata alongside the existing input contract.
 
+At this point every task type in the current registry emits typed output and a context artifact. Complex tasks add task-specific refs and summaries; simpler read-only and promotion tasks use the generic typed-context projection so detail, trace export, and context endpoints stay consistent across the catalog.
+
 Current task guarantees:
 
 - task creation validates the requested `task_type` and typed input payload against the registry

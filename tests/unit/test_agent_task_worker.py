@@ -209,9 +209,18 @@ def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path
         def __init__(self):
             self.commits = 0
             self.rollbacks = 0
+            self.added: list[object] = []
 
         def get(self, model, key):
             return task if key == task_id else None
+
+        def add(self, row: object) -> None:
+            if getattr(row, "id", None) is None:
+                row.id = uuid4()
+            self.added.append(row)
+
+        def flush(self) -> None:
+            return None
 
         def commit(self) -> None:
             self.commits += 1
@@ -273,9 +282,18 @@ def test_process_agent_task_records_attempt_cost_and_performance(
         def __init__(self):
             self.commits = 0
             self.rollbacks = 0
+            self.added: list[object] = []
 
         def get(self, model, key):
             return task if key == task_id else None
+
+        def add(self, row: object) -> None:
+            if getattr(row, "id", None) is None:
+                row.id = uuid4()
+            self.added.append(row)
+
+        def flush(self) -> None:
+            return None
 
         def commit(self) -> None:
             self.commits += 1
