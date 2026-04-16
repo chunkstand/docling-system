@@ -1,163 +1,142 @@
-# Rebuilt Docling System Plan (v1)
+# Current System Plan
+
+This document supersedes the original rebuilt v1 system plan. It describes the system as it exists now: the live contracts, the architecture in the repository, the operator workflows, and the bounded orchestration layer that sits on top of ingestion, retrieval, evaluation, and search-harness management.
 
 ## Summary
 
-Build a small, durable PDF ingestion and retrieval system around Docling.
+`docling-system` is now a local, operator-oriented PDF ingestion and retrieval system with five major layers:
 
-The system accepts multipart PDF uploads through the API and trusted local-file ingest through the operator CLI, parses PDFs into structured artifacts, stores canonical parse outputs plus prose chunks and logical tables, and exposes keyword, semantic, and hybrid mixed search. It uses:
+1. versioned PDF ingest and reprocessing
+2. active-run-gated chunk, table, and figure persistence
+3. mixed chunk/table retrieval with search harnesses, replays, and grounded chat
+4. persisted evaluation, quality, telemetry, and audit loops
+5. a durable agent-task orchestration substrate for bounded review, verification, and approval workflows
 
-- Python API + worker
-- Docling for extraction and chunk source
-- Postgres + pgvector for retrieval storage
-- local filesystem for source PDFs and derived artifacts
-- REST API for upload ingestion, status, reprocessing, table/chunk inspection, metrics, artifacts, and search
+The system is intentionally conservative:
 
-This revision keeps the original scope, but hardens the design in five places that are necessary for v1:
+- one canonical logical document per checksum
+- one active run per document
+- one pinned embedding contract
+- one local Postgres database with pgvector
+- one filesystem-backed artifact store under `storage/`
+- one ingest/search worker and one agent-task worker, both using DB leasing
+- explicit approval gates for promotable agent actions
 
-1. public HTTP ingest is upload-only; local path ingest is CLI-only and policy-constrained
-2. async processing is durable
-3. reprocessing is versioned and atomically promoted only after validation
-4. embeddings are pinned to one model/dimension in v1
-5. search filters are explicit and indexed
-6. tables are first-class retrieval objects with JSON/YAML artifacts and segment provenance
+## Current Goals
 
----
+The system is built to support these current goals:
 
-## Review closure
+- ingest operator-supplied PDFs durably and repeatably
+- keep machine-facing truth in Postgres rows and canonical JSON artifacts
+- expose grounded retrieval over prose chunks and logical tables
+- preserve enough provenance to audit parser output, table repair overlays, and figures
+- make retrieval changes measurable through fixed-corpus evaluations, replay suites, and live search telemetry
+- keep orchestration explicit, typed, durable, and inspectable rather than prompt-only
 
-| Review finding | v1 decision |
-|---|---|
-| Local file-path ingest had no trust boundary | Remove path-based ingest from the public API in v1 |
-| Async work lacked durable ownership | Make a DB-backed run queue mandatory |
-| Reprocessing could expose mixed chunks | Version every processing attempt with `run_id` and promote atomically |
-| Embedding provider was abstract but schema was not | Pin one embedding model and vector dimension in v1 |
-| Search filters were undefined | Define a small indexed filter surface |
-| Status model was too loose | Use explicit run states and transition rules |
-| Duplicate handling was ambiguous | Make upload idempotent by checksum and return the existing document |
-| Tests missed risk scenarios | Add duplicate, retry, parser-failure, reprocess, semantic, and filtered-search tests |
+## Current Contracts
 
----
+These contracts are now part of the live system:
 
-## v1 decisions
+- `docling.json` is the canonical machine-readable document parse artifact.
+- `document.yaml` is the human-readable document artifact.
+- Table JSON is canonical. Table YAML is derived.
+- Figure JSON is canonical. Figure YAML is derived.
+- YAML is never a machine-facing source of truth for search, ranking, validation, or persistence.
+- `documents.active_run_id` is the only visible retrieval version for chunks, tables, figures, document artifacts, and evaluation lookup.
+- A failed or non-promoted run does not change the current active corpus.
+- Tables are first-class retrieval objects with logical-table rows, source-segment provenance, merge metadata, audit hashes, and table artifacts.
+- Figures are first-class persisted outputs with artifacts and provenance metadata.
+- `/search` returns a single mixed typed result list across chunks and tables.
+- Mixed-search filters remain intentionally small: `document_id`, `page_range`, and optional `result_type`.
+- OpenAI embeddings use the pinned `text-embedding-3-small` 1536-dimension contract.
+- Run evaluations are first-class persisted records, with top-level inspection through `GET /documents/{document_id}/evaluations/latest`.
+- Table supplements are registry-driven from `config/table_supplements.yaml`; supplements are repair inputs for specific table families, not second canonical documents.
+- Agent-task context is canonicalized as `storage/agent_tasks/<task_id>/context.json`; `context.yaml` is a human-readable sidecar.
+- Migrated agent tasks consume upstream state through typed context refs, not legacy nested result payload reads.
 
-### 1. Ingest contract
+## Runtime Topology
 
-`POST /documents` accepts **multipart PDF upload only**.
+The deployed local system has these runtime components:
 
-Path-based ingestion is **not exposed on the REST API in v1**. Local-path import is supported only through the operator CLI `docling-system-ingest-file`, with allowed-root checks, symlink rejection, PDF validation, size limits, page limits, and checksum dedupe.
+### 1. API service
 
-### 2. Duplicate contract
+The FastAPI app serves:
 
-The system is **idempotent by file checksum**.
+- document ingest and inspection endpoints
+- search, replay, harness, and chat endpoints
+- quality and evaluation inspection endpoints
+- agent-task creation, inspection, analytics, approval, and trace export endpoints
+- the read-only local browser UI under `/ui`
 
-- API computes `sha256` for the uploaded PDF before creating new work.
-- If the checksum already exists and the document has an `active_run_id`, the API returns the existing `document_id` and does **not** create a new document or new run.
-- If the checksum already exists but the document has **no active successful run**, the API creates a new recovery run for that existing document and returns `202 Accepted`.
-- Responses for duplicate uploads include `duplicate: true`.
+### 2. Ingest and retrieval worker
 
-This keeps duplicates simple and predictable.
+The main worker:
 
-### 3. Reprocessing contract
+- claims queued document runs using DB-backed leases
+- runs Docling parsing
+- normalizes chunks, tables, and figures
+- writes JSON and YAML artifacts
+- generates embeddings when OpenAI is available
+- validates the run
+- promotes successful runs to `documents.active_run_id`
+- refreshes auto-generated evaluation fixtures
+- runs persisted evaluation checks for completed validated runs
 
-Reprocessing is explicit.
+### 3. Agent-task worker
 
-Use `POST /documents/{id}/reprocess` to create a new processing run for an existing stored source PDF.
+The agent-task worker:
 
-Reprocessing does **not** create a second logical document. It creates a new versioned run for the same document.
+- claims executable tasks using DB-backed leases
+- records attempt rows, heartbeats, retries, cost, and performance payloads
+- writes task artifacts and failure artifacts
+- persists verifier rows and outcome labels
+- enforces approval gates for promotable tasks
+- emits typed outputs and task context artifacts
 
-### 4. Durable async model
+### 4. Postgres + pgvector
 
-A processing run is also the durable queue record.
+The database stores:
 
-Every document processing attempt gets a row in `document_runs`. That row carries both:
+- documents, runs, chunks, tables, figures, and evaluations
+- direct-search request history, feedback, chat answers, and replay runs
+- quality candidates and failure signals
+- agent tasks, dependencies, attempts, verifier rows, artifacts, outcomes, approvals, and analytics inputs
+- vector embeddings for chunk and table search
 
-- run/version metadata
-- worker lease and retry fields
+### 5. Filesystem-backed storage
 
-So v1 does **not** need a separate queue product or external broker.
+Canonical artifacts live under `storage/`:
 
-### 5. Atomic promotion model
+- source PDFs
+- per-run parse and derived artifacts
+- per-task context and failure artifacts
+- task-specific JSON artifacts such as triage summaries
+- the auto-generated evaluation corpus companion file
 
-Search never reads “whatever chunks happen to exist.”
+## Data Model and State Machines
 
-Instead:
+### Documents and runs
 
-- every run writes chunks, logical tables, source table segments, and artifacts under its own `run_id`
-- `documents.active_run_id` points to the one visible version
-- only after document and table validations pass does the worker atomically promote that run to active
+`documents` is the logical-document table. A document tracks:
 
-If a reprocess fails halfway through, the old active version stays visible.
+- source filename and managed source path
+- checksum and MIME type
+- title and page count when known
+- `latest_run_id`
+- `active_run_id`
 
-### 6. Embeddings in v1
+`document_runs` is both the version record and the durable queue record. A run tracks:
 
-The embedding provider stays abstract at the code boundary, but the storage contract is fixed in v1.
+- `run_number`
+- `status`
+- attempts, lease, and heartbeat fields
+- failure stage and failure artifact path
+- artifact paths for `docling.json` and `document.yaml`
+- persisted chunk, table, and figure counts
+- embedding model and dimension metadata
+- validation status and structured validation results
 
-- choose one embedding model before migrations
-- pin one vector dimension in schema
-- store `embedding_model` on each run
-- changing models later requires a planned migration or a new embedding column/index set
-
-### 7. Search filters in v1
-
-Supported filters are intentionally small:
-
-- `document_id`
-- `page_range`
-- optional `result_type`
-
-No arbitrary JSONB filtering in v1.
-
-Filter semantics:
-
-- `document_id` is exact match
-- `page_range` uses inclusive overlap semantics against chunk/table `page_from/page_to`
-- `result_type` is optional and limits mixed search to `chunk` or `table`
-- `source_filename` remains document metadata, but is **not** a v1 search filter because one canonical document may be uploaded under multiple filenames over time
-
----
-
-## Architecture
-
-### Core components
-
-1. **API service**
-   - accepts PDF uploads
-   - computes checksum
-   - resolves duplicates
-   - creates document and run records
-   - exposes status, chunks, tables, artifacts, metrics, reprocess, and search endpoints
-   - serves the read-only local UI
-
-2. **Ingestion worker**
-   - claims due runs with a DB lease
-   - validates PDFs
-   - runs Docling
-   - writes JSON and YAML artifacts
-   - derives retrieval chunks, logical tables, table segments, and embeddings
-   - validates persisted run outputs
-   - atomically promotes validation-passing runs
-
-3. **Postgres database**
-   - stores documents, runs, chunks, logical tables, table segments, state, and retrieval metadata
-   - supports full-text search and vector similarity
-
-4. **Filesystem storage**
-   - stores source PDFs and versioned derived artifacts
-   - uses deterministic paths for easy inspection
-
-5. **Embedding provider**
-   - converts chunk text and table search text into fixed-size vectors
-   - one model/dimension is pinned for v1
-
----
-
-## Minimal runtime model
-
-Keep the runtime boring and explicit:
-
-`upload/CLI ingest -> dedupe/gate -> queued -> processing -> validating -> completed|failed`
-
-At the run layer, use these states:
+Current document-run statuses are:
 
 - `queued`
 - `processing`
@@ -166,548 +145,548 @@ At the run layer, use these states:
 - `completed`
 - `failed`
 
-Transition rules:
-
-- `queued -> processing`
-- `processing -> validating`
-- `validating -> completed`
-- `validating -> retry_wait`
-- `validating -> failed`
-- `processing -> retry_wait`
-- `processing -> failed`
-- `retry_wait -> processing`
-
-Only leased runs may move into `processing`.
-
----
-
-## Data flow
-
-1. Client uploads a PDF to `POST /documents`.
-2. API validates MIME type and writes the upload to a temporary staging file.
-3. API computes `sha256`.
-4. If checksum already exists and the document has an active successful run, API returns the existing document with `duplicate: true`.
-5. If checksum exists and there is no active successful run, API creates a new queued recovery run for the existing document and returns that run.
-6. If new, API:
-   - creates a `documents` row
-   - moves the file into managed storage
-   - creates a first `document_runs` row with status `queued`
-7. Worker claims a due run using DB lease fields.
-8. Worker sets run status to `processing`.
-9. Worker runs Docling and produces:
-   - canonical Docling JSON artifact
-   - human-readable document YAML artifact
-   - structured chunk source
-   - normalized logical tables and source table segments
-10. Worker normalizes retrieval chunks with heading and page provenance.
-11. Worker normalizes logical tables with titles, page provenance, merge metadata, search text, preview text, and segment provenance.
-12. Worker generates embeddings for chunks and tables when OpenAI quota is available.
-13. Worker writes chunks, tables, table segments, document artifacts, and table artifacts under that `run_id`.
-14. Worker validates the run.
-15. If successful, worker atomically updates `documents.active_run_id = run_id` and marks the run `completed`.
-16. If failed, worker records error state and leaves the prior active run unchanged.
-17. Search reads only chunks and tables from `documents.active_run_id`.
-
----
-
-## Storage layout
-
-Recommended local storage tree:
-
-```text
-storage/
-  source/<document-id>.pdf
-  runs/<document-id>/<run-id>/docling.json
-  runs/<document-id>/<run-id>/document.yaml
-  runs/<document-id>/<run-id>/tables/<table-index>.json
-  runs/<document-id>/<run-id>/tables/<table-index>.yaml
-```
-
-This keeps the source PDF stable and the parsed outputs versioned.
-
----
-
-## Database schema
-
-### `documents`
-
-Canonical logical document identity.
-
-- `id` uuid primary key
-- `source_filename` text not null
-- `source_path` text not null
-- `sha256` text unique not null
-- `mime_type` text not null
-- `title` text nullable
-- `page_count` integer nullable
-- `active_run_id` uuid nullable
-- `latest_run_id` uuid nullable
-- `created_at` timestamptz not null
-- `updated_at` timestamptz not null
-
-Notes:
-
-- one row per unique PDF bytes
-- duplicates map to the same document row
-- `active_run_id` is the only version used for search, chunk reads, and table reads
-- `source_filename` is display metadata for the canonical document, not a guaranteed record of every upload filename
-
-### `document_runs`
-
-Durable processing run + queue ownership record.
-
-- `id` uuid primary key
-- `document_id` uuid not null references `documents(id)` on delete cascade
-- `run_number` integer not null
-- `status` text not null check (`queued`, `processing`, `validating`, `retry_wait`, `completed`, `failed`)
-- `attempts` integer not null default `0`
-- `locked_at` timestamptz nullable
-- `locked_by` text nullable
-- `last_heartbeat_at` timestamptz nullable
-- `next_attempt_at` timestamptz nullable
-- `error_message` text nullable
-- `docling_json_path` text nullable
-- `yaml_path` text nullable
-- `chunk_count` integer nullable
-- `table_count` integer nullable
-- `validation_status` text nullable
-- `validation_results` jsonb not null default `{}`
-- `embedding_model` text nullable
-- `embedding_dim` integer nullable
-- `created_at` timestamptz not null
-- `started_at` timestamptz nullable
-- `completed_at` timestamptz nullable
-
-Recommended indexes:
-
-- unique `(document_id, run_number)`
-- index on `(status, next_attempt_at)`
-- index on `(locked_at)`
-
-Lease rule:
-
-- workers claim runs from `queued` or due `retry_wait`
-- stalled `processing` or `validating` runs may be re-queued if heartbeat is stale past a timeout
-
-### `document_chunks`
-
-Searchable retrieval rows.
-
-- `id` uuid primary key
-- `document_id` uuid not null references `documents(id)` on delete cascade
-- `run_id` uuid not null references `document_runs(id)` on delete cascade
-- `chunk_index` integer not null
-- `text` text not null
-- `heading` text nullable
-- `page_from` integer nullable
-- `page_to` integer nullable
-- `metadata` jsonb not null default `{}`
-- `embedding` vector(1536)
-- `textsearch` tsvector generated always as (
-  `setweight(to_tsvector('english', coalesce(heading, '')), 'A') || to_tsvector('english', coalesce(text, ''))`
-  ) stored
-- `created_at` timestamptz not null
-
-Recommended indexes:
-
-- unique `(run_id, chunk_index)`
-- GIN on `textsearch`
-- HNSW on `embedding`
-- btree on `document_id`
-- btree on `page_from`
-- btree on `page_to`
-
-Search visibility rule:
+### Retrieval objects
 
-- queries must join `documents.active_run_id = document_chunks.run_id`
+The active retrieval corpus is made of run-scoped:
 
-### `document_tables`
+- prose chunks
+- logical tables
+- figures
 
-Searchable logical table rows.
+Key current properties:
 
-- `id` uuid primary key
-- `document_id` uuid not null references `documents(id)` on delete cascade
-- `run_id` uuid not null references `document_runs(id)` on delete cascade
-- `table_index` integer not null
-- `title` text nullable
-- `heading` text nullable
-- `logical_table_key` text nullable
-- `table_version` integer nullable
-- `supersedes_table_id` uuid nullable
-- `lineage_group` text nullable
-- `status` text not null
-- `page_from` integer nullable
-- `page_to` integer nullable
-- `row_count` integer not null
-- `col_count` integer not null
-- `search_text` text not null
-- `preview_text` text not null
-- `metadata` jsonb not null default `{}`
-- `embedding` vector(1536)
-- `json_path` text nullable
-- `yaml_path` text nullable
-- `textsearch` tsvector generated from `title`, `heading`, and `search_text`
-- `created_at` timestamptz not null
+- chunk rows preserve text, heading, page span, and search metadata
+- table rows preserve title, heading, page span, search text, preview text, merge metadata, repeated-header metadata, and logical lineage when available
+- figure rows preserve page location, caption, artifact paths, and provenance metadata
 
-Visibility rule:
+### Agent tasks
 
-- queries must join `documents.active_run_id = document_tables.run_id`
+The agent-task substrate adds a second durable state machine for orchestration work.
 
-### `document_table_segments`
+Tasks persist:
 
-Source table segment provenance for logical tables.
+- task type
+- typed input and typed output
+- status
+- dependency edges
+- workflow, prompt, tool, and model version metadata
+- approval fields
+- attempt history
+- verifier rows
+- artifacts
+- outcome labels
+- replayable failure artifacts
 
-- `id` uuid primary key
-- `table_id` uuid not null references `document_tables(id)` on delete cascade
-- `run_id` uuid not null references `document_runs(id)` on delete cascade
-- `segment_index` integer not null
-- `source_table_ref` text not null
-- `page_from` integer nullable
-- `page_to` integer nullable
-- `segment_order` integer not null
-- `metadata` jsonb not null default `{}`
-- `created_at` timestamptz not null
+Current agent-task statuses are:
 
----
+- `blocked`
+- `awaiting_approval`
+- `rejected`
+- `queued`
+- `processing`
+- `retry_wait`
+- `completed`
+- `failed`
 
-## API plan
+Dependency edges are role-aware. Current dependency kinds are:
 
-### `POST /documents`
+- `explicit`
+- `target_task`
+- `source_task`
+- `draft_task`
+- `verification_task`
 
-Accept multipart PDF upload.
+## Ingest, Reprocess, and Promotion Flow
 
-**New file response**
+### Ingest entry points
 
-- `202 Accepted`
-- returns `document_id`, `run_id`, `status = queued`, `duplicate = false`
+The system currently supports two ingest entry points:
 
-**Duplicate file response**
+- `POST /documents` for multipart PDF upload
+- CLI-only local path ingest for trusted operator workflows
 
-- `200 OK` if the existing document already has an active successful run
-- returns `document_id`, `active_run_id`, `active_run_status`, `duplicate = true`
+CLI ingest currently includes:
 
-**Duplicate file with no active successful run**
+- `docling-system-ingest-file`
+- `docling-system-ingest-dir`
+- ingest-batch list/show inspection commands
 
-- `202 Accepted`
-- returns `document_id`, `run_id`, `status = queued`, `duplicate = true`, `recovery_run = true`
+Directory ingest now creates durable ingest batches and batch-item rows so operators can inspect queued, duplicate, recovery, and failed items separately from the underlying document runs.
 
-### `POST /documents/{id}/reprocess`
+### Local path ingest policy
 
-Create a new run for the existing stored PDF.
+Local path ingest is policy-constrained:
 
-- `202 Accepted`
-- returns `document_id`, `run_id`, `status = queued`
+- paths must live under allowed roots
+- symlinks are rejected
+- files must be PDFs by extension and header
+- duplicate content is deduped by checksum
+- file size and page count limits are enforced
 
-### `GET /documents/{id}`
+### Duplicate and recovery behavior
 
-Return:
+Deduplication is checksum-based:
 
-- document metadata
-- `active_run_id`
-- `active_run_status`
-- `latest_run_id`
-- latest run status
-- `is_searchable`
-- active run artifact availability
-- active table count and table artifact availability
-- latest validation status and whether the latest run promoted
-- error information if latest run failed
+- if the checksum already belongs to a document with an active successful run, the system returns the existing document as a duplicate instead of creating a new logical document
+- if the checksum exists but the document does not currently have an active successful run, the system creates a new recovery run for that existing document
+- reprocessing always creates a new run for an existing logical document; it never creates a second canonical document
 
-Do not expose raw filesystem paths on the public API. If artifact downloads are needed, expose them through dedicated endpoints.
+### Worker processing flow
 
-### `GET /documents/{id}/chunks`
+The current run pipeline is:
 
-Return chunks for the active run only.
+1. stage upload or local file
+2. compute checksum
+3. resolve duplicate or create document/run rows
+4. claim the run through the polling worker lease
+5. parse the PDF with Docling
+6. derive canonical and human-readable document artifacts
+7. normalize chunks, logical tables, source segments, and figures
+8. apply configured table supplements when a matching rule exists
+9. generate embeddings for chunks and tables when OpenAI is available
+10. persist run-scoped rows and artifacts
+11. validate the run
+12. if validation passes, atomically promote the run to `documents.active_run_id`
+13. refresh the auto-generated evaluation fixture and evaluate the new active run
 
-### `GET /documents/{id}/tables`
+### Promotion rule
 
-Return logical table summaries for the active run only.
+The promotion rule remains strict:
 
-### `GET /documents/{id}/tables/{table_id}`
+- only a validation-passing run can become active
+- failed or partial reprocessing never changes the visible active corpus
+- retrieval queries always join through `documents.active_run_id`
 
-Return active-run table detail, including table metadata and source segment provenance.
+## Retrieval and Search
 
-### `POST /search`
+### Search contract
 
-Request fields:
+`POST /search` returns one ranked list of typed results:
 
-- `query`
-- `mode`: `keyword`, `semantic`, or `hybrid`
-- `filters`
-- `limit`
+- `result_type = "chunk"`
+- `result_type = "table"`
 
-Supported filters:
+Supported search modes are:
+
+- `keyword`
+- `semantic`
+- `hybrid`
+
+Supported filters are:
 
 - `document_id`
 - `page_range`
 - `result_type`
 
-Filter semantics:
+Search is active-run-only. The system never mixes retrieval rows from an in-progress or failed run into active search results.
 
-- `document_id`: exact match
-- `page_range`: inclusive overlap against chunk/table `page_from/page_to`
-- `result_type`: optional `chunk` or `table`
+### Search harnesses
 
-Response fields:
+The system now supports named search harnesses so operators can compare retrieval profiles and rerankers without changing the active document corpus.
 
-- `result_type`
-- `document_id`
-- `run_id`
-- `score`
-- `page_from`
-- `page_to`
-- `source_filename`
-- chunk fields: `chunk_id`, `chunk_text`, `heading`
-- table fields: `table_id`, `table_title`, `table_heading`, `table_preview`, `row_count`, `col_count`
+Current harnesses are:
 
-### `GET /documents/{id}/artifacts/json`
+- `default_v1`
+- `wide_v2`
+- `prose_v3`
 
-Return the active run's canonical Docling JSON artifact.
+Applied review harness changes are persisted in `config/search_harness_overrides.json`. Draft harness changes remain task artifacts until verified and approved.
 
-### `GET /documents/{id}/artifacts/yaml`
+### Search telemetry
 
-Return the active run's human-readable document YAML artifact.
+Every direct search request is persisted. The system records:
 
-### `GET /documents/{id}/tables/{table_id}/artifacts/json`
+- requested and served mode
+- query text and filters
+- harness snapshot
+- internal `query_intent`
+- candidate-source breakdown
+- metadata-supplement and adjacent-context candidate counts
+- per-result rerank feature snapshots
 
-Return the active run's canonical normalized table JSON artifact.
+Search feedback is also persisted and can be replayed later through the replay surface.
 
-### `GET /documents/{id}/tables/{table_id}/artifacts/yaml`
+### Current prose experiment
 
-Return the active run's human-readable table YAML artifact.
+The current non-default `prose_v3` harness extends prose-heavy retrieval with:
 
----
+- metadata-based candidate widening
+- adjacent-context expansion
+- extra candidate-source telemetry
 
-## Retrieval design
+It is intentionally experimental and evaluated separately from `default_v1`.
 
-### Keyword retrieval
+## Grounded Chat
 
-Use Postgres full-text search over active chunk text/headings and active table titles/headings/search text.
+The UI and API now include grounded chat on top of the active retrieval corpus.
 
-### Semantic retrieval
+Current behavior:
 
-Use pgvector cosine similarity over the fixed-size embedding column for chunks and tables. Query embedding is computed once per request and reused across result types.
+- the chat flow retrieves chunks and tables from active search
+- answers are synthesized with citations when OpenAI is configured
+- if OpenAI is unavailable, the system falls back to extractive evidence snippets
+- answer-level feedback is persisted
+- the chat surface remains grounded to retrieved context rather than free-form corpus memory
 
-### Hybrid retrieval
+## Evaluation, Replay, and Quality Loops
 
-For v1:
+### Run evaluations
 
-1. fetch top N vector matches for chunks and tables
-2. fetch top N keyword matches for chunks and tables
-3. apply the v1 filter contract on indexed columns
-4. normalize scores deterministically
-5. merge by stable object identity
-6. apply deterministic table-query boost when triggered
-7. return the best combined typed ranks
+Run evaluations are persisted first-class records. Operators can inspect the latest active-run evaluation for a document through:
 
-Implementation note:
+- `GET /documents/{document_id}/evaluations/latest`
 
-Approximate ANN indexes trade recall for speed. When filters are present, over-fetch vector candidates before final merge/filtering.
+Evaluations currently cover:
 
-Keyword search should apply filters directly in SQL before ranking results. Vector search may over-fetch candidates and then apply final filtering before merge.
+- structural checks
+- expected table and figure counts
+- merge behavior expectations
+- query hit expectations
+- figure provenance and artifact coverage
+- figure caption expectations
+- cross-document contamination guards
+- answer-side citation purity and fallback behavior for certain fixtures
 
----
+### Manual and auto-generated evaluation corpora
 
-## Docling usage in this system
+The durable human-authored evaluation corpus is:
 
-Docling is the canonical extractor for v1.
+- `docs/evaluation_corpus.yaml`
 
-The worker should:
+The worker also maintains:
 
-1. convert the PDF into a Docling document
-2. export canonical JSON
-3. export human-readable document YAML derived from the same normalized document source
-4. derive retrieval chunks from the Docling structure
-5. derive logical tables and source table segments from Docling table objects
+- `storage/evaluation_corpus.auto.yaml`
 
-Chunk normalization should preserve at least:
+Current contract:
 
-- `chunk_index`
-- `heading`
-- `page_from`
-- `page_to`
+- manual fixtures remain the durable source of truth
+- auto-generated fixtures cover newly ingested documents immediately after validation
+- fixture selection is keyed by `source_filename`
+- if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins
 
-Docling JSON is the canonical document parse artifact. Document YAML is human-readable derived output. Table JSON is the canonical normalized table artifact. Table YAML is human-readable derived output. Retrieval chunks and table rows are derived search projections.
+### Search replay and harness evaluation
 
----
+The system now supports replay and comparison workflows for retrieval changes.
 
-## Worker rules
+Current replay surfaces include:
 
-### Success path
+- one-off replay of persisted search requests
+- replay suites
+- named-harness comparisons
+- persisted replay-run detail and comparison endpoints
 
-- claim a run lease
-- validate PDF
-- run Docling
-- persist versioned artifacts
-- derive chunks
-- derive logical tables and source segments
-- embed chunks and tables when OpenAI quota is available
-- write rows under `run_id`
-- validate counts and outputs
-- atomically promote run to `active_run_id`
-- mark run `completed`
+Current replay suites include:
 
-### Failure path
+- `evaluation_queries`
+- `feedback`
+- `live_search_gaps`
+- `cross_document_prose_regressions`
 
-- classify error as retryable or terminal
-- if retryable:
-  - increment `attempts`
-  - clear lease
-  - set `status = retry_wait`
-  - set `next_attempt_at`
-- if terminal:
-  - clear lease
-  - set `status = failed`
-  - record `error_message`
-- never modify `active_run_id` on failure
+### Quality signals
 
-### Idempotency and safety
+The quality surface currently aggregates:
 
-- upload deduplication is by checksum
-- run ownership is by DB lease
-- chunk writes are versioned by `run_id`
-- promotion is one DB transaction at the end
+- fixed-corpus evaluation failures
+- live search gaps such as zero-result and missing-table cases
+- unsupported or incomplete grounded chat answers
 
----
+Operators can inspect:
 
-## Retry and lease rules
+- summary
+- failures
+- evaluation statuses
+- candidate gaps
+- trends
 
-Worker claim model:
+## Tables, Figures, and Supplements
 
-- claim one eligible run with `FOR UPDATE SKIP LOCKED`
-- set `locked_at`, `locked_by`, `last_heartbeat_at`
-- heartbeat while processing
-- if heartbeat expires past timeout, another worker may requeue the run
+### Tables
 
-Retry policy:
+Tables are a first-class system concern, not just parser byproducts.
 
-- bounded retries only
-- exponential backoff
-- terminal failure after retry limit
+The current table pipeline:
 
-This is enough for v1 without bringing in an external queue.
+- persists logical tables as searchable objects
+- preserves source-segment provenance
+- records continuation-merge and ambiguity metadata
+- removes repeated headers when evidence is strong enough
+- keeps audit information to support future reranking and repair workflows
 
----
+`table_id` remains run-scoped. `logical_table_key` remains best-effort lineage across runs and may be null.
 
-## Search visibility and consistency model
+### Figures
 
-Artifact writes and search writes may happen before promotion, but they are not visible to readers until promotion.
+Figures are now also first-class persisted outputs.
 
-That means:
+The system persists:
 
-- temporary staged artifacts may exist for failed runs
-- failed or partial chunks are not served
-- active search results remain stable during reprocessing
+- figure rows
+- figure JSON artifacts
+- figure YAML artifacts
+- caption and provenance metadata
 
-So artifact generation and search storage may drift internally during a run, but externally visible state changes only when the run is promoted.
+Top-level figure inspection lives at:
 
----
+- `GET /documents/{document_id}/figures`
+- `GET /documents/{document_id}/figures/{figure_id}`
 
-## Retention policy in v1
+### Supplement overlays
 
-Keep retention simple:
+The supplement mechanism is a narrow repair path for known-bad table families.
 
-- always retain the current active run
-- retain the most recent previous successful run for rollback/debugging
-- retain failed runs for a short operational window
-- delete superseded older successful runs and their chunks/artifacts with an explicit cleanup job
+Current supplement rules:
 
-This bounds storage growth without removing the most useful recent history.
+- live in `config/table_supplements.yaml`
+- select specific clean supporting PDFs
+- preserve the chapter PDF as the canonical source document
+- overlay cleaner table-family rows while retaining chapter-local page spans and original source-segment lineage
 
----
+The intended repair workflow is still:
 
-## Recommended project layout
+1. keep the chapter PDF as the canonical document
+2. add a clean supporting PDF as a supplement input under allowed local roots
+3. register the repair rule
+4. add evaluation coverage in `docs/evaluation_corpus.yaml`
+5. reprocess and verify both retrieval and structural evaluation results
+
+## Agent-Task Orchestration Layer
+
+### Purpose
+
+The agent-task layer is now a durable orchestration substrate for bounded operational work. It is not a second prompt-only memory system.
+
+It exists to:
+
+- inspect persisted evaluations and quality gaps
+- run bounded replay and harness comparison work
+- draft and verify retrieval configuration changes
+- gate promotable actions behind approvals
+- export durable traces for later analysis
+
+### Current task catalog
+
+The current registry includes:
+
+- `get_latest_evaluation`
+- `list_quality_eval_candidates`
+- `replay_search_request`
+- `run_search_replay_suite`
+- `evaluate_search_harness`
+- `verify_search_harness_evaluation`
+- `draft_harness_config_update`
+- `verify_draft_harness_config`
+- `triage_replay_regression`
+- `enqueue_document_reprocess`
+- `apply_harness_config_update`
+
+### Current task guarantees
+
+The orchestration layer now guarantees:
+
+- typed input validation at task creation
+- typed output validation for migrated tasks before completion
+- additive action-catalog metadata for `output_schema_name`, `output_schema_version`, and `output_schema`
+- dependency-edge persistence with role-aware `dependency_kind`
+- attempt rows with heartbeats, retries, cost payloads, and performance payloads
+- verifier rows persisted separately from task results
+- durable outcome labels with duplicate-label rejection per actor/label/task
+- replayable failure artifacts
+- approval-gated task transitions for promotable actions
+- task-context projection through canonical `context.json` plus derived `context.yaml`
+
+### Context model
+
+Task context is now explicit and structured.
+
+Each migrated task can expose:
+
+- `context_summary`
+- `context_refs`
+- `context_artifact_id`
+- `context_freshness_status`
+- `dependency_edges`
+
+Context refs track:
+
+- schema name and version
+- observed content hash
+- source update time
+- last check time
+- freshness status
+
+Freshness statuses are currently:
+
+- `fresh`
+- `stale`
+- `missing`
+- `schema_mismatch`
+
+Current enforcement:
+
+- `missing` and `schema_mismatch` block migrated consumers
+- `stale` is advisory in v1
+- migrated consumers do not fall back to legacy nested payload reads
+- pre-context upstream tasks must be rerun before migrated downstream tasks will consume them
+
+### Workflow-style tasks in the current system
+
+Current workflow-heavy paths include:
+
+- `evaluate_search_harness`, which produces typed evaluation output and context refs to replay evidence
+- `verify_search_harness_evaluation`, which verifies a target evaluation through its `target_task` context ref
+- `triage_replay_regression`, which mines unresolved quality candidates, runs comparative replay work, and produces a recommendation plus a deeper triage summary artifact
+- `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
+- `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
+- `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`
+- `enqueue_document_reprocess`, which is approval-gated and queues document reprocessing without changing the current active run until the normal ingest path completes successfully
+
+### Analytics and exports
+
+The agent-task analytics surface is now broad enough to answer:
+
+- task volume and state trends
+- verifier pass/fail trends
+- approval and rejection trends
+- recommendation rates and recommendation trends
+- cost summaries and cost trends
+- performance summaries and performance trends
+- value-density views
+- workflow-version comparisons
+- trace exports with outcomes, artifacts, verifications, approvals, and context summaries
+
+## Storage Layout
+
+The current filesystem layout is:
 
 ```text
-docling-system/
-  app/
-    api/
-    workers/
-    services/
-    db/
-    models/
-  storage/
-  tests/
-  SYSTEM_PLAN.md
-  README.md
-  pyproject.toml
-  .env.example
+storage/
+  source/<document-id>.pdf
+  runs/<document-id>/<run-id>/
+    docling.json
+    document.yaml
+    failure.json
+    tables/
+      <table-index>.json
+      <table-index>.yaml
+    figures/
+      <figure-index>.json
+      <figure-index>.yaml
+  agent_tasks/<task-id>/
+    context.json
+    context.yaml
+    failure.json
+    ...task-specific artifacts...
+  evaluation_corpus.auto.yaml
 ```
 
----
+The machine-facing rule stays the same:
 
-## Milestones
+- JSON is canonical
+- YAML is derived for operator inspection
+- API endpoints expose artifacts directly instead of exposing raw storage paths as the user-facing contract
 
-### Milestone 1
+## API Surface
 
-- scaffold Python project
-- connect Postgres
-- create schema and migrations for `documents`, `document_runs`, and `document_chunks`
+The API now has five major domains.
 
-### Milestone 2
+### Document and artifact endpoints
 
-- implement `POST /documents`
-- stage upload, compute checksum, and resolve duplicates
-- store source files
-- enqueue first run
+These cover:
 
-### Milestone 3
+- health and metrics
+- document list/detail
+- upload ingest
+- run history
+- latest evaluation detail
+- active chunks, tables, and figures
+- document, table, and figure artifact download
+- explicit reprocessing
 
-- implement worker claim/lease/retry model
-- run Docling and persist JSON + YAML
-- derive normalized chunks
+### Search and chat endpoints
 
-### Milestone 4
+These cover:
 
-- generate embeddings
-- implement keyword, semantic, and hybrid search
-- add `POST /documents/{id}/reprocess`
-- add atomic promotion of active run
+- mixed retrieval
+- persisted search request detail
+- search feedback
+- replay request creation
+- replay list/detail/compare
+- harness listing
+- harness evaluation
+- grounded chat
+- chat-answer feedback
 
-### Milestone 5
+### Quality endpoints
 
-- harden logging and operational visibility
-- add cleanup for abandoned staging files and expired failed-run artifacts
-- add cleanup for superseded successful runs beyond retention policy
+These cover:
 
----
+- quality summary
+- quality failures
+- evaluation status list
+- evaluation candidate gaps
+- quality trends
 
-## Test plan
+### Agent-task endpoints
 
-### Unit tests
+These cover:
 
-- checksum generation
-- duplicate contract
-- state transitions for `document_runs`
-- lease claim and stale-lease requeue
-- chunk normalization
-- hybrid rank merge
+- action catalog
+- task list and creation
+- task detail
+- full task context in JSON or YAML
+- outcome labels
+- artifacts
+- verifier records
+- failure artifacts
+- approvals and rejections
+- analytics and workflow-version summaries
+- durable trace export
 
-### Integration tests
+### UI
 
-- ingest a small PDF end to end
-- duplicate upload with an active successful run returns existing `document_id`
-- duplicate upload with no active successful run creates a recovery run
-- worker crash during processing gets retried
-- parser failure marks run failed without changing active run
-- reprocess writes a new run and only promotes on success
-- active search remains stable during failed reprocess
-- semantic search returns expected chunks
-- hybrid search returns merged results
-- filtered search by `document_id` and page range works with defined overlap semantics
+The API also mounts the read-only operator UI under `/ui`.
 
----
+The UI currently exposes:
 
-## Final v1 principles
+- documents and runs
+- search and grounded chat
+- tables and figures
+- evaluation and quality inspection
+- active agent tasks and workflow lineage
 
-Keep the system small.
+## Operational Workflow
 
-- one public ingest path
-- one canonical document per checksum
-- one durable DB-backed run model
-- one active parse version per document
-- one pinned embedding model/dimension
-- one small search filter contract
-- one bounded retention policy for old runs
+The current intended operator workflow is:
 
-That is enough to make the Docling pipeline production-ready without turning it into a larger platform.
+1. ingest PDFs through CLI local-file/directory ingest or API upload
+2. let the worker parse, validate, promote, and evaluate
+3. inspect document artifacts, tables, figures, and evaluations through the API or UI
+4. use search and chat to inspect the active corpus
+5. label gaps through search feedback, chat feedback, and quality inspection
+6. run replay suites or harness evaluations to compare retrieval behavior
+7. use agent tasks to triage regressions, draft harness updates, verify them, and require approval before publishing overrides or queueing reprocess work
+
+## Non-Goals and Current Limits
+
+The system deliberately does not do certain things yet.
+
+Current non-goals or limits include:
+
+- no public arbitrary file-path ingest over HTTP
+- no multi-tenant or internet-facing product assumptions
+- no unbounded autonomous agent control plane
+- no hidden YAML or prompt state acting as the machine-facing source of truth
+- no automatic live harness publication without verification and approval
+- no multi-provider embedding matrix in the current schema
+- no broad arbitrary search-filter surface beyond the current indexed filters
+
+Other current constraints:
+
+- semantic retrieval depends on OpenAI embeddings under the pinned contract
+- if OpenAI returns `429 insufficient_quota`, validated ingest still succeeds but semantic retrieval degrades to keyword-backed behavior
+- the supplement registry is intentionally narrow and provisional
+- the system is still optimized for local operator use and auditability rather than high-scale distributed throughput
+
+## Source of Truth
+
+Going forward, this file should be treated as the high-level system reference. It supersedes the original rebuilt v1 plan and should be updated whenever the live contracts, orchestration model, evaluation surface, or operator workflow materially changes.

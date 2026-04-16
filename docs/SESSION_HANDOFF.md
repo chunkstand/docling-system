@@ -1,14 +1,81 @@
 # Session Handoff
 
-Date: 2026-04-12 local / 2026-04-12 UTC verification
+Date: 2026-04-15 local / 2026-04-15 UTC verification
 Project: `/Users/chunkstand/Documents/docling-system`
-Branch: `codex/docling-system-build`
+Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-PR: `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
+PR: merged `#1` `Build docling-system v1 ingestion, retrieval, evaluation, and run audit surfaces`
 PR URL: `https://github.com/chunkstand/docling-system/pull/1`
-Latest committed checkpoint before this handoff update: `cd0220f` (`Improve retrieval replay evaluation and integration coverage`)
+Latest committed checkpoint before this handoff update: `0d65122` (`milestone 7: backfill remaining typed task outputs`)
 
-## Later Update
+## Current Session Update (April 15, 2026)
+
+Current status from this session:
+
+- local `main` is now seven commits ahead of `origin/main`
+  - `8cb897c` `milestone 1: add typed agent task context substrate`
+  - `67dadd6` `milestone 2: add freshness-aware task context resolution`
+  - `28f1044` `milestone 3: migrate apply task context flow`
+  - `c542273` `milestone 4: add evaluation task context projection`
+  - `22c0910` `milestone 5: migrate evaluation verifier context flow`
+  - `079211f` `milestone 6: add triage task context projection`
+  - `0d65122` `milestone 7: backfill remaining typed task outputs`
+- the full typed agent-task context rollout now exists locally:
+  - every task type in the current registry validates typed input and now emits typed output plus a canonical `storage/agent_tasks/<task_id>/context.json` artifact
+  - `GET /agent-tasks/actions` now advertises output-schema metadata for migrated task types
+  - `GET /agent-tasks/{task_id}` and `GET /agent-tasks/traces/export` now include additive context fields such as `dependency_edges`, `context_summary`, `context_refs`, `context_artifact_id`, and `context_freshness_status`
+  - `GET /agent-tasks/{task_id}/context?format=json|yaml` and the matching CLI surface now expose the full task context projection
+  - workflow-heavy paths now consume upstream state through dependency-role-aware typed context refs instead of nested `result_json["payload"][...]` reads
+- the migrated workflow slices now cover:
+  - `evaluate_search_harness`
+  - `verify_search_harness_evaluation`
+  - `draft_harness_config_update`
+  - `verify_draft_harness_config`
+  - `triage_replay_regression`
+  - `apply_harness_config_update`
+  - `enqueue_document_reprocess`
+  - plus the remaining read-only task types with minimal typed-context backfill
+- agent-task freshness is now explicit and inspectable per ref:
+  - `fresh`
+  - `stale`
+  - `missing`
+  - `schema_mismatch`
+- current enforcement is:
+  - `missing` and `schema_mismatch` block migrated downstream consumers
+  - `stale` is advisory in v1
+  - pre-context upstream tasks must be rerun into the migrated path before typed downstream consumers will accept them
+- targeted verification for the rollout passed in-session:
+  - `pytest tests/unit/test_alembic_0021_agent_task_dependency_kind.py tests/unit/test_agent_task_context.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_verifications.py tests/unit/test_agent_task_triage.py tests/unit/test_agent_task_migration_audit.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_cli.py tests/integration/test_agent_task_triage_roundtrip.py -q`
+  - result: `98 passed, 8 skipped`
+- `SYSTEM_PLAN.md` was rewritten as an as-built reference that supersedes the old rebuilt v1 plan. It now reflects the live ingestion, retrieval, evaluation, quality, and agent-task architecture rather than the original target-state design.
+- current working tree still has uncommitted docs-only/session-local changes:
+  - `SYSTEM_PLAN.md` updated to the new as-built plan
+  - `docs/SESSION_HANDOFF.md` updated with this handoff section
+  - `tests/unit/test_ui.py` still contains the earlier local lint-only line-wrap edit
+
+Use this section as the authoritative April 15 state.
+
+## Prior Session Update (April 14, 2026)
+
+Current status from this session:
+
+- GitHub `main` now matches the latest committed system code. `HEAD`, `origin/main`, and the merged checkpoint all point to `446e3ba49fcb5bd860f762f08c3d217d21a14818`.
+- local `main` is one lint-only working-tree edit ahead of that commit: `tests/unit/test_ui.py` wraps three long assertion lines to satisfy Ruff `E501`.
+- current non-DB verification is green:
+  - `.venv/bin/ruff check app tests`
+  - `.venv/bin/python -m pytest tests/unit -q` -> `190 passed`
+  - `.venv/bin/python -m compileall app tests`
+  - `node --check app/ui/app.js`
+- the DB-backed verification path is currently blocked:
+  - `docker version` still cannot connect to the Docker daemon
+  - no process is listening on `localhost:5432`
+  - `DOCLING_SYSTEM_RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration -q` currently fails with `11` setup errors rooted in `psycopg.OperationalError: connection refused`
+- `curl -sS http://127.0.0.1:8000/health` still returns `{"status":"ok"}`, but that endpoint is not DB-backed and should not be treated as proof that ingest, search, or evaluation are currently usable.
+- earlier disk pressure that contributed to the Docker outage was mitigated by clearing local caches and Docker logs. Disk space is no longer the immediate blocker; Docker/Postgres recovery still is.
+
+Use this section and the updated runtime/verification sections below as the authoritative April 14 state. Historical notes below remain useful context.
+
+## Earlier Session Update (April 13, 2026)
 
 Later local verification after this handoff:
 
@@ -36,6 +103,8 @@ Use the counts in this section instead of the older 12-document snapshots later 
 
 The branch now includes:
 
+- the full seven-milestone typed agent-task context rollout on local `main`
+- a rewritten `SYSTEM_PLAN.md` that now serves as the as-built high-level system reference
 - Lopopolo milestone 2 quality surfaces
 - legacy audit-field backfill so historical rows satisfy the current audit contract
 - persisted search-request telemetry, feedback labels, replay suites, replay comparison, and ranking-dataset export
@@ -441,30 +510,20 @@ Live result:
 - `GET /quality/eval-candidates` now returns an empty list live
 - resolved history is still available from `GET /quality/eval-candidates?include_resolved=true`
 
-## Current Runtime State
+## Historical Runtime State (April 14, 2026)
 
-At handoff time:
+At handoff time on April 14, 2026:
 
-- API health check succeeds at `http://127.0.0.1:8000/health`
-- the API was restarted after the answer-eval and quality-candidate changes
-- the worker was restarted after the same code update
-- Alembic head in the running database is `0012_harness_chat_feedback`
-- `docling-system-audit` completes live with zero violations
-- the active corpus now includes sixteen documents
-- the latest-evaluation surface is populated for all sixteen active documents
-- the latest-evaluation surface now includes seven hand-authored non-UPC fixtures plus one auto-generated fixture:
-  - `bitter_lesson_prose`
-  - `test_pdf_prose`
-  - `nsf_ai_ready_america_figures`
-  - `openrouter_spend_report_tables`
-  - `tyler_kitchen_soil_report`
-  - `tyler_kitchen_transportation_report`
-  - `tyler_kitchen_wildlife_report`
-  - `auto_standing_framework_llc_mt_filed_evidence`
-- the default unresolved eval-candidate queue is empty
-- the repository now includes a real Postgres-backed end-to-end integration harness under `tests/integration/`
+- `curl -sS http://127.0.0.1:8000/health` returns `{"status":"ok"}`
+- Docker is currently unavailable: `docker version` cannot connect to `unix:///Users/chunkstand/.docker/run/docker.sock`
+- no process is listening on `localhost:5432`
+- the health endpoint is not DB-backed, so database-dependent surfaces should be treated as unavailable until Docker/Postgres are recovered
+- the repository still includes the Postgres-backed end-to-end integration harness under `tests/integration/`, but it is not runnable in the current environment
+- GitHub `main` and the latest committed local code both point to `446e3ba49fcb5bd860f762f08c3d217d21a14818` (`Close ingest batch correctness gaps`)
+- the local working tree is not clean because `tests/unit/test_ui.py` has an uncommitted lint-only wrap fixing three Ruff `E501` lines
+- the DB-backed corpus counts, audit counts, and latest-evaluation counts below are the last known good state from April 13, 2026; they were not revalidated this session
 
-Live audit result:
+Last known Postgres-backed audit result from April 13, 2026:
 
 ```json
 {
@@ -479,7 +538,7 @@ Live audit result:
 }
 ```
 
-Recent live replay/feedback verification:
+Historical last-known live replay/feedback verification from April 13, 2026 (not rerun this session):
 
 - `GET /search/harnesses` returns `default_v1` and `wide_v2` with persisted config snapshots
 - `POST /search` with `harness_name = "wide_v2"` returns `X-Search-Request-Id`
@@ -516,9 +575,9 @@ Recent live replay/feedback verification:
   - replay `source_type`
   - top-level reranker/profile/config fields
 
-## Active Corpus State
+## Last Known Active Corpus State
 
-Current active set:
+Last known active set from the last successful Postgres-backed verification on April 13, 2026 (not revalidated this session because Postgres is currently unavailable):
 
 - `openrouter_spend_report.pdf` -> fixture `openrouter_spend_report_tables`
 - `Standing Framework LLC - MT filed evidence.pdf` -> fixture `auto_standing_framework_llc_mt_filed_evidence`
@@ -537,66 +596,35 @@ Current active set:
 - `UPC_CH_7.pdf` -> fixture `upc_ch7`
 - `UPC_CH_1.pdf` -> fixture `prose_control`
 
-## Verification Performed
+## Historical Verification Performed (April 14, 2026)
 
-Commands run and observed passing recently:
+Commands run this session:
 
 ```bash
-uv run ruff check app/api/main.py app/cli.py app/db/models.py app/schemas/chat.py app/schemas/search.py app/schemas/quality.py app/services/chat.py app/services/search.py app/services/search_history.py app/services/search_replays.py app/services/search_harness_evaluations.py app/services/quality.py alembic/versions/0012_harness_chat_feedback.py tests/unit/test_chat_api.py tests/unit/test_chat_service.py tests/unit/test_search_api.py tests/unit/test_search_harness_evaluations.py tests/unit/test_search_replays.py tests/unit/test_search_service.py tests/unit/test_quality_api.py tests/unit/test_quality_service.py tests/unit/test_cli.py tests/unit/test_ui.py
-uv run pytest tests/unit -q
-uv run python -m compileall app tests
+.venv/bin/ruff check app tests
+.venv/bin/python -m pytest tests/unit -q
+.venv/bin/python -m compileall app tests
 node --check app/ui/app.js
-uv run alembic upgrade head
-curl -sS http://127.0.0.1:8000/search/harnesses
-curl -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json' --data '{"query":"vent stack","mode":"keyword","limit":3,"harness_name":"wide_v2"}'
-curl -sS http://127.0.0.1:8000/search/requests/<search_request_id>
-curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":3,"harness_name":"wide_v2"}'
-curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"incomplete","note":"Keyword harness did not surface a usable vent stack answer."}'
-curl -sS http://127.0.0.1:8000/quality/eval-candidates | jq
-curl -sS -X POST http://127.0.0.1:8000/search/replays -H 'content-type: application/json' --data '{"source_type":"feedback","limit":3,"harness_name":"wide_v2"}'
-curl -sS http://127.0.0.1:8000/search/replays/<replay_run_id>
-curl -sS -X POST http://127.0.0.1:8000/search/harness-evaluations -H 'content-type: application/json' --data '{"baseline_harness_name":"default_v1","candidate_harness_name":"wide_v2","source_types":["feedback","evaluation_queries"],"limit":3}'
-curl -sS http://127.0.0.1:8000/quality/trends
-uv run docling-system-run-replay-suite feedback --limit 3
-uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 3
-uv run docling-system-export-ranking-dataset --limit 5
-uv run docling-system-audit
-uv run pytest tests/unit/test_run_logic.py tests/unit/test_docling_parser.py tests/unit/test_chat_service.py tests/unit/test_search_service.py tests/unit/test_eval_config.py tests/unit/test_evaluation_service.py -q
-uv run docling-system-eval-run 5410bb6f-c8a0-47d5-ae23-2664e0060865
-uv run docling-system-eval-corpus
-uv run docling-system-eval-run 12188f49-22a3-43c3-a774-00408386e9cf
-uv run docling-system-eval-run 18732576-bd9f-4b8f-977e-7d0e88a7a0aa
-uv run docling-system-eval-run 7531f905-2256-4cf2-bc1f-7e8ec02f92db
-curl -i -sS -X POST http://127.0.0.1:8000/search -H 'content-type: application/json' --data '{"query":"What is the main claim of The Bitter Lesson?","mode":"keyword","limit":4,"filters":{"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}}'
-curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What is the main claim of The Bitter Lesson?","mode":"keyword","top_k":4,"document_id":"57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4"}'
-curl -sS http://127.0.0.1:8000/documents/57e1c1e8-44d4-4a8c-ad8d-11e5eeb5aea4/evaluations/latest
-curl -sS 'http://127.0.0.1:8000/quality/eval-candidates?include_resolved=true&limit=20'
-curl -sS -X POST http://127.0.0.1:8000/chat -H 'content-type: application/json' --data '{"question":"What does the corpus say about vent stacks?","mode":"keyword","top_k":4,"harness_name":"wide_v2"}'
-curl -sS -X POST http://127.0.0.1:8000/chat/answers/<chat_answer_id>/feedback -H 'content-type: application/json' --data '{"feedback_type":"helpful","note":"Chunk-only retry surfaced usable vent stack context."}'
-curl -sS http://127.0.0.1:8000/quality/eval-candidates | jq
+DOCLING_SYSTEM_RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration -q
+docker version
+lsof -nP -iTCP:5432 -sTCP:LISTEN
+curl -sS http://127.0.0.1:8000/health
 ```
 
 Key results:
 
-- full unit suite passed
-- JS syntax check passed
-- compileall passed
-- migration `0012_harness_chat_feedback` applied live
-- harness catalog, harness-backed search, chat answer feedback, replay detail, harness evaluation, and trend endpoints all completed live
-- served UI now includes harness-evaluation controls and source toggles
-- eval candidates now mine grounded-answer `unsupported` and `incomplete` feedback into first-class candidate rows
-- ranking export now distinguishes `legacy_pre_harness` rows from `harness_v1` rows
-- replay, harness-evaluation, and export commands completed live
-- audit stayed green after the new migration
-- focused parser/chat/search/worker/eval tests passed after the data-agnostic hardening work
-- `The Bitter Lesson` fixed-corpus evaluation passed live
-- the three new non-UPC fixtures (`TEST_PDF`, `NSF 26-508`, `openrouter_spend_report`) all passed live against their active runs
-- `uv run docling-system-eval-corpus` completed live and eliminated the previously skipped latest evaluation rows
-- evaluation detail now shows persisted `evaluation_kind = "answer"` rows alongside retrieval checks
-- `GET /quality/eval-candidates?include_resolved=true` now shows resolved historical gaps with `resolution_status`, `resolved_at`, and `resolution_reason`
-- `GET /quality/eval-candidates` is now empty live because the remaining actionable gap was resolved and low-signal zero-result noise is filtered out
-- keyword chat over vent-stack questions now recovers with chunk citations instead of table-only evidence
-- generic keyword questions over prose docs no longer fail closed when strict lexical matching returns zero hits
+- non-DB verification is green after a local lint-only fix in `tests/unit/test_ui.py`
+- `.venv/bin/ruff check app tests` passes
+- `.venv/bin/python -m pytest tests/unit -q` passes with `190 passed`
+- `.venv/bin/python -m compileall app tests` passes
+- `node --check app/ui/app.js` passes
+- earlier in this session, Ruff reported three `E501` violations in `tests/unit/test_ui.py`; those were fixed locally and are the only current working-tree delta
+- the integration suite does not currently run:
+  - `DOCLING_SYSTEM_RUN_INTEGRATION=1 .venv/bin/python -m pytest tests/integration -q` fails with `11` setup errors
+  - the root cause is `psycopg.OperationalError: connection refused` to `localhost:5432`
+  - `docker version` confirms the Docker daemon is still unavailable
+  - `lsof -nP -iTCP:5432 -sTCP:LISTEN` returns no listener
+- `curl -sS http://127.0.0.1:8000/health` returns `{"status":"ok"}`, but that is not evidence that DB-backed flows are healthy
 
 ## Current Contracts To Preserve
 
@@ -633,6 +661,16 @@ Key results:
 - comparison is keyed by shared `(query_text, mode, filters)` identity
 - ranking dataset export is a derived operator artifact, not a source of truth
 - export rows now carry `row_schema_version`, `metadata_era`, and persisted harness config snapshots so mixed-era data is machine-visible
+
+### Agent Tasks
+
+- task creation validates typed input against the registry and migrated tasks now also validate typed output before completion
+- every current task type now emits a context artifact at `storage/agent_tasks/<task_id>/context.json`, with `context.yaml` as the derived human-readable sidecar
+- task action definitions now advertise output schema metadata in addition to input schema metadata
+- task detail and trace export now expose additive context fields without replacing the canonical `input` and `result` payloads
+- migrated downstream consumers must resolve upstream state through typed context refs and dependency kinds such as `target_task`, `draft_task`, `source_task`, and `verification_task`
+- `missing` and `schema_mismatch` freshness states block migrated consumers; `stale` is advisory in v1
+- promotable flows still require explicit approval before applying a live harness override or queueing a reprocess action
 
 ### Audit
 
@@ -680,7 +718,7 @@ Older feedback rows in the local database still export their original reranker m
 
 ### 5. README And Handoff Are Current, But Product Docs Are Still Thin
 
-The operator-facing commands and endpoints are documented, and the ranking dataset schema now has its own doc. The deeper design contract for harness evaluation semantics, answer-feedback interpretation, and future fitting workflows still lives mostly in code and tests.
+The operator-facing commands and endpoints are documented, the ranking dataset schema has its own doc, and `SYSTEM_PLAN.md` has now been rewritten to match the live system. The deeper design contract for harness evaluation semantics, answer-feedback interpretation, and future fitting workflows still lives mostly in code and tests.
 
 ## Recommended Next Steps
 
@@ -746,6 +784,18 @@ curl -sS -X POST http://127.0.0.1:8000/search/harness-evaluations -H 'content-ty
 curl -sS "http://127.0.0.1:8000/search/replays/compare?baseline_replay_run_id=<id>&candidate_replay_run_id=<id>" | jq
 ```
 
+Agent tasks:
+
+```bash
+uv run docling-system-agent-task-actions
+uv run docling-system-agent-task-show <task_id>
+uv run docling-system-agent-task-context <task_id>
+uv run docling-system-agent-task-export-traces --limit 25
+curl -sS http://127.0.0.1:8000/agent-tasks/actions | jq
+curl -sS http://127.0.0.1:8000/agent-tasks/<task_id> | jq
+curl -sS "http://127.0.0.1:8000/agent-tasks/<task_id>/context?format=json" | jq
+```
+
 Chat:
 
 ```bash
@@ -760,8 +810,9 @@ uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
 
-Open the PR:
+GitHub references:
 
 ```text
+https://github.com/chunkstand/docling-system
 https://github.com/chunkstand/docling-system/pull/1
 ```
