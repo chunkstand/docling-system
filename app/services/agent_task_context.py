@@ -16,12 +16,14 @@ from app.db.models import (
     AgentTaskArtifact,
     AgentTaskDependency,
     AgentTaskVerification,
+    SearchReplayRun,
 )
 from app.schemas.agent_tasks import (
     ApplyHarnessConfigUpdateTaskOutput,
     ContextFreshnessStatus,
     ContextRef,
     DraftHarnessConfigUpdateTaskOutput,
+    EvaluateSearchHarnessTaskOutput,
     TaskContextEnvelope,
     TaskContextSummary,
     VerifyDraftHarnessConfigTaskOutput,
@@ -112,6 +114,29 @@ def _verification_payload(row: AgentTaskVerification) -> dict:
     }
 
 
+def _search_replay_run_payload(row: SearchReplayRun) -> dict:
+    return {
+        "replay_run_id": str(row.id),
+        "source_type": row.source_type,
+        "status": row.status,
+        "harness_name": row.harness_name,
+        "reranker_name": row.reranker_name,
+        "reranker_version": row.reranker_version,
+        "retrieval_profile_name": row.retrieval_profile_name,
+        "harness_config": row.harness_config_json or {},
+        "query_count": row.query_count,
+        "passed_count": row.passed_count,
+        "failed_count": row.failed_count,
+        "zero_result_count": row.zero_result_count,
+        "table_hit_count": row.table_hit_count,
+        "top_result_changes": row.top_result_changes,
+        "max_rank_shift": row.max_rank_shift,
+        "summary": row.summary_json or {},
+        "created_at": row.created_at.isoformat(),
+        "completed_at": row.completed_at.isoformat() if row.completed_at is not None else None,
+    }
+
+
 def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
     updated = ref.model_copy(deep=True)
     updated.checked_at = _utcnow()
@@ -187,6 +212,22 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
             return updated
         updated.freshness_status = ContextFreshnessStatus.FRESH
         updated.source_updated_at = verification_row.completed_at or verification_row.created_at
+        return updated
+
+    if ref.ref_kind == "replay_run":
+        if ref.replay_run_id is None:
+            updated.freshness_status = ContextFreshnessStatus.MISSING
+            return updated
+        replay_run = session.get(SearchReplayRun, ref.replay_run_id)
+        if replay_run is None:
+            updated.freshness_status = ContextFreshnessStatus.MISSING
+            return updated
+        current_hash = _payload_sha256(_search_replay_run_payload(replay_run))
+        if current_hash != ref.observed_sha256:
+            updated.freshness_status = ContextFreshnessStatus.STALE
+            return updated
+        updated.freshness_status = ContextFreshnessStatus.FRESH
+        updated.source_updated_at = replay_run.completed_at or replay_run.created_at
         return updated
 
     updated.freshness_status = ref.freshness_status or ContextFreshnessStatus.FRESH
@@ -347,6 +388,87 @@ def _build_draft_harness_config_context(
             "has_source_task": output.draft.source_task_id is not None,
             "retrieval_override_count": len(output.draft.override_spec.retrieval_profile_overrides),
             "reranker_override_count": len(output.draft.override_spec.reranker_overrides),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_evaluate_search_harness_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = EvaluateSearchHarnessTaskOutput.model_validate(payload)
+    now = _utcnow()
+    refs: list[ContextRef] = []
+
+    for source in output.evaluation.sources:
+        baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)
+        if baseline_run is not None:
+            refs.append(
+                ContextRef(
+                    ref_key=f"{source.source_type}_baseline_replay_run",
+                    ref_kind="replay_run",
+                    summary=(
+                        f"Baseline replay run for {source.source_type} using "
+                        f"{output.baseline_harness_name}."
+                    ),
+                    replay_run_id=baseline_run.id,
+                    observed_sha256=_payload_sha256(_search_replay_run_payload(baseline_run)),
+                    source_updated_at=baseline_run.completed_at or baseline_run.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+        candidate_run = session.get(SearchReplayRun, source.candidate_replay_run_id)
+        if candidate_run is not None:
+            refs.append(
+                ContextRef(
+                    ref_key=f"{source.source_type}_candidate_replay_run",
+                    ref_kind="replay_run",
+                    summary=(
+                        f"Candidate replay run for {source.source_type} using "
+                        f"{output.candidate_harness_name}."
+                    ),
+                    replay_run_id=candidate_run.id,
+                    observed_sha256=_payload_sha256(_search_replay_run_payload(candidate_run)),
+                    source_updated_at=candidate_run.completed_at or candidate_run.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Evaluated {output.candidate_harness_name} against "
+            f"{output.baseline_harness_name} across {len(output.evaluation.sources)} replay "
+            "source type(s)."
+        ),
+        goal="Compare a candidate harness to a baseline without changing live search behavior.",
+        decision="Review the evaluation deltas before deciding whether to run the verification gate.",
+        next_action="Create verify_search_harness_evaluation to enforce rollout thresholds.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "source_count": len(output.evaluation.sources),
+            "total_shared_query_count": output.evaluation.total_shared_query_count,
+            "total_improved_count": output.evaluation.total_improved_count,
+            "total_regressed_count": output.evaluation.total_regressed_count,
         },
     )
     return TaskContextEnvelope(
@@ -643,6 +765,8 @@ def build_agent_task_context(
     payload = (result or {}).get("payload") or {}
     if task.task_type == "draft_harness_config_update":
         return _build_draft_harness_config_context(session, task, payload, action=action)
+    if task.task_type == "evaluate_search_harness":
+        return _build_evaluate_search_harness_context(session, task, payload, action=action)
     if task.task_type == "verify_draft_harness_config":
         return _build_verify_draft_harness_config_context(session, task, payload, action=action)
     if task.task_type == "apply_harness_config_update":

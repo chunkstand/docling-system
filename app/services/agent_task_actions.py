@@ -15,6 +15,7 @@ from app.schemas.agent_tasks import (
     DraftHarnessConfigUpdateTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
     EnqueueDocumentReprocessTaskInput,
+    EvaluateSearchHarnessTaskOutput,
     LatestEvaluationTaskInput,
     QualityEvalCandidatesTaskInput,
     ReplaySearchRequestTaskInput,
@@ -468,6 +469,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         description="Compare a candidate harness against a baseline across replay sources.",
         payload_model=SearchHarnessEvaluationRequest,
         executor=_evaluate_search_harness_executor,
+        output_model=EvaluateSearchHarnessTaskOutput,
+        output_schema_name="evaluate_search_harness_output",
+        output_schema_version="1.0",
         input_example={
             "candidate_harness_name": "wide_v2",
             "baseline_harness_name": "default_v1",

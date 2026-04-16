@@ -254,6 +254,57 @@ def test_validate_agent_task_output_rejects_invalid_migrated_draft_shape() -> No
         raise AssertionError("Expected draft output validation to fail")
 
 
+def test_validate_agent_task_output_accepts_migrated_evaluate_shape() -> None:
+    baseline_replay_run_id = uuid4()
+    candidate_replay_run_id = uuid4()
+
+    validated = validate_agent_task_output(
+        "evaluate_search_harness",
+        {
+            "candidate_harness_name": "wide_v2",
+            "baseline_harness_name": "default_v1",
+            "evaluation": {
+                "baseline_harness_name": "default_v1",
+                "candidate_harness_name": "wide_v2",
+                "limit": 12,
+                "total_shared_query_count": 4,
+                "total_improved_count": 1,
+                "total_regressed_count": 0,
+                "total_unchanged_count": 3,
+                "sources": [
+                    {
+                        "source_type": "evaluation_queries",
+                        "baseline_replay_run_id": str(baseline_replay_run_id),
+                        "candidate_replay_run_id": str(candidate_replay_run_id),
+                        "baseline_query_count": 4,
+                        "candidate_query_count": 4,
+                        "baseline_passed_count": 4,
+                        "candidate_passed_count": 4,
+                        "baseline_zero_result_count": 0,
+                        "candidate_zero_result_count": 0,
+                        "baseline_table_hit_count": 1,
+                        "candidate_table_hit_count": 1,
+                        "baseline_top_result_changes": 0,
+                        "candidate_top_result_changes": 0,
+                        "baseline_mrr": 1.0,
+                        "candidate_mrr": 1.0,
+                        "baseline_foreign_top_result_count": 0,
+                        "candidate_foreign_top_result_count": 0,
+                        "acceptance_checks": {"no_regressions": True},
+                        "shared_query_count": 4,
+                        "improved_count": 1,
+                        "regressed_count": 0,
+                        "unchanged_count": 3,
+                    }
+                ],
+            },
+        },
+    )
+
+    assert validated["candidate_harness_name"] == "wide_v2"
+    assert validated["evaluation"]["sources"][0]["source_type"] == "evaluation_queries"
+
+
 def test_execute_agent_task_action_includes_output_schema_metadata(monkeypatch) -> None:
     task = AgentTask(
         id=uuid4(),
@@ -306,6 +357,14 @@ def test_execute_agent_task_action_includes_output_schema_metadata(monkeypatch) 
     assert result["output_schema_name"] == "draft_harness_config_update_output"
     assert result["output_schema_version"] == "1.0"
     assert result["payload"]["draft"]["draft_harness_name"] == "wide_v2_review"
+
+
+def test_get_agent_task_action_exposes_evaluate_output_schema_metadata() -> None:
+    action = get_agent_task_action("evaluate_search_harness")
+
+    assert action.output_schema_name == "evaluate_search_harness_output"
+    assert action.output_schema_version == "1.0"
+    assert action.output_model is not None
 
 
 def test_verify_draft_harness_config_executor_writes_verification_artifact(monkeypatch) -> None:

@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency
+from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency, SearchReplayRun
 from app.schemas.agent_tasks import ContextRef, ContextFreshnessStatus, TaskContextEnvelope
 from app.services.agent_task_context import (
     refresh_task_context_freshness,
@@ -46,11 +46,20 @@ class FakeExecuteResult:
 
 
 class FakeSession:
-    def __init__(self, *, tasks=None, artifacts=None, dependencies=None, verifications=None) -> None:
+    def __init__(
+        self,
+        *,
+        tasks=None,
+        artifacts=None,
+        dependencies=None,
+        verifications=None,
+        replay_runs=None,
+    ) -> None:
         self.tasks = tasks or {}
         self.artifacts = artifacts or {}
         self.dependencies = dependencies or {}
         self.verifications = verifications or {}
+        self.replay_runs = replay_runs or {}
 
     def get(self, model, key):
         if model.__name__ == "AgentTask":
@@ -59,6 +68,8 @@ class FakeSession:
             return self.artifacts.get(key)
         if model.__name__ == "AgentTaskVerification":
             return self.verifications.get(key)
+        if model.__name__ == "SearchReplayRun":
+            return self.replay_runs.get(key)
         return None
 
     def execute(self, statement):
@@ -97,6 +108,30 @@ def _build_context_artifact(*, task_id, payload) -> AgentTaskArtifact:
         storage_path=None,
         payload_json=payload,
         created_at=datetime.now(UTC),
+    )
+
+
+def _build_replay_run(*, replay_run_id, source_type: str = "evaluation_queries") -> SearchReplayRun:
+    now = datetime.now(UTC)
+    return SearchReplayRun(
+        id=replay_run_id,
+        source_type=source_type,
+        status="completed",
+        harness_name="wide_v2",
+        reranker_name="linear_feature_reranker",
+        reranker_version="v1",
+        retrieval_profile_name="wide_v2",
+        harness_config_json={"base_harness_name": "default_v1"},
+        query_count=4,
+        passed_count=4,
+        failed_count=0,
+        zero_result_count=0,
+        table_hit_count=1,
+        top_result_changes=0,
+        max_rank_shift=0,
+        summary_json={"rank_metrics": {"mrr": 1.0}},
+        created_at=now,
+        completed_at=now,
     )
 
 
@@ -445,3 +480,56 @@ def test_resolve_required_dependency_task_output_context_requires_matching_role(
         assert exc.detail == "wrong dependency kind"
     else:
         raise AssertionError("Expected mismatched dependency kind to block")
+
+
+def test_refresh_task_context_freshness_marks_replay_run_refs_fresh() -> None:
+    replay_run_id = uuid4()
+    replay_run = _build_replay_run(replay_run_id=replay_run_id)
+    replay_payload = {
+        "replay_run_id": str(replay_run.id),
+        "source_type": replay_run.source_type,
+        "status": replay_run.status,
+        "harness_name": replay_run.harness_name,
+        "reranker_name": replay_run.reranker_name,
+        "reranker_version": replay_run.reranker_version,
+        "retrieval_profile_name": replay_run.retrieval_profile_name,
+        "harness_config": replay_run.harness_config_json,
+        "query_count": replay_run.query_count,
+        "passed_count": replay_run.passed_count,
+        "failed_count": replay_run.failed_count,
+        "zero_result_count": replay_run.zero_result_count,
+        "table_hit_count": replay_run.table_hit_count,
+        "top_result_changes": replay_run.top_result_changes,
+        "max_rank_shift": replay_run.max_rank_shift,
+        "summary": replay_run.summary_json,
+        "created_at": replay_run.created_at.isoformat(),
+        "completed_at": replay_run.completed_at.isoformat(),
+    }
+    now = datetime.now(UTC)
+    envelope = TaskContextEnvelope(
+        task_id=uuid4(),
+        task_type="evaluate_search_harness",
+        task_status="completed",
+        workflow_version="v1",
+        generated_at=now,
+        task_updated_at=now,
+        refs=[
+            ContextRef(
+                ref_key="evaluation_queries_candidate_replay_run",
+                ref_kind="replay_run",
+                replay_run_id=replay_run_id,
+                observed_sha256=_payload_sha256(replay_payload),
+                source_updated_at=now,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        ],
+    )
+
+    refreshed = refresh_task_context_freshness(
+        FakeSession(replay_runs={replay_run_id: replay_run}),
+        envelope,
+    )
+
+    assert refreshed.refs[0].freshness_status == ContextFreshnessStatus.FRESH
+    assert refreshed.freshness_status == ContextFreshnessStatus.FRESH

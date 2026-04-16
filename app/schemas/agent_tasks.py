@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.search import SearchHarnessEvaluationResponse
+
 
 class AgentTaskCreateRequest(BaseModel):
     task_type: str = Field(min_length=1)
@@ -123,6 +125,7 @@ class ContextRef(BaseModel):
     task_id: UUID | None = None
     artifact_id: UUID | None = None
     verification_id: UUID | None = None
+    replay_run_id: UUID | None = None
     artifact_kind: str | None = None
     schema_name: str | None = None
     schema_version: str | None = None
@@ -486,6 +489,12 @@ class DraftHarnessConfigUpdateTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+
+
+class EvaluateSearchHarnessTaskOutput(BaseModel):
+    candidate_harness_name: str
+    baseline_harness_name: str
+    evaluation: SearchHarnessEvaluationResponse
 
 
 class VerifyDraftHarnessConfigTaskOutput(BaseModel):

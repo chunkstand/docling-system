@@ -318,6 +318,84 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
     assert verification_response.json()[0]["verifier_type"] == "shadow_mode_triage_gate"
 
 
+def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness) -> None:
+    _document_id, _run_id = _create_processed_document(postgres_integration_harness)
+    client = postgres_integration_harness.client
+
+    with postgres_integration_harness.session_factory() as session:
+        task_detail = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_search_harness",
+                input={
+                    "candidate_harness_name": "wide_v2",
+                    "baseline_harness_name": "default_v1",
+                    "source_types": ["evaluation_queries"],
+                    "limit": 10,
+                },
+                workflow_version="milestone9_integration",
+            ),
+        )
+        task_id = task_detail.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        task = session.get(AgentTask, task_id)
+        assert task is not None
+        assert task.status == AgentTaskStatus.COMPLETED.value
+        result_payload = task.result_json["payload"]
+        assert result_payload["evaluation"]["total_shared_query_count"] >= 1
+        context_path = postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+            task_id
+        )
+        assert context_path.exists()
+        context_payload = json.loads(context_path.read_text())
+        assert context_payload["summary"]["verification_state"] == "pending"
+        assert context_payload["summary"]["metrics"]["total_shared_query_count"] >= 1
+        assert {row["ref_key"] for row in context_payload["refs"]} >= {
+            "evaluation_queries_baseline_replay_run",
+            "evaluation_queries_candidate_replay_run",
+        }
+        assert {row["ref_kind"] for row in context_payload["refs"]} == {"replay_run"}
+
+    action_catalog_response = client.get("/agent-tasks/actions")
+    assert action_catalog_response.status_code == 200
+    evaluate_action = next(
+        row
+        for row in action_catalog_response.json()
+        if row["task_type"] == "evaluate_search_harness"
+    )
+    assert evaluate_action["output_schema_name"] == "evaluate_search_harness_output"
+
+    context_response = client.get(f"/agent-tasks/{task_id}/context")
+    assert context_response.status_code == 200
+    context_json = context_response.json()
+    assert context_json["summary"]["headline"].startswith("Evaluated wide_v2 against default_v1")
+    assert context_json["refs"][0]["freshness_status"] == "fresh"
+
+    detail_response = client.get(f"/agent-tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["context_summary"]["verification_state"] == "pending"
+
+    export_response = client.get(
+        "/agent-tasks/traces/export",
+        params={
+            "limit": 10,
+            "workflow_version": "milestone9_integration",
+            "task_type": "evaluate_search_harness",
+        },
+    )
+    assert export_response.status_code == 200
+    assert export_response.json()["traces"][0]["context_summary"]["metrics"][
+        "total_shared_query_count"
+    ] >= 1
+
+
 def test_triage_replay_regression_failure_writes_failure_artifact(
     postgres_integration_harness,
 ) -> None:
