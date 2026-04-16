@@ -314,6 +314,8 @@ Current task guarantees:
 
 The first workflow-style task is `triage_replay_regression`. It runs in shadow mode, mines unresolved quality candidates, evaluates a candidate harness against a baseline across replay sources, records a verifier-style recommendation on the triage task itself, and writes a durable `triage_summary.json` artifact under `storage/agent_tasks/<task_id>/`.
 
+The triage task is now also a migrated typed-context task. Its context summary is the primary operator-facing map: recommendation, confidence, quality-gap count, replay evidence counts, and next action. The deeper `triage_summary.json` artifact remains available by reference through the triage context refs and artifact endpoints.
+
 `evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point directly at the baseline and candidate replay runs that produced the evaluation.
 
 `verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge instead of reading legacy nested payload blobs. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.

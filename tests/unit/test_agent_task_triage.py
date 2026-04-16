@@ -9,7 +9,10 @@ from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSourceResponse,
 )
-from app.services.agent_task_actions import _triage_replay_regression_executor
+from app.services.agent_task_actions import (
+    _triage_replay_regression_executor,
+    validate_agent_task_output,
+)
 from app.services.agent_task_verifications import VerificationOutcome
 from app.services.storage import StorageService
 
@@ -134,5 +137,7 @@ def test_triage_replay_regression_executor_persists_artifact_and_recommendation(
     artifact_path = result["artifact_path"]
     assert artifact_path.endswith("triage_summary.json")
     assert (tmp_path / "storage" / "agent_tasks" / str(task.id) / "triage_summary.json").exists()
+    validated = validate_agent_task_output("triage_replay_regression", result)
+    assert validated["recommendation"]["next_action"] == "candidate_ready_for_review"
     assert any(isinstance(row, AgentTaskArtifact) for row in session.added)
     assert any(isinstance(row, AgentTaskVerification) for row in session.added)

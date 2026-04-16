@@ -258,6 +258,21 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert result_payload["verification"]["outcome"] in {"passed", "failed"}
         assert result_payload["recommendation"]["next_action"]
         assert result_payload["artifact_kind"] == "triage_summary"
+        context_path = postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+            task_id
+        )
+        assert context_path.exists()
+        context_payload = json.loads(context_path.read_text())
+        assert context_payload["summary"]["next_action"] == result_payload["recommendation"][
+            "next_action"
+        ]
+        assert context_payload["summary"]["metrics"]["confidence"] == result_payload[
+            "recommendation"
+        ]["confidence"]
+        assert {row["ref_key"] for row in context_payload["refs"]} >= {
+            "triage_summary_artifact",
+            "verification_record",
+        }
 
         verification_rows = (
             session.execute(
@@ -311,6 +326,24 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
     artifact_detail_response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
     assert artifact_detail_response.status_code == 200
     assert artifact_detail_response.json()["triage_kind"] == "replay_regression"
+
+    context_response = client.get(f"/agent-tasks/{task_id}/context")
+    assert context_response.status_code == 200
+    assert context_response.json()["summary"]["next_action"] in {
+        "candidate_ready_for_review",
+        "keep_baseline_and_investigate",
+        "investigate_unresolved_gaps",
+        "collect_more_evidence",
+        "no_change",
+    }
+    assert context_response.json()["freshness_status"] == "fresh"
+
+    detail_response = client.get(f"/agent-tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["context_summary"]["next_action"] == context_response.json()[
+        "summary"
+    ]["next_action"]
+    assert detail_response.json()["context_freshness_status"] == "fresh"
 
     verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
     assert verification_response.status_code == 200

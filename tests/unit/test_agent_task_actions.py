@@ -375,6 +375,14 @@ def test_get_agent_task_action_exposes_verify_evaluation_output_schema_metadata(
     assert action.output_model is not None
 
 
+def test_get_agent_task_action_exposes_triage_output_schema_metadata() -> None:
+    action = get_agent_task_action("triage_replay_regression")
+
+    assert action.output_schema_name == "triage_replay_regression_output"
+    assert action.output_schema_version == "1.0"
+    assert action.output_model is not None
+
+
 def test_verify_draft_harness_config_executor_writes_verification_artifact(monkeypatch) -> None:
     task = AgentTask(
         id=uuid4(),

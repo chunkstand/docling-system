@@ -19,6 +19,7 @@ from app.schemas.agent_tasks import (
     LatestEvaluationTaskInput,
     QualityEvalCandidatesTaskInput,
     ReplaySearchRequestTaskInput,
+    TriageReplayRegressionTaskOutput,
     TriageReplayRegressionTaskInput,
     VerifyDraftHarnessConfigTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
@@ -555,6 +556,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         ),
         payload_model=TriageReplayRegressionTaskInput,
         executor=_triage_replay_regression_executor,
+        output_model=TriageReplayRegressionTaskOutput,
+        output_schema_name="triage_replay_regression_output",
+        output_schema_version="1.0",
         input_example={
             "candidate_harness_name": "wide_v2",
             "baseline_harness_name": "default_v1",

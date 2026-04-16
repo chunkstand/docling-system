@@ -829,6 +829,40 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(monkeypatch, cap
     assert export_output["traces"][0]["result"]["draft_harness_name"] == "wide_v2_review"
 
 
+def test_agent_task_triage_context_cli_prints_recommendation(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-context", str(task_id)])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_context",
+        lambda session, incoming_task_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "task_type": "triage_replay_regression",
+                "freshness_status": "fresh",
+                "summary": {
+                    "next_action": "candidate_ready_for_review",
+                    "verification_state": "passed",
+                },
+            }
+        ),
+    )
+
+    run_agent_task_context()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["freshness_status"] == "fresh"
+    assert output["summary"]["next_action"] == "candidate_ready_for_review"
+
+
 def test_agent_task_outcomes_cli_prints_rows(monkeypatch, capsys) -> None:
     task_id = uuid4()
     outcome_id = uuid4()

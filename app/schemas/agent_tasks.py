@@ -502,6 +502,27 @@ class VerifySearchHarnessEvaluationTaskOutput(BaseModel):
     verification: AgentTaskVerificationResponse
 
 
+class TriageRecommendationPayload(BaseModel):
+    next_action: str
+    confidence: str
+    summary: str
+
+
+class TriageReplayRegressionTaskOutput(BaseModel):
+    shadow_mode: bool = True
+    triage_kind: str
+    candidate_harness_name: str
+    baseline_harness_name: str
+    quality_candidate_count: int = 0
+    top_quality_candidates: list[dict] = Field(default_factory=list)
+    evaluation: SearchHarnessEvaluationResponse
+    verification: AgentTaskVerificationResponse
+    recommendation: TriageRecommendationPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
 class VerifyDraftHarnessConfigTaskOutput(BaseModel):
     draft: DraftHarnessConfigPayload
     evaluation: dict = Field(default_factory=dict)

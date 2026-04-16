@@ -26,6 +26,7 @@ from app.schemas.agent_tasks import (
     EvaluateSearchHarnessTaskOutput,
     TaskContextEnvelope,
     TaskContextSummary,
+    TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskOutput,
     VerifySearchHarnessEvaluationTaskOutput,
 )
@@ -707,6 +708,121 @@ def _build_verify_search_harness_evaluation_context(
     )
 
 
+def _build_triage_replay_regression_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = TriageReplayRegressionTaskOutput.model_validate(payload)
+    now = _utcnow()
+    refs: list[ContextRef] = []
+
+    for source in output.evaluation.sources:
+        baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)
+        if baseline_run is not None:
+            refs.append(
+                ContextRef(
+                    ref_key=f"{source.source_type}_baseline_replay_run",
+                    ref_kind="replay_run",
+                    summary=(
+                        f"Baseline replay run for {source.source_type} used by triage."
+                    ),
+                    replay_run_id=baseline_run.id,
+                    observed_sha256=_payload_sha256(_search_replay_run_payload(baseline_run)),
+                    source_updated_at=baseline_run.completed_at or baseline_run.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+        candidate_run = session.get(SearchReplayRun, source.candidate_replay_run_id)
+        if candidate_run is not None:
+            refs.append(
+                ContextRef(
+                    ref_key=f"{source.source_type}_candidate_replay_run",
+                    ref_kind="replay_run",
+                    summary=(
+                        f"Candidate replay run for {source.source_type} used by triage."
+                    ),
+                    replay_run_id=candidate_run.id,
+                    observed_sha256=_payload_sha256(_search_replay_run_payload(candidate_run)),
+                    source_updated_at=candidate_run.completed_at or candidate_run.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record captured for the shadow-mode triage gate.",
+                task_id=task.id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="triage_summary_artifact",
+                ref_kind="artifact",
+                summary="Deep triage evidence artifact with recommendation and supporting details.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Triage recommends {output.recommendation.next_action} for "
+            f"{output.candidate_harness_name}."
+        ),
+        goal="Summarize replay-regression evidence and unresolved quality gaps in shadow mode.",
+        decision=output.recommendation.summary,
+        next_action=output.recommendation.next_action,
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "confidence": output.recommendation.confidence,
+            "quality_candidate_count": output.quality_candidate_count,
+            "source_count": len(output.evaluation.sources),
+            "total_shared_query_count": output.evaluation.total_shared_query_count,
+            "total_improved_count": output.evaluation.total_improved_count,
+            "total_regressed_count": output.evaluation.total_regressed_count,
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_apply_harness_config_update_context(
     session: Session,
     task: AgentTask,
@@ -877,6 +993,8 @@ def build_agent_task_context(
             payload,
             action=action,
         )
+    if task.task_type == "triage_replay_regression":
+        return _build_triage_replay_regression_context(session, task, payload, action=action)
     if task.task_type == "verify_draft_harness_config":
         return _build_verify_draft_harness_config_context(session, task, payload, action=action)
     if task.task_type == "apply_harness_config_update":
