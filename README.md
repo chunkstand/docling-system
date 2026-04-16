@@ -316,6 +316,8 @@ The first workflow-style task is `triage_replay_regression`. It runs in shadow m
 
 `evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point directly at the baseline and candidate replay runs that produced the evaluation.
 
+`verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge instead of reading legacy nested payload blobs. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.
+
 The first draft/apply flow is the harness review path. `draft_harness_config_update` creates a review-harness artifact without changing live search behavior, `verify_draft_harness_config` evaluates that draft ephemerally against replay sources and writes a verifier record, and `apply_harness_config_update` publishes the verified review harness into `config/search_harness_overrides.json` only after approval.
 
 Within that flow, `apply_harness_config_update` now consumes the migrated `draft_task` and `verification_task` dependency edges through typed task-context refs only. The apply context summary exposes approval state and verification state, while `GET /agent-tasks/{task_id}`, `GET /agent-tasks/traces/export`, `GET /agent-tasks/{task_id}/context`, and the apply artifact endpoint all surface the same applied harness name and live-override result without requiring operators to inspect raw nested payload blobs.

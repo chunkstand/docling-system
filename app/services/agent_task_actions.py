@@ -22,6 +22,7 @@ from app.schemas.agent_tasks import (
     TriageReplayRegressionTaskInput,
     VerifyDraftHarnessConfigTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
+    VerifySearchHarnessEvaluationTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
@@ -487,6 +488,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         ),
         payload_model=VerifySearchHarnessEvaluationTaskInput,
         executor=_verify_search_harness_evaluation_executor,
+        output_model=VerifySearchHarnessEvaluationTaskOutput,
+        output_schema_name="verify_search_harness_evaluation_output",
+        output_schema_version="1.0",
         input_example={
             "target_task_id": "00000000-0000-0000-0000-000000000000",
             "max_total_regressed_count": 0,

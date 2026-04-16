@@ -18,11 +18,16 @@ from app.db.models import (
 from app.schemas.agent_tasks import (
     AgentTaskVerificationResponse,
     DraftHarnessConfigUpdateTaskOutput,
+    EvaluateSearchHarnessTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
+    VerifySearchHarnessEvaluationTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchHarnessEvaluationResponse
-from app.services.agent_task_context import resolve_required_task_output_context
+from app.services.agent_task_context import (
+    resolve_required_dependency_task_output_context,
+    resolve_required_task_output_context,
+)
 from app.services.search_harness_evaluations import evaluate_search_harness
 
 
@@ -290,30 +295,34 @@ def verify_search_harness_evaluation_task(
     verification_task: AgentTask,
     payload: VerifySearchHarnessEvaluationTaskInput,
 ) -> dict:
-    target_task = session.get(AgentTask, payload.target_task_id)
-    if target_task is None:
-        msg = f"Target task not found: {payload.target_task_id}"
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    if target_task.task_type != "evaluate_search_harness":
-        msg = "Target task must be an evaluate_search_harness task."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-    if target_task.status != "completed":
-        msg = "Target task must be completed before verification."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-
-    evaluation_payload = (
-        ((target_task.result_json or {}).get("payload") or {}).get("evaluation") or {}
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=verification_task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="evaluate_search_harness",
+        expected_schema_name="evaluate_search_harness_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Verification task must declare the requested evaluation task as a "
+            "target_task dependency."
+        ),
+        rerun_message=(
+            "Target evaluation task must be rerun after the context migration before it can "
+            "be verified."
+        ),
     )
-    evaluation = SearchHarnessEvaluationResponse.model_validate(evaluation_payload)
+    output = EvaluateSearchHarnessTaskOutput.model_validate(target_context.output)
+    evaluation = output.evaluation
     outcome = evaluate_search_harness_verification(session, evaluation, payload)
     details = {
         **outcome.details,
-        "target_task_id": str(target_task.id),
-        "target_task_type": target_task.task_type,
+        "target_task_id": str(target_context.task_id),
+        "target_task_type": target_context.task_type,
     }
     record = create_agent_task_verification_record(
         session,
-        target_task_id=target_task.id,
+        target_task_id=target_context.task_id,
         verification_task_id=verification_task.id,
         verifier_type="search_harness_evaluation_gate",
         outcome=outcome.outcome,
@@ -321,9 +330,11 @@ def verify_search_harness_evaluation_task(
         reasons=outcome.reasons,
         details=details,
     )
-    return {
-        "verification": record.model_dump(mode="json"),
-    }
+    verified_output = VerifySearchHarnessEvaluationTaskOutput(
+        evaluation=evaluation,
+        verification=record,
+    )
+    return verified_output.model_dump(mode="json")
 
 
 def verify_draft_harness_config_task(

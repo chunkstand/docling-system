@@ -27,6 +27,7 @@ from app.schemas.agent_tasks import (
     TaskContextEnvelope,
     TaskContextSummary,
     VerifyDraftHarnessConfigTaskOutput,
+    VerifySearchHarnessEvaluationTaskOutput,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
@@ -604,6 +605,108 @@ def _build_verify_draft_harness_config_context(
     )
 
 
+def _build_verify_search_harness_evaluation_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = VerifySearchHarnessEvaluationTaskOutput.model_validate(payload)
+    now = _utcnow()
+    refs: list[ContextRef] = []
+
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="evaluate_search_harness",
+        expected_schema_name="evaluate_search_harness_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Verification task must declare the requested evaluation task as a "
+            "target_task dependency."
+        ),
+        rerun_message=(
+            "Target evaluation task must be rerun after the context migration before it can "
+            "be verified."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="target_task_output",
+            ref_kind="task_output",
+            summary="Migrated evaluation output consumed by the rollout gate verifier.",
+            task_id=target_context.task_id,
+            schema_name=target_context.output_schema_name,
+            schema_version=target_context.output_schema_version,
+            observed_sha256=_payload_sha256(target_context.output),
+            source_updated_at=target_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the evaluation rollout gate.",
+                task_id=output.verification.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    thresholds = (output.verification.details or {}).get("thresholds") or {}
+    summary = TaskContextSummary(
+        headline=(
+            f"Verified {output.evaluation.candidate_harness_name} against "
+            f"{output.evaluation.baseline_harness_name} rollout thresholds."
+        ),
+        goal="Gate a harness evaluation before any follow-on rollout or draft action.",
+        decision=(
+            "Evaluation passed the rollout gate."
+            if output.verification.outcome == "passed"
+            else "Evaluation failed the rollout gate."
+        ),
+        next_action=(
+            "Proceed with downstream review or rollout planning."
+            if output.verification.outcome == "passed"
+            else "Revise the harness or thresholds before retrying verification."
+        ),
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "total_shared_query_count": output.evaluation.total_shared_query_count,
+            "total_regressed_count": output.evaluation.total_regressed_count,
+            "max_total_regressed_count": thresholds.get("max_total_regressed_count"),
+            "max_mrr_drop": thresholds.get("max_mrr_drop"),
+            "min_total_shared_query_count": thresholds.get("min_total_shared_query_count"),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_apply_harness_config_update_context(
     session: Session,
     task: AgentTask,
@@ -767,6 +870,13 @@ def build_agent_task_context(
         return _build_draft_harness_config_context(session, task, payload, action=action)
     if task.task_type == "evaluate_search_harness":
         return _build_evaluate_search_harness_context(session, task, payload, action=action)
+    if task.task_type == "verify_search_harness_evaluation":
+        return _build_verify_search_harness_evaluation_context(
+            session,
+            task,
+            payload,
+            action=action,
+        )
     if task.task_type == "verify_draft_harness_config":
         return _build_verify_draft_harness_config_context(session, task, payload, action=action)
     if task.task_type == "apply_harness_config_update":

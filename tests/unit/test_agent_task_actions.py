@@ -367,6 +367,14 @@ def test_get_agent_task_action_exposes_evaluate_output_schema_metadata() -> None
     assert action.output_model is not None
 
 
+def test_get_agent_task_action_exposes_verify_evaluation_output_schema_metadata() -> None:
+    action = get_agent_task_action("verify_search_harness_evaluation")
+
+    assert action.output_schema_name == "verify_search_harness_evaluation_output"
+    assert action.output_schema_version == "1.0"
+    assert action.output_model is not None
+
+
 def test_verify_draft_harness_config_executor_writes_verification_artifact(monkeypatch) -> None:
     task = AgentTask(
         id=uuid4(),

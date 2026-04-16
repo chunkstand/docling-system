@@ -396,6 +396,101 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
     ] >= 1
 
 
+def test_verify_search_harness_evaluation_context_roundtrip(postgres_integration_harness) -> None:
+    _document_id, _run_id = _create_processed_document(postgres_integration_harness)
+    client = postgres_integration_harness.client
+
+    with postgres_integration_harness.session_factory() as session:
+        evaluate_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_search_harness",
+                input={
+                    "candidate_harness_name": "wide_v2",
+                    "baseline_harness_name": "default_v1",
+                    "source_types": ["evaluation_queries"],
+                    "limit": 10,
+                },
+                workflow_version="milestone10_integration",
+            ),
+        )
+        evaluate_task_id = evaluate_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == evaluate_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_search_harness_evaluation",
+                input={
+                    "target_task_id": str(evaluate_task_id),
+                    "max_total_regressed_count": 0,
+                    "max_mrr_drop": 0.0,
+                    "max_zero_result_count_increase": 0,
+                    "max_foreign_top_result_count_increase": 0,
+                    "min_total_shared_query_count": 1,
+                },
+                workflow_version="milestone10_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    with postgres_integration_harness.session_factory() as session:
+        task = claim_next_agent_task(session, "integration-agent-worker")
+        assert task is not None
+        assert task.id == verify_task_id
+        process_agent_task(session, task.id, postgres_integration_harness.storage_service)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task_row = session.get(AgentTask, verify_task_id)
+        assert verify_task_row is not None
+        assert verify_task_row.status == AgentTaskStatus.COMPLETED.value
+        verify_context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+                verify_task_id
+            )
+        )
+        assert verify_context_path.exists()
+        verify_context_payload = json.loads(verify_context_path.read_text())
+        assert verify_context_payload["summary"]["verification_state"] in {"passed", "failed"}
+        assert verify_context_payload["summary"]["metrics"]["max_total_regressed_count"] == 0
+        assert {row["ref_key"] for row in verify_context_payload["refs"]} >= {
+            "target_task_output",
+            "verification_record",
+        }
+
+    context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
+    assert context_response.status_code == 200
+    context_json = context_response.json()
+    assert context_json["output"]["verification"]["details"]["thresholds"][
+        "max_total_regressed_count"
+    ] == 0
+    assert context_json["refs"][0]["ref_key"] == "target_task_output"
+
+    detail_response = client.get(f"/agent-tasks/{verify_task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["context_summary"]["verification_state"] in {"passed", "failed"}
+    assert detail_response.json()["context_refs"][0]["freshness_status"] == "fresh"
+
+    export_response = client.get(
+        "/agent-tasks/traces/export",
+        params={
+            "limit": 10,
+            "workflow_version": "milestone10_integration",
+            "task_type": "verify_search_harness_evaluation",
+        },
+    )
+    assert export_response.status_code == 200
+    export_trace = export_response.json()["traces"][0]
+    assert export_trace["context_summary"]["metrics"]["max_total_regressed_count"] == 0
+    assert export_trace["context_refs"][0]["ref_key"] == "target_task_output"
+
+
 def test_triage_replay_regression_failure_writes_failure_artifact(
     postgres_integration_harness,
 ) -> None:

@@ -5,7 +5,13 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification, SearchReplayRun
+from app.db.models import (
+    AgentTask,
+    AgentTaskArtifact,
+    AgentTaskDependency,
+    AgentTaskVerification,
+    SearchReplayRun,
+)
 from app.schemas.agent_tasks import (
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,
@@ -91,10 +97,18 @@ class FakeExecuteResult:
 
 
 class FakeSession:
-    def __init__(self, *, tasks: dict, replay_runs: dict, artifacts: dict | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        tasks: dict,
+        replay_runs: dict,
+        artifacts: dict | None = None,
+        dependencies: dict | None = None,
+    ) -> None:
         self.tasks = tasks
         self.replay_runs = replay_runs
         self.artifacts = artifacts or {}
+        self.dependencies = dependencies or {}
         self.added: list[object] = []
         self.flushed = False
 
@@ -119,7 +133,87 @@ class FakeSession:
         rendered = str(statement)
         if "agent_task_artifacts" in rendered:
             return FakeExecuteResult(self.artifacts.values())
+        if "agent_task_dependencies" in rendered:
+            return FakeExecuteResult(self.dependencies.values())
         raise AssertionError(f"Unexpected statement: {rendered}")
+
+
+def _build_evaluation_context_artifact(
+    *,
+    task_id,
+    baseline_replay_run_id,
+    candidate_replay_run_id,
+    regressed_count: int,
+    total_shared_query_count: int = 4,
+) -> AgentTaskArtifact:
+    now = datetime.now(UTC)
+    return AgentTaskArtifact(
+        id=uuid4(),
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="context",
+        storage_path=None,
+        payload_json={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(task_id),
+            "task_type": "evaluate_search_harness",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": now.isoformat(),
+            "task_updated_at": now.isoformat(),
+            "output_schema_name": "evaluate_search_harness_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Evaluation ready"},
+            "refs": [],
+            "output": {
+                "candidate_harness_name": "wide_v2",
+                "baseline_harness_name": "default_v1",
+                "evaluation": {
+                    "baseline_harness_name": "default_v1",
+                    "candidate_harness_name": "wide_v2",
+                    "limit": 12,
+                    "total_shared_query_count": total_shared_query_count,
+                    "total_improved_count": 1,
+                    "total_regressed_count": regressed_count,
+                    "total_unchanged_count": 0,
+                    "sources": [
+                        {
+                            "source_type": "feedback",
+                            "baseline_replay_run_id": str(baseline_replay_run_id),
+                            "candidate_replay_run_id": str(candidate_replay_run_id),
+                            "baseline_query_count": 4,
+                            "candidate_query_count": 4,
+                            "baseline_passed_count": 4,
+                            "candidate_passed_count": 4,
+                            "baseline_zero_result_count": 0,
+                            "candidate_zero_result_count": 0,
+                            "baseline_table_hit_count": 1,
+                            "candidate_table_hit_count": 1,
+                            "baseline_top_result_changes": 0,
+                            "candidate_top_result_changes": 0,
+                            "baseline_mrr": 1.0,
+                            "candidate_mrr": 1.0,
+                            "baseline_foreign_top_result_count": 0,
+                            "candidate_foreign_top_result_count": 0,
+                            "acceptance_checks": {
+                                "no_regressions": regressed_count == 0,
+                                "mrr_not_lower": True,
+                                "foreign_top_result_count_not_higher": True,
+                                "zero_result_count_not_higher": True,
+                            },
+                            "shared_query_count": total_shared_query_count,
+                            "improved_count": 1,
+                            "regressed_count": regressed_count,
+                            "unchanged_count": 0,
+                        }
+                    ],
+                },
+            },
+        },
+        created_at=now,
+    )
 
 
 def test_verify_search_harness_evaluation_task_records_passed_verification() -> None:
@@ -201,6 +295,18 @@ def test_verify_search_harness_evaluation_task_records_passed_verification() -> 
         created_at=now,
         completed_at=now,
     )
+    context_artifact = _build_evaluation_context_artifact(
+        task_id=target_task_id,
+        baseline_replay_run_id=baseline_replay_run_id,
+        candidate_replay_run_id=candidate_replay_run_id,
+        regressed_count=0,
+    )
+    dependency = AgentTaskDependency(
+        task_id=verification_task_id,
+        depends_on_task_id=target_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
     session = FakeSession(
         tasks={
             target_task_id: target_task,
@@ -210,6 +316,8 @@ def test_verify_search_harness_evaluation_task_records_passed_verification() -> 
             baseline_replay_run_id: baseline_replay_run,
             candidate_replay_run_id: candidate_replay_run,
         },
+        artifacts={context_artifact.id: context_artifact},
+        dependencies={(verification_task_id, target_task_id): dependency},
     )
 
     result = verify_search_harness_evaluation_task(
@@ -226,6 +334,7 @@ def test_verify_search_harness_evaluation_task_records_passed_verification() -> 
     assert row.verifier_type == "search_harness_evaluation_gate"
     assert result["verification"]["outcome"] == "passed"
     assert result["verification"]["target_task_id"] == str(target_task_id)
+    assert result["evaluation"]["candidate_harness_name"] == "wide_v2"
 
 
 def test_verify_search_harness_evaluation_task_records_failed_verification() -> None:
@@ -307,6 +416,18 @@ def test_verify_search_harness_evaluation_task_records_failed_verification() -> 
         created_at=now,
         completed_at=now,
     )
+    context_artifact = _build_evaluation_context_artifact(
+        task_id=target_task_id,
+        baseline_replay_run_id=baseline_replay_run_id,
+        candidate_replay_run_id=candidate_replay_run_id,
+        regressed_count=2,
+    )
+    dependency = AgentTaskDependency(
+        task_id=verification_task_id,
+        depends_on_task_id=target_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
     session = FakeSession(
         tasks={
             target_task_id: target_task,
@@ -316,6 +437,8 @@ def test_verify_search_harness_evaluation_task_records_failed_verification() -> 
             baseline_replay_run_id: baseline_replay_run,
             candidate_replay_run_id: candidate_replay_run,
         },
+        artifacts={context_artifact.id: context_artifact},
+        dependencies={(verification_task_id, target_task_id): dependency},
     )
 
     result = verify_search_harness_evaluation_task(
@@ -333,6 +456,68 @@ def test_verify_search_harness_evaluation_task_records_failed_verification() -> 
     assert result["verification"]["outcome"] == "failed"
     assert result["verification"]["reasons"]
     assert "regressed_count" in result["verification"]["reasons"][0]
+
+
+def test_verify_search_harness_evaluation_task_rejects_pre_context_evaluations() -> None:
+    target_task_id = uuid4()
+    verification_task_id = uuid4()
+    now = datetime.now(UTC)
+    target_task = AgentTask(
+        id=target_task_id,
+        task_type="evaluate_search_harness",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json=_build_harness_evaluation_result(
+            baseline_replay_run_id=uuid4(),
+            candidate_replay_run_id=uuid4(),
+            regressed_count=0,
+        ),
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    verification_task = AgentTask(
+        id=verification_task_id,
+        task_type="verify_search_harness_evaluation",
+        status="processing",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    dependency = AgentTaskDependency(
+        task_id=verification_task_id,
+        depends_on_task_id=target_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
+    session = FakeSession(
+        tasks={target_task_id: target_task, verification_task_id: verification_task},
+        replay_runs={},
+        dependencies={(verification_task_id, target_task_id): dependency},
+    )
+
+    try:
+        verify_search_harness_evaluation_task(
+            session,
+            verification_task,
+            VerifySearchHarnessEvaluationTaskInput(target_task_id=target_task_id),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "must be rerun after the context migration" in exc.detail
+    else:
+        raise AssertionError("Expected pre-context evaluation task to be rejected")
 
 
 def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypatch) -> None:

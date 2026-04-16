@@ -497,6 +497,11 @@ class EvaluateSearchHarnessTaskOutput(BaseModel):
     evaluation: SearchHarnessEvaluationResponse
 
 
+class VerifySearchHarnessEvaluationTaskOutput(BaseModel):
+    evaluation: SearchHarnessEvaluationResponse
+    verification: AgentTaskVerificationResponse
+
+
 class VerifyDraftHarnessConfigTaskOutput(BaseModel):
     draft: DraftHarnessConfigPayload
     evaluation: dict = Field(default_factory=dict)
