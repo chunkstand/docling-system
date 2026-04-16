@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import UUID
 
 import uvicorn
+import yaml
 from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -78,10 +79,7 @@ from app.schemas.search import (
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
-from app.services.agent_task_context import (
-    get_agent_task_context,
-    get_agent_task_context_yaml_path,
-)
+from app.services.agent_task_context import get_agent_task_context
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -444,16 +442,18 @@ def read_agent_task_context(
     task_id: UUID,
     format: str = "json",
     session: Session = Depends(get_db_session),
-    storage_service: StorageService = Depends(get_storage_service),
 ):
     context = get_agent_task_context(session, task_id)
+    context_payload = (
+        context.model_dump(mode="json") if hasattr(context, "model_dump") else context
+    )
     if format == "json":
         return context
     if format == "yaml":
-        yaml_path = get_agent_task_context_yaml_path(storage_service, task_id=task_id)
-        if not yaml_path.exists():
-            return Response(status_code=404)
-        return FileResponse(yaml_path, media_type="application/yaml")
+        return Response(
+            content=yaml.safe_dump(context_payload, sort_keys=False, allow_unicode=True),
+            media_type="application/yaml",
+        )
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Unsupported context format. Use 'json' or 'yaml'.",

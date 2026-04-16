@@ -3,9 +3,17 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from app.db.models import AgentTask, AgentTaskVerification, SearchReplayRun
-from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
-from app.services.agent_task_verifications import verify_search_harness_evaluation_task
+from fastapi import HTTPException
+
+from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification, SearchReplayRun
+from app.schemas.agent_tasks import (
+    VerifyDraftHarnessConfigTaskInput,
+    VerifySearchHarnessEvaluationTaskInput,
+)
+from app.services.agent_task_verifications import (
+    verify_draft_harness_config_task,
+    verify_search_harness_evaluation_task,
+)
 
 
 def _build_harness_evaluation_result(
@@ -67,16 +75,34 @@ def _build_harness_evaluation_result(
     }
 
 
+class FakeExecuteResult:
+    def __init__(self, rows) -> None:
+        self.rows = list(rows)
+
+    def scalars(self):
+        class FakeScalarResult:
+            def __init__(self, rows) -> None:
+                self.rows = list(rows)
+
+            def first(self):
+                return self.rows[0] if self.rows else None
+
+        return FakeScalarResult(self.rows)
+
+
 class FakeSession:
-    def __init__(self, *, tasks: dict, replay_runs: dict) -> None:
+    def __init__(self, *, tasks: dict, replay_runs: dict, artifacts: dict | None = None) -> None:
         self.tasks = tasks
         self.replay_runs = replay_runs
+        self.artifacts = artifacts or {}
         self.added: list[object] = []
         self.flushed = False
 
     def get(self, model, key):
         if model.__name__ == "AgentTask":
             return self.tasks.get(key)
+        if model.__name__ == "AgentTaskArtifact":
+            return self.artifacts.get(key)
         if model.__name__ == "SearchReplayRun":
             return self.replay_runs.get(key)
         return None
@@ -88,6 +114,12 @@ class FakeSession:
 
     def flush(self) -> None:
         self.flushed = True
+
+    def execute(self, statement):
+        rendered = str(statement)
+        if "agent_task_artifacts" in rendered:
+            return FakeExecuteResult(self.artifacts.values())
+        raise AssertionError(f"Unexpected statement: {rendered}")
 
 
 def test_verify_search_harness_evaluation_task_records_passed_verification() -> None:
@@ -301,3 +333,174 @@ def test_verify_search_harness_evaluation_task_records_failed_verification() -> 
     assert result["verification"]["outcome"] == "failed"
     assert result["verification"]["reasons"]
     assert "regressed_count" in result["verification"]["reasons"][0]
+
+
+def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypatch) -> None:
+    target_task_id = uuid4()
+    verification_task_id = uuid4()
+    now = datetime.now(UTC)
+    target_task = AgentTask(
+        id=target_task_id,
+        task_type="draft_harness_config_update",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    verification_task = AgentTask(
+        id=verification_task_id,
+        task_type="verify_draft_harness_config",
+        status="processing",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    artifact = AgentTaskArtifact(
+        id=uuid4(),
+        task_id=target_task_id,
+        attempt_id=None,
+        artifact_kind="context",
+        storage_path=None,
+        payload_json={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(target_task_id),
+            "task_type": "draft_harness_config_update",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": now.isoformat(),
+            "task_updated_at": now.isoformat(),
+            "output_schema_name": "draft_harness_config_update_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Draft ready"},
+            "refs": [],
+            "output": {
+                "draft": {
+                    "draft_harness_name": "wide_v2_review",
+                    "base_harness_name": "wide_v2",
+                    "source_task_id": None,
+                    "source_task_type": None,
+                    "rationale": "publish review harness",
+                    "override_spec": {
+                        "base_harness_name": "wide_v2",
+                        "retrieval_profile_overrides": {},
+                        "reranker_overrides": {"result_type_priority_bonus": 0.009},
+                        "override_type": "draft_harness_config_update",
+                        "override_source": "task_draft",
+                        "draft_task_id": str(target_task_id),
+                        "source_task_id": None,
+                        "rationale": "publish review harness",
+                    },
+                    "effective_harness_config": {"base_harness_name": "wide_v2"},
+                },
+                "artifact_id": str(uuid4()),
+                "artifact_kind": "harness_config_draft",
+                "artifact_path": "/tmp/harness_config_draft.json",
+            },
+        },
+        created_at=now,
+    )
+    session = FakeSession(
+        tasks={target_task_id: target_task, verification_task_id: verification_task},
+        replay_runs={},
+        artifacts={artifact.id: artifact},
+    )
+
+    monkeypatch.setattr(
+        "app.services.agent_task_verifications.evaluate_search_harness",
+        lambda session, request, harness_overrides=None: {
+            "candidate_harness_name": request.candidate_harness_name,
+            "baseline_harness_name": request.baseline_harness_name,
+            "total_shared_query_count": 4,
+            "total_improved_count": 1,
+            "total_regressed_count": 0,
+            "sources": [],
+        },
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_verifications.evaluate_search_harness_verification",
+        lambda session, evaluation, payload: type(
+            "Outcome",
+            (),
+            {
+                "outcome": "passed",
+                "metrics": {"total_shared_query_count": 4},
+                "reasons": [],
+                "details": {"thresholds": payload.model_dump(mode="json")},
+            },
+        )(),
+    )
+
+    result = verify_draft_harness_config_task(
+        session,
+        verification_task,
+        VerifyDraftHarnessConfigTaskInput(target_task_id=target_task_id),
+    )
+
+    assert result["draft"]["draft_harness_name"] == "wide_v2_review"
+    assert result["verification"]["outcome"] == "passed"
+
+
+def test_verify_draft_harness_config_task_rejects_pre_context_drafts() -> None:
+    target_task_id = uuid4()
+    verification_task_id = uuid4()
+    now = datetime.now(UTC)
+    target_task = AgentTask(
+        id=target_task_id,
+        task_type="draft_harness_config_update",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={"payload": {"draft": {"draft_harness_name": "legacy"}}},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    verification_task = AgentTask(
+        id=verification_task_id,
+        task_type="verify_draft_harness_config",
+        status="processing",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    session = FakeSession(
+        tasks={target_task_id: target_task, verification_task_id: verification_task},
+        replay_runs={},
+    )
+
+    try:
+        verify_draft_harness_config_task(
+            session,
+            verification_task,
+            VerifyDraftHarnessConfigTaskInput(target_task_id=target_task_id),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert "rerun after the context migration" in exc.detail
+    else:
+        raise AssertionError("Expected legacy draft task to be rejected")

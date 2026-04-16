@@ -728,10 +728,8 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     assert reject_response.json()["rejected_by"] == "reviewer@example.com"
 
 
-def test_agent_task_context_route_supports_json_and_yaml(monkeypatch, tmp_path) -> None:
+def test_agent_task_context_route_supports_json_and_yaml(monkeypatch) -> None:
     task_id = uuid4()
-    yaml_path = tmp_path / "context.yaml"
-    yaml_path.write_text("schema_name: agent_task_context\n")
 
     monkeypatch.setattr(
         "app.api.main.get_agent_task_context",
@@ -748,13 +746,16 @@ def test_agent_task_context_route_supports_json_and_yaml(monkeypatch, tmp_path) 
             "output_schema_version": "1.0",
             "freshness_status": "fresh",
             "summary": {"headline": "Draft ready"},
-            "refs": [],
+            "refs": [
+                {
+                    "ref_key": "draft_task_output",
+                    "ref_kind": "task_output",
+                    "task_id": str(incoming_task_id),
+                    "freshness_status": "fresh",
+                }
+            ],
             "output": {"artifact_kind": "harness_config_draft"},
         },
-    )
-    monkeypatch.setattr(
-        "app.api.main.get_agent_task_context_yaml_path",
-        lambda storage_service, task_id: yaml_path,
     )
 
     client = TestClient(app)
@@ -763,6 +764,7 @@ def test_agent_task_context_route_supports_json_and_yaml(monkeypatch, tmp_path) 
     assert json_response.status_code == 200
     assert json_response.json()["task_type"] == "draft_harness_config_update"
     assert json_response.json()["freshness_status"] == "fresh"
+    assert json_response.json()["refs"][0]["freshness_status"] == "fresh"
 
     yaml_response = client.get(f"/agent-tasks/{task_id}/context?format=yaml")
     assert yaml_response.status_code == 200

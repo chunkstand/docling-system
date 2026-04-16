@@ -17,10 +17,12 @@ from app.db.models import (
 )
 from app.schemas.agent_tasks import (
     AgentTaskVerificationResponse,
+    DraftHarnessConfigUpdateTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchHarnessEvaluationResponse
+from app.services.agent_task_context import resolve_required_task_output_context
 from app.services.search_harness_evaluations import evaluate_search_harness
 
 
@@ -329,24 +331,21 @@ def verify_draft_harness_config_task(
     verification_task: AgentTask,
     payload: VerifyDraftHarnessConfigTaskInput,
 ) -> dict:
-    target_task = session.get(AgentTask, payload.target_task_id)
-    if target_task is None:
-        msg = f"Target task not found: {payload.target_task_id}"
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
-    if target_task.task_type != "draft_harness_config_update":
-        msg = "Target task must be a draft_harness_config_update task."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-    if target_task.status != "completed":
-        msg = "Target task must be completed before verification."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
-
-    draft_payload = (((target_task.result_json or {}).get("payload") or {}).get("draft") or {})
-    override_spec = draft_payload.get("override_spec") or {}
-    draft_harness_name = draft_payload.get("draft_harness_name")
-    base_harness_name = draft_payload.get("base_harness_name")
-    if not draft_harness_name or not base_harness_name:
-        msg = "Target draft task is missing harness draft metadata."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+    draft_context = resolve_required_task_output_context(
+        session,
+        task_id=payload.target_task_id,
+        expected_task_type="draft_harness_config_update",
+        expected_schema_name="draft_harness_config_update_output",
+        expected_schema_version="1.0",
+        rerun_message=(
+            "Target draft task must be rerun after the context migration before it can be "
+            "verified."
+        ),
+    )
+    output = DraftHarnessConfigUpdateTaskOutput.model_validate(draft_context.output)
+    override_spec = output.draft.override_spec.model_dump(mode="json", exclude_none=True)
+    draft_harness_name = output.draft.draft_harness_name
+    base_harness_name = output.draft.base_harness_name
 
     evaluation = evaluate_search_harness(
         session,
@@ -372,14 +371,14 @@ def verify_draft_harness_config_task(
     )
     details = {
         **outcome.details,
-        "target_task_id": str(target_task.id),
-        "target_task_type": target_task.task_type,
+        "target_task_id": str(draft_context.task_id),
+        "target_task_type": draft_context.task_type,
         "draft_harness_name": draft_harness_name,
         "base_harness_name": base_harness_name,
     }
     record = create_agent_task_verification_record(
         session,
-        target_task_id=target_task.id,
+        target_task_id=draft_context.task_id,
         verification_task_id=verification_task.id,
         verifier_type="draft_harness_config_gate",
         outcome=outcome.outcome,
@@ -388,7 +387,7 @@ def verify_draft_harness_config_task(
         details=details,
     )
     return {
-        "draft": draft_payload,
+        "draft": output.draft.model_dump(mode="json"),
         "evaluation": jsonable_encoder(evaluation),
         "verification": record.model_dump(mode="json"),
     }

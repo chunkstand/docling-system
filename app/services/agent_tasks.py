@@ -54,7 +54,7 @@ from app.schemas.agent_tasks import (
     TaskContextEnvelope,
     AgentTaskWorkflowVersionSummaryResponse,
 )
-from app.services.agent_task_context import get_agent_task_context_artifact
+from app.services.agent_task_context import get_agent_task_context, get_agent_task_context_artifact
 from app.services.agent_task_artifacts import list_agent_task_artifacts
 from app.services.agent_task_verifications import (
     count_agent_task_verifications,
@@ -185,7 +185,7 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
     try:
         context_artifact = get_agent_task_context_artifact(session, task.id)
         context_artifact_id = context_artifact.id
-        context_envelope = TaskContextEnvelope.model_validate(context_artifact.payload_json or {})
+        context_envelope = get_agent_task_context(session, task.id)
     except HTTPException:
         context_envelope = None
     return AgentTaskDetailResponse(

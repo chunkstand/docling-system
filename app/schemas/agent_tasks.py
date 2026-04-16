@@ -488,6 +488,15 @@ class DraftHarnessConfigUpdateTaskOutput(BaseModel):
     artifact_path: str | None = None
 
 
+class VerifyDraftHarnessConfigTaskOutput(BaseModel):
+    draft: DraftHarnessConfigPayload
+    evaluation: dict = Field(default_factory=dict)
+    verification: AgentTaskVerificationResponse
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
 class VerifyDraftHarnessConfigTaskInput(BaseModel):
     target_task_id: UUID
     baseline_harness_name: str | None = Field(default=None, min_length=1)

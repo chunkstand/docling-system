@@ -300,6 +300,8 @@ Current task guarantees:
 - persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
 - migrated task types also persist `storage/agent_tasks/<task_id>/context.json` as the canonical context artifact and `storage/agent_tasks/<task_id>/context.yaml` as the derived human-readable sidecar
 - task detail and trace export responses include additive context fields (`dependency_edges`, `context_summary`, `context_refs`, `context_artifact_id`, `context_freshness_status`) without changing the existing `input` / `result` payloads
+- migrated context refs track `observed_sha256`, `source_updated_at`, `checked_at`, and `freshness_status`; `missing` and `schema_mismatch` block migrated consumers, while `stale` remains advisory in v1
+- migrated consumers do not fall back to legacy nested payload reads; pre-context upstream tasks must be rerun into the migrated path before they can be consumed
 - the full task context surface is available through `GET /agent-tasks/{task_id}/context?format=json|yaml`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - task outcome labels can be inspected through `GET /agent-tasks/{task_id}/outcomes`

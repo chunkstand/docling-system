@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from uuid import UUID
 
+import yaml
+
 from app.db.models import AgentTask, Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.agent_tasks import (
@@ -15,7 +17,7 @@ from app.schemas.agent_tasks import (
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
-from app.services.agent_task_context import get_agent_task_context, get_agent_task_context_yaml_path
+from app.services.agent_task_context import get_agent_task_context
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -448,13 +450,13 @@ def run_agent_task_context() -> None:
     args = parser.parse_args()
 
     session_factory = get_session_factory()
-    storage_service = StorageService()
     with session_factory() as session:
         payload = get_agent_task_context(session, UUID(args.task_id))
+    payload_json = payload.model_dump(mode="json") if hasattr(payload, "model_dump") else payload
     if args.format == "yaml":
-        print(get_agent_task_context_yaml_path(storage_service, task_id=UUID(args.task_id)).read_text())
+        print(yaml.safe_dump(payload_json, sort_keys=False, allow_unicode=True))
         return
-    print(json.dumps(payload.model_dump(mode="json")))
+    print(json.dumps(payload_json))
 
 
 def run_agent_task_outcomes() -> None:

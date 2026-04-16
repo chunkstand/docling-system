@@ -18,6 +18,7 @@ from app.schemas.agent_tasks import (
     QualityEvalCandidatesTaskInput,
     ReplaySearchRequestTaskInput,
     TriageReplayRegressionTaskInput,
+    VerifyDraftHarnessConfigTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifySearchHarnessEvaluationTaskInput,
 )
@@ -511,6 +512,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         ),
         payload_model=VerifyDraftHarnessConfigTaskInput,
         executor=_verify_draft_harness_config_executor,
+        output_model=VerifyDraftHarnessConfigTaskOutput,
+        output_schema_name="verify_draft_harness_config_output",
+        output_schema_version="1.0",
         input_example={
             "target_task_id": "00000000-0000-0000-0000-000000000000",
             "baseline_harness_name": "default_v1",

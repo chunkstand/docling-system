@@ -733,8 +733,20 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         verify_task_row = session.get(AgentTask, verify_task_id)
         assert verify_task_row is not None
         assert verify_task_row.status == AgentTaskStatus.COMPLETED.value
+        verify_context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+                verify_task_id
+            )
+        )
+        assert verify_context_path.exists()
         verification = verify_task_row.result_json["payload"]["verification"]
         assert verification["outcome"] == "passed"
+        verify_context_payload = json.loads(verify_context_path.read_text())
+        assert verify_context_payload["summary"]["verification_state"] == "passed"
+        assert {row["ref_key"] for row in verify_context_payload["refs"]} >= {
+            "draft_task_output",
+            "verification_record",
+        }
 
         apply_task = create_agent_task(
             session,
@@ -801,6 +813,15 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     assert draft_detail_response.status_code == 200
     assert draft_detail_response.json()["dependency_edges"][0]["dependency_kind"] == "source_task"
     assert draft_detail_response.json()["context_freshness_status"] == "fresh"
+    verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
+    assert verify_context_response.status_code == 200
+    verify_refs = {row["ref_key"]: row for row in verify_context_response.json()["refs"]}
+    assert verify_refs["draft_task_output"]["freshness_status"] == "fresh"
+    assert verify_refs["verification_record"]["freshness_status"] == "fresh"
+    verify_detail_response = client.get(f"/agent-tasks/{verify_task_id}")
+    assert verify_detail_response.status_code == 200
+    assert verify_detail_response.json()["context_summary"]["verification_state"] == "passed"
+    assert verify_detail_response.json()["context_refs"][0]["freshness_status"] == "fresh"
     harness_row = next(
         row
         for row in harnesses_response.json()
