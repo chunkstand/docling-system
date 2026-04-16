@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
+    ApplyHarnessConfigUpdateTaskOutput,
     ApplyHarnessConfigUpdateTaskInput,
     DraftHarnessConfigUpdateTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
@@ -24,6 +25,7 @@ from app.schemas.agent_tasks import (
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
+from app.services.agent_task_context import resolve_required_dependency_task_output_context
 from app.services.agent_task_verifications import (
     create_agent_task_verification_record,
     evaluate_search_harness_verification,
@@ -215,46 +217,56 @@ def _apply_harness_config_update_executor(
     task: AgentTask,
     payload: ApplyHarnessConfigUpdateTaskInput,
 ) -> dict:
-    draft_task = session.get(AgentTask, payload.draft_task_id)
-    if draft_task is None:
-        msg = f"Draft task not found: {payload.draft_task_id}"
-        raise ValueError(msg)
-    if draft_task.task_type != "draft_harness_config_update":
-        msg = "Draft task must be a draft_harness_config_update task."
-        raise ValueError(msg)
-    if draft_task.status != "completed":
-        msg = "Draft task must be completed before applying."
-        raise ValueError(msg)
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_harness_config_update",
+        expected_schema_name="draft_harness_config_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested draft task as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Draft task must be rerun after the context migration before it can be applied."
+        ),
+    )
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_harness_config",
+        expected_schema_name="verify_draft_harness_config_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested verification task as a "
+            "verification_task dependency."
+        ),
+        rerun_message=(
+            "Verification task must be rerun after the context migration before it can be "
+            "applied."
+        ),
+    )
 
-    verification_task = session.get(AgentTask, payload.verification_task_id)
-    if verification_task is None:
-        msg = f"Verification task not found: {payload.verification_task_id}"
-        raise ValueError(msg)
-    if verification_task.task_type != "verify_draft_harness_config":
-        msg = "Verification task must be a verify_draft_harness_config task."
-        raise ValueError(msg)
-    if verification_task.status != "completed":
-        msg = "Verification task must be completed before applying."
-        raise ValueError(msg)
+    draft_output = DraftHarnessConfigUpdateTaskOutput.model_validate(draft_context.output)
+    verification_output = VerifyDraftHarnessConfigTaskOutput.model_validate(
+        verification_context.output
+    )
 
-    verification_payload = ((verification_task.result_json or {}).get("payload") or {})
-    verification = verification_payload.get("verification") or {}
-    if verification.get("outcome") != "passed":
+    verification = verification_output.verification
+    if verification.outcome != "passed":
         msg = "Only passed draft harness verifications can be applied."
         raise ValueError(msg)
-    verification_details = verification.get("details") or {}
-    verified_target_task_id = verification_details.get("target_task_id")
-    if verified_target_task_id != str(payload.draft_task_id):
+    if verification.target_task_id != payload.draft_task_id:
         msg = "Verification task does not target the requested draft task."
         raise ValueError(msg)
 
-    draft_payload = (((draft_task.result_json or {}).get("payload") or {}).get("draft") or {})
-    draft_harness_name = draft_payload.get("draft_harness_name")
-    override_spec = dict(draft_payload.get("override_spec") or {})
-    if not draft_harness_name or not override_spec:
-        msg = "Draft task is missing draft harness metadata."
-        raise ValueError(msg)
-    if verification_details.get("draft_harness_name") not in {None, draft_harness_name}:
+    draft_payload = draft_output.draft
+    draft_harness_name = draft_payload.draft_harness_name
+    override_spec = draft_payload.override_spec.model_dump(mode="json")
+    if verification_output.draft.draft_harness_name != draft_harness_name:
         msg = "Verification task does not match the requested draft harness name."
         raise ValueError(msg)
 
@@ -575,6 +587,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         executor=_apply_harness_config_update_executor,
         side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
         requires_approval=True,
+        output_model=ApplyHarnessConfigUpdateTaskOutput,
+        output_schema_name="apply_harness_config_update_output",
+        output_schema_version="1.0",
         input_example={
             "draft_task_id": "00000000-0000-0000-0000-000000000000",
             "verification_task_id": "00000000-0000-0000-0000-000000000000",

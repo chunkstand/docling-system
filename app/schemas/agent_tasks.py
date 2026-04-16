@@ -497,6 +497,19 @@ class VerifyDraftHarnessConfigTaskOutput(BaseModel):
     artifact_path: str | None = None
 
 
+class ApplyHarnessConfigUpdateTaskOutput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    draft_harness_name: str
+    reason: str | None = None
+    config_path: str
+    applied_override: dict = Field(default_factory=dict)
+    effective_harness_config: dict = Field(default_factory=dict)
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
 class VerifyDraftHarnessConfigTaskInput(BaseModel):
     target_task_id: UUID
     baseline_harness_name: str | None = Field(default=None, min_length=1)

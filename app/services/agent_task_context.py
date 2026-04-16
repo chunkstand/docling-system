@@ -11,14 +11,20 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskVerification
+from app.db.models import (
+    AgentTask,
+    AgentTaskArtifact,
+    AgentTaskDependency,
+    AgentTaskVerification,
+)
 from app.schemas.agent_tasks import (
+    ApplyHarnessConfigUpdateTaskOutput,
     ContextFreshnessStatus,
     ContextRef,
     DraftHarnessConfigUpdateTaskOutput,
-    VerifyDraftHarnessConfigTaskOutput,
     TaskContextEnvelope,
     TaskContextSummary,
+    VerifyDraftHarnessConfigTaskOutput,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
@@ -234,6 +240,42 @@ def resolve_required_task_output_context(
     return context
 
 
+def resolve_required_dependency_task_output_context(
+    session: Session,
+    *,
+    task_id: UUID,
+    depends_on_task_id: UUID,
+    dependency_kind: str,
+    expected_task_type: str,
+    expected_schema_name: str,
+    expected_schema_version: str,
+    dependency_error_message: str,
+    rerun_message: str,
+) -> TaskContextEnvelope:
+    dependency_row = (
+        session.execute(
+            select(AgentTaskDependency)
+            .where(
+                AgentTaskDependency.task_id == task_id,
+                AgentTaskDependency.depends_on_task_id == depends_on_task_id,
+            )
+            .limit(1)
+        )
+        .scalars()
+        .first()
+    )
+    if dependency_row is None or dependency_row.dependency_kind != dependency_kind:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=dependency_error_message)
+    return resolve_required_task_output_context(
+        session,
+        task_id=depends_on_task_id,
+        expected_task_type=expected_task_type,
+        expected_schema_name=expected_schema_name,
+        expected_schema_version=expected_schema_version,
+        rerun_message=rerun_message,
+    )
+
+
 def _build_draft_harness_config_context(
     session: Session,
     task: AgentTask,
@@ -440,6 +482,132 @@ def _build_verify_draft_harness_config_context(
     )
 
 
+def _build_apply_harness_config_update_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = ApplyHarnessConfigUpdateTaskOutput.model_validate(payload)
+    now = _utcnow()
+    refs: list[ContextRef] = []
+
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_harness_config_update",
+        expected_schema_name="draft_harness_config_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested draft task as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Draft task must be rerun after the context migration before it can be applied."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="draft_task_output",
+            ref_kind="task_output",
+            summary="Migrated draft-harness output applied to the live override store.",
+            task_id=draft_context.task_id,
+            schema_name=draft_context.output_schema_name,
+            schema_version=draft_context.output_schema_version,
+            observed_sha256=_payload_sha256(draft_context.output),
+            source_updated_at=draft_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_harness_config",
+        expected_schema_name="verify_draft_harness_config_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested verification task as a "
+            "verification_task dependency."
+        ),
+        rerun_message=(
+            "Verification task must be rerun after the context migration before it can be "
+            "applied."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="verification_task_output",
+            ref_kind="task_output",
+            summary="Migrated verification output that approved this live apply step.",
+            task_id=verification_context.task_id,
+            schema_name=verification_context.output_schema_name,
+            schema_version=verification_context.output_schema_version,
+            observed_sha256=_payload_sha256(verification_context.output),
+            source_updated_at=verification_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="applied_artifact",
+                ref_kind="artifact",
+                summary="Persisted apply artifact for the live harness override.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    verification_output = VerifyDraftHarnessConfigTaskOutput.model_validate(verification_context.output)
+    summary = TaskContextSummary(
+        headline=f"Applied verified harness {output.draft_harness_name} to live search.",
+        goal="Publish a verified draft harness after approval without changing the workflow model.",
+        decision="Live override written and ready for post-apply monitoring.",
+        next_action=(
+            f"Monitor search traffic and run follow-up evaluation for {output.draft_harness_name}."
+        ),
+        approval_state="approved" if task.approved_at is not None else "pending",
+        verification_state=verification_output.verification.outcome,
+        metrics={
+            "total_shared_query_count": (verification_output.verification.metrics or {}).get(
+                "total_shared_query_count"
+            ),
+            "regressed_count": verification_output.evaluation.get("total_regressed_count"),
+            "improved_count": verification_output.evaluation.get("total_improved_count"),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_generic_task_context(task: AgentTask, payload: dict, *, action) -> TaskContextEnvelope:
     now = _utcnow()
     return TaskContextEnvelope(
@@ -477,6 +645,8 @@ def build_agent_task_context(
         return _build_draft_harness_config_context(session, task, payload, action=action)
     if task.task_type == "verify_draft_harness_config":
         return _build_verify_draft_harness_config_context(session, task, payload, action=action)
+    if task.task_type == "apply_harness_config_update":
+        return _build_apply_harness_config_update_context(session, task, payload, action=action)
     return _build_generic_task_context(task, payload, action=action)
 
 

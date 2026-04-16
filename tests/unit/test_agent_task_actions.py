@@ -4,8 +4,10 @@ import json
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.db.models import AgentTask
@@ -25,6 +27,67 @@ from app.services.agent_task_actions import (
     execute_agent_task_action,
     validate_agent_task_output,
 )
+
+
+def _draft_output_payload(*, draft_task_id, draft_harness_name="wide_v2_review") -> dict:
+    return {
+        "draft": {
+            "draft_harness_name": draft_harness_name,
+            "base_harness_name": "wide_v2",
+            "source_task_id": None,
+            "source_task_type": None,
+            "rationale": "publish review harness",
+            "override_spec": {
+                "base_harness_name": "wide_v2",
+                "retrieval_profile_overrides": {"keyword_candidate_multiplier": 9},
+                "reranker_overrides": {"result_type_priority_bonus": 0.009},
+                "override_type": "draft_harness_config_update",
+                "override_source": "task_draft",
+                "draft_task_id": str(draft_task_id),
+                "source_task_id": None,
+                "rationale": "publish review harness",
+            },
+            "effective_harness_config": {"base_harness_name": "wide_v2"},
+        },
+        "artifact_id": str(uuid4()),
+        "artifact_kind": "harness_config_draft",
+        "artifact_path": "/tmp/harness_config_draft.json",
+    }
+
+
+def _verification_output_payload(
+    *,
+    verification_task_id,
+    draft_task_id,
+    draft_harness_name="wide_v2_review",
+    outcome="passed",
+) -> dict:
+    return {
+        "draft": _draft_output_payload(
+            draft_task_id=draft_task_id,
+            draft_harness_name=draft_harness_name,
+        )["draft"],
+        "evaluation": {
+            "baseline_harness_name": "wide_v2",
+            "total_regressed_count": 0,
+            "total_improved_count": 1,
+        },
+        "verification": {
+            "verification_id": str(uuid4()),
+            "target_task_id": str(draft_task_id),
+            "verification_task_id": str(verification_task_id),
+            "verifier_type": "draft_harness_config_gate",
+            "outcome": outcome,
+            "metrics": {"total_shared_query_count": 10},
+            "reasons": [],
+            "details": {"draft_harness_name": draft_harness_name},
+            "created_at": datetime.now(UTC).isoformat(),
+            "completed_at": datetime.now(UTC).isoformat(),
+        },
+        "artifact_id": str(uuid4()),
+        "artifact_kind": "harness_config_draft_verification",
+        "artifact_path": "/tmp/harness_config_draft_verification.json",
+    }
 
 
 def test_enqueue_document_reprocess_executor_queues_reprocess(monkeypatch) -> None:
@@ -320,62 +383,6 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    draft_task = AgentTask(
-        id=draft_task_id,
-        task_type="draft_harness_config_update",
-        status="completed",
-        priority=100,
-        side_effect_level="draft_change",
-        requires_approval=False,
-        input_json={},
-        result_json={
-            "payload": {
-                "draft": {
-                    "draft_harness_name": "wide_v2_review",
-                    "base_harness_name": "wide_v2",
-                    "override_spec": {
-                        "base_harness_name": "wide_v2",
-                        "retrieval_profile_overrides": {"keyword_candidate_multiplier": 9},
-                        "reranker_overrides": {"result_type_priority_bonus": 0.009},
-                        "draft_task_id": str(draft_task_id),
-                        "override_type": "draft_harness_config_update",
-                    },
-                }
-            }
-        },
-        workflow_version="v1",
-        model_settings_json={},
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    verification_task = AgentTask(
-        id=verification_task_id,
-        task_type="verify_draft_harness_config",
-        status="completed",
-        priority=100,
-        side_effect_level="read_only",
-        requires_approval=False,
-        input_json={},
-        result_json={
-            "payload": {
-                "verification": {
-                    "outcome": "passed",
-                    "details": {
-                        "target_task_id": str(draft_task_id),
-                        "draft_harness_name": "wide_v2_review",
-                    },
-                }
-            }
-        },
-        workflow_version="v1",
-        model_settings_json={},
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    rows = {
-        draft_task_id: draft_task,
-        verification_task_id: verification_task,
-    }
 
     monkeypatch.setattr(
         "app.services.search_harness_overrides.get_search_harness_override_path",
@@ -397,10 +404,33 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         "app.services.search_harness_overrides.get_search_harness_override_path",
         lambda: tmp_path / "config" / "search_harness_overrides.json",
     )
-    session = type("FakeSession", (), {"get": lambda self, model, key: rows.get(key)})()
+    resolver_payloads = {
+        "draft_harness_config_update": SimpleNamespace(
+            output=_draft_output_payload(draft_task_id=draft_task_id)
+        ),
+        "verify_draft_harness_config": SimpleNamespace(
+            output=_verification_output_payload(
+                verification_task_id=verification_task_id,
+                draft_task_id=draft_task_id,
+            )
+        ),
+    }
+
+    def fake_resolve(
+        session,
+        *,
+        expected_task_type,
+        **_kwargs,
+    ):
+        return resolver_payloads[expected_task_type]
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        fake_resolve,
+    )
 
     result = _apply_harness_config_update_executor(
-        session=session,
+        session=object(),
         task=apply_task,
         payload=ApplyHarnessConfigUpdateTaskInput(
             draft_task_id=draft_task_id,
@@ -411,6 +441,7 @@ def test_apply_harness_config_update_executor_persists_review_harness(
 
     assert result["draft_harness_name"] == "wide_v2_review"
     assert result["applied_override"]["verification_task_id"] == str(verification_task_id)
+    assert result["applied_override"]["applied_by"] == "operator@example.com"
     assert Path(result["config_path"]).exists()
     payload = json.loads(Path(result["config_path"]).read_text())
     assert payload["harnesses"]["wide_v2_review"]["base_harness_name"] == "wide_v2"
@@ -418,7 +449,6 @@ def test_apply_harness_config_update_executor_persists_review_harness(
 
 def test_apply_harness_config_update_executor_rejects_mismatched_verification_target(
     monkeypatch,
-    tmp_path,
 ) -> None:
     draft_task_id = uuid4()
     verification_task_id = uuid4()
@@ -439,72 +469,25 @@ def test_apply_harness_config_update_executor_rejects_mismatched_verification_ta
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    draft_task = AgentTask(
-        id=draft_task_id,
-        task_type="draft_harness_config_update",
-        status="completed",
-        priority=100,
-        side_effect_level="draft_change",
-        requires_approval=False,
-        input_json={},
-        result_json={
-            "payload": {
-                "draft": {
-                    "draft_harness_name": "wide_v2_review",
-                    "base_harness_name": "wide_v2",
-                    "override_spec": {
-                        "base_harness_name": "wide_v2",
-                        "retrieval_profile_overrides": {},
-                        "reranker_overrides": {"result_type_priority_bonus": 0.009},
-                        "draft_task_id": str(draft_task_id),
-                        "override_type": "draft_harness_config_update",
-                    },
-                }
-            }
-        },
-        workflow_version="v1",
-        model_settings_json={},
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    verification_task = AgentTask(
-        id=verification_task_id,
-        task_type="verify_draft_harness_config",
-        status="completed",
-        priority=100,
-        side_effect_level="read_only",
-        requires_approval=False,
-        input_json={},
-        result_json={
-            "payload": {
-                "verification": {
-                    "outcome": "passed",
-                    "details": {
-                        "target_task_id": str(other_draft_task_id),
-                        "draft_harness_name": "wide_v2_review",
-                    },
-                }
-            }
-        },
-        workflow_version="v1",
-        model_settings_json={},
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-    )
-    rows = {
-        draft_task_id: draft_task,
-        verification_task_id: verification_task,
+    resolver_payloads = {
+        "draft_harness_config_update": SimpleNamespace(
+            output=_draft_output_payload(draft_task_id=draft_task_id)
+        ),
+        "verify_draft_harness_config": SimpleNamespace(
+            output=_verification_output_payload(
+                verification_task_id=verification_task_id,
+                draft_task_id=other_draft_task_id,
+            )
+        ),
     }
-
     monkeypatch.setattr(
-        "app.services.search_harness_overrides.get_search_harness_override_path",
-        lambda: tmp_path / "config" / "search_harness_overrides.json",
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
     )
-    session = type("FakeSession", (), {"get": lambda self, model, key: rows.get(key)})()
 
     try:
         _apply_harness_config_update_executor(
-            session=session,
+            session=object(),
             task=apply_task,
             payload=ApplyHarnessConfigUpdateTaskInput(
                 draft_task_id=draft_task_id,
@@ -516,3 +499,201 @@ def test_apply_harness_config_update_executor_rejects_mismatched_verification_ta
         assert "does not target the requested draft task" in str(exc)
     else:
         raise AssertionError("Expected mismatched verifier target to be rejected")
+
+
+def test_apply_harness_config_update_executor_rejects_failed_verification(monkeypatch) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    resolver_payloads = {
+        "draft_harness_config_update": SimpleNamespace(
+            output=_draft_output_payload(draft_task_id=draft_task_id)
+        ),
+        "verify_draft_harness_config": SimpleNamespace(
+            output=_verification_output_payload(
+                verification_task_id=verification_task_id,
+                draft_task_id=draft_task_id,
+                outcome="failed",
+            )
+        ),
+    }
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
+    )
+
+    try:
+        _apply_harness_config_update_executor(
+            session=object(),
+            task=apply_task,
+            payload=ApplyHarnessConfigUpdateTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish review harness",
+            ),
+        )
+    except ValueError as exc:
+        assert "Only passed draft harness verifications can be applied" in str(exc)
+    else:
+        raise AssertionError("Expected failed verification to be rejected")
+
+
+def test_apply_harness_config_update_executor_bubbles_dependency_role_errors(monkeypatch) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    def fake_resolve(session, *, dependency_kind, **_kwargs):
+        if dependency_kind == "draft_task":
+            raise HTTPException(status_code=409, detail="wrong dependency kind")
+        return SimpleNamespace(
+            output=_verification_output_payload(
+                verification_task_id=verification_task_id,
+                draft_task_id=draft_task_id,
+            )
+        )
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        fake_resolve,
+    )
+
+    try:
+        _apply_harness_config_update_executor(
+            session=object(),
+            task=apply_task,
+            payload=ApplyHarnessConfigUpdateTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish review harness",
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail == "wrong dependency kind"
+    else:
+        raise AssertionError("Expected dependency role validation to bubble")
+
+
+def test_apply_harness_config_update_executor_bubbles_schema_errors(monkeypatch) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    def fake_resolve(session, *, dependency_kind, **_kwargs):
+        if dependency_kind == "verification_task":
+            raise HTTPException(status_code=409, detail="rerun required")
+        return SimpleNamespace(output=_draft_output_payload(draft_task_id=draft_task_id))
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        fake_resolve,
+    )
+
+    try:
+        _apply_harness_config_update_executor(
+            session=object(),
+            task=apply_task,
+            payload=ApplyHarnessConfigUpdateTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish review harness",
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail == "rerun required"
+    else:
+        raise AssertionError("Expected schema/rerun validation to bubble")
+
+
+def test_apply_harness_config_update_executor_bubbles_missing_verification(monkeypatch) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    def fake_resolve(session, *, dependency_kind, depends_on_task_id, **_kwargs):
+        if dependency_kind == "verification_task":
+            raise HTTPException(status_code=404, detail=f"Target task not found: {depends_on_task_id}")
+        return SimpleNamespace(output=_draft_output_payload(draft_task_id=draft_task_id))
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        fake_resolve,
+    )
+
+    try:
+        _apply_harness_config_update_executor(
+            session=object(),
+            task=apply_task,
+            payload=ApplyHarnessConfigUpdateTaskInput(
+                draft_task_id=draft_task_id,
+                verification_task_id=verification_task_id,
+                reason="publish review harness",
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert str(verification_task_id) in exc.detail
+    else:
+        raise AssertionError("Expected missing verification task to bubble")

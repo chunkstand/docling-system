@@ -316,6 +316,8 @@ The first workflow-style task is `triage_replay_regression`. It runs in shadow m
 
 The first draft/apply flow is the harness review path. `draft_harness_config_update` creates a review-harness artifact without changing live search behavior, `verify_draft_harness_config` evaluates that draft ephemerally against replay sources and writes a verifier record, and `apply_harness_config_update` publishes the verified review harness into `config/search_harness_overrides.json` only after approval.
 
+Within that flow, `apply_harness_config_update` now consumes the migrated `draft_task` and `verification_task` dependency edges through typed task-context refs only. The apply context summary exposes approval state and verification state, while `GET /agent-tasks/{task_id}`, `GET /agent-tasks/traces/export`, `GET /agent-tasks/{task_id}/context`, and the apply artifact endpoint all surface the same applied harness name and live-override result without requiring operators to inspect raw nested payload blobs.
+
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
 
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.

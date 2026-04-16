@@ -791,6 +791,40 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         apply_payload = apply_task_row.result_json["payload"]
         assert apply_payload["draft_harness_name"] == "wide_v2_review_integration"
         assert Path(apply_payload["config_path"]).exists()
+        apply_context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+                apply_task_id
+            )
+        )
+        apply_context_yaml_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_yaml_path(
+                apply_task_id
+            )
+        )
+        assert apply_context_path.exists()
+        assert apply_context_yaml_path.exists()
+        apply_context_row = session.execute(
+            select(AgentTaskArtifact).where(
+                AgentTaskArtifact.task_id == apply_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+        ).scalars().one()
+        assert apply_context_row.storage_path == str(apply_context_path)
+        apply_dependencies = session.execute(
+            select(AgentTaskDependency).where(AgentTaskDependency.task_id == apply_task_id)
+        ).scalars().all()
+        assert {row.dependency_kind for row in apply_dependencies} == {
+            AgentTaskDependencyKind.DRAFT_TASK.value,
+            AgentTaskDependencyKind.VERIFICATION_TASK.value,
+        }
+        apply_context_payload = json.loads(apply_context_path.read_text())
+        assert apply_context_payload["summary"]["approval_state"] == "approved"
+        assert apply_context_payload["summary"]["verification_state"] == "passed"
+        assert {row["ref_key"] for row in apply_context_payload["refs"]} >= {
+            "draft_task_output",
+            "verification_task_output",
+            "applied_artifact",
+        }
         apply_attempt = session.execute(
             select(AgentTaskAttempt)
             .where(AgentTaskAttempt.task_id == apply_task_id)
@@ -822,6 +856,33 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     assert verify_detail_response.status_code == 200
     assert verify_detail_response.json()["context_summary"]["verification_state"] == "passed"
     assert verify_detail_response.json()["context_refs"][0]["freshness_status"] == "fresh"
+    apply_context_response = client.get(f"/agent-tasks/{apply_task_id}/context")
+    assert apply_context_response.status_code == 200
+    apply_context = apply_context_response.json()
+    assert apply_context["summary"]["approval_state"] == "approved"
+    assert apply_context["summary"]["verification_state"] == "passed"
+    apply_detail_response = client.get(f"/agent-tasks/{apply_task_id}")
+    assert apply_detail_response.status_code == 200
+    assert apply_detail_response.json()["context_summary"]["approval_state"] == "approved"
+    assert apply_detail_response.json()["context_refs"][0]["freshness_status"] == "fresh"
+    apply_artifact_id = apply_detail_response.json()["result"]["artifact_id"]
+    apply_artifact_response = client.get(
+        f"/agent-tasks/{apply_task_id}/artifacts/{apply_artifact_id}"
+    )
+    assert apply_artifact_response.status_code == 200
+    assert apply_artifact_response.json()["draft_harness_name"] == "wide_v2_review_integration"
+    apply_export_response = client.get(
+        "/agent-tasks/traces/export",
+        params={
+            "limit": 10,
+            "workflow_version": "milestone8_integration",
+            "task_type": "apply_harness_config_update",
+        },
+    )
+    assert apply_export_response.status_code == 200
+    assert apply_export_response.json()["traces"][0]["context_summary"]["approval_state"] == (
+        "approved"
+    )
     harness_row = next(
         row
         for row in harnesses_response.json()

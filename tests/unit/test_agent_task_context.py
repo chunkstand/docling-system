@@ -6,10 +6,11 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskArtifact
+from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency
 from app.schemas.agent_tasks import ContextRef, ContextFreshnessStatus, TaskContextEnvelope
 from app.services.agent_task_context import (
     refresh_task_context_freshness,
+    resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
 )
 
@@ -45,21 +46,27 @@ class FakeExecuteResult:
 
 
 class FakeSession:
-    def __init__(self, *, tasks=None, artifacts=None) -> None:
+    def __init__(self, *, tasks=None, artifacts=None, dependencies=None, verifications=None) -> None:
         self.tasks = tasks or {}
         self.artifacts = artifacts or {}
+        self.dependencies = dependencies or {}
+        self.verifications = verifications or {}
 
     def get(self, model, key):
         if model.__name__ == "AgentTask":
             return self.tasks.get(key)
         if model.__name__ == "AgentTaskArtifact":
             return self.artifacts.get(key)
+        if model.__name__ == "AgentTaskVerification":
+            return self.verifications.get(key)
         return None
 
     def execute(self, statement):
         rendered = str(statement)
         if "agent_task_artifacts" in rendered:
             return FakeExecuteResult(self.artifacts.values())
+        if "agent_task_dependencies" in rendered:
+            return FakeExecuteResult(self.dependencies.values())
         raise AssertionError(f"Unexpected statement: {rendered}")
 
 
@@ -355,3 +362,86 @@ def test_resolve_required_task_output_context_blocks_missing_and_schema_mismatch
         assert exc.detail == "rerun required"
     else:
         raise AssertionError("Expected schema mismatch to block")
+
+
+def test_resolve_required_dependency_task_output_context_requires_matching_role() -> None:
+    apply_task_id = uuid4()
+    draft_task_id = uuid4()
+    now = datetime.now(UTC)
+    draft_task = _build_draft_task(task_id=draft_task_id, updated_at=now)
+    current_output = {
+        "draft": {"draft_harness_name": "wide_v2_review"},
+        "artifact_id": str(uuid4()),
+        "artifact_kind": "harness_config_draft",
+        "artifact_path": "/tmp/harness_config_draft.json",
+    }
+    context_artifact = _build_context_artifact(
+        task_id=draft_task_id,
+        payload={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(draft_task_id),
+            "task_type": draft_task.task_type,
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": "2026-04-15T00:00:00Z",
+            "task_updated_at": "2026-04-15T00:00:00Z",
+            "output_schema_name": "draft_harness_config_update_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {},
+            "refs": [],
+            "output": current_output,
+        },
+    )
+    dependency_row = AgentTaskDependency(
+        task_id=apply_task_id,
+        depends_on_task_id=draft_task_id,
+        dependency_kind="draft_task",
+        created_at=now,
+    )
+
+    resolved = resolve_required_dependency_task_output_context(
+        FakeSession(
+            tasks={draft_task_id: draft_task},
+            artifacts={context_artifact.id: context_artifact},
+            dependencies={(apply_task_id, draft_task_id): dependency_row},
+        ),
+        task_id=apply_task_id,
+        depends_on_task_id=draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_harness_config_update",
+        expected_schema_name="draft_harness_config_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message="wrong dependency kind",
+        rerun_message="rerun required",
+    )
+    assert resolved.output["draft"]["draft_harness_name"] == "wide_v2_review"
+
+    wrong_kind_row = AgentTaskDependency(
+        task_id=apply_task_id,
+        depends_on_task_id=draft_task_id,
+        dependency_kind="explicit",
+        created_at=now,
+    )
+    try:
+        resolve_required_dependency_task_output_context(
+            FakeSession(
+                tasks={draft_task_id: draft_task},
+                artifacts={context_artifact.id: context_artifact},
+                dependencies={(apply_task_id, draft_task_id): wrong_kind_row},
+            ),
+            task_id=apply_task_id,
+            depends_on_task_id=draft_task_id,
+            dependency_kind="draft_task",
+            expected_task_type="draft_harness_config_update",
+            expected_schema_name="draft_harness_config_update_output",
+            expected_schema_version="1.0",
+            dependency_error_message="wrong dependency kind",
+            rerun_message="rerun required",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail == "wrong dependency kind"
+    else:
+        raise AssertionError("Expected mismatched dependency kind to block")

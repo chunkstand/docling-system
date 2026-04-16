@@ -726,6 +726,109 @@ def test_agent_task_context_cli_prints_json(monkeypatch, capsys) -> None:
     assert output["schema_name"] == "agent_task_context"
 
 
+def test_agent_task_apply_cli_surfaces_consistent_applied_state(monkeypatch, capsys, tmp_path) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+    artifact_path = tmp_path / "applied_harness_config_update.json"
+    artifact_path.write_text('{"draft_harness_name": "wide_v2_review"}')
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_detail",
+        lambda session, incoming_task_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "task_type": "apply_harness_config_update",
+                "result": {
+                    "draft_harness_name": "wide_v2_review",
+                    "artifact_id": str(artifact_id),
+                },
+                "context_summary": {"approval_state": "approved"},
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_context",
+        lambda session, incoming_task_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "task_type": "apply_harness_config_update",
+                "summary": {
+                    "approval_state": "approved",
+                    "verification_state": "passed",
+                },
+                "output": {"draft_harness_name": "wide_v2_review"},
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_artifact",
+        lambda session, incoming_task_id, incoming_artifact_id: SimpleNamespace(
+            task_id=incoming_task_id,
+            id=incoming_artifact_id,
+            storage_path=str(artifact_path),
+            payload_json={"draft_harness_name": "wide_v2_review"},
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.export_agent_task_traces",
+        lambda session, limit=50, workflow_version=None, task_type=None: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "export_count": 1,
+                "workflow_version": workflow_version,
+                "task_type": task_type,
+                "traces": [
+                    {
+                        "task_type": "apply_harness_config_update",
+                        "result": {"draft_harness_name": "wide_v2_review"},
+                        "context_summary": {"approval_state": "approved"},
+                    }
+                ],
+            }
+        ),
+    )
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-show", str(task_id)])
+    run_agent_task_show()
+    show_output = json.loads(capsys.readouterr().out.strip())
+    assert show_output["result"]["draft_harness_name"] == "wide_v2_review"
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-context", str(task_id)])
+    run_agent_task_context()
+    context_output = json.loads(capsys.readouterr().out.strip())
+    assert context_output["output"]["draft_harness_name"] == "wide_v2_review"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-agent-task-artifact", str(task_id), str(artifact_id)],
+    )
+    run_agent_task_artifact()
+    artifact_output = json.loads(capsys.readouterr().out.strip())
+    assert artifact_output["draft_harness_name"] == "wide_v2_review"
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-agent-task-export-traces",
+            "--task-type",
+            "apply_harness_config_update",
+        ],
+    )
+    run_agent_task_export_traces()
+    export_output = json.loads(capsys.readouterr().out.strip())
+    assert export_output["traces"][0]["result"]["draft_harness_name"] == "wide_v2_review"
+
+
 def test_agent_task_outcomes_cli_prints_rows(monkeypatch, capsys) -> None:
     task_id = uuid4()
     outcome_id = uuid4()
