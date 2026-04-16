@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -47,6 +48,9 @@ class AgentTaskActionDefinitionResponse(BaseModel):
     side_effect_level: str
     requires_approval: bool
     input_schema: dict = Field(default_factory=dict)
+    output_schema_name: str | None = None
+    output_schema_version: str | None = None
+    output_schema: dict | None = None
     input_example: dict = Field(default_factory=dict)
 
 
@@ -98,6 +102,61 @@ class AgentTaskOutcomeResponse(BaseModel):
     created_by: str
     note: str | None = None
     created_at: datetime
+
+
+class ContextFreshnessStatus(StrEnum):
+    FRESH = "fresh"
+    STALE = "stale"
+    MISSING = "missing"
+    SCHEMA_MISMATCH = "schema_mismatch"
+
+
+class AgentTaskDependencyResponse(BaseModel):
+    task_id: UUID
+    dependency_kind: str
+
+
+class ContextRef(BaseModel):
+    ref_key: str
+    ref_kind: str
+    summary: str | None = None
+    task_id: UUID | None = None
+    artifact_id: UUID | None = None
+    verification_id: UUID | None = None
+    artifact_kind: str | None = None
+    schema_name: str | None = None
+    schema_version: str | None = None
+    observed_sha256: str | None = None
+    source_updated_at: datetime | None = None
+    checked_at: datetime | None = None
+    freshness_status: ContextFreshnessStatus | None = None
+
+
+class TaskContextSummary(BaseModel):
+    headline: str | None = None
+    goal: str | None = None
+    decision: str | None = None
+    next_action: str | None = None
+    approval_state: str | None = None
+    verification_state: str | None = None
+    metrics: dict = Field(default_factory=dict)
+
+
+class TaskContextEnvelope(BaseModel):
+    schema_name: str = "agent_task_context"
+    schema_version: str = "1.0"
+    task_id: UUID
+    task_type: str
+    task_status: str
+    workflow_version: str
+    generated_at: datetime
+    task_updated_at: datetime
+    output_schema_name: str | None = None
+    output_schema_version: str | None = None
+    freshness_status: ContextFreshnessStatus | None = None
+    summary: TaskContextSummary = Field(default_factory=TaskContextSummary)
+    refs: list[ContextRef] = Field(default_factory=list)
+    output: dict = Field(default_factory=dict)
 
 
 class AgentTaskTrendPointResponse(BaseModel):
@@ -306,6 +365,7 @@ class AgentTaskDecisionSignalResponse(BaseModel):
 
 class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     dependency_task_ids: list[UUID] = Field(default_factory=list)
+    dependency_edges: list[AgentTaskDependencyResponse] = Field(default_factory=list)
     input: dict = Field(default_factory=dict)
     result: dict = Field(default_factory=dict)
     model_settings: dict = Field(default_factory=dict)
@@ -326,6 +386,10 @@ class AgentTaskDetailResponse(AgentTaskSummaryResponse):
     attempt_count: int = 0
     verification_count: int = 0
     outcome_count: int = 0
+    context_summary: TaskContextSummary | None = None
+    context_refs: list[ContextRef] = Field(default_factory=list)
+    context_artifact_id: UUID | None = None
+    context_freshness_status: ContextFreshnessStatus | None = None
     artifacts: list[AgentTaskArtifactResponse] = Field(default_factory=list)
     verifications: list[AgentTaskVerificationResponse] = Field(default_factory=list)
     outcomes: list[AgentTaskOutcomeResponse] = Field(default_factory=list)
@@ -394,6 +458,34 @@ class DraftHarnessConfigUpdateTaskInput(BaseModel):
     rationale: str | None = None
     retrieval_profile_overrides: dict[str, int] = Field(default_factory=dict)
     reranker_overrides: dict[str, float] = Field(default_factory=dict)
+
+
+class DraftHarnessOverrideSpec(BaseModel):
+    base_harness_name: str
+    retrieval_profile_overrides: dict[str, int] = Field(default_factory=dict)
+    reranker_overrides: dict[str, float] = Field(default_factory=dict)
+    override_type: str
+    override_source: str
+    draft_task_id: UUID
+    source_task_id: UUID | None = None
+    rationale: str | None = None
+
+
+class DraftHarnessConfigPayload(BaseModel):
+    draft_harness_name: str
+    base_harness_name: str
+    source_task_id: UUID | None = None
+    source_task_type: str | None = None
+    rationale: str | None = None
+    override_spec: DraftHarnessOverrideSpec
+    effective_harness_config: dict = Field(default_factory=dict)
+
+
+class DraftHarnessConfigUpdateTaskOutput(BaseModel):
+    draft: DraftHarnessConfigPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
 
 
 class VerifyDraftHarnessConfigTaskInput(BaseModel):

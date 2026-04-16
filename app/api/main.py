@@ -31,6 +31,7 @@ from app.schemas.agent_tasks import (
     AgentTaskRecommendationTrendResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
+    TaskContextEnvelope,
     AgentTaskTraceExportResponse,
     AgentTaskTrendResponse,
     AgentTaskValueDensityRowResponse,
@@ -77,6 +78,10 @@ from app.schemas.search import (
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
+from app.services.agent_task_context import (
+    get_agent_task_context,
+    get_agent_task_context_yaml_path,
+)
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -432,6 +437,27 @@ def read_agent_task_detail(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     return get_agent_task_detail(session, task_id)
+
+
+@app.get("/agent-tasks/{task_id}/context", response_model=TaskContextEnvelope)
+def read_agent_task_context(
+    task_id: UUID,
+    format: str = "json",
+    session: Session = Depends(get_db_session),
+    storage_service: StorageService = Depends(get_storage_service),
+):
+    context = get_agent_task_context(session, task_id)
+    if format == "json":
+        return context
+    if format == "yaml":
+        yaml_path = get_agent_task_context_yaml_path(storage_service, task_id=task_id)
+        if not yaml_path.exists():
+            return Response(status_code=404)
+        return FileResponse(yaml_path, media_type="application/yaml")
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Unsupported context format. Use 'json' or 'yaml'.",
+    )
 
 
 @app.get("/agent-tasks/{task_id}/outcomes", response_model=list[AgentTaskOutcomeResponse])

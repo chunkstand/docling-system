@@ -9,6 +9,7 @@ from app.db.models import (
     AgentTask,
     AgentTaskAttempt,
     AgentTaskDependency,
+    AgentTaskDependencyKind,
     AgentTaskOutcome,
     AgentTaskStatus,
 )
@@ -146,6 +147,9 @@ def test_create_agent_task_adds_dependency_rows_and_sets_status(monkeypatch) -> 
     assert task.model_settings_json == {"temperature": 0}
     assert len(dependency_rows) == 2
     assert {row.depends_on_task_id for row in dependency_rows} == {dependency_a, dependency_b}
+    assert {row.dependency_kind for row in dependency_rows} == {
+        AgentTaskDependencyKind.EXPLICIT.value
+    }
     assert session.flushed is True
     assert session.committed is True
 
@@ -179,6 +183,7 @@ def test_create_promotable_task_uses_registry_defaults_and_awaits_approval(monke
     assert task.input_json["source_task_id"] == str(source_task_id)
     assert len(dependency_rows) == 1
     assert dependency_rows[0].depends_on_task_id == source_task_id
+    assert dependency_rows[0].dependency_kind == AgentTaskDependencyKind.SOURCE_TASK.value
 
 
 def test_create_agent_task_rejects_parent_as_explicit_dependency() -> None:

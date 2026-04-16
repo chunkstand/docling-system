@@ -15,6 +15,7 @@ from app.schemas.agent_tasks import (
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
+from app.services.agent_task_context import get_agent_task_context, get_agent_task_context_yaml_path
 from app.services.agent_task_verifications import get_agent_task_verifications
 from app.services.agent_tasks import (
     approve_agent_task,
@@ -437,6 +438,22 @@ def run_agent_task_show() -> None:
     session_factory = get_session_factory()
     with session_factory() as session:
         payload = get_agent_task_detail(session, UUID(args.task_id))
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_agent_task_context() -> None:
+    parser = argparse.ArgumentParser(description="Show one agent task context artifact.")
+    parser.add_argument("task_id", help="Agent task UUID.")
+    parser.add_argument("--format", choices=["json", "yaml"], default="json")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    storage_service = StorageService()
+    with session_factory() as session:
+        payload = get_agent_task_context(session, UUID(args.task_id))
+    if args.format == "yaml":
+        print(get_agent_task_context_yaml_path(storage_service, task_id=UUID(args.task_id)).read_text())
+        return
     print(json.dumps(payload.model_dump(mode="json")))
 
 

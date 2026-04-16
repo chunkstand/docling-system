@@ -52,6 +52,14 @@ class AgentTaskSideEffectLevel(StrEnum):
     PROMOTABLE = "promotable"
 
 
+class AgentTaskDependencyKind(StrEnum):
+    EXPLICIT = "explicit"
+    TARGET_TASK = "target_task"
+    SOURCE_TASK = "source_task"
+    DRAFT_TASK = "draft_task"
+    VERIFICATION_TASK = "verification_task"
+
+
 class AgentTaskAttemptStatus(StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -863,6 +871,12 @@ class AgentTaskDependency(Base):
             "task_id <> depends_on_task_id",
             name="ck_agent_task_dependencies_not_self",
         ),
+        CheckConstraint(
+            "dependency_kind IN ("
+            "'explicit', 'target_task', 'source_task', 'draft_task', 'verification_task'"
+            ")",
+            name="ck_agent_task_dependencies_dependency_kind",
+        ),
         UniqueConstraint(
             "task_id",
             "depends_on_task_id",
@@ -877,6 +891,12 @@ class AgentTaskDependency(Base):
     )
     depends_on_task_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("agent_tasks.id", ondelete="CASCADE"), nullable=False
+    )
+    dependency_kind: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=AgentTaskDependencyKind.EXPLICIT.value,
+        server_default=sql_text("'explicit'"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
     ApplyHarnessConfigUpdateTaskInput,
+    DraftHarnessConfigUpdateTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
     EnqueueDocumentReprocessTaskInput,
     LatestEvaluationTaskInput,
@@ -50,6 +51,9 @@ class AgentTaskActionDefinition:
     executor: Callable[[Session, AgentTask, BaseModel], dict]
     side_effect_level: str = AgentTaskSideEffectLevel.READ_ONLY.value
     requires_approval: bool = False
+    output_model: type[BaseModel] | None = None
+    output_schema_name: str | None = None
+    output_schema_version: str | None = None
     input_example: dict[str, Any] | None = None
 
 
@@ -484,6 +488,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         payload_model=DraftHarnessConfigUpdateTaskInput,
         executor=_draft_harness_config_update_executor,
         side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftHarnessConfigUpdateTaskOutput,
+        output_schema_name="draft_harness_config_update_output",
+        output_schema_version="1.0",
         input_example={
             "draft_harness_name": "wide_v2_review",
             "base_harness_name": "wide_v2",
@@ -590,14 +597,25 @@ def validate_agent_task_input(task_type: str, raw_input: dict) -> BaseModel:
     return action.payload_model.model_validate(raw_input or {})
 
 
+def validate_agent_task_output(task_type: str, raw_output: dict) -> dict:
+    action = get_agent_task_action(task_type)
+    if action.output_model is None:
+        return raw_output or {}
+    validated_output = action.output_model.model_validate(raw_output or {})
+    return validated_output.model_dump(mode="json", exclude_none=True)
+
+
 def execute_agent_task_action(session: Session, task: AgentTask) -> dict:
     action = get_agent_task_action(task.task_type)
     payload = action.payload_model.model_validate(task.input_json or {})
     result = action.executor(session, task, payload)
+    validated_output = validate_agent_task_output(task.task_type, result)
     return {
         "task_type": task.task_type,
         "definition_kind": action.definition_kind,
         "side_effect_level": action.side_effect_level,
         "requires_approval": action.requires_approval,
-        "payload": result,
+        "output_schema_name": action.output_schema_name,
+        "output_schema_version": action.output_schema_version,
+        "payload": validated_output,
     }

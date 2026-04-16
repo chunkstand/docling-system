@@ -12,6 +12,8 @@ from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskAttempt,
+    AgentTaskDependency,
+    AgentTaskDependencyKind,
     AgentTaskStatus,
     AgentTaskVerification,
     Document,
@@ -677,9 +679,33 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         draft_task_row = session.get(AgentTask, draft_task_id)
         assert draft_task_row is not None
         assert draft_task_row.status == AgentTaskStatus.COMPLETED.value
+        draft_context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(draft_task_id)
+        )
+        draft_context_yaml_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_yaml_path(draft_task_id)
+        )
+        assert draft_context_path.exists()
+        assert draft_context_yaml_path.exists()
         assert draft_task_row.result_json["payload"]["draft"]["draft_harness_name"] == (
             "wide_v2_review_integration"
         )
+        draft_context_row = session.execute(
+            select(AgentTaskArtifact).where(
+                AgentTaskArtifact.task_id == draft_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+        ).scalars().one()
+        assert draft_context_row.storage_path == str(draft_context_path)
+        draft_dependencies = session.execute(
+            select(AgentTaskDependency).where(AgentTaskDependency.task_id == draft_task_id)
+        ).scalars().all()
+        assert len(draft_dependencies) == 1
+        assert draft_dependencies[0].depends_on_task_id == triage_task_id
+        assert draft_dependencies[0].dependency_kind == AgentTaskDependencyKind.SOURCE_TASK.value
+        draft_context_payload = json.loads(draft_context_path.read_text())
+        assert draft_context_payload["summary"]["verification_state"] == "pending"
+        assert draft_context_payload["refs"][0]["ref_key"] == "source_task"
 
         verify_task = create_agent_task(
             session,
@@ -764,6 +790,17 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
 
     harnesses_response = client.get("/search/harnesses")
     assert harnesses_response.status_code == 200
+    draft_context_response = client.get(f"/agent-tasks/{draft_task_id}/context")
+    assert draft_context_response.status_code == 200
+    assert draft_context_response.json()["task_type"] == "draft_harness_config_update"
+    assert draft_context_response.json()["freshness_status"] == "fresh"
+    draft_context_yaml_response = client.get(f"/agent-tasks/{draft_task_id}/context?format=yaml")
+    assert draft_context_yaml_response.status_code == 200
+    assert "agent_task_context" in draft_context_yaml_response.text
+    draft_detail_response = client.get(f"/agent-tasks/{draft_task_id}")
+    assert draft_detail_response.status_code == 200
+    assert draft_detail_response.json()["dependency_edges"][0]["dependency_kind"] == "source_task"
+    assert draft_detail_response.json()["context_freshness_status"] == "fresh"
     harness_row = next(
         row
         for row in harnesses_response.json()

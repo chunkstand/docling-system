@@ -18,6 +18,7 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
+from app.services.agent_task_context import write_agent_task_context
 from app.services.storage import StorageService
 
 AgentTaskExecutor = Callable[[Session, AgentTask], dict]
@@ -418,6 +419,12 @@ def process_agent_task(
         active_executor = executor or execute_agent_task_action
         result = active_executor(session, task)
         heartbeat_agent_task(session, task)
+        write_agent_task_context(
+            session,
+            task,
+            result,
+            storage_service=storage_service,
+        )
         failure_stage = "complete"
         finalize_agent_task_success(session, task, result, storage_service=storage_service)
         logger.info(

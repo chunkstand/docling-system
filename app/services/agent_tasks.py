@@ -15,6 +15,7 @@ from app.db.models import (
     AgentTaskArtifact,
     AgentTaskAttempt,
     AgentTaskDependency,
+    AgentTaskDependencyKind,
     AgentTaskOutcome,
     AgentTaskStatus,
     AgentTaskVerification,
@@ -31,6 +32,7 @@ from app.schemas.agent_tasks import (
     AgentTaskCostTrendPointResponse,
     AgentTaskCostTrendResponse,
     AgentTaskCreateRequest,
+    AgentTaskDependencyResponse,
     AgentTaskDecisionSignalResponse,
     AgentTaskDetailResponse,
     AgentTaskOutcomeCreateRequest,
@@ -49,8 +51,10 @@ from app.schemas.agent_tasks import (
     AgentTaskValueDensityRowResponse,
     AgentTaskVerificationTrendPointResponse,
     AgentTaskVerificationTrendResponse,
+    TaskContextEnvelope,
     AgentTaskWorkflowVersionSummaryResponse,
 )
+from app.services.agent_task_context import get_agent_task_context_artifact
 from app.services.agent_task_artifacts import list_agent_task_artifacts
 from app.services.agent_task_verifications import (
     count_agent_task_verifications,
@@ -98,6 +102,25 @@ def _list_dependency_ids(session: Session, task_id: UUID) -> list[UUID]:
             .order_by(AgentTaskDependency.created_at, AgentTaskDependency.depends_on_task_id)
         ).scalars()
     )
+
+
+def _list_dependency_edges(session: Session, task_id: UUID) -> list[AgentTaskDependencyResponse]:
+    rows = (
+        session.execute(
+            select(AgentTaskDependency)
+            .where(AgentTaskDependency.task_id == task_id)
+            .order_by(AgentTaskDependency.created_at, AgentTaskDependency.depends_on_task_id)
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        AgentTaskDependencyResponse(
+            task_id=row.depends_on_task_id,
+            dependency_kind=row.dependency_kind,
+        )
+        for row in rows
+    ]
 
 
 def _count_task_attempts(session: Session, task_id: UUID) -> int:
@@ -157,9 +180,18 @@ def _list_task_outcomes(session: Session, task_id: UUID) -> list[AgentTaskOutcom
 
 def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
     summary = _build_summary(task)
+    context_envelope: TaskContextEnvelope | None = None
+    context_artifact_id: UUID | None = None
+    try:
+        context_artifact = get_agent_task_context_artifact(session, task.id)
+        context_artifact_id = context_artifact.id
+        context_envelope = TaskContextEnvelope.model_validate(context_artifact.payload_json or {})
+    except HTTPException:
+        context_envelope = None
     return AgentTaskDetailResponse(
         **summary.model_dump(),
         dependency_task_ids=_list_dependency_ids(session, task.id),
+        dependency_edges=_list_dependency_edges(session, task.id),
         input=task.input_json,
         result=task.result_json,
         model_settings=task.model_settings_json,
@@ -180,6 +212,10 @@ def _build_detail(session: Session, task: AgentTask) -> AgentTaskDetailResponse:
         attempt_count=_count_task_attempts(session, task.id),
         verification_count=count_agent_task_verifications(session, task.id),
         outcome_count=_count_task_outcomes(session, task.id),
+        context_summary=context_envelope.summary if context_envelope else None,
+        context_refs=context_envelope.refs if context_envelope else [],
+        context_artifact_id=context_artifact_id,
+        context_freshness_status=context_envelope.freshness_status if context_envelope else None,
         artifacts=_list_task_artifacts(session, task.id),
         verifications=list_agent_task_verifications(session, task.id),
         outcomes=_list_task_outcomes(session, task.id),
@@ -239,23 +275,26 @@ def _task_has_incomplete_dependencies(session: Session, task_id: UUID) -> bool:
     )
 
 
-def _augment_dependency_ids_for_action(
+def _augment_dependency_kinds_for_action(
     *,
-    action,
     validated_input,
     dependency_task_ids: list[UUID],
-) -> list[UUID]:
-    augmented_ids = list(dependency_task_ids)
-    for linked_task_id in (
-        getattr(validated_input, "target_task_id", None),
-        getattr(validated_input, "source_task_id", None),
-        getattr(validated_input, "draft_task_id", None),
-        getattr(validated_input, "verification_task_id", None),
-    ):
-        if linked_task_id is None or linked_task_id in augmented_ids:
+) -> list[tuple[UUID, str]]:
+    dependency_kinds: dict[UUID, str] = {
+        task_id: AgentTaskDependencyKind.EXPLICIT.value for task_id in dependency_task_ids
+    }
+    linked_task_specs = (
+        ("target_task_id", AgentTaskDependencyKind.TARGET_TASK.value),
+        ("source_task_id", AgentTaskDependencyKind.SOURCE_TASK.value),
+        ("draft_task_id", AgentTaskDependencyKind.DRAFT_TASK.value),
+        ("verification_task_id", AgentTaskDependencyKind.VERIFICATION_TASK.value),
+    )
+    for attr_name, dependency_kind in linked_task_specs:
+        linked_task_id = getattr(validated_input, attr_name, None)
+        if linked_task_id is None:
             continue
-        augmented_ids.append(linked_task_id)
-    return augmented_ids
+        dependency_kinds[linked_task_id] = dependency_kind
+    return list(dependency_kinds.items())
 
 
 def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
@@ -276,11 +315,11 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=exc.errors(),
         ) from exc
-    dependency_task_ids = _augment_dependency_ids_for_action(
-        action=action,
+    dependency_specs = _augment_dependency_kinds_for_action(
         validated_input=validated_input,
         dependency_task_ids=dependency_task_ids,
     )
+    dependency_task_ids = [task_id for task_id, _kind in dependency_specs]
     if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -336,11 +375,12 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
     session.add(task)
     session.flush()
 
-    for dependency_task_id in dependency_task_ids:
+    for dependency_task_id, dependency_kind in dependency_specs:
         session.add(
             AgentTaskDependency(
                 task_id=task.id,
                 depends_on_task_id=dependency_task_id,
+                dependency_kind=dependency_kind,
                 created_at=now,
             )
         )
@@ -362,6 +402,11 @@ def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionRespon
                 side_effect_level=action.side_effect_level,
                 requires_approval=action.requires_approval,
                 input_schema=action.payload_model.model_json_schema(),
+                output_schema_name=action.output_schema_name,
+                output_schema_version=action.output_schema_version,
+                output_schema=(
+                    action.output_model.model_json_schema() if action.output_model is not None else None
+                ),
                 input_example=action.input_example or {},
             )
         )

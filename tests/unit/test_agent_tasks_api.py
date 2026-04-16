@@ -17,6 +17,9 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
                 "side_effect_level": "read_only",
                 "requires_approval": False,
                 "input_schema": {},
+                "output_schema_name": "evaluate_search_harness_output",
+                "output_schema_version": "1.0",
+                "output_schema": {"title": "EvaluateSearchHarnessOutput"},
                 "input_example": {},
             }
         ],
@@ -27,6 +30,7 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["task_type"] == "evaluate_search_harness"
+    assert response.json()[0]["output_schema_name"] == "evaluate_search_harness_output"
 
 
 def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
@@ -673,6 +677,9 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
     assert detail_response.json()["task_id"] == str(task_id)
+    assert "dependency_edges" in detail_response.json()
+    assert "context_summary" in detail_response.json()
+    assert "context_refs" in detail_response.json()
 
     outcomes_response = client.get(f"/agent-tasks/{task_id}/outcomes")
     assert outcomes_response.status_code == 200
@@ -719,6 +726,47 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
     assert reject_response.status_code == 200
     assert reject_response.json()["status"] == "rejected"
     assert reject_response.json()["rejected_by"] == "reviewer@example.com"
+
+
+def test_agent_task_context_route_supports_json_and_yaml(monkeypatch, tmp_path) -> None:
+    task_id = uuid4()
+    yaml_path = tmp_path / "context.yaml"
+    yaml_path.write_text("schema_name: agent_task_context\n")
+
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_context",
+        lambda session, incoming_task_id: {
+            "task_id": str(incoming_task_id),
+            "task_type": "draft_harness_config_update",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": "2026-04-15T00:00:00Z",
+            "task_updated_at": "2026-04-15T00:00:00Z",
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "output_schema_name": "draft_harness_config_update_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Draft ready"},
+            "refs": [],
+            "output": {"artifact_kind": "harness_config_draft"},
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_context_yaml_path",
+        lambda storage_service, task_id: yaml_path,
+    )
+
+    client = TestClient(app)
+
+    json_response = client.get(f"/agent-tasks/{task_id}/context")
+    assert json_response.status_code == 200
+    assert json_response.json()["task_type"] == "draft_harness_config_update"
+    assert json_response.json()["freshness_status"] == "fresh"
+
+    yaml_response = client.get(f"/agent-tasks/{task_id}/context?format=yaml")
+    assert yaml_response.status_code == 200
+    assert "agent_task_context" in yaml_response.text
 
 
 def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:

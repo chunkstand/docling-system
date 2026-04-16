@@ -284,19 +284,23 @@ The current registry includes read-only, draft-change, and approval-gated promot
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
 
-Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`.
+Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`. Migrated task types also advertise `output_schema_name`, `output_schema_version`, and `output_schema` metadata alongside the existing input contract.
 
 Current task guarantees:
 
 - task creation validates the requested `task_type` and typed input payload against the registry
+- migrated task types also validate typed output payloads before completion
 - task creation inherits the registry-declared `side_effect_level` and `requires_approval` when callers omit them, and rejects mismatches when callers override them incorrectly
 - verifier tasks automatically depend on their `target_task_id`, so they stay blocked until the target task completes
-- draft and promotion-style tasks can link back to `source_task_id`, `draft_task_id`, and `verification_task_id`, which are persisted as dependencies so lineage remains visible in the task graph
+- draft and promotion-style tasks can link back to `source_task_id`, `draft_task_id`, and `verification_task_id`, which are persisted as typed dependency edges so lineage remains visible in the task graph
 - operators can attach durable outcome labels like `useful`, `not_useful`, `correct`, and `incorrect` to terminal tasks
 - duplicate outcome labels from the same actor on the same task are rejected so analytics and exported traces stay clean
 - the agent worker records attempts, heartbeats, retries, and replayable failure artifacts
 - task artifacts can be inspected through `GET /agent-tasks/{task_id}/artifacts`
 - persisted JSON artifacts can be fetched directly through `GET /agent-tasks/{task_id}/artifacts/{artifact_id}`
+- migrated task types also persist `storage/agent_tasks/<task_id>/context.json` as the canonical context artifact and `storage/agent_tasks/<task_id>/context.yaml` as the derived human-readable sidecar
+- task detail and trace export responses include additive context fields (`dependency_edges`, `context_summary`, `context_refs`, `context_artifact_id`, `context_freshness_status`) without changing the existing `input` / `result` payloads
+- the full task context surface is available through `GET /agent-tasks/{task_id}/context?format=json|yaml`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - task outcome labels can be inspected through `GET /agent-tasks/{task_id}/outcomes`
 - failed tasks expose a direct failure-artifact endpoint through `GET /agent-tasks/{task_id}/failure-artifact`
@@ -365,6 +369,7 @@ uv run docling-system-agent-task-analytics
 uv run docling-system-agent-task-workflow-versions
 uv run docling-system-agent-task-export-traces --limit 25 --workflow-version v1
 uv run docling-system-agent-task-show <task_id>
+uv run docling-system-agent-task-context <task_id>
 uv run docling-system-agent-task-outcomes <task_id>
 uv run docling-system-agent-task-label <task_id> --outcome-label useful --created-by operator@example.com --note "recommendation was accurate"
 uv run docling-system-agent-task-artifacts <task_id>

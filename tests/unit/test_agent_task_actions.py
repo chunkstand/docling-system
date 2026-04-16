@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
+
+from pydantic import ValidationError
 
 from app.db.models import AgentTask
 from app.schemas.agent_tasks import (
@@ -18,6 +21,9 @@ from app.services.agent_task_actions import (
     _draft_harness_config_update_executor,
     _enqueue_document_reprocess_executor,
     _verify_draft_harness_config_executor,
+    get_agent_task_action,
+    execute_agent_task_action,
+    validate_agent_task_output,
 )
 
 
@@ -132,6 +138,111 @@ def test_draft_harness_config_update_executor_writes_draft_artifact(
     assert result["draft"]["source_task_id"] == str(source_task_id)
     assert result["draft"]["effective_harness_config"]["base_harness_name"] == "wide_v2"
     assert result["artifact_kind"] == "harness_config_draft"
+
+
+def test_validate_agent_task_output_accepts_migrated_draft_shape() -> None:
+    artifact_id = uuid4()
+    source_task_id = uuid4()
+
+    validated = validate_agent_task_output(
+        "draft_harness_config_update",
+        {
+            "draft": {
+                "draft_harness_name": "wide_v2_review",
+                "base_harness_name": "wide_v2",
+                "source_task_id": str(source_task_id),
+                "source_task_type": "triage_replay_regression",
+                "rationale": "publish review harness",
+                "override_spec": {
+                    "base_harness_name": "wide_v2",
+                    "retrieval_profile_overrides": {},
+                    "reranker_overrides": {"result_type_priority_bonus": 0.009},
+                    "override_type": "draft_harness_config_update",
+                    "override_source": "task_draft",
+                    "draft_task_id": str(uuid4()),
+                    "source_task_id": str(source_task_id),
+                    "rationale": "publish review harness",
+                },
+                "effective_harness_config": {"base_harness_name": "wide_v2"},
+            },
+            "artifact_id": str(artifact_id),
+            "artifact_kind": "harness_config_draft",
+            "artifact_path": "/tmp/harness_config_draft.json",
+        },
+    )
+
+    assert validated["artifact_id"] == str(artifact_id)
+    assert validated["draft"]["source_task_id"] == str(source_task_id)
+
+
+def test_validate_agent_task_output_rejects_invalid_migrated_draft_shape() -> None:
+    try:
+        validate_agent_task_output(
+            "draft_harness_config_update",
+            {
+                "artifact_id": str(uuid4()),
+                "artifact_kind": "harness_config_draft",
+                "artifact_path": "/tmp/harness_config_draft.json",
+            },
+        )
+    except ValidationError as exc:
+        assert "draft" in str(exc)
+    else:
+        raise AssertionError("Expected draft output validation to fail")
+
+
+def test_execute_agent_task_action_includes_output_schema_metadata(monkeypatch) -> None:
+    task = AgentTask(
+        id=uuid4(),
+        task_type="draft_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={
+            "draft_harness_name": "wide_v2_review",
+            "base_harness_name": "wide_v2",
+        },
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+    action = replace(
+        get_agent_task_action("draft_harness_config_update"),
+        executor=lambda session, current_task, payload: {
+            "draft": {
+                "draft_harness_name": payload.draft_harness_name,
+                "base_harness_name": payload.base_harness_name,
+                "source_task_id": None,
+                "source_task_type": None,
+                "rationale": None,
+                "override_spec": {
+                    "base_harness_name": payload.base_harness_name,
+                    "retrieval_profile_overrides": {},
+                    "reranker_overrides": {},
+                    "override_type": "draft_harness_config_update",
+                    "override_source": "task_draft",
+                    "draft_task_id": str(current_task.id),
+                    "source_task_id": None,
+                    "rationale": None,
+                },
+                "effective_harness_config": {"base_harness_name": payload.base_harness_name},
+            },
+            "artifact_id": str(uuid4()),
+            "artifact_kind": "harness_config_draft",
+            "artifact_path": "/tmp/harness_config_draft.json",
+        },
+    )
+    monkeypatch.setattr("app.services.agent_task_actions.get_agent_task_action", lambda _task_type: action)
+
+    result = execute_agent_task_action(object(), task)
+
+    assert result["output_schema_name"] == "draft_harness_config_update_output"
+    assert result["output_schema_version"] == "1.0"
+    assert result["payload"]["draft"]["draft_harness_name"] == "wide_v2_review"
 
 
 def test_verify_draft_harness_config_executor_writes_verification_artifact(monkeypatch) -> None:

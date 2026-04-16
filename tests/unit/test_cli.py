@@ -12,6 +12,7 @@ from app.cli import (
     run_agent_task_approve,
     run_agent_task_artifact,
     run_agent_task_artifacts,
+    run_agent_task_context,
     run_agent_task_cost_summary,
     run_agent_task_create,
     run_agent_task_decision_signals,
@@ -692,6 +693,37 @@ def test_agent_task_show_cli_prints_task_detail(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output["task_id"] == str(task_id)
     assert output["task_type"] == "replay_search_request"
+
+
+def test_agent_task_context_cli_prints_json(monkeypatch, capsys) -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-context", str(task_id)])
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+    monkeypatch.setattr(
+        "app.cli.get_agent_task_context",
+        lambda session, incoming_task_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "task_id": str(incoming_task_id),
+                "task_type": "draft_harness_config_update",
+                "schema_name": "agent_task_context",
+            }
+        ),
+    )
+
+    run_agent_task_context()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["task_id"] == str(task_id)
+    assert output["schema_name"] == "agent_task_context"
 
 
 def test_agent_task_outcomes_cli_prints_rows(monkeypatch, capsys) -> None:

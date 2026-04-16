@@ -106,6 +106,12 @@ class StorageService:
         path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def get_agent_task_context_json_path(self, task_id: uuid.UUID) -> Path:
+        return self.get_agent_task_dir(task_id) / "context.json"
+
+    def get_agent_task_context_yaml_path(self, task_id: uuid.UUID) -> Path:
+        return self.get_agent_task_dir(task_id) / "context.yaml"
+
     def get_agent_task_failure_artifact_path(self, task_id: uuid.UUID) -> Path:
         return self.get_agent_task_dir(task_id) / "failure.json"
 
