@@ -40,9 +40,28 @@ AUTO_QUERY_TOP_N = 3
 AUTO_TABLE_QUERY_LIMIT = 2
 AUTO_CHUNK_QUERY_LIMIT = 3
 AUTO_QUERY_MAX_WORDS = 8
+SECTION_HEADING_QUERY_PATTERN = re.compile(r"^\d+(?:\.\d+)*\s+")
 TABLE_PREFIX_PATTERN = re.compile(
     r"^(?:table|figure|appendix)\s+[0-9A-Z().:-]+\s*",
     re.IGNORECASE,
+)
+LOW_SIGNAL_CHUNK_QUERY_PATTERNS = (
+    re.compile(r"^untitled\s+document\b", re.IGNORECASE),
+    re.compile(r"^draft\s+for\s+publication\b", re.IGNORECASE),
+    re.compile(r"^prepared\s+(?:for|by)\b", re.IGNORECASE),
+    re.compile(r"^(?:table\s+of\s+)?contents\b", re.IGNORECASE),
+    re.compile(r"^for\s+submittal\s+to\b", re.IGNORECASE),
+    re.compile(r"^\d+(?:\.\d+)*\s+alternative\s+\d+\b", re.IGNORECASE),
+    re.compile(
+        r"^list\s+of\s+(?:figures(?:\s+and\s+exhibits)?|tables|acronyms(?:\s+and\s+abbreviations)?|maps)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^(?:figure|exhibit)\s+\d+[A-Z0-9().:-]*\b", re.IGNORECASE),
+    re.compile(
+        r"^[A-Za-z][A-Za-z0-9/%&+().:'-]*(?:\s+[A-Za-z0-9/%&+().:'-]+){0,4}\s*[><=].*[\"']?$",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^[A-Za-z0-9'/-]+(?:\s+[A-Za-z0-9'/-]+){0,3}\s+project\b", re.IGNORECASE),
 )
 AUTO_FIXTURE_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 AUTO_FILENAME_SPLIT_PATTERN = re.compile(r"\s*(?:[-|:]+)\s*")
@@ -53,6 +72,7 @@ AUTO_FILENAME_DATE_PREFIX_PATTERN = re.compile(r"^\d{6,8}\s+")
 class EvaluationFixture:
     name: str
     source_filename: str
+    kind: str | None
     path: str | None
     queries: list[EvaluationQueryCase]
     answer_queries: list[EvaluationAnswerCase]
@@ -81,6 +101,7 @@ class EvaluationAnswerCase:
     minimum_citation_count: int
     allow_fallback: bool
     top_k: int
+    expected_result_type: str | None = None
     expect_no_answer: bool = False
     maximum_citation_count: int | None = None
     expected_citation_source_filename: str | None = None
@@ -271,6 +292,7 @@ def _normalize_fixture_answer(entry: dict) -> EvaluationAnswerCase:
         minimum_citation_count=entry.get("minimum_citation_count", 1),
         allow_fallback=bool(entry.get("allow_fallback", False)),
         top_k=entry.get("top_k", 6),
+        expected_result_type=entry.get("expected_result_type"),
         expect_no_answer=bool(entry.get("expect_no_answer", False)),
         maximum_citation_count=entry.get("maximum_citation_count"),
         expected_citation_source_filename=entry.get("expected_citation_source_filename"),
@@ -364,6 +386,7 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
                 EvaluationFixture(
                     name=document["name"],
                     source_filename=source_filename,
+                    kind=document.get("kind"),
                     path=str(doc_path) if doc_path else None,
                     queries=queries,
                     answer_queries=answer_queries,
@@ -393,6 +416,22 @@ def _first_sentence(value: str | None) -> str:
     return re.split(r"(?<=[.!?])\s+", collapsed, maxsplit=1)[0]
 
 
+def _collapse_adjacent_duplicate_words(value: str) -> str:
+    words = value.split()
+    collapsed: list[str] = []
+    for word in words:
+        normalized_word = re.sub(r"[^A-Za-z0-9]+", "", word).lower()
+        if (
+            collapsed
+            and normalized_word
+            and normalized_word
+            == re.sub(r"[^A-Za-z0-9]+", "", collapsed[-1]).lower()
+        ):
+            continue
+        collapsed.append(word)
+    return " ".join(collapsed)
+
+
 def _normalize_query_candidate(
     value: str | None,
     *,
@@ -404,6 +443,7 @@ def _normalize_query_candidate(
         return None
     if strip_table_prefix:
         text = TABLE_PREFIX_PATTERN.sub("", text)
+    text = _collapse_adjacent_duplicate_words(text)
     text = text.strip(" .,:;|-")
     words = text.split()
     if len(words) < 2:
@@ -418,6 +458,16 @@ def _normalize_query_candidate(
     if len(words) > max_words:
         text = " ".join(words[:max_words])
     return text.strip(" .,:;|-") or None
+
+
+def _is_low_signal_chunk_query(query: str) -> bool:
+    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    return any(pattern.match(normalized) for pattern in LOW_SIGNAL_CHUNK_QUERY_PATTERNS)
+
+
+def _is_section_heading_query(query: str) -> bool:
+    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    return bool(SECTION_HEADING_QUERY_PATTERN.match(normalized))
 
 
 def _auto_fixture_name(source_filename: str) -> str:
@@ -436,6 +486,28 @@ def _auto_table_query(table: object) -> str | None:
         if query := _normalize_query_candidate(candidate, strip_table_prefix=True):
             return query
     return None
+
+
+def _cover_chunk_queries(chunks: list[object], *, limit: int = 1) -> list[str]:
+    queries: list[str] = []
+    seen: set[str] = set()
+    for chunk in chunks[:8]:
+        if getattr(chunk, "heading", None):
+            continue
+        page_from = getattr(chunk, "page_from", None)
+        if page_from is not None and page_from != 1:
+            continue
+        query = _normalize_query_candidate(_first_sentence(getattr(chunk, "text", None)))
+        if query is None or _is_low_signal_chunk_query(query):
+            continue
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(query)
+        if len(queries) >= limit:
+            break
+    return queries
 
 
 def _source_filename_queries(source_filename: str) -> list[str]:
@@ -461,20 +533,82 @@ def _source_filename_queries(source_filename: str) -> list[str]:
     return queries
 
 
-def _auto_chunk_queries(title: str | None, source_filename: str, chunks: list[object]) -> list[str]:
+def _chunk_query_conflicts_with_tables(query: str, table_queries: list[str]) -> bool:
+    normalized_query = query.lower()
+    return any(
+        normalized_query in table_query.lower() or table_query.lower() in normalized_query
+        for table_query in table_queries
+    )
+
+
+def _auto_chunk_queries(
+    title: str | None,
+    source_filename: str,
+    chunks: list[object],
+    tables: list[object],
+) -> list[str]:
     queries: list[str] = []
     seen: set[str] = set()
-    candidates: list[str | None] = [title, *_source_filename_queries(source_filename)]
+    if not tables:
+        candidates: list[str | None] = [title, *_source_filename_queries(source_filename)]
+        for chunk in chunks[:24]:
+            candidates.extend(
+                [
+                    getattr(chunk, "heading", None),
+                    _first_sentence(getattr(chunk, "text", None)),
+                ]
+            )
+        for candidate in candidates:
+            query = _normalize_query_candidate(candidate)
+            if query is None:
+                continue
+            if _is_low_signal_chunk_query(query):
+                continue
+            key = query.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            queries.append(query)
+            if len(queries) >= AUTO_CHUNK_QUERY_LIMIT:
+                break
+        return queries
+
+    table_queries: list[str] = []
+    for table in tables:
+        for candidate in (
+            getattr(table, "title", None),
+            getattr(table, "heading", None),
+            _auto_table_query(table),
+        ):
+            query = _normalize_query_candidate(candidate)
+            if query is None:
+                continue
+            key = query.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            table_queries.append(query)
+
+    seen.clear()
+    title_query = _normalize_query_candidate(title)
+    use_title_candidate = bool(
+        title_query
+        and not _is_low_signal_chunk_query(title_query)
+        and not _is_section_heading_query(title_query)
+    )
+
+    content_candidates: list[str | None] = [title] if use_title_candidate else []
+    if not use_title_candidate:
+        content_candidates.extend(_cover_chunk_queries(chunks))
     for chunk in chunks[:24]:
-        candidates.extend(
-            [
-                getattr(chunk, "heading", None),
-                _first_sentence(getattr(chunk, "text", None)),
-            ]
-        )
-    for candidate in candidates:
+        content_candidates.append(getattr(chunk, "heading", None))
+    for candidate in content_candidates:
         query = _normalize_query_candidate(candidate)
         if query is None:
+            continue
+        if _is_low_signal_chunk_query(query):
+            continue
+        if _chunk_query_conflicts_with_tables(query, table_queries):
             continue
         key = query.lower()
         if key in seen:
@@ -523,15 +657,17 @@ def build_auto_evaluation_fixture_document(
             break
 
     chunk_queries: list[dict[str, object]] = []
-    for query in _auto_chunk_queries(title, source_filename, chunks):
-        if query.lower() in used_queries:
-            continue
-        used_queries.add(query.lower())
-        chunk_queries.append({"query": query, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
-        if len(chunk_queries) >= AUTO_CHUNK_QUERY_LIMIT:
-            break
+    can_emit_chunk_queries = bool(chunks)
+    if can_emit_chunk_queries:
+        for query in _auto_chunk_queries(title, source_filename, chunks, tables):
+            if query.lower() in used_queries:
+                continue
+            used_queries.add(query.lower())
+            chunk_queries.append({"query": query, "top_n": AUTO_QUERY_TOP_N, "mode": "hybrid"})
+            if len(chunk_queries) >= AUTO_CHUNK_QUERY_LIMIT:
+                break
 
-    if not chunk_queries:
+    if not chunk_queries and not tables and can_emit_chunk_queries:
         filename_queries = _source_filename_queries(source_filename)
         if filename_queries:
             fallback = filename_queries[0]
@@ -1265,6 +1401,7 @@ def _evaluate_answer_case(
             "allow_fallback": case.allow_fallback,
             "expect_no_answer": case.expect_no_answer,
             "maximum_citation_count": case.maximum_citation_count,
+            "expected_result_type": case.expected_result_type,
             "expected_citation_source_filename": case.expected_citation_source_filename,
             "maximum_foreign_citations": case.maximum_foreign_citations,
             "candidate_missing_substrings": candidate_missing_substrings,
@@ -1524,7 +1661,7 @@ def evaluate_run(
 
     evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=None)
     fixture = fixture_for_document(document, corpus_path)
-    if fixture is None:
+    if fixture is None or fixture.kind == AUTO_FIXTURE_KIND:
         ensure_auto_evaluation_fixture(session, document, run)
         fixture = fixture_for_document(document, corpus_path)
     now = _utcnow()

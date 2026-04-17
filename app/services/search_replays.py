@@ -101,6 +101,28 @@ def _source_filename_matches(actual: str | None, expected: str | None) -> bool:
     return _normalized_source_filename(actual) == normalized_expected
 
 
+def _is_smoke_test_note(note: str | None) -> bool:
+    normalized = " ".join((note or "").strip().lower().split())
+    return normalized.startswith("smoke test")
+
+
+def _smoke_test_feedback_request_ids(session: Session) -> set[UUID]:
+    feedback_rows = session.execute(select(SearchFeedback)).scalars().all()
+    return {
+        feedback.search_request_id
+        for feedback in feedback_rows
+        if _is_smoke_test_note(feedback.note)
+    }
+
+
+def _is_low_signal_zero_result_gap(row: SearchRequestRecord) -> bool:
+    filters = row.filters_json or {}
+    if filters or row.tabular_query:
+        return False
+    token_count = len((row.query_text or "").split())
+    return token_count <= 1
+
+
 def _matching_rank(
     results,
     expected_result_type: str | None,
@@ -304,7 +326,7 @@ def _cross_document_prose_replay_case(
             mode=row.mode,
             filters=row.filters_json or {},
             limit=10,
-            expected_result_type="chunk",
+            expected_result_type=details.get("expected_result_type") or "chunk",
             expected_top_n=3,
             evaluation_query_id=row.id,
             expected_source_filename=expected_citation_source_filename,
@@ -385,6 +407,7 @@ def _live_search_gap_cases(session: Session, limit: int) -> list[ReplayCase]:
         .scalars()
         .all()
     )
+    smoke_test_request_ids = _smoke_test_feedback_request_ids(session)
     cases: list[ReplayCase] = []
     seen: set[tuple[str, str, str]] = set()
 
@@ -405,6 +428,10 @@ def _live_search_gap_cases(session: Session, limit: int) -> list[ReplayCase]:
             reason = "missing_table_gap"
 
         if reason is None:
+            continue
+        if row.id in smoke_test_request_ids:
+            continue
+        if reason == "zero_result_gap" and _is_low_signal_zero_result_gap(row):
             continue
 
         seen.add(request_key)
@@ -432,6 +459,8 @@ def _feedback_cases(session: Session, limit: int) -> list[ReplayCase]:
     cases: list[ReplayCase] = []
 
     for feedback in feedback_rows[:limit]:
+        if _is_smoke_test_note(feedback.note):
+            continue
         request_row = session.get(SearchRequestRecord, feedback.search_request_id)
         if request_row is None:
             continue

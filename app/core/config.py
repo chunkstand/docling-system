@@ -26,9 +26,17 @@ class Settings(BaseSettings):
     worker_max_attempts: int = 3
     worker_heartbeat_seconds: int = 30
     local_ingest_allowed_roots: str | None = None
-    local_ingest_max_file_bytes: int = 104857600
+    local_ingest_max_file_bytes: int = 209715200
     local_ingest_max_pages: int = 750
     table_supplement_registry_path: Path = Field(default=Path("./config/table_supplements.yaml"))
+
+
+def default_local_ingest_roots() -> list[Path]:
+    return [
+        Path.cwd().resolve(),
+        (Path.home() / "Documents").resolve(),
+        (Path.home() / "Downloads").resolve(),
+    ]
 
 
 @lru_cache(maxsize=1)

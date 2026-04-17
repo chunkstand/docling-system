@@ -203,11 +203,11 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert transportation_thresholds["expected_logical_table_count"] == 8
     assert transportation_thresholds["expected_figure_count"] == 0
     assert len(transportation_thresholds["expected_top_n_table_hit_queries"]) == 2
-    assert len(transportation_thresholds["expected_top_n_chunk_hit_queries"]) == 2
+    assert len(transportation_thresholds["expected_top_n_chunk_hit_queries"]) == 1
+    assert len(transportation_thresholds["queries"]) == 1
     assert len(transportation_thresholds["expected_answer_queries"]) == 1
-    transportation_contamination_query = transportation_thresholds[
-        "expected_top_n_chunk_hit_queries"
-    ][-1]
+    transportation_contamination_query = transportation_thresholds["queries"][-1]
+    assert transportation_contamination_query["expected_result_type"] == "table"
     assert (
         transportation_contamination_query["expected_source_filename"]
         == "20251216_TK_TransportationReport.pdf"
@@ -227,6 +227,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
         ]
         == "20251216_TK_TransportationReport.pdf"
     )
+    assert transportation_thresholds["expected_answer_queries"][0]["expected_result_type"] == "table"
     assert transportation_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     wildlife_document = next(
@@ -239,9 +240,11 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert wildlife_thresholds["expected_logical_table_count"] == 18
     assert wildlife_thresholds["expected_figure_count"] == 2
     assert len(wildlife_thresholds["expected_figure_captions_present"]) == 2
-    assert len(wildlife_thresholds["expected_top_n_chunk_hit_queries"]) == 3
+    assert len(wildlife_thresholds["expected_top_n_chunk_hit_queries"]) == 2
+    assert len(wildlife_thresholds["queries"]) == 1
     assert len(wildlife_thresholds["expected_answer_queries"]) == 1
-    wildlife_contamination_query = wildlife_thresholds["expected_top_n_chunk_hit_queries"][-1]
+    wildlife_contamination_query = wildlife_thresholds["queries"][-1]
+    assert wildlife_contamination_query["expected_result_type"] == "table"
     assert (
         wildlife_contamination_query["expected_source_filename"]
         == "20251215_TK_WildlifeSpecReport.pdf"

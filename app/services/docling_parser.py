@@ -11,7 +11,7 @@ from typing import Any
 import yaml
 from docling.document_converter import DocumentConverter
 
-from app.core.config import get_settings
+from app.core.config import default_local_ingest_roots, get_settings
 
 HEADING_PATTERN = re.compile(r"^(Chapter\s+\d+|Part\s+[IVXLC]+|[0-9]+(?:\.[0-9]+)*\s)")
 TABLE_LABEL_PATTERN = re.compile(r"^TABLE\s+[0-9A-Z().-]+", re.IGNORECASE)
@@ -304,7 +304,8 @@ def _collect_page_range(item: Any) -> tuple[int | None, int | None]:
 
 
 def _normalize_text(value: str | None) -> str:
-    return " ".join((value or "").split()).strip()
+    # Docling can emit raw NUL bytes from OCR-heavy tables; Postgres rejects them in text fields.
+    return " ".join((value or "").replace("\x00", " ").split()).strip()
 
 
 def _is_structural_heading(snapshot: ItemSnapshot) -> bool:
@@ -1031,7 +1032,7 @@ def _supplement_search_roots() -> list[Path]:
             if item
         ]
     else:
-        roots = [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
+        roots = default_local_ingest_roots()
 
     deduped: list[Path] = []
     for root in roots:

@@ -14,6 +14,7 @@ from app.services.evaluations import (
     _summarize_retrieval_rank_metrics,
     _summarize_structural_checks,
     build_auto_evaluation_fixture_document,
+    evaluate_run,
     ensure_auto_evaluation_fixture,
     fixture_for_document,
     load_evaluation_fixtures,
@@ -123,6 +124,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
         transportation_report.queries[-1].expected_source_filename
         == "20251216_TK_TransportationReport.pdf"
     )
+    assert transportation_report.queries[-1].expected_result_type == "table"
     assert (
         transportation_report.queries[-1].expected_top_result_source_filename
         == "20251216_TK_TransportationReport.pdf"
@@ -130,6 +132,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert transportation_report.answer_queries[0].expected_citation_source_filename == (
         "20251216_TK_TransportationReport.pdf"
     )
+    assert transportation_report.answer_queries[0].expected_result_type == "table"
     assert transportation_report.answer_queries[0].maximum_foreign_citations == 0
 
     wildlife_report = next(
@@ -144,6 +147,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
         wildlife_report.queries[-1].expected_source_filename
         == "20251215_TK_WildlifeSpecReport.pdf"
     )
+    assert wildlife_report.queries[-1].expected_result_type == "table"
     assert (
         wildlife_report.queries[-1].expected_top_result_source_filename
         == "20251215_TK_WildlifeSpecReport.pdf"
@@ -255,13 +259,306 @@ def test_build_auto_evaluation_fixture_document_strips_date_prefix_from_filename
     fixture = build_auto_evaluation_fixture_document(
         "20251217_TK_SoilReport.pdf",
         title=None,
-        chunks=[],
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                text="Prepared by:",
+            )
+        ],
         tables=[],
         figures=[],
     )
 
     chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
     assert chunk_queries[0]["query"] == "TK SoilReport"
+
+
+def test_build_auto_evaluation_fixture_document_skips_ambiguous_chunk_queries_when_tables_exist() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "TaylorParkRTC_Scoping.pdf",
+        title="Table of Contents",
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                text="Table of Contents",
+            ),
+            SimpleNamespace(
+                heading=None,
+                text="Taylor Park Vegetation Management: Response to Scoping Comments",
+            ),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Table of Contents Individuals",
+                heading=None,
+                preview_text="Air Quality | 3",
+                search_text="Air Quality | 3",
+            ),
+            SimpleNamespace(
+                title="Taylor Park Vegetation Management: Response to Scoping Comments",
+                heading=None,
+                preview_text="Comment Category | Comment | Remarks",
+                search_text="Comment Category | Comment | Remarks",
+            ),
+        ],
+        figures=[],
+    )
+
+    assert "expected_top_n_chunk_hit_queries" not in fixture["thresholds"]
+
+
+def test_build_auto_evaluation_fixture_document_skips_cover_boilerplate_when_tables_exist() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "GMUG SUHFER EA_Tech Report_Climate Change_March 2026.pdf",
+        title=(
+            "Climate Change Technical Report for the South Uncompahgre Hazardous "
+            "Fuels and Ecological Resiliency Project Environmental Assessment"
+        ),
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                text=(
+                    "Climate Change Technical Report for the South Uncompahgre "
+                    "Hazardous Fuels and Ecological Resiliency Project Environmental "
+                    "Assessment"
+                ),
+            ),
+            SimpleNamespace(heading=None, text="Draft For Publication - March 2026"),
+            SimpleNamespace(heading=None, text="Prepared for:"),
+            SimpleNamespace(
+                heading=None,
+                text=(
+                    "USDA Forest Service Grand Mesa, Uncompahgre and Gunnison "
+                    "National Forests Norwood Ranger District"
+                ),
+            ),
+            SimpleNamespace(heading=None, text="Prepared by:"),
+            SimpleNamespace(heading=None, text="SE Group PO Box 2729 Frisco, CO 80443"),
+            SimpleNamespace(heading=None, text="Table of Contents"),
+            SimpleNamespace(heading=None, text="List of Figures and Exhibits"),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="4.3.3 Cumulative Effects",
+                heading=None,
+                preview_text="Cumulative effects by resource.",
+                search_text="Cumulative effects by resource.",
+            )
+        ],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert [entry["query"] for entry in chunk_queries] == [
+        "Climate Change Technical Report for the South Uncompahgre"
+    ]
+
+
+def test_build_auto_evaluation_fixture_document_uses_cover_title_when_metadata_title_is_heading() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "GMUG SUHFER EA_Biological Assessment_March 2026.pdf",
+        title="1.0 Introduction",
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                page_from=1,
+                text="SOUTH UNCOMPAHGRE HAZARDOUS FUELS AND ECOLOGICAL RESILIENCY PROJECT",
+            ),
+            SimpleNamespace(
+                heading=None,
+                page_from=1,
+                text="Biological Assessment",
+            ),
+            SimpleNamespace(
+                heading=None,
+                page_from=1,
+                text="Prepared by: Prepared For:",
+            ),
+            SimpleNamespace(
+                heading="2.0 Purpose and Need",
+                page_from=5,
+                text="The purpose and need for the SUHFER project is to increase resilience.",
+            ),
+            SimpleNamespace(
+                heading="3.0 Current Management Direction",
+                page_from=6,
+                text="Current management direction for the project area is summarized here.",
+            ),
+            SimpleNamespace(
+                heading="4.1 Alternative 1 - No Action Alternative",
+                page_from=7,
+                text="The No Action Alternative provides a baseline for comparison.",
+            ),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Table 1. Management Areas within the SUHFER project boundary.",
+                heading=None,
+                preview_text="Management areas across the project boundary.",
+                search_text="Management areas across the project boundary.",
+            )
+        ],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert [entry["query"] for entry in chunk_queries] == [
+        "SOUTH UNCOMPAHGRE HAZARDOUS FUELS AND ECOLOGICAL RESILIENCY PROJECT",
+        "2.0 Purpose and Need",
+        "3.0 Current Management Direction",
+    ]
+
+
+def test_build_auto_evaluation_fixture_document_skips_alternative_headings_when_tables_exist() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "GMUG SUHFER EA_Biological Assessment_March 2026.pdf",
+        title="1.0 Introduction",
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                page_from=1,
+                text="SOUTH UNCOMPAHGRE HAZARDOUS FUELS AND ECOLOGICAL RESILIENCY PROJECT",
+            ),
+            SimpleNamespace(
+                heading="2.0 Purpose and Need",
+                page_from=5,
+                text="The purpose and need for the SUHFER project is to increase resilience.",
+            ),
+            SimpleNamespace(
+                heading="4.1 Alternative 1 - No Action Alternative",
+                page_from=7,
+                text="The No Action Alternative provides a baseline for comparison.",
+            ),
+            SimpleNamespace(
+                heading="4.2 Alternative 2 - Proposed Action Alternative",
+                page_from=7,
+                text="The Proposed Action Alternative addresses the project's purpose and need.",
+            ),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Table 1. Management Areas within the SUHFER project boundary.",
+                heading=None,
+                preview_text="Management areas across the project boundary.",
+                search_text="Management areas across the project boundary.",
+            )
+        ],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert [entry["query"] for entry in chunk_queries] == [
+        "SOUTH UNCOMPAHGRE HAZARDOUS FUELS AND ECOLOGICAL RESILIENCY PROJECT",
+        "2.0 Purpose and Need",
+    ]
+
+
+def test_build_auto_evaluation_fixture_document_skips_chunk_queries_for_figure_only_docs() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "J13-4_20250416_TK_BeeTeeGeeCulturalSurveyMap.pdf",
+        title="Untitled document",
+        chunks=[],
+        tables=[],
+        figures=[
+            SimpleNamespace(
+                caption=None,
+                json_path="/tmp/figure.json",
+                yaml_path="/tmp/figure.yaml",
+                metadata_json={"provenance": [{"page_no": 1}]},
+            )
+        ],
+    )
+
+    assert "expected_top_n_chunk_hit_queries" not in fixture["thresholds"]
+
+
+def test_build_auto_evaluation_fixture_document_skips_chunk_queries_for_zero_content_docs() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "J3-10_12032025_TK_FieldData_BKWhitetaleSaddle.pdf",
+        title="Untitled document",
+        chunks=[],
+        tables=[],
+        figures=[],
+    )
+
+    assert "expected_top_n_chunk_hit_queries" not in fixture["thresholds"]
+
+
+def test_build_auto_evaluation_fixture_document_skips_duplicate_word_table_queries() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "J14-07_20241213_TK_HeadwatersDemographics.pdf",
+        title="A Demographic Profile",
+        chunks=[
+            SimpleNamespace(
+                heading=None,
+                text="A Demographic Profile",
+            )
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Population",
+                heading=None,
+                preview_text="Population ................................................................................................ | 4",
+                search_text="Population Population ................................................................................................ | 4",
+            ),
+            SimpleNamespace(
+                title="Age and Gender",
+                heading=None,
+                preview_text="Population (2022*) | 3,368 | 118,541 | 6,998",
+                search_text="Age and Gender Population (2022*) | 3,368 | 118,541 | 6,998",
+            ),
+        ],
+        figures=[],
+    )
+
+    table_queries = fixture["thresholds"]["expected_top_n_table_hit_queries"]
+    assert [entry["query"] for entry in table_queries] == ["Age and Gender"]
+
+
+def test_build_auto_evaluation_fixture_document_skips_generic_project_title_queries() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "J6-01_20251016_TK_HydrologyReport_updated.pdf",
+        title="Tylers Kitchen Project",
+        chunks=[
+            SimpleNamespace(heading=None, page_from=1, text="Tylers Kitchen Project"),
+            SimpleNamespace(heading=None, page_from=1, text="Hydrology Resource Report"),
+            SimpleNamespace(heading=None, page_from=1, text="Prepared by:"),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Table 2. Road density classification",
+                heading=None,
+                preview_text="Road Density | High | Moderate",
+                search_text="Table 2. Road density classification\nRoad Density | High | Moderate",
+            )
+        ],
+        figures=[],
+    )
+
+    chunk_queries = fixture["thresholds"]["expected_top_n_chunk_hit_queries"]
+    assert [entry["query"] for entry in chunk_queries] == ["Hydrology Resource Report"]
+
+
+def test_build_auto_evaluation_fixture_document_skips_field_label_chunk_queries() -> None:
+    fixture = build_auto_evaluation_fixture_document(
+        "J2-02_12032025_TK_UnitStandExams.pdf",
+        title="STAND DIAGNOSIS MATRIX",
+        chunks=[
+            SimpleNamespace(heading=None, page_from=1, text='Total BA >5.0";'),
+            SimpleNamespace(heading=None, page_from=1, text="PROJECT:"),
+        ],
+        tables=[
+            SimpleNamespace(
+                title="Trees/snags per acre based on Basal Area",
+                heading=None,
+                preview_text="Trees/snags per acre based on Basal Area",
+                search_text="Trees/snags per acre based on Basal Area",
+            )
+        ],
+        figures=[],
+    )
+
+    assert "expected_top_n_chunk_hit_queries" not in fixture["thresholds"]
 
 
 def test_ensure_auto_evaluation_fixture_writes_auto_corpus_entry(monkeypatch, tmp_path) -> None:
@@ -360,6 +657,74 @@ documents:
 
     assert fixture is not None
     assert fixture.name == "test_pdf_prose"
+
+
+def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:
+    run_id = uuid4()
+    document_id = uuid4()
+    evaluation_row = SimpleNamespace(
+        id=uuid4(),
+        fixture_name=None,
+        status=None,
+        summary_json=None,
+        completed_at=None,
+    )
+    fixture = SimpleNamespace(
+        name="auto_test_pdf",
+        kind=AUTO_FIXTURE_KIND,
+        queries=[],
+        answer_queries=[],
+        thresholds=SimpleNamespace(),
+    )
+    state = {"refresh_count": 0, "fixture_calls": 0}
+
+    class FakeSession:
+        def add(self, _row) -> None:
+            return None
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    def fake_fixture_for_document(*_args, **_kwargs):
+        state["fixture_calls"] += 1
+        return fixture
+
+    monkeypatch.setattr("app.services.evaluations._upsert_evaluation_row", lambda *args, **kwargs: evaluation_row)
+    monkeypatch.setattr("app.services.evaluations.fixture_for_document", fake_fixture_for_document)
+    monkeypatch.setattr(
+        "app.services.evaluations.ensure_auto_evaluation_fixture",
+        lambda *args, **kwargs: state.__setitem__("refresh_count", state["refresh_count"] + 1),
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations._evaluate_structural_checks",
+        lambda *args, **kwargs: {
+            "check_count": 0,
+            "passed_checks": 0,
+            "failed_checks": 0,
+            "passed": True,
+            "checks": [],
+        },
+    )
+
+    evaluation = evaluate_run(
+        FakeSession(),
+        document=SimpleNamespace(
+            id=document_id,
+            source_filename="TEST_PDF.pdf",
+            active_run_id=run_id,
+        ),
+        run=SimpleNamespace(id=run_id, document_id=document_id),
+    )
+
+    assert state["refresh_count"] == 1
+    assert state["fixture_calls"] == 2
+    assert evaluation.fixture_name == "auto_test_pdf"
+    assert evaluation.status == "completed"
+    assert evaluation.summary_json["query_count"] == 0
+    assert evaluation.summary_json["structural_passed"] is True
 
 
 def test_resolve_baseline_run_id_prefers_prior_active_run_for_reprocess() -> None:

@@ -34,6 +34,41 @@ def _chunk_result() -> SearchResult:
     )
 
 
+def _memo_date_result() -> SearchResult:
+    return SearchResult(
+        result_type="chunk",
+        document_id=uuid4(),
+        run_id=uuid4(),
+        score=0.9,
+        chunk_id=uuid4(),
+        chunk_text="Standing Framework - Government Contract Opportunity Screening (March 23, 2026)",
+        heading=None,
+        page_from=1,
+        page_to=1,
+        source_filename="TEST_PDF.pdf",
+        scores=SearchScores(keyword_score=0.5, semantic_score=0.9, hybrid_score=0.9),
+    )
+
+
+def _due_date_result() -> SearchResult:
+    return SearchResult(
+        result_type="chunk",
+        document_id=uuid4(),
+        run_id=uuid4(),
+        score=0.88,
+        chunk_id=uuid4(),
+        chunk_text=(
+            "Data sources - Opportunities were found via publicly available solicitations. "
+            "Due date: April 9 2026"
+        ),
+        heading=None,
+        page_from=1,
+        page_to=1,
+        source_filename="TEST_PDF.pdf",
+        scores=SearchScores(keyword_score=0.4, semantic_score=0.8, hybrid_score=0.88),
+    )
+
+
 class FakeAnswerGenerator(AnswerGenerator):
     model = "fake-model"
 
@@ -128,6 +163,96 @@ def test_answer_question_falls_back_without_generator(monkeypatch) -> None:
     assert response.reranker_version == "v1"
     assert response.search_request_id is not None
     assert response.chat_answer_id is not None
+
+
+def test_answer_question_falls_back_when_qualified_date_phrase_is_unsupported(
+    monkeypatch,
+) -> None:
+    results = [_memo_date_result(), _due_date_result()]
+    asked: list[str] = []
+
+    class FakeExecution:
+        def __init__(self) -> None:
+            self.results = results
+            self.request_id = uuid4()
+            self.harness_name = "default_v1"
+            self.reranker_name = "linear_feature_reranker"
+            self.reranker_version = "v1"
+            self.retrieval_profile_name = "default_v1"
+
+    monkeypatch.setattr(
+        "app.services.chat.execute_search",
+        lambda session, request, origin="api", **kwargs: FakeExecution(),
+    )
+
+    class UnsupportedDateGenerator(AnswerGenerator):
+        model = "fake-model"
+
+        def generate_answer(self, *, question: str, contexts) -> str:
+            asked.append(question)
+            return "The opportunity screening memo announces a launch date of March 23, 2026 [1]."
+
+    session = FakeSession()
+
+    response = answer_question(
+        session=session,
+        request=ChatRequest(
+            question="What launch date does the opportunity screening memo announce?",
+            mode="hybrid",
+            document_id=results[0].document_id,
+            top_k=4,
+        ),
+        answer_generator=UnsupportedDateGenerator(),
+    )
+
+    assert response.used_fallback is True
+    assert response.citations == []
+    assert "launch date" in (response.warning or "")
+    assert asked == []
+
+
+def test_answer_question_allows_supported_qualified_date_phrase(
+    monkeypatch,
+) -> None:
+    results = [_memo_date_result(), _due_date_result()]
+    asked: list[str] = []
+
+    class FakeExecution:
+        def __init__(self) -> None:
+            self.results = results
+            self.request_id = uuid4()
+            self.harness_name = "default_v1"
+            self.reranker_name = "linear_feature_reranker"
+            self.reranker_version = "v1"
+            self.retrieval_profile_name = "default_v1"
+
+    monkeypatch.setattr(
+        "app.services.chat.execute_search",
+        lambda session, request, origin="api", **kwargs: FakeExecution(),
+    )
+
+    class SupportedDateGenerator(AnswerGenerator):
+        model = "fake-model"
+
+        def generate_answer(self, *, question: str, contexts) -> str:
+            asked.append(question)
+            return "The due date is April 9, 2026 [2]."
+
+    session = FakeSession()
+
+    response = answer_question(
+        session=session,
+        request=ChatRequest(
+            question="What is the due date in the opportunity screening memo?",
+            mode="hybrid",
+            document_id=results[0].document_id,
+            top_k=4,
+        ),
+        answer_generator=SupportedDateGenerator(),
+    )
+
+    assert response.used_fallback is False
+    assert asked == ["What is the due date in the opportunity screening memo?"]
 
 
 def test_answer_question_retries_with_normalized_query_when_initial_search_misses(

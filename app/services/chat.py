@@ -26,6 +26,10 @@ from app.services.search import _is_tabular_query, execute_search
 
 MAX_CONTEXT_EXCERPT_CHARS = 700
 FALLBACK_CITATION_COUNT = 3
+QUALIFIED_DATE_PHRASE_PATTERN = re.compile(
+    r"\b([a-z][a-z0-9]*(?:\s+[a-z][a-z0-9]*){0,2}\s+date)\b",
+    re.IGNORECASE,
+)
 QUESTION_STOPWORDS = {
     "a",
     "about",
@@ -238,6 +242,28 @@ def _normalize_question_query(question: str) -> str | None:
     return normalized
 
 
+def _missing_qualified_date_phrases(
+    question: str, citations: list[ChatCitation]
+) -> list[str]:
+    citation_text = " ".join(
+        _collapse_whitespace(f"{citation.label} {citation.excerpt}").lower()
+        for citation in citations
+    )
+    missing: list[str] = []
+    seen: set[str] = set()
+    for match in QUALIFIED_DATE_PHRASE_PATTERN.finditer(question):
+        tokens = _collapse_whitespace(match.group(1)).lower().split()
+        while len(tokens) > 2 and tokens[0] in QUESTION_STOPWORDS:
+            tokens.pop(0)
+        phrase = " ".join(tokens)
+        if phrase in seen:
+            continue
+        seen.add(phrase)
+        if phrase not in citation_text:
+            missing.append(phrase)
+    return missing
+
+
 def _execute_chat_search(
     session: Session,
     request: SearchRequest,
@@ -335,6 +361,27 @@ def answer_question(
         if chunk_retry_citations:
             execution = chunk_retry_execution
             citations = chunk_retry_citations
+
+    missing_date_phrases = _missing_qualified_date_phrases(request.question, citations)
+    if missing_date_phrases:
+        response = ChatResponse(
+            answer=_fallback_answer(request.question, []),
+            citations=[],
+            mode=request.mode,
+            search_request_id=execution.request_id,
+            harness_name=execution.harness_name,
+            reranker_name=execution.reranker_name,
+            reranker_version=execution.reranker_version,
+            retrieval_profile_name=execution.retrieval_profile_name,
+            used_fallback=True,
+            warning=(
+                "Retrieved context does not explicitly support the requested date attribute: "
+                + ", ".join(missing_date_phrases)
+            ),
+        )
+        if persist:
+            return _persist_chat_answer(session, request=request, response=response)
+        return response
 
     if not citations:
         response = ChatResponse(

@@ -114,11 +114,11 @@ After a run validates successfully, the worker also writes or refreshes an auto-
 Local path ingest policy:
 
 - Paths must be under configured allowed roots.
-- If `DOCLING_SYSTEM_LOCAL_INGEST_ALLOWED_ROOTS` is unset, the default roots are the repo working directory and `~/Documents`.
+- If `DOCLING_SYSTEM_LOCAL_INGEST_ALLOWED_ROOTS` is unset, the default roots are the repo working directory, `~/Documents`, and `~/Downloads`.
 - Symlink file paths are rejected, including symlinked PDFs discovered inside a queued directory.
 - Files must have a `.pdf` suffix and a `%PDF-` header.
 - Duplicate content is deduped by checksum, not by path string.
-- File size defaults to `104857600` bytes.
+- File size defaults to `209715200` bytes.
 - Page count defaults to a maximum of `750` pages.
 
 `POST /documents` remains multipart upload-based for compatibility. No arbitrary path-based ingest is exposed through public HTTP.

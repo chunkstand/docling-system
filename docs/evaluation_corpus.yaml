@@ -364,9 +364,11 @@ documents:
       expected_top_n_chunk_hit_queries:
         - query: project-level travel analysis
           top_n: 3
+      queries:
         - query: What does the transportation report say about annual road maintenance costs?
           top_n: 3
           mode: keyword
+          expected_result_type: table
           expected_source_filename: 20251216_TK_TransportationReport.pdf
           expected_top_result_source_filename: 20251216_TK_TransportationReport.pdf
           minimum_top_n_hits_from_expected_document: 1
@@ -374,6 +376,7 @@ documents:
       expected_answer_queries:
         - question: What does Table 1 show in the transportation report?
           mode: hybrid
+          expected_result_type: table
           answer_contains:
             - estimated annual road maintenance costs
             - operational maintenance levels
@@ -407,9 +410,11 @@ documents:
           mode: keyword
         - query: Which wolverine habitat types are modeled in the wildlife report?
           top_n: 3
+      queries:
         - query: What habitat does the wildlife report model for wolverines?
           top_n: 3
           mode: keyword
+          expected_result_type: table
           expected_source_filename: 20251215_TK_WildlifeSpecReport.pdf
           expected_top_result_source_filename: 20251215_TK_WildlifeSpecReport.pdf
           minimum_top_n_hits_from_expected_document: 1

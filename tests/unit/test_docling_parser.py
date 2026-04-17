@@ -224,6 +224,68 @@ class FakeTitlelessConverter:
         return SimpleNamespace(document=FakeTitlelessDocument())
 
 
+class FakeNulTableDocument:
+    def __init__(self) -> None:
+        self.name = "nul-table"
+
+    def iterate_items(self):
+        yield (
+            SimpleNamespace(
+                text="Bridgeport \x00 Southwest",
+                label="text",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            0,
+        )
+        yield (
+            SimpleNamespace(
+                text="TABLE 1",
+                label="caption",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            1,
+        )
+        yield (
+            SimpleNamespace(
+                text="COMMENT MATRIX",
+                level=1,
+                label="section_header",
+                prov=[SimpleNamespace(page_no=1)],
+            ),
+            1,
+        )
+        yield (SimpleNamespace(label="table", prov=[SimpleNamespace(page_no=1)]), 1)
+
+    def export_to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "kind": "docling",
+            "texts": [],
+            "pictures": [],
+            "tables": [
+                {
+                    "self_ref": "#/tables/0",
+                    "data": {
+                        "num_rows": 2,
+                        "num_cols": 2,
+                        "grid": [
+                            [{"text": "Name"}, {"text": "Value"}],
+                            [{"text": "Alpha\x00Beta"}, {"text": "\x00123\x00"}],
+                        ],
+                    },
+                }
+            ],
+        }
+
+    def num_pages(self) -> int:
+        return 1
+
+
+class FakeNulTableConverter:
+    def convert(self, source_path):
+        return SimpleNamespace(document=FakeNulTableDocument())
+
+
 def test_normalize_chunks_keeps_structural_heading_not_table_heading() -> None:
     snapshots = _snapshot_items(FakeDocument())
     chunks = _normalize_chunks(snapshots)
@@ -266,6 +328,19 @@ def test_docling_parser_uses_first_meaningful_text_for_title_when_headings_are_a
     parsed = parser.parse_pdf(source_path=None)  # type: ignore[arg-type]
 
     assert parsed.title == "The Bitter Lesson"
+
+
+def test_docling_parser_strips_nul_bytes_from_normalized_text_fields() -> None:
+    parser = DoclingParser(converter=FakeNulTableConverter())
+
+    parsed = parser.parse_pdf(source_path=None)  # type: ignore[arg-type]
+
+    assert parsed.title == "Bridgeport Southwest"
+    assert parsed.chunks[0].text == "Bridgeport Southwest"
+    assert parsed.tables[0].rows == [["Name", "Value"], ["Alpha Beta", "123"]]
+    assert "\x00" not in parsed.tables[0].search_text
+    assert "\x00" not in parsed.tables[0].preview_text
+    assert "Alpha Beta" in parsed.tables[0].search_text
 
 
 def test_build_logical_tables_merges_same_title_adjacent_segments_with_shape_drift() -> None:

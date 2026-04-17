@@ -10,7 +10,12 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile
 
 from app.db.models import Document, DocumentRun, RunStatus
-from app.services.documents import _build_duplicate_response, _is_pdf, _validate_local_ingest_path
+from app.services.documents import (
+    _allowed_ingest_roots,
+    _build_duplicate_response,
+    _is_pdf,
+    _validate_local_ingest_path,
+)
 
 
 def test_is_pdf_accepts_pdf_mime() -> None:
@@ -137,3 +142,22 @@ def test_local_ingest_accepts_pdf_within_page_limit(monkeypatch) -> None:
         )
         monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 5)
         assert _validate_local_ingest_path(file_path) == file_path.resolve()
+
+
+def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
+    fake_home = Path("/tmp/fake-home")
+    fake_cwd = Path("/tmp/fake-cwd")
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(local_ingest_allowed_roots=None),
+    )
+    monkeypatch.setattr("app.core.config.Path.home", lambda: fake_home)
+    monkeypatch.setattr("app.core.config.Path.cwd", lambda: fake_cwd)
+
+    roots = _allowed_ingest_roots()
+
+    assert roots == [
+        fake_cwd.resolve(),
+        (fake_home / "Documents").resolve(),
+        (fake_home / "Downloads").resolve(),
+    ]

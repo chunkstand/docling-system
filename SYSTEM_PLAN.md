@@ -218,6 +218,7 @@ Directory ingest now creates durable ingest batches and batch-item rows so opera
 Local path ingest is policy-constrained:
 
 - paths must live under allowed roots
+- if `DOCLING_SYSTEM_LOCAL_INGEST_ALLOWED_ROOTS` is unset, the default roots are the repo working directory, `~/Documents`, and `~/Downloads`
 - symlinks are rejected
 - files must be PDFs by extension and header
 - duplicate content is deduped by checksum

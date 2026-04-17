@@ -10,7 +10,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import default_local_ingest_roots, get_settings
 from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
 from app.schemas.documents import (
     DocumentDetailResponse,
@@ -48,7 +48,7 @@ def _allowed_ingest_roots() -> list[Path]:
             for item in settings.local_ingest_allowed_roots.split(":")
             if item
         ]
-    return [Path.cwd().resolve(), (Path.home() / "Documents").resolve()]
+    return default_local_ingest_roots()
 
 
 def _validate_local_ingest_path(file_path: Path) -> Path:

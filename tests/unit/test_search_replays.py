@@ -8,8 +8,11 @@ from app.schemas.search import SearchReplayQueryResponse, SearchReplayRunDetailR
 from app.services.search_replays import (
     CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
     ReplayCase,
+    _cross_document_prose_replay_case,
     _evaluate_case_passed,
+    _feedback_cases,
     _finalize_replay_rank_metrics,
+    _live_search_gap_cases,
     _to_replay_run_summary,
     compare_search_replay_runs,
     export_ranking_dataset,
@@ -222,6 +225,28 @@ def test_replay_run_summary_prefers_external_source_type_from_summary() -> None:
     assert summary.source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE
 
 
+def test_cross_document_prose_answer_case_uses_fixture_expected_result_type() -> None:
+    row = SimpleNamespace(
+        id=uuid4(),
+        query_text="What does Table 1 show in the transportation report?",
+        mode="hybrid",
+        filters_json={"document_id": str(uuid4())},
+    )
+
+    case = _cross_document_prose_replay_case(
+        row,
+        {
+            "evaluation_kind": "answer",
+            "expected_result_type": "table",
+            "expected_citation_source_filename": "20251216_TK_TransportationReport.pdf",
+        },
+    )
+
+    assert case is not None
+    assert case.expected_result_type == "table"
+    assert case.expected_source_filename == "20251216_TK_TransportationReport.pdf"
+
+
 def test_replay_run_summary_uses_native_cross_document_source_type() -> None:
     row = SimpleNamespace(
         id=uuid4(),
@@ -293,3 +318,169 @@ def test_finalize_replay_rank_metrics_computes_mrr() -> None:
 
     assert metrics["mrr"] == 0.75
     assert metrics["foreign_top_result_count"] == 1
+
+
+def test_feedback_cases_skip_smoke_test_labels() -> None:
+    smoke_request_id = uuid4()
+    keep_request_id = uuid4()
+    smoke_feedback_id = uuid4()
+    keep_feedback_id = uuid4()
+
+    feedback_rows = [
+        SimpleNamespace(
+            id=smoke_feedback_id,
+            search_request_id=smoke_request_id,
+            search_request_result_id=None,
+            feedback_type="relevant",
+            note="smoke test relevance",
+            created_at=_timestamp(),
+            result_rank=1,
+        ),
+        SimpleNamespace(
+            id=keep_feedback_id,
+            search_request_id=keep_request_id,
+            search_request_result_id=None,
+            feedback_type="missing_chunk",
+            note="real issue",
+            created_at=_timestamp(),
+            result_rank=None,
+        ),
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            if entity_name == "SearchFeedback":
+                return FakeScalarResult(feedback_rows)
+            raise AssertionError(f"unexpected entity {entity_name}")
+
+        def get(self, model, key):
+            if model.__name__ != "SearchRequestRecord":
+                raise AssertionError(f"unexpected model {model.__name__}")
+            if key == smoke_request_id:
+                return SimpleNamespace(
+                    id=smoke_request_id,
+                    query_text="applicability",
+                    mode="keyword",
+                    filters_json={},
+                    limit=5,
+                )
+            if key == keep_request_id:
+                return SimpleNamespace(
+                    id=keep_request_id,
+                    query_text="vent stack",
+                    mode="keyword",
+                    filters_json={},
+                    limit=5,
+                )
+            return None
+
+    cases = _feedback_cases(FakeSession(), limit=10)
+
+    assert [case.query_text for case in cases] == ["vent stack"]
+    assert cases[0].feedback_type == "missing_chunk"
+
+
+def test_live_search_gap_cases_skip_smoke_test_and_low_signal_zero_result_queries() -> None:
+    smoke_request_id = uuid4()
+    low_signal_request_id = uuid4()
+    keep_request_id = uuid4()
+    keep_table_gap_request_id = uuid4()
+
+    request_rows = [
+        SimpleNamespace(
+            id=smoke_request_id,
+            origin="api",
+            query_text="docling",
+            mode="keyword",
+            filters_json={},
+            limit=5,
+            result_count=0,
+            tabular_query=False,
+            table_hit_count=0,
+            created_at=_timestamp(),
+        ),
+        SimpleNamespace(
+            id=low_signal_request_id,
+            origin="api",
+            query_text="zzzzzznotfound",
+            mode="keyword",
+            filters_json={},
+            limit=5,
+            result_count=0,
+            tabular_query=False,
+            table_hit_count=0,
+            created_at=_timestamp(),
+        ),
+        SimpleNamespace(
+            id=keep_request_id,
+            origin="api",
+            query_text="annual road maintenance costs",
+            mode="keyword",
+            filters_json={},
+            limit=5,
+            result_count=0,
+            tabular_query=False,
+            table_hit_count=0,
+            created_at=_timestamp(),
+        ),
+        SimpleNamespace(
+            id=keep_table_gap_request_id,
+            origin="api",
+            query_text="vent stack",
+            mode="keyword",
+            filters_json={},
+            limit=5,
+            result_count=4,
+            tabular_query=True,
+            table_hit_count=0,
+            created_at=_timestamp(),
+        ),
+    ]
+    feedback_rows = [
+        SimpleNamespace(
+            id=uuid4(),
+            search_request_id=smoke_request_id,
+            search_request_result_id=None,
+            feedback_type="no_answer",
+            note="smoke test no answer",
+            created_at=_timestamp(),
+            result_rank=None,
+        )
+    ]
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, statement):
+            entity_name = statement.column_descriptions[0]["entity"].__name__
+            if entity_name == "SearchRequestRecord":
+                return FakeScalarResult(request_rows)
+            if entity_name == "SearchFeedback":
+                return FakeScalarResult(feedback_rows)
+            raise AssertionError(f"unexpected entity {entity_name}")
+
+    cases = _live_search_gap_cases(FakeSession(), limit=10)
+
+    assert [(case.query_text, case.source_reason) for case in cases] == [
+        ("annual road maintenance costs", "zero_result_gap"),
+        ("vent stack", "missing_table_gap"),
+    ]
