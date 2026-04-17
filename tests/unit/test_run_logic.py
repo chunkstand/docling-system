@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -31,6 +32,7 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     source_path.write_bytes(b"%PDF-1.7\n")
 
     run = SimpleNamespace(id=candidate_run_id, document_id=document_id)
+    run.locked_by = "worker-1"
     document = SimpleNamespace(
         id=document_id,
         source_path=str(source_path),
@@ -59,6 +61,17 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
 
     observed: dict[str, object | None] = {}
 
+    @contextmanager
+    def fake_run_lease_heartbeat(run_id, *, worker_id):
+        observed["heartbeat_run_id"] = run_id
+        observed["heartbeat_worker_id"] = worker_id
+        observed["heartbeat_entered"] = True
+        try:
+            yield
+        finally:
+            observed["heartbeat_exited"] = True
+
+    monkeypatch.setattr("app.services.runs.run_lease_heartbeat", fake_run_lease_heartbeat)
     monkeypatch.setattr("app.services.runs.heartbeat_run", lambda session, run: None)
     monkeypatch.setattr("app.services.runs.increment", lambda *args, **kwargs: None)
     monkeypatch.setattr(
@@ -130,6 +143,10 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     assert observed["baseline_run_id"] == prior_active_run_id
     assert observed["auto_fixture_title"] == "Report"
     assert observed["auto_fixture_run_id"] == candidate_run_id
+    assert observed["heartbeat_run_id"] == candidate_run_id
+    assert observed["heartbeat_worker_id"] == "worker-1"
+    assert observed["heartbeat_entered"] is True
+    assert observed["heartbeat_exited"] is True
 
 
 def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path) -> None:

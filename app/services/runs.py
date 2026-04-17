@@ -4,14 +4,16 @@ import hashlib
 import json
 import os
 import socket
+import threading
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
 import yaml
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -143,6 +145,60 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
 def heartbeat_run(session: Session, run: DocumentRun) -> None:
     run.last_heartbeat_at = _utcnow()
     session.commit()
+
+
+def _refresh_run_lease(session_factory, run_id: UUID, worker_id: str) -> bool:
+    with session_factory() as heartbeat_session:
+        result = heartbeat_session.execute(
+            update(DocumentRun)
+            .where(
+                DocumentRun.id == run_id,
+                DocumentRun.locked_by == worker_id,
+                DocumentRun.status.in_([RunStatus.PROCESSING.value, RunStatus.VALIDATING.value]),
+            )
+            .values(last_heartbeat_at=_utcnow())
+        )
+        heartbeat_session.commit()
+        return bool(result.rowcount)
+
+
+@contextmanager
+def run_lease_heartbeat(run_id: UUID, *, worker_id: str | None):
+    from app.db.session import get_session_factory
+
+    settings = get_settings()
+    interval_seconds = settings.worker_heartbeat_seconds
+    if worker_id is None or interval_seconds <= 0:
+        yield
+        return
+
+    session_factory = get_session_factory()
+    stop_event = threading.Event()
+
+    def _loop() -> None:
+        while not stop_event.wait(interval_seconds):
+            try:
+                if not _refresh_run_lease(session_factory, run_id, worker_id):
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "run_lease_heartbeat_failed",
+                    run_id=str(run_id),
+                    worker_id=worker_id,
+                    error=str(exc),
+                )
+
+    heartbeat_thread = threading.Thread(
+        target=_loop,
+        name=f"run-heartbeat-{run_id}",
+        daemon=True,
+    )
+    heartbeat_thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        heartbeat_thread.join(timeout=max(1, interval_seconds))
 
 
 def _write_failure_artifact(
@@ -679,94 +735,102 @@ def process_run(
         raise ValueError("Source file missing before worker pickup.")
     prior_active_run_id = document.active_run_id
 
-    try:
-        failure_stage = "parse"
-        logger.info("run_processing_started", run_id=str(run.id), document_id=str(document.id))
-        heartbeat_run(session, run)
-        parse_kwargs: dict[str, str] = {}
-        source_filename = getattr(document, "source_filename", None)
-        if source_filename is not None:
-            parse_kwargs["source_filename"] = source_filename
-        parsed = parser.parse_pdf(Path(document.source_path), **parse_kwargs)
-        increment("tables_detected_total", len(parsed.raw_table_segments))
-        heartbeat_run(session, run)
-        failure_stage = "embedding"
-        _apply_embeddings(parsed, embedding_provider, run)
-        lineage_assignments = _build_lineage_assignments(session, document, parsed)
+    with run_lease_heartbeat(run.id, worker_id=run.locked_by):
+        try:
+            failure_stage = "parse"
+            logger.info("run_processing_started", run_id=str(run.id), document_id=str(document.id))
+            heartbeat_run(session, run)
+            parse_kwargs: dict[str, str] = {}
+            source_filename = getattr(document, "source_filename", None)
+            if source_filename is not None:
+                parse_kwargs["source_filename"] = source_filename
+            parsed = parser.parse_pdf(Path(document.source_path), **parse_kwargs)
+            increment("tables_detected_total", len(parsed.raw_table_segments))
+            heartbeat_run(session, run)
+            failure_stage = "embedding"
+            _apply_embeddings(parsed, embedding_provider, run)
+            lineage_assignments = _build_lineage_assignments(session, document, parsed)
 
-        failure_stage = "artifact_write"
-        json_path, yaml_path = _persist_parsed_artifacts(storage_service, document, run, parsed)
-        failure_stage = "chunk_persist"
-        _replace_run_chunks(session, document, run, parsed)
-        failure_stage = "table_persist"
-        _replace_run_tables(session, document, run, parsed, storage_service, lineage_assignments)
-        failure_stage = "figure_persist"
-        _replace_run_figures(session, document, run, parsed, storage_service)
-        failure_stage = "run_persist"
-        _mark_run_persisted(session, document, run, parsed, json_path, yaml_path)
-        failure_stage = "validation"
-        _mark_run_validating(session, run)
-        heartbeat_run(session, run)
+            failure_stage = "artifact_write"
+            json_path, yaml_path = _persist_parsed_artifacts(storage_service, document, run, parsed)
+            failure_stage = "chunk_persist"
+            _replace_run_chunks(session, document, run, parsed)
+            failure_stage = "table_persist"
+            _replace_run_tables(
+                session,
+                document,
+                run,
+                parsed,
+                storage_service,
+                lineage_assignments,
+            )
+            failure_stage = "figure_persist"
+            _replace_run_figures(session, document, run, parsed, storage_service)
+            failure_stage = "run_persist"
+            _mark_run_persisted(session, document, run, parsed, json_path, yaml_path)
+            failure_stage = "validation"
+            _mark_run_validating(session, run)
+            heartbeat_run(session, run)
 
-        report = validate_persisted_run(session, document, run, parsed)
-        if not report.passed:
-            raise ValidationError(report)
+            report = validate_persisted_run(session, document, run, parsed)
+            if not report.passed:
+                raise ValidationError(report)
 
-        ensure_auto_evaluation_fixture(session, document, run, title=parsed.title)
-        heartbeat_run(session, run)
-        evaluation = evaluate_run(
-            session,
-            document,
-            run,
-            baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
-        )
-        logger.info(
-            "run_evaluation_completed",
-            run_id=str(run.id),
-            document_id=str(document.id),
-            evaluation_status=evaluation.status,
-            fixture_name=evaluation.fixture_name,
-        )
+            ensure_auto_evaluation_fixture(session, document, run, title=parsed.title)
+            heartbeat_run(session, run)
+            evaluation = evaluate_run(
+                session,
+                document,
+                run,
+                baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
+            )
+            logger.info(
+                "run_evaluation_completed",
+                run_id=str(run.id),
+                document_id=str(document.id),
+                evaluation_status=evaluation.status,
+                fixture_name=evaluation.fixture_name,
+            )
 
-        failure_stage = "promotion"
-        finalize_run_success(
-            session,
-            document,
-            run,
-            parsed,
-            report,
-            storage_service=storage_service,
-        )
-        logger.info(
-            "run_processing_completed",
-            run_id=str(run.id),
-            document_id=str(document.id),
-            chunk_count=len(parsed.chunks),
-            table_count=len(parsed.tables),
-            figure_count=len(parsed.figures),
-            page_count=parsed.page_count,
-        )
-    except Exception as exc:
-        session.rollback()
-        run = session.get(DocumentRun, run_id)
-        if run is None:
-            raise
-        report = exc.report if isinstance(exc, ValidationError) else None
-        finalize_run_failure(
-            session,
-            run,
-            exc,
-            report=report,
-            failure_stage=failure_stage,
-            storage_service=storage_service,
-            document=document,
-        )
-        logger.exception(
-            "run_processing_failed",
-            run_id=str(run.id),
-            document_id=str(document.id),
-            error=str(exc),
-        )
+            failure_stage = "promotion"
+            finalize_run_success(
+                session,
+                document,
+                run,
+                parsed,
+                report,
+                storage_service=storage_service,
+            )
+            logger.info(
+                "run_processing_completed",
+                run_id=str(run.id),
+                document_id=str(document.id),
+                chunk_count=len(parsed.chunks),
+                table_count=len(parsed.tables),
+                figure_count=len(parsed.figures),
+                page_count=parsed.page_count,
+            )
+        except Exception as exc:
+            session.rollback()
+            run = session.get(DocumentRun, run_id)
+            if run is None:
+                raise
+            report = exc.report if isinstance(exc, ValidationError) else None
+            finalize_run_failure(
+                session,
+                run,
+                exc,
+                report=report,
+                failure_stage=failure_stage,
+                storage_service=storage_service,
+                document=document,
+            )
+            logger.exception(
+                "run_processing_failed",
+                run_id=str(run.id),
+                document_id=str(document.id),
+                error=str(exc),
+            )
 
 
 def run_worker_loop() -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 from app.db.models import SearchRequestRecord, SearchRequestResult
@@ -9,6 +10,9 @@ from app.services.search import (
     _classify_query_intent,
     _is_tabular_query,
     _merge_hybrid_results,
+    _ranked_metadata_overlap_score,
+    _should_run_metadata_supplement,
+    _table_title_match_features,
     execute_search,
     search_documents,
 )
@@ -82,7 +86,12 @@ def test_merge_hybrid_results_supports_tables() -> None:
 
 def test_is_tabular_query_matches_table_reference() -> None:
     assert _is_tabular_query("TABLE 701.2")
+    assert _is_tabular_query("701.2 drainage piping")
     assert _is_tabular_query("row and column limits")
+
+
+def test_is_tabular_query_does_not_treat_identifier_like_filename_as_tabular() -> None:
+    assert _is_tabular_query("fseprd1091222") is False
 
 
 def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:
@@ -97,6 +106,407 @@ def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:
         )
         == "prose_broad"
     )
+
+
+def test_metadata_supplement_runs_for_broad_non_tabular_queries() -> None:
+    assert (
+        _should_run_metadata_supplement(
+            query_intent="prose_broad",
+            strict_keyword_count=5,
+            harness_name="default_v1",
+        )
+        is True
+    )
+    assert (
+        _should_run_metadata_supplement(
+            query_intent="tabular",
+            strict_keyword_count=1,
+            harness_name="default_v1",
+        )
+        is False
+    )
+
+
+def test_ranked_metadata_overlap_score_uses_chunk_text_signal() -> None:
+    score_without_chunk = _ranked_metadata_overlap_score(
+        "dear interested party chalk buttes",
+        document_title="Chalk Buttes Cover Letter",
+        heading=None,
+        chunk_text=None,
+        source_filename="Chalk Buttes Cover Letter.pdf",
+    )
+    score_with_chunk = _ranked_metadata_overlap_score(
+        "dear interested party chalk buttes",
+        document_title="Chalk Buttes Cover Letter",
+        heading=None,
+        chunk_text="Dear Interested Party,",
+        source_filename="Chalk Buttes Cover Letter.pdf",
+    )
+
+    assert score_with_chunk > score_without_chunk
+
+
+def test_ranked_metadata_overlap_score_ignores_filename_when_document_scoped() -> None:
+    with_document_context = _ranked_metadata_overlap_score(
+        "forest habitat types and abies lasiocarpa streptopus amplexifolius",
+        document_title="Forest habitat types for northern Idaho",
+        heading=None,
+        chunk_text=None,
+        source_filename="CooperEtAl_1991_ForestHabitatNIDSecondApproximation.pdf",
+    )
+    scoped_to_document = _ranked_metadata_overlap_score(
+        "forest habitat types and abies lasiocarpa streptopus amplexifolius",
+        document_title="Forest habitat types for northern Idaho",
+        heading=None,
+        chunk_text=None,
+        source_filename="CooperEtAl_1991_ForestHabitatNIDSecondApproximation.pdf",
+        include_document_context=False,
+    )
+
+    assert scoped_to_document < with_document_context
+    assert scoped_to_document == 0.0
+
+
+def test_table_title_match_features_use_table_heading_when_title_is_generic() -> None:
+    item = RankedResult(
+        result_type="table",
+        result_id=uuid4(),
+        document_id=uuid4(),
+        run_id=uuid4(),
+        source_filename="doc.pdf",
+        page_from=1,
+        page_to=2,
+        table_title="Table 1 (Con.)",
+        table_heading="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+        table_preview="Habitat type | Species",
+        row_count=2,
+        col_count=2,
+    )
+
+    features = _table_title_match_features(
+        item,
+        "Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+    )
+
+    assert features["title_token_coverage"] > 0.0
+
+
+def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> None:
+    winning_document_id = uuid4()
+    losing_document_id = uuid4()
+
+    class FakeEmbeddingProvider:
+        def embed_texts(self, texts: list[str]) -> list[list[float]]:
+            return [[0.1, 0.2, 0.3] for _ in texts]
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=losing_document_id,
+                run_id=uuid4(),
+                source_filename="20260325_ChalkButtes_Hydro.pdf",
+                document_title="Chalk Buttes Hydrology",
+                page_from=2,
+                page_to=2,
+                chunk_text="Hydrology design features overview.",
+                heading=None,
+                keyword_score=0.8,
+                retrieval_sources=("keyword",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=winning_document_id,
+                run_id=uuid4(),
+                source_filename="April 17 2026 Chalk Buttes Billings Gazette Legal Notice.pdf",
+                document_title="April 17 2026 Chalk Buttes Billings Gazette Legal Notice",
+                page_from=1,
+                page_to=1,
+                chunk_text="Published in the Billings Gazette on April 17, 2026.",
+                heading=None,
+                keyword_score=4.6,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_chunk_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=losing_document_id,
+                run_id=uuid4(),
+                source_filename="20260325_ChalkButtes_Hydro.pdf",
+                document_title="Chalk Buttes Hydrology",
+                page_from=3,
+                page_to=3,
+                chunk_text="Hydrology background discussion.",
+                heading=None,
+                semantic_score=0.92,
+                retrieval_sources=("semantic",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_table_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    execution = execute_search(
+        FakeSession(),
+        SearchRequest(
+            query="published in billings gazette on april 17 2026 chalk buttes",
+            mode="hybrid",
+            limit=5,
+        ),
+        origin="test",
+    )
+
+    assert execution.results[0].document_id == winning_document_id
+    assert execution.results[0].source_filename.endswith("Billings Gazette Legal Notice.pdf")
+
+
+def test_hybrid_search_prefers_exact_phrase_cover_letter_probe(monkeypatch) -> None:
+    winning_document_id = uuid4()
+    losing_document_id = uuid4()
+
+    class FakeEmbeddingProvider:
+        def embed_texts(self, texts: list[str]) -> list[list[float]]:
+            return [[0.1, 0.2, 0.3] for _ in texts]
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=winning_document_id,
+                run_id=uuid4(),
+                source_filename="Chalk Buttes Cover Letter.pdf",
+                document_title="Chalk Buttes Cover Letter",
+                page_from=1,
+                page_to=1,
+                chunk_text="Dear Interested Party, the Chalk Buttes project is available for review.",
+                heading=None,
+                keyword_score=3.24,
+                retrieval_sources=("metadata_supplement",),
+            ),
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=losing_document_id,
+                run_id=uuid4(),
+                source_filename="20260407_ChalkButtes_Silviculture.pdf",
+                document_title="Chalk Buttes Silviculture",
+                page_from=2,
+                page_to=2,
+                chunk_text="Chalk Buttes silviculture overview.",
+                heading=None,
+                keyword_score=2.56,
+                retrieval_sources=("metadata_supplement",),
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_chunk_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=losing_document_id,
+                run_id=uuid4(),
+                source_filename="20260407_ChalkButtes_Silviculture.pdf",
+                document_title="Chalk Buttes Silviculture",
+                page_from=3,
+                page_to=3,
+                chunk_text="Generic Chalk Buttes report language.",
+                heading=None,
+                semantic_score=0.92,
+                retrieval_sources=("semantic",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_table_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    execution = execute_search(
+        FakeSession(),
+        SearchRequest(query="dear interested party chalk buttes", mode="hybrid", limit=5),
+        origin="test",
+    )
+
+    assert execution.results[0].document_id == winning_document_id
+    assert execution.results[0].source_filename == "Chalk Buttes Cover Letter.pdf"
+
+
+def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunks(monkeypatch) -> None:
+    table_document_id = uuid4()
+
+    class FakeEmbeddingProvider:
+        def embed_texts(self, texts: list[str]) -> list[list[float]]:
+            return [[0.1, 0.2, 0.3] for _ in texts]
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(
+                all=lambda: [
+                    (
+                        SimpleNamespace(
+                            id=uuid4(),
+                            document_id=table_document_id,
+                            run_id=uuid4(),
+                            page_from=1,
+                            page_to=1,
+                            chunk_index=0,
+                            text="General narrative overview.",
+                            heading=None,
+                        ),
+                        SimpleNamespace(
+                            source_filename="CooperEtAl_1991_ForestHabitatNIDSecondApproximation.pdf",
+                            title="Forest habitat types for northern Idaho",
+                        ),
+                    )
+                ]
+            )
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=table_document_id,
+                run_id=uuid4(),
+                source_filename="CooperEtAl_1991_ForestHabitatNIDSecondApproximation.pdf",
+                document_title="Forest habitat types for northern Idaho",
+                page_from=2,
+                page_to=2,
+                table_title="Table 1",
+                table_heading="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+                table_preview="Habitat type | Species",
+                row_count=2,
+                col_count=2,
+                keyword_score=0.02,
+                retrieval_sources=("keyword_primary",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_chunk_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_table_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=table_document_id,
+                run_id=uuid4(),
+                source_filename="CooperEtAl_1991_ForestHabitatNIDSecondApproximation.pdf",
+                document_title="Forest habitat types for northern Idaho",
+                page_from=2,
+                page_to=2,
+                table_title="Table 1",
+                table_heading="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+                table_preview="Habitat type | Species",
+                row_count=2,
+                col_count=2,
+                semantic_score=0.7,
+                retrieval_sources=("semantic_primary",),
+            )
+        ],
+    )
+    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    execution = execute_search(
+        FakeSession(),
+        SearchRequest(
+            query="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+            mode="hybrid",
+            limit=5,
+            filters=SearchFilters(document_id=table_document_id),
+        ),
+        origin="test",
+    )
+
+    assert execution.results[0].result_type == "table"
 
 
 def test_tabular_query_boost_keeps_table_first(monkeypatch) -> None:
@@ -417,6 +827,9 @@ def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> No
         def add(self, value) -> None:
             self.added.append(value)
 
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
         def flush(self) -> None:
             return None
 
@@ -494,6 +907,9 @@ def test_execute_search_falls_back_to_relaxed_keyword_matching(monkeypatch) -> N
         def add(self, value) -> None:
             self.added.append(value)
 
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
         def flush(self) -> None:
             return None
 
@@ -561,6 +977,9 @@ def test_execute_search_prose_v3_persists_query_intent_and_candidate_breakdown(m
 
         def add(self, value) -> None:
             self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
 
         def flush(self) -> None:
             return None
@@ -715,3 +1134,306 @@ def test_execute_search_prose_v3_persists_query_intent_and_candidate_breakdown(m
     assert "phrase_overlap" in result_rows[0].rerank_features_json
     assert "rare_token_overlap" in result_rows[0].rerank_features_json
     assert "adjacent_chunk_context_signal" in result_rows[0].rerank_features_json
+
+
+def test_execute_search_uses_metadata_supplement_as_zero_result_fallback(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    document_id = uuid4()
+    run_id = uuid4()
+    chunk_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=chunk_id,
+                document_id=document_id,
+                run_id=run_id or uuid4(),
+                source_filename="fseprd1091222.pdf",
+                document_title="Opaque agency document",
+                page_from=1,
+                page_to=1,
+                chunk_index=0,
+                chunk_text="Metadata fallback hit",
+                heading="Cover",
+                keyword_score=0.9,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(query="fseprd1091222", mode="keyword", limit=5),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert len(execution.results) == 1
+    assert execution.results[0].source_filename == "fseprd1091222.pdf"
+    assert request_rows[0].details_json["keyword_strategy"] == "metadata_supplement"
+    assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1
+
+
+def test_prose_query_exact_source_filename_match_outranks_noisy_relaxed_table(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="J2-08_10222025_TK_TSMRSFireGroup.pdf",
+                page_from=4,
+                page_to=4,
+                table_title="A750400020 4.47 4 16 A740100012 28.9 30 16",
+                table_heading=None,
+                table_preview="noisy numeric table",
+                row_count=5,
+                col_count=5,
+                keyword_score=7.7,
+                retrieval_sources=("keyword_relaxed",),
+            ),
+            RankedResult(
+                result_type="table",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="Consolidated BPA MOU 5-1-18.pdf",
+                page_from=12,
+                page_to=12,
+                table_title="FEDERAL HOLDER ACTIVITIES AND PROJECTS",
+                table_heading=None,
+                table_preview="holder activities by year",
+                row_count=8,
+                col_count=4,
+                keyword_score=4.3,
+                retrieval_sources=("keyword_relaxed",),
+            ),
+        ],
+    )
+
+    results = search_documents(
+        session=None,
+        request=SearchRequest(
+            query="Consolidated BPA MOU 5-1-18",
+            mode="keyword",
+            limit=5,
+            harness_name="wide_v2",
+        ),
+    )
+
+    assert results[0].source_filename == "Consolidated BPA MOU 5-1-18.pdf"
+
+
+def test_execute_search_adds_metadata_supplement_when_strict_recall_is_sparse(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="Consolidated BPA MOU 5-1-18.pdf",
+                document_title="MEMORANDUM OF UNDERSTANDING",
+                page_from=3,
+                page_to=3,
+                chunk_index=3,
+                chunk_text="Appendix F IFPL waiver language.",
+                heading="APPENDIX F IFPL WAIVER",
+                keyword_score=0.3,
+                retrieval_sources=("keyword_primary",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="FEIS_Append H_AltCosts.pdf",
+                document_title="Appendix H",
+                page_from=1,
+                page_to=1,
+                chunk_index=0,
+                chunk_text="Alternative Cost Comparison for the integrated weed management EIS.",
+                heading=None,
+                keyword_score=0.25,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(
+            query="what does appendix h alternative costs show",
+            mode="keyword",
+            limit=5,
+        ),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert execution.results[0].source_filename == "FEIS_Append H_AltCosts.pdf"
+    assert request_rows[0].details_json["keyword_strategy"] == "strict_plus_metadata"
+    assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1
+
+
+def test_execute_search_uses_camel_case_source_filename_exact_match(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="J3-12_12032025_TK_OverviewMaps.pdf",
+                document_title="Overview Maps",
+                page_from=6,
+                page_to=6,
+                chunk_index=6,
+                chunk_text="Map label",
+                heading="Babcock",
+                keyword_score=0.9,
+                retrieval_sources=("keyword_relaxed",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                source_filename="BabcockLEX.pdf",
+                document_title="Chapter 1: National Forest Land Exchanges and Land Grant Timber Companies",
+                page_from=1,
+                page_to=1,
+                chunk_index=0,
+                chunk_text="Critical look at land exchanges as viable solutions.",
+                heading=None,
+                keyword_score=0.2,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(query="Babcock LEX", mode="keyword", limit=5),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert execution.results[0].source_filename == "BabcockLEX.pdf"
+    assert request_rows[0].details_json["keyword_strategy"] == "relaxed_or_plus_metadata"

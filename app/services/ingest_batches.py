@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections import Counter
 from dataclasses import dataclass
@@ -40,6 +41,17 @@ class BatchItemResolution:
     resolved_document_id: UUID | None
     resolved_run_id: UUID | None
     resolved_at: datetime | None
+
+
+def _file_sha256(file_path: Path) -> str | None:
+    try:
+        digest = hashlib.sha256()
+        with file_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return digest.hexdigest()
 
 
 def _validate_local_ingest_directory(directory_path: Path) -> Path:
@@ -161,6 +173,47 @@ def _load_referenced_documents(
     return {document.id: document for document in documents}
 
 
+def _load_matched_failed_item_documents(
+    session: Session,
+    rows: list[tuple[IngestBatchItem, DocumentRun | None]],
+) -> dict[UUID, Document]:
+    failed_items = [
+        item
+        for item, _ in rows
+        if item.status == "failed" and item.document_id is None and item.run_id is None
+    ]
+    if not failed_items:
+        return {}
+
+    path_hash_cache: dict[str, str | None] = {}
+    item_hashes: dict[UUID, str] = {}
+    for item in failed_items:
+        candidate_hash = item.sha256
+        if candidate_hash is None and item.source_path:
+            source_path = Path(item.source_path)
+            candidate_hash = path_hash_cache.get(item.source_path)
+            if candidate_hash is None:
+                candidate_hash = _file_sha256(source_path) if source_path.is_file() else None
+                path_hash_cache[item.source_path] = candidate_hash
+        if candidate_hash:
+            item_hashes[item.id] = candidate_hash
+
+    if not item_hashes:
+        return {}
+
+    documents = (
+        session.execute(select(Document).where(Document.sha256.in_(set(item_hashes.values()))))
+        .scalars()
+        .all()
+    )
+    document_by_sha = {document.sha256: document for document in documents}
+    return {
+        item_id: document_by_sha[item_hash]
+        for item_id, item_hash in item_hashes.items()
+        if item_hash in document_by_sha
+    }
+
+
 def _load_referenced_runs(
     session: Session,
     documents: dict[UUID, Document],
@@ -177,6 +230,29 @@ def _load_referenced_runs(
     return {run.id: run for run in runs}
 
 
+def _batch_item_resolution_context(
+    item: IngestBatchItem,
+    *,
+    documents_by_id: dict[UUID, Document],
+    matched_failed_documents: dict[UUID, Document],
+    referenced_runs: dict[UUID, DocumentRun],
+) -> tuple[Document | None, DocumentRun | None, DocumentRun | None]:
+    document = (
+        documents_by_id.get(item.document_id)
+        if item.document_id is not None
+        else matched_failed_documents.get(item.id)
+    )
+    if document is None:
+        return None, None, None
+    active_run = (
+        referenced_runs.get(document.active_run_id) if document.active_run_id is not None else None
+    )
+    latest_run = (
+        referenced_runs.get(document.latest_run_id) if document.latest_run_id is not None else None
+    )
+    return document, active_run, latest_run
+
+
 def _resolve_batch_item(
     item: IngestBatchItem,
     *,
@@ -186,6 +262,39 @@ def _resolve_batch_item(
     latest_run: DocumentRun | None,
 ) -> BatchItemResolution:
     if item.status == "failed":
+        if document is not None:
+            resolved_run = active_run or latest_run
+            if resolved_run is not None and resolved_run.status in IN_FLIGHT_RUN_STATUSES:
+                return BatchItemResolution(
+                    resolved_status="running",
+                    resolution_reason="matched_document_reprocessing",
+                    resolved_document_id=document.id,
+                    resolved_run_id=resolved_run.id,
+                    resolved_at=None,
+                )
+            if active_run is not None and active_run.status == RunStatus.COMPLETED.value:
+                return BatchItemResolution(
+                    resolved_status="recovered",
+                    resolution_reason="matched_successful_document_by_checksum",
+                    resolved_document_id=document.id,
+                    resolved_run_id=active_run.id,
+                    resolved_at=active_run.completed_at,
+                )
+            if latest_run is not None and latest_run.status == RunStatus.COMPLETED.value:
+                return BatchItemResolution(
+                    resolved_status="recovered",
+                    resolution_reason="matched_successful_document_by_checksum",
+                    resolved_document_id=document.id,
+                    resolved_run_id=latest_run.id,
+                    resolved_at=latest_run.completed_at,
+                )
+            return BatchItemResolution(
+                resolved_status="failed",
+                resolution_reason="matched_failed_document_by_checksum",
+                resolved_document_id=document.id,
+                resolved_run_id=latest_run.id if latest_run is not None else None,
+                resolved_at=latest_run.completed_at if latest_run is not None else None,
+            )
         return BatchItemResolution(
             resolved_status="failed",
             resolution_reason="ingest_rejected",
@@ -303,24 +412,29 @@ def _to_batch_summary(
     loaded_rows = rows if rows is not None else _load_batch_rows(session, batch.id)
     run_status_counts = _batch_run_status_counts(loaded_rows)
     documents_by_id = _load_referenced_documents(session, loaded_rows)
-    referenced_runs = _load_referenced_runs(session, documents_by_id)
+    matched_failed_documents = _load_matched_failed_item_documents(session, loaded_rows)
+    all_documents = {
+        **documents_by_id,
+        **{document.id: document for document in matched_failed_documents.values()},
+    }
+    referenced_runs = _load_referenced_runs(session, all_documents)
     resolutions = [
         _resolve_batch_item(
             item,
             current_run=run,
-            document=documents_by_id.get(item.document_id) if item.document_id is not None else None,
-            active_run=referenced_runs.get(documents_by_id[item.document_id].active_run_id)
-            if item.document_id is not None
-            and item.document_id in documents_by_id
-            and documents_by_id[item.document_id].active_run_id is not None
-            else None,
-            latest_run=referenced_runs.get(documents_by_id[item.document_id].latest_run_id)
-            if item.document_id is not None
-            and item.document_id in documents_by_id
-            and documents_by_id[item.document_id].latest_run_id is not None
-            else None,
+            document=resolved_document,
+            active_run=active_run,
+            latest_run=latest_run,
         )
         for item, run in loaded_rows
+        for resolved_document, active_run, latest_run in [
+            _batch_item_resolution_context(
+                item,
+                documents_by_id=documents_by_id,
+                matched_failed_documents=matched_failed_documents,
+                referenced_runs=referenced_runs,
+            )
+        ]
     ]
     resolution_counts = _batch_resolution_counts(resolutions)
     derived_status = _derive_batch_status(batch, run_status_counts, resolution_counts)
@@ -384,7 +498,12 @@ def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDeta
     rows = _load_batch_rows(session, batch.id)
     summary = _to_batch_summary(session, batch, rows=rows)
     documents_by_id = _load_referenced_documents(session, rows)
-    referenced_runs = _load_referenced_runs(session, documents_by_id)
+    matched_failed_documents = _load_matched_failed_item_documents(session, rows)
+    all_documents = {
+        **documents_by_id,
+        **{document.id: document for document in matched_failed_documents.values()},
+    }
+    referenced_runs = _load_referenced_runs(session, all_documents)
     return IngestBatchDetailResponse(
         **summary.model_dump(),
         items=[
@@ -394,22 +513,20 @@ def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDeta
                 resolution=_resolve_batch_item(
                     item,
                     current_run=run,
-                    document=(
-                        documents_by_id.get(item.document_id) if item.document_id is not None else None
-                    ),
-                    active_run=referenced_runs.get(documents_by_id[item.document_id].active_run_id)
-                    if item.document_id is not None
-                    and item.document_id in documents_by_id
-                    and documents_by_id[item.document_id].active_run_id is not None
-                    else None,
-                    latest_run=referenced_runs.get(documents_by_id[item.document_id].latest_run_id)
-                    if item.document_id is not None
-                    and item.document_id in documents_by_id
-                    and documents_by_id[item.document_id].latest_run_id is not None
-                    else None,
+                    document=resolved_document,
+                    active_run=active_run,
+                    latest_run=latest_run,
                 ),
             )
             for item, run in rows
+            for resolved_document, active_run, latest_run in [
+                _batch_item_resolution_context(
+                    item,
+                    documents_by_id=documents_by_id,
+                    matched_failed_documents=matched_failed_documents,
+                    referenced_runs=referenced_runs,
+                )
+            ]
         ],
     )
 
@@ -480,6 +597,7 @@ def _record_batch_item_failure(
     status_code: int,
     error_message: str,
 ) -> None:
+    sha256 = _file_sha256(file_path) if file_path.exists() and file_path.is_file() else None
     session.add(
         IngestBatchItem(
             id=uuid.uuid4(),
@@ -488,6 +606,7 @@ def _record_batch_item_failure(
             source_filename=file_path.name,
             source_path=str(file_path),
             file_size_bytes=file_path.stat().st_size if file_path.exists() else None,
+            sha256=sha256,
             status="failed",
             status_code=status_code,
             error_message=error_message,

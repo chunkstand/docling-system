@@ -127,3 +127,34 @@ def test_resolve_batch_item_marks_failed_run_with_later_success_as_recovered() -
     assert resolution.resolved_status == "recovered"
     assert resolution.resolved_run_id == recovered_run_id
     assert resolution.resolution_reason == "superseded_by_later_successful_run"
+
+
+def test_resolve_batch_item_marks_rejected_item_as_recovered_when_same_document_exists() -> None:
+    document_id = uuid4()
+    recovered_run_id = uuid4()
+    now = datetime.now(UTC)
+    item = SimpleNamespace(
+        status="failed",
+        duplicate=False,
+        recovery_run=False,
+        run_id=None,
+        document_id=None,
+    )
+    document = SimpleNamespace(id=document_id)
+    active_run = SimpleNamespace(
+        id=recovered_run_id,
+        status=RunStatus.COMPLETED.value,
+        completed_at=now,
+    )
+
+    resolution = _resolve_batch_item(
+        item,
+        current_run=None,
+        document=document,
+        active_run=active_run,
+        latest_run=active_run,
+    )
+
+    assert resolution.resolved_status == "recovered"
+    assert resolution.resolved_run_id == recovered_run_id
+    assert resolution.resolution_reason == "matched_successful_document_by_checksum"

@@ -9,7 +9,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.document_converter import DocumentConverter
+from docling.document_converter import PdfFormatOption
 
 from app.core.config import default_local_ingest_roots, get_settings
 
@@ -227,9 +230,75 @@ def _infer_document_title(chunks: list[ParsedChunk], document_name: str | None) 
     return _normalize_document_title(document_name) or "Untitled document"
 
 
+def _synthetic_title_chunk(title: str, *, page_count: int) -> ParsedChunk:
+    page_value = 1 if page_count > 0 else None
+    return ParsedChunk(
+        chunk_index=0,
+        text=title,
+        heading=title,
+        page_from=page_value,
+        page_to=page_value,
+        metadata={
+            "synthetic": True,
+            "synthetic_source": "document_title_fallback",
+        },
+    )
+
+
 @lru_cache(maxsize=1)
 def get_document_converter() -> DocumentConverter:
-    return DocumentConverter()
+    settings = get_settings()
+    options = PdfPipelineOptions()
+    options.document_timeout = settings.docling_document_timeout_seconds
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=options),
+        }
+    )
+
+
+@lru_cache(maxsize=1)
+def get_fallback_document_converter() -> DocumentConverter:
+    settings = get_settings()
+    options = PdfPipelineOptions()
+    options.document_timeout = settings.docling_fallback_document_timeout_seconds
+    options.do_ocr = False
+    options.do_table_structure = False
+    options.force_backend_text = True
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=options),
+        }
+    )
+
+
+def _conversion_status_value(result: Any) -> str | None:
+    status = getattr(result, "status", None)
+    if status is None:
+        return None
+    return getattr(status, "value", status)
+
+
+def _conversion_succeeded(result: Any) -> bool:
+    return _conversion_status_value(result) in {None, "success"}
+
+
+def _conversion_error_message(
+    result: Any,
+    *,
+    source_path: Path,
+    attempted_fallback: bool,
+) -> str:
+    status = _conversion_status_value(result) or "unknown"
+    errors = getattr(result, "errors", None) or []
+    if isinstance(errors, list):
+        detail = "; ".join(str(item) for item in errors if item)
+    else:
+        detail = str(errors)
+    prefix = "Docling conversion failed after fallback" if attempted_fallback else "Docling conversion failed"
+    if detail:
+        return f"{prefix} for {source_path.name}: status={status}; {detail}"
+    return f"{prefix} for {source_path.name}: status={status}"
 
 
 @lru_cache(maxsize=4)
@@ -1267,15 +1336,35 @@ def _validate_table_merge_assignments(
 
 
 class DoclingParser:
-    def __init__(self, converter: DocumentConverter | None = None) -> None:
+    def __init__(
+        self,
+        converter: DocumentConverter | None = None,
+        fallback_converter: DocumentConverter | None = None,
+    ) -> None:
         self.converter = converter or get_document_converter()
+        self.fallback_converter = fallback_converter or get_fallback_document_converter()
 
     def parse_pdf(self, source_path: Path, *, source_filename: str | None = None) -> ParsedDocument:
-        result = self.converter.convert(source_path)
+        result = self.converter.convert(source_path, raises_on_error=False)
+        if not _conversion_succeeded(result):
+            result = self.fallback_converter.convert(source_path, raises_on_error=False)
+            if not _conversion_succeeded(result):
+                raise ValueError(
+                    _conversion_error_message(
+                        result,
+                        source_path=source_path,
+                        attempted_fallback=True,
+                    )
+                )
         document = result.document
+        page_count = document.num_pages()
         exported_doc = document.export_to_dict()
         snapshots = _snapshot_items(document)
         chunks = _normalize_chunks(snapshots)
+        title_fallback_name = Path(source_filename).stem if source_filename else document.name
+        title = _infer_document_title(chunks, title_fallback_name)
+        if not chunks and title != "Untitled document":
+            chunks = [_synthetic_title_chunk(title, page_count=page_count)]
         raw_segments = _build_raw_table_segments(exported_doc, snapshots)
         meaningful_segments = _meaningful_table_segments(raw_segments)
         tables = _build_logical_tables(meaningful_segments)
@@ -1291,11 +1380,10 @@ class DoclingParser:
 
         yaml_text = yaml.safe_dump(exported_doc, sort_keys=False, allow_unicode=True)
         docling_json = json.dumps(exported_doc, indent=2)
-        title = _infer_document_title(chunks, document.name)
 
         return ParsedDocument(
             title=title,
-            page_count=document.num_pages(),
+            page_count=page_count,
             yaml_text=yaml_text,
             docling_json=docling_json,
             chunks=chunks,

@@ -118,8 +118,8 @@ Local path ingest policy:
 - Symlink file paths are rejected, including symlinked PDFs discovered inside a queued directory.
 - Files must have a `.pdf` suffix and a `%PDF-` header.
 - Duplicate content is deduped by checksum, not by path string.
-- File size defaults to `209715200` bytes.
-- Page count defaults to a maximum of `750` pages.
+- File size defaults to `268435456` bytes.
+- Page count defaults to a maximum of `1000` pages.
 
 `POST /documents` remains multipart upload-based for compatibility. No arbitrary path-based ingest is exposed through public HTTP.
 

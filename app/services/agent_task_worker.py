@@ -3,15 +3,17 @@ from __future__ import annotations
 import json
 import os
 import socket
+import threading
 import time
 from collections.abc import Callable
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy import Select, and_, or_, select
+from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -316,6 +318,61 @@ def heartbeat_agent_task(session: Session, task: AgentTask) -> None:
     session.commit()
 
 
+def _refresh_agent_task_lease(session_factory, task_id: UUID, worker_id: str) -> bool:
+    now = _utcnow()
+    with session_factory() as heartbeat_session:
+        result = heartbeat_session.execute(
+            update(AgentTask)
+            .where(
+                AgentTask.id == task_id,
+                AgentTask.locked_by == worker_id,
+                AgentTask.status == AgentTaskStatus.PROCESSING.value,
+            )
+            .values(last_heartbeat_at=now, updated_at=now)
+        )
+        heartbeat_session.commit()
+        return bool(result.rowcount)
+
+
+@contextmanager
+def agent_task_lease_heartbeat(task_id: UUID, *, worker_id: str | None):
+    from app.db.session import get_session_factory
+
+    settings = get_settings()
+    interval_seconds = settings.worker_heartbeat_seconds
+    if worker_id is None or interval_seconds <= 0:
+        yield
+        return
+
+    session_factory = get_session_factory()
+    stop_event = threading.Event()
+
+    def _loop() -> None:
+        while not stop_event.wait(interval_seconds):
+            try:
+                if not _refresh_agent_task_lease(session_factory, task_id, worker_id):
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "agent_task_lease_heartbeat_failed",
+                    task_id=str(task_id),
+                    worker_id=worker_id,
+                    error=str(exc),
+                )
+
+    heartbeat_thread = threading.Thread(
+        target=_loop,
+        name=f"agent-task-heartbeat-{task_id}",
+        daemon=True,
+    )
+    heartbeat_thread.start()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        heartbeat_thread.join(timeout=max(1, interval_seconds))
+
+
 def finalize_agent_task_success(
     session: Session,
     task: AgentTask,
@@ -412,44 +469,49 @@ def process_agent_task(
     if task is None:
         raise ValueError(f"Agent task {task_id} does not exist.")
 
-    try:
-        failure_stage = "execute"
-        logger.info("agent_task_processing_started", task_id=str(task.id), task_type=task.task_type)
-        heartbeat_agent_task(session, task)
-        active_executor = executor or execute_agent_task_action
-        result = active_executor(session, task)
-        heartbeat_agent_task(session, task)
-        write_agent_task_context(
-            session,
-            task,
-            result,
-            storage_service=storage_service,
-        )
-        failure_stage = "complete"
-        finalize_agent_task_success(session, task, result, storage_service=storage_service)
-        logger.info(
-            "agent_task_processing_completed",
-            task_id=str(task.id),
-            task_type=task.task_type,
-        )
-    except Exception as exc:
-        session.rollback()
-        task = session.get(AgentTask, task_id)
-        if task is None:
-            raise
-        finalize_agent_task_failure(
-            session,
-            task,
-            exc,
-            failure_stage=failure_stage,
-            storage_service=storage_service,
-        )
-        logger.exception(
-            "agent_task_processing_failed",
-            task_id=str(task.id),
-            task_type=task.task_type,
-            error=str(exc),
-        )
+    with agent_task_lease_heartbeat(task.id, worker_id=task.locked_by):
+        try:
+            failure_stage = "execute"
+            logger.info(
+                "agent_task_processing_started",
+                task_id=str(task.id),
+                task_type=task.task_type,
+            )
+            heartbeat_agent_task(session, task)
+            active_executor = executor or execute_agent_task_action
+            result = active_executor(session, task)
+            heartbeat_agent_task(session, task)
+            write_agent_task_context(
+                session,
+                task,
+                result,
+                storage_service=storage_service,
+            )
+            failure_stage = "complete"
+            finalize_agent_task_success(session, task, result, storage_service=storage_service)
+            logger.info(
+                "agent_task_processing_completed",
+                task_id=str(task.id),
+                task_type=task.task_type,
+            )
+        except Exception as exc:
+            session.rollback()
+            task = session.get(AgentTask, task_id)
+            if task is None:
+                raise
+            finalize_agent_task_failure(
+                session,
+                task,
+                exc,
+                failure_stage=failure_stage,
+                storage_service=storage_service,
+            )
+            logger.exception(
+                "agent_task_processing_failed",
+                task_id=str(task.id),
+                task_type=task.task_type,
+                error=str(exc),
+            )
 
 def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> None:
     from app.db.session import get_session_factory

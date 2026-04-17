@@ -258,8 +258,8 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert result_payload["verification"]["outcome"] in {"passed", "failed"}
         assert result_payload["recommendation"]["next_action"]
         assert result_payload["artifact_kind"] == "triage_summary"
-        context_path = postgres_integration_harness.storage_service.get_agent_task_context_json_path(
-            task_id
+        context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(task_id)
         )
         assert context_path.exists()
         context_payload = json.loads(context_path.read_text())
@@ -294,8 +294,8 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
             .scalars()
             .all()
         )
-        assert len(artifact_rows) == 1
-        artifact = artifact_rows[0]
+        assert {row.artifact_kind for row in artifact_rows} == {"triage_summary", "context"}
+        artifact = next(row for row in artifact_rows if row.artifact_kind == "triage_summary")
         assert artifact.artifact_kind == "triage_summary"
         assert artifact.storage_path is not None
         artifact_path = Path(artifact.storage_path)
@@ -320,8 +320,15 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
     client = postgres_integration_harness.client
     artifact_list_response = client.get(f"/agent-tasks/{task_id}/artifacts")
     assert artifact_list_response.status_code == 200
-    assert len(artifact_list_response.json()) == 1
-    artifact_id = artifact_list_response.json()[0]["artifact_id"]
+    assert {row["artifact_kind"] for row in artifact_list_response.json()} == {
+        "triage_summary",
+        "context",
+    }
+    artifact_id = next(
+        row["artifact_id"]
+        for row in artifact_list_response.json()
+        if row["artifact_kind"] == "triage_summary"
+    )
 
     artifact_detail_response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
     assert artifact_detail_response.status_code == 200
@@ -383,8 +390,8 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
         assert task.status == AgentTaskStatus.COMPLETED.value
         result_payload = task.result_json["payload"]
         assert result_payload["evaluation"]["total_shared_query_count"] >= 1
-        context_path = postgres_integration_harness.storage_service.get_agent_task_context_json_path(
-            task_id
+        context_path = (
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(task_id)
         )
         assert context_path.exists()
         context_payload = json.loads(context_path.read_text())
@@ -1083,7 +1090,7 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     assert apply_detail_response.status_code == 200
     assert apply_detail_response.json()["context_summary"]["approval_state"] == "approved"
     assert apply_detail_response.json()["context_refs"][0]["freshness_status"] == "fresh"
-    apply_artifact_id = apply_detail_response.json()["result"]["artifact_id"]
+    apply_artifact_id = apply_detail_response.json()["result"]["payload"]["artifact_id"]
     apply_artifact_response = client.get(
         f"/agent-tasks/{apply_task_id}/artifacts/{apply_artifact_id}"
     )

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from app.services.docling_parser import (
     DoclingParser,
@@ -178,7 +181,7 @@ class FakeDocument:
 
 
 class FakeConverter:
-    def convert(self, source_path):
+    def convert(self, source_path, **kwargs):
         return SimpleNamespace(document=FakeDocument())
 
 
@@ -220,7 +223,7 @@ class FakeTitlelessDocument:
 
 
 class FakeTitlelessConverter:
-    def convert(self, source_path):
+    def convert(self, source_path, **kwargs):
         return SimpleNamespace(document=FakeTitlelessDocument())
 
 
@@ -282,8 +285,38 @@ class FakeNulTableDocument:
 
 
 class FakeNulTableConverter:
-    def convert(self, source_path):
+    def convert(self, source_path, **kwargs):
         return SimpleNamespace(document=FakeNulTableDocument())
+
+
+class FakeEmptyDocument:
+    def __init__(self) -> None:
+        self.name = "12345678-1234-1234-1234-1234567890ab"
+
+    def iterate_items(self):
+        if False:
+            yield None
+
+    def export_to_dict(self) -> dict:
+        return {"name": self.name, "kind": "docling", "texts": [], "pictures": [], "tables": []}
+
+    def num_pages(self) -> int:
+        return 6
+
+
+class FakeEmptyConverter:
+    def convert(self, source_path, **kwargs):
+        return SimpleNamespace(status="success", errors=[], document=FakeEmptyDocument())
+
+
+class RecordingConverter:
+    def __init__(self, result) -> None:
+        self.result = result
+        self.calls: list[tuple[object, dict]] = []
+
+    def convert(self, source_path, **kwargs):
+        self.calls.append((source_path, kwargs))
+        return self.result
 
 
 def test_normalize_chunks_keeps_structural_heading_not_table_heading() -> None:
@@ -341,6 +374,73 @@ def test_docling_parser_strips_nul_bytes_from_normalized_text_fields() -> None:
     assert "\x00" not in parsed.tables[0].search_text
     assert "\x00" not in parsed.tables[0].preview_text
     assert "Alpha Beta" in parsed.tables[0].search_text
+
+
+def test_docling_parser_uses_fallback_converter_after_non_successful_primary_result() -> None:
+    primary = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=["document timeout"],
+            document=FakeDocument(),
+        )
+    )
+    fallback = RecordingConverter(
+        SimpleNamespace(
+            status="success",
+            errors=[],
+            document=FakeTitlelessDocument(),
+        )
+    )
+    parser = DoclingParser(converter=primary, fallback_converter=fallback)
+
+    parsed = parser.parse_pdf(Path("/tmp/sample.pdf"))
+
+    assert parsed.title == "The Bitter Lesson"
+    assert len(primary.calls) == 1
+    assert primary.calls[0][1]["raises_on_error"] is False
+    assert len(fallback.calls) == 1
+    assert fallback.calls[0][1]["raises_on_error"] is False
+
+
+def test_docling_parser_raises_when_primary_and_fallback_conversion_fail() -> None:
+    primary = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=["document timeout"],
+            document=FakeDocument(),
+        )
+    )
+    fallback = RecordingConverter(
+        SimpleNamespace(
+            status="failure",
+            errors=["backend text extraction failed"],
+            document=FakeDocument(),
+        )
+    )
+    parser = DoclingParser(converter=primary, fallback_converter=fallback)
+
+    with pytest.raises(
+        ValueError,
+        match="Docling conversion failed after fallback for sample.pdf: status=failure; backend text extraction failed",
+    ):
+        parser.parse_pdf(Path("/tmp/sample.pdf"))
+
+
+def test_docling_parser_creates_synthetic_title_chunk_for_zero_text_documents() -> None:
+    parser = DoclingParser(converter=FakeEmptyConverter())
+
+    parsed = parser.parse_pdf(
+        Path("/tmp/Chalk Buttes All Maps.pdf"),
+        source_filename="Chalk Buttes All Maps.pdf",
+    )
+
+    assert parsed.title == "Chalk Buttes All Maps"
+    assert len(parsed.chunks) == 1
+    assert parsed.chunks[0].text == "Chalk Buttes All Maps"
+    assert parsed.chunks[0].heading == "Chalk Buttes All Maps"
+    assert parsed.chunks[0].page_from == 1
+    assert parsed.chunks[0].metadata["synthetic"] is True
+    assert parsed.chunks[0].metadata["synthetic_source"] == "document_title_fallback"
 
 
 def test_build_logical_tables_merges_same_title_adjacent_segments_with_shape_drift() -> None:

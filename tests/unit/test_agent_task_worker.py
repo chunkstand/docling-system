@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -198,6 +199,7 @@ def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path
         input_json={"limit": 3, "include_resolved": False},
         result_json={},
         attempts=1,
+        locked_by="worker-1",
         workflow_version="v1",
         model_settings_json={},
         created_at=now,
@@ -228,6 +230,22 @@ def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path
         def rollback(self) -> None:
             self.rollbacks += 1
 
+    observed: dict[str, object | None] = {}
+
+    @contextmanager
+    def fake_agent_task_lease_heartbeat(task_id, *, worker_id):
+        observed["heartbeat_task_id"] = task_id
+        observed["heartbeat_worker_id"] = worker_id
+        observed["heartbeat_entered"] = True
+        try:
+            yield
+        finally:
+            observed["heartbeat_exited"] = True
+
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.agent_task_lease_heartbeat",
+        fake_agent_task_lease_heartbeat,
+    )
     monkeypatch.setattr(
         "app.services.agent_task_worker.execute_agent_task_action",
         lambda session, task: {"task_type": task.task_type, "payload": {"candidate_count": 2}},
@@ -240,6 +258,10 @@ def test_process_agent_task_uses_registered_executor(monkeypatch, tmp_path: Path
     assert session.rollbacks == 0
     assert task.status == AgentTaskStatus.COMPLETED.value
     assert task.result_json["payload"]["candidate_count"] == 2
+    assert observed["heartbeat_task_id"] == task_id
+    assert observed["heartbeat_worker_id"] == "worker-1"
+    assert observed["heartbeat_entered"] is True
+    assert observed["heartbeat_exited"] is True
 
 
 def test_process_agent_task_records_attempt_cost_and_performance(
