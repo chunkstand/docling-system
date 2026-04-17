@@ -113,6 +113,93 @@ def _get_run(session: Session, run_id: UUID | None) -> DocumentRun | None:
     return session.get(DocumentRun, run_id)
 
 
+def _run_current_stage(run: DocumentRun) -> str:
+    if run.status == RunStatus.FAILED.value:
+        return run.failure_stage or RunStatus.FAILED.value
+    if run.status == RunStatus.VALIDATING.value:
+        return "validation_and_evaluation"
+    if run.status == RunStatus.PROCESSING.value:
+        if run.docling_json_path or run.yaml_path:
+            return "persisted_outputs"
+        return "parse_and_persist"
+    return run.status
+
+
+def _run_stage_started_at(run: DocumentRun, current_stage: str) -> datetime | None:
+    if current_stage in {"parse_and_persist", "persisted_outputs", "validation_and_evaluation"}:
+        return run.locked_at or run.started_at or run.created_at
+    if current_stage in {RunStatus.QUEUED.value, RunStatus.RETRY_WAIT.value}:
+        return run.created_at
+    if current_stage == RunStatus.COMPLETED.value:
+        return run.completed_at or run.started_at or run.created_at
+    if current_stage == RunStatus.FAILED.value or current_stage == (run.failure_stage or ""):
+        return run.completed_at or run.started_at or run.created_at
+    return run.started_at or run.created_at
+
+
+def _run_heartbeat_age_seconds(run: DocumentRun) -> int | None:
+    if run.last_heartbeat_at is None:
+        return None
+    return max(int((_utcnow() - run.last_heartbeat_at).total_seconds()), 0)
+
+
+def _run_lease_stale(run: DocumentRun) -> bool:
+    heartbeat_age_seconds = _run_heartbeat_age_seconds(run)
+    if heartbeat_age_seconds is None:
+        return False
+    return heartbeat_age_seconds > get_settings().worker_lease_timeout_seconds
+
+
+def _run_validation_warning_count(run: DocumentRun) -> int:
+    validation_results = run.validation_results_json or {}
+    return int(validation_results.get("warning_count") or 0)
+
+
+def _run_progress_summary(run: DocumentRun) -> dict:
+    validation_results = run.validation_results_json or {}
+    return {
+        "artifacts_persisted": bool(run.docling_json_path and run.yaml_path),
+        "content_counts_recorded": any(
+            value is not None for value in (run.chunk_count, run.table_count, run.figure_count)
+        ),
+        "chunk_count": run.chunk_count,
+        "table_count": run.table_count,
+        "figure_count": run.figure_count,
+        "validation_summary": validation_results.get("summary"),
+        "validation_warning_count": int(validation_results.get("warning_count") or 0),
+    }
+
+
+def _to_run_summary(document: Document, run: DocumentRun) -> DocumentRunSummaryResponse:
+    current_stage = _run_current_stage(run)
+    return DocumentRunSummaryResponse(
+        run_id=run.id,
+        run_number=run.run_number,
+        status=run.status,
+        attempts=run.attempts,
+        validation_status=run.validation_status,
+        chunk_count=run.chunk_count,
+        table_count=run.table_count,
+        figure_count=run.figure_count,
+        error_message=run.error_message,
+        failure_stage=run.failure_stage,
+        has_failure_artifact=bool(run.failure_artifact_path),
+        current_stage=current_stage,
+        stage_started_at=_run_stage_started_at(run, current_stage),
+        locked_at=run.locked_at,
+        locked_by=run.locked_by,
+        last_heartbeat_at=run.last_heartbeat_at,
+        lease_stale=_run_lease_stale(run),
+        heartbeat_age_seconds=_run_heartbeat_age_seconds(run),
+        validation_warning_count=_run_validation_warning_count(run),
+        progress_summary=_run_progress_summary(run),
+        is_active_run=run.id == document.active_run_id,
+        created_at=run.created_at,
+        started_at=run.started_at,
+        completed_at=run.completed_at,
+    )
+
+
 def _load_existing_snapshot(session: Session, document: Document) -> ExistingRunSnapshot:
     return ExistingRunSnapshot(
         document=document,
@@ -450,26 +537,7 @@ def list_document_runs(
         .all()
     )
 
-    return [
-        DocumentRunSummaryResponse(
-            run_id=run.id,
-            run_number=run.run_number,
-            status=run.status,
-            attempts=run.attempts,
-            validation_status=run.validation_status,
-            chunk_count=run.chunk_count,
-            table_count=run.table_count,
-            figure_count=run.figure_count,
-            error_message=run.error_message,
-            failure_stage=run.failure_stage,
-            has_failure_artifact=bool(run.failure_artifact_path),
-            is_active_run=run.id == document.active_run_id,
-            created_at=run.created_at,
-            started_at=run.started_at,
-            completed_at=run.completed_at,
-        )
-        for run in runs
-    ]
+    return [_to_run_summary(document, run) for run in runs]
 
 
 def get_latest_document_evaluation_detail(session: Session, document_id: UUID):

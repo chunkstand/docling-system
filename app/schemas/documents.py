@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.evaluations import EvaluationSummaryResponse
 
@@ -71,6 +71,15 @@ class DocumentRunSummaryResponse(BaseModel):
     error_message: str | None = None
     failure_stage: str | None = None
     has_failure_artifact: bool = False
+    current_stage: str | None = None
+    stage_started_at: datetime | None = None
+    locked_at: datetime | None = None
+    locked_by: str | None = None
+    last_heartbeat_at: datetime | None = None
+    lease_stale: bool = False
+    heartbeat_age_seconds: int | None = None
+    validation_warning_count: int = 0
+    progress_summary: dict = Field(default_factory=dict)
     is_active_run: bool = False
     created_at: datetime
     started_at: datetime | None = None

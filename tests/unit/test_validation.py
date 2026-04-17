@@ -150,6 +150,7 @@ def test_validate_persisted_run_passes_with_matching_counts_and_artifacts() -> N
         report = validate_persisted_run(session, document, run, parsed)
 
     assert report.passed is True
+    assert report.warning_count == 0
     assert report.details["table_checks"]["detected_count_matches_persisted"] is True
 
 
@@ -226,3 +227,46 @@ def test_validate_persisted_run_fails_when_figure_artifact_missing() -> None:
 
     assert report.passed is False
     assert report.details["figure_details"][0]["yaml_artifact_exists"] is False
+
+
+def test_validate_persisted_run_allows_ambiguous_table_merge_issue_as_warning() -> None:
+    parsed = _parsed_document()
+    parsed.tables[0].metadata["ambiguous_continuation_candidate"] = True
+    parsed.tables[0].metadata["merge_confidence"] = 0.8
+    parsed.tables[0].metadata["header_removal_passed"] = False
+
+    with TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        doc_json = root / "document.json"
+        doc_yaml = root / "document.yaml"
+        table_json = root / "table.json"
+        table_yaml = root / "table.yaml"
+        figure_json = root / "figure.json"
+        figure_yaml = root / "figure.yaml"
+        for path in (doc_json, doc_yaml, table_json, table_yaml, figure_json, figure_yaml):
+            path.write_text("ok")
+
+        run = SimpleNamespace(
+            id=uuid4(),
+            docling_json_path=str(doc_json),
+            yaml_path=str(doc_yaml),
+        )
+        document = SimpleNamespace(id=uuid4())
+        persisted_table = SimpleNamespace(json_path=str(table_json), yaml_path=str(table_yaml))
+        persisted_figure = SimpleNamespace(json_path=str(figure_json), yaml_path=str(figure_yaml))
+        session = FakeSession(
+            chunk_count=1,
+            table_count=1,
+            figure_count=1,
+            persisted_tables=[persisted_table],
+            persisted_figures=[persisted_figure],
+        )
+
+        report = validate_persisted_run(session, document, run, parsed)
+
+    assert report.passed is True
+    assert report.warning_count == 1
+    assert report.summary == "Validation passed with warnings."
+    assert report.details["table_details"][0]["warning_checks"] == [
+        "repeated_header_row_removal_sane"
+    ]

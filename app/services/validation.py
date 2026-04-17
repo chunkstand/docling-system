@@ -16,6 +16,36 @@ class ValidationReport:
     passed: bool
     summary: str
     details: dict
+    warning_count: int = 0
+
+
+def _table_has_ambiguous_structure(table: ParsedTable) -> bool:
+    metadata = table.metadata
+    return bool(metadata.get("ambiguous_continuation_candidate")) or float(
+        metadata.get("merge_confidence") or 1.0
+    ) < 0.9
+
+
+def _table_validation_findings(table: ParsedTable, detail: dict) -> tuple[list[dict], list[dict]]:
+    warnings: list[dict] = []
+    blocking_failures: list[dict] = []
+    for check_name in (
+        "continued_table_merge_sane",
+        "repeated_header_row_removal_sane",
+    ):
+        if detail[check_name]:
+            continue
+        finding = {
+            "scope": "table",
+            "table_index": table.table_index,
+            "title": table.title,
+            "check": check_name,
+        }
+        if _table_has_ambiguous_structure(table):
+            warnings.append({**finding, "severity": "warning"})
+        else:
+            blocking_failures.append({**finding, "severity": "error"})
+    return warnings, blocking_failures
 
 
 def _table_validation_result(table: ParsedTable, json_path: Path, yaml_path: Path) -> dict:
@@ -79,6 +109,8 @@ def validate_persisted_run(
 
     table_details: list[dict] = []
     figure_details: list[dict] = []
+    warnings: list[dict] = []
+    blocking_failures: list[dict] = []
     table_checks = {
         "detected_count_matches_persisted": persisted_table_count == len(parsed.tables),
     }
@@ -109,7 +141,12 @@ def validate_persisted_run(
         json_path = Path(persisted_table.json_path) if persisted_table.json_path else Path()
         yaml_path = Path(persisted_table.yaml_path) if persisted_table.yaml_path else Path()
         detail = _table_validation_result(parsed_table, json_path, yaml_path)
+        table_warnings, table_failures = _table_validation_findings(parsed_table, detail)
+        detail["warning_checks"] = [finding["check"] for finding in table_warnings]
+        detail["blocking_failure_checks"] = [finding["check"] for finding in table_failures]
         table_details.append(detail)
+        warnings.extend(table_warnings)
+        blocking_failures.extend(table_failures)
 
     table_checks["all_table_checks_passed"] = all(
         all(
@@ -120,12 +157,13 @@ def validate_persisted_run(
                 "search_text_present",
                 "preview_text_present",
                 "row_count_sane",
-                "continued_table_merge_sane",
-                "repeated_header_row_removal_sane",
             )
         )
+        and not detail["blocking_failure_checks"]
         for detail in table_details
     )
+    table_checks["warning_count"] = len(warnings)
+    table_checks["blocking_failure_count"] = len(blocking_failures)
 
     for parsed_figure, persisted_figure in zip(parsed.figures, persisted_figures, strict=False):
         json_path = Path(persisted_figure.json_path) if persisted_figure.json_path else Path()
@@ -147,16 +185,32 @@ def validate_persisted_run(
     )
 
     passed = (
-        all(document_checks.values()) and all(table_checks.values()) and all(figure_checks.values())
+        all(document_checks.values())
+        and table_checks["detected_count_matches_persisted"]
+        and table_checks["all_table_checks_passed"]
+        and figure_checks["detected_count_matches_persisted"]
+        and figure_checks["all_figure_checks_passed"]
     )
-    summary = "Validation passed." if passed else "Validation failed."
+    summary = "Validation passed with warnings." if passed and warnings else (
+        "Validation passed." if passed else "Validation failed."
+    )
     details = {
+        "summary": summary,
         "document_checks": document_checks,
         "table_checks": table_checks,
         "table_details": table_details,
         "figure_checks": figure_checks,
         "figure_details": figure_details,
+        "warnings": warnings,
+        "warning_count": len(warnings),
+        "blocking_failures": blocking_failures,
+        "blocking_failure_count": len(blocking_failures),
         "document_id": str(document.id),
         "run_id": str(run.id),
     }
-    return ValidationReport(passed=passed, summary=summary, details=details)
+    return ValidationReport(
+        passed=passed,
+        summary=summary,
+        details=details,
+        warning_count=len(warnings),
+    )

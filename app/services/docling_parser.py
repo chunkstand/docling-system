@@ -779,6 +779,17 @@ def _row_key(row: list[str]) -> str:
     return " | ".join(_normalize_text(cell).lower() for cell in row).strip()
 
 
+def _row_looks_like_header(row: list[str]) -> bool:
+    normalized_cells = [_normalize_text(cell) for cell in row]
+    populated_cells = [cell for cell in normalized_cells if cell]
+    if not populated_cells:
+        return False
+    alpha_cells = [cell for cell in populated_cells if re.search(r"[A-Za-z]", cell)]
+    if not alpha_cells:
+        return False
+    return len(alpha_cells) >= max(1, len(populated_cells) // 2)
+
+
 def _strip_repeated_header_rows(
     existing_rows: list[list[str]], new_rows: list[list[str]]
 ) -> tuple[list[list[str]], int]:
@@ -1145,7 +1156,7 @@ def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[Parsed
         repeated_header_found = False
         if len(segments) > 1 and rows:
             first_row_key = _row_key(rows[0])
-            repeated_header_found = any(
+            repeated_header_found = _row_looks_like_header(rows[0]) and any(
                 _row_key(row) == first_row_key for row in rows[1 : min(len(rows), 6)]
             )
 

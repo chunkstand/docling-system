@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections import Counter
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
@@ -22,6 +23,23 @@ from app.services.storage import StorageService
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
+
+
+IN_FLIGHT_RUN_STATUSES = {
+    RunStatus.QUEUED.value,
+    RunStatus.PROCESSING.value,
+    RunStatus.VALIDATING.value,
+    RunStatus.RETRY_WAIT.value,
+}
+
+
+@dataclass(frozen=True)
+class BatchItemResolution:
+    resolved_status: str
+    resolution_reason: str | None
+    resolved_document_id: UUID | None
+    resolved_run_id: UUID | None
+    resolved_at: datetime | None
 
 
 def _validate_local_ingest_directory(directory_path: Path) -> Path:
@@ -70,19 +88,22 @@ def _iter_local_pdf_files(directory_path: Path, *, recursive: bool) -> list[Path
     return sorted(pdf_paths, key=lambda path: str(path).lower())
 
 
-def _derive_batch_status(batch: IngestBatch, run_status_counts: dict[str, int]) -> str:
+def _derive_batch_status(
+    batch: IngestBatch,
+    run_status_counts: dict[str, int],
+    resolution_counts: dict[str, int] | None = None,
+) -> str:
     if batch.status == "failed":
         return "failed"
 
-    if any(
-        run_status_counts.get(run_status, 0) > 0
-        for run_status in (
-            RunStatus.QUEUED.value,
-            RunStatus.PROCESSING.value,
-            RunStatus.VALIDATING.value,
-            RunStatus.RETRY_WAIT.value,
-        )
-    ):
+    if resolution_counts is not None:
+        if resolution_counts.get("running", 0) > 0:
+            return "running"
+        if resolution_counts.get("failed", 0) > 0:
+            return "completed_with_errors"
+        return "completed"
+
+    if any(run_status_counts.get(run_status, 0) > 0 for run_status in IN_FLIGHT_RUN_STATUSES):
         return "running"
 
     if batch.failed_count > 0 or run_status_counts.get(RunStatus.FAILED.value, 0) > 0:
@@ -120,9 +141,133 @@ def _batch_run_status_counts(
     return dict(sorted(counts.items()))
 
 
+def _batch_resolution_counts(resolutions: list[BatchItemResolution]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for resolution in resolutions:
+        counts[resolution.resolved_status] += 1
+    return dict(sorted(counts.items()))
+
+
+def _load_referenced_documents(
+    session: Session,
+    rows: list[tuple[IngestBatchItem, DocumentRun | None]],
+) -> dict[UUID, Document]:
+    document_ids = {item.document_id for item, _ in rows if item.document_id is not None}
+    if not document_ids:
+        return {}
+    documents = (
+        session.execute(select(Document).where(Document.id.in_(document_ids))).scalars().all()
+    )
+    return {document.id: document for document in documents}
+
+
+def _load_referenced_runs(
+    session: Session,
+    documents: dict[UUID, Document],
+) -> dict[UUID, DocumentRun]:
+    run_ids = {
+        run_id
+        for document in documents.values()
+        for run_id in (document.active_run_id, document.latest_run_id)
+        if run_id is not None
+    }
+    if not run_ids:
+        return {}
+    runs = session.execute(select(DocumentRun).where(DocumentRun.id.in_(run_ids))).scalars().all()
+    return {run.id: run for run in runs}
+
+
+def _resolve_batch_item(
+    item: IngestBatchItem,
+    *,
+    current_run: DocumentRun | None,
+    document: Document | None,
+    active_run: DocumentRun | None,
+    latest_run: DocumentRun | None,
+) -> BatchItemResolution:
+    if item.status == "failed":
+        return BatchItemResolution(
+            resolved_status="failed",
+            resolution_reason="ingest_rejected",
+            resolved_document_id=None,
+            resolved_run_id=None,
+            resolved_at=None,
+        )
+
+    if item.duplicate and item.run_id is None:
+        resolved_run = active_run or latest_run
+        return BatchItemResolution(
+            resolved_status="duplicate",
+            resolution_reason="existing_document_reused",
+            resolved_document_id=item.document_id,
+            resolved_run_id=resolved_run.id if resolved_run is not None else None,
+            resolved_at=resolved_run.completed_at if resolved_run is not None else None,
+        )
+
+    if current_run is not None and current_run.status in IN_FLIGHT_RUN_STATUSES:
+        return BatchItemResolution(
+            resolved_status="running",
+            resolution_reason="run_in_progress",
+            resolved_document_id=item.document_id,
+            resolved_run_id=current_run.id,
+            resolved_at=None,
+        )
+
+    if current_run is not None and current_run.status == RunStatus.COMPLETED.value:
+        return BatchItemResolution(
+            resolved_status="recovered" if item.recovery_run else "completed",
+            resolution_reason="run_completed",
+            resolved_document_id=item.document_id,
+            resolved_run_id=current_run.id,
+            resolved_at=current_run.completed_at,
+        )
+
+    if latest_run is not None and latest_run.status in IN_FLIGHT_RUN_STATUSES:
+        return BatchItemResolution(
+            resolved_status="running",
+            resolution_reason="followup_run_in_progress",
+            resolved_document_id=document.id if document is not None else item.document_id,
+            resolved_run_id=latest_run.id,
+            resolved_at=None,
+        )
+
+    if current_run is not None and current_run.status == RunStatus.FAILED.value:
+        winning_run = None
+        if active_run is not None and active_run.id != current_run.id:
+            winning_run = active_run
+        elif latest_run is not None and latest_run.id != current_run.id:
+            winning_run = latest_run
+        if winning_run is not None and winning_run.status == RunStatus.COMPLETED.value:
+            return BatchItemResolution(
+                resolved_status="recovered",
+                resolution_reason="superseded_by_later_successful_run",
+                resolved_document_id=document.id if document is not None else item.document_id,
+                resolved_run_id=winning_run.id,
+                resolved_at=winning_run.completed_at,
+            )
+
+    if active_run is not None and active_run.status == RunStatus.COMPLETED.value:
+        return BatchItemResolution(
+            resolved_status="recovered" if item.recovery_run else "completed",
+            resolution_reason="active_run_available",
+            resolved_document_id=document.id if document is not None else item.document_id,
+            resolved_run_id=active_run.id,
+            resolved_at=active_run.completed_at,
+        )
+
+    return BatchItemResolution(
+        resolved_status="failed",
+        resolution_reason="run_failed_without_successor",
+        resolved_document_id=item.document_id,
+        resolved_run_id=current_run.id if current_run is not None else None,
+        resolved_at=current_run.completed_at if current_run is not None else None,
+    )
+
+
 def _derive_batch_completed_at(
     batch: IngestBatch,
     rows: list[tuple[IngestBatchItem, DocumentRun | None]],
+    resolutions: list[BatchItemResolution],
     derived_status: str,
 ) -> datetime | None:
     if derived_status == "running":
@@ -133,10 +278,18 @@ def _derive_batch_completed_at(
         for _, run in rows
         if run is not None and run.completed_at
     ]
+    resolution_completed_at_values = [
+        resolution.resolved_at for resolution in resolutions if resolution.resolved_at is not None
+    ]
     if run_completed_at_values:
         if batch.completed_at is None:
-            return max(run_completed_at_values)
-        return max([batch.completed_at, *run_completed_at_values])
+            return max([*run_completed_at_values, *resolution_completed_at_values])
+        return max([batch.completed_at, *run_completed_at_values, *resolution_completed_at_values])
+
+    if resolution_completed_at_values:
+        if batch.completed_at is None:
+            return max(resolution_completed_at_values)
+        return max([batch.completed_at, *resolution_completed_at_values])
 
     return batch.completed_at
 
@@ -149,7 +302,28 @@ def _to_batch_summary(
 ) -> IngestBatchSummaryResponse:
     loaded_rows = rows if rows is not None else _load_batch_rows(session, batch.id)
     run_status_counts = _batch_run_status_counts(loaded_rows)
-    derived_status = _derive_batch_status(batch, run_status_counts)
+    documents_by_id = _load_referenced_documents(session, loaded_rows)
+    referenced_runs = _load_referenced_runs(session, documents_by_id)
+    resolutions = [
+        _resolve_batch_item(
+            item,
+            current_run=run,
+            document=documents_by_id.get(item.document_id) if item.document_id is not None else None,
+            active_run=referenced_runs.get(documents_by_id[item.document_id].active_run_id)
+            if item.document_id is not None
+            and item.document_id in documents_by_id
+            and documents_by_id[item.document_id].active_run_id is not None
+            else None,
+            latest_run=referenced_runs.get(documents_by_id[item.document_id].latest_run_id)
+            if item.document_id is not None
+            and item.document_id in documents_by_id
+            and documents_by_id[item.document_id].latest_run_id is not None
+            else None,
+        )
+        for item, run in loaded_rows
+    ]
+    resolution_counts = _batch_resolution_counts(resolutions)
+    derived_status = _derive_batch_status(batch, run_status_counts, resolution_counts)
     return IngestBatchSummaryResponse(
         batch_id=batch.id,
         source_type=batch.source_type,
@@ -162,9 +336,10 @@ def _to_batch_summary(
         duplicate_count=batch.duplicate_count,
         failed_count=batch.failed_count,
         run_status_counts=run_status_counts,
+        resolution_counts=resolution_counts,
         error_message=batch.error_message,
         created_at=batch.created_at,
-        completed_at=_derive_batch_completed_at(batch, loaded_rows, derived_status),
+        completed_at=_derive_batch_completed_at(batch, loaded_rows, resolutions, derived_status),
     )
 
 
@@ -172,6 +347,7 @@ def _to_batch_item_response(
     item: IngestBatchItem,
     *,
     current_run_status: str | None,
+    resolution: BatchItemResolution,
 ) -> IngestBatchItemResponse:
     return IngestBatchItemResponse(
         batch_item_id=item.id,
@@ -185,6 +361,11 @@ def _to_batch_item_response(
         document_id=item.document_id,
         run_id=item.run_id,
         current_run_status=current_run_status,
+        resolved_status=resolution.resolved_status,
+        resolution_reason=resolution.resolution_reason,
+        resolved_document_id=resolution.resolved_document_id,
+        resolved_run_id=resolution.resolved_run_id,
+        resolved_at=resolution.resolved_at,
         duplicate=item.duplicate,
         recovery_run=item.recovery_run,
         error_message=item.error_message,
@@ -202,12 +383,31 @@ def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDeta
 
     rows = _load_batch_rows(session, batch.id)
     summary = _to_batch_summary(session, batch, rows=rows)
+    documents_by_id = _load_referenced_documents(session, rows)
+    referenced_runs = _load_referenced_runs(session, documents_by_id)
     return IngestBatchDetailResponse(
         **summary.model_dump(),
         items=[
             _to_batch_item_response(
                 item,
                 current_run_status=run.status if run is not None else None,
+                resolution=_resolve_batch_item(
+                    item,
+                    current_run=run,
+                    document=(
+                        documents_by_id.get(item.document_id) if item.document_id is not None else None
+                    ),
+                    active_run=referenced_runs.get(documents_by_id[item.document_id].active_run_id)
+                    if item.document_id is not None
+                    and item.document_id in documents_by_id
+                    and documents_by_id[item.document_id].active_run_id is not None
+                    else None,
+                    latest_run=referenced_runs.get(documents_by_id[item.document_id].latest_run_id)
+                    if item.document_id is not None
+                    and item.document_id in documents_by_id
+                    and documents_by_id[item.document_id].latest_run_id is not None
+                    else None,
+                ),
             )
             for item, run in rows
         ],

@@ -2,10 +2,15 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import IngestBatch
-from app.services.ingest_batches import _derive_batch_status, _iter_local_pdf_files
+from app.db.models import IngestBatch, RunStatus
+from app.services.ingest_batches import (
+    _derive_batch_status,
+    _iter_local_pdf_files,
+    _resolve_batch_item,
+)
 
 
 def test_iter_local_pdf_files_preserves_symlink_pdf_paths_and_skips_symlink_dirs(
@@ -60,3 +65,65 @@ def test_derive_batch_status_tracks_inflight_and_failed_runs() -> None:
 
     batch.status = "failed"
     assert _derive_batch_status(batch, {}) == "failed"
+
+
+def test_derive_batch_status_prefers_resolution_counts_when_failures_are_recovered() -> None:
+    batch = IngestBatch(
+        id=uuid4(),
+        source_type="local_directory",
+        status="completed",
+        root_path="/tmp/corpus",
+        recursive=True,
+        file_count=1,
+        queued_count=1,
+        recovery_queued_count=0,
+        duplicate_count=0,
+        failed_count=0,
+        created_at=datetime.now(UTC),
+    )
+
+    assert (
+        _derive_batch_status(
+            batch,
+            {"failed": 1},
+            {"recovered": 1},
+        )
+        == "completed"
+    )
+
+
+def test_resolve_batch_item_marks_failed_run_with_later_success_as_recovered() -> None:
+    document_id = uuid4()
+    failed_run_id = uuid4()
+    recovered_run_id = uuid4()
+    now = datetime.now(UTC)
+    item = SimpleNamespace(
+        status="queued",
+        duplicate=False,
+        recovery_run=False,
+        run_id=failed_run_id,
+        document_id=document_id,
+    )
+    current_run = SimpleNamespace(
+        id=failed_run_id,
+        status=RunStatus.FAILED.value,
+        completed_at=now,
+    )
+    document = SimpleNamespace(id=document_id)
+    active_run = SimpleNamespace(
+        id=recovered_run_id,
+        status=RunStatus.COMPLETED.value,
+        completed_at=now,
+    )
+
+    resolution = _resolve_batch_item(
+        item,
+        current_run=current_run,
+        document=document,
+        active_run=active_run,
+        latest_run=active_run,
+    )
+
+    assert resolution.resolved_status == "recovered"
+    assert resolution.resolved_run_id == recovered_run_id
+    assert resolution.resolution_reason == "superseded_by_later_successful_run"

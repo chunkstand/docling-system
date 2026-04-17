@@ -14,6 +14,7 @@ from app.services.documents import (
     _allowed_ingest_roots,
     _build_duplicate_response,
     _is_pdf,
+    _to_run_summary,
     _validate_local_ingest_path,
 )
 
@@ -161,3 +162,51 @@ def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
         (fake_home / "Documents").resolve(),
         (fake_home / "Downloads").resolve(),
     ]
+
+
+def test_to_run_summary_exposes_live_progress_metadata(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    now = datetime.now(UTC)
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(worker_lease_timeout_seconds=300),
+    )
+    monkeypatch.setattr("app.services.documents._utcnow", lambda: now)
+
+    document = Document(
+        id=document_id,
+        source_filename="report.pdf",
+        source_path="/tmp/report.pdf",
+        sha256="abc",
+        mime_type="application/pdf",
+        latest_run_id=run_id,
+        created_at=now,
+        updated_at=now,
+    )
+    run = DocumentRun(
+        id=run_id,
+        document_id=document_id,
+        run_number=2,
+        status=RunStatus.VALIDATING.value,
+        attempts=1,
+        locked_at=now,
+        locked_by="worker-1",
+        last_heartbeat_at=now,
+        validation_status="pending",
+        chunk_count=12,
+        table_count=3,
+        figure_count=1,
+        validation_results_json={"summary": "Validation passed with warnings.", "warning_count": 2},
+        created_at=now,
+        started_at=now,
+    )
+
+    summary = _to_run_summary(document, run)
+
+    assert summary.current_stage == "validation_and_evaluation"
+    assert summary.locked_by == "worker-1"
+    assert summary.lease_stale is False
+    assert summary.validation_warning_count == 2
+    assert summary.progress_summary["chunk_count"] == 12
+    assert summary.progress_summary["validation_summary"] == "Validation passed with warnings."

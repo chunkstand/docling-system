@@ -14,6 +14,7 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
+from app.services.documents import reprocess_document
 from app.services.ingest_batches import get_ingest_batch_detail, queue_local_ingest_directory
 
 pytestmark = pytest.mark.skipif(
@@ -247,6 +248,58 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
     assert refreshed.status == "completed_with_errors"
     assert refreshed.completed_at is not None
     assert refreshed.run_status_counts == {"completed": 1, "failed": 1}
+
+
+def test_queue_local_directory_ingest_resolves_failed_item_after_successful_reprocess(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "corpus"
+    root.mkdir()
+    (root / "a.pdf").write_bytes(b"%PDF-1.7\nbatch-a")
+
+    allowed_root = root.resolve()
+    monkeypatch.setattr(
+        "app.services.ingest_batches._allowed_ingest_roots",
+        lambda: [allowed_root],
+    )
+    monkeypatch.setattr(
+        "app.services.documents._allowed_ingest_roots",
+        lambda: [allowed_root],
+    )
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+    )
+    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
+
+    with postgres_integration_harness.session_factory() as session:
+        batch = queue_local_ingest_directory(
+            session,
+            root,
+            postgres_integration_harness.storage_service,
+        )
+
+    postgres_integration_harness.process_next_run(FailingParser())
+
+    with postgres_integration_harness.session_factory() as session:
+        failed_detail = get_ingest_batch_detail(session, batch.batch_id)
+        item = failed_detail.items[0]
+        assert item.resolved_status == "failed"
+        reprocess_document(session, item.document_id)
+
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document(title="Recovered")))
+
+    with postgres_integration_harness.session_factory() as session:
+        refreshed = get_ingest_batch_detail(session, batch.batch_id)
+
+    assert refreshed.status == "completed"
+    assert refreshed.resolution_counts == {"recovered": 1}
+    assert refreshed.items[0].current_run_status == "failed"
+    assert refreshed.items[0].resolved_status == "recovered"
+    assert refreshed.items[0].resolved_run_id is not None
+    assert refreshed.items[0].resolved_run_id != refreshed.items[0].run_id
 
 
 def test_queue_local_directory_ingest_marks_batch_failed_when_directory_scan_errors(

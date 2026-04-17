@@ -48,10 +48,17 @@ TABLE_PREFIX_PATTERN = re.compile(
 LOW_SIGNAL_CHUNK_QUERY_PATTERNS = (
     re.compile(r"^untitled\s+document\b", re.IGNORECASE),
     re.compile(r"^draft\s+for\s+publication\b", re.IGNORECASE),
+    re.compile(r"^>{2,}\s*message from\b", re.IGNORECASE),
+    re.compile(r"^(?:ceo\s+)?document contents:?$", re.IGNORECASE),
     re.compile(r"^prepared\s+(?:for|by)\b", re.IGNORECASE),
+    re.compile(r"^project report\b(?:\s*[:.-].*)?$", re.IGNORECASE),
     re.compile(r"^(?:table\s+of\s+)?contents\b", re.IGNORECASE),
+    re.compile(r"^recommended\s+citation\b", re.IGNORECASE),
+    re.compile(r"^citation:", re.IGNORECASE),
     re.compile(r"^for\s+submittal\s+to\b", re.IGNORECASE),
     re.compile(r"^\d+(?:\.\d+)*\s+alternative\s+\d+\b", re.IGNORECASE),
+    re.compile(r"^\d{4}\s+[A-Za-z]+\s+\d{4}\s+[A-Za-z]+$", re.IGNORECASE),
+    re.compile(r"^[A-Z][a-z]+\s+[A-Z]\.?$", re.IGNORECASE),
     re.compile(
         r"^list\s+of\s+(?:figures(?:\s+and\s+exhibits)?|tables|acronyms(?:\s+and\s+abbreviations)?|maps)\b",
         re.IGNORECASE,
@@ -62,6 +69,29 @@ LOW_SIGNAL_CHUNK_QUERY_PATTERNS = (
         re.IGNORECASE,
     ),
     re.compile(r"^[A-Za-z0-9'/-]+(?:\s+[A-Za-z0-9'/-]+){0,3}\s+project\b", re.IGNORECASE),
+    re.compile(r".*\bdoi:\s*\S+", re.IGNORECASE),
+    re.compile(
+        r".*\b(?:department of agriculture|experiment station|forest service research paper)\b.*",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^[A-Za-z0-9._-]+\s+on\s+DSK[A-Z0-9]+\s+with\s+[A-Z0-9]+$", re.IGNORECASE),
+)
+LOW_SIGNAL_TABLE_QUERY_PATTERNS = (
+    re.compile(r"^chapter\s+[ivxlcdm0-9a-z]+\b", re.IGNORECASE),
+    re.compile(r"^appendix\s+[a-z0-9]+\s*$", re.IGNORECASE),
+    re.compile(r"^\d+\s+cfr\s+part\s+\d+\b", re.IGNORECASE),
+    re.compile(r"^for further information contact:?$", re.IGNORECASE),
+    re.compile(r"^page\s+(?:figure|table)\b", re.IGNORECASE),
+    re.compile(r".*\btrend\s+p-value\b.*", re.IGNORECASE),
+    re.compile(r".*\b#\s*of\b.*", re.IGNORECASE),
+    re.compile(
+        r"^\d{4}\s+[A-Za-z][A-Za-z'().-]+(?:\s+[A-Za-z][A-Za-z'().-]+){1,2}$",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^\d{4}\s+[A-Za-z0-9/&'().:-]+(?:\s+[A-Za-z0-9/&'().:-]+){0,5}\s+field\s+review\s+report\b",
+        re.IGNORECASE,
+    ),
 )
 AUTO_FIXTURE_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 AUTO_FILENAME_SPLIT_PATTERN = re.compile(r"\s*(?:[-|:]+)\s*")
@@ -462,12 +492,82 @@ def _normalize_query_candidate(
 
 def _is_low_signal_chunk_query(query: str) -> bool:
     normalized = _collapse_whitespace(query).strip(" .,:;|-")
-    return any(pattern.match(normalized) for pattern in LOW_SIGNAL_CHUNK_QUERY_PATTERNS)
+    if any(pattern.match(normalized) for pattern in LOW_SIGNAL_CHUNK_QUERY_PATTERNS):
+        return True
+
+    words = normalized.split()
+    if 2 <= len(words) <= 4 and any(marker in normalized for marker in (",", "/", ".")):
+        alphabetic_words = re.findall(r"[A-Za-z]+", normalized)
+        if len(alphabetic_words) >= 2 and all(len(word) <= 3 for word in alphabetic_words):
+            return True
+
+    return False
 
 
 def _is_section_heading_query(query: str) -> bool:
     normalized = _collapse_whitespace(query).strip(" .,:;|-")
     return bool(SECTION_HEADING_QUERY_PATTERN.match(normalized))
+
+
+def _is_low_signal_table_query(query: str) -> bool:
+    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    if any(pattern.match(normalized) for pattern in LOW_SIGNAL_TABLE_QUERY_PATTERNS):
+        return True
+    if "|" not in normalized:
+        return False
+
+    cells = [cell.strip(" .,:;|-") for cell in normalized.split("|") if cell.strip(" .,:;|-")]
+    if len(cells) < 2:
+        return False
+    if cells[0].isdigit():
+        return True
+
+    lowered_cells = [cell.lower() for cell in cells]
+    if lowered_cells[0].startswith("contents") and any("page" in cell for cell in lowered_cells[1:]):
+        return True
+    return len(set(lowered_cells[: min(3, len(lowered_cells))])) < min(3, len(lowered_cells))
+
+
+def _is_weak_table_text_fallback(query: str) -> bool:
+    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    if not normalized:
+        return True
+    if "|" in normalized:
+        return True
+    words = normalized.split()
+    if words and any(char.isdigit() for char in words[0]):
+        return True
+    alphabetic_words = [word for word in words if re.search(r"[A-Za-z]", word)]
+    return len(alphabetic_words) < 3
+
+
+def _pipe_cell_query_candidate(value: str | None) -> str | None:
+    text = _collapse_whitespace(value)
+    if not text or "|" not in text:
+        return None
+
+    pieces: list[str] = []
+    seen: set[str] = set()
+    for raw_cell in text.split("|"):
+        query = _normalize_query_candidate(raw_cell, strip_table_prefix=True, max_words=4)
+        if query is None:
+            continue
+        if _is_low_signal_table_query(query) or _is_low_signal_chunk_query(query):
+            continue
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        pieces.append(query)
+        if len(pieces) < 2:
+            continue
+        combined = _normalize_query_candidate(" ".join(pieces), strip_table_prefix=True)
+        if combined is None:
+            continue
+        if _is_low_signal_table_query(combined) or _is_low_signal_chunk_query(combined):
+            continue
+        return combined
+    return None
 
 
 def _auto_fixture_name(source_filename: str) -> str:
@@ -477,13 +577,44 @@ def _auto_fixture_name(source_filename: str) -> str:
 
 
 def _auto_table_query(table: object) -> str | None:
-    for candidate in (
-        getattr(table, "title", None),
-        getattr(table, "heading", None),
-        _first_sentence(getattr(table, "preview_text", None)),
-        _first_sentence(getattr(table, "search_text", None)),
+    richer_candidates = [
+        query
+        for query in (
+            _pipe_cell_query_candidate(getattr(table, "preview_text", None)),
+            _pipe_cell_query_candidate(getattr(table, "search_text", None)),
+        )
+        if query
+    ]
+    for candidate, preview_fallback in (
+        (getattr(table, "title", None), False),
+        (getattr(table, "heading", None), False),
+        (getattr(table, "preview_text", None), True),
+        (getattr(table, "search_text", None), True),
     ):
-        if query := _normalize_query_candidate(candidate, strip_table_prefix=True):
+        query = _pipe_cell_query_candidate(candidate) if preview_fallback else None
+        if query is None:
+            text_candidate = _first_sentence(candidate) if preview_fallback else candidate
+            query = _normalize_query_candidate(text_candidate, strip_table_prefix=True)
+        if query:
+            if _is_low_signal_table_query(query):
+                continue
+            if not preview_fallback and len(query.split()) <= 4:
+                richer_query = next(
+                    (
+                        candidate
+                        for candidate in richer_candidates
+                        if candidate.lower() != query.lower()
+                        and (
+                            candidate.lower().startswith(query.lower())
+                            or query.lower() in candidate.lower()
+                        )
+                    ),
+                    None,
+                )
+                if richer_query is not None:
+                    return richer_query
+            if preview_fallback and _is_weak_table_text_fallback(query):
+                continue
             return query
     return None
 
@@ -600,9 +731,25 @@ def _auto_chunk_queries(
     content_candidates: list[str | None] = [title] if use_title_candidate else []
     if not use_title_candidate:
         content_candidates.extend(_cover_chunk_queries(chunks))
-    for chunk in chunks[:24]:
-        content_candidates.append(getattr(chunk, "heading", None))
     for candidate in content_candidates:
+        query = _normalize_query_candidate(candidate)
+        if query is None:
+            continue
+        if _is_low_signal_chunk_query(query):
+            continue
+        if _chunk_query_conflicts_with_tables(query, table_queries):
+            continue
+        key = query.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        queries.append(query)
+        if len(queries) >= AUTO_CHUNK_QUERY_LIMIT:
+            break
+    if queries:
+        return queries
+    for chunk in chunks[:24]:
+        candidate = getattr(chunk, "heading", None)
         query = _normalize_query_candidate(candidate)
         if query is None:
             continue
@@ -634,6 +781,65 @@ def _figure_artifact_count(figures: list[object]) -> int:
         int(bool(getattr(figure, "json_path", None) and getattr(figure, "yaml_path", None)))
         for figure in figures
     )
+
+
+def _filter_retrieval_backed_auto_queries(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    entries: list[dict[str, object]],
+    *,
+    expected_result_type: str,
+) -> list[dict[str, object]]:
+    supported: list[tuple[int, int, dict[str, object]]] = []
+    for index, entry in enumerate(entries):
+        request = SearchRequest(
+            query=str(entry["query"]),
+            mode=str(entry.get("mode", "hybrid")),
+            filters=SearchFilters(document_id=document.id),
+            limit=max(int(entry.get("top_n", AUTO_QUERY_TOP_N)), 10),
+        )
+        results = search_documents(
+            session,
+            request,
+            run_id=run.id,
+            origin="auto_fixture_generation",
+        )
+        rank = _matching_rank(
+            results,
+            expected_result_type,
+            expected_source_filename=document.source_filename,
+        )
+        if rank is None or rank > int(entry.get("top_n", AUTO_QUERY_TOP_N)):
+            continue
+        supported.append((rank, index, dict(entry)))
+
+    supported.sort(key=lambda item: (item[0], item[1]))
+    return [entry for _, _, entry in supported]
+
+
+def _materialize_retrieval_backed_auto_fixture(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    fixture_document: dict,
+) -> dict:
+    thresholds = dict(fixture_document.get("thresholds", {}))
+    thresholds["expected_top_n_table_hit_queries"] = _filter_retrieval_backed_auto_queries(
+        session,
+        document,
+        run,
+        list(thresholds.get("expected_top_n_table_hit_queries", [])),
+        expected_result_type="table",
+    )
+    thresholds["expected_top_n_chunk_hit_queries"] = _filter_retrieval_backed_auto_queries(
+        session,
+        document,
+        run,
+        list(thresholds.get("expected_top_n_chunk_hit_queries", [])),
+        expected_result_type="chunk",
+    )
+    return {**fixture_document, "thresholds": thresholds}
 
 
 def build_auto_evaluation_fixture_document(
@@ -750,6 +956,12 @@ def ensure_auto_evaluation_fixture(
         tables=tables,
         figures=figures,
         run_id=run.id,
+    )
+    fixture_document = _materialize_retrieval_backed_auto_fixture(
+        session,
+        document,
+        run,
+        fixture_document,
     )
     path = _auto_corpus_path()
     documents = [

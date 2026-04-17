@@ -449,6 +449,49 @@ def test_meaningful_table_segments_drops_empty_spacer_and_allows_continuation_me
     assert tables[0].metadata["is_merged"] is True
 
 
+def test_build_logical_tables_does_not_flag_repeated_numeric_rows_as_headers() -> None:
+    first = ParsedTableSegment(
+        segment_index=0,
+        segment_order=10,
+        source_table_ref="#/tables/0",
+        title="RESOURCE OUTPUTS WITH THE PROPOSED ACTION",
+        heading="Georgia",
+        page_from=200,
+        page_to=200,
+        row_count=3,
+        col_count=4,
+        rows=[
+            ["", "-1.", "", "-1."],
+            ["", "!I l", "", "0."],
+            ["", "-1.", "", "-1."],
+        ],
+        metadata={"title_source": "title_hint", "header_rows_removed": 0, "header_rows_retained": 0},
+    )
+    second = ParsedTableSegment(
+        segment_index=1,
+        segment_order=11,
+        source_table_ref="#/tables/1",
+        title=None,
+        heading="Georgia",
+        page_from=201,
+        page_to=201,
+        row_count=2,
+        col_count=4,
+        rows=[
+            ["", "0.", "", "0."],
+            ["", "0.", "", "-1."],
+        ],
+        metadata={"title_source": "inferred", "header_rows_removed": 0, "header_rows_retained": 0},
+    )
+
+    tables = _build_logical_tables([first, second])
+
+    assert len(tables) == 1
+    assert tables[0].metadata["is_merged"] is True
+    assert tables[0].metadata["header_removal_passed"] is True
+    assert tables[0].metadata["repeated_header_rows_removed"] is False
+
+
 def _make_table(
     *,
     table_index: int,
