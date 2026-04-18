@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error, structured_http_exception_handler
 from app.api.file_delivery import file_response_if_exists
 from app.core.config import get_settings, is_loopback_host, resolve_api_mode
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
@@ -178,9 +179,10 @@ def _require_api_key_for_mutations(
     if any(secrets.compare_digest(value, configured_api_key) for value in provided_values):
         return
 
-    raise HTTPException(
+    raise api_error(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Valid API key required for mutating API access.",
+        code="auth_required",
+        message="Valid API key required for mutating API access.",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -210,6 +212,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="Docling System", version="0.1.0", lifespan=lifespan)
+app.add_exception_handler(HTTPException, structured_http_exception_handler)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
@@ -650,12 +653,14 @@ def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentS
 def create_document(
     response: Response,
     file: UploadFile = File(...),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     session: Session = Depends(get_db_session),
 ) -> DocumentUploadResponse:
     payload, status_code = ingest_upload(
         session=session,
         upload=file,
         storage_service=get_storage_service(),
+        idempotency_key=idempotency_key,
     )
     response.status_code = status_code
     return payload
@@ -737,10 +742,11 @@ def read_document_figure(
 def reprocess_existing_document(
     document_id: UUID,
     response: Response,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     session: Session = Depends(get_db_session),
 ) -> DocumentUploadResponse:
     response.status_code = 202
-    return reprocess_document(session, document_id)
+    return reprocess_document(session, document_id, idempotency_key=idempotency_key)
 
 
 @app.get("/runs/{run_id}/failure-artifact")

@@ -12,6 +12,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.config import default_local_ingest_roots, get_settings, resolve_api_mode
 from app.core.time import utcnow
 from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
@@ -26,9 +27,12 @@ from app.services.evaluations import (
     get_latest_evaluation_summaries,
     get_latest_evaluation_summary,
 )
+from app.services.idempotency import get_idempotent_response, store_idempotent_response
 from app.services.storage import StorageService
 
 PDF_MIME_TYPES = {"application/pdf", "application/x-pdf"}
+CREATE_DOCUMENT_SCOPE = "documents.create"
+REPROCESS_DOCUMENT_SCOPE = "documents.reprocess"
 INFLIGHT_RUN_STATUSES = {
     RunStatus.QUEUED.value,
     RunStatus.PROCESSING.value,
@@ -47,7 +51,7 @@ class ExistingRunSnapshot:
 def get_document_or_404(session: Session, document_id: UUID) -> Document:
     document = session.get(Document, document_id)
     if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
     return document
 
 
@@ -84,23 +88,18 @@ def _validate_pdf_artifact(
 ) -> Path:
     settings = get_settings()
     if file_path.stat().st_size > settings.local_ingest_max_file_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=size_limit_detail,
-        )
+        raise api_error(status.HTTP_400_BAD_REQUEST, "file_size_limit_exceeded", size_limit_detail)
     with file_path.open("rb") as source_file:
         if source_file.read(5) != b"%PDF-":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File is not a valid PDF.",
-            )
+            raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "File is not a valid PDF.")
     if not enforce_page_limit:
         return file_path
     page_count = _pdf_page_count(file_path)
     if page_count <= 0 or page_count > settings.local_ingest_max_pages:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"{page_limit_detail_prefix} ({settings.local_ingest_max_pages}).",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "page_limit_exceeded",
+            f"{page_limit_detail_prefix} ({settings.local_ingest_max_pages}).",
         )
     return file_path
 
@@ -108,22 +107,21 @@ def _validate_pdf_artifact(
 def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True) -> Path:
     raw_path = file_path.expanduser()
     if raw_path.is_symlink():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Symlink ingest paths are not allowed."
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "symlink_ingest_path_not_allowed",
+            "Symlink ingest paths are not allowed.",
         )
     resolved_path = raw_path.resolve()
     if not resolved_path.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"File not found: {resolved_path}"
-        )
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", f"File not found: {resolved_path}")
     if resolved_path.suffix.lower() != ".pdf":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported."
-        )
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "Only PDF files are supported.")
     if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Path is outside allowed local ingest roots.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "local_ingest_path_not_allowed",
+            "Path is outside allowed local ingest roots.",
         )
     return _validate_pdf_artifact(resolved_path, enforce_page_limit=enforce_limits)
 
@@ -132,10 +130,7 @@ def _pdf_page_count(file_path: Path) -> int:
     try:
         pdf = pdfium.PdfDocument(str(file_path))
     except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File is not a valid PDF.",
-        ) from exc
+        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "File is not a valid PDF.") from exc
     try:
         return len(pdf)
     finally:
@@ -308,6 +303,44 @@ def _build_recovery_response(document_id: UUID, run_id: UUID) -> DocumentUploadR
     )
 
 
+def _replay_document_upload_response(
+    session: Session,
+    *,
+    scope: str,
+    idempotency_key: str | None,
+    request_fingerprint: str,
+) -> tuple[DocumentUploadResponse, int] | None:
+    stored = get_idempotent_response(
+        session,
+        scope=scope,
+        idempotency_key=idempotency_key,
+        request_fingerprint=request_fingerprint,
+    )
+    if stored is None:
+        return None
+    payload, status_code = stored
+    return DocumentUploadResponse.model_validate(payload), status_code
+
+
+def _store_document_upload_response(
+    session: Session,
+    *,
+    scope: str,
+    idempotency_key: str | None,
+    request_fingerprint: str,
+    response_payload: DocumentUploadResponse,
+    status_code: int,
+) -> None:
+    store_idempotent_response(
+        session,
+        scope=scope,
+        idempotency_key=idempotency_key,
+        request_fingerprint=request_fingerprint,
+        response_payload=response_payload.model_dump(mode="json"),
+        status_code=status_code,
+    )
+
+
 def _document_run_inflight_count(session: Session) -> int:
     return int(
         session.execute(
@@ -325,9 +358,10 @@ def _enforce_remote_document_run_backpressure(session: Session) -> None:
         return
     if _document_run_inflight_count(session) < limit:
         return
-    raise HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Remote ingest is at capacity. Try again after existing runs finish.",
+    raise api_error(
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        "rate_limited",
+        "Remote ingest is at capacity. Try again after existing runs finish.",
     )
 
 
@@ -342,13 +376,27 @@ def _admit_staged_document(
     size_limit_detail: str,
     page_limit_detail_prefix: str,
     check_existing: bool,
+    idempotency_key: str | None = None,
+    idempotency_scope: str = CREATE_DOCUMENT_SCOPE,
+    idempotency_fingerprint: str | None = None,
 ) -> tuple[DocumentUploadResponse, int]:
     try:
         if check_existing:
             existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
             if existing is not None:
                 storage_service.delete_file_if_exists(staged_path)
-                return _resolve_existing_document_upload(session, existing)
+                response, status_code = _resolve_existing_document_upload(session, existing)
+                if idempotency_fingerprint is not None:
+                    _store_document_upload_response(
+                        session,
+                        scope=idempotency_scope,
+                        idempotency_key=idempotency_key,
+                        request_fingerprint=idempotency_fingerprint,
+                        response_payload=response,
+                        status_code=status_code,
+                    )
+                    session.commit()
+                return response, status_code
 
         _validate_pdf_artifact(
             staged_path,
@@ -363,6 +411,9 @@ def _admit_staged_document(
             sha256=sha256,
             source_filename=source_filename,
             mime_type=mime_type,
+            idempotency_key=idempotency_key,
+            idempotency_scope=idempotency_scope,
+            idempotency_fingerprint=idempotency_fingerprint,
         )
     except Exception:
         storage_service.delete_file_if_exists(staged_path)
@@ -376,7 +427,7 @@ def _resolve_existing_document_upload(
 ) -> tuple[DocumentUploadResponse, int]:
     locked_document = _lock_document_row(session, existing.id)
     if locked_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
     snapshot = _load_existing_snapshot(session, locked_document)
 
     if snapshot.active_run is not None:
@@ -424,6 +475,9 @@ def _queue_document_run(
     sha256: str,
     source_filename: str,
     mime_type: str,
+    idempotency_key: str | None = None,
+    idempotency_scope: str = CREATE_DOCUMENT_SCOPE,
+    idempotency_fingerprint: str | None = None,
 ) -> tuple[DocumentUploadResponse, int]:
     now = utcnow()
     document = Document(
@@ -462,30 +516,41 @@ def _queue_document_run(
 
         document.latest_run_id = document_run.id
         document.updated_at = now
+        response = DocumentUploadResponse(
+            document_id=document.id,
+            run_id=document_run.id,
+            status=document_run.status,
+            duplicate=False,
+        )
+        if idempotency_fingerprint is not None:
+            _store_document_upload_response(
+                session,
+                scope=idempotency_scope,
+                idempotency_key=idempotency_key,
+                request_fingerprint=idempotency_fingerprint,
+                response_payload=response,
+                status_code=status.HTTP_202_ACCEPTED,
+            )
         session.commit()
     except Exception:
         storage_service.delete_file_if_exists(source_path)
         raise
 
-    return (
-        DocumentUploadResponse(
-            document_id=document.id,
-            run_id=document_run.id,
-            status=document_run.status,
-            duplicate=False,
-        ),
-        status.HTTP_202_ACCEPTED,
-    )
+    return response, status.HTTP_202_ACCEPTED
 
 
 def ingest_upload(
     session: Session,
     upload: UploadFile,
     storage_service: StorageService,
+    *,
+    idempotency_key: str | None = None,
 ) -> tuple[DocumentUploadResponse, int]:
     if not _is_pdf(upload):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF uploads are supported."
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_pdf",
+            "Only PDF uploads are supported.",
         )
 
     settings = get_settings()
@@ -493,17 +558,35 @@ def ingest_upload(
         upload,
         max_file_bytes=settings.local_ingest_max_file_bytes,
     )
-    return _admit_staged_document(
-        session=session,
-        storage_service=storage_service,
-        staged_path=staged_path,
-        sha256=sha256,
-        source_filename=upload.filename or "document.pdf",
-        mime_type=upload.content_type or "application/pdf",
-        size_limit_detail="File exceeds upload size limit.",
-        page_limit_detail_prefix="PDF page count exceeds upload limit",
-        check_existing=True,
-    )
+    request_fingerprint = f"sha256:{sha256}"
+    try:
+        replay = _replay_document_upload_response(
+            session,
+            scope=CREATE_DOCUMENT_SCOPE,
+            idempotency_key=idempotency_key,
+            request_fingerprint=request_fingerprint,
+        )
+        if replay is not None:
+            storage_service.delete_file_if_exists(staged_path)
+            return replay
+        return _admit_staged_document(
+            session=session,
+            storage_service=storage_service,
+            staged_path=staged_path,
+            sha256=sha256,
+            source_filename=upload.filename or "document.pdf",
+            mime_type=upload.content_type or "application/pdf",
+            size_limit_detail="File exceeds upload size limit.",
+            page_limit_detail_prefix="PDF page count exceeds upload limit",
+            check_existing=True,
+            idempotency_key=idempotency_key,
+            idempotency_scope=CREATE_DOCUMENT_SCOPE,
+            idempotency_fingerprint=request_fingerprint,
+        )
+    except Exception:
+        storage_service.delete_file_if_exists(staged_path)
+        session.rollback()
+        raise
 
 
 def ingest_local_file(
@@ -535,7 +618,7 @@ def ingest_local_file(
 def create_run_for_existing_document(session: Session, document: Document) -> DocumentRun:
     locked_document = _lock_document_row(session, document.id)
     if locked_document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
     return _create_run_for_locked_document(session, locked_document)
 
 
@@ -640,28 +723,53 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
     return summaries
 
 
-def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadResponse:
+def reprocess_document(
+    session: Session,
+    document_id: UUID,
+    *,
+    idempotency_key: str | None = None,
+) -> DocumentUploadResponse:
+    request_fingerprint = f"document:{document_id}"
+    replay = _replay_document_upload_response(
+        session,
+        scope=REPROCESS_DOCUMENT_SCOPE,
+        idempotency_key=idempotency_key,
+        request_fingerprint=request_fingerprint,
+    )
+    if replay is not None:
+        response, _ = replay
+        return response
+
     document = _lock_document_row(session, document_id)
     if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
 
     latest_run = _get_run(session, document.latest_run_id)
     if latest_run and latest_run.status in INFLIGHT_RUN_STATUSES:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Document already has an in-flight processing run.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "inflight_run_exists",
+            "Document already has an in-flight processing run.",
         )
 
     _enforce_remote_document_run_backpressure(session)
     run = _create_run_for_locked_document(session, document)
-    session.commit()
-
-    return DocumentUploadResponse(
+    response = DocumentUploadResponse(
         document_id=document.id,
         run_id=run.id,
         status=run.status,
         duplicate=False,
     )
+    _store_document_upload_response(
+        session,
+        scope=REPROCESS_DOCUMENT_SCOPE,
+        idempotency_key=idempotency_key,
+        request_fingerprint=request_fingerprint,
+        response_payload=response,
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    session.commit()
+    return response
 
 
 def list_document_runs(

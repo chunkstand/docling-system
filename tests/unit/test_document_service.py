@@ -96,7 +96,8 @@ def test_upload_ingest_rejects_invalid_pdf_and_cleans_staged_file() -> None:
             ingest_upload(FakeSession(), upload, storage_service)
         except HTTPException as exc:
             assert exc.status_code == 400
-            assert exc.detail == "File is not a valid PDF."
+            assert exc.detail["code"] == "invalid_pdf"
+            assert exc.detail["message"] == "File is not a valid PDF."
         else:
             raise AssertionError("Expected invalid upload to be rejected")
 
@@ -140,7 +141,8 @@ def test_upload_ingest_rejects_pdf_over_page_limit_before_queueing(monkeypatch) 
             ingest_upload(session, upload, storage_service)
         except HTTPException as exc:
             assert exc.status_code == 400
-            assert "PDF page count exceeds upload limit" in exc.detail
+            assert exc.detail["code"] == "page_limit_exceeded"
+            assert "PDF page count exceeds upload limit" in exc.detail["message"]
         else:
             raise AssertionError("Expected page-limit upload to be rejected")
 
@@ -172,7 +174,8 @@ def test_enforce_remote_document_run_backpressure_rejects_at_capacity(monkeypatc
         _enforce_remote_document_run_backpressure(FakeSession())
     except HTTPException as exc:
         assert exc.status_code == 429
-        assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+        assert exc.detail["code"] == "rate_limited"
+        assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
     else:
         raise AssertionError("Expected remote backpressure to reject the request")
 
@@ -227,13 +230,70 @@ def test_upload_ingest_rejects_when_remote_capacity_reached_and_cleans_staging(
             ingest_upload(session, upload, storage_service)
         except HTTPException as exc:
             assert exc.status_code == 429
-            assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+            assert exc.detail["code"] == "rate_limited"
+            assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
         else:
             raise AssertionError("Expected remote ingest to reject when capacity is exhausted")
 
         assert session.rolled_back is True
         assert list(storage_service.staging_root.iterdir()) == []
         assert list(storage_service.source_root.iterdir()) == []
+
+
+def test_upload_ingest_replays_idempotent_response_without_new_queueing(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    upload = UploadFile(
+        filename="report.pdf",
+        file=BytesIO(b"%PDF-1.4\nvalid"),
+        headers={"content-type": "application/pdf"},
+    )
+
+    class FakeSession:
+        def rollback(self) -> None:
+            return None
+
+    replay_response = (
+        SimpleNamespace(
+            document_id=document_id,
+            run_id=run_id,
+            status=RunStatus.QUEUED.value,
+            duplicate=False,
+            recovery_run=False,
+            active_run_id=None,
+            active_run_status=None,
+        ),
+        202,
+    )
+
+    monkeypatch.setattr(
+        "app.services.documents._replay_document_upload_response",
+        lambda *args, **kwargs: replay_response,
+    )
+    monkeypatch.setattr(
+        "app.services.documents._admit_staged_document",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("idempotent replay should bypass staged admission")
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+    )
+
+    with TemporaryDirectory() as temp_dir:
+        storage_service = StorageService(storage_root=Path(temp_dir))
+        payload, status_code = ingest_upload(
+            FakeSession(),
+            upload,
+            storage_service,
+            idempotency_key="doc-create-1",
+        )
+
+        assert payload.document_id == document_id
+        assert payload.run_id == run_id
+        assert status_code == 202
+        assert list(storage_service.staging_root.iterdir()) == []
 
 
 def test_local_ingest_rejects_symlink(monkeypatch) -> None:
@@ -287,7 +347,8 @@ def test_local_ingest_rejects_pdf_over_page_limit(monkeypatch) -> None:
             _validate_local_ingest_path(file_path)
         except HTTPException as exc:
             assert exc.status_code == 400
-            assert "page count exceeds local ingest limit" in exc.detail
+            assert exc.detail["code"] == "page_limit_exceeded"
+            assert "page count exceeds local ingest limit" in exc.detail["message"]
         else:
             raise AssertionError("Expected page limit ingest check to reject the PDF")
 
@@ -610,7 +671,8 @@ def test_reprocess_document_uses_locked_state_to_reject_inflight_run(monkeypatch
         reprocess_document(FakeSession(), document_id)
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert exc.detail == "Document already has an in-flight processing run."
+        assert exc.detail["code"] == "inflight_run_exists"
+        assert exc.detail["message"] == "Document already has an in-flight processing run."
     else:
         raise AssertionError("Expected reprocess to reject the in-flight run")
 
@@ -662,6 +724,44 @@ def test_reprocess_document_rejects_when_remote_capacity_reached(monkeypatch) ->
         reprocess_document(FakeSession(), document_id)
     except HTTPException as exc:
         assert exc.status_code == 429
-        assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+        assert exc.detail["code"] == "rate_limited"
+        assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
     else:
         raise AssertionError("Expected remote reprocess to reject when capacity is exhausted")
+
+
+def test_reprocess_document_replays_stored_idempotent_response(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    replay_response = (
+        SimpleNamespace(
+            document_id=document_id,
+            run_id=run_id,
+            status=RunStatus.QUEUED.value,
+            duplicate=False,
+            recovery_run=False,
+            active_run_id=None,
+            active_run_status=None,
+        ),
+        202,
+    )
+
+    monkeypatch.setattr(
+        "app.services.documents._replay_document_upload_response",
+        lambda *args, **kwargs: replay_response,
+    )
+    monkeypatch.setattr(
+        "app.services.documents._lock_document_row",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("idempotent replay should bypass document locking")
+        ),
+    )
+
+    payload = reprocess_document(
+        SimpleNamespace(),
+        document_id,
+        idempotency_key="doc-reprocess-1",
+    )
+
+    assert payload.document_id == document_id
+    assert payload.run_id == run_id

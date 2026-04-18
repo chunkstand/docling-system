@@ -16,7 +16,8 @@ def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
     document_id = uuid4()
     run_id = uuid4()
 
-    def fake_ingest_upload(session, upload, storage_service):
+    def fake_ingest_upload(session, upload, storage_service, *, idempotency_key=None):
+        assert idempotency_key is None
         return (
             {
                 "document_id": str(document_id),
@@ -49,7 +50,7 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
     document_id = uuid4()
     run_id = uuid4()
 
-    def fake_ingest_upload(session, upload, storage_service):
+    def fake_ingest_upload(session, upload, storage_service, *, idempotency_key=None):
         return (
             {
                 "document_id": str(document_id),
@@ -88,7 +89,39 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
 
     assert unauthorized.status_code == 401
     assert unauthorized.json()["detail"] == "Valid API key required for mutating API access."
+    assert unauthorized.json()["error_code"] == "auth_required"
     assert authorized.status_code == 202
+
+
+def test_create_document_route_passes_idempotency_key(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_ingest_upload(session, upload, storage_service, *, idempotency_key=None):
+        captured["idempotency_key"] = idempotency_key
+        return (
+            {
+                "document_id": str(uuid4()),
+                "run_id": str(uuid4()),
+                "status": "queued",
+                "duplicate": False,
+                "recovery_run": False,
+                "active_run_id": None,
+                "active_run_status": None,
+            },
+            202,
+        )
+
+    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+
+    client = TestClient(app)
+    response = client.post(
+        "/documents",
+        files={"file": ("report.pdf", b"%PDF-1.4 test", "application/pdf")},
+        headers={"Idempotency-Key": "doc-create-1"},
+    )
+
+    assert response.status_code == 202
+    assert captured["idempotency_key"] == "doc-create-1"
 
 
 def test_latest_evaluation_route_uses_evaluation_service(monkeypatch) -> None:

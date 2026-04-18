@@ -6,8 +6,9 @@ import uuid
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile, status
 
+from app.api.errors import api_error
 from app.core.config import get_settings
 
 
@@ -85,23 +86,26 @@ class StorageService:
                         remaining = 5 - len(header_prefix)
                         header_prefix.extend(chunk[:remaining])
                         if len(header_prefix) == 5 and bytes(header_prefix) != b"%PDF-":
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="File is not a valid PDF.",
+                            raise api_error(
+                                status.HTTP_400_BAD_REQUEST,
+                                "invalid_pdf",
+                                "File is not a valid PDF.",
                             )
                     bytes_written += len(chunk)
                     if max_file_bytes is not None and bytes_written > max_file_bytes:
-                        raise HTTPException(
-                            status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="File exceeds upload size limit.",
+                        raise api_error(
+                            status.HTTP_400_BAD_REQUEST,
+                            "file_size_limit_exceeded",
+                            "File exceeds upload size limit.",
                         )
                     temp_file.write(chunk)
                     hasher.update(chunk)
 
             if bytes_written < 5 or bytes(header_prefix) != b"%PDF-":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="File is not a valid PDF.",
+                raise api_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    "invalid_pdf",
+                    "File is not a valid PDF.",
                 )
         except Exception:
             if staged_path is not None:
