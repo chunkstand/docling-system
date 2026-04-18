@@ -65,7 +65,12 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
     monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
     monkeypatch.setattr(
         "app.api.main.get_settings",
-        lambda: SimpleNamespace(api_key="operator-secret"),
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+        ),
     )
 
     client = TestClient(app)

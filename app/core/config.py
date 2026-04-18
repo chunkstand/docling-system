@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ApiMode = Literal["local", "remote"]
 
 
 class Settings(BaseSettings):
@@ -21,6 +24,7 @@ class Settings(BaseSettings):
     database_pool_timeout_seconds: float = 30.0
     database_pool_pre_ping: bool = True
     storage_root: Path = Field(default=Path("./storage"))
+    api_mode: ApiMode | None = None
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_key: str | None = None
@@ -48,6 +52,20 @@ def default_local_ingest_roots() -> list[Path]:
         (Path.home() / "Documents").resolve(),
         (Path.home() / "Downloads").resolve(),
     ]
+
+
+def is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def resolve_api_mode(settings: Settings | None = None) -> ApiMode:
+    current_settings = settings or get_settings()
+    if current_settings.api_mode is not None:
+        return current_settings.api_mode
+    if not is_loopback_host(current_settings.api_host):
+        return "remote"
+    return "local"
 
 
 @lru_cache(maxsize=1)

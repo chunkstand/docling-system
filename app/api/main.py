@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.api.file_delivery import file_response_if_exists
-from app.core.config import get_settings
+from app.core.config import get_settings, is_loopback_host, resolve_api_mode
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
@@ -148,19 +148,24 @@ from app.services.search_replays import (
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
-
-
-def _is_loopback_host(host: str) -> bool:
-    normalized = host.strip().lower()
-    return normalized in {"127.0.0.1", "localhost", "::1"}
+def _api_mode_metadata() -> dict[str, object]:
+    settings = get_settings()
+    resolved_mode = resolve_api_mode(settings)
+    return {
+        "api_mode": resolved_mode,
+        "api_mode_explicit": settings.api_mode is not None,
+        "api_host": settings.api_host,
+        "api_port": settings.api_port,
+    }
 
 
 def _require_api_key_for_mutations(
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> None:
-    configured_api_key = get_settings().api_key
-    if not configured_api_key:
+    settings = get_settings()
+    configured_api_key = settings.api_key
+    if resolve_api_mode(settings) != "remote" and not configured_api_key:
         return
 
     bearer_token: str | None = None
@@ -182,9 +187,18 @@ def _require_api_key_for_mutations(
 
 def _validate_runtime_bind_settings() -> tuple[str, int]:
     settings = get_settings()
-    if not _is_loopback_host(settings.api_host) and not settings.api_key:
+    resolved_mode = resolve_api_mode(settings)
+    if resolved_mode == "local" and not is_loopback_host(settings.api_host):
+        raise ValueError(
+            "DOCLING_SYSTEM_API_MODE=local requires DOCLING_SYSTEM_API_HOST to remain loopback."
+        )
+    if settings.api_mode is None and not is_loopback_host(settings.api_host) and not settings.api_key:
         raise ValueError(
             "DOCLING_SYSTEM_API_KEY must be set when binding the API to a non-loopback host."
+        )
+    if resolved_mode == "remote" and not settings.api_key:
+        raise ValueError(
+            "DOCLING_SYSTEM_API_MODE=remote requires DOCLING_SYSTEM_API_KEY to be set."
         )
     return settings.api_host, settings.api_port
 
@@ -217,7 +231,9 @@ def health() -> dict[str, str]:
 
 @app.get("/runtime/status")
 def runtime_status() -> dict:
-    return get_runtime_status(process_identity=f"api:{os.getpid()}")
+    payload = get_runtime_status(process_identity=f"api:{os.getpid()}")
+    payload.update(_api_mode_metadata())
+    return payload
 
 
 @app.get("/metrics")
