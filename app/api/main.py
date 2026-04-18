@@ -4,16 +4,18 @@ from contextlib import asynccontextmanager
 from functools import lru_cache
 import os
 from pathlib import Path
+import secrets
 from uuid import UUID
 
 import uvicorn
 import yaml
-from fastapi import Depends, FastAPI, File, HTTPException, Response, UploadFile, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from app.api.file_delivery import file_response_if_exists
+from app.core.config import get_settings
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
@@ -147,6 +149,46 @@ from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
 
+
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def _require_api_key_for_mutations(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> None:
+    configured_api_key = get_settings().api_key
+    if not configured_api_key:
+        return
+
+    bearer_token: str | None = None
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() == "bearer" and token:
+            bearer_token = token
+
+    provided_values = [value for value in (x_api_key, bearer_token) if value]
+    if any(secrets.compare_digest(value, configured_api_key) for value in provided_values):
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Valid API key required for mutating API access.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _validate_runtime_bind_settings() -> tuple[str, int]:
+    settings = get_settings()
+    if not _is_loopback_host(settings.api_host) and not settings.api_key:
+        raise ValueError(
+            "DOCLING_SYSTEM_API_KEY must be set when binding the API to a non-loopback host."
+        )
+    return settings.api_host, settings.api_port
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     register_runtime_process("api", f"api:{os.getpid()}", pid=os.getpid())
@@ -236,6 +278,7 @@ def read_agent_tasks(
     "/agent-tasks",
     response_model=AgentTaskDetailResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(_require_api_key_for_mutations)],
 )
 def create_agent_task_route(
     payload: AgentTaskCreateRequest,
@@ -484,7 +527,11 @@ def read_agent_task_outcomes(
     return list_agent_task_outcomes(session, task_id, limit=limit)
 
 
-@app.post("/agent-tasks/{task_id}/outcomes", response_model=AgentTaskOutcomeResponse)
+@app.post(
+    "/agent-tasks/{task_id}/outcomes",
+    response_model=AgentTaskOutcomeResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def create_agent_task_outcome_route(
     task_id: UUID,
     payload: AgentTaskOutcomeCreateRequest,
@@ -546,7 +593,11 @@ def read_agent_task_failure_artifact(
     )
 
 
-@app.post("/agent-tasks/{task_id}/approve", response_model=AgentTaskDetailResponse)
+@app.post(
+    "/agent-tasks/{task_id}/approve",
+    response_model=AgentTaskDetailResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def approve_agent_task_route(
     task_id: UUID,
     payload: AgentTaskApprovalRequest,
@@ -555,7 +606,11 @@ def approve_agent_task_route(
     return approve_agent_task(session, task_id, payload)
 
 
-@app.post("/agent-tasks/{task_id}/reject", response_model=AgentTaskDetailResponse)
+@app.post(
+    "/agent-tasks/{task_id}/reject",
+    response_model=AgentTaskDetailResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def reject_agent_task_route(
     task_id: UUID,
     payload: AgentTaskRejectionRequest,
@@ -569,7 +624,11 @@ def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentS
     return list_documents(session)
 
 
-@app.post("/documents", response_model=DocumentUploadResponse)
+@app.post(
+    "/documents",
+    response_model=DocumentUploadResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def create_document(
     response: Response,
     file: UploadFile = File(...),
@@ -652,7 +711,11 @@ def read_document_figure(
     return get_active_figure_detail(session, document_id, figure_id)
 
 
-@app.post("/documents/{document_id}/reprocess", response_model=DocumentUploadResponse)
+@app.post(
+    "/documents/{document_id}/reprocess",
+    response_model=DocumentUploadResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def reprocess_existing_document(
     document_id: UUID,
     response: Response,
@@ -806,7 +869,11 @@ def read_figure_yaml_artifact(
     )
 
 
-@app.post("/search", response_model=list[SearchResult])
+@app.post(
+    "/search",
+    response_model=list[SearchResult],
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def search_corpus(
     request: SearchRequest,
     response: Response,
@@ -833,6 +900,7 @@ def read_search_request(
 @app.post(
     "/search/requests/{search_request_id}/feedback",
     response_model=SearchFeedbackResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
 )
 def create_search_feedback(
     search_request_id: UUID,
@@ -844,7 +912,11 @@ def create_search_feedback(
     return feedback
 
 
-@app.post("/search/requests/{search_request_id}/replay", response_model=SearchReplayResponse)
+@app.post(
+    "/search/requests/{search_request_id}/replay",
+    response_model=SearchReplayResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def replay_logged_search(
     search_request_id: UUID,
     session: Session = Depends(get_db_session),
@@ -866,7 +938,11 @@ def read_search_harnesses() -> list[SearchHarnessResponse]:
     return list_search_harness_definitions()
 
 
-@app.post("/search/harness-evaluations", response_model=SearchHarnessEvaluationResponse)
+@app.post(
+    "/search/harness-evaluations",
+    response_model=SearchHarnessEvaluationResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def create_search_harness_evaluation(
     payload: SearchHarnessEvaluationRequest,
     session: Session = Depends(get_db_session),
@@ -879,7 +955,11 @@ def create_search_harness_evaluation(
     return evaluation
 
 
-@app.post("/search/replays", response_model=SearchReplayRunDetailResponse)
+@app.post(
+    "/search/replays",
+    response_model=SearchReplayRunDetailResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def create_search_replay_run(
     payload: SearchReplayRunRequest,
     session: Session = Depends(get_db_session),
@@ -913,7 +993,11 @@ def read_search_replay_run(
     return get_search_replay_run_detail(session, replay_run_id)
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
 def chat_with_corpus(
     request: ChatRequest,
     session: Session = Depends(get_db_session),
@@ -929,6 +1013,7 @@ def chat_with_corpus(
 @app.post(
     "/chat/answers/{chat_answer_id}/feedback",
     response_model=ChatAnswerFeedbackResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
 )
 def create_chat_answer_feedback(
     chat_answer_id: UUID,
@@ -941,7 +1026,8 @@ def create_chat_answer_feedback(
 
 
 def run() -> None:
-    uvicorn.run("app.api.main:app", host="0.0.0.0", port=8000, reload=False)
+    host, port = _validate_runtime_bind_settings()
+    uvicorn.run("app.api.main:app", host=host, port=port, reload=False)
 
 
 if __name__ == "__main__":

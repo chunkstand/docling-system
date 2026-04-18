@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 
 from app.core.config import get_settings
 
@@ -23,17 +23,51 @@ class StorageService:
         self.runs_root.mkdir(parents=True, exist_ok=True)
         self.staging_root.mkdir(parents=True, exist_ok=True)
 
-    def stage_upload(self, upload: UploadFile) -> tuple[Path, str]:
+    def stage_upload(
+        self,
+        upload: UploadFile,
+        *,
+        max_file_bytes: int | None = None,
+    ) -> tuple[Path, str]:
         suffix = Path(upload.filename or "upload.pdf").suffix or ".pdf"
         hasher = hashlib.sha256()
+        header_prefix = bytearray()
+        bytes_written = 0
+        staged_path: Path | None = None
 
-        with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
-            while chunk := upload.file.read(1024 * 1024):
-                temp_file.write(chunk)
-                hasher.update(chunk)
-            staged_path = Path(temp_file.name)
+        try:
+            with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
+                staged_path = Path(temp_file.name)
+                while chunk := upload.file.read(1024 * 1024):
+                    if len(header_prefix) < 5:
+                        remaining = 5 - len(header_prefix)
+                        header_prefix.extend(chunk[:remaining])
+                        if len(header_prefix) == 5 and bytes(header_prefix) != b"%PDF-":
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="File is not a valid PDF.",
+                            )
+                    bytes_written += len(chunk)
+                    if max_file_bytes is not None and bytes_written > max_file_bytes:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="File exceeds upload size limit.",
+                        )
+                    temp_file.write(chunk)
+                    hasher.update(chunk)
 
-        upload.file.close()
+            if bytes_written < 5 or bytes(header_prefix) != b"%PDF-":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File is not a valid PDF.",
+                )
+        except Exception:
+            if staged_path is not None:
+                staged_path.unlink(missing_ok=True)
+            raise
+        finally:
+            upload.file.close()
+
         return staged_path, hasher.hexdigest()
 
     def stage_local_file(self, source_path: Path) -> tuple[Path, str]:

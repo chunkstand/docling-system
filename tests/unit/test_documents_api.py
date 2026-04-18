@@ -44,6 +44,47 @@ def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
     assert body["status"] == "queued"
 
 
+def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+
+    def fake_ingest_upload(session, upload, storage_service):
+        return (
+            {
+                "document_id": str(document_id),
+                "run_id": str(run_id),
+                "status": "queued",
+                "duplicate": False,
+                "recovery_run": False,
+                "active_run_id": None,
+                "active_run_status": None,
+            },
+            202,
+        )
+
+    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(api_key="operator-secret"),
+    )
+
+    client = TestClient(app)
+
+    unauthorized = client.post(
+        "/documents",
+        files={"file": ("report.pdf", b"%PDF-1.4 test", "application/pdf")},
+    )
+    authorized = client.post(
+        "/documents",
+        files={"file": ("report.pdf", b"%PDF-1.4 test", "application/pdf")},
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert unauthorized.status_code == 401
+    assert unauthorized.json()["detail"] == "Valid API key required for mutating API access."
+    assert authorized.status_code == 202
+
+
 def test_latest_evaluation_route_uses_evaluation_service(monkeypatch) -> None:
     document_id = uuid4()
     evaluation_id = uuid4()

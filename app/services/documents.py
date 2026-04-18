@@ -9,6 +9,7 @@ from uuid import UUID
 import pypdfium2 as pdfium
 from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import Select, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import default_local_ingest_roots, get_settings
@@ -35,6 +36,8 @@ class ExistingRunSnapshot:
     document: Document
     active_run: DocumentRun | None
     latest_run: DocumentRun | None
+
+
 def get_document_or_404(session: Session, document_id: UUID) -> Document:
     document = session.get(Document, document_id)
     if document is None:
@@ -66,8 +69,37 @@ def _sha256_file(file_path: Path) -> str:
     return hasher.hexdigest()
 
 
-def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True) -> Path:
+def _validate_pdf_artifact(
+    file_path: Path,
+    *,
+    enforce_page_limit: bool = True,
+    size_limit_detail: str = "File exceeds local ingest size limit.",
+    page_limit_detail_prefix: str = "PDF page count exceeds local ingest limit",
+) -> Path:
     settings = get_settings()
+    if file_path.stat().st_size > settings.local_ingest_max_file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=size_limit_detail,
+        )
+    with file_path.open("rb") as source_file:
+        if source_file.read(5) != b"%PDF-":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File is not a valid PDF.",
+            )
+    if not enforce_page_limit:
+        return file_path
+    page_count = _pdf_page_count(file_path)
+    if page_count <= 0 or page_count > settings.local_ingest_max_pages:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{page_limit_detail_prefix} ({settings.local_ingest_max_pages}).",
+        )
+    return file_path
+
+
+def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True) -> Path:
     raw_path = file_path.expanduser()
     if raw_path.is_symlink():
         raise HTTPException(
@@ -87,27 +119,7 @@ def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True)
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Path is outside allowed local ingest roots.",
         )
-    if resolved_path.stat().st_size > settings.local_ingest_max_file_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="File exceeds local ingest size limit."
-        )
-    with resolved_path.open("rb") as source_file:
-        if source_file.read(5) != b"%PDF-":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF."
-            )
-    if not enforce_limits:
-        return resolved_path
-    page_count = _pdf_page_count(resolved_path)
-    if page_count <= 0 or page_count > settings.local_ingest_max_pages:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "PDF page count exceeds local ingest limit "
-                f"({settings.local_ingest_max_pages})."
-            ),
-        )
-    return resolved_path
+    return _validate_pdf_artifact(resolved_path, enforce_page_limit=enforce_limits)
 
 
 def _pdf_page_count(file_path: Path) -> int:
@@ -262,6 +274,11 @@ def _next_run_number(session: Session, document_id: UUID) -> int:
     return 1 if current_max is None else current_max + 1
 
 
+def _lock_document_row(session: Session, document_id: UUID) -> Document | None:
+    statement = select(Document).where(Document.id == document_id).with_for_update()
+    return session.execute(statement).scalar_one_or_none()
+
+
 def _build_duplicate_response(snapshot: ExistingRunSnapshot) -> DocumentUploadResponse:
     active_status = snapshot.active_run.status if snapshot.active_run else None
     latest_status = snapshot.latest_run.status if snapshot.latest_run else RunStatus.FAILED.value
@@ -289,7 +306,10 @@ def _resolve_existing_document_upload(
     session: Session,
     existing: Document,
 ) -> tuple[DocumentUploadResponse, int]:
-    snapshot = _load_existing_snapshot(session, existing)
+    locked_document = _lock_document_row(session, existing.id)
+    if locked_document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    snapshot = _load_existing_snapshot(session, locked_document)
 
     if snapshot.active_run is not None:
         return _build_duplicate_response(snapshot), status.HTTP_200_OK
@@ -302,7 +322,7 @@ def _resolve_existing_document_upload(
     }:
         return (
             DocumentUploadResponse(
-                document_id=existing.id,
+                document_id=locked_document.id,
                 run_id=snapshot.latest_run.id,
                 status=snapshot.latest_run.status,
                 duplicate=True,
@@ -311,9 +331,26 @@ def _resolve_existing_document_upload(
             status.HTTP_202_ACCEPTED,
         )
 
-    recovery_run = create_run_for_existing_document(session=session, document=existing)
+    recovery_run = _create_run_for_locked_document(session=session, document=locked_document)
     session.commit()
-    return _build_recovery_response(existing.id, recovery_run.id), status.HTTP_202_ACCEPTED
+    return _build_recovery_response(locked_document.id, recovery_run.id), status.HTTP_202_ACCEPTED
+
+
+def _create_run_for_locked_document(session: Session, document: Document) -> DocumentRun:
+    now = utcnow()
+    run = DocumentRun(
+        document_id=document.id,
+        run_number=_next_run_number(session, document.id),
+        status=RunStatus.QUEUED.value,
+        created_at=now,
+        next_attempt_at=now,
+        validation_status="pending",
+    )
+    session.add(run)
+    session.flush()
+    document.latest_run_id = run.id
+    document.updated_at = now
+    return run
 
 
 def _queue_document_run(
@@ -325,13 +362,6 @@ def _queue_document_run(
     source_filename: str,
     mime_type: str,
 ) -> tuple[DocumentUploadResponse, int]:
-    existing = session.execute(
-        select(Document).where(Document.sha256 == sha256)
-    ).scalar_one_or_none()
-    if existing is not None:
-        storage_service.delete_file_if_exists(staged_path)
-        return _resolve_existing_document_upload(session, existing)
-
     now = utcnow()
     document = Document(
         source_filename=Path(source_filename).name,
@@ -341,26 +371,38 @@ def _queue_document_run(
         created_at=now,
         updated_at=now,
     )
-    session.add(document)
-    session.flush()
+    try:
+        with session.begin_nested():
+            session.add(document)
+            session.flush()
+    except IntegrityError:
+        existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+        if existing is None:
+            raise
+        storage_service.delete_file_if_exists(staged_path)
+        return _resolve_existing_document_upload(session, existing)
 
     source_path = storage_service.move_source_file(document.id, staged_path)
-    document.source_path = str(source_path)
+    try:
+        document.source_path = str(source_path)
 
-    document_run = DocumentRun(
-        document_id=document.id,
-        run_number=1,
-        status=RunStatus.QUEUED.value,
-        created_at=now,
-        next_attempt_at=now,
-        validation_status="pending",
-    )
-    session.add(document_run)
-    session.flush()
+        document_run = DocumentRun(
+            document_id=document.id,
+            run_number=1,
+            status=RunStatus.QUEUED.value,
+            created_at=now,
+            next_attempt_at=now,
+            validation_status="pending",
+        )
+        session.add(document_run)
+        session.flush()
 
-    document.latest_run_id = document_run.id
-    document.updated_at = now
-    session.commit()
+        document.latest_run_id = document_run.id
+        document.updated_at = now
+        session.commit()
+    except Exception:
+        storage_service.delete_file_if_exists(source_path)
+        raise
 
     return (
         DocumentUploadResponse(
@@ -383,9 +425,23 @@ def ingest_upload(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF uploads are supported."
         )
 
-    staged_path, sha256 = storage_service.stage_upload(upload)
+    settings = get_settings()
+    staged_path, sha256 = storage_service.stage_upload(
+        upload,
+        max_file_bytes=settings.local_ingest_max_file_bytes,
+    )
 
     try:
+        existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+        if existing is not None:
+            storage_service.delete_file_if_exists(staged_path)
+            return _resolve_existing_document_upload(session, existing)
+
+        _validate_pdf_artifact(
+            staged_path,
+            size_limit_detail="File exceeds upload size limit.",
+            page_limit_detail_prefix="PDF page count exceeds upload limit",
+        )
         return _queue_document_run(
             session=session,
             storage_service=storage_service,
@@ -429,20 +485,10 @@ def ingest_local_file(
 
 
 def create_run_for_existing_document(session: Session, document: Document) -> DocumentRun:
-    now = utcnow()
-    run = DocumentRun(
-        document_id=document.id,
-        run_number=_next_run_number(session, document.id),
-        status=RunStatus.QUEUED.value,
-        created_at=now,
-        next_attempt_at=now,
-        validation_status="pending",
-    )
-    session.add(run)
-    session.flush()
-    document.latest_run_id = run.id
-    document.updated_at = now
-    return run
+    locked_document = _lock_document_row(session, document.id)
+    if locked_document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    return _create_run_for_locked_document(session, locked_document)
 
 
 def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailResponse:
@@ -547,7 +593,7 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
 
 
 def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadResponse:
-    document = session.get(Document, document_id)
+    document = _lock_document_row(session, document_id)
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
@@ -563,7 +609,7 @@ def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadRes
             detail="Document already has an in-flight processing run.",
         )
 
-    run = create_run_for_existing_document(session, document)
+    run = _create_run_for_locked_document(session, document)
     session.commit()
 
     return DocumentUploadResponse(

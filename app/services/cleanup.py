@@ -21,6 +21,8 @@ from app.db.models import (
 )
 from app.services.audit import KNOWN_FAILURE_STAGES
 from app.services.storage import StorageService
+
+
 def cleanup_staging_files(storage_service: StorageService, older_than_seconds: int = 3600) -> int:
     deleted = 0
     cutoff = utcnow() - timedelta(seconds=older_than_seconds)
@@ -105,6 +107,39 @@ def cleanup_superseded_runs(session: Session, storage_service: StorageService) -
     return deleted_runs
 
 
+def _document_runs_are_expired_failures(runs: list[DocumentRun], *, cutoff: datetime) -> bool:
+    return bool(runs) and all(
+        run.status == RunStatus.FAILED.value
+        and run.completed_at is not None
+        and run.completed_at < cutoff
+        for run in runs
+    )
+
+
+def _delete_never_active_failed_document(
+    session: Session,
+    storage_service: StorageService,
+    *,
+    document_id: UUID,
+    cutoff: datetime,
+) -> bool:
+    document = session.get(Document, document_id)
+    if document is None or document.active_run_id is not None:
+        return False
+
+    document_runs = (
+        session.execute(select(DocumentRun).where(DocumentRun.document_id == document_id))
+        .scalars()
+        .all()
+    )
+    if not _document_runs_are_expired_failures(document_runs, cutoff=cutoff):
+        return False
+
+    storage_service.delete_file_if_exists(Path(document.source_path))
+    session.delete(document)
+    return True
+
+
 def cleanup_expired_failed_run_artifacts(
     session: Session,
     storage_service: StorageService,
@@ -124,19 +159,36 @@ def cleanup_expired_failed_run_artifacts(
     )
 
     cleaned = 0
+    db_updated = False
+    touched_document_ids: set[UUID] = set()
     for run in failed_runs:
+        touched_document_ids.add(run.document_id)
         run_dir = storage_service.runs_root / str(run.document_id) / str(run.id)
         if run_dir.exists():
             storage_service.delete_tree_if_exists(run_dir)
             cleaned += 1
         if run.failure_artifact_path:
             run.failure_artifact_path = None
+            db_updated = True
         if run.docling_json_path:
             run.docling_json_path = None
+            db_updated = True
         if run.yaml_path:
             run.yaml_path = None
+            db_updated = True
 
-    if cleaned:
+    deleted_documents = 0
+    for document_id in touched_document_ids:
+        if _delete_never_active_failed_document(
+            session,
+            storage_service,
+            document_id=document_id,
+            cutoff=cutoff,
+        ):
+            deleted_documents += 1
+            db_updated = True
+
+    if cleaned or db_updated or deleted_documents:
         session.commit()
 
     return cleaned

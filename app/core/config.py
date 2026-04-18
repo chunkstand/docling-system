@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     database_pool_timeout_seconds: float = 30.0
     database_pool_pre_ping: bool = True
     storage_root: Path = Field(default=Path("./storage"))
+    api_host: str = "127.0.0.1"
+    api_port: int = 8000
+    api_key: str | None = None
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4.1-mini"
