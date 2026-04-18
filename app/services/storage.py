@@ -23,6 +23,48 @@ class StorageService:
         self.runs_root.mkdir(parents=True, exist_ok=True)
         self.staging_root.mkdir(parents=True, exist_ok=True)
 
+    def _run_dir(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        *,
+        create: bool,
+    ) -> Path:
+        path = self.runs_root / str(document_id) / str(run_id)
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _table_dir(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        *,
+        create: bool,
+    ) -> Path:
+        path = self._run_dir(document_id, run_id, create=create) / "tables"
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _figure_dir(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        *,
+        create: bool,
+    ) -> Path:
+        path = self._run_dir(document_id, run_id, create=create) / "figures"
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _agent_task_dir(self, task_id: uuid.UUID, *, create: bool) -> Path:
+        path = self.storage_root / "agent_tasks" / str(task_id)
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def stage_upload(
         self,
         upload: UploadFile,
@@ -92,62 +134,119 @@ class StorageService:
         return destination
 
     def get_run_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
-        path = self.runs_root / str(document_id) / str(run_id)
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        return self._run_dir(document_id, run_id, create=True)
+
+    def build_run_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self._run_dir(document_id, run_id, create=False)
 
     def get_docling_json_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
         return self.get_run_dir(document_id, run_id) / "docling.json"
 
+    def build_docling_json_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.build_run_dir(document_id, run_id) / "docling.json"
+
     def get_yaml_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
         return self.get_run_dir(document_id, run_id) / "document.yaml"
 
+    def build_yaml_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.build_run_dir(document_id, run_id) / "document.yaml"
+
     def get_table_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
-        path = self.get_run_dir(document_id, run_id) / "tables"
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        return self._table_dir(document_id, run_id, create=True)
+
+    def build_table_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self._table_dir(document_id, run_id, create=False)
 
     def get_table_json_path(
         self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
     ) -> Path:
         return self.get_table_dir(document_id, run_id) / f"{table_index}.json"
 
+    def build_table_json_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
+    ) -> Path:
+        return self.build_table_dir(document_id, run_id) / f"{table_index}.json"
+
     def get_table_yaml_path(
         self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
     ) -> Path:
         return self.get_table_dir(document_id, run_id) / f"{table_index}.yaml"
 
+    def build_table_yaml_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, table_index: int
+    ) -> Path:
+        return self.build_table_dir(document_id, run_id) / f"{table_index}.yaml"
+
     def get_figure_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
-        path = self.get_run_dir(document_id, run_id) / "figures"
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        return self._figure_dir(document_id, run_id, create=True)
+
+    def build_figure_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self._figure_dir(document_id, run_id, create=False)
 
     def get_figure_json_path(
         self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
     ) -> Path:
         return self.get_figure_dir(document_id, run_id) / f"{figure_index}.json"
 
+    def build_figure_json_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
+    ) -> Path:
+        return self.build_figure_dir(document_id, run_id) / f"{figure_index}.json"
+
     def get_figure_yaml_path(
         self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
     ) -> Path:
         return self.get_figure_dir(document_id, run_id) / f"{figure_index}.yaml"
 
+    def build_figure_yaml_path(
+        self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
+    ) -> Path:
+        return self.build_figure_dir(document_id, run_id) / f"{figure_index}.yaml"
+
     def get_failure_artifact_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
         return self.get_run_dir(document_id, run_id) / "failure.json"
 
+    def build_failure_artifact_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self.build_run_dir(document_id, run_id) / "failure.json"
+
     def get_agent_task_dir(self, task_id: uuid.UUID) -> Path:
-        path = self.storage_root / "agent_tasks" / str(task_id)
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+        return self._agent_task_dir(task_id, create=True)
+
+    def build_agent_task_dir(self, task_id: uuid.UUID) -> Path:
+        return self._agent_task_dir(task_id, create=False)
 
     def get_agent_task_context_json_path(self, task_id: uuid.UUID) -> Path:
         return self.get_agent_task_dir(task_id) / "context.json"
 
+    def build_agent_task_context_json_path(self, task_id: uuid.UUID) -> Path:
+        return self.build_agent_task_dir(task_id) / "context.json"
+
     def get_agent_task_context_yaml_path(self, task_id: uuid.UUID) -> Path:
         return self.get_agent_task_dir(task_id) / "context.yaml"
 
+    def build_agent_task_context_yaml_path(self, task_id: uuid.UUID) -> Path:
+        return self.build_agent_task_dir(task_id) / "context.yaml"
+
     def get_agent_task_failure_artifact_path(self, task_id: uuid.UUID) -> Path:
         return self.get_agent_task_dir(task_id) / "failure.json"
+
+    def build_agent_task_failure_artifact_path(self, task_id: uuid.UUID) -> Path:
+        return self.build_agent_task_dir(task_id) / "failure.json"
+
+    def resolve_existing_path(self, path_value: str | Path | None) -> Path | None:
+        if path_value is None:
+            return None
+        candidate = path_value if isinstance(path_value, Path) else Path(path_value)
+        if not candidate.is_absolute():
+            candidate = self.storage_root / candidate
+        resolved = candidate.resolve()
+        if not resolved.is_file():
+            return None
+        try:
+            resolved.relative_to(self.storage_root)
+        except ValueError:
+            return None
+        return resolved
 
     def delete_file_if_exists(self, path: Path) -> None:
         if path.exists():

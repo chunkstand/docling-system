@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.services.storage import StorageService
 
 
 def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
@@ -57,12 +59,14 @@ def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrate
         assert definitions[task_type]["output_schema"]
 
 
-def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
+def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> None:
     task_id = uuid4()
     artifact_id = uuid4()
     verification_id = uuid4()
     outcome_id = uuid4()
-    failure_path = "/tmp/agent-task-failure.json"
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    failure_path = storage_service.get_agent_task_failure_artifact_path(task_id)
+    failure_path.write_text('{"error":"failed"}')
 
     monkeypatch.setattr(
         "app.api.main.list_agent_tasks",
@@ -442,7 +446,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "result": {},
             "model_settings": {},
             "error_message": None,
-            "failure_artifact_path": failure_path,
+            "failure_artifact_path": str(failure_path),
             "attempts": 0,
             "locked_at": None,
             "locked_by": None,
@@ -514,6 +518,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             },
         )(),
     )
+    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
     monkeypatch.setattr(
         "app.api.main.get_agent_task_verifications",
         lambda session, incoming_task_id, limit=20: [
@@ -554,7 +559,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "result": {},
             "model_settings": {},
             "error_message": None,
-            "failure_artifact_path": failure_path,
+            "failure_artifact_path": str(failure_path),
             "attempts": 0,
             "locked_at": None,
             "locked_by": None,
@@ -617,7 +622,6 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
             "verifications": [],
         },
     )
-    monkeypatch.setattr("app.api.main.Path.exists", lambda self: str(self) == failure_path)
     monkeypatch.setattr(
         "app.api.main.FileResponse",
         lambda path, media_type=None: {"path": str(path), "media_type": media_type},
@@ -734,7 +738,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch) -> None:
 
     failure_response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
     assert failure_response.status_code == 200
-    assert failure_response.json()["path"] == failure_path
+    assert failure_response.json()["path"] == str(failure_path)
 
     approve_response = client.post(
         f"/agent-tasks/{task_id}/approve",
@@ -841,6 +845,37 @@ def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch)
     response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
 
     assert response.status_code == 404
+
+
+def test_agent_task_artifact_route_does_not_serve_paths_outside_storage_root(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    outside_path = tmp_path / "outside.json"
+    outside_path.write_text('{"should":"not-serve"}')
+
+    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_artifact",
+        lambda session, incoming_task_id, incoming_artifact_id: type(
+            "ArtifactRow",
+            (),
+            {
+                "id": incoming_artifact_id,
+                "task_id": incoming_task_id,
+                "storage_path": str(outside_path),
+                "payload_json": {"fallback": True},
+            },
+        )(),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
+
+    assert response.status_code == 200
+    assert response.json() == {"fallback": True}
 
 
 def test_create_agent_task_route_returns_bad_request_on_unknown_task_type(monkeypatch) -> None:

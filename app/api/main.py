@@ -219,6 +219,18 @@ def get_storage_service() -> StorageService:
     return StorageService()
 
 
+def _storage_file_response(
+    path_value: str | Path | None,
+    *,
+    media_type: str | None = None,
+):
+    return file_response_if_exists(
+        get_storage_service().resolve_existing_path(path_value),
+        media_type=media_type,
+        response_factory=FileResponse,
+    )
+
+
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(UI_DIR / "index.html")
@@ -572,12 +584,7 @@ def read_agent_task_artifact(
     session: Session = Depends(get_db_session),
 ):
     artifact = get_agent_task_artifact(session, task_id, artifact_id)
-    file_response = file_response_if_exists(
-        artifact.storage_path,
-        media_type="application/json",
-        path_type=Path,
-        response_factory=FileResponse,
-    )
+    file_response = _storage_file_response(artifact.storage_path, media_type="application/json")
     if file_response.status_code != 404:
         return file_response
     return JSONResponse(artifact.payload_json or {})
@@ -597,15 +604,10 @@ def read_agent_task_failure_artifact(
     task_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    task = get_agent_task_detail(session, task_id)
-    failure_artifact_path = getattr(task, "failure_artifact_path", None)
-    if failure_artifact_path is None and isinstance(task, dict):
-        failure_artifact_path = task.get("failure_artifact_path")
-    return file_response_if_exists(
-        failure_artifact_path,
+    get_agent_task_detail(session, task_id)
+    return _storage_file_response(
+        get_storage_service().build_agent_task_failure_artifact_path(task_id),
         media_type="application/json",
-        path_type=Path,
-        response_factory=FileResponse,
     )
 
 
@@ -749,11 +751,9 @@ def read_run_failure_artifact(
     run = session.get(DocumentRun, run_id)
     if run is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        run.failure_artifact_path,
+    return _storage_file_response(
+        get_storage_service().build_failure_artifact_path(run.document_id, run.id),
         media_type="application/json",
-        path_type=Path,
-        response_factory=FileResponse,
     )
 
 
@@ -768,10 +768,8 @@ def read_docling_json_artifact(
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        run.docling_json_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_docling_json_path(document_id, run.id),
     )
 
 
@@ -786,10 +784,8 @@ def read_yaml_artifact(
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        run.yaml_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_yaml_path(document_id, run.id),
     )
 
 
@@ -830,10 +826,8 @@ def read_table_json_artifact(
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        table.json_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_table_json_path(document_id, table.run_id, table.table_index),
     )
 
 
@@ -846,10 +840,8 @@ def read_table_yaml_artifact(
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        table.yaml_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_table_yaml_path(document_id, table.run_id, table.table_index),
     )
 
 
@@ -862,10 +854,8 @@ def read_figure_json_artifact(
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        figure.json_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_figure_json_path(document_id, figure.run_id, figure.figure_index),
     )
 
 
@@ -878,10 +868,8 @@ def read_figure_yaml_artifact(
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         return Response(status_code=404)
-    return file_response_if_exists(
-        figure.yaml_path,
-        path_type=Path,
-        response_factory=FileResponse,
+    return _storage_file_response(
+        get_storage_service().build_figure_yaml_path(document_id, figure.run_id, figure.figure_index),
     )
 
 
