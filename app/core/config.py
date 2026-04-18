@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_key: str | None = None
+    remote_ingest_max_inflight_runs: int | None = 8
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4.1-mini"

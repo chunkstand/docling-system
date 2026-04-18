@@ -12,7 +12,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import default_local_ingest_roots, get_settings
+from app.core.config import default_local_ingest_roots, get_settings, resolve_api_mode
 from app.core.time import utcnow
 from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
 from app.schemas.documents import (
@@ -29,6 +29,12 @@ from app.services.evaluations import (
 from app.services.storage import StorageService
 
 PDF_MIME_TYPES = {"application/pdf", "application/x-pdf"}
+INFLIGHT_RUN_STATUSES = {
+    RunStatus.QUEUED.value,
+    RunStatus.PROCESSING.value,
+    RunStatus.VALIDATING.value,
+    RunStatus.RETRY_WAIT.value,
+}
 
 
 @dataclass
@@ -302,6 +308,68 @@ def _build_recovery_response(document_id: UUID, run_id: UUID) -> DocumentUploadR
     )
 
 
+def _document_run_inflight_count(session: Session) -> int:
+    return int(
+        session.execute(
+            select(func.count()).select_from(DocumentRun).where(DocumentRun.status.in_(INFLIGHT_RUN_STATUSES))
+        ).scalar_one()
+    )
+
+
+def _enforce_remote_document_run_backpressure(session: Session) -> None:
+    settings = get_settings()
+    if resolve_api_mode(settings) != "remote":
+        return
+    limit = settings.remote_ingest_max_inflight_runs
+    if limit is None or limit <= 0:
+        return
+    if _document_run_inflight_count(session) < limit:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Remote ingest is at capacity. Try again after existing runs finish.",
+    )
+
+
+def _admit_staged_document(
+    session: Session,
+    storage_service: StorageService,
+    *,
+    staged_path: Path,
+    sha256: str,
+    source_filename: str,
+    mime_type: str,
+    size_limit_detail: str,
+    page_limit_detail_prefix: str,
+    check_existing: bool,
+) -> tuple[DocumentUploadResponse, int]:
+    try:
+        if check_existing:
+            existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+            if existing is not None:
+                storage_service.delete_file_if_exists(staged_path)
+                return _resolve_existing_document_upload(session, existing)
+
+        _validate_pdf_artifact(
+            staged_path,
+            size_limit_detail=size_limit_detail,
+            page_limit_detail_prefix=page_limit_detail_prefix,
+        )
+        _enforce_remote_document_run_backpressure(session)
+        return _queue_document_run(
+            session=session,
+            storage_service=storage_service,
+            staged_path=staged_path,
+            sha256=sha256,
+            source_filename=source_filename,
+            mime_type=mime_type,
+        )
+    except Exception:
+        storage_service.delete_file_if_exists(staged_path)
+        session.rollback()
+        raise
+
+
 def _resolve_existing_document_upload(
     session: Session,
     existing: Document,
@@ -314,12 +382,7 @@ def _resolve_existing_document_upload(
     if snapshot.active_run is not None:
         return _build_duplicate_response(snapshot), status.HTTP_200_OK
 
-    if snapshot.latest_run and snapshot.latest_run.status in {
-        RunStatus.QUEUED.value,
-        RunStatus.PROCESSING.value,
-        RunStatus.VALIDATING.value,
-        RunStatus.RETRY_WAIT.value,
-    }:
+    if snapshot.latest_run and snapshot.latest_run.status in INFLIGHT_RUN_STATUSES:
         return (
             DocumentUploadResponse(
                 document_id=locked_document.id,
@@ -430,30 +493,17 @@ def ingest_upload(
         upload,
         max_file_bytes=settings.local_ingest_max_file_bytes,
     )
-
-    try:
-        existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
-        if existing is not None:
-            storage_service.delete_file_if_exists(staged_path)
-            return _resolve_existing_document_upload(session, existing)
-
-        _validate_pdf_artifact(
-            staged_path,
-            size_limit_detail="File exceeds upload size limit.",
-            page_limit_detail_prefix="PDF page count exceeds upload limit",
-        )
-        return _queue_document_run(
-            session=session,
-            storage_service=storage_service,
-            staged_path=staged_path,
-            sha256=sha256,
-            source_filename=upload.filename or "document.pdf",
-            mime_type=upload.content_type or "application/pdf",
-        )
-    except Exception:
-        storage_service.delete_file_if_exists(staged_path)
-        session.rollback()
-        raise
+    return _admit_staged_document(
+        session=session,
+        storage_service=storage_service,
+        staged_path=staged_path,
+        sha256=sha256,
+        source_filename=upload.filename or "document.pdf",
+        mime_type=upload.content_type or "application/pdf",
+        size_limit_detail="File exceeds upload size limit.",
+        page_limit_detail_prefix="PDF page count exceeds upload limit",
+        check_existing=True,
+    )
 
 
 def ingest_local_file(
@@ -469,19 +519,17 @@ def ingest_local_file(
     file_path = _validate_local_ingest_path(file_path)
 
     staged_path, sha256 = storage_service.stage_local_file(file_path)
-    try:
-        return _queue_document_run(
-            session=session,
-            storage_service=storage_service,
-            staged_path=staged_path,
-            sha256=sha256,
-            source_filename=file_path.name,
-            mime_type="application/pdf",
-        )
-    except Exception:
-        storage_service.delete_file_if_exists(staged_path)
-        session.rollback()
-        raise
+    return _admit_staged_document(
+        session=session,
+        storage_service=storage_service,
+        staged_path=staged_path,
+        sha256=sha256,
+        source_filename=file_path.name,
+        mime_type="application/pdf",
+        size_limit_detail="File exceeds local ingest size limit.",
+        page_limit_detail_prefix="PDF page count exceeds local ingest limit",
+        check_existing=False,
+    )
 
 
 def create_run_for_existing_document(session: Session, document: Document) -> DocumentRun:
@@ -598,17 +646,13 @@ def reprocess_document(session: Session, document_id: UUID) -> DocumentUploadRes
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
 
     latest_run = _get_run(session, document.latest_run_id)
-    if latest_run and latest_run.status in {
-        RunStatus.QUEUED.value,
-        RunStatus.PROCESSING.value,
-        RunStatus.VALIDATING.value,
-        RunStatus.RETRY_WAIT.value,
-    }:
+    if latest_run and latest_run.status in INFLIGHT_RUN_STATUSES:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Document already has an in-flight processing run.",
         )
 
+    _enforce_remote_document_run_backpressure(session)
     run = _create_run_for_locked_document(session, document)
     session.commit()
 

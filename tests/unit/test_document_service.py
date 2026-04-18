@@ -14,6 +14,7 @@ from app.db.models import Document, DocumentRun, RunStatus
 from app.services.documents import (
     _allowed_ingest_roots,
     _build_duplicate_response,
+    _enforce_remote_document_run_backpressure,
     _is_pdf,
     _queue_document_run,
     _resolve_existing_document_upload,
@@ -142,6 +143,93 @@ def test_upload_ingest_rejects_pdf_over_page_limit_before_queueing(monkeypatch) 
             assert "PDF page count exceeds upload limit" in exc.detail
         else:
             raise AssertionError("Expected page-limit upload to be rejected")
+
+        assert session.rolled_back is True
+        assert list(storage_service.staging_root.iterdir()) == []
+        assert list(storage_service.source_root.iterdir()) == []
+
+
+def test_enforce_remote_document_run_backpressure_rejects_at_capacity(monkeypatch) -> None:
+    class FakeExecuteResult:
+        def scalar_one(self):
+            return 2
+
+    class FakeSession:
+        def execute(self, _statement):
+            return FakeExecuteResult()
+
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_key="secret",
+            remote_ingest_max_inflight_runs=2,
+        ),
+    )
+
+    try:
+        _enforce_remote_document_run_backpressure(FakeSession())
+    except HTTPException as exc:
+        assert exc.status_code == 429
+        assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+    else:
+        raise AssertionError("Expected remote backpressure to reject the request")
+
+
+def test_upload_ingest_rejects_when_remote_capacity_reached_and_cleans_staging(
+    monkeypatch,
+) -> None:
+    upload = UploadFile(
+        filename="report.pdf",
+        file=BytesIO(b"%PDF-1.4\nvalid"),
+        headers={"content-type": "application/pdf"},
+    )
+
+    class FakeExecuteResult:
+        def __init__(self, value) -> None:
+            self.value = value
+
+        def scalar_one_or_none(self):
+            return self.value
+
+        def scalar_one(self):
+            return self.value
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.rolled_back = False
+            self._results = iter([None, 1])
+
+        def execute(self, _statement):
+            return FakeExecuteResult(next(self._results))
+
+        def rollback(self) -> None:
+            self.rolled_back = True
+
+    monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _: 1)
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_key="secret",
+            remote_ingest_max_inflight_runs=1,
+            local_ingest_max_file_bytes=1024 * 1024,
+            local_ingest_max_pages=10,
+        ),
+    )
+
+    with TemporaryDirectory() as temp_dir:
+        storage_service = StorageService(storage_root=Path(temp_dir))
+        session = FakeSession()
+        try:
+            ingest_upload(session, upload, storage_service)
+        except HTTPException as exc:
+            assert exc.status_code == 429
+            assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+        else:
+            raise AssertionError("Expected remote ingest to reject when capacity is exhausted")
 
         assert session.rolled_back is True
         assert list(storage_service.staging_root.iterdir()) == []
@@ -525,3 +613,55 @@ def test_reprocess_document_uses_locked_state_to_reject_inflight_run(monkeypatch
         assert exc.detail == "Document already has an in-flight processing run."
     else:
         raise AssertionError("Expected reprocess to reject the in-flight run")
+
+
+def test_reprocess_document_rejects_when_remote_capacity_reached(monkeypatch) -> None:
+    document_id = uuid4()
+    now = datetime.now(UTC)
+
+    locked_document = Document(
+        id=document_id,
+        source_filename="report.pdf",
+        source_path="/tmp/report.pdf",
+        sha256="abc",
+        mime_type="application/pdf",
+        latest_run_id=None,
+        created_at=now,
+        updated_at=now,
+    )
+
+    class FakeExecuteResult:
+        def scalar_one(self):
+            return 1
+
+    class FakeSession:
+        def get(self, model, value):
+            return None
+
+        def execute(self, _statement):
+            return FakeExecuteResult()
+
+    monkeypatch.setattr("app.services.documents._lock_document_row", lambda session, _: locked_document)
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_key="secret",
+            remote_ingest_max_inflight_runs=1,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.documents._create_run_for_locked_document",
+        lambda session, document: (_ for _ in ()).throw(
+            AssertionError("reprocess should not create a run when remote capacity is exhausted")
+        ),
+    )
+
+    try:
+        reprocess_document(FakeSession(), document_id)
+    except HTTPException as exc:
+        assert exc.status_code == 429
+        assert exc.detail == "Remote ingest is at capacity. Try again after existing runs finish."
+    else:
+        raise AssertionError("Expected remote reprocess to reject when capacity is exhausted")
