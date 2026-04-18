@@ -11,6 +11,8 @@ from sqlalchemy.dialects import postgresql
 
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskStatus
 from app.services.agent_task_worker import (
+    PROMOTABLE_SIDE_EFFECT_APPLIED_KEY,
+    PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY,
     claim_next_agent_task,
     finalize_agent_task_failure,
     is_retryable_agent_task_error,
@@ -341,3 +343,150 @@ def test_process_agent_task_records_attempt_cost_and_performance(
     assert attempt.cost_json["estimated_usd"] == 0.0
     assert attempt.performance_json["execution_latency_ms"] is not None
     assert attempt.performance_json["queue_latency_ms"] is not None
+
+
+def test_process_agent_task_checkpoints_promotable_result_before_context_write_failure(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_id = uuid4()
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=task_id,
+        task_type="enqueue_document_reprocess",
+        status=AgentTaskStatus.PROCESSING.value,
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        input_json={"document_id": str(uuid4())},
+        result_json={},
+        attempts=1,
+        locked_by="worker-1",
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.commits = 0
+            self.rollbacks = 0
+
+        def get(self, model, key):
+            return task if key == task_id else None
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    @contextmanager
+    def fake_agent_task_lease_heartbeat(task_id, *, worker_id):
+        yield
+
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.agent_task_lease_heartbeat",
+        fake_agent_task_lease_heartbeat,
+    )
+    monkeypatch.setattr("app.services.agent_task_worker.heartbeat_agent_task", lambda session, task: None)
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.write_agent_task_context",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("context write failed")),
+    )
+    monkeypatch.setattr("app.services.agent_task_worker._current_attempt", lambda *args: None)
+
+    session = FakeSession()
+    process_agent_task(
+        session,
+        task_id,
+        storage_service,
+        executor=lambda session, task: {
+            "task_type": task.task_type,
+            "payload": {"reprocess": {"run_id": str(uuid4())}},
+        },
+    )
+
+    assert session.rollbacks == 1
+    assert session.commits == 2
+    assert task.status == AgentTaskStatus.RETRY_WAIT.value
+    assert task.result_json[PROMOTABLE_SIDE_EFFECT_APPLIED_KEY] == "applied"
+    assert task.result_json[PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY]["payload"]["reprocess"]["run_id"]
+
+
+def test_process_agent_task_reuses_checkpointed_promotable_result_on_retry(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_id = uuid4()
+    run_id = uuid4()
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=task_id,
+        task_type="enqueue_document_reprocess",
+        status=AgentTaskStatus.PROCESSING.value,
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        input_json={"document_id": str(uuid4())},
+        result_json={
+            PROMOTABLE_SIDE_EFFECT_APPLIED_KEY: "applied",
+            PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY: {
+                "task_type": "enqueue_document_reprocess",
+                "payload": {"reprocess": {"run_id": str(run_id)}},
+            },
+            "failure_type": "RuntimeError",
+            "failure_stage": "complete",
+        },
+        attempts=2,
+        locked_by="worker-1",
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.commits = 0
+            self.rollbacks = 0
+
+        def get(self, model, key):
+            return task if key == task_id else None
+
+        def add(self, row: object) -> None:
+            return None
+
+        def flush(self) -> None:
+            return None
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    @contextmanager
+    def fake_agent_task_lease_heartbeat(task_id, *, worker_id):
+        yield
+
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.agent_task_lease_heartbeat",
+        fake_agent_task_lease_heartbeat,
+    )
+    monkeypatch.setattr("app.services.agent_task_worker.heartbeat_agent_task", lambda session, task: None)
+    monkeypatch.setattr(
+        "app.services.agent_task_worker.execute_agent_task_action",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("executor should not rerun")),
+    )
+    monkeypatch.setattr("app.services.agent_task_worker._current_attempt", lambda *args: None)
+
+    session = FakeSession()
+    process_agent_task(session, task_id, storage_service)
+
+    assert session.rollbacks == 0
+    assert task.status == AgentTaskStatus.COMPLETED.value
+    assert task.result_json["payload"]["reprocess"]["run_id"] == str(run_id)
+    assert PROMOTABLE_SIDE_EFFECT_APPLIED_KEY not in task.result_json
+    assert "failure_type" not in task.result_json

@@ -34,6 +34,7 @@ from app.cli import (
     run_backfill_legacy_audit,
     run_eval_candidates,
     run_eval_corpus,
+    run_gate_search_harness_release,
     run_eval_reranker,
     run_eval_run,
     run_export_ranking_dataset,
@@ -586,6 +587,119 @@ def test_agent_task_actions_cli_prints_action_catalog(monkeypatch, capsys) -> No
 
     output = json.loads(capsys.readouterr().out.strip())
     assert output[0]["task_type"] == "get_latest_evaluation"
+
+
+def test_gate_search_harness_release_cli_prints_passed_gate(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-gate-search-harness-release",
+            "wide_v2",
+            "--baseline-harness-name",
+            "default_v1",
+            "--source-type",
+            "evaluation_queries",
+            "--limit",
+            "5",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.evaluate_search_harness",
+        lambda session, payload: SimpleNamespace(
+            candidate_harness_name=payload.candidate_harness_name,
+            baseline_harness_name=payload.baseline_harness_name,
+            model_dump=lambda mode="json": {
+                "candidate_harness_name": payload.candidate_harness_name,
+                "baseline_harness_name": payload.baseline_harness_name,
+                "sources": [{"source_type": payload.source_types[0]}],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.evaluate_search_harness_verification",
+        lambda session, evaluation, payload: SimpleNamespace(
+            outcome="passed",
+            metrics={"total_shared_query_count": 5},
+            reasons=[],
+            details={"thresholds": payload.model_dump(mode="json")},
+        ),
+    )
+
+    run_gate_search_harness_release()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["candidate_harness_name"] == "wide_v2"
+    assert output["gate"]["outcome"] == "passed"
+
+
+def test_gate_search_harness_release_cli_exits_nonzero_on_failed_gate(
+    monkeypatch, capsys
+) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-gate-search-harness-release",
+            "wide_v2",
+            "--baseline-harness-name",
+            "default_v1",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.evaluate_search_harness",
+        lambda session, payload: SimpleNamespace(
+            candidate_harness_name=payload.candidate_harness_name,
+            baseline_harness_name=payload.baseline_harness_name,
+            model_dump=lambda mode="json": {
+                "candidate_harness_name": payload.candidate_harness_name,
+                "baseline_harness_name": payload.baseline_harness_name,
+                "sources": [],
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        "app.cli.evaluate_search_harness_verification",
+        lambda session, evaluation, payload: SimpleNamespace(
+            outcome="failed",
+            metrics={"total_shared_query_count": 0},
+            reasons=["no shared queries"],
+            details={"thresholds": payload.model_dump(mode="json")},
+        ),
+    )
+
+    try:
+        run_gate_search_harness_release()
+    except SystemExit as exc:
+        assert exc.code == 1
+    else:
+        raise AssertionError("Expected failed release gate to exit non-zero")
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["gate"]["outcome"] == "failed"
+    assert output["gate"]["reasons"] == ["no shared queries"]
 
 
 def test_agent_task_create_cli_prints_created_task(monkeypatch, capsys) -> None:

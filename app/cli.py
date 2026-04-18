@@ -14,11 +14,15 @@ from app.schemas.agent_tasks import (
     AgentTaskCreateRequest,
     AgentTaskOutcomeCreateRequest,
     AgentTaskRejectionRequest,
+    VerifySearchHarnessEvaluationTaskInput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_context import get_agent_task_context
-from app.services.agent_task_verifications import get_agent_task_verifications
+from app.services.agent_task_verifications import (
+    evaluate_search_harness_verification,
+    get_agent_task_verifications,
+)
 from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
@@ -375,6 +379,110 @@ def run_eval_reranker() -> None:
         )
         session.commit()
     print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_gate_search_harness_release() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Evaluate a candidate search harness and fail fast when replay/eval guardrails do "
+            "not pass."
+        )
+    )
+    parser.add_argument("candidate_harness_name", help="Candidate search harness name.")
+    parser.add_argument(
+        "--baseline-harness-name",
+        default="default_v1",
+        help="Baseline harness name to compare against.",
+    )
+    parser.add_argument(
+        "--source-type",
+        action="append",
+        dest="source_types",
+        choices=[
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ],
+        help="Replay source type to include. Can be passed multiple times.",
+    )
+    parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
+    parser.add_argument(
+        "--max-total-regressed-count",
+        type=int,
+        default=0,
+        help="Maximum allowed regressed query count across any source.",
+    )
+    parser.add_argument(
+        "--max-mrr-drop",
+        type=float,
+        default=0.0,
+        help="Maximum allowed per-source MRR drop.",
+    )
+    parser.add_argument(
+        "--max-zero-result-count-increase",
+        type=int,
+        default=0,
+        help="Maximum allowed per-source increase in zero-result queries.",
+    )
+    parser.add_argument(
+        "--max-foreign-top-result-count-increase",
+        type=int,
+        default=0,
+        help="Maximum allowed per-source increase in foreign top results.",
+    )
+    parser.add_argument(
+        "--min-total-shared-query-count",
+        type=int,
+        default=1,
+        help="Minimum number of shared replay queries required for a valid gate.",
+    )
+    args = parser.parse_args()
+
+    request = SearchHarnessEvaluationRequest(
+        candidate_harness_name=args.candidate_harness_name,
+        baseline_harness_name=args.baseline_harness_name,
+        source_types=args.source_types
+        or [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ],
+        limit=args.limit,
+    )
+    gate_request = VerifySearchHarnessEvaluationTaskInput(
+        target_task_id=UUID(int=0),
+        max_total_regressed_count=args.max_total_regressed_count,
+        max_mrr_drop=args.max_mrr_drop,
+        max_zero_result_count_increase=args.max_zero_result_count_increase,
+        max_foreign_top_result_count_increase=args.max_foreign_top_result_count_increase,
+        min_total_shared_query_count=args.min_total_shared_query_count,
+    )
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        evaluation = evaluate_search_harness(session, request)
+        gate = evaluate_search_harness_verification(session, evaluation, gate_request)
+        session.commit()
+
+    print(
+        json.dumps(
+            {
+                "candidate_harness_name": request.candidate_harness_name,
+                "baseline_harness_name": request.baseline_harness_name,
+                "evaluation": evaluation.model_dump(mode="json"),
+                "gate": {
+                    "outcome": gate.outcome,
+                    "metrics": gate.metrics,
+                    "reasons": gate.reasons,
+                    "details": gate.details,
+                },
+            }
+        )
+    )
+    if gate.outcome != "passed":
+        raise SystemExit(1)
 
 
 def run_agent_task_actions() -> None:

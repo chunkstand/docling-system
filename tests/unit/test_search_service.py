@@ -108,20 +108,28 @@ def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:
     )
 
 
-def test_metadata_supplement_runs_for_broad_non_tabular_queries() -> None:
+def test_metadata_supplement_runs_only_for_prose_v3_prose_queries() -> None:
     assert (
         _should_run_metadata_supplement(
             query_intent="prose_broad",
             strict_keyword_count=5,
-            harness_name="default_v1",
+            harness_name="prose_v3",
         )
         is True
     )
     assert (
         _should_run_metadata_supplement(
-            query_intent="tabular",
+            query_intent="prose_broad",
             strict_keyword_count=1,
             harness_name="default_v1",
+        )
+        is False
+    )
+    assert (
+        _should_run_metadata_supplement(
+            query_intent="tabular",
+            strict_keyword_count=1,
+            harness_name="prose_v3",
         )
         is False
     )
@@ -289,6 +297,7 @@ def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> No
             query="published in billings gazette on april 17 2026 chalk buttes",
             mode="hybrid",
             limit=5,
+            harness_name="prose_v3",
         ),
         origin="test",
     )
@@ -297,7 +306,9 @@ def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> No
     assert execution.results[0].source_filename.endswith("Billings Gazette Legal Notice.pdf")
 
 
-def test_hybrid_search_prefers_exact_phrase_cover_letter_probe(monkeypatch) -> None:
+def test_prose_v3_metadata_supplement_prefers_exact_phrase_cover_letter_probe(
+    monkeypatch,
+) -> None:
     winning_document_id = uuid4()
     losing_document_id = uuid4()
 
@@ -340,7 +351,7 @@ def test_hybrid_search_prefers_exact_phrase_cover_letter_probe(monkeypatch) -> N
                 page_to=1,
                 chunk_text="Dear Interested Party, the Chalk Buttes project is available for review.",
                 heading=None,
-                keyword_score=3.24,
+                keyword_score=6.5,
                 retrieval_sources=("metadata_supplement",),
             ),
             RankedResult(
@@ -354,7 +365,7 @@ def test_hybrid_search_prefers_exact_phrase_cover_letter_probe(monkeypatch) -> N
                 page_to=2,
                 chunk_text="Chalk Buttes silviculture overview.",
                 heading=None,
-                keyword_score=2.56,
+                keyword_score=1.1,
                 retrieval_sources=("metadata_supplement",),
             ),
         ],
@@ -390,7 +401,12 @@ def test_hybrid_search_prefers_exact_phrase_cover_letter_probe(monkeypatch) -> N
 
     execution = execute_search(
         FakeSession(),
-        SearchRequest(query="dear interested party chalk buttes", mode="hybrid", limit=5),
+        SearchRequest(
+            query="dear interested party chalk buttes",
+            mode="keyword",
+            limit=5,
+            harness_name="prose_v3",
+        ),
         origin="test",
     )
 
@@ -1198,7 +1214,7 @@ def test_execute_search_uses_metadata_supplement_as_zero_result_fallback(monkeyp
     session = FakeSession()
     execution = execute_search(
         session,
-        SearchRequest(query="fseprd1091222", mode="keyword", limit=5),
+        SearchRequest(query="fseprd1091222", mode="keyword", limit=5, harness_name="prose_v3"),
         origin="api",
     )
 
@@ -1344,6 +1360,7 @@ def test_execute_search_adds_metadata_supplement_when_strict_recall_is_sparse(mo
             query="what does appendix h alternative costs show",
             mode="keyword",
             limit=5,
+            harness_name="prose_v3",
         ),
         origin="api",
     )
@@ -1353,6 +1370,65 @@ def test_execute_search_adds_metadata_supplement_when_strict_recall_is_sparse(mo
     assert execution.results[0].source_filename == "FEIS_Append H_AltCosts.pdf"
     assert request_rows[0].details_json["keyword_strategy"] == "strict_plus_metadata"
     assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1
+
+
+def test_execute_search_default_v1_does_not_run_metadata_supplement(monkeypatch) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("default_v1 should not invoke metadata supplement")
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(
+            query="what does appendix h alternative costs show",
+            mode="keyword",
+            limit=5,
+            harness_name="default_v1",
+        ),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert execution.details["metadata_candidate_count"] == 0
+    assert request_rows[0].details_json["candidate_source_breakdown"].get("metadata_supplement", 0) == 0
 
 
 def test_execute_search_uses_camel_case_source_filename_exact_match(monkeypatch) -> None:
@@ -1429,7 +1505,7 @@ def test_execute_search_uses_camel_case_source_filename_exact_match(monkeypatch)
     session = FakeSession()
     execution = execute_search(
         session,
-        SearchRequest(query="Babcock LEX", mode="keyword", limit=5),
+        SearchRequest(query="Babcock LEX", mode="keyword", limit=5, harness_name="prose_v3"),
         origin="api",
     )
 

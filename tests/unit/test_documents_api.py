@@ -142,3 +142,65 @@ def test_run_failure_artifact_route_serves_json(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"error": "boom"}
+
+
+def test_document_artifact_routes_return_404_for_stale_paths(monkeypatch, tmp_path: Path) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    table_id = uuid4()
+    figure_id = uuid4()
+
+    stale_run = SimpleNamespace(
+        id=run_id,
+        docling_json_path=str(tmp_path / "missing-docling.json"),
+        yaml_path=str(tmp_path / "missing-document.yaml"),
+    )
+    stale_table = SimpleNamespace(
+        id=table_id,
+        run_id=run_id,
+        document_id=document_id,
+        json_path=str(tmp_path / "missing-table.json"),
+        yaml_path=str(tmp_path / "missing-table.yaml"),
+    )
+    stale_figure = SimpleNamespace(
+        id=figure_id,
+        run_id=run_id,
+        document_id=document_id,
+        json_path=str(tmp_path / "missing-figure.json"),
+        yaml_path=str(tmp_path / "missing-figure.yaml"),
+    )
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == run_id:
+                return stale_run
+            if key == table_id:
+                return stale_table
+            if key == figure_id:
+                return stale_figure
+            return None
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.api.main.get_document_detail",
+        lambda session, requested_document_id: SimpleNamespace(
+            id=requested_document_id,
+            active_run_id=run_id,
+            has_json_artifact=True,
+            has_yaml_artifact=True,
+        ),
+    )
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 404
+        assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 404
+        assert client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").status_code == 404
+        assert client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml").status_code == 404
+        assert client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/json").status_code == 404
+        assert client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").status_code == 404
+    finally:
+        app.dependency_overrides.clear()

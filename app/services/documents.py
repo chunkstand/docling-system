@@ -117,7 +117,7 @@ def _run_current_stage(run: DocumentRun) -> str:
     if run.status == RunStatus.FAILED.value:
         return run.failure_stage or RunStatus.FAILED.value
     if run.status == RunStatus.VALIDATING.value:
-        return "validation_and_evaluation"
+        return "validation"
     if run.status == RunStatus.PROCESSING.value:
         if run.docling_json_path or run.yaml_path:
             return "persisted_outputs"
@@ -126,7 +126,7 @@ def _run_current_stage(run: DocumentRun) -> str:
 
 
 def _run_stage_started_at(run: DocumentRun, current_stage: str) -> datetime | None:
-    if current_stage in {"parse_and_persist", "persisted_outputs", "validation_and_evaluation"}:
+    if current_stage in {"parse_and_persist", "persisted_outputs", "validation"}:
         return run.locked_at or run.started_at or run.created_at
     if current_stage in {RunStatus.QUEUED.value, RunStatus.RETRY_WAIT.value}:
         return run.created_at

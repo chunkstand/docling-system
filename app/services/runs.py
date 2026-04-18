@@ -30,7 +30,6 @@ from app.db.models import (
 from app.services.docling_parser import DoclingParser, ParsedDocument, ParsedFigure, ParsedTable
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evaluations import (
-    ensure_auto_evaluation_fixture,
     evaluate_run,
     resolve_baseline_run_id,
 )
@@ -717,6 +716,37 @@ def finalize_run_failure(
     session.commit()
 
 
+def _evaluate_promoted_run(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    *,
+    baseline_run_id: UUID | None,
+) -> None:
+    try:
+        evaluation = evaluate_run(
+            session,
+            document,
+            run,
+            baseline_run_id=baseline_run_id,
+        )
+    except Exception:
+        logger.exception(
+            "run_post_promotion_evaluation_failed",
+            run_id=str(run.id),
+            document_id=str(document.id),
+        )
+        return
+
+    logger.info(
+        "run_evaluation_completed",
+        run_id=str(run.id),
+        document_id=str(document.id),
+        evaluation_status=evaluation.status,
+        fixture_name=evaluation.fixture_name,
+    )
+
+
 def process_run(
     session: Session,
     run_id: UUID,
@@ -776,22 +806,6 @@ def process_run(
             if not report.passed:
                 raise ValidationError(report)
 
-            ensure_auto_evaluation_fixture(session, document, run, title=parsed.title)
-            heartbeat_run(session, run)
-            evaluation = evaluate_run(
-                session,
-                document,
-                run,
-                baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
-            )
-            logger.info(
-                "run_evaluation_completed",
-                run_id=str(run.id),
-                document_id=str(document.id),
-                evaluation_status=evaluation.status,
-                fixture_name=evaluation.fixture_name,
-            )
-
             failure_stage = "promotion"
             finalize_run_success(
                 session,
@@ -809,6 +823,12 @@ def process_run(
                 table_count=len(parsed.tables),
                 figure_count=len(parsed.figures),
                 page_count=parsed.page_count,
+            )
+            _evaluate_promoted_run(
+                session,
+                document,
+                run,
+                baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
             )
         except Exception as exc:
             session.rollback()

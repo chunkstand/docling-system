@@ -153,6 +153,19 @@ def get_storage_service() -> StorageService:
     return StorageService()
 
 
+def _file_response_if_exists(
+    path_value: str | None,
+    *,
+    media_type: str | None = None,
+):
+    if not path_value:
+        return Response(status_code=404)
+    path = Path(path_value)
+    if not path.exists():
+        return Response(status_code=404)
+    return FileResponse(path, media_type=media_type)
+
+
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
     return FileResponse(UI_DIR / "index.html")
@@ -644,9 +657,9 @@ def read_run_failure_artifact(
     session: Session = Depends(get_db_session),
 ):
     run = session.get(DocumentRun, run_id)
-    if run is None or not run.failure_artifact_path or not Path(run.failure_artifact_path).exists():
+    if run is None:
         return Response(status_code=404)
-    return FileResponse(Path(run.failure_artifact_path), media_type="application/json")
+    return _file_response_if_exists(run.failure_artifact_path, media_type="application/json")
 
 
 @app.get("/documents/{document_id}/artifacts/json")
@@ -658,9 +671,9 @@ def read_docling_json_artifact(
     if not document.has_json_artifact or document.active_run_id is None:
         return Response(status_code=404)
     run = session.get(DocumentRun, document.active_run_id)
-    if run is None or not run.docling_json_path:
+    if run is None:
         return Response(status_code=404)
-    return FileResponse(Path(run.docling_json_path))
+    return _file_response_if_exists(run.docling_json_path)
 
 
 @app.get("/documents/{document_id}/artifacts/yaml")
@@ -672,9 +685,9 @@ def read_yaml_artifact(
     if not document.has_yaml_artifact or document.active_run_id is None:
         return Response(status_code=404)
     run = session.get(DocumentRun, document.active_run_id)
-    if run is None or not run.yaml_path:
+    if run is None:
         return Response(status_code=404)
-    return FileResponse(Path(run.yaml_path))
+    return _file_response_if_exists(run.yaml_path)
 
 
 def _get_active_table_row(
@@ -712,9 +725,9 @@ def read_table_json_artifact(
     session: Session = Depends(get_db_session),
 ):
     table = _get_active_table_row(session, document_id, table_id)
-    if table is None or not table.json_path:
+    if table is None:
         return Response(status_code=404)
-    return FileResponse(Path(table.json_path))
+    return _file_response_if_exists(table.json_path)
 
 
 @app.get("/documents/{document_id}/tables/{table_id}/artifacts/yaml")
@@ -724,9 +737,9 @@ def read_table_yaml_artifact(
     session: Session = Depends(get_db_session),
 ):
     table = _get_active_table_row(session, document_id, table_id)
-    if table is None or not table.yaml_path:
+    if table is None:
         return Response(status_code=404)
-    return FileResponse(Path(table.yaml_path))
+    return _file_response_if_exists(table.yaml_path)
 
 
 @app.get("/documents/{document_id}/figures/{figure_id}/artifacts/json")
@@ -736,9 +749,9 @@ def read_figure_json_artifact(
     session: Session = Depends(get_db_session),
 ):
     figure = _get_active_figure_row(session, document_id, figure_id)
-    if figure is None or not figure.json_path:
+    if figure is None:
         return Response(status_code=404)
-    return FileResponse(Path(figure.json_path))
+    return _file_response_if_exists(figure.json_path)
 
 
 @app.get("/documents/{document_id}/figures/{figure_id}/artifacts/yaml")
@@ -748,9 +761,9 @@ def read_figure_yaml_artifact(
     session: Session = Depends(get_db_session),
 ):
     figure = _get_active_figure_row(session, document_id, figure_id)
-    if figure is None or not figure.yaml_path:
+    if figure is None:
         return Response(status_code=404)
-    return FileResponse(Path(figure.yaml_path))
+    return _file_response_if_exists(figure.yaml_path)
 
 
 @app.post("/search", response_model=list[SearchResult])

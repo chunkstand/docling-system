@@ -204,7 +204,7 @@ def test_to_run_summary_exposes_live_progress_metadata(monkeypatch) -> None:
 
     summary = _to_run_summary(document, run)
 
-    assert summary.current_stage == "validation_and_evaluation"
+    assert summary.current_stage == "validation"
     assert summary.locked_by == "worker-1"
     assert summary.lease_stale is False
     assert summary.validation_warning_count == 2

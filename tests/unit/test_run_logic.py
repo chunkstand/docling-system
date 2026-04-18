@@ -59,7 +59,7 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
         def rollback(self) -> None:
             return None
 
-    observed: dict[str, object | None] = {}
+    observed: dict[str, object | None] = {"promotion_completed": False}
 
     @contextmanager
     def fake_run_lease_heartbeat(run_id, *, worker_id):
@@ -113,22 +113,18 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
             passed=True, summary="ok", details={}
         ),
     )
-    monkeypatch.setattr(
-        "app.services.runs.ensure_auto_evaluation_fixture",
-        lambda session, document, run, title=None: observed.update(
-            {"auto_fixture_title": title, "auto_fixture_run_id": run.id}
-        ),
-    )
 
     def fake_evaluate_run(session, document, run, baseline_run_id=None):
+        observed["promotion_completed"] = document.active_run_id == run.id
         observed["baseline_run_id"] = baseline_run_id
         return SimpleNamespace(status="completed", fixture_name="fixture")
 
     monkeypatch.setattr("app.services.runs.evaluate_run", fake_evaluate_run)
     monkeypatch.setattr(
         "app.services.runs.finalize_run_success",
-        lambda session, document, run, parsed, report, **kwargs: setattr(
-            document, "active_run_id", run.id
+        lambda session, document, run, parsed, report, **kwargs: (
+            setattr(document, "active_run_id", run.id),
+            observed.__setitem__("promotion_completed", True),
         ),
     )
 
@@ -141,12 +137,125 @@ def test_process_run_uses_prior_active_run_for_evaluation_baseline(
     )
 
     assert observed["baseline_run_id"] == prior_active_run_id
-    assert observed["auto_fixture_title"] == "Report"
-    assert observed["auto_fixture_run_id"] == candidate_run_id
+    assert observed["promotion_completed"] is True
     assert observed["heartbeat_run_id"] == candidate_run_id
     assert observed["heartbeat_worker_id"] == "worker-1"
     assert observed["heartbeat_entered"] is True
     assert observed["heartbeat_exited"] is True
+
+
+def test_process_run_keeps_promoted_run_completed_when_evaluation_raises(
+    monkeypatch, tmp_path: Path
+) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    source_path = tmp_path / "report.pdf"
+    source_path.write_bytes(b"%PDF-1.7\n")
+
+    run = SimpleNamespace(
+        id=run_id,
+        document_id=document_id,
+        locked_by="worker-1",
+        status="processing",
+    )
+    document = SimpleNamespace(
+        id=document_id,
+        source_path=str(source_path),
+        active_run_id=None,
+        latest_run_id=None,
+    )
+    parsed = SimpleNamespace(
+        raw_table_segments=[],
+        chunks=[],
+        tables=[],
+        figures=[],
+        title="Report",
+        page_count=1,
+    )
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == run_id:
+                return run
+            if model is Document and key == document_id:
+                return document
+            return None
+
+        def rollback(self) -> None:
+            raise AssertionError("post-promotion evaluation should not roll back the run")
+
+    @contextmanager
+    def fake_run_lease_heartbeat(run_id, *, worker_id):
+        yield
+
+    monkeypatch.setattr("app.services.runs.run_lease_heartbeat", fake_run_lease_heartbeat)
+    monkeypatch.setattr("app.services.runs.heartbeat_run", lambda session, run: None)
+    monkeypatch.setattr("app.services.runs.increment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.runs._apply_embeddings", lambda parsed, embedding_provider, run: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._build_lineage_assignments", lambda session, document, parsed: {}
+    )
+    monkeypatch.setattr(
+        "app.services.runs._persist_parsed_artifacts",
+        lambda storage_service, document, run, parsed: (
+            tmp_path / "docling.json",
+            tmp_path / "document.yaml",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_chunks", lambda session, document, run, parsed: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_tables",
+        lambda session, document, run, parsed, storage_service, lineage_assignments: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_figures",
+        lambda session, document, run, parsed, storage_service: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._mark_run_persisted",
+        lambda session, document, run, parsed, json_path, yaml_path: None,
+    )
+    monkeypatch.setattr("app.services.runs._mark_run_validating", lambda session, run: None)
+    monkeypatch.setattr(
+        "app.services.runs.validate_persisted_run",
+        lambda session, document, run, parsed: ValidationReport(
+            passed=True, summary="ok", details={}
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.finalize_run_success",
+        lambda session, document, run, parsed, report, **kwargs: (
+            setattr(run, "status", "completed"),
+            setattr(document, "active_run_id", run.id),
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.evaluate_run",
+        lambda session, document, run, baseline_run_id=None: (_ for _ in ()).throw(
+            RuntimeError("eval boom")
+        ),
+    )
+    failure_called = {"value": False}
+    monkeypatch.setattr(
+        "app.services.runs.finalize_run_failure",
+        lambda *args, **kwargs: failure_called.__setitem__("value", True),
+    )
+
+    process_run(
+        session=FakeSession(),
+        run_id=run_id,
+        storage_service=object(),
+        parser=SimpleNamespace(parse_pdf=lambda _: parsed),
+        embedding_provider=None,
+    )
+
+    assert document.active_run_id == run_id
+    assert run.status == "completed"
+    assert failure_called["value"] is False
 
 
 def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path) -> None:

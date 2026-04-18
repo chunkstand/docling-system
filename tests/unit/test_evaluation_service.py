@@ -1244,6 +1244,71 @@ def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:
     assert evaluation.summary_json["structural_passed"] is True
 
 
+def test_evaluate_run_persists_failed_row_when_auto_fixture_refresh_raises(monkeypatch) -> None:
+    run_id = uuid4()
+    document_id = uuid4()
+    pending_row = SimpleNamespace(
+        id=uuid4(),
+        fixture_name=None,
+        status="pending",
+        summary_json=None,
+        error_message=None,
+        completed_at=None,
+    )
+    failed_row = SimpleNamespace(
+        id=uuid4(),
+        fixture_name=None,
+        status="pending",
+        summary_json=None,
+        error_message=None,
+        completed_at=None,
+    )
+    rows = [pending_row, failed_row]
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.commits = 0
+            self.rollbacks = 0
+
+        def add(self, _row) -> None:
+            return None
+
+        def commit(self) -> None:
+            self.commits += 1
+
+        def rollback(self) -> None:
+            self.rollbacks += 1
+
+    monkeypatch.setattr(
+        "app.services.evaluations._upsert_evaluation_row",
+        lambda *args, **kwargs: rows.pop(0),
+    )
+    monkeypatch.setattr("app.services.evaluations.fixture_for_document", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.evaluations.ensure_auto_evaluation_fixture",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fixture refresh failed")),
+    )
+
+    session = FakeSession()
+    evaluation = evaluate_run(
+        session,
+        document=SimpleNamespace(
+            id=document_id,
+            source_filename="TEST_PDF.pdf",
+            active_run_id=run_id,
+        ),
+        run=SimpleNamespace(id=run_id, document_id=document_id),
+    )
+
+    assert session.rollbacks == 1
+    assert session.commits == 1
+    assert evaluation is failed_row
+    assert evaluation.status == "failed"
+    assert evaluation.error_message == "fixture refresh failed"
+    assert evaluation.summary_json["status"] == "failed"
+    assert evaluation.summary_json["fixture_name"] is None
+
+
 def test_resolve_baseline_run_id_prefers_prior_active_run_for_reprocess() -> None:
     candidate_run_id = uuid4()
     prior_active_run_id = uuid4()

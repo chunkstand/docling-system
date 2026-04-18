@@ -1872,38 +1872,40 @@ def evaluate_run(
             raise ValueError("Baseline run must belong to the same document as the candidate run.")
 
     evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=None)
-    fixture = fixture_for_document(document, corpus_path)
-    if fixture is None or fixture.kind == AUTO_FIXTURE_KIND:
-        ensure_auto_evaluation_fixture(session, document, run)
-        fixture = fixture_for_document(document, corpus_path)
     now = _utcnow()
-    if fixture is None:
-        evaluation.fixture_name = None
-        evaluation.status = "skipped"
-        evaluation.summary_json = {
-            "status": "skipped",
-            "reason": "No evaluation fixture matches the document source filename.",
-            "query_count": 0,
-            "retrieval_query_count": 0,
-            "answer_query_count": 0,
-            "passed_queries": 0,
-            "failed_queries": 0,
-            "passed_retrieval_queries": 0,
-            "failed_retrieval_queries": 0,
-            "passed_answer_queries": 0,
-            "failed_answer_queries": 0,
-            "regressed_queries": 0,
-            "improved_queries": 0,
-            "stable_queries": 0,
-            "retrieval_rank_metrics": _empty_retrieval_rank_metrics(),
-            "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
-        }
-        evaluation.completed_at = now
-        session.commit()
-        return evaluation
-
-    evaluation.fixture_name = fixture.name
+    fixture = None
     try:
+        fixture = fixture_for_document(document, corpus_path)
+        if fixture is None or fixture.kind == AUTO_FIXTURE_KIND:
+            ensure_auto_evaluation_fixture(session, document, run)
+            fixture = fixture_for_document(document, corpus_path)
+
+        if fixture is None:
+            evaluation.fixture_name = None
+            evaluation.status = "skipped"
+            evaluation.summary_json = {
+                "status": "skipped",
+                "reason": "No evaluation fixture matches the document source filename.",
+                "query_count": 0,
+                "retrieval_query_count": 0,
+                "answer_query_count": 0,
+                "passed_queries": 0,
+                "failed_queries": 0,
+                "passed_retrieval_queries": 0,
+                "failed_retrieval_queries": 0,
+                "passed_answer_queries": 0,
+                "failed_answer_queries": 0,
+                "regressed_queries": 0,
+                "improved_queries": 0,
+                "stable_queries": 0,
+                "retrieval_rank_metrics": _empty_retrieval_rank_metrics(),
+                "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
+            }
+            evaluation.completed_at = now
+            session.commit()
+            return evaluation
+
+        evaluation.fixture_name = fixture.name
         query_count = 0
         retrieval_query_count = 0
         answer_query_count = 0
@@ -2061,13 +2063,16 @@ def evaluate_run(
     except Exception as exc:
         session.rollback()
         evaluation = _upsert_evaluation_row(
-            session, run, corpus_name=corpus_name, fixture_name=fixture.name
+            session,
+            run,
+            corpus_name=corpus_name,
+            fixture_name=getattr(fixture, "name", None),
         )
         evaluation.status = "failed"
         evaluation.error_message = str(exc)
         evaluation.summary_json = {
             "status": "failed",
-            "fixture_name": fixture.name,
+            "fixture_name": getattr(fixture, "name", None),
             "reason": str(exc),
             "query_count": 0,
             "retrieval_query_count": 0,

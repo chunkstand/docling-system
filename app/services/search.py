@@ -1407,7 +1407,11 @@ def _should_run_metadata_supplement(
     strict_keyword_count: int,
     harness_name: str,
 ) -> bool:
-    return query_intent != QUERY_INTENT_TABULAR
+    del strict_keyword_count
+    return harness_name == "prose_v3" and query_intent in {
+        QUERY_INTENT_PROSE_LOOKUP,
+        QUERY_INTENT_PROSE_BROAD,
+    }
 
 
 def _expand_adjacent_chunk_context(
@@ -1740,7 +1744,7 @@ def execute_search(
         keyword_results = _sort_ranked_candidates_by_score(
             keyword_results, score_getter=_keyword_score
         )
-        if metadata_candidates and not prose_v3_query:
+        if metadata_candidates:
             if zero_result_metadata_fallback:
                 keyword_strategy = "metadata_supplement"
             elif keyword_strategy == "strict":

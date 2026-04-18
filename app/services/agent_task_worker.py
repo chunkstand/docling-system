@@ -35,6 +35,9 @@ def get_worker_identity() -> str:
 
 
 logger = get_logger(__name__)
+PROMOTABLE_SIDE_EFFECT_APPLIED_KEY = "_side_effect_status"
+PROMOTABLE_SIDE_EFFECT_APPLIED_VALUE = "applied"
+PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY = "_checkpointed_result"
 
 
 def is_retryable_agent_task_error(exc: Exception) -> bool:
@@ -334,6 +337,34 @@ def _refresh_agent_task_lease(session_factory, task_id: UUID, worker_id: str) ->
         return bool(result.rowcount)
 
 
+def _result_has_applied_promotable_side_effect(result: dict | None) -> bool:
+    return (
+        isinstance(result, dict)
+        and result.get(PROMOTABLE_SIDE_EFFECT_APPLIED_KEY) == PROMOTABLE_SIDE_EFFECT_APPLIED_VALUE
+        and isinstance(result.get(PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY), dict)
+    )
+
+
+def _checkpoint_promotable_task_result(session: Session, task: AgentTask, result: dict) -> dict:
+    checkpoint = {
+        PROMOTABLE_SIDE_EFFECT_APPLIED_KEY: PROMOTABLE_SIDE_EFFECT_APPLIED_VALUE,
+        PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY: dict(result or {}),
+    }
+    task.result_json = checkpoint
+    task.updated_at = _utcnow()
+    session.commit()
+    return dict(result or {})
+
+
+def _strip_promotable_side_effect_marker(result: dict) -> dict:
+    if _result_has_applied_promotable_side_effect(result):
+        return dict(result.get(PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY) or {})
+    sanitized = dict(result or {})
+    sanitized.pop(PROMOTABLE_SIDE_EFFECT_APPLIED_KEY, None)
+    sanitized.pop(PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY, None)
+    return sanitized
+
+
 @contextmanager
 def agent_task_lease_heartbeat(task_id: UUID, *, worker_id: str | None):
     from app.db.session import get_session_factory
@@ -381,12 +412,13 @@ def finalize_agent_task_success(
     storage_service: StorageService | None = None,
 ) -> None:
     now = _utcnow()
+    sanitized_result = _strip_promotable_side_effect_marker(result)
     task.locked_at = None
     task.locked_by = None
     task.last_heartbeat_at = None
     task.next_attempt_at = None
     task.status = AgentTaskStatus.COMPLETED.value
-    task.result_json = result
+    task.result_json = sanitized_result
     task.error_message = None
     task.completed_at = now
     task.updated_at = now
@@ -397,8 +429,8 @@ def finalize_agent_task_success(
     attempt = _current_attempt(session, task)
     if attempt is not None:
         attempt.status = "completed"
-        attempt.result_json = result
-        attempt.cost_json = _derive_attempt_cost(task, result)
+        attempt.result_json = sanitized_result
+        attempt.cost_json = _derive_attempt_cost(task, sanitized_result)
         attempt.performance_json = _derive_attempt_performance(task, attempt, now)
         attempt.error_message = None
         attempt.completed_at = now
@@ -478,8 +510,14 @@ def process_agent_task(
                 task_type=task.task_type,
             )
             heartbeat_agent_task(session, task)
-            active_executor = executor or execute_agent_task_action
-            result = active_executor(session, task)
+            if _result_has_applied_promotable_side_effect(task.result_json):
+                result = _strip_promotable_side_effect_marker(task.result_json or {})
+            else:
+                active_executor = executor or execute_agent_task_action
+                result = active_executor(session, task)
+                if task.side_effect_level == "promotable":
+                    result = _checkpoint_promotable_task_result(session, task, result)
+                    task = session.get(AgentTask, task_id) or task
             heartbeat_agent_task(session, task)
             write_agent_task_context(
                 session,
