@@ -325,36 +325,55 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/runtime/status")
+@app.get(
+    "/runtime/status",
+    dependencies=[Depends(_require_api_capability("system:read"))],
+)
 def runtime_status() -> dict:
     payload = get_runtime_status(process_identity=f"api:{os.getpid()}")
     payload.update(_api_mode_metadata())
     return payload
 
 
-@app.get("/metrics")
+@app.get("/metrics", dependencies=[Depends(_require_api_capability("system:read"))])
 def metrics() -> dict[str, float]:
     return snapshot_metrics()
 
 
-@app.get("/quality/summary", response_model=QualitySummaryResponse)
+@app.get(
+    "/quality/summary",
+    response_model=QualitySummaryResponse,
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_quality_summary(session: Session = Depends(get_db_session)) -> QualitySummaryResponse:
     return get_quality_summary(session)
 
 
-@app.get("/quality/failures", response_model=QualityFailuresResponse)
+@app.get(
+    "/quality/failures",
+    response_model=QualityFailuresResponse,
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_quality_failures(session: Session = Depends(get_db_session)) -> QualityFailuresResponse:
     return get_quality_failures(session)
 
 
-@app.get("/quality/evaluations", response_model=list[QualityEvaluationStatusResponse])
+@app.get(
+    "/quality/evaluations",
+    response_model=list[QualityEvaluationStatusResponse],
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_quality_evaluations(
     session: Session = Depends(get_db_session),
 ) -> list[QualityEvaluationStatusResponse]:
     return list_quality_evaluations(session)
 
 
-@app.get("/quality/eval-candidates", response_model=list[QualityEvaluationCandidateResponse])
+@app.get(
+    "/quality/eval-candidates",
+    response_model=list[QualityEvaluationCandidateResponse],
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_quality_eval_candidates(
     limit: int = 12,
     include_resolved: bool = False,
@@ -367,17 +386,29 @@ def read_quality_eval_candidates(
     )
 
 
-@app.get("/quality/trends", response_model=QualityTrendsResponse)
+@app.get(
+    "/quality/trends",
+    response_model=QualityTrendsResponse,
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTrendsResponse:
     return get_quality_trends(session)
 
 
-@app.get("/agent-tasks/actions", response_model=list[AgentTaskActionDefinitionResponse])
+@app.get(
+    "/agent-tasks/actions",
+    response_model=list[AgentTaskActionDefinitionResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
     return list_agent_task_action_definitions()
 
 
-@app.get("/agent-tasks", response_model=list[AgentTaskSummaryResponse])
+@app.get(
+    "/agent-tasks",
+    response_model=list[AgentTaskSummaryResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_tasks(
     status: list[str] | None = None,
     limit: int = 50,
@@ -410,14 +441,22 @@ def create_agent_task_route(
     return task_response
 
 
-@app.get("/agent-tasks/analytics/summary", response_model=AgentTaskAnalyticsSummaryResponse)
+@app.get(
+    "/agent-tasks/analytics/summary",
+    response_model=AgentTaskAnalyticsSummaryResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_analytics_summary(
     session: Session = Depends(get_db_session),
 ) -> AgentTaskAnalyticsSummaryResponse:
     return get_agent_task_analytics_summary(session)
 
 
-@app.get("/agent-tasks/analytics/trends", response_model=AgentTaskTrendResponse)
+@app.get(
+    "/agent-tasks/analytics/trends",
+    response_model=AgentTaskTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_trends(
     bucket: str = "day",
     task_type: str | None = None,
@@ -435,6 +474,7 @@ def read_agent_task_trends(
 @app.get(
     "/agent-tasks/analytics/verifications",
     response_model=AgentTaskVerificationTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_verification_trends(
     bucket: str = "day",
@@ -450,7 +490,11 @@ def read_agent_task_verification_trends(
     )
 
 
-@app.get("/agent-tasks/analytics/approvals", response_model=AgentTaskApprovalTrendResponse)
+@app.get(
+    "/agent-tasks/analytics/approvals",
+    response_model=AgentTaskApprovalTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_approval_trends(
     bucket: str = "day",
     task_type: str | None = None,
@@ -468,6 +512,7 @@ def read_agent_task_approval_trends(
 @app.get(
     "/agent-tasks/analytics/recommendations",
     response_model=AgentTaskRecommendationSummaryResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_recommendation_summary(
     task_type: str | None = None,
@@ -484,6 +529,7 @@ def read_agent_task_recommendation_summary(
 @app.get(
     "/agent-tasks/analytics/recommendations/trends",
     response_model=AgentTaskRecommendationTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_recommendation_trends(
     bucket: str = "day",
@@ -499,7 +545,11 @@ def read_agent_task_recommendation_trends(
     )
 
 
-@app.get("/agent-tasks/analytics/costs", response_model=AgentTaskCostSummaryResponse)
+@app.get(
+    "/agent-tasks/analytics/costs",
+    response_model=AgentTaskCostSummaryResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_cost_summary(
     task_type: str | None = None,
     workflow_version: str | None = None,
@@ -512,7 +562,11 @@ def read_agent_task_cost_summary(
     )
 
 
-@app.get("/agent-tasks/analytics/costs/trends", response_model=AgentTaskCostTrendResponse)
+@app.get(
+    "/agent-tasks/analytics/costs/trends",
+    response_model=AgentTaskCostTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_cost_trends(
     bucket: str = "day",
     task_type: str | None = None,
@@ -530,6 +584,7 @@ def read_agent_task_cost_trends(
 @app.get(
     "/agent-tasks/analytics/performance",
     response_model=AgentTaskPerformanceSummaryResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_performance_summary(
     task_type: str | None = None,
@@ -546,6 +601,7 @@ def read_agent_task_performance_summary(
 @app.get(
     "/agent-tasks/analytics/performance/trends",
     response_model=AgentTaskPerformanceTrendResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_performance_trends(
     bucket: str = "day",
@@ -564,6 +620,7 @@ def read_agent_task_performance_trends(
 @app.get(
     "/agent-tasks/analytics/value-density",
     response_model=list[AgentTaskValueDensityRowResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_value_density(
     session: Session = Depends(get_db_session),
@@ -574,6 +631,7 @@ def read_agent_task_value_density(
 @app.get(
     "/agent-tasks/analytics/decision-signals",
     response_model=list[AgentTaskDecisionSignalResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_decision_signals(
     session: Session = Depends(get_db_session),
@@ -584,6 +642,7 @@ def read_agent_task_decision_signals(
 @app.get(
     "/agent-tasks/analytics/workflow-versions",
     response_model=list[AgentTaskWorkflowVersionSummaryResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_task_workflow_summaries(
     session: Session = Depends(get_db_session),
@@ -591,7 +650,11 @@ def read_agent_task_workflow_summaries(
     return list_agent_task_workflow_summaries(session)
 
 
-@app.get("/agent-tasks/traces/export", response_model=AgentTaskTraceExportResponse)
+@app.get(
+    "/agent-tasks/traces/export",
+    response_model=AgentTaskTraceExportResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_trace_export(
     limit: int = 50,
     workflow_version: str | None = None,
@@ -606,7 +669,11 @@ def read_agent_task_trace_export(
     )
 
 
-@app.get("/agent-tasks/{task_id}", response_model=AgentTaskDetailResponse)
+@app.get(
+    "/agent-tasks/{task_id}",
+    response_model=AgentTaskDetailResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_detail(
     task_id: UUID,
     session: Session = Depends(get_db_session),
@@ -614,7 +681,11 @@ def read_agent_task_detail(
     return get_agent_task_detail(session, task_id)
 
 
-@app.get("/agent-tasks/{task_id}/context", response_model=TaskContextEnvelope)
+@app.get(
+    "/agent-tasks/{task_id}/context",
+    response_model=TaskContextEnvelope,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_context(
     task_id: UUID,
     format: str = "json",
@@ -637,7 +708,11 @@ def read_agent_task_context(
     )
 
 
-@app.get("/agent-tasks/{task_id}/outcomes", response_model=list[AgentTaskOutcomeResponse])
+@app.get(
+    "/agent-tasks/{task_id}/outcomes",
+    response_model=list[AgentTaskOutcomeResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_outcomes(
     task_id: UUID,
     limit: int = 20,
@@ -662,7 +737,11 @@ def create_agent_task_outcome_route(
     return create_agent_task_outcome(session, task_id, payload)
 
 
-@app.get("/agent-tasks/{task_id}/artifacts", response_model=list[AgentTaskArtifactResponse])
+@app.get(
+    "/agent-tasks/{task_id}/artifacts",
+    response_model=list[AgentTaskArtifactResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_artifacts(
     task_id: UUID,
     limit: int = 20,
@@ -671,7 +750,10 @@ def read_agent_task_artifacts(
     return list_agent_task_artifacts(session, task_id, limit=limit)
 
 
-@app.get("/agent-tasks/{task_id}/artifacts/{artifact_id}")
+@app.get(
+    "/agent-tasks/{task_id}/artifacts/{artifact_id}",
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_artifact(
     task_id: UUID,
     artifact_id: UUID,
@@ -684,7 +766,11 @@ def read_agent_task_artifact(
     return JSONResponse(artifact.payload_json or {})
 
 
-@app.get("/agent-tasks/{task_id}/verifications", response_model=list[AgentTaskVerificationResponse])
+@app.get(
+    "/agent-tasks/{task_id}/verifications",
+    response_model=list[AgentTaskVerificationResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_verifications(
     task_id: UUID,
     limit: int = 20,
@@ -693,7 +779,10 @@ def read_agent_task_verifications(
     return get_agent_task_verifications(session, task_id, limit=limit)
 
 
-@app.get("/agent-tasks/{task_id}/failure-artifact")
+@app.get(
+    "/agent-tasks/{task_id}/failure-artifact",
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
 def read_agent_task_failure_artifact(
     task_id: UUID,
     session: Session = Depends(get_db_session),
@@ -793,7 +882,11 @@ def read_document_run(
     return get_document_run_summary(session, run_id)
 
 
-@app.get("/documents/{document_id}/evaluations/latest", response_model=EvaluationDetailResponse)
+@app.get(
+    "/documents/{document_id}/evaluations/latest",
+    response_model=EvaluationDetailResponse,
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
 def read_latest_document_evaluation(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -801,7 +894,11 @@ def read_latest_document_evaluation(
     return get_latest_document_evaluation_detail(session, document_id)
 
 
-@app.get("/documents/{document_id}/chunks", response_model=list[DocumentChunkResponse])
+@app.get(
+    "/documents/{document_id}/chunks",
+    response_model=list[DocumentChunkResponse],
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_chunks(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -809,7 +906,11 @@ def read_document_chunks(
     return get_active_chunks(session, document_id)
 
 
-@app.get("/documents/{document_id}/tables", response_model=list[DocumentTableSummaryResponse])
+@app.get(
+    "/documents/{document_id}/tables",
+    response_model=list[DocumentTableSummaryResponse],
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_tables(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -817,7 +918,11 @@ def read_document_tables(
     return get_active_tables(session, document_id)
 
 
-@app.get("/documents/{document_id}/tables/{table_id}", response_model=DocumentTableDetailResponse)
+@app.get(
+    "/documents/{document_id}/tables/{table_id}",
+    response_model=DocumentTableDetailResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_table(
     document_id: UUID,
     table_id: UUID,
@@ -826,7 +931,11 @@ def read_document_table(
     return get_active_table_detail(session, document_id, table_id)
 
 
-@app.get("/documents/{document_id}/figures", response_model=list[DocumentFigureSummaryResponse])
+@app.get(
+    "/documents/{document_id}/figures",
+    response_model=list[DocumentFigureSummaryResponse],
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_figures(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -835,7 +944,9 @@ def read_document_figures(
 
 
 @app.get(
-    "/documents/{document_id}/figures/{figure_id}", response_model=DocumentFigureDetailResponse
+    "/documents/{document_id}/figures/{figure_id}",
+    response_model=DocumentFigureDetailResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
 )
 def read_document_figure(
     document_id: UUID,
@@ -867,7 +978,10 @@ def reprocess_existing_document(
     return payload
 
 
-@app.get("/runs/{run_id}/failure-artifact")
+@app.get(
+    "/runs/{run_id}/failure-artifact",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_run_failure_artifact(
     run_id: UUID,
     session: Session = Depends(get_db_session),
@@ -881,7 +995,10 @@ def read_run_failure_artifact(
     )
 
 
-@app.get("/documents/{document_id}/artifacts/json")
+@app.get(
+    "/documents/{document_id}/artifacts/json",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_docling_json_artifact(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -897,7 +1014,10 @@ def read_docling_json_artifact(
     )
 
 
-@app.get("/documents/{document_id}/artifacts/yaml")
+@app.get(
+    "/documents/{document_id}/artifacts/yaml",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_yaml_artifact(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -941,7 +1061,10 @@ def _get_active_figure_row(
     return figure
 
 
-@app.get("/documents/{document_id}/tables/{table_id}/artifacts/json")
+@app.get(
+    "/documents/{document_id}/tables/{table_id}/artifacts/json",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_table_json_artifact(
     document_id: UUID,
     table_id: UUID,
@@ -955,7 +1078,10 @@ def read_table_json_artifact(
     )
 
 
-@app.get("/documents/{document_id}/tables/{table_id}/artifacts/yaml")
+@app.get(
+    "/documents/{document_id}/tables/{table_id}/artifacts/yaml",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_table_yaml_artifact(
     document_id: UUID,
     table_id: UUID,
@@ -969,7 +1095,10 @@ def read_table_yaml_artifact(
     )
 
 
-@app.get("/documents/{document_id}/figures/{figure_id}/artifacts/json")
+@app.get(
+    "/documents/{document_id}/figures/{figure_id}/artifacts/json",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_figure_json_artifact(
     document_id: UUID,
     figure_id: UUID,
@@ -983,7 +1112,10 @@ def read_figure_json_artifact(
     )
 
 
-@app.get("/documents/{document_id}/figures/{figure_id}/artifacts/yaml")
+@app.get(
+    "/documents/{document_id}/figures/{figure_id}/artifacts/yaml",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_figure_yaml_artifact(
     document_id: UUID,
     figure_id: UUID,
@@ -1020,7 +1152,11 @@ def search_corpus(
     return execution.results
 
 
-@app.get("/search/requests/{search_request_id}", response_model=SearchRequestDetailResponse)
+@app.get(
+    "/search/requests/{search_request_id}",
+    response_model=SearchRequestDetailResponse,
+    dependencies=[Depends(_require_api_capability("search:history:read"))],
+)
 def read_search_request(
     search_request_id: UUID,
     session: Session = Depends(get_db_session),
@@ -1063,14 +1199,22 @@ def replay_logged_search(
     return replay
 
 
-@app.get("/search/replays", response_model=list[SearchReplayRunSummaryResponse])
+@app.get(
+    "/search/replays",
+    response_model=list[SearchReplayRunSummaryResponse],
+    dependencies=[Depends(_require_api_capability("search:replay"))],
+)
 def read_search_replays(
     session: Session = Depends(get_db_session),
 ) -> list[SearchReplayRunSummaryResponse]:
     return list_search_replay_runs(session)
 
 
-@app.get("/search/harnesses", response_model=list[SearchHarnessResponse])
+@app.get(
+    "/search/harnesses",
+    response_model=list[SearchHarnessResponse],
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
 def read_search_harnesses() -> list[SearchHarnessResponse]:
     return list_search_harness_definitions()
 
@@ -1119,7 +1263,11 @@ def create_search_replay_run(
     return replay_run
 
 
-@app.get("/search/replays/compare", response_model=SearchReplayComparisonResponse)
+@app.get(
+    "/search/replays/compare",
+    response_model=SearchReplayComparisonResponse,
+    dependencies=[Depends(_require_api_capability("search:replay"))],
+)
 def read_search_replay_comparison(
     baseline_replay_run_id: UUID,
     candidate_replay_run_id: UUID,
@@ -1132,7 +1280,11 @@ def read_search_replay_comparison(
     )
 
 
-@app.get("/search/replays/{replay_run_id}", response_model=SearchReplayRunDetailResponse)
+@app.get(
+    "/search/replays/{replay_run_id}",
+    response_model=SearchReplayRunDetailResponse,
+    dependencies=[Depends(_require_api_capability("search:replay"))],
+)
 def read_search_replay_run(
     replay_run_id: UUID,
     session: Session = Depends(get_db_session),

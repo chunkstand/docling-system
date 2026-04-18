@@ -121,6 +121,54 @@ def test_document_list_route_requires_api_key_in_remote_mode(monkeypatch) -> Non
     assert authorized.json() == []
 
 
+def test_document_chunks_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
+    document_id = uuid4()
+    monkeypatch.setattr("app.api.main.get_active_chunks", lambda session, requested_document_id: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+
+    client = TestClient(app)
+    forbidden = client.get(
+        f"/documents/{document_id}/chunks",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error_code"] == "capability_not_allowed"
+
+
+def test_document_chunks_route_allows_inspect_capability_in_remote_mode(monkeypatch) -> None:
+    document_id = uuid4()
+    monkeypatch.setattr("app.api.main.get_active_chunks", lambda session, requested_document_id: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities="documents:inspect",
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/documents/{document_id}/chunks",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_create_document_route_passes_idempotency_key(monkeypatch) -> None:
     captured: dict = {}
 

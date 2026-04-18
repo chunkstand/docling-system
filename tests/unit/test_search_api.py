@@ -113,6 +113,46 @@ def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
     assert response.json()["search_request_id"] == str(request_id)
 
 
+def test_search_replay_list_route_requires_remote_replay_capability(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.list_search_replay_runs", lambda session: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get("/search/replays", headers={"X-API-Key": "operator-secret"})
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
+
+
+def test_search_replay_list_route_allows_remote_replay_capability(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.list_search_replay_runs", lambda session: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities="search:replay",
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get("/search/replays", headers={"X-API-Key": "operator-secret"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_search_request_replay_route_uses_history_service(monkeypatch) -> None:
     request_id = uuid4()
     replay_id = uuid4()

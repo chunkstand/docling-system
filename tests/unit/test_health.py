@@ -29,7 +29,13 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
         lambda: type(
             "Settings",
             (),
-            {"api_mode": "remote", "api_host": "0.0.0.0", "api_port": 8000, "api_key": "secret"},
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "secret",
+                "remote_api_capabilities": "system:read",
+            },
         )(),
     )
     client = TestClient(app)
@@ -45,6 +51,29 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
     assert response.json()["is_current"] is True
     assert response.json()["api_mode"] == "remote"
     assert response.json()["api_mode_explicit"] is True
+
+
+def test_runtime_status_endpoint_requires_remote_read_capability(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "secret",
+                "remote_api_capabilities": None,
+            },
+        )(),
+    )
+    client = TestClient(app)
+
+    response = client.get("/runtime/status", headers={"X-API-Key": "secret"})
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
 
 
 def test_health_endpoint_remains_public_in_remote_mode(monkeypatch) -> None:

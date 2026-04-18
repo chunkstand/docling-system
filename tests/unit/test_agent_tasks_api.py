@@ -958,9 +958,33 @@ def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> N
 
     client = TestClient(app)
     unauthorized = client.get("/agent-tasks")
-    authorized = client.get("/agent-tasks", headers={"X-API-Key": "operator-secret"})
+    forbidden = client.get("/agent-tasks", headers={"X-API-Key": "operator-secret"})
 
     assert unauthorized.status_code == 401
     assert unauthorized.json()["error_code"] == "auth_required"
-    assert authorized.status_code == 200
-    assert authorized.json() == []
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error_code"] == "capability_not_allowed"
+
+
+def test_agent_task_list_route_allows_remote_read_capability(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "operator-secret",
+                "remote_api_capabilities": "agent_tasks:read",
+            },
+        )(),
+    )
+
+    client = TestClient(app)
+    response = client.get("/agent-tasks", headers={"X-API-Key": "operator-secret"})
+
+    assert response.status_code == 200
+    assert response.json() == []
