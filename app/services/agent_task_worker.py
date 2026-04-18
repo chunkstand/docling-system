@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import json
-import os
-import socket
 import threading
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from uuid import UUID
 
@@ -18,22 +16,14 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
+from app.services.runtime import get_process_identity
 from app.services.storage import StorageService
 
 AgentTaskExecutor = Callable[[Session, AgentTask], dict]
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
-def get_worker_identity() -> str:
-    return f"{socket.gethostname()}:{os.getpid()}"
-
-
 logger = get_logger(__name__)
 PROMOTABLE_SIDE_EFFECT_APPLIED_KEY = "_side_effect_status"
 PROMOTABLE_SIDE_EFFECT_APPLIED_VALUE = "applied"
@@ -84,7 +74,7 @@ def _write_failure_artifact(
         "model_settings": task.model_settings_json,
         "input": task.input_json,
         "result": task.result_json,
-        "created_at": _utcnow().isoformat(),
+        "created_at": utcnow().isoformat(),
     }
     failure_path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str))
     return failure_path
@@ -199,7 +189,7 @@ def unblock_ready_agent_tasks(session: Session) -> int:
             if task.requires_approval and task.approved_at is None
             else AgentTaskStatus.QUEUED.value
         )
-        task.updated_at = _utcnow()
+        task.updated_at = utcnow()
         updated += 1
 
     if updated:
@@ -214,7 +204,7 @@ def requeue_stale_agent_tasks(
     storage_service: StorageService | None = None,
 ) -> int:
     settings = get_settings()
-    stale_before = _utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
+    stale_before = utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
     stale_tasks = session.execute(
         select(AgentTask).where(
             AgentTask.status == AgentTaskStatus.PROCESSING.value,
@@ -228,7 +218,7 @@ def requeue_stale_agent_tasks(
         attempt = _current_attempt(session, task)
         if attempt is not None and attempt.status == "processing":
             attempt.status = "abandoned"
-            attempt.completed_at = _utcnow()
+            attempt.completed_at = utcnow()
             attempt.error_message = attempt.error_message or "Task lease became stale."
 
         task.locked_at = None
@@ -240,10 +230,10 @@ def requeue_stale_agent_tasks(
             "failure_type": "RuntimeError",
             "failure_stage": "stale_lease",
         }
-        task.updated_at = _utcnow()
+        task.updated_at = utcnow()
         if task.attempts >= settings.worker_max_attempts:
             task.status = AgentTaskStatus.FAILED.value
-            task.completed_at = _utcnow()
+            task.completed_at = utcnow()
             failure_path = _write_failure_artifact(
                 storage_service,
                 task,
@@ -253,7 +243,7 @@ def requeue_stale_agent_tasks(
             task.failure_artifact_path = str(failure_path) if failure_path is not None else None
         else:
             task.status = AgentTaskStatus.RETRY_WAIT.value
-            task.next_attempt_at = _utcnow()
+            task.next_attempt_at = utcnow()
         updated += 1
 
     if updated:
@@ -264,7 +254,7 @@ def requeue_stale_agent_tasks(
 
 
 def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
-    now = _utcnow()
+    now = utcnow()
     eligible_query: Select[tuple[AgentTask]] = (
         select(AgentTask)
         .where(
@@ -316,13 +306,13 @@ def claim_next_agent_task(session: Session, worker_id: str) -> AgentTask | None:
 
 
 def heartbeat_agent_task(session: Session, task: AgentTask) -> None:
-    task.last_heartbeat_at = _utcnow()
+    task.last_heartbeat_at = utcnow()
     task.updated_at = task.last_heartbeat_at
     session.commit()
 
 
 def _refresh_agent_task_lease(session_factory, task_id: UUID, worker_id: str) -> bool:
-    now = _utcnow()
+    now = utcnow()
     with session_factory() as heartbeat_session:
         result = heartbeat_session.execute(
             update(AgentTask)
@@ -351,7 +341,7 @@ def _checkpoint_promotable_task_result(session: Session, task: AgentTask, result
         PROMOTABLE_SIDE_EFFECT_CHECKPOINT_KEY: dict(result or {}),
     }
     task.result_json = checkpoint
-    task.updated_at = _utcnow()
+    task.updated_at = utcnow()
     session.commit()
     return dict(result or {})
 
@@ -411,7 +401,7 @@ def finalize_agent_task_success(
     *,
     storage_service: StorageService | None = None,
 ) -> None:
-    now = _utcnow()
+    now = utcnow()
     sanitized_result = _strip_promotable_side_effect_marker(result)
     task.locked_at = None
     task.locked_by = None
@@ -447,7 +437,7 @@ def finalize_agent_task_failure(
     storage_service: StorageService | None = None,
 ) -> None:
     settings = get_settings()
-    now = _utcnow()
+    now = utcnow()
     task.locked_at = None
     task.locked_by = None
     task.last_heartbeat_at = None
@@ -557,7 +547,7 @@ def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> 
     settings = get_settings()
     session_factory = get_session_factory()
     storage_service = StorageService()
-    worker_id = get_worker_identity()
+    worker_id = get_process_identity()
 
     while True:
         with session_factory() as session:

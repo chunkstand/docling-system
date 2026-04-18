@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -11,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
@@ -32,12 +32,6 @@ from app.schemas.agent_tasks import (
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _payload_sha256(payload: dict) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -141,7 +135,7 @@ def _search_replay_run_payload(row: SearchReplayRun) -> dict:
 
 def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
     updated = ref.model_copy(deep=True)
-    updated.checked_at = _utcnow()
+    updated.checked_at = utcnow()
 
     if ref.ref_kind == "task_output":
         if ref.task_id is None:
@@ -327,7 +321,7 @@ def _build_draft_harness_config_context(
     action,
 ) -> TaskContextEnvelope:
     output = DraftHarnessConfigUpdateTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     if output.draft.source_task_id is not None:
@@ -416,7 +410,7 @@ def _build_evaluate_search_harness_context(
     action,
 ) -> TaskContextEnvelope:
     output = EvaluateSearchHarnessTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     for source in output.evaluation.sources:
@@ -497,7 +491,7 @@ def _build_verify_draft_harness_config_context(
     action,
 ) -> TaskContextEnvelope:
     output = VerifyDraftHarnessConfigTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     draft_context = resolve_required_task_output_context(
@@ -614,7 +608,7 @@ def _build_verify_search_harness_evaluation_context(
     action,
 ) -> TaskContextEnvelope:
     output = VerifySearchHarnessEvaluationTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     target_context = resolve_required_dependency_task_output_context(
@@ -716,7 +710,7 @@ def _build_triage_replay_regression_context(
     action,
 ) -> TaskContextEnvelope:
     output = TriageReplayRegressionTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     for source in output.evaluation.sources:
@@ -831,7 +825,7 @@ def _build_apply_harness_config_update_context(
     action,
 ) -> TaskContextEnvelope:
     output = ApplyHarnessConfigUpdateTaskOutput.model_validate(payload)
-    now = _utcnow()
+    now = utcnow()
     refs: list[ContextRef] = []
 
     draft_context = resolve_required_dependency_task_output_context(
@@ -957,7 +951,7 @@ def _build_generic_task_context(
     action,
 ) -> TaskContextEnvelope:
     del session
-    now = _utcnow()
+    now = utcnow()
     return TaskContextEnvelope(
         task_id=task.id,
         task_type=task.task_type,
@@ -1005,7 +999,7 @@ def write_agent_task_context(
         return None
 
     envelope.task_status = "completed"
-    envelope.task_updated_at = _utcnow()
+    envelope.task_updated_at = utcnow()
     payload = envelope.model_dump(mode="json")
     artifact = create_agent_task_artifact(
         session,

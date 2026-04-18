@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -20,15 +21,9 @@ from app.db.models import (
 )
 from app.services.audit import KNOWN_FAILURE_STAGES
 from app.services.storage import StorageService
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def cleanup_staging_files(storage_service: StorageService, older_than_seconds: int = 3600) -> int:
     deleted = 0
-    cutoff = _utcnow() - timedelta(seconds=older_than_seconds)
+    cutoff = utcnow() - timedelta(seconds=older_than_seconds)
     for path in storage_service.staging_root.glob("*"):
         modified_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
         if modified_at < cutoff:
@@ -115,7 +110,7 @@ def cleanup_expired_failed_run_artifacts(
     storage_service: StorageService,
     older_than_days: int = 7,
 ) -> int:
-    cutoff = _utcnow() - timedelta(days=older_than_days)
+    cutoff = utcnow() - timedelta(days=older_than_days)
     failed_runs = (
         session.execute(
             select(DocumentRun).where(

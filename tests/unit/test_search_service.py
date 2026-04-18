@@ -7,6 +7,7 @@ from app.db.models import SearchRequestRecord, SearchRequestResult
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search import (
     RankedResult,
+    _build_query_feature_set,
     _classify_query_intent,
     _is_tabular_query,
     _looks_like_identifier_lookup,
@@ -217,6 +218,27 @@ def test_table_title_match_features_use_table_heading_when_title_is_generic() ->
     )
 
     assert features["title_token_coverage"] > 0.0
+
+
+def test_table_title_match_features_accept_precomputed_query_features() -> None:
+    item = RankedResult(
+        result_type="table",
+        result_id=uuid4(),
+        document_id=uuid4(),
+        run_id=uuid4(),
+        source_filename="doc.pdf",
+        page_from=1,
+        page_to=2,
+        table_title="Table 3",
+        table_heading="Fixture Unit Loading",
+        table_preview="Fixture | Units",
+        row_count=2,
+        col_count=2,
+    )
+
+    features = _table_title_match_features(item, _build_query_feature_set("fixture unit loading"))
+
+    assert features == {"title_exact_match": 1.0, "title_token_coverage": 1.0}
 
 
 def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> None:

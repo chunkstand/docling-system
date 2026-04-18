@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
     openai_chat_model: str = "gpt-4.1-mini"
+    openai_timeout_seconds: float = 30.0
+    openai_max_retries: int = 2
     embedding_dim: int = 1536
     worker_poll_seconds: int = 2
     worker_lease_timeout_seconds: int = 300

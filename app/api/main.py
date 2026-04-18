@@ -570,12 +570,12 @@ def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentS
 
 
 @app.post("/documents", response_model=DocumentUploadResponse)
-async def create_document(
+def create_document(
     response: Response,
     file: UploadFile = File(...),
     session: Session = Depends(get_db_session),
 ) -> DocumentUploadResponse:
-    payload, status_code = await ingest_upload(
+    payload, status_code = ingest_upload(
         session=session,
         upload=file,
         storage_service=get_storage_service(),

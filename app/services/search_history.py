@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import SearchFeedback, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
@@ -22,12 +22,6 @@ from app.schemas.search import (
     SearchScores,
 )
 from app.services.search import execute_search
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _not_found(search_request_id: UUID) -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -204,7 +198,7 @@ def record_search_feedback(
         result_rank=payload.result_rank,
         feedback_type=payload.feedback_type,
         note=payload.note,
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(feedback)
     session.flush()

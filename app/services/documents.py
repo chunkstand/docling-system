@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import default_local_ingest_roots, get_settings
+from app.core.time import utcnow
 from app.db.models import Document, DocumentFigure, DocumentRun, DocumentTable, RunStatus
 from app.schemas.documents import (
     DocumentDetailResponse,
@@ -19,7 +20,11 @@ from app.schemas.documents import (
     DocumentSummaryResponse,
     DocumentUploadResponse,
 )
-from app.services.evaluations import get_latest_document_evaluation, get_latest_evaluation_summary
+from app.services.evaluations import (
+    get_latest_document_evaluation,
+    get_latest_evaluation_summaries,
+    get_latest_evaluation_summary,
+)
 from app.services.storage import StorageService
 
 PDF_MIME_TYPES = {"application/pdf", "application/x-pdf"}
@@ -30,10 +35,11 @@ class ExistingRunSnapshot:
     document: Document
     active_run: DocumentRun | None
     latest_run: DocumentRun | None
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
+def get_document_or_404(session: Session, document_id: UUID) -> Document:
+    document = session.get(Document, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    return document
 
 
 def _is_pdf(upload: UploadFile) -> bool:
@@ -124,6 +130,35 @@ def _get_run(session: Session, run_id: UUID | None) -> DocumentRun | None:
     return session.get(DocumentRun, run_id)
 
 
+def _runs_by_id(
+    session: Session,
+    run_ids: set[UUID],
+) -> dict[UUID, DocumentRun]:
+    if not run_ids:
+        return {}
+    rows = (
+        session.execute(select(DocumentRun).where(DocumentRun.id.in_(run_ids)))
+        .scalars()
+        .all()
+    )
+    return {row.id: row for row in rows}
+
+
+def _run_entity_counts(
+    session: Session,
+    entity,
+    run_ids: set[UUID],
+) -> dict[UUID, int]:
+    if not run_ids:
+        return {}
+    rows = session.execute(
+        select(entity.run_id, func.count().label("entity_count"))
+        .where(entity.run_id.in_(run_ids))
+        .group_by(entity.run_id)
+    ).all()
+    return {run_id: int(count) for run_id, count in rows}
+
+
 def _run_current_stage(run: DocumentRun) -> str:
     if run.status == RunStatus.FAILED.value:
         return run.failure_stage or RunStatus.FAILED.value
@@ -151,7 +186,7 @@ def _run_stage_started_at(run: DocumentRun, current_stage: str) -> datetime | No
 def _run_heartbeat_age_seconds(run: DocumentRun) -> int | None:
     if run.last_heartbeat_at is None:
         return None
-    return max(int((_utcnow() - run.last_heartbeat_at).total_seconds()), 0)
+    return max(int((utcnow() - run.last_heartbeat_at).total_seconds()), 0)
 
 
 def _run_lease_stale(run: DocumentRun) -> bool:
@@ -297,7 +332,7 @@ def _queue_document_run(
         storage_service.delete_file_if_exists(staged_path)
         return _resolve_existing_document_upload(session, existing)
 
-    now = _utcnow()
+    now = utcnow()
     document = Document(
         source_filename=Path(source_filename).name,
         source_path="",
@@ -338,7 +373,7 @@ def _queue_document_run(
     )
 
 
-async def ingest_upload(
+def ingest_upload(
     session: Session,
     upload: UploadFile,
     storage_service: StorageService,
@@ -348,7 +383,7 @@ async def ingest_upload(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF uploads are supported."
         )
 
-    staged_path, sha256 = await storage_service.stage_upload(upload)
+    staged_path, sha256 = storage_service.stage_upload(upload)
 
     try:
         return _queue_document_run(
@@ -394,7 +429,7 @@ def ingest_local_file(
 
 
 def create_run_for_existing_document(session: Session, document: Document) -> DocumentRun:
-    now = _utcnow()
+    now = utcnow()
     run = DocumentRun(
         document_id=document.id,
         run_number=_next_run_number(session, document.id),
@@ -467,30 +502,26 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
         .scalars()
         .all()
     )
+    run_ids = {
+        run_id
+        for document in documents
+        for run_id in (document.active_run_id, document.latest_run_id)
+        if run_id is not None
+    }
+    active_run_ids = {
+        document.active_run_id for document in documents if document.active_run_id is not None
+    }
+    runs_by_id = _runs_by_id(session, run_ids)
+    table_counts_by_run = _run_entity_counts(session, DocumentTable, active_run_ids)
+    figure_counts_by_run = _run_entity_counts(session, DocumentFigure, active_run_ids)
+    evaluation_summaries = get_latest_evaluation_summaries(session, run_ids)
     summaries: list[DocumentSummaryResponse] = []
 
     for document in documents:
-        active_run = _get_run(session, document.active_run_id)
-        latest_run = _get_run(session, document.latest_run_id)
-        table_count = 0
-        figure_count = 0
-        if document.active_run_id is not None:
-            table_count = session.execute(
-                select(func.count())
-                .select_from(DocumentTable)
-                .where(
-                    DocumentTable.document_id == document.id,
-                    DocumentTable.run_id == document.active_run_id,
-                )
-            ).scalar_one()
-            figure_count = session.execute(
-                select(func.count())
-                .select_from(DocumentFigure)
-                .where(
-                    DocumentFigure.document_id == document.id,
-                    DocumentFigure.run_id == document.active_run_id,
-                )
-            ).scalar_one()
+        active_run = runs_by_id.get(document.active_run_id)
+        latest_run = runs_by_id.get(document.latest_run_id)
+        table_count = int(table_counts_by_run.get(document.active_run_id, 0))
+        figure_count = int(figure_counts_by_run.get(document.active_run_id, 0))
 
         summaries.append(
             DocumentSummaryResponse(
@@ -507,7 +538,7 @@ def list_documents(session: Session, limit: int = 50) -> list[DocumentSummaryRes
                 has_table_artifacts=table_count > 0,
                 figure_count=figure_count,
                 has_figure_artifacts=figure_count > 0,
-                latest_evaluation=get_latest_evaluation_summary(session, document.latest_run_id),
+                latest_evaluation=evaluation_summaries.get(document.latest_run_id),
                 updated_at=document.updated_at,
             )
         )

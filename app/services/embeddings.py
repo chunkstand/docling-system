@@ -31,13 +31,21 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         max_input_tokens: int = EMBEDDING_INPUT_TOKEN_LIMIT,
         batch_size: int = EMBEDDING_BATCH_SIZE,
         cache_size: int = EMBEDDING_CACHE_SIZE,
+        timeout_seconds: float = 30.0,
+        max_retries: int = 2,
     ) -> None:
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(
+            api_key=api_key,
+            timeout=timeout_seconds,
+            max_retries=max_retries,
+        )
         self.model = model
         self.embedding_dim = embedding_dim
         self.max_input_tokens = max_input_tokens
         self.batch_size = batch_size
         self.cache_size = cache_size
+        self.timeout_seconds = timeout_seconds
+        self.max_retries = max_retries
         self._cache: OrderedDict[str, list[float]] = OrderedDict()
         self._cache_lock = Lock()
         try:
@@ -127,4 +135,6 @@ def get_embedding_provider() -> EmbeddingProvider:
         api_key=settings.openai_api_key,
         model=settings.openai_embedding_model,
         embedding_dim=settings.embedding_dim,
+        timeout_seconds=settings.openai_timeout_seconds,
+        max_retries=settings.openai_max_retries,
     )

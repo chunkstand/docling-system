@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.files import path_exists
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -80,12 +81,6 @@ def _load_audit_context(session: Session) -> AuditContext:
         figures=session.execute(select(DocumentFigure)).scalars().all(),
         evaluations=session.execute(select(DocumentRunEvaluation)).scalars().all(),
     )
-
-
-def _path_exists(path_value: str | None) -> bool:
-    return bool(path_value and Path(path_value).exists())
-
-
 def _missing_failure_artifact_fields(payload: dict[str, object]) -> list[str]:
     missing: list[str] = []
     for field in sorted(REQUIRED_FAILURE_ARTIFACT_FIELDS):
@@ -199,7 +194,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
 
     for run in runs:
         if run.status == RunStatus.COMPLETED.value:
-            if not run.docling_json_path or not Path(run.docling_json_path).exists():
+            if not path_exists(run.docling_json_path):
                 violations.append(
                     AuditViolation(
                         code="completed_run_missing_json_artifact",
@@ -208,7 +203,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
                         run_id=run.id,
                     )
                 )
-            if not run.yaml_path or not Path(run.yaml_path).exists():
+            if not path_exists(run.yaml_path):
                 violations.append(
                     AuditViolation(
                         code="completed_run_missing_yaml_artifact",
@@ -345,7 +340,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
             )
 
     for table in tables:
-        if getattr(table, "json_path", None) and not _path_exists(table.json_path):
+        if getattr(table, "json_path", None) and not path_exists(table.json_path):
             violations.append(
                 AuditViolation(
                     code="table_missing_json_artifact",
@@ -354,7 +349,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
                     run_id=table.run_id,
                 )
             )
-        if getattr(table, "yaml_path", None) and not _path_exists(table.yaml_path):
+        if getattr(table, "yaml_path", None) and not path_exists(table.yaml_path):
             violations.append(
                 AuditViolation(
                     code="table_missing_yaml_artifact",
@@ -365,7 +360,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
             )
 
     for figure in figures:
-        if getattr(figure, "json_path", None) and not _path_exists(figure.json_path):
+        if getattr(figure, "json_path", None) and not path_exists(figure.json_path):
             violations.append(
                 AuditViolation(
                     code="figure_missing_json_artifact",
@@ -374,7 +369,7 @@ def build_integrity_audit(context: AuditContext) -> dict[str, object]:
                     run_id=figure.run_id,
                 )
             )
-        if getattr(figure, "yaml_path", None) and not _path_exists(figure.yaml_path):
+        if getattr(figure, "yaml_path", None) and not path_exists(figure.yaml_path):
             violations.append(
                 AuditViolation(
                     code="figure_missing_yaml_artifact",

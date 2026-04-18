@@ -4,22 +4,19 @@ import fcntl
 import hashlib
 import json
 import os
+import socket
 import tempfile
 from dataclasses import asdict, dataclass
-from datetime import UTC, datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from app.core.config import get_settings
+from app.core.time import utcnow
 
 _RUNTIME_SOURCE_SUFFIXES = {".py", ".toml", ".yaml", ".yml"}
 _RUNTIME_SOURCE_DIRS = ("app", "config")
 _RUNTIME_SOURCE_FILES = ("pyproject.toml",)
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 def _repo_root() -> Path:
@@ -38,6 +35,10 @@ def _runtime_registry_path() -> Path:
 
 def _runtime_lock_path() -> Path:
     return _runtime_dir() / "process_registry.lock"
+
+
+def get_process_identity() -> str:
+    return f"{socket.gethostname()}:{os.getpid()}"
 
 
 def _iter_runtime_source_paths() -> list[Path]:
@@ -70,7 +71,9 @@ def get_startup_code_fingerprint() -> str:
         relative = path.relative_to(root)
         digest.update(str(relative).encode("utf-8"))
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        with path.open("rb") as source_file:
+            while chunk := source_file.read(1024 * 1024):
+                digest.update(chunk)
         digest.update(b"\0")
     return digest.hexdigest()
 
@@ -129,7 +132,7 @@ def register_runtime_process(
 ) -> RuntimeProcessRegistration:
     registry_path = _runtime_registry_path()
     startup_code_fingerprint = get_startup_code_fingerprint()
-    registered_at = _utcnow().isoformat()
+    registered_at = utcnow().isoformat()
     process_pid = pid or os.getpid()
 
     lock_handle = _with_runtime_registry_lock()

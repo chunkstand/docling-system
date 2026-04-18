@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
@@ -60,12 +61,6 @@ from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _initial_task_status(*, requires_approval: bool, has_incomplete_dependencies: bool) -> str:
     if has_incomplete_dependencies:
         return AgentTaskStatus.BLOCKED.value
@@ -300,7 +295,7 @@ def _augment_dependency_kinds_for_action(
 def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
     from app.services.agent_task_actions import get_agent_task_action, validate_agent_task_input
 
-    now = _utcnow()
+    now = utcnow()
     dependency_task_ids = list(dict.fromkeys(payload.dependency_task_ids))
     if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
         raise HTTPException(
@@ -489,7 +484,7 @@ def create_agent_task_outcome(
         outcome_label=payload.outcome_label,
         created_by=payload.created_by,
         note=payload.note,
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(row)
     session.flush()
@@ -513,13 +508,6 @@ def _average_terminal_duration_seconds(tasks: list[AgentTask]) -> float | None:
     if not durations:
         return None
     return sum(durations) / len(durations)
-
-
-def _task_duration_ms(started_at: datetime | None, completed_at: datetime | None) -> float | None:
-    if started_at is None or completed_at is None:
-        return None
-    return max(0.0, (completed_at - started_at).total_seconds() * 1000.0)
-
 
 def _percentile(values: list[float], percentile: float) -> float | None:
     if not values:
@@ -847,86 +835,185 @@ def _performance_summary_from_attempts(
 
 
 def get_agent_task_analytics_summary(session: Session) -> AgentTaskAnalyticsSummaryResponse:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
-    verifications = session.execute(select(AgentTaskVerification)).scalars().all()
-
-    status_counts = Counter(task.status for task in tasks)
-    outcome_counts = Counter(row.outcome_label for row in outcomes)
-    verification_counts = Counter(row.outcome for row in verifications)
+    status_counts = {
+        status: int(count)
+        for status, count in session.execute(
+            select(AgentTask.status, func.count().label("task_count")).group_by(AgentTask.status)
+        ).all()
+    }
+    outcome_counts = {
+        label: int(count)
+        for label, count in session.execute(
+            select(AgentTaskOutcome.outcome_label, func.count().label("outcome_count")).group_by(
+                AgentTaskOutcome.outcome_label
+            )
+        ).all()
+    }
+    verification_counts = {
+        outcome: int(count)
+        for outcome, count in session.execute(
+            select(
+                AgentTaskVerification.outcome,
+                func.count().label("verification_count"),
+            ).group_by(AgentTaskVerification.outcome)
+        ).all()
+    }
+    task_count = sum(status_counts.values())
+    approval_required_count = session.execute(
+        select(func.count()).select_from(AgentTask).where(AgentTask.requires_approval.is_(True))
+    ).scalar_one()
+    approved_task_count = session.execute(
+        select(func.count()).select_from(AgentTask).where(AgentTask.approved_at.is_not(None))
+    ).scalar_one()
+    rejected_task_count = session.execute(
+        select(func.count()).select_from(AgentTask).where(AgentTask.rejected_at.is_not(None))
+    ).scalar_one()
+    labeled_task_count = session.execute(
+        select(func.count(func.distinct(AgentTaskOutcome.task_id))).select_from(AgentTaskOutcome)
+    ).scalar_one()
+    terminal_durations = session.execute(
+        select(AgentTask.started_at, AgentTask.completed_at).where(
+            AgentTask.status.in_(
+                (
+                    AgentTaskStatus.COMPLETED.value,
+                    AgentTaskStatus.FAILED.value,
+                    AgentTaskStatus.REJECTED.value,
+                )
+            ),
+            AgentTask.started_at.is_not(None),
+            AgentTask.completed_at.is_not(None),
+        )
+    ).all()
+    avg_terminal_duration_seconds = None
+    if terminal_durations:
+        avg_terminal_duration_seconds = sum(
+            max(0.0, (completed_at - started_at).total_seconds())
+            for started_at, completed_at in terminal_durations
+        ) / len(terminal_durations)
 
     return AgentTaskAnalyticsSummaryResponse(
-        task_count=len(tasks),
+        task_count=task_count,
         completed_count=status_counts.get(AgentTaskStatus.COMPLETED.value, 0),
         failed_count=status_counts.get(AgentTaskStatus.FAILED.value, 0),
         rejected_count=status_counts.get(AgentTaskStatus.REJECTED.value, 0),
         awaiting_approval_count=status_counts.get(AgentTaskStatus.AWAITING_APPROVAL.value, 0),
         processing_count=status_counts.get(AgentTaskStatus.PROCESSING.value, 0),
-        approval_required_count=sum(1 for task in tasks if task.requires_approval),
-        approved_task_count=sum(1 for task in tasks if task.approved_at is not None),
-        rejected_task_count=sum(1 for task in tasks if task.rejected_at is not None),
-        labeled_task_count=len({row.task_id for row in outcomes}),
+        approval_required_count=approval_required_count,
+        approved_task_count=approved_task_count,
+        rejected_task_count=rejected_task_count,
+        labeled_task_count=labeled_task_count,
         outcome_label_counts=dict(outcome_counts),
         verification_outcome_counts=dict(verification_counts),
-        avg_terminal_duration_seconds=_average_terminal_duration_seconds(tasks),
+        avg_terminal_duration_seconds=avg_terminal_duration_seconds,
     )
 
 
 def list_agent_task_workflow_summaries(
     session: Session,
 ) -> list[AgentTaskWorkflowVersionSummaryResponse]:
-    tasks = (
-        session.execute(select(AgentTask).order_by(AgentTask.workflow_version.asc()))
-        .scalars()
-        .all()
-    )
-    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
-    verifications = session.execute(select(AgentTaskVerification)).scalars().all()
-
-    tasks_by_version: dict[str, list[AgentTask]] = defaultdict(list)
-    task_by_id = {}
-    for task in tasks:
-        tasks_by_version[task.workflow_version].append(task)
-        task_by_id[task.id] = task
-
-    outcomes_by_version: dict[str, list[AgentTaskOutcome]] = defaultdict(list)
-    for row in outcomes:
-        task = task_by_id.get(row.task_id)
-        if task is not None:
-            outcomes_by_version[task.workflow_version].append(row)
-
-    verifications_by_version: dict[str, list[AgentTaskVerification]] = defaultdict(list)
-    for row in verifications:
-        task = task_by_id.get(row.target_task_id)
-        if task is not None:
-            verifications_by_version[task.workflow_version].append(row)
-
-    summaries: list[AgentTaskWorkflowVersionSummaryResponse] = []
-    for workflow_version, version_tasks in sorted(tasks_by_version.items()):
-        status_counts = Counter(task.status for task in version_tasks)
-        outcome_counts = Counter(row.outcome_label for row in outcomes_by_version[workflow_version])
-        verification_counts = Counter(
-            row.outcome for row in verifications_by_version[workflow_version]
+    status_rows = session.execute(
+        select(
+            AgentTask.workflow_version,
+            AgentTask.status,
+            func.count().label("task_count"),
+        ).group_by(AgentTask.workflow_version, AgentTask.status)
+    ).all()
+    approved_rows = session.execute(
+        select(AgentTask.workflow_version, func.count().label("task_count"))
+        .where(AgentTask.approved_at.is_not(None))
+        .group_by(AgentTask.workflow_version)
+    ).all()
+    rejected_rows = session.execute(
+        select(AgentTask.workflow_version, func.count().label("task_count"))
+        .where(AgentTask.rejected_at.is_not(None))
+        .group_by(AgentTask.workflow_version)
+    ).all()
+    labeled_rows = session.execute(
+        select(
+            AgentTask.workflow_version,
+            func.count(func.distinct(AgentTaskOutcome.task_id)).label("task_count"),
         )
+        .join(AgentTask, AgentTask.id == AgentTaskOutcome.task_id)
+        .group_by(AgentTask.workflow_version)
+    ).all()
+    outcome_rows = session.execute(
+        select(
+            AgentTask.workflow_version,
+            AgentTaskOutcome.outcome_label,
+            func.count().label("outcome_count"),
+        )
+        .join(AgentTask, AgentTask.id == AgentTaskOutcome.task_id)
+        .group_by(AgentTask.workflow_version, AgentTaskOutcome.outcome_label)
+    ).all()
+    verification_rows = session.execute(
+        select(
+            AgentTask.workflow_version,
+            AgentTaskVerification.outcome,
+            func.count().label("verification_count"),
+        )
+        .join(AgentTask, AgentTask.id == AgentTaskVerification.target_task_id)
+        .group_by(AgentTask.workflow_version, AgentTaskVerification.outcome)
+    ).all()
+    duration_rows = session.execute(
+        select(
+            AgentTask.workflow_version,
+            AgentTask.started_at,
+            AgentTask.completed_at,
+        ).where(
+            AgentTask.status.in_(
+                (
+                    AgentTaskStatus.COMPLETED.value,
+                    AgentTaskStatus.FAILED.value,
+                    AgentTaskStatus.REJECTED.value,
+                )
+            ),
+            AgentTask.started_at.is_not(None),
+            AgentTask.completed_at.is_not(None),
+        )
+    ).all()
+
+    status_counts_by_version: dict[str, Counter[str]] = defaultdict(Counter)
+    for workflow_version, status, count in status_rows:
+        status_counts_by_version[workflow_version][status] = int(count)
+
+    approved_by_version = {workflow_version: int(count) for workflow_version, count in approved_rows}
+    rejected_by_version = {workflow_version: int(count) for workflow_version, count in rejected_rows}
+    labeled_by_version = {workflow_version: int(count) for workflow_version, count in labeled_rows}
+    outcome_counts_by_version: dict[str, Counter[str]] = defaultdict(Counter)
+    for workflow_version, outcome_label, count in outcome_rows:
+        outcome_counts_by_version[workflow_version][outcome_label] = int(count)
+    verification_counts_by_version: dict[str, Counter[str]] = defaultdict(Counter)
+    for workflow_version, outcome, count in verification_rows:
+        verification_counts_by_version[workflow_version][outcome] = int(count)
+    durations_by_version: dict[str, list[float]] = defaultdict(list)
+    for workflow_version, started_at, completed_at in duration_rows:
+        durations_by_version[workflow_version].append(
+            max(0.0, (completed_at - started_at).total_seconds())
+        )
+
+    workflow_versions = {
+        workflow_version
+        for workflow_version, *_rest in status_rows
+    }
+    summaries: list[AgentTaskWorkflowVersionSummaryResponse] = []
+    for workflow_version in sorted(workflow_versions):
+        status_counts = status_counts_by_version[workflow_version]
+        durations = durations_by_version.get(workflow_version, [])
         summaries.append(
             AgentTaskWorkflowVersionSummaryResponse(
                 workflow_version=workflow_version,
-                task_count=len(version_tasks),
+                task_count=sum(status_counts.values()),
                 completed_count=status_counts.get(AgentTaskStatus.COMPLETED.value, 0),
                 failed_count=status_counts.get(AgentTaskStatus.FAILED.value, 0),
                 rejected_count=status_counts.get(AgentTaskStatus.REJECTED.value, 0),
-                approved_task_count=sum(
-                    1 for task in version_tasks if task.approved_at is not None
+                approved_task_count=approved_by_version.get(workflow_version, 0),
+                rejected_task_count=rejected_by_version.get(workflow_version, 0),
+                labeled_task_count=labeled_by_version.get(workflow_version, 0),
+                outcome_label_counts=dict(outcome_counts_by_version[workflow_version]),
+                verification_outcome_counts=dict(verification_counts_by_version[workflow_version]),
+                avg_terminal_duration_seconds=(
+                    sum(durations) / len(durations) if durations else None
                 ),
-                rejected_task_count=sum(
-                    1 for task in version_tasks if task.rejected_at is not None
-                ),
-                labeled_task_count=len(
-                    {row.task_id for row in outcomes_by_version[workflow_version]}
-                ),
-                outcome_label_counts=dict(outcome_counts),
-                verification_outcome_counts=dict(verification_counts),
-                avg_terminal_duration_seconds=_average_terminal_duration_seconds(version_tasks),
             )
         )
     summaries.sort(key=lambda row: (-row.task_count, row.workflow_version))
@@ -1456,7 +1543,7 @@ def approve_agent_task(
             detail="Completed or failed tasks cannot be approved.",
         )
 
-    now = _utcnow()
+    now = utcnow()
     task.approved_at = now
     task.approved_by = payload.approved_by
     task.approval_note = payload.approval_note
@@ -1505,7 +1592,7 @@ def reject_agent_task(
             detail="Only pending approval tasks can be rejected.",
         )
 
-    now = _utcnow()
+    now = utcnow()
     task.status = AgentTaskStatus.REJECTED.value
     task.rejected_at = now
     task.rejected_by = payload.rejected_by

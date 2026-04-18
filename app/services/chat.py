@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from functools import lru_cache
 from uuid import UUID
 
@@ -12,6 +11,8 @@ from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.text import collapse_whitespace
+from app.core.time import utcnow
 from app.core.logging import get_logger
 from app.db.models import ChatAnswerFeedback, ChatAnswerRecord
 from app.schemas.chat import (
@@ -70,12 +71,6 @@ QUESTION_STOPWORDS = {
 }
 
 logger = get_logger(__name__)
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _page_label(page_from: int | None, page_to: int | None) -> str:
     if page_from is None and page_to is None:
         return "unknown pages"
@@ -86,20 +81,16 @@ def _page_label(page_from: int | None, page_to: int | None) -> str:
     return f"pages {page_from}-{page_to}"
 
 
-def _collapse_whitespace(value: str | None) -> str:
-    return " ".join((value or "").split()).strip()
-
-
 def _result_label(result: SearchResult) -> str:
     if result.result_type == "table":
         return (
-            _collapse_whitespace(result.table_title)
-            or _collapse_whitespace(result.table_heading)
+            collapse_whitespace(result.table_title)
+            or collapse_whitespace(result.table_heading)
             or f"Table on {_page_label(result.page_from, result.page_to)}"
         )
-    excerpt = _collapse_whitespace(result.chunk_text)
+    excerpt = collapse_whitespace(result.chunk_text)
     return (
-        _collapse_whitespace(result.heading)
+        collapse_whitespace(result.heading)
         or excerpt[:80].rstrip(" .,;:")
         or f"Chunk on {_page_label(result.page_from, result.page_to)}"
     )
@@ -107,7 +98,7 @@ def _result_label(result: SearchResult) -> str:
 
 def _result_excerpt(result: SearchResult) -> str:
     source_text = result.table_preview if result.result_type == "table" else result.chunk_text
-    excerpt = _collapse_whitespace(source_text)
+    excerpt = collapse_whitespace(source_text)
     if len(excerpt) <= MAX_CONTEXT_EXCERPT_CHARS:
         return excerpt
     return f"{excerpt[: MAX_CONTEXT_EXCERPT_CHARS - 3].rstrip()}..."
@@ -127,8 +118,19 @@ class AnswerGenerator:
 
 
 class OpenAIAnswerGenerator(AnswerGenerator):
-    def __init__(self, api_key: str, model: str) -> None:
-        self.client = OpenAI(api_key=api_key)
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        *,
+        timeout_seconds: float,
+        max_retries: int,
+    ) -> None:
+        self.client = OpenAI(
+            api_key=api_key,
+            timeout=timeout_seconds,
+            max_retries=max_retries,
+        )
         self.model = model
 
     def generate_answer(self, *, question: str, contexts: list[AnswerContext]) -> str:
@@ -182,6 +184,8 @@ def get_answer_generator() -> AnswerGenerator | None:
     return OpenAIAnswerGenerator(
         api_key=settings.openai_api_key,
         model=settings.openai_chat_model,
+        timeout_seconds=settings.openai_timeout_seconds,
+        max_retries=settings.openai_max_retries,
     )
 
 
@@ -246,13 +250,13 @@ def _missing_qualified_date_phrases(
     question: str, citations: list[ChatCitation]
 ) -> list[str]:
     citation_text = " ".join(
-        _collapse_whitespace(f"{citation.label} {citation.excerpt}").lower()
+        collapse_whitespace(f"{citation.label} {citation.excerpt}").lower()
         for citation in citations
     )
     missing: list[str] = []
     seen: set[str] = set()
     for match in QUALIFIED_DATE_PHRASE_PATTERN.finditer(question):
-        tokens = _collapse_whitespace(match.group(1)).lower().split()
+        tokens = collapse_whitespace(match.group(1)).lower().split()
         while len(tokens) > 2 and tokens[0] in QUESTION_STOPWORDS:
             tokens.pop(0)
         phrase = " ".join(tokens)
@@ -482,7 +486,7 @@ def _persist_chat_answer(
         reranker_name=response.reranker_name or "unknown",
         reranker_version=response.reranker_version or "unknown",
         retrieval_profile_name=response.retrieval_profile_name or "unknown",
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(answer_row)
     session.flush()
@@ -510,7 +514,7 @@ def record_chat_answer_feedback(
         chat_answer_id=answer_row.id,
         feedback_type=payload.feedback_type,
         note=payload.note,
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(feedback)
     session.flush()

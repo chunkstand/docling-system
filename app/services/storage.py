@@ -23,17 +23,17 @@ class StorageService:
         self.runs_root.mkdir(parents=True, exist_ok=True)
         self.staging_root.mkdir(parents=True, exist_ok=True)
 
-    async def stage_upload(self, upload: UploadFile) -> tuple[Path, str]:
+    def stage_upload(self, upload: UploadFile) -> tuple[Path, str]:
         suffix = Path(upload.filename or "upload.pdf").suffix or ".pdf"
         hasher = hashlib.sha256()
 
         with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
-            while chunk := await upload.read(1024 * 1024):
+            while chunk := upload.file.read(1024 * 1024):
                 temp_file.write(chunk)
                 hasher.update(chunk)
             staged_path = Path(temp_file.name)
 
-        await upload.close()
+        upload.file.close()
         return staged_path, hasher.hexdigest()
 
     def stage_local_file(self, source_path: Path) -> tuple[Path, str]:

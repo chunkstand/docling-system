@@ -6,19 +6,13 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentFigure
+from app.db.models import DocumentFigure
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
-
-
-def _get_active_document(session: Session, document_id: UUID) -> Document:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    return document
+from app.services.documents import get_document_or_404
 
 
 def get_active_figures(session: Session, document_id: UUID) -> list[DocumentFigureSummaryResponse]:
-    document = _get_active_document(session, document_id)
+    document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
         return []
 
@@ -52,7 +46,7 @@ def get_active_figures(session: Session, document_id: UUID) -> list[DocumentFigu
 def get_active_figure_detail(
     session: Session, document_id: UUID, figure_id: UUID
 ) -> DocumentFigureDetailResponse:
-    document = _get_active_document(session, document_id)
+    document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Figure not found.")
 

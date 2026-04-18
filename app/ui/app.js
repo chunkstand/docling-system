@@ -17,6 +17,8 @@ const harnessCopy = {
     reason: "Agents use it when regressions look like context loss or cross-document prose ranking issues.",
   },
 };
+const DEFAULT_HARNESS_NAME = "default_v1";
+let harnessCatalogPromise = null;
 
 function byId(id) {
   return document.getElementById(id);
@@ -88,6 +90,17 @@ async function fetchMaybe(url) {
   } catch (_error) {
     return null;
   }
+}
+
+async function getHarnessCatalog() {
+  if (!harnessCatalogPromise) {
+    harnessCatalogPromise = fetchMaybe("/search/harnesses").then((rows) => rows || []);
+  }
+  return harnessCatalogPromise;
+}
+
+function getDefaultHarnessName(harnesses) {
+  return harnesses.find((row) => row.is_default)?.harness_name || DEFAULT_HARNESS_NAME;
 }
 
 function setText(id, value) {
@@ -325,11 +338,11 @@ async function loadLandingPage(context) {
 
 async function loadSearchPage(context) {
   const [harnesses, metrics] = await Promise.all([
-    fetchMaybe("/search/harnesses"),
+    getHarnessCatalog(),
     fetchMaybe("/metrics"),
   ]);
 
-  const defaultHarness = (harnesses || []).find((row) => row.is_default)?.harness_name || "default_v1";
+  const defaultHarness = getDefaultHarnessName(harnesses);
   setText("search-default-harness", defaultHarness);
   setText(
     "search-table-hit-rate",
@@ -338,7 +351,7 @@ async function loadSearchPage(context) {
 
   populateSelect(
     byId("search-harness"),
-    harnesses || [],
+    harnesses,
     (row) =>
       `<option value="${escapeHtml(row.harness_name)}">${escapeHtml(row.harness_name)}</option>`,
     "No harnesses available",
@@ -356,7 +369,7 @@ async function loadSearchPage(context) {
       )}</option>`,
     "Whole validated corpus",
   );
-  renderHarnessCards(byId("search-harness-list"), harnesses || [], true);
+  renderHarnessCards(byId("search-harness-list"), harnesses, true);
 
   const form = byId("search-form");
   form?.addEventListener("submit", async (event) => {
@@ -588,7 +601,7 @@ async function loadEvalsPage(context) {
       fetchMaybe("/quality/trends"),
       fetchMaybe("/agent-tasks/analytics/verifications"),
       fetchMaybe("/agent-tasks/analytics/decision-signals"),
-      fetchMaybe("/search/harnesses"),
+      getHarnessCatalog(),
     ]);
 
   setText(
@@ -610,25 +623,25 @@ async function loadEvalsPage(context) {
 
   populateSelect(
     byId("harness-eval-baseline"),
-    harnesses || [],
+    harnesses,
     (row) => `<option value="${escapeHtml(row.harness_name)}">${escapeHtml(row.harness_name)}</option>`,
     "No harnesses available",
   );
   populateSelect(
     byId("harness-eval-candidate"),
-    harnesses || [],
+    harnesses,
     (row) => `<option value="${escapeHtml(row.harness_name)}">${escapeHtml(row.harness_name)}</option>`,
     "No harnesses available",
   );
   const baselineSelect = byId("harness-eval-baseline");
   const candidateSelect = byId("harness-eval-candidate");
-  const defaultHarness = (harnesses || []).find((row) => row.is_default)?.harness_name || "default_v1";
+  const defaultHarness = getDefaultHarnessName(harnesses);
   if (baselineSelect) {
     baselineSelect.value = defaultHarness;
   }
   if (candidateSelect) {
     const candidateHarness =
-      (harnesses || []).find((row) => row.harness_name !== defaultHarness)?.harness_name ||
+      harnesses.find((row) => row.harness_name !== defaultHarness)?.harness_name ||
       defaultHarness;
     candidateSelect.value = candidateHarness;
   }
@@ -672,7 +685,7 @@ async function loadAgentsPage() {
       fetchMaybe("/agent-tasks/analytics/recommendations"),
       fetchMaybe("/agent-tasks/analytics/decision-signals"),
       fetchMaybe("/agent-tasks/analytics/value-density"),
-      fetchMaybe("/search/harnesses"),
+      getHarnessCatalog(),
     ]);
 
   setText("agent-active-count", formatInteger(activeTasks?.length || 0));
@@ -685,7 +698,7 @@ async function loadAgentsPage() {
   renderActiveTasks(byId("active-agent-tasks"), activeTasks || []);
   renderDecisionSignals(byId("agent-decision-signals"), decisionSignals || []);
   renderValueDensity(byId("agent-value-density"), valueDensity || []);
-  renderHarnessCards(byId("agent-harnesses"), harnesses || [], false);
+  renderHarnessCards(byId("agent-harnesses"), harnesses, false);
 }
 
 async function init() {

@@ -3,15 +3,17 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
 import yaml
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, aliased
 
 from app.core.config import get_settings
+from app.core.files import path_exists, source_filename_matches
+from app.core.text import collapse_whitespace
+from app.core.time import utcnow
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -172,10 +174,6 @@ class EvaluationThresholds:
     enforce_unexpected_merged_tables: bool = False
 
 
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _auto_corpus_path() -> Path:
     return get_settings().storage_root.resolve() / AUTO_CORPUS_FILENAME
 
@@ -238,19 +236,6 @@ def _top_result_details(results: list[SearchResult], limit: int = 3) -> list[dic
     ]
 
 
-def _normalized_source_filename(value: str | None) -> str | None:
-    if not value:
-        return None
-    return Path(value).name.lower()
-
-
-def _source_filename_matches(actual: str | None, expected: str | None) -> bool:
-    normalized_expected = _normalized_source_filename(expected)
-    if normalized_expected is None:
-        return True
-    return _normalized_source_filename(actual) == normalized_expected
-
-
 def _matching_rank(
     results: list[SearchResult],
     expected_result_type: str,
@@ -258,7 +243,7 @@ def _matching_rank(
     expected_source_filename: str | None = None,
 ) -> int | None:
     for idx, result in enumerate(results, start=1):
-        if result.result_type == expected_result_type and _source_filename_matches(
+        if result.result_type == expected_result_type and source_filename_matches(
             result.source_filename, expected_source_filename
         ):
             return idx
@@ -277,7 +262,7 @@ def _result_matches_expected(
     *,
     expected_source_filename: str | None = None,
 ) -> bool:
-    return result.result_type == expected_result_type and _source_filename_matches(
+    return result.result_type == expected_result_type and source_filename_matches(
         result.source_filename, expected_source_filename
     )
 
@@ -441,12 +426,8 @@ def fixture_for_document(
     return None
 
 
-def _collapse_whitespace(value: str | None) -> str:
-    return " ".join((value or "").split()).strip()
-
-
 def _first_sentence(value: str | None) -> str:
-    collapsed = _collapse_whitespace(value)
+    collapsed = collapse_whitespace(value)
     if not collapsed:
         return ""
     return re.split(r"(?<=[.!?])\s+", collapsed, maxsplit=1)[0]
@@ -474,7 +455,7 @@ def _normalize_query_candidate(
     strip_table_prefix: bool = False,
     max_words: int = AUTO_QUERY_MAX_WORDS,
 ) -> str | None:
-    text = _collapse_whitespace(value)
+    text = collapse_whitespace(value)
     if not text:
         return None
     if strip_table_prefix:
@@ -497,7 +478,7 @@ def _normalize_query_candidate(
 
 
 def _is_low_signal_chunk_query(query: str) -> bool:
-    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    normalized = collapse_whitespace(query).strip(" .,:;|-")
     if any(pattern.match(normalized) for pattern in LOW_SIGNAL_CHUNK_QUERY_PATTERNS):
         return True
 
@@ -511,12 +492,12 @@ def _is_low_signal_chunk_query(query: str) -> bool:
 
 
 def _is_section_heading_query(query: str) -> bool:
-    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    normalized = collapse_whitespace(query).strip(" .,:;|-")
     return bool(SECTION_HEADING_QUERY_PATTERN.match(normalized))
 
 
 def _is_low_signal_table_query(query: str) -> bool:
-    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    normalized = collapse_whitespace(query).strip(" .,:;|-")
     if any(pattern.match(normalized) for pattern in LOW_SIGNAL_TABLE_QUERY_PATTERNS):
         return True
     if "|" not in normalized:
@@ -529,13 +510,15 @@ def _is_low_signal_table_query(query: str) -> bool:
         return True
 
     lowered_cells = [cell.lower() for cell in cells]
-    if lowered_cells[0].startswith("contents") and any("page" in cell for cell in lowered_cells[1:]):
+    if lowered_cells[0].startswith("contents") and any(
+        "page" in cell for cell in lowered_cells[1:]
+    ):
         return True
     return len(set(lowered_cells[: min(3, len(lowered_cells))])) < min(3, len(lowered_cells))
 
 
 def _is_weak_table_text_fallback(query: str) -> bool:
-    normalized = _collapse_whitespace(query).strip(" .,:;|-")
+    normalized = collapse_whitespace(query).strip(" .,:;|-")
     if not normalized:
         return True
     if "|" in normalized:
@@ -548,7 +531,7 @@ def _is_weak_table_text_fallback(query: str) -> bool:
 
 
 def _pipe_cell_query_candidate(value: str | None) -> str | None:
-    text = _collapse_whitespace(value)
+    text = collapse_whitespace(value)
     if not text or "|" not in text:
         return None
 
@@ -1010,7 +993,7 @@ def _upsert_evaluation_row(
         eval_version=EVAL_VERSION,
         status="pending",
         summary_json={},
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(evaluation)
     session.flush()
@@ -1088,10 +1071,6 @@ def _table_matches_merge_expectation(
     return True
 
 
-def _artifact_present(path_value: str | None) -> bool:
-    return bool(path_value and Path(path_value).exists())
-
-
 def _answer_excerpt(answer_text: str, limit: int = 180) -> str:
     normalized = " ".join(answer_text.split()).strip()
     if len(normalized) <= limit:
@@ -1120,7 +1099,7 @@ def _top_n_source_hit_count(
     return sum(
         1
         for result in results[:top_n]
-        if _source_filename_matches(result.source_filename, expected_source_filename)
+        if source_filename_matches(result.source_filename, expected_source_filename)
     )
 
 
@@ -1140,7 +1119,7 @@ def _foreign_results_before_first_expected_hit(
     return sum(
         1
         for result in results[: rank - 1]
-        if not _source_filename_matches(result.source_filename, expected_source_filename)
+        if not source_filename_matches(result.source_filename, expected_source_filename)
     )
 
 
@@ -1177,7 +1156,7 @@ def _has_foreign_top_result(
 ) -> bool:
     if not results or expected_source_filename is None:
         return False
-    return not _source_filename_matches(results[0].source_filename, expected_source_filename)
+    return not source_filename_matches(results[0].source_filename, expected_source_filename)
 
 
 def _retrieval_failure_kind(
@@ -1383,10 +1362,10 @@ def _evaluate_retrieval_case(
     baseline_passed = baseline_rank is not None and baseline_rank <= case.expected_top_n
 
     if case.expected_top_result_source_filename is not None:
-        candidate_passed = candidate_passed and _source_filename_matches(
+        candidate_passed = candidate_passed and source_filename_matches(
             candidate_top_result_source, case.expected_top_result_source_filename
         )
-        baseline_passed = baseline_passed and _source_filename_matches(
+        baseline_passed = baseline_passed and source_filename_matches(
             baseline_top_result_source, case.expected_top_result_source_filename
         )
     if case.minimum_top_n_hits_from_expected_document is not None:
@@ -1544,7 +1523,7 @@ def _evaluate_answer_case(
             matching_citation_count = sum(
                 1
                 for citation in response.citations
-                if _source_filename_matches(
+                if source_filename_matches(
                     citation.source_filename, case.expected_citation_source_filename
                 )
             )
@@ -1719,8 +1698,8 @@ def _summarize_structural_checks(
     figures_with_artifacts = sum(
         1
         for figure in figures
-        if _artifact_present(getattr(figure, "json_path", None))
-        and _artifact_present(getattr(figure, "yaml_path", None))
+        if path_exists(getattr(figure, "json_path", None))
+        and path_exists(getattr(figure, "yaml_path", None))
     )
     if thresholds.minimum_figures_with_artifacts is not None:
         checks.append(
@@ -1878,7 +1857,7 @@ def evaluate_run(
             raise ValueError("Baseline run must belong to the same document as the candidate run.")
 
     evaluation = _upsert_evaluation_row(session, run, corpus_name=corpus_name, fixture_name=None)
-    now = _utcnow()
+    now = utcnow()
     fixture = None
     try:
         fixture = fixture_for_document(document, corpus_path)
@@ -1935,7 +1914,9 @@ def evaluate_run(
         )
         batch = EvaluationBatchResult().merge(retrieval_batch).merge(answer_batch)
         structural_summary = _evaluate_structural_checks(session, run, fixture.thresholds)
-        retrieval_rank_metrics = _summarize_retrieval_rank_metrics(retrieval_batch.retrieval_outcomes)
+        retrieval_rank_metrics = _summarize_retrieval_rank_metrics(
+            retrieval_batch.retrieval_outcomes
+        )
         evaluation.status = "completed"
         evaluation.summary_json = build_completed_evaluation_summary(
             fixture_name=fixture.name,
@@ -2020,6 +2001,50 @@ def get_latest_evaluation_summary(
     if evaluation is None:
         return None
     return _to_evaluation_summary(evaluation)
+
+
+def get_latest_evaluations_by_run_id(
+    session: Session,
+    run_ids: list[UUID] | set[UUID],
+) -> dict[UUID, DocumentRunEvaluation]:
+    run_id_list = list(run_ids)
+    if not run_id_list:
+        return {}
+
+    ranked_evaluations = (
+        select(
+            DocumentRunEvaluation.id.label("evaluation_id"),
+            func.row_number()
+            .over(
+                partition_by=DocumentRunEvaluation.run_id,
+                order_by=DocumentRunEvaluation.created_at.desc(),
+            )
+            .label("row_number"),
+        )
+        .where(DocumentRunEvaluation.run_id.in_(run_id_list))
+        .subquery()
+    )
+    evaluation_alias = aliased(DocumentRunEvaluation)
+    rows = (
+        session.execute(
+            select(evaluation_alias)
+            .join(ranked_evaluations, ranked_evaluations.c.evaluation_id == evaluation_alias.id)
+            .where(ranked_evaluations.c.row_number == 1)
+        )
+        .scalars()
+        .all()
+    )
+    return {row.run_id: row for row in rows}
+
+
+def get_latest_evaluation_summaries(
+    session: Session,
+    run_ids: list[UUID] | set[UUID],
+) -> dict[UUID, EvaluationSummaryResponse]:
+    return {
+        run_id: _to_evaluation_summary(evaluation)
+        for run_id, evaluation in get_latest_evaluations_by_run_id(session, run_ids).items()
+    }
 
 
 def get_latest_document_evaluation(

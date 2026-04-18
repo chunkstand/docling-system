@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
-from pathlib import Path
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -10,13 +8,10 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact
 from app.schemas.agent_tasks import AgentTaskArtifactResponse
 from app.services.storage import StorageService
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 def create_agent_task_artifact(
@@ -43,7 +38,7 @@ def create_agent_task_artifact(
         artifact_kind=artifact_kind,
         storage_path=storage_path,
         payload_json=encoded_payload,
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(row)
     session.flush()
@@ -99,13 +94,3 @@ def get_agent_task_artifact(
             detail="Agent task artifact not found.",
         )
     return row
-
-
-def delete_agent_task_artifact_file(
-    storage_service: StorageService,
-    *,
-    storage_path: str | None,
-) -> None:
-    if storage_path is None:
-        return
-    storage_service.delete_file_if_exists(Path(storage_path))

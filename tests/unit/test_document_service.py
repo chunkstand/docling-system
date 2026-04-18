@@ -233,7 +233,7 @@ def test_to_run_summary_exposes_live_progress_metadata(monkeypatch) -> None:
         "app.services.documents.get_settings",
         lambda: SimpleNamespace(worker_lease_timeout_seconds=300),
     )
-    monkeypatch.setattr("app.services.documents._utcnow", lambda: now)
+    monkeypatch.setattr("app.services.documents.utcnow", lambda: now)
 
     document = Document(
         id=document_id,

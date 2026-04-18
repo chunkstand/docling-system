@@ -4,7 +4,7 @@ import hashlib
 import uuid
 from collections import Counter
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import Document, DocumentRun, IngestBatch, IngestBatchItem, RunStatus
 from app.schemas.ingest_batches import (
     IngestBatchDetailResponse,
@@ -20,12 +21,6 @@ from app.schemas.ingest_batches import (
 )
 from app.services.documents import _allowed_ingest_roots, ingest_local_file
 from app.services.storage import StorageService
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 IN_FLIGHT_RUN_STATUSES = {
     RunStatus.QUEUED.value,
     RunStatus.PROCESSING.value,
@@ -551,7 +546,7 @@ def _record_batch_item_success(
     payload,
     status_code: int,
 ) -> None:
-    created_at = _utcnow()
+    created_at = utcnow()
     relative_path = str(file_path.relative_to(root_path))
     document = session.get(Document, payload.document_id)
     session.add(
@@ -610,7 +605,7 @@ def _record_batch_item_failure(
             status="failed",
             status_code=status_code,
             error_message=error_message,
-            created_at=_utcnow(),
+            created_at=utcnow(),
         )
     )
     batch.file_count += 1
@@ -632,7 +627,7 @@ def queue_local_ingest_directory(
         status="running",
         root_path=str(resolved_directory),
         recursive=recursive,
-        created_at=_utcnow(),
+        created_at=utcnow(),
     )
     session.add(batch)
     session.commit()
@@ -646,14 +641,14 @@ def queue_local_ingest_directory(
             raise
         batch.status = "failed"
         batch.error_message = f"Directory scan failed: {exc}"
-        batch.completed_at = _utcnow()
+        batch.completed_at = utcnow()
         session.commit()
         return get_ingest_batch_detail(session, batch.id)
 
     if not pdf_paths:
         batch.status = "failed"
         batch.error_message = "No PDF files found in the directory."
-        batch.completed_at = _utcnow()
+        batch.completed_at = utcnow()
         session.commit()
         return get_ingest_batch_detail(session, batch.id)
 
@@ -689,6 +684,6 @@ def queue_local_ingest_directory(
             )
 
     batch.status = "completed_with_errors" if batch.failed_count else "completed"
-    batch.completed_at = _utcnow()
+    batch.completed_at = utcnow()
     session.commit()
     return get_ingest_batch_detail(session, batch.id)

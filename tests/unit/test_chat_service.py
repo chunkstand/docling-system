@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 from app.schemas.chat import ChatRequest
 from app.schemas.search import SearchResult, SearchScores
-from app.services.chat import AnswerGenerator, answer_question
+from app.services.chat import AnswerGenerator, OpenAIAnswerGenerator, answer_question
 
 
 class FakeSession:
@@ -253,6 +254,31 @@ def test_answer_question_allows_supported_qualified_date_phrase(
 
     assert response.used_fallback is False
     assert asked == ["What is the due date in the opportunity screening memo?"]
+
+
+def test_openai_answer_generator_configures_timeout_and_retries(monkeypatch) -> None:
+    captured = {}
+
+    def fake_openai(*, api_key: str, timeout: float, max_retries: int):
+        captured["api_key"] = api_key
+        captured["timeout"] = timeout
+        captured["max_retries"] = max_retries
+        return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: None)))
+
+    monkeypatch.setattr("app.services.chat.OpenAI", fake_openai)
+
+    OpenAIAnswerGenerator(
+        api_key="chat-key",
+        model="gpt-4.1-mini",
+        timeout_seconds=9.0,
+        max_retries=3,
+    )
+
+    assert captured == {
+        "api_key": "chat-key",
+        "timeout": 9.0,
+        "max_retries": 3,
+    }
 
 
 def test_answer_question_retries_with_normalized_query_when_initial_search_misses(

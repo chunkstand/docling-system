@@ -5,7 +5,6 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field, replace
-from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Protocol
@@ -14,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import Float, Select, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -26,7 +26,6 @@ from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.search_plan import (
     SearchCandidateStrategy,
-    SearchExecutionPlan,
     SearchStage,
     build_search_execution_plan,
 )
@@ -42,10 +41,6 @@ PROSE_ADJACENT_SEED_LIMIT = 6
 TABULAR_REFERENCE_PATTERN = re.compile(
     r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b"
 )
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
 
 
 @dataclass
@@ -99,6 +94,15 @@ class SearchExecution:
     details: dict = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class QueryFeatureSet:
+    normalized_query: str
+    normalized_tokens: frozenset[str]
+    salient_tokens: frozenset[str]
+    rare_tokens: frozenset[str]
+    phrases: frozenset[str]
+
+
 class SearchReranker(Protocol):
     name: str
 
@@ -110,6 +114,7 @@ class SearchReranker(Protocol):
         score_getter: Callable[[RankedResult], float],
         tabular_query: bool,
         query_intent: str,
+        query_features: QueryFeatureSet | None = None,
     ) -> list[RerankedResult]:
         ...
 
@@ -326,7 +331,9 @@ class LinearFeatureSearchReranker:
         score_getter: Callable[[RankedResult], float],
         tabular_query: bool,
         query_intent: str,
+        query_features: QueryFeatureSet | None = None,
     ) -> list[RerankedResult]:
+        active_query_features = query_features or _build_query_feature_set(request.query)
         base_ranked = sorted(
             items,
             key=lambda item: (
@@ -345,9 +352,12 @@ class LinearFeatureSearchReranker:
         for base_rank, item in enumerate(base_ranked, start=1):
             base_score = score_getter(item)
             tabular_table_signal = int(tabular_query and item.result_type == "table")
-            title_match_features = _table_title_match_features(item, request.query)
-            document_overlap_features = _document_query_overlap_features(item, request.query)
-            prose_match_features = _prose_query_match_features(item, request.query)
+            title_match_features = _table_title_match_features(item, active_query_features)
+            document_overlap_features = _document_query_overlap_features(
+                item,
+                active_query_features,
+            )
+            prose_match_features = _prose_query_match_features(item, active_query_features)
             exact_filter_priority = _exact_filter_priority(item, request.filters)
             result_type_priority = _result_type_priority(item, tabular_query)
             document_cluster_strength = document_cluster_strengths.get(item.document_id, 0.0)
@@ -1030,22 +1040,23 @@ _QUERY_STOPWORDS = frozenset(
 
 
 def _salient_tokens(value: str | None) -> set[str]:
-    normalized = _normalize_text(value)
+    return _salient_tokens_from_normalized(_normalize_text(value))
+
+
+def _salient_tokens_from_normalized(normalized: str) -> set[str]:
     if not normalized:
         return set()
     return {
-        token
-        for token in normalized.split()
-        if len(token) >= 3 and token not in _QUERY_STOPWORDS
+        token for token in normalized.split() if len(token) >= 3 and token not in _QUERY_STOPWORDS
     }
 
 
-def _rare_query_tokens(value: str | None) -> set[str]:
-    return {token for token in _salient_tokens(value) if len(token) >= 7}
+def _phrase_tokens_from_normalized(normalized: str) -> list[str]:
+    return [token for token in normalized.split() if token not in _QUERY_STOPWORDS]
 
 
-def _query_phrases(value: str | None, phrase_size: int = 2) -> set[str]:
-    tokens = [token for token in _normalize_text(value).split() if token not in _QUERY_STOPWORDS]
+def _query_phrases_from_normalized(normalized: str, phrase_size: int = 2) -> set[str]:
+    tokens = _phrase_tokens_from_normalized(normalized)
     if len(tokens) < phrase_size:
         return set()
     return {
@@ -1054,16 +1065,40 @@ def _query_phrases(value: str | None, phrase_size: int = 2) -> set[str]:
     }
 
 
-def _token_coverage(query: str | None, value: str | None) -> float:
-    query_tokens = _salient_tokens(query)
+def _build_query_feature_set(query: str | None) -> QueryFeatureSet:
+    normalized_query = _normalize_text(query)
+    normalized_tokens = frozenset(normalized_query.split()) if normalized_query else frozenset()
+    salient_tokens = frozenset(_salient_tokens_from_normalized(normalized_query))
+    return QueryFeatureSet(
+        normalized_query=normalized_query,
+        normalized_tokens=normalized_tokens,
+        salient_tokens=salient_tokens,
+        rare_tokens=frozenset(token for token in salient_tokens if len(token) >= 7),
+        phrases=frozenset(_query_phrases_from_normalized(normalized_query)),
+    )
+
+
+def _coerce_query_feature_set(
+    query_or_features: QueryFeatureSet | str | None,
+) -> QueryFeatureSet:
+    if isinstance(query_or_features, QueryFeatureSet):
+        return query_or_features
+    return _build_query_feature_set(query_or_features)
+
+
+def _token_coverage(query_or_features: QueryFeatureSet | str | None, value: str | None) -> float:
+    query_tokens = _coerce_query_feature_set(query_or_features).salient_tokens
     value_tokens = _salient_tokens(value)
     if not query_tokens or not value_tokens:
         return 0.0
     return len(query_tokens & value_tokens) / len(query_tokens)
 
 
-def _strong_document_phrase_match(query: str | None, value: str | None) -> float:
-    normalized_query = _normalize_text(query)
+def _strong_document_phrase_match(
+    query_or_features: QueryFeatureSet | str | None,
+    value: str | None,
+) -> float:
+    normalized_query = _coerce_query_feature_set(query_or_features).normalized_query
     normalized_value = _normalize_text(value)
     if not normalized_query or not normalized_value:
         return 0.0
@@ -1079,18 +1114,27 @@ def _strong_document_phrase_match(query: str | None, value: str | None) -> float
     return 0.0
 
 
-def _document_query_overlap_features(item: RankedResult, query: str | None) -> dict[str, float]:
+def _document_query_overlap_features(
+    item: RankedResult,
+    query_or_features: QueryFeatureSet | str | None,
+) -> dict[str, float]:
     return {
         "source_filename_exact_match": _strong_document_phrase_match(
-            query,
+            query_or_features,
             Path(item.source_filename).stem,
         ),
         "source_filename_token_coverage": _token_coverage(
-            query,
+            query_or_features,
             Path(item.source_filename).stem,
         ),
-        "document_title_exact_match": _strong_document_phrase_match(query, item.document_title),
-        "document_title_token_coverage": _token_coverage(query, item.document_title),
+        "document_title_exact_match": _strong_document_phrase_match(
+            query_or_features,
+            item.document_title,
+        ),
+        "document_title_token_coverage": _token_coverage(
+            query_or_features,
+            item.document_title,
+        ),
     }
 
 
@@ -1110,20 +1154,26 @@ def _prose_result_text(item: RankedResult) -> str:
     )
 
 
-def _prose_query_match_features(item: RankedResult, query: str | None) -> dict[str, float]:
+def _prose_query_match_features(
+    item: RankedResult,
+    query_or_features: QueryFeatureSet | str | None,
+) -> dict[str, float]:
+    query_features = _coerce_query_feature_set(query_or_features)
     result_text = _normalize_text(_prose_result_text(item))
-    query_phrases = _query_phrases(query)
-    rare_tokens = _rare_query_tokens(query)
+    result_tokens = set(result_text.split())
     heading_value = item.heading or item.table_heading
     return {
-        "heading_token_coverage": _token_coverage(query, heading_value),
+        "heading_token_coverage": _token_coverage(query_features, heading_value),
         "phrase_overlap": (
-            sum(1 for phrase in query_phrases if phrase in result_text) / len(query_phrases)
-            if query_phrases
+            sum(1 for phrase in query_features.phrases if phrase in result_text)
+            / len(query_features.phrases)
+            if query_features.phrases
             else 0.0
         ),
         "rare_token_overlap": (
-            len(rare_tokens & set(result_text.split())) / len(rare_tokens) if rare_tokens else 0.0
+            len(query_features.rare_tokens & result_tokens) / len(query_features.rare_tokens)
+            if query_features.rare_tokens
+            else 0.0
         ),
         "adjacent_chunk_context_signal": float("adjacent_context" in item.retrieval_sources),
     }
@@ -1141,20 +1191,22 @@ def _merge_retrieval_sources(*source_groups: tuple[str, ...]) -> tuple[str, ...]
     return tuple(merged)
 
 
-def _table_title_match_features(item: RankedResult, query: str | None) -> dict[str, float]:
-    if query is None or item.result_type != "table":
+def _table_title_match_features(
+    item: RankedResult,
+    query_or_features: QueryFeatureSet | str | None,
+) -> dict[str, float]:
+    if query_or_features is None or item.result_type != "table":
         return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
-    normalized_query = _normalize_text(query)
-    title_value = " ".join(
-        part for part in (item.table_title, item.table_heading) if part
-    )
+    query_features = _coerce_query_feature_set(query_or_features)
+    normalized_query = query_features.normalized_query
+    title_value = " ".join(part for part in (item.table_title, item.table_heading) if part)
     normalized_title = _normalize_text(title_value)
     if not normalized_query or not normalized_title:
         return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
     exact_match = float(len(normalized_query) >= 4 and normalized_query in normalized_title)
     if len(normalized_query) >= 4 and normalized_query in normalized_title:
         return {"title_exact_match": exact_match, "title_token_coverage": 1.0}
-    query_tokens = set(normalized_query.split())
+    query_tokens = query_features.normalized_tokens
     if len(query_tokens) < 2:
         return {"title_exact_match": exact_match, "title_token_coverage": 0.0}
     title_tokens = set(normalized_title.split())
@@ -1518,40 +1570,15 @@ def _rerank_results(
     reranker: SearchReranker | None = None,
 ) -> list[RerankedResult]:
     active_reranker = reranker or get_default_reranker()
+    query_features = _build_query_feature_set(request.query)
     return active_reranker.rerank(
         items,
         request=request,
         score_getter=score_getter,
         tabular_query=tabular_query,
         query_intent=query_intent,
+        query_features=query_features,
     )
-
-
-def _sort_ranked_results(
-    items: list[RankedResult],
-    *,
-    score_getter,
-    filters: SearchFilters | None,
-    tabular_query: bool,
-    query_intent: str,
-    limit: int,
-    query: str | None = None,
-    reranker: SearchReranker | None = None,
-) -> list[SearchResult]:
-    reranked = _rerank_results(
-        items,
-        request=SearchRequest(
-            query=query or "ranked results",
-            mode="keyword",
-            filters=filters,
-            limit=limit,
-        ),
-        score_getter=score_getter,
-        tabular_query=tabular_query,
-        query_intent=query_intent,
-        reranker=reranker,
-    )
-    return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
 
 
 def _merge_hybrid_results(
@@ -1613,7 +1640,7 @@ def _persist_search_execution(
     if session is None or not hasattr(session, "add"):
         return None
 
-    created_at = _utcnow()
+    created_at = utcnow()
     filters_payload = (
         request.filters.model_dump(mode="json", exclude_none=True) if request.filters else {}
     )
@@ -1803,7 +1830,6 @@ def _resolve_candidate_items(
     semantic_results: list[RankedResult],
 ) -> tuple[list[RankedResult], Callable[[RankedResult], float], str, bool]:
     served_mode = request_mode if request_mode == "keyword" else "keyword"
-    semantic_augmented_with_keyword_context = False
     if request_mode == "semantic" and embedding_status == "completed":
         if candidate_strategy == SearchCandidateStrategy.SEMANTIC_WITH_KEYWORD_CONTEXT:
             return (
@@ -1815,7 +1841,12 @@ def _resolve_candidate_items(
         return semantic_results, _semantic_score, "semantic", False
 
     if request_mode == "hybrid" and embedding_status == "completed":
-        return _merge_hybrid_candidates(keyword_results, semantic_results), _hybrid_score, "hybrid", False
+        return (
+            _merge_hybrid_candidates(keyword_results, semantic_results),
+            _hybrid_score,
+            "hybrid",
+            False,
+        )
 
     return _dedupe_ranked_results(keyword_results), _keyword_score, served_mode, False
 
@@ -1929,15 +1960,17 @@ def execute_search(
                 )
                 keyword_strategy = "relaxed_or"
         elif stage == SearchStage.METADATA_SUPPLEMENT:
-            keyword_results, metadata_candidates, keyword_strategy = _apply_metadata_supplement_stage(
-                session,
-                request,
-                query_intent=query_intent,
-                strict_keyword_count=strict_keyword_count,
-                harness_name=harness.name,
-                keyword_results=keyword_results,
-                keyword_strategy=keyword_strategy,
-                run_id=run_id,
+            keyword_results, metadata_candidates, keyword_strategy = (
+                _apply_metadata_supplement_stage(
+                    session,
+                    request,
+                    query_intent=query_intent,
+                    strict_keyword_count=strict_keyword_count,
+                    harness_name=harness.name,
+                    keyword_results=keyword_results,
+                    keyword_strategy=keyword_strategy,
+                    run_id=run_id,
+                )
             )
         elif stage == SearchStage.SEMANTIC:
             provider = embedding_provider

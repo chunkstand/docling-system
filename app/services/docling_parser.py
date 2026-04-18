@@ -668,15 +668,21 @@ def _combine_table_title(caption: str | None, title_hint: str | None) -> str | N
     return caption or title_hint
 
 
-def _structural_heading_at(snapshots: list[ItemSnapshot], item_index: int) -> str | None:
-    for snapshot in reversed(snapshots[: item_index + 1]):
+def _heading_lookup_by_item_index(snapshots: list[ItemSnapshot]) -> dict[int, str | None]:
+    current_heading: str | None = None
+    headings_by_index: dict[int, str | None] = {}
+    for snapshot in snapshots:
         if _is_structural_heading(snapshot):
-            return snapshot.text
-    return None
+            current_heading = snapshot.text
+        headings_by_index[snapshot.index] = current_heading
+    return headings_by_index
 
 
 def _build_raw_table_segments(
-    exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]
+    exported_doc: dict[str, Any],
+    snapshots: list[ItemSnapshot],
+    *,
+    headings_by_index: dict[int, str | None],
 ) -> list[ParsedTableSegment]:
     table_snapshots = [snapshot for snapshot in snapshots if snapshot.label == "table"]
     raw_segments: list[ParsedTableSegment] = []
@@ -688,7 +694,7 @@ def _build_raw_table_segments(
         rows = _normalize_grid_rows(table_data)
         caption = _find_nearby_caption(snapshots, table_snapshot)
         title_hint = _find_table_title_hint(snapshots, table_snapshot)
-        heading = _structural_heading_at(snapshots, table_snapshot.index)
+        heading = headings_by_index.get(table_snapshot.index)
         title_source = "caption"
         if caption and title_hint:
             title_source = "caption+title_hint"
@@ -781,7 +787,10 @@ def _meaningful_table_segments(raw_segments: list[ParsedTableSegment]) -> list[P
 
 
 def _build_figures(
-    exported_doc: dict[str, Any], snapshots: list[ItemSnapshot]
+    exported_doc: dict[str, Any],
+    snapshots: list[ItemSnapshot],
+    *,
+    headings_by_index: dict[int, str | None],
 ) -> list[ParsedFigure]:
     picture_snapshots = [snapshot for snapshot in snapshots if snapshot.label == "picture"]
     text_lookup = _build_exported_text_lookup(exported_doc)
@@ -814,7 +823,7 @@ def _build_figures(
         figure_confidence = (
             source_confidence if source_confidence is not None else caption_confidence
         )
-        heading = _structural_heading_at(snapshots, picture_snapshot.index)
+        heading = headings_by_index.get(picture_snapshot.index)
         provenance = _normalize_provenance(exported_picture.get("prov"))
 
         figures.append(
@@ -1329,26 +1338,18 @@ def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[Parsed
 def _annotate_ambiguous_continuations(
     raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]
 ) -> None:
-    segment_to_table = {
-        segment.segment_index: table.table_index for table in tables for segment in table.segments
-    }
+    segment_to_table = {segment.segment_index: table for table in tables for segment in table.segments}
     for left, right in zip(raw_segments, raw_segments[1:], strict=False):
         if not _pages_adjacent(left, right):
             continue
         if left.heading != right.heading:
             continue
-        if segment_to_table.get(left.segment_index) == segment_to_table.get(right.segment_index):
+        left_table = segment_to_table.get(left.segment_index)
+        right_table = segment_to_table.get(right.segment_index)
+        if left_table is None or right_table is None:
             continue
-        left_table = next(
-            table
-            for table in tables
-            if any(seg.segment_index == left.segment_index for seg in table.segments)
-        )
-        right_table = next(
-            table
-            for table in tables
-            if any(seg.segment_index == right.segment_index for seg in table.segments)
-        )
+        if left_table.table_index == right_table.table_index:
+            continue
         left_table.metadata["ambiguous_continuation_candidate"] = True
         right_table.metadata["ambiguous_continuation_candidate"] = True
         left_table.metadata["merge_reason"] = (
@@ -1410,12 +1411,17 @@ class DoclingParser:
         page_count = document.num_pages()
         exported_doc = document.export_to_dict()
         snapshots = _snapshot_items(document)
+        headings_by_index = _heading_lookup_by_item_index(snapshots)
         chunks = _normalize_chunks(snapshots)
         title_fallback_name = Path(source_filename).stem if source_filename else document.name
         title = _infer_document_title(chunks, title_fallback_name)
         if not chunks and title != "Untitled document":
             chunks = [_synthetic_title_chunk(title, page_count=page_count)]
-        raw_segments = _build_raw_table_segments(exported_doc, snapshots)
+        raw_segments = _build_raw_table_segments(
+            exported_doc,
+            snapshots,
+            headings_by_index=headings_by_index,
+        )
         meaningful_segments = _meaningful_table_segments(raw_segments)
         tables = _build_logical_tables(meaningful_segments)
         _annotate_ambiguous_continuations(meaningful_segments, tables)
@@ -1426,7 +1432,11 @@ class DoclingParser:
             source_filename=source_filename
             or (source_path.name if source_path is not None else None),
         )
-        figures = _build_figures(exported_doc, snapshots)
+        figures = _build_figures(
+            exported_doc,
+            snapshots,
+            headings_by_index=headings_by_index,
+        )
 
         yaml_text = yaml.safe_dump(exported_doc, sort_keys=False, allow_unicode=True)
         docling_json = json.dumps(exported_doc, indent=2)

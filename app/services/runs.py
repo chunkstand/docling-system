@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-import socket
 import threading
 import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
@@ -20,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.time import utcnow
 from app.db.models import (
     Document,
     DocumentChunk,
@@ -35,7 +34,11 @@ from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
-from app.services.runtime import register_runtime_process, runtime_code_is_current
+from app.services.runtime import (
+    get_process_identity,
+    register_runtime_process,
+    runtime_code_is_current,
+)
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -45,16 +48,6 @@ class ValidationError(ValueError):
     def __init__(self, report: ValidationReport) -> None:
         super().__init__(report.summary)
         self.report = report
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
-def get_worker_identity() -> str:
-    return f"{socket.gethostname()}:{os.getpid()}"
-
-
 logger = get_logger(__name__)
 
 
@@ -64,7 +57,7 @@ def is_retryable_error(exc: Exception) -> bool:
 
 def requeue_stale_runs(session: Session, storage_service: StorageService | None = None) -> int:
     settings = get_settings()
-    stale_before = _utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
+    stale_before = utcnow() - timedelta(seconds=settings.worker_lease_timeout_seconds)
     stale_runs = session.execute(
         select(DocumentRun).where(
             DocumentRun.status.in_([RunStatus.PROCESSING.value, RunStatus.VALIDATING.value]),
@@ -80,7 +73,7 @@ def requeue_stale_runs(session: Session, storage_service: StorageService | None 
         run.last_heartbeat_at = None
         if run.attempts >= settings.worker_max_attempts:
             run.status = RunStatus.FAILED.value
-            run.completed_at = _utcnow()
+            run.completed_at = utcnow()
             run.validation_status = run.validation_status or "failed"
             run.error_message = run.error_message or "Run exceeded max attempts after stale lease."
             run.failure_stage = run.failure_stage or "stale_lease"
@@ -94,7 +87,7 @@ def requeue_stale_runs(session: Session, storage_service: StorageService | None 
             run.failure_artifact_path = str(failure_path) if failure_path is not None else None
         else:
             run.status = RunStatus.RETRY_WAIT.value
-            run.next_attempt_at = _utcnow()
+            run.next_attempt_at = utcnow()
         updated += 1
 
     if updated:
@@ -105,7 +98,7 @@ def requeue_stale_runs(session: Session, storage_service: StorageService | None 
 
 
 def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
-    now = _utcnow()
+    now = utcnow()
     eligible_query: Select[tuple[DocumentRun]] = (
         select(DocumentRun)
         .where(
@@ -145,7 +138,7 @@ def claim_next_run(session: Session, worker_id: str) -> DocumentRun | None:
 
 
 def heartbeat_run(session: Session, run: DocumentRun) -> None:
-    run.last_heartbeat_at = _utcnow()
+    run.last_heartbeat_at = utcnow()
     session.commit()
 
 
@@ -158,7 +151,7 @@ def _refresh_run_lease(session_factory, run_id: UUID, worker_id: str) -> bool:
                 DocumentRun.locked_by == worker_id,
                 DocumentRun.status.in_([RunStatus.PROCESSING.value, RunStatus.VALIDATING.value]),
             )
-            .values(last_heartbeat_at=_utcnow())
+            .values(last_heartbeat_at=utcnow())
         )
         heartbeat_session.commit()
         return bool(result.rowcount)
@@ -232,7 +225,7 @@ def _write_failure_artifact(
         "failure_stage": failure_stage,
         "failure_type": exc.__class__.__name__,
         "error_message": str(exc),
-        "created_at": _utcnow().isoformat(),
+        "created_at": utcnow().isoformat(),
         "validation_status": getattr(run, "validation_status", None),
         "docling_json_path": getattr(run, "docling_json_path", None),
         "yaml_path": getattr(run, "yaml_path", None),
@@ -404,7 +397,7 @@ def _replace_run_chunks(
     session: Session, document: Document, run: DocumentRun, parsed: ParsedDocument
 ) -> None:
     session.query(DocumentChunk).filter(DocumentChunk.run_id == run.id).delete()
-    now = _utcnow()
+    now = utcnow()
     for chunk in parsed.chunks:
         session.add(
             DocumentChunk(
@@ -432,7 +425,7 @@ def _replace_run_tables(
 ) -> None:
     session.query(DocumentTableSegment).filter(DocumentTableSegment.run_id == run.id).delete()
     session.query(DocumentTable).filter(DocumentTable.run_id == run.id).delete()
-    now = _utcnow()
+    now = utcnow()
 
     for table in parsed.tables:
         table_id = uuid.uuid4()
@@ -526,7 +519,7 @@ def _replace_run_figures(
     storage_service: StorageService,
 ) -> None:
     session.query(DocumentFigure).filter(DocumentFigure.run_id == run.id).delete()
-    now = _utcnow()
+    now = utcnow()
 
     for figure in parsed.figures:
         figure_id = uuid.uuid4()
@@ -615,13 +608,13 @@ def _mark_run_persisted(
     run.figure_count = len(parsed.figures)
     run.validation_status = "pending"
     document.latest_run_id = run.id
-    document.updated_at = _utcnow()
+    document.updated_at = utcnow()
     session.commit()
 
 
 def _mark_run_validating(session: Session, run: DocumentRun) -> None:
     run.status = RunStatus.VALIDATING.value
-    run.last_heartbeat_at = _utcnow()
+    run.last_heartbeat_at = utcnow()
     session.commit()
 
 
@@ -634,7 +627,7 @@ def finalize_run_success(
     *,
     storage_service: StorageService | None = None,
 ) -> None:
-    now = _utcnow()
+    now = utcnow()
     run.locked_at = None
     run.locked_by = None
     run.last_heartbeat_at = None
@@ -677,7 +670,7 @@ def finalize_run_failure(
     document: Document | None = None,
 ) -> None:
     settings = get_settings()
-    now = _utcnow()
+    now = utcnow()
     run.locked_at = None
     run.locked_by = None
     run.last_heartbeat_at = None
@@ -983,7 +976,7 @@ def run_worker_loop() -> None:
     except Exception as exc:
         embedding_provider = None
         logger.warning("embedding_provider_unavailable", error=str(exc))
-    worker_id = get_worker_identity()
+    worker_id = get_process_identity()
     registration = register_runtime_process("worker", worker_id)
     logger.info(
         "worker_runtime_registered",

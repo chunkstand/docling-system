@@ -64,3 +64,29 @@ def test_openai_embedding_provider_reuses_cached_query_embeddings() -> None:
     assert first == second
     assert len(fake_api.calls) == 1
     assert fake_api.calls[0] == ["repeat me"]
+
+
+def test_openai_embedding_provider_configures_timeout_and_retries(monkeypatch) -> None:
+    captured = {}
+
+    def fake_openai(*, api_key: str, timeout: float, max_retries: int):
+        captured["api_key"] = api_key
+        captured["timeout"] = timeout
+        captured["max_retries"] = max_retries
+        return SimpleNamespace(embeddings=SimpleNamespace(create=lambda **kwargs: None))
+
+    monkeypatch.setattr("app.services.embeddings.OpenAI", fake_openai)
+
+    OpenAIEmbeddingProvider(
+        api_key="test-key",
+        model="text-embedding-3-small",
+        embedding_dim=2,
+        timeout_seconds=12.5,
+        max_retries=4,
+    )
+
+    assert captured == {
+        "api_key": "test-key",
+        "timeout": 12.5,
+        "max_retries": 4,
+    }

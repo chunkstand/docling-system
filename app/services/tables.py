@@ -6,23 +6,17 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentTable, DocumentTableSegment
+from app.db.models import DocumentTable, DocumentTableSegment
 from app.schemas.tables import (
     DocumentTableDetailResponse,
     DocumentTableSegmentResponse,
     DocumentTableSummaryResponse,
 )
-
-
-def _get_active_document(session: Session, document_id: UUID) -> Document:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
-    return document
+from app.services.documents import get_document_or_404
 
 
 def get_active_tables(session: Session, document_id: UUID) -> list[DocumentTableSummaryResponse]:
-    document = _get_active_document(session, document_id)
+    document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
         return []
 
@@ -58,7 +52,7 @@ def get_active_tables(session: Session, document_id: UUID) -> list[DocumentTable
 def get_active_table_detail(
     session: Session, document_id: UUID, table_id: UUID
 ) -> DocumentTableDetailResponse:
-    document = _get_active_document(session, document_id)
+    document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found.")
 

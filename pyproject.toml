@@ -10,29 +10,39 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.16.0",
-  "docling>=2.46.0",
-  "fastapi>=0.118.0",
   "openai>=2.2.0",
   "pgvector>=0.4.1",
   "pydantic>=2.12.5",
-  "psycopg[binary]>=3.2.0",
-  "pypdfium2>=5.7.0",
-  "pyyaml>=6.0.3",
   "pydantic-settings>=2.11.0",
-  "python-multipart>=0.0.20",
+  "psycopg[binary]>=3.2.0",
+  "pyyaml>=6.0.3",
   "sqlalchemy>=2.0.43",
   "structlog>=25.4.0",
   "tiktoken>=0.12.0",
-  "uvicorn[standard]>=0.37.0",
 ]
 
 [project.optional-dependencies]
+api = [
+  "fastapi>=0.118.0",
+  "python-multipart>=0.0.20",
+  "uvicorn[standard]>=0.37.0",
+]
+ingest = [
+  "docling>=2.46.0",
+  "pypdfium2>=5.7.0",
+]
 dev = [
+  "docling>=2.46.0",
+  "fastapi>=0.118.0",
   "httpx>=0.28.1",
+  "pypdfium2>=5.7.0",
   "pytest>=8.4.2",
   "pytest-asyncio>=1.2.0",
   "pytest-cov>=7.0.0",
+  "python-multipart>=0.0.20",
   "respx>=0.22.0",
+  "uvicorn[standard]>=0.37.0",
+  "vulture>=2.14",
 ]
 
 [project.scripts]
@@ -81,6 +91,7 @@ docling-system-agent-task-value-density = "app.cli:run_agent_task_value_density"
 docling-system-agent-task-decision-signals = "app.cli:run_agent_task_decision_signals"
 docling-system-agent-task-workflow-versions = "app.cli:run_agent_task_workflow_versions"
 docling-system-agent-task-export-traces = "app.cli:run_agent_task_export_traces"
+docling-system-hygiene-check = "app.hygiene:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
@@ -103,4 +114,5 @@ select = ["E", "F", "I", "B", "UP", "N"]
 [dependency-groups]
 dev = [
     "ruff>=0.15.10",
+    "vulture>=2.14",
 ]

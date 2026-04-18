@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -8,6 +7,7 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskVerification,
@@ -32,12 +32,6 @@ from app.services.search_release_gate import (
 )
 
 VerificationOutcome = SearchHarnessReleaseGateOutcome
-
-
-def _utcnow() -> datetime:
-    return datetime.now(UTC)
-
-
 def _to_verification_response(row: AgentTaskVerification) -> AgentTaskVerificationResponse:
     return AgentTaskVerificationResponse(
         verification_id=row.id,
@@ -103,7 +97,7 @@ def _create_verification_record(
     reasons: list[str],
     details: dict,
 ) -> AgentTaskVerificationResponse:
-    now = _utcnow()
+    now = utcnow()
     row = AgentTaskVerification(
         target_task_id=target_task_id,
         verification_task_id=verification_task_id,

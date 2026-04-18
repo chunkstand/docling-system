@@ -1,0 +1,89 @@
+ruff_baseline:
+  alembic/env.py:
+    I001: 1
+  alembic/versions/0001_initial.py:
+    E501: 2
+    I001: 1
+  alembic/versions/0002_document_run_cleanup_index.py:
+    I001: 1
+  alembic/versions/0003_document_tables.py:
+    E501: 4
+    I001: 1
+  alembic/versions/0004_yaml_artifacts.py:
+    I001: 1
+  alembic/versions/0005_validation_gate_fields.py:
+    E501: 1
+    I001: 1
+  alembic/versions/0006_table_hardening_fields.py:
+    I001: 1
+  alembic/versions/0007_document_figures.py:
+    E501: 1
+    I001: 1
+  alembic/versions/0008_run_evaluations.py:
+    E501: 9
+    I001: 1
+  alembic/versions/0009_run_failure_artifacts.py:
+    I001: 1
+  app/api/main.py:
+    I001: 1
+  app/cli.py:
+    I001: 1
+  app/schemas/agent_tasks.py:
+    I001: 1
+  app/services/agent_task_actions.py:
+    I001: 1
+  app/services/agent_task_context.py:
+    E501: 7
+    I001: 1
+  app/services/agent_task_verifications.py:
+    I001: 1
+  app/services/agent_tasks.py:
+    E501: 3
+    F402: 1
+    I001: 1
+  app/services/chat.py:
+    I001: 1
+  app/services/cleanup.py:
+    I001: 1
+  app/services/docling_parser.py:
+    E501: 2
+    I001: 1
+  app/services/documents.py:
+    E501: 1
+  app/services/evaluation_execution.py:
+    UP035: 1
+    UP037: 2
+  app/services/ingest_batches.py:
+    I001: 1
+  app/services/quality.py:
+    E501: 3
+  app/services/search_history.py:
+    I001: 1
+  app/services/search_replays.py:
+    I001: 1
+  tests/unit/test_agent_task_actions.py:
+    E501: 2
+    I001: 1
+  tests/unit/test_agent_task_context.py:
+    E501: 1
+    I001: 1
+  tests/unit/test_agent_task_worker.py:
+    E501: 2
+  tests/unit/test_chat_service.py:
+    E501: 2
+  tests/unit/test_cli.py:
+    E501: 1
+    I001: 1
+  tests/unit/test_docling_parser.py:
+    E501: 3
+    I001: 1
+  tests/unit/test_documents_api.py:
+    E501: 4
+  tests/unit/test_eval_config.py:
+    E501: 1
+  tests/unit/test_evaluation_service.py:
+    E501: 12
+    I001: 1
+  tests/unit/test_search_service.py:
+    E501: 9
+    F841: 2

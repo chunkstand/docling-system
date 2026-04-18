@@ -15,7 +15,7 @@ def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
     document_id = uuid4()
     run_id = uuid4()
 
-    async def fake_ingest_upload(session, upload, storage_service):
+    def fake_ingest_upload(session, upload, storage_service):
         return (
             {
                 "document_id": str(document_id),

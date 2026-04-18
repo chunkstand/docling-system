@@ -1,0 +1,96 @@
+duplicate_helper_names:
+  - name: _foreign_results_before_first_expected_hit
+    modules:
+      - app/services/evaluations.py
+      - app/services/search_replays.py
+    reason: Evaluation and replay services compute the same concept over different result payloads.
+  - name: _latest_evaluations_by_run
+    modules:
+      - app/services/audit.py
+      - app/services/quality.py
+    reason: Audit and quality keep separate in-memory projections of evaluation rows.
+  - name: _load_replay_run
+    modules:
+      - app/services/search_release_gate.py
+      - app/services/search_replays.py
+    reason: Release gating and replay inspection resolve different replay run shapes.
+  - name: _matching_rank
+    modules:
+      - app/services/evaluations.py
+      - app/services/search_replays.py
+    reason: Evaluation and replay comparisons calculate rank over different case types.
+  - name: _normalize_text
+    modules:
+      - app/services/docling_parser.py
+      - app/services/search.py
+    reason: Parser normalization and retrieval normalization are intentionally different.
+  - name: _reciprocal_rank
+    modules:
+      - app/services/evaluations.py
+      - app/services/search.py
+    reason: Evaluation scoring and live-search scoring own separate ranking math surfaces.
+  - name: _result_label
+    modules:
+      - app/services/chat.py
+      - app/services/search.py
+    reason: Chat citations and search results render different UI labels.
+  - name: _top_n_source_hit_count
+    modules:
+      - app/services/evaluations.py
+      - app/services/search_replays.py
+    reason: Evaluation and replay services count expected-document hits in different result models.
+  - name: _write_failure_artifact
+    modules:
+      - app/services/agent_task_worker.py
+      - app/services/runs.py
+    reason: Run failures and agent-task failures serialize different artifact schemas.
+file_budgets:
+  defaults:
+    max_lines: 600
+    max_private_helpers: 20
+  overrides:
+    app/api/main.py:
+      max_lines: 948
+      max_private_helpers: 2
+    app/cli.py:
+      max_lines: 929
+      max_private_helpers: 1
+    app/db/models.py:
+      max_lines: 1242
+      max_private_helpers: 0
+    app/schemas/agent_tasks.py:
+      max_lines: 604
+      max_private_helpers: 0
+    app/services/agent_task_actions.py:
+      max_lines: 695
+      max_private_helpers: 12
+    app/services/agent_task_context.py:
+      max_lines: 1014
+      max_private_helpers: 13
+    app/services/agent_tasks.py:
+      max_lines: 1604
+      max_private_helpers: 32
+    app/services/docling_parser.py:
+      max_lines: 1453
+      max_private_helpers: 52
+    app/services/documents.py:
+      max_lines: 607
+      max_private_helpers: 21
+    app/services/evaluations.py:
+      max_lines: 2103
+      max_private_helpers: 58
+    app/services/ingest_batches.py:
+      max_lines: 689
+      max_private_helpers: 18
+    app/services/quality.py:
+      max_lines: 1216
+      max_private_helpers: 19
+    app/services/runs.py:
+      max_lines: 1008
+      max_private_helpers: 14
+    app/services/search.py:
+      max_lines: 2126
+      max_private_helpers: 61
+    app/services/search_replays.py:
+      max_lines: 1113
+      max_private_helpers: 26
