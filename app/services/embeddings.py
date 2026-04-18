@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections import OrderedDict
 from functools import lru_cache
+from threading import Lock
 
 import structlog
 import tiktoken
@@ -10,6 +12,7 @@ from app.core.config import get_settings
 
 EMBEDDING_INPUT_TOKEN_LIMIT = 8191
 EMBEDDING_BATCH_SIZE = 128
+EMBEDDING_CACHE_SIZE = 256
 logger = structlog.get_logger(__name__)
 
 
@@ -27,12 +30,16 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         *,
         max_input_tokens: int = EMBEDDING_INPUT_TOKEN_LIMIT,
         batch_size: int = EMBEDDING_BATCH_SIZE,
+        cache_size: int = EMBEDDING_CACHE_SIZE,
     ) -> None:
         self.client = OpenAI(api_key=api_key)
         self.model = model
         self.embedding_dim = embedding_dim
         self.max_input_tokens = max_input_tokens
         self.batch_size = batch_size
+        self.cache_size = cache_size
+        self._cache: OrderedDict[str, list[float]] = OrderedDict()
+        self._cache_lock = Lock()
         try:
             self._encoding = tiktoken.encoding_for_model(model)
         except KeyError:
@@ -51,6 +58,21 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                     "Embedding dimension mismatch: "
                     f"expected {self.embedding_dim}, got {len(embedding)}."
                 )
+
+    def _get_cached_embedding(self, text: str) -> list[float] | None:
+        with self._cache_lock:
+            embedding = self._cache.get(text)
+            if embedding is None:
+                return None
+            self._cache.move_to_end(text)
+            return list(embedding)
+
+    def _store_cached_embedding(self, text: str, embedding: list[float]) -> None:
+        with self._cache_lock:
+            self._cache[text] = list(embedding)
+            self._cache.move_to_end(text)
+            while len(self._cache) > self.cache_size:
+                self._cache.popitem(last=False)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -71,17 +93,29 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 max_input_tokens=self.max_input_tokens,
             )
 
-        embeddings: list[list[float]] = []
-        for start in range(0, len(prepared_texts), self.batch_size):
+        embeddings: list[list[float] | None] = [None] * len(prepared_texts)
+        missing: list[tuple[int, str]] = []
+        for index, text in enumerate(prepared_texts):
+            cached = self._get_cached_embedding(text)
+            if cached is not None:
+                embeddings[index] = cached
+            else:
+                missing.append((index, text))
+
+        for start in range(0, len(missing), self.batch_size):
+            batch = missing[start : start + self.batch_size]
             response = self.client.embeddings.create(
                 model=self.model,
-                input=prepared_texts[start : start + self.batch_size],
+                input=[text for _, text in batch],
                 encoding_format="float",
             )
             batch_embeddings = [list(item.embedding) for item in response.data]
             self._validate_dimensions(batch_embeddings)
-            embeddings.extend(batch_embeddings)
-        return embeddings
+            for (index, text), embedding in zip(batch, batch_embeddings, strict=True):
+                self._store_cached_embedding(text, embedding)
+                embeddings[index] = embedding
+
+        return [list(embedding) for embedding in embeddings if embedding is not None]
 
 
 @lru_cache(maxsize=1)

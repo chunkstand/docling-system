@@ -261,7 +261,28 @@ def get_document_converter() -> DocumentConverter:
 def get_fallback_document_converter() -> DocumentConverter:
     settings = get_settings()
     options = PdfPipelineOptions()
-    options.document_timeout = settings.docling_fallback_document_timeout_seconds
+    fallback_timeout = settings.docling_fallback_document_timeout_seconds
+    primary_timeout = settings.docling_document_timeout_seconds
+    if fallback_timeout is None:
+        options.document_timeout = primary_timeout
+    elif primary_timeout is None:
+        options.document_timeout = fallback_timeout
+    else:
+        options.document_timeout = max(fallback_timeout, primary_timeout)
+    options.do_ocr = False
+    options.do_table_structure = False
+    options.force_backend_text = True
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=options),
+        }
+    )
+
+
+@lru_cache(maxsize=1)
+def get_timeout_rescue_document_converter() -> DocumentConverter:
+    options = PdfPipelineOptions()
+    options.document_timeout = None
     options.do_ocr = False
     options.do_table_structure = False
     options.force_backend_text = True
@@ -299,6 +320,27 @@ def _conversion_error_message(
     if detail:
         return f"{prefix} for {source_path.name}: status={status}; {detail}"
     return f"{prefix} for {source_path.name}: status={status}"
+
+
+def _conversion_timed_out(result: Any) -> bool:
+    status = _conversion_status_value(result) or ""
+    if status not in {"partial_success", "failure"}:
+        return False
+    errors = getattr(result, "errors", None) or []
+    if isinstance(errors, list):
+        return any("document timeout exceeded" in str(item).lower() for item in errors if item)
+    return "document timeout exceeded" in str(errors).lower()
+
+
+def _should_attempt_timeout_rescue(primary_result: Any, fallback_result: Any) -> bool:
+    fallback_status = _conversion_status_value(fallback_result) or ""
+    if fallback_status == "success":
+        return False
+    return (
+        _conversion_timed_out(primary_result)
+        or _conversion_timed_out(fallback_result)
+        or fallback_status == "partial_success"
+    )
 
 
 @lru_cache(maxsize=4)
@@ -1340,14 +1382,22 @@ class DoclingParser:
         self,
         converter: DocumentConverter | None = None,
         fallback_converter: DocumentConverter | None = None,
+        timeout_rescue_converter: DocumentConverter | None = None,
     ) -> None:
         self.converter = converter or get_document_converter()
         self.fallback_converter = fallback_converter or get_fallback_document_converter()
+        self.timeout_rescue_converter = (
+            timeout_rescue_converter or get_timeout_rescue_document_converter()
+        )
 
     def parse_pdf(self, source_path: Path, *, source_filename: str | None = None) -> ParsedDocument:
         result = self.converter.convert(source_path, raises_on_error=False)
         if not _conversion_succeeded(result):
-            result = self.fallback_converter.convert(source_path, raises_on_error=False)
+            primary_result = result
+            fallback_result = self.fallback_converter.convert(source_path, raises_on_error=False)
+            result = fallback_result
+            if _should_attempt_timeout_rescue(primary_result, fallback_result):
+                result = self.timeout_rescue_converter.convert(source_path, raises_on_error=False)
             if not _conversion_succeeded(result):
                 raise ValueError(
                     _conversion_error_message(

@@ -16,6 +16,7 @@ from app.services.documents import (
     _is_pdf,
     _to_run_summary,
     _validate_local_ingest_path,
+    ingest_local_file,
 )
 
 
@@ -162,6 +163,66 @@ def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
         (fake_home / "Documents").resolve(),
         (fake_home / "Downloads").resolve(),
     ]
+
+
+def test_local_duplicate_ingest_bypasses_limit_checks_and_staging(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    now = datetime.now(UTC)
+    file_path = Path("/tmp/duplicate.pdf")
+
+    document = Document(
+        id=document_id,
+        source_filename="duplicate.pdf",
+        source_path="/tmp/source.pdf",
+        sha256="known-sha",
+        mime_type="application/pdf",
+        active_run_id=run_id,
+        latest_run_id=run_id,
+        created_at=now,
+        updated_at=now,
+    )
+    run = DocumentRun(
+        id=run_id,
+        document_id=document_id,
+        run_number=1,
+        status=RunStatus.COMPLETED.value,
+        created_at=now,
+        completed_at=now,
+    )
+
+    class FakeExecuteResult:
+        def scalar_one_or_none(self):
+            return document
+
+    class FakeSession:
+        def execute(self, _statement):
+            return FakeExecuteResult()
+
+        def get(self, model, value):
+            if model is DocumentRun and value == run_id:
+                return run
+            return None
+
+    class FakeStorageService:
+        def stage_local_file(self, _source_path):
+            raise AssertionError("stage_local_file should not be called for duplicates")
+
+    validate_calls: list[bool] = []
+
+    def fake_validate(path: Path, *, enforce_limits: bool = True) -> Path:
+        validate_calls.append(enforce_limits)
+        return path
+
+    monkeypatch.setattr("app.services.documents._validate_local_ingest_path", fake_validate)
+    monkeypatch.setattr("app.services.documents._sha256_file", lambda _: "known-sha")
+
+    response, status_code = ingest_local_file(FakeSession(), file_path, FakeStorageService())
+
+    assert status_code == 200
+    assert response.duplicate is True
+    assert response.document_id == document_id
+    assert validate_calls == [False]
 
 
 def test_to_run_summary_exposes_live_progress_metadata(monkeypatch) -> None:

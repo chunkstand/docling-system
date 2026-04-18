@@ -258,6 +258,58 @@ def test_process_run_keeps_promoted_run_completed_when_evaluation_raises(
     assert failure_called["value"] is False
 
 
+def test_run_worker_loop_exits_when_runtime_code_is_stale(monkeypatch) -> None:
+    events: dict[str, object] = {"claimed": False, "slept": False}
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        "app.services.runs.get_settings",
+        lambda: SimpleNamespace(worker_poll_seconds=2),
+    )
+    monkeypatch.setattr(
+        "app.db.session.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr("app.services.runs.StorageService", lambda: object())
+    monkeypatch.setattr("app.services.runs.DoclingParser", lambda: object())
+    monkeypatch.setattr(
+        "app.services.runs.get_embedding_provider",
+        lambda: (_ for _ in ()).throw(RuntimeError("no embeddings")),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.register_runtime_process",
+        lambda process_kind, process_identity: SimpleNamespace(
+            startup_code_fingerprint="old-fingerprint"
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.runtime_code_is_current",
+        lambda startup_code_fingerprint=None: False,
+    )
+    monkeypatch.setattr("app.services.runs.requeue_stale_runs", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(
+        "app.services.runs.claim_next_run",
+        lambda *args, **kwargs: events.__setitem__("claimed", True),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.time.sleep",
+        lambda *_args, **_kwargs: events.__setitem__("slept", True),
+    )
+
+    from app.services.runs import run_worker_loop
+
+    run_worker_loop()
+
+    assert events["claimed"] is False
+    assert events["slept"] is False
+
+
 def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path) -> None:
     document_id = uuid4()
     run_id = uuid4()

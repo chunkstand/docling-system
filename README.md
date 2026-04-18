@@ -84,6 +84,10 @@ uv run docling-system-api
 uv run docling-system-worker
 ```
 
+Workers now register a runtime code fingerprint under `storage/runtime/process_registry.json`.
+If a newer code fingerprint takes over, older workers exit before claiming the next run instead
+of continuing to process documents on stale code.
+
 8. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
 
 ```bash
@@ -94,6 +98,12 @@ uv run docling-system-agent-worker
 
 ```text
 http://localhost:8000/
+```
+
+You can inspect the current API runtime fingerprint with:
+
+```bash
+curl http://localhost:8000/runtime/status
 ```
 
 ## Ingesting PDFs

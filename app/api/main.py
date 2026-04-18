@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from functools import lru_cache
+import os
 from pathlib import Path
 from uuid import UUID
 
@@ -123,6 +125,7 @@ from app.services.quality import (
     list_quality_eval_candidates,
     list_quality_evaluations,
 )
+from app.services.runtime import get_runtime_status, register_runtime_process
 from app.services.search import execute_search
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,
@@ -143,7 +146,13 @@ from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
 
-app = FastAPI(title="Docling System", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    register_runtime_process("api", f"api:{os.getpid()}", pid=os.getpid())
+    yield
+
+
+app = FastAPI(title="Docling System", version="0.1.0", lifespan=lifespan)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
@@ -174,6 +183,11 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/runtime/status")
+def runtime_status() -> dict:
+    return get_runtime_status(process_identity=f"api:{os.getpid()}")
 
 
 @app.get("/metrics")

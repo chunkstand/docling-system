@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,7 +52,15 @@ def _allowed_ingest_roots() -> list[Path]:
     return default_local_ingest_roots()
 
 
-def _validate_local_ingest_path(file_path: Path) -> Path:
+def _sha256_file(file_path: Path) -> str:
+    hasher = hashlib.sha256()
+    with file_path.open("rb") as source_file:
+        while chunk := source_file.read(1024 * 1024):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True) -> Path:
     settings = get_settings()
     raw_path = file_path.expanduser()
     if raw_path.is_symlink():
@@ -81,6 +90,8 @@ def _validate_local_ingest_path(file_path: Path) -> Path:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="File is not a valid PDF."
             )
+    if not enforce_limits:
+        return resolved_path
     page_count = _pdf_page_count(resolved_path)
     if page_count <= 0 or page_count > settings.local_ingest_max_pages:
         raise HTTPException(
@@ -239,6 +250,37 @@ def _build_recovery_response(document_id: UUID, run_id: UUID) -> DocumentUploadR
     )
 
 
+def _resolve_existing_document_upload(
+    session: Session,
+    existing: Document,
+) -> tuple[DocumentUploadResponse, int]:
+    snapshot = _load_existing_snapshot(session, existing)
+
+    if snapshot.active_run is not None:
+        return _build_duplicate_response(snapshot), status.HTTP_200_OK
+
+    if snapshot.latest_run and snapshot.latest_run.status in {
+        RunStatus.QUEUED.value,
+        RunStatus.PROCESSING.value,
+        RunStatus.VALIDATING.value,
+        RunStatus.RETRY_WAIT.value,
+    }:
+        return (
+            DocumentUploadResponse(
+                document_id=existing.id,
+                run_id=snapshot.latest_run.id,
+                status=snapshot.latest_run.status,
+                duplicate=True,
+                recovery_run=True,
+            ),
+            status.HTTP_202_ACCEPTED,
+        )
+
+    recovery_run = create_run_for_existing_document(session=session, document=existing)
+    session.commit()
+    return _build_recovery_response(existing.id, recovery_run.id), status.HTTP_202_ACCEPTED
+
+
 def _queue_document_run(
     session: Session,
     storage_service: StorageService,
@@ -252,31 +294,8 @@ def _queue_document_run(
         select(Document).where(Document.sha256 == sha256)
     ).scalar_one_or_none()
     if existing is not None:
-        snapshot = _load_existing_snapshot(session, existing)
-
-        if snapshot.active_run is not None:
-            storage_service.delete_file_if_exists(staged_path)
-            return _build_duplicate_response(snapshot), status.HTTP_200_OK
-
-        if snapshot.latest_run and snapshot.latest_run.status in {
-            RunStatus.QUEUED.value,
-            RunStatus.PROCESSING.value,
-            RunStatus.VALIDATING.value,
-            RunStatus.RETRY_WAIT.value,
-        }:
-            storage_service.delete_file_if_exists(staged_path)
-            return DocumentUploadResponse(
-                document_id=existing.id,
-                run_id=snapshot.latest_run.id,
-                status=snapshot.latest_run.status,
-                duplicate=True,
-                recovery_run=True,
-            ), status.HTTP_202_ACCEPTED
-
-        recovery_run = create_run_for_existing_document(session=session, document=existing)
-        session.commit()
         storage_service.delete_file_if_exists(staged_path)
-        return _build_recovery_response(existing.id, recovery_run.id), status.HTTP_202_ACCEPTED
+        return _resolve_existing_document_upload(session, existing)
 
     now = _utcnow()
     document = Document(
@@ -351,6 +370,11 @@ def ingest_local_file(
     file_path: Path,
     storage_service: StorageService,
 ) -> tuple[DocumentUploadResponse, int]:
+    file_path = _validate_local_ingest_path(file_path, enforce_limits=False)
+    sha256 = _sha256_file(file_path)
+    existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+    if existing is not None:
+        return _resolve_existing_document_upload(session, existing)
     file_path = _validate_local_ingest_path(file_path)
 
     staged_path, sha256 = storage_service.stage_local_file(file_path)

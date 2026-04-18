@@ -33,6 +33,7 @@ from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
+from app.services.runtime import register_runtime_process, runtime_code_is_current
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -866,8 +867,21 @@ def run_worker_loop() -> None:
         embedding_provider = None
         logger.warning("embedding_provider_unavailable", error=str(exc))
     worker_id = get_worker_identity()
+    registration = register_runtime_process("worker", worker_id)
+    logger.info(
+        "worker_runtime_registered",
+        worker_id=worker_id,
+        code_fingerprint=registration.startup_code_fingerprint,
+    )
 
     while True:
+        if not runtime_code_is_current(registration.startup_code_fingerprint):
+            logger.warning(
+                "worker_exiting_stale_code",
+                worker_id=worker_id,
+                code_fingerprint=registration.startup_code_fingerprint,
+            )
+            return
         with session_factory() as session:
             requeue_stale_runs(session, storage_service=storage_service)
             run = claim_next_run(session, worker_id)

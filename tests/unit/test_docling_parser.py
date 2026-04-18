@@ -13,6 +13,7 @@ from app.services.docling_parser import (
     _apply_registered_table_supplements,
     _apply_table_family_overlays,
     _build_logical_tables,
+    get_fallback_document_converter,
     _group_tables_by_upc_510_family,
     _load_table_supplement_registry,
     _meaningful_table_segments,
@@ -222,6 +223,34 @@ class FakeTitlelessDocument:
         return 1
 
 
+def test_fallback_document_converter_timeout_is_not_shorter_than_primary(monkeypatch) -> None:
+    get_fallback_document_converter.cache_clear()
+    captured: dict[str, object] = {}
+
+    class FakeDocumentConverter:
+        def __init__(self, *, format_options):
+            captured["format_options"] = format_options
+
+    monkeypatch.setattr(
+        "app.services.docling_parser.get_settings",
+        lambda: SimpleNamespace(
+            docling_document_timeout_seconds=120.0,
+            docling_fallback_document_timeout_seconds=30.0,
+        ),
+    )
+    monkeypatch.setattr("app.services.docling_parser.DocumentConverter", FakeDocumentConverter)
+
+    converter = get_fallback_document_converter()
+    assert isinstance(converter, FakeDocumentConverter)
+    options = next(iter(captured["format_options"].values())).pipeline_options
+
+    assert options.document_timeout == 120.0
+    get_fallback_document_converter.cache_clear()
+
+    def num_pages(self) -> int:
+        return 1
+
+
 class FakeTitlelessConverter:
     def convert(self, source_path, **kwargs):
         return SimpleNamespace(document=FakeTitlelessDocument())
@@ -400,6 +429,80 @@ def test_docling_parser_uses_fallback_converter_after_non_successful_primary_res
     assert primary.calls[0][1]["raises_on_error"] is False
     assert len(fallback.calls) == 1
     assert fallback.calls[0][1]["raises_on_error"] is False
+
+
+def test_docling_parser_uses_timeout_rescue_converter_after_timeout_failures() -> None:
+    primary = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=["document timeout exceeded"],
+            document=FakeDocument(),
+        )
+    )
+    fallback = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=["Page 153: document timeout exceeded"],
+            document=FakeDocument(),
+        )
+    )
+    timeout_rescue = RecordingConverter(
+        SimpleNamespace(
+            status="success",
+            errors=[],
+            document=FakeTitlelessDocument(),
+        )
+    )
+    parser = DoclingParser(
+        converter=primary,
+        fallback_converter=fallback,
+        timeout_rescue_converter=timeout_rescue,
+    )
+
+    parsed = parser.parse_pdf(Path("/tmp/sample.pdf"))
+
+    assert parsed.title == "The Bitter Lesson"
+    assert len(primary.calls) == 1
+    assert len(fallback.calls) == 1
+    assert len(timeout_rescue.calls) == 1
+    assert timeout_rescue.calls[0][1]["raises_on_error"] is False
+
+
+def test_docling_parser_uses_timeout_rescue_when_fallback_returns_partial_success_without_timeout_text() -> None:
+    primary = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=["Page 220: document timeout exceeded"],
+            document=FakeDocument(),
+        )
+    )
+    fallback = RecordingConverter(
+        SimpleNamespace(
+            status="partial_success",
+            errors=[],
+            document=FakeDocument(),
+        )
+    )
+    timeout_rescue = RecordingConverter(
+        SimpleNamespace(
+            status="success",
+            errors=[],
+            document=FakeTitlelessDocument(),
+        )
+    )
+    parser = DoclingParser(
+        converter=primary,
+        fallback_converter=fallback,
+        timeout_rescue_converter=timeout_rescue,
+    )
+
+    parsed = parser.parse_pdf(Path("/tmp/sample.pdf"))
+
+    assert parsed.title == "The Bitter Lesson"
+    assert len(primary.calls) == 1
+    assert len(fallback.calls) == 1
+    assert len(timeout_rescue.calls) == 1
+    assert timeout_rescue.calls[0][1]["raises_on_error"] is False
 
 
 def test_docling_parser_raises_when_primary_and_fallback_conversion_fail() -> None:

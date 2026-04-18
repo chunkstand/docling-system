@@ -961,6 +961,25 @@ def _classify_query_intent(query: str) -> str:
     return QUERY_INTENT_PROSE_BROAD
 
 
+def _looks_like_identifier_lookup(query: str) -> bool:
+    normalized = _normalize_text(query)
+    if not normalized:
+        return False
+    stripped = query.strip().lower()
+    if stripped.endswith(".pdf"):
+        return True
+    compact = re.sub(r"\s+", "", stripped)
+    has_alpha = any(char.isalpha() for char in compact)
+    has_digit = any(char.isdigit() for char in compact)
+    if " " not in stripped and has_alpha and has_digit and len(compact) >= 6:
+        return True
+    return (
+        len(compact) >= 8
+        and any(separator in stripped for separator in ("_", "-"))
+        and len(stripped.split()) <= 3
+    )
+
+
 def _normalize_text(value: str | None) -> str:
     if not value:
         return ""
@@ -1403,15 +1422,20 @@ def _run_prose_metadata_chunk_search(
 
 def _should_run_metadata_supplement(
     *,
+    query: str,
     query_intent: str,
     strict_keyword_count: int,
     harness_name: str,
 ) -> bool:
-    del strict_keyword_count
-    return harness_name == "prose_v3" and query_intent in {
+    prose_query = query_intent in {
         QUERY_INTENT_PROSE_LOOKUP,
         QUERY_INTENT_PROSE_BROAD,
     }
+    if not prose_query:
+        return False
+    if harness_name == "prose_v3":
+        return True
+    return strict_keyword_count == 0 and _looks_like_identifier_lookup(query)
 
 
 def _expand_adjacent_chunk_context(
@@ -1729,6 +1753,7 @@ def execute_search(
 
     metadata_candidates: list[RankedResult] = []
     metadata_supplement_enabled = hasattr(session, "execute") and _should_run_metadata_supplement(
+        query=request.query,
         query_intent=query_intent,
         strict_keyword_count=strict_keyword_count,
         harness_name=harness.name,

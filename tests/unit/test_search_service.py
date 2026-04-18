@@ -9,6 +9,7 @@ from app.services.search import (
     RankedResult,
     _classify_query_intent,
     _is_tabular_query,
+    _looks_like_identifier_lookup,
     _merge_hybrid_results,
     _ranked_metadata_overlap_score,
     _should_run_metadata_supplement,
@@ -108,9 +109,17 @@ def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:
     )
 
 
-def test_metadata_supplement_runs_only_for_prose_v3_prose_queries() -> None:
+def test_identifier_lookup_detection_matches_filename_like_queries() -> None:
+    assert _looks_like_identifier_lookup("fseprd1091222") is True
+    assert _looks_like_identifier_lookup("fseprd1091222.pdf") is True
+    assert _looks_like_identifier_lookup("Consolidated BPA MOU 5-1-18") is False
+    assert _looks_like_identifier_lookup("What is the main claim of The Bitter Lesson?") is False
+
+
+def test_metadata_supplement_runs_for_prose_v3_and_identifier_zero_result_queries() -> None:
     assert (
         _should_run_metadata_supplement(
+            query="What is the main claim of The Bitter Lesson?",
             query_intent="prose_broad",
             strict_keyword_count=5,
             harness_name="prose_v3",
@@ -119,14 +128,25 @@ def test_metadata_supplement_runs_only_for_prose_v3_prose_queries() -> None:
     )
     assert (
         _should_run_metadata_supplement(
+            query="fseprd1091222",
+            query_intent="prose_lookup",
+            strict_keyword_count=0,
+            harness_name="default_v1",
+        )
+        is True
+    )
+    assert (
+        _should_run_metadata_supplement(
+            query="what does appendix h alternative costs show",
             query_intent="prose_broad",
-            strict_keyword_count=1,
+            strict_keyword_count=0,
             harness_name="default_v1",
         )
         is False
     )
     assert (
         _should_run_metadata_supplement(
+            query="TABLE 701.2",
             query_intent="tabular",
             strict_keyword_count=1,
             harness_name="prose_v3",
@@ -1226,6 +1246,82 @@ def test_execute_search_uses_metadata_supplement_as_zero_result_fallback(monkeyp
     assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1
 
 
+def test_execute_search_default_v1_uses_metadata_supplement_for_identifier_lookup(
+    monkeypatch,
+) -> None:
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+    document_id = uuid4()
+    run_id = uuid4()
+    chunk_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_relaxed_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_prose_metadata_chunk_search",
+        lambda session, request, run_id=None: [
+            RankedResult(
+                result_type="chunk",
+                result_id=chunk_id,
+                document_id=document_id,
+                run_id=run_id or uuid4(),
+                source_filename="fseprd1091222.pdf",
+                document_title="Forest Service",
+                page_from=1,
+                page_to=1,
+                chunk_index=0,
+                chunk_text="Metadata fallback hit",
+                heading="Cover",
+                keyword_score=0.9,
+                retrieval_sources=("metadata_supplement",),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(query="fseprd1091222", mode="keyword", limit=5, harness_name="default_v1"),
+        origin="api",
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert len(execution.results) == 1
+    assert execution.results[0].source_filename == "fseprd1091222.pdf"
+    assert request_rows[0].details_json["keyword_strategy"] == "metadata_supplement"
+    assert request_rows[0].details_json["candidate_source_breakdown"]["metadata_supplement"] == 1
+
+
 def test_prose_query_exact_source_filename_match_outranks_noisy_relaxed_table(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.search._run_keyword_chunk_search",
@@ -1429,6 +1525,105 @@ def test_execute_search_default_v1_does_not_run_metadata_supplement(monkeypatch)
 
     assert execution.details["metadata_candidate_count"] == 0
     assert request_rows[0].details_json["candidate_source_breakdown"].get("metadata_supplement", 0) == 0
+
+
+def test_execute_search_does_not_rollback_before_persisting_evaluation_request(monkeypatch) -> None:
+    class FakeProvider:
+        def embed_texts(self, texts):
+            assert texts == ["What is the main claim of The Bitter Lesson?"]
+            return [[0.1, 0.2, 0.3]]
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.added: list[object] = []
+            self.rollback_calls = 0
+
+        def add(self, value) -> None:
+            self.added.append(value)
+
+        def execute(self, _statement):
+            return SimpleNamespace(all=lambda: [])
+
+        def flush(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            self.rollback_calls += 1
+
+    keyword_candidate = RankedResult(
+        result_type="chunk",
+        result_id=uuid4(),
+        document_id=uuid4(),
+        run_id=uuid4(),
+        source_filename="The Bitter Lesson.pdf",
+        document_title="The Bitter Lesson",
+        page_from=1,
+        page_to=1,
+        chunk_index=0,
+        chunk_text="General methods that leverage computation are ultimately the most effective.",
+        heading="The Bitter Lesson",
+        keyword_score=0.8,
+        retrieval_sources=("keyword_primary",),
+    )
+    semantic_candidate = RankedResult(
+        result_type="chunk",
+        result_id=uuid4(),
+        document_id=keyword_candidate.document_id,
+        run_id=keyword_candidate.run_id,
+        source_filename="The Bitter Lesson.pdf",
+        document_title="The Bitter Lesson",
+        page_from=1,
+        page_to=1,
+        chunk_index=0,
+        chunk_text=keyword_candidate.chunk_text,
+        heading="The Bitter Lesson",
+        semantic_score=0.9,
+        retrieval_sources=("semantic_primary",),
+    )
+
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_chunk_search",
+        lambda session, request, candidate_limit=None, run_id=None: [keyword_candidate],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_keyword_table_search",
+        lambda session, request, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_chunk_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [
+            semantic_candidate
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.search._run_semantic_table_search",
+        lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
+    )
+    monkeypatch.setattr(
+        "app.services.search.observe_search_results",
+        lambda table_hits, mixed_request: None,
+    )
+
+    session = FakeSession()
+    execution = execute_search(
+        session,
+        SearchRequest(
+            query="What is the main claim of The Bitter Lesson?",
+            mode="hybrid",
+            limit=5,
+            harness_name="default_v1",
+        ),
+        embedding_provider=FakeProvider(),
+        origin="api",
+        evaluation_id=uuid4(),
+    )
+
+    request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
+
+    assert len(execution.results) >= 1
+    assert session.rollback_calls == 0
+    assert len(request_rows) == 1
+    assert request_rows[0].evaluation_id is not None
 
 
 def test_execute_search_uses_camel_case_source_filename_exact_match(monkeypatch) -> None:

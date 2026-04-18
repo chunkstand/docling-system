@@ -16,6 +16,10 @@ class Settings(BaseSettings):
 
     env: str = "development"
     database_url: str = "postgresql+psycopg://docling:docling@localhost:5432/docling_system"
+    database_pool_size: int = 20
+    database_max_overflow: int = 20
+    database_pool_timeout_seconds: float = 30.0
+    database_pool_pre_ping: bool = True
     storage_root: Path = Field(default=Path("./storage"))
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
