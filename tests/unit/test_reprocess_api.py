@@ -31,6 +31,7 @@ def test_reprocess_route_returns_accepted(monkeypatch) -> None:
     response = client.post(f"/documents/{document_id}/reprocess")
 
     assert response.status_code == 202
+    assert response.headers["Location"] == f"/runs/{run_id}"
     assert response.json()["run_id"] == str(run_id)
 
 
@@ -85,3 +86,37 @@ def test_reprocess_route_returns_machine_readable_error_code(monkeypatch) -> Non
         "detail": "Remote ingest is at capacity. Try again after existing runs finish.",
         "error_code": "rate_limited",
     }
+
+
+def test_reprocess_route_requires_remote_capability(monkeypatch) -> None:
+    document_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "operator-secret",
+                "remote_api_capabilities": None,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.api.main.reprocess_document",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before reprocess service runs")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/documents/{document_id}/reprocess",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"

@@ -16,7 +16,12 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error, structured_http_exception_handler
 from app.api.file_delivery import file_response_if_exists
-from app.core.config import get_settings, is_loopback_host, resolve_api_mode
+from app.core.config import (
+    get_settings,
+    is_loopback_host,
+    resolve_api_mode,
+    resolve_remote_api_capabilities,
+)
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
@@ -115,6 +120,7 @@ from app.services.chat import answer_question, record_chat_answer_feedback
 from app.services.chunks import get_active_chunks
 from app.services.documents import (
     get_document_detail,
+    get_document_run_summary,
     get_latest_document_evaluation_detail,
     ingest_upload,
     list_document_runs,
@@ -152,12 +158,15 @@ from app.services.telemetry import snapshot_metrics
 def _api_mode_metadata() -> dict[str, object]:
     settings = get_settings()
     resolved_mode = resolve_api_mode(settings)
-    return {
+    payload = {
         "api_mode": resolved_mode,
         "api_mode_explicit": settings.api_mode is not None,
         "api_host": settings.api_host,
         "api_port": settings.api_port,
     }
+    if resolved_mode == "remote":
+        payload["remote_api_capabilities"] = sorted(resolve_remote_api_capabilities(settings))
+    return payload
 
 
 def _require_api_key_for_mutations(
@@ -185,6 +194,24 @@ def _require_api_key_for_mutations(
         message="Valid API key required for mutating API access.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+def _require_api_capability(capability: str):
+    def dependency() -> None:
+        settings = get_settings()
+        if resolve_api_mode(settings) != "remote":
+            return
+        allowed_capabilities = resolve_remote_api_capabilities(settings)
+        if "*" in allowed_capabilities or capability in allowed_capabilities:
+            return
+        raise api_error(
+            status.HTTP_403_FORBIDDEN,
+            "capability_not_allowed",
+            f"Remote API capability '{capability}' is not enabled.",
+            capability=capability,
+        )
+
+    return dependency
 
 
 def _validate_runtime_bind_settings() -> tuple[str, int]:
@@ -232,6 +259,13 @@ def _storage_file_response(
         media_type=media_type,
         response_factory=FileResponse,
     )
+
+
+def _response_field(payload, field_name: str):
+    value = getattr(payload, field_name, None)
+    if value is None and isinstance(payload, dict):
+        value = payload.get(field_name)
+    return value
 
 
 @app.get("/", include_in_schema=False)
@@ -309,17 +343,24 @@ def read_agent_tasks(
     "/agent-tasks",
     response_model=AgentTaskDetailResponse,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("agent_tasks:write")),
+    ],
 )
 def create_agent_task_route(
+    response: Response,
     payload: AgentTaskCreateRequest,
     session: Session = Depends(get_db_session),
 ) -> AgentTaskDetailResponse:
     try:
-        response = create_agent_task(session, payload)
+        task_response = create_agent_task(session, payload)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    return response
+    task_id = _response_field(task_response, "task_id")
+    if task_id is not None:
+        response.headers["Location"] = f"/agent-tasks/{task_id}"
+    return task_response
 
 
 @app.get("/agent-tasks/analytics/summary", response_model=AgentTaskAnalyticsSummaryResponse)
@@ -561,7 +602,10 @@ def read_agent_task_outcomes(
 @app.post(
     "/agent-tasks/{task_id}/outcomes",
     response_model=AgentTaskOutcomeResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("agent_tasks:write")),
+    ],
 )
 def create_agent_task_outcome_route(
     task_id: UUID,
@@ -617,7 +661,10 @@ def read_agent_task_failure_artifact(
 @app.post(
     "/agent-tasks/{task_id}/approve",
     response_model=AgentTaskDetailResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("agent_tasks:write")),
+    ],
 )
 def approve_agent_task_route(
     task_id: UUID,
@@ -630,7 +677,10 @@ def approve_agent_task_route(
 @app.post(
     "/agent-tasks/{task_id}/reject",
     response_model=AgentTaskDetailResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("agent_tasks:write")),
+    ],
 )
 def reject_agent_task_route(
     task_id: UUID,
@@ -648,7 +698,10 @@ def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentS
 @app.post(
     "/documents",
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:upload")),
+    ],
 )
 def create_document(
     response: Response,
@@ -663,6 +716,9 @@ def create_document(
         idempotency_key=idempotency_key,
     )
     response.status_code = status_code
+    run_id = _response_field(payload, "run_id")
+    if run_id is not None:
+        response.headers["Location"] = f"/runs/{run_id}"
     return payload
 
 
@@ -680,6 +736,14 @@ def read_document_runs(
     session: Session = Depends(get_db_session),
 ) -> list[DocumentRunSummaryResponse]:
     return list_document_runs(session, document_id)
+
+
+@app.get("/runs/{run_id}", response_model=DocumentRunSummaryResponse)
+def read_document_run(
+    run_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> DocumentRunSummaryResponse:
+    return get_document_run_summary(session, run_id)
 
 
 @app.get("/documents/{document_id}/evaluations/latest", response_model=EvaluationDetailResponse)
@@ -737,7 +801,10 @@ def read_document_figure(
 @app.post(
     "/documents/{document_id}/reprocess",
     response_model=DocumentUploadResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:reprocess")),
+    ],
 )
 def reprocess_existing_document(
     document_id: UUID,
@@ -745,8 +812,12 @@ def reprocess_existing_document(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     session: Session = Depends(get_db_session),
 ) -> DocumentUploadResponse:
+    payload = reprocess_document(session, document_id, idempotency_key=idempotency_key)
     response.status_code = 202
-    return reprocess_document(session, document_id, idempotency_key=idempotency_key)
+    run_id = _response_field(payload, "run_id")
+    if run_id is not None:
+        response.headers["Location"] = f"/runs/{run_id}"
+    return payload
 
 
 @app.get("/runs/{run_id}/failure-artifact")
@@ -882,7 +953,10 @@ def read_figure_yaml_artifact(
 @app.post(
     "/search",
     response_model=list[SearchResult],
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:query")),
+    ],
 )
 def search_corpus(
     request: SearchRequest,
@@ -910,7 +984,10 @@ def read_search_request(
 @app.post(
     "/search/requests/{search_request_id}/feedback",
     response_model=SearchFeedbackResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:feedback")),
+    ],
 )
 def create_search_feedback(
     search_request_id: UUID,
@@ -925,7 +1002,10 @@ def create_search_feedback(
 @app.post(
     "/search/requests/{search_request_id}/replay",
     response_model=SearchReplayResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:replay")),
+    ],
 )
 def replay_logged_search(
     search_request_id: UUID,
@@ -951,7 +1031,10 @@ def read_search_harnesses() -> list[SearchHarnessResponse]:
 @app.post(
     "/search/harness-evaluations",
     response_model=SearchHarnessEvaluationResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:evaluate")),
+    ],
 )
 def create_search_harness_evaluation(
     payload: SearchHarnessEvaluationRequest,
@@ -968,9 +1051,13 @@ def create_search_harness_evaluation(
 @app.post(
     "/search/replays",
     response_model=SearchReplayRunDetailResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:replay")),
+    ],
 )
 def create_search_replay_run(
+    response: Response,
     payload: SearchReplayRunRequest,
     session: Session = Depends(get_db_session),
 ) -> SearchReplayRunDetailResponse:
@@ -979,6 +1066,9 @@ def create_search_replay_run(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     session.commit()
+    replay_run_id = _response_field(replay_run, "replay_run_id")
+    if replay_run_id is not None:
+        response.headers["Location"] = f"/search/replays/{replay_run_id}"
     return replay_run
 
 
@@ -1006,7 +1096,10 @@ def read_search_replay_run(
 @app.post(
     "/chat",
     response_model=ChatResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("chat:query")),
+    ],
 )
 def chat_with_corpus(
     request: ChatRequest,
@@ -1023,7 +1116,10 @@ def chat_with_corpus(
 @app.post(
     "/chat/answers/{chat_answer_id}/feedback",
     response_model=ChatAnswerFeedbackResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("chat:feedback")),
+    ],
 )
 def create_chat_answer_feedback(
     chat_answer_id: UUID,

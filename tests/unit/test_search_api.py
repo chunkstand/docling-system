@@ -50,6 +50,33 @@ def test_search_route_uses_search_service(monkeypatch) -> None:
     assert body[0]["scores"]["hybrid_score"] == 0.9
 
 
+def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.execute_search",
+        lambda session, request, origin="api": SimpleNamespace(request_id=None, results=[]),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/search",
+        json={"query": "hello", "mode": "keyword", "limit": 5},
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
     request_id = uuid4()
 
@@ -152,6 +179,36 @@ def test_search_request_replay_route_uses_history_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["replay_request"]["parent_search_request_id"] == str(request_id)
+
+
+def test_search_request_replay_route_requires_remote_capability(monkeypatch) -> None:
+    request_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.replay_search_request",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before replay runs")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/search/requests/{request_id}/replay",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
 
 
 def test_search_request_feedback_route_uses_history_service(monkeypatch) -> None:
@@ -271,6 +328,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
         json={"source_type": "cross_document_prose_regressions", "limit": 3},
     )
     assert create_response.status_code == 200
+    assert create_response.headers["Location"] == f"/search/replays/{replay_run_id}"
     assert create_response.json()["source_type"] == "cross_document_prose_regressions"
 
     detail_response = client.get(f"/search/replays/{replay_run_id}")

@@ -8,6 +8,15 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ApiMode = Literal["local", "remote"]
+DEFAULT_REMOTE_API_CAPABILITIES = frozenset(
+    {
+        "documents:upload",
+        "search:query",
+        "search:feedback",
+        "chat:query",
+        "chat:feedback",
+    }
+)
 
 
 class Settings(BaseSettings):
@@ -28,6 +37,7 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_key: str | None = None
+    remote_api_capabilities: str | None = None
     remote_ingest_max_inflight_runs: int | None = 8
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
@@ -67,6 +77,18 @@ def resolve_api_mode(settings: Settings | None = None) -> ApiMode:
     if not is_loopback_host(current_settings.api_host):
         return "remote"
     return "local"
+
+
+def resolve_remote_api_capabilities(settings: Settings | None = None) -> set[str]:
+    current_settings = settings or get_settings()
+    configured_capabilities = getattr(current_settings, "remote_api_capabilities", None)
+    if configured_capabilities is None:
+        return set(DEFAULT_REMOTE_API_CAPABILITIES)
+    return {
+        item.strip()
+        for item in configured_capabilities.split(",")
+        if item.strip()
+    }
 
 
 @lru_cache(maxsize=1)

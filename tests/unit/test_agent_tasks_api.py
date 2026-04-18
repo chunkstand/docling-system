@@ -641,6 +641,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     assert create_response.status_code == 201
+    assert create_response.headers["Location"] == f"/agent-tasks/{task_id}"
     assert create_response.json()["task_type"] == "list_quality_eval_candidates"
 
     analytics_response = client.get("/agent-tasks/analytics/summary")
@@ -903,3 +904,36 @@ def test_create_agent_task_route_returns_422_on_invalid_inner_payload() -> None:
 
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["source_type"]
+
+
+def test_create_agent_task_route_requires_remote_capability(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "operator-secret",
+                "remote_api_capabilities": None,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.api.main.create_agent_task",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before agent task creation runs")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/agent-tasks",
+        json={"task_type": "list_quality_eval_candidates", "input": {"limit": 1}},
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"

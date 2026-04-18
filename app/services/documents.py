@@ -793,6 +793,16 @@ def list_document_runs(
     return [_to_run_summary(document, run) for run in runs]
 
 
+def get_document_run_summary(session: Session, run_id: UUID) -> DocumentRunSummaryResponse:
+    run = session.get(DocumentRun, run_id)
+    if run is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_run_not_found", "Document run not found.")
+    document = session.get(Document, run.document_id)
+    if document is None:
+        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")
+    return _to_run_summary(document, run)
+
+
 def get_latest_document_evaluation_detail(session: Session, document_id: UUID):
     document = session.get(Document, document_id)
     if document is None:

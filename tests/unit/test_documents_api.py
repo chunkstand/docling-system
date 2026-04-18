@@ -40,6 +40,7 @@ def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
     )
 
     assert response.status_code == 202
+    assert response.headers["Location"] == f"/runs/{run_id}"
     body = response.json()
     assert body["document_id"] == str(document_id)
     assert body["run_id"] == str(run_id)
@@ -197,6 +198,46 @@ def test_document_runs_route_uses_run_history_service(monkeypatch) -> None:
     assert body[0]["run_id"] == str(run_id)
     assert body[0]["failure_stage"] == "parse"
     assert body[0]["has_failure_artifact"] is True
+
+
+def test_document_run_route_uses_run_summary_service(monkeypatch) -> None:
+    run_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_document_run_summary",
+        lambda session, requested_run_id: {
+            "run_id": str(requested_run_id),
+            "run_number": 2,
+            "status": "queued",
+            "attempts": 1,
+            "validation_status": "pending",
+            "chunk_count": None,
+            "table_count": None,
+            "figure_count": None,
+            "error_message": None,
+            "failure_stage": None,
+            "has_failure_artifact": False,
+            "current_stage": "queued",
+            "stage_started_at": "2026-04-18T00:00:00Z",
+            "locked_at": None,
+            "locked_by": None,
+            "last_heartbeat_at": None,
+            "lease_stale": False,
+            "heartbeat_age_seconds": None,
+            "validation_warning_count": 0,
+            "progress_summary": {},
+            "is_active_run": False,
+            "created_at": "2026-04-18T00:00:00Z",
+            "started_at": None,
+            "completed_at": None,
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/runs/{run_id}")
+
+    assert response.status_code == 200
+    assert response.json()["run_id"] == str(run_id)
 
 
 def test_run_failure_artifact_route_serves_json(monkeypatch, tmp_path: Path) -> None:
