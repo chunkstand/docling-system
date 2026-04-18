@@ -33,10 +33,18 @@ from app.schemas.agent_tasks import (
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
-from app.services.agent_task_context import resolve_required_dependency_task_output_context
+from app.services.agent_task_context import (
+    _build_apply_harness_config_update_context,
+    _build_draft_harness_config_context,
+    _build_evaluate_search_harness_context,
+    _build_generic_task_context,
+    _build_triage_replay_regression_context,
+    _build_verify_draft_harness_config_context,
+    _build_verify_search_harness_evaluation_context,
+    resolve_required_dependency_task_output_context,
+)
 from app.services.agent_task_verifications import (
     create_agent_task_verification_record,
-    evaluate_search_harness_verification,
     verify_draft_harness_config_task,
     verify_search_harness_evaluation_task,
 )
@@ -50,7 +58,10 @@ from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_harness_overrides import upsert_applied_search_harness_override
 from app.services.search_history import replay_search_request
 from app.services.search_replays import run_search_replay_suite
+from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.storage import StorageService
+
+evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
 
 @dataclass(frozen=True)
@@ -66,6 +77,7 @@ class AgentTaskActionDefinition:
     output_schema_name: str | None = None
     output_schema_version: str | None = None
     input_example: dict[str, Any] | None = None
+    context_builder: Callable[..., object] | None = None
 
 
 def _latest_evaluation_executor(
@@ -448,6 +460,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="get_latest_evaluation_output",
         output_schema_version="1.0",
         input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_generic_task_context,
     ),
     "list_quality_eval_candidates": AgentTaskActionDefinition(
         task_type="list_quality_eval_candidates",
@@ -459,6 +472,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="list_quality_eval_candidates_output",
         output_schema_version="1.0",
         input_example={"limit": 12, "include_resolved": False},
+        context_builder=_build_generic_task_context,
     ),
     "replay_search_request": AgentTaskActionDefinition(
         task_type="replay_search_request",
@@ -470,6 +484,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="replay_search_request_output",
         output_schema_version="1.0",
         input_example={"search_request_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_generic_task_context,
     ),
     "run_search_replay_suite": AgentTaskActionDefinition(
         task_type="run_search_replay_suite",
@@ -481,6 +496,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="run_search_replay_suite_output",
         output_schema_version="1.0",
         input_example={"source_type": "feedback", "limit": 12, "harness_name": "default_v1"},
+        context_builder=_build_generic_task_context,
     ),
     "evaluate_search_harness": AgentTaskActionDefinition(
         task_type="evaluate_search_harness",
@@ -497,6 +513,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "source_types": ["evaluation_queries", "feedback"],
             "limit": 12,
         },
+        context_builder=_build_evaluate_search_harness_context,
     ),
     "verify_search_harness_evaluation": AgentTaskActionDefinition(
         task_type="verify_search_harness_evaluation",
@@ -517,6 +534,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
+        context_builder=_build_verify_search_harness_evaluation_context,
     ),
     "draft_harness_config_update": AgentTaskActionDefinition(
         task_type="draft_harness_config_update",
@@ -541,6 +559,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
                 "document_title_token_coverage_bonus": 0.05,
             },
         },
+        context_builder=_build_draft_harness_config_context,
     ),
     "verify_draft_harness_config": AgentTaskActionDefinition(
         task_type="verify_draft_harness_config",
@@ -564,6 +583,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
+        context_builder=_build_verify_draft_harness_config_context,
     ),
     "triage_replay_regression": AgentTaskActionDefinition(
         task_type="triage_replay_regression",
@@ -589,6 +609,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
+        context_builder=_build_triage_replay_regression_context,
     ),
     "enqueue_document_reprocess": AgentTaskActionDefinition(
         task_type="enqueue_document_reprocess",
@@ -608,6 +629,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "source_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Triaged replay regression needs a fresh parse.",
         },
+        context_builder=_build_generic_task_context,
     ),
     "apply_harness_config_update": AgentTaskActionDefinition(
         task_type="apply_harness_config_update",
@@ -627,6 +649,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified review harness for operator use.",
         },
+        context_builder=_build_apply_harness_config_update_context,
     ),
 }
 

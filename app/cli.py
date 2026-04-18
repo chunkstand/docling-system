@@ -20,7 +20,6 @@ from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRe
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_context import get_agent_task_context
 from app.services.agent_task_verifications import (
-    evaluate_search_harness_verification,
     get_agent_task_verifications,
 )
 from app.services.agent_tasks import (
@@ -58,12 +57,15 @@ from app.services.ingest_batches import (
 )
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_history import replay_search_request
 from app.services.search_replays import (
     export_ranking_dataset,
     run_search_replay_suite,
 )
 from app.services.storage import StorageService
+
+evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
 
 def _parse_json_arg(raw_json: str) -> dict:

@@ -29,6 +29,12 @@ from app.schemas.evaluations import (
 )
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
 from app.services.chat import answer_question
+from app.services.evaluation_execution import (
+    EvaluationBatchResult,
+    build_completed_evaluation_summary,
+    execute_answer_queries,
+    execute_retrieval_queries,
+)
 from app.services.search import search_documents
 
 EVAL_VERSION = 1
@@ -1906,157 +1912,38 @@ def evaluate_run(
             return evaluation
 
         evaluation.fixture_name = fixture.name
-        query_count = 0
-        retrieval_query_count = 0
-        answer_query_count = 0
-        passed_queries = 0
-        failed_queries = 0
-        passed_retrieval_queries = 0
-        failed_retrieval_queries = 0
-        passed_answer_queries = 0
-        failed_answer_queries = 0
-        regressed_queries = 0
-        improved_queries = 0
-        stable_queries = 0
-        retrieval_outcomes: list[dict] = []
-
-        for case in fixture.queries:
-            filters_payload = {**case.filters, "document_id": str(document.id)}
-            filters = SearchFilters.model_validate(filters_payload)
-            request = SearchRequest(
-                query=case.query,
-                mode=case.mode,
-                filters=filters,
-                limit=max(case.expected_top_n, 10),
-            )
-
-            candidate_results = search_documents(
-                session,
-                request,
-                run_id=run.id,
-                origin="evaluation_candidate",
-                evaluation_id=evaluation.id,
-            )
-            baseline_results = (
-                search_documents(
-                    session,
-                    request,
-                    run_id=baseline_run_id,
-                    origin="evaluation_baseline",
-                    evaluation_id=evaluation.id,
-                )
-                if baseline_run_id
-                else []
-            )
-            outcome = _evaluate_retrieval_case(
-                case=case,
-                filters_payload=filters.model_dump(mode="json", exclude_none=True),
-                candidate_results=candidate_results,
-                baseline_results=baseline_results,
-            )
-            retrieval_outcomes.append(outcome)
-
-            query_count += 1
-            retrieval_query_count += 1
-            passed_queries += int(outcome["passed"])
-            failed_queries += int(not outcome["passed"])
-            passed_retrieval_queries += int(outcome["passed"])
-            failed_retrieval_queries += int(not outcome["passed"])
-            regressed_queries += int(outcome["delta_kind"] == "regressed")
-            improved_queries += int(outcome["delta_kind"] == "improved")
-            stable_queries += int(outcome["delta_kind"] == "stable")
-
-            session.add(
-                DocumentRunEvaluationQuery(
-                    evaluation_id=evaluation.id,
-                    query_text=outcome["query_text"],
-                    mode=outcome["mode"],
-                    filters_json=outcome["filters_json"],
-                    expected_result_type=outcome["expected_result_type"],
-                    expected_top_n=outcome["expected_top_n"],
-                    passed=outcome["passed"],
-                    candidate_rank=outcome["candidate_rank"],
-                    baseline_rank=outcome["baseline_rank"],
-                    rank_delta=outcome["rank_delta"],
-                    candidate_score=outcome["candidate_score"],
-                    baseline_score=outcome["baseline_score"],
-                    candidate_result_type=outcome["candidate_result_type"],
-                    baseline_result_type=outcome["baseline_result_type"],
-                    candidate_label=outcome["candidate_label"],
-                    baseline_label=outcome["baseline_label"],
-                    details_json=outcome["details_json"],
-                    created_at=now,
-                )
-            )
-
-        for case in fixture.answer_queries:
-            outcome = _evaluate_answer_case(
-                session,
-                document=document,
-                run_id=run.id,
-                baseline_run_id=baseline_run_id,
-                evaluation_id=evaluation.id,
-                case=case,
-            )
-            query_count += 1
-            answer_query_count += 1
-            passed_queries += int(outcome["passed"])
-            failed_queries += int(not outcome["passed"])
-            passed_answer_queries += int(outcome["passed"])
-            failed_answer_queries += int(not outcome["passed"])
-            regressed_queries += int(outcome["delta_kind"] == "regressed")
-            improved_queries += int(outcome["delta_kind"] == "improved")
-            stable_queries += int(outcome["delta_kind"] == "stable")
-
-            session.add(
-                DocumentRunEvaluationQuery(
-                    evaluation_id=evaluation.id,
-                    query_text=outcome["query_text"],
-                    mode=outcome["mode"],
-                    filters_json=outcome["filters_json"],
-                    expected_result_type=outcome["expected_result_type"],
-                    expected_top_n=outcome["expected_top_n"],
-                    passed=outcome["passed"],
-                    candidate_rank=outcome["candidate_rank"],
-                    baseline_rank=outcome["baseline_rank"],
-                    rank_delta=outcome["rank_delta"],
-                    candidate_score=outcome["candidate_score"],
-                    baseline_score=outcome["baseline_score"],
-                    candidate_result_type=outcome["candidate_result_type"],
-                    baseline_result_type=outcome["baseline_result_type"],
-                    candidate_label=outcome["candidate_label"],
-                    baseline_label=outcome["baseline_label"],
-                    details_json=outcome["details_json"],
-                    created_at=now,
-                )
-            )
-
+        retrieval_batch = execute_retrieval_queries(
+            session,
+            document=document,
+            run=run,
+            evaluation_id=evaluation.id,
+            baseline_run_id=baseline_run_id,
+            queries=fixture.queries,
+            created_at=now,
+            search_documents_fn=search_documents,
+            evaluate_retrieval_case_fn=_evaluate_retrieval_case,
+        )
+        answer_batch = execute_answer_queries(
+            session,
+            document=document,
+            run=run,
+            evaluation_id=evaluation.id,
+            baseline_run_id=baseline_run_id,
+            queries=fixture.answer_queries,
+            created_at=now,
+            evaluate_answer_case_fn=_evaluate_answer_case,
+        )
+        batch = EvaluationBatchResult().merge(retrieval_batch).merge(answer_batch)
         structural_summary = _evaluate_structural_checks(session, run, fixture.thresholds)
-        retrieval_rank_metrics = _summarize_retrieval_rank_metrics(retrieval_outcomes)
+        retrieval_rank_metrics = _summarize_retrieval_rank_metrics(retrieval_batch.retrieval_outcomes)
         evaluation.status = "completed"
-        evaluation.summary_json = {
-            "status": "completed",
-            "fixture_name": fixture.name,
-            "query_count": query_count,
-            "retrieval_query_count": retrieval_query_count,
-            "answer_query_count": answer_query_count,
-            "passed_queries": passed_queries,
-            "failed_queries": failed_queries,
-            "passed_retrieval_queries": passed_retrieval_queries,
-            "failed_retrieval_queries": failed_retrieval_queries,
-            "passed_answer_queries": passed_answer_queries,
-            "failed_answer_queries": failed_answer_queries,
-            "regressed_queries": regressed_queries,
-            "improved_queries": improved_queries,
-            "stable_queries": stable_queries,
-            "retrieval_rank_metrics": retrieval_rank_metrics,
-            "structural_check_count": structural_summary["check_count"],
-            "passed_structural_checks": structural_summary["passed_checks"],
-            "failed_structural_checks": structural_summary["failed_checks"],
-            "structural_passed": structural_summary["passed"],
-            "structural_checks": structural_summary["checks"],
-            "baseline_run_id": str(baseline_run_id) if baseline_run_id else None,
-        }
+        evaluation.summary_json = build_completed_evaluation_summary(
+            fixture_name=fixture.name,
+            batch=batch,
+            structural_summary=structural_summary,
+            retrieval_rank_metrics=retrieval_rank_metrics,
+            baseline_run_id=baseline_run_id,
+        )
         evaluation.completed_at = now
         session.commit()
         return evaluation

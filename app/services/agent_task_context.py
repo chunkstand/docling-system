@@ -949,7 +949,14 @@ def _build_apply_harness_config_update_context(
     )
 
 
-def _build_generic_task_context(task: AgentTask, payload: dict, *, action) -> TaskContextEnvelope:
+def _build_generic_task_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    del session
     now = _utcnow()
     return TaskContextEnvelope(
         task_id=task.id,
@@ -982,24 +989,8 @@ def build_agent_task_context(
         return None
 
     payload = (result or {}).get("payload") or {}
-    if task.task_type == "draft_harness_config_update":
-        return _build_draft_harness_config_context(session, task, payload, action=action)
-    if task.task_type == "evaluate_search_harness":
-        return _build_evaluate_search_harness_context(session, task, payload, action=action)
-    if task.task_type == "verify_search_harness_evaluation":
-        return _build_verify_search_harness_evaluation_context(
-            session,
-            task,
-            payload,
-            action=action,
-        )
-    if task.task_type == "triage_replay_regression":
-        return _build_triage_replay_regression_context(session, task, payload, action=action)
-    if task.task_type == "verify_draft_harness_config":
-        return _build_verify_draft_harness_config_context(session, task, payload, action=action)
-    if task.task_type == "apply_harness_config_update":
-        return _build_apply_harness_config_update_context(session, task, payload, action=action)
-    return _build_generic_task_context(task, payload, action=action)
+    builder = action.context_builder or _build_generic_task_context
+    return builder(session, task, payload, action=action)
 
 
 def write_agent_task_context(

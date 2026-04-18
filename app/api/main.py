@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from app.api.file_delivery import file_response_if_exists
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
@@ -160,19 +161,6 @@ app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 @lru_cache(maxsize=1)
 def get_storage_service() -> StorageService:
     return StorageService()
-
-
-def _file_response_if_exists(
-    path_value: str | None,
-    *,
-    media_type: str | None = None,
-):
-    if not path_value:
-        return Response(status_code=404)
-    path = Path(path_value)
-    if not path.exists():
-        return Response(status_code=404)
-    return FileResponse(path, media_type=media_type)
 
 
 @app.get("/", include_in_schema=False)
@@ -521,8 +509,14 @@ def read_agent_task_artifact(
     session: Session = Depends(get_db_session),
 ):
     artifact = get_agent_task_artifact(session, task_id, artifact_id)
-    if artifact.storage_path and Path(artifact.storage_path).exists():
-        return FileResponse(Path(artifact.storage_path), media_type="application/json")
+    file_response = file_response_if_exists(
+        artifact.storage_path,
+        media_type="application/json",
+        path_type=Path,
+        response_factory=FileResponse,
+    )
+    if file_response.status_code != 404:
+        return file_response
     return JSONResponse(artifact.payload_json or {})
 
 
@@ -544,9 +538,12 @@ def read_agent_task_failure_artifact(
     failure_artifact_path = getattr(task, "failure_artifact_path", None)
     if failure_artifact_path is None and isinstance(task, dict):
         failure_artifact_path = task.get("failure_artifact_path")
-    if not failure_artifact_path or not Path(failure_artifact_path).exists():
-        return Response(status_code=404)
-    return FileResponse(Path(failure_artifact_path), media_type="application/json")
+    return file_response_if_exists(
+        failure_artifact_path,
+        media_type="application/json",
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.post("/agent-tasks/{task_id}/approve", response_model=AgentTaskDetailResponse)
@@ -673,7 +670,12 @@ def read_run_failure_artifact(
     run = session.get(DocumentRun, run_id)
     if run is None:
         return Response(status_code=404)
-    return _file_response_if_exists(run.failure_artifact_path, media_type="application/json")
+    return file_response_if_exists(
+        run.failure_artifact_path,
+        media_type="application/json",
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.get("/documents/{document_id}/artifacts/json")
@@ -687,7 +689,11 @@ def read_docling_json_artifact(
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
         return Response(status_code=404)
-    return _file_response_if_exists(run.docling_json_path)
+    return file_response_if_exists(
+        run.docling_json_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.get("/documents/{document_id}/artifacts/yaml")
@@ -701,7 +707,11 @@ def read_yaml_artifact(
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
         return Response(status_code=404)
-    return _file_response_if_exists(run.yaml_path)
+    return file_response_if_exists(
+        run.yaml_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 def _get_active_table_row(
@@ -741,7 +751,11 @@ def read_table_json_artifact(
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
         return Response(status_code=404)
-    return _file_response_if_exists(table.json_path)
+    return file_response_if_exists(
+        table.json_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.get("/documents/{document_id}/tables/{table_id}/artifacts/yaml")
@@ -753,7 +767,11 @@ def read_table_yaml_artifact(
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
         return Response(status_code=404)
-    return _file_response_if_exists(table.yaml_path)
+    return file_response_if_exists(
+        table.yaml_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.get("/documents/{document_id}/figures/{figure_id}/artifacts/json")
@@ -765,7 +783,11 @@ def read_figure_json_artifact(
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         return Response(status_code=404)
-    return _file_response_if_exists(figure.json_path)
+    return file_response_if_exists(
+        figure.json_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.get("/documents/{document_id}/figures/{figure_id}/artifacts/yaml")
@@ -777,7 +799,11 @@ def read_figure_yaml_artifact(
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         return Response(status_code=404)
-    return _file_response_if_exists(figure.yaml_path)
+    return file_response_if_exists(
+        figure.yaml_path,
+        path_type=Path,
+        response_factory=FileResponse,
+    )
 
 
 @app.post("/search", response_model=list[SearchResult])

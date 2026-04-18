@@ -8,7 +8,9 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from pathlib import Path
 from uuid import UUID
 
@@ -748,6 +750,200 @@ def _evaluate_promoted_run(
     )
 
 
+class RunProcessingStage(StrEnum):
+    PARSE = "parse"
+    EMBEDDING = "embedding"
+    ARTIFACT_WRITE = "artifact_write"
+    CHUNK_PERSIST = "chunk_persist"
+    TABLE_PERSIST = "table_persist"
+    FIGURE_PERSIST = "figure_persist"
+    RUN_PERSIST = "run_persist"
+    VALIDATION = "validation"
+    PROMOTION = "promotion"
+    POST_PROMOTION_EVALUATION = "post_promotion_evaluation"
+
+
+@dataclass
+class RunProcessor:
+    session: Session
+    run: DocumentRun
+    document: Document
+    storage_service: StorageService
+    parser: DoclingParser
+    embedding_provider: EmbeddingProvider | None
+    prior_active_run_id: UUID | None
+    parsed: ParsedDocument | None = None
+    json_path: Path | None = None
+    yaml_path: Path | None = None
+    lineage_assignments: dict = field(default_factory=dict)
+    report: ValidationReport | None = None
+
+    def process(self) -> None:
+        with run_lease_heartbeat(self.run.id, worker_id=self.run.locked_by):
+            failure_stage = RunProcessingStage.PARSE.value
+            try:
+                logger.info(
+                    "run_processing_started",
+                    run_id=str(self.run.id),
+                    document_id=str(self.document.id),
+                )
+                for stage in self._stages():
+                    failure_stage = stage.value
+                    self._run_stage(stage)
+            except Exception as exc:
+                self.session.rollback()
+                run = self.session.get(DocumentRun, self.run.id)
+                if run is None:
+                    raise
+                report = exc.report if isinstance(exc, ValidationError) else None
+                finalize_run_failure(
+                    self.session,
+                    run,
+                    exc,
+                    report=report,
+                    failure_stage=failure_stage,
+                    storage_service=self.storage_service,
+                    document=self.document,
+                )
+                logger.exception(
+                    "run_processing_failed",
+                    run_id=str(run.id),
+                    document_id=str(self.document.id),
+                    error=str(exc),
+                    failure_stage=failure_stage,
+                )
+
+    def _stages(self) -> tuple[RunProcessingStage, ...]:
+        return (
+            RunProcessingStage.PARSE,
+            RunProcessingStage.EMBEDDING,
+            RunProcessingStage.ARTIFACT_WRITE,
+            RunProcessingStage.CHUNK_PERSIST,
+            RunProcessingStage.TABLE_PERSIST,
+            RunProcessingStage.FIGURE_PERSIST,
+            RunProcessingStage.RUN_PERSIST,
+            RunProcessingStage.VALIDATION,
+            RunProcessingStage.PROMOTION,
+            RunProcessingStage.POST_PROMOTION_EVALUATION,
+        )
+
+    def _run_stage(self, stage: RunProcessingStage) -> None:
+        if stage == RunProcessingStage.PARSE:
+            heartbeat_run(self.session, self.run)
+            parse_kwargs: dict[str, str] = {}
+            source_filename = getattr(self.document, "source_filename", None)
+            if source_filename is not None:
+                parse_kwargs["source_filename"] = source_filename
+            self.parsed = self.parser.parse_pdf(Path(self.document.source_path), **parse_kwargs)
+            increment("tables_detected_total", len(self.parsed.raw_table_segments))
+            heartbeat_run(self.session, self.run)
+            return
+
+        if stage == RunProcessingStage.EMBEDDING:
+            assert self.parsed is not None
+            _apply_embeddings(self.parsed, self.embedding_provider, self.run)
+            self.lineage_assignments = _build_lineage_assignments(
+                self.session,
+                self.document,
+                self.parsed,
+            )
+            return
+
+        if stage == RunProcessingStage.ARTIFACT_WRITE:
+            assert self.parsed is not None
+            self.json_path, self.yaml_path = _persist_parsed_artifacts(
+                self.storage_service,
+                self.document,
+                self.run,
+                self.parsed,
+            )
+            return
+
+        if stage == RunProcessingStage.CHUNK_PERSIST:
+            assert self.parsed is not None
+            _replace_run_chunks(self.session, self.document, self.run, self.parsed)
+            return
+
+        if stage == RunProcessingStage.TABLE_PERSIST:
+            assert self.parsed is not None
+            _replace_run_tables(
+                self.session,
+                self.document,
+                self.run,
+                self.parsed,
+                self.storage_service,
+                self.lineage_assignments,
+            )
+            return
+
+        if stage == RunProcessingStage.FIGURE_PERSIST:
+            assert self.parsed is not None
+            _replace_run_figures(
+                self.session,
+                self.document,
+                self.run,
+                self.parsed,
+                self.storage_service,
+            )
+            return
+
+        if stage == RunProcessingStage.RUN_PERSIST:
+            assert self.parsed is not None
+            assert self.json_path is not None
+            assert self.yaml_path is not None
+            _mark_run_persisted(
+                self.session,
+                self.document,
+                self.run,
+                self.parsed,
+                self.json_path,
+                self.yaml_path,
+            )
+            return
+
+        if stage == RunProcessingStage.VALIDATION:
+            assert self.parsed is not None
+            _mark_run_validating(self.session, self.run)
+            heartbeat_run(self.session, self.run)
+            self.report = validate_persisted_run(self.session, self.document, self.run, self.parsed)
+            if not self.report.passed:
+                raise ValidationError(self.report)
+            return
+
+        if stage == RunProcessingStage.PROMOTION:
+            assert self.parsed is not None
+            assert self.report is not None
+            finalize_run_success(
+                self.session,
+                self.document,
+                self.run,
+                self.parsed,
+                self.report,
+                storage_service=self.storage_service,
+            )
+            logger.info(
+                "run_processing_completed",
+                run_id=str(self.run.id),
+                document_id=str(self.document.id),
+                chunk_count=len(self.parsed.chunks),
+                table_count=len(self.parsed.tables),
+                figure_count=len(self.parsed.figures),
+                page_count=self.parsed.page_count,
+            )
+            return
+
+        if stage == RunProcessingStage.POST_PROMOTION_EVALUATION:
+            _evaluate_promoted_run(
+                self.session,
+                self.document,
+                self.run,
+                baseline_run_id=resolve_baseline_run_id(self.run.id, self.prior_active_run_id),
+            )
+            return
+
+        raise ValueError(f"Unsupported run processing stage: {stage}")
+
+
 def process_run(
     session: Session,
     run_id: UUID,
@@ -764,94 +960,15 @@ def process_run(
         raise ValueError(f"Document {run.document_id} does not exist.")
     if not Path(document.source_path).exists():
         raise ValueError("Source file missing before worker pickup.")
-    prior_active_run_id = document.active_run_id
-
-    with run_lease_heartbeat(run.id, worker_id=run.locked_by):
-        try:
-            failure_stage = "parse"
-            logger.info("run_processing_started", run_id=str(run.id), document_id=str(document.id))
-            heartbeat_run(session, run)
-            parse_kwargs: dict[str, str] = {}
-            source_filename = getattr(document, "source_filename", None)
-            if source_filename is not None:
-                parse_kwargs["source_filename"] = source_filename
-            parsed = parser.parse_pdf(Path(document.source_path), **parse_kwargs)
-            increment("tables_detected_total", len(parsed.raw_table_segments))
-            heartbeat_run(session, run)
-            failure_stage = "embedding"
-            _apply_embeddings(parsed, embedding_provider, run)
-            lineage_assignments = _build_lineage_assignments(session, document, parsed)
-
-            failure_stage = "artifact_write"
-            json_path, yaml_path = _persist_parsed_artifacts(storage_service, document, run, parsed)
-            failure_stage = "chunk_persist"
-            _replace_run_chunks(session, document, run, parsed)
-            failure_stage = "table_persist"
-            _replace_run_tables(
-                session,
-                document,
-                run,
-                parsed,
-                storage_service,
-                lineage_assignments,
-            )
-            failure_stage = "figure_persist"
-            _replace_run_figures(session, document, run, parsed, storage_service)
-            failure_stage = "run_persist"
-            _mark_run_persisted(session, document, run, parsed, json_path, yaml_path)
-            failure_stage = "validation"
-            _mark_run_validating(session, run)
-            heartbeat_run(session, run)
-
-            report = validate_persisted_run(session, document, run, parsed)
-            if not report.passed:
-                raise ValidationError(report)
-
-            failure_stage = "promotion"
-            finalize_run_success(
-                session,
-                document,
-                run,
-                parsed,
-                report,
-                storage_service=storage_service,
-            )
-            logger.info(
-                "run_processing_completed",
-                run_id=str(run.id),
-                document_id=str(document.id),
-                chunk_count=len(parsed.chunks),
-                table_count=len(parsed.tables),
-                figure_count=len(parsed.figures),
-                page_count=parsed.page_count,
-            )
-            _evaluate_promoted_run(
-                session,
-                document,
-                run,
-                baseline_run_id=resolve_baseline_run_id(run.id, prior_active_run_id),
-            )
-        except Exception as exc:
-            session.rollback()
-            run = session.get(DocumentRun, run_id)
-            if run is None:
-                raise
-            report = exc.report if isinstance(exc, ValidationError) else None
-            finalize_run_failure(
-                session,
-                run,
-                exc,
-                report=report,
-                failure_stage=failure_stage,
-                storage_service=storage_service,
-                document=document,
-            )
-            logger.exception(
-                "run_processing_failed",
-                run_id=str(run.id),
-                document_id=str(document.id),
-                error=str(exc),
-            )
+    RunProcessor(
+        session=session,
+        run=run,
+        document=document,
+        storage_service=storage_service,
+        parser=parser,
+        embedding_provider=embedding_provider,
+        prior_active_run_id=document.active_run_id,
+    ).process()
 
 
 def run_worker_loop() -> None:

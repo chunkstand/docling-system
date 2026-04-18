@@ -24,6 +24,12 @@ from app.db.models import (
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult, SearchScores
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
+from app.services.search_plan import (
+    SearchCandidateStrategy,
+    SearchExecutionPlan,
+    SearchStage,
+    build_search_execution_plan,
+)
 from app.services.telemetry import observe_search_results
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
@@ -1670,6 +1676,191 @@ def _persist_search_execution(
     return search_request.id
 
 
+def _load_keyword_candidates(
+    session: Session,
+    request: SearchRequest,
+    *,
+    candidate_limit: int,
+    run_id: UUID | None,
+    relaxed: bool = False,
+) -> tuple[list[RankedResult], list[RankedResult]]:
+    if relaxed:
+        chunk_loader = _run_relaxed_keyword_chunk_search
+        table_loader = _run_relaxed_keyword_table_search
+    else:
+        chunk_loader = _run_keyword_chunk_search
+        table_loader = _run_keyword_table_search
+
+    if run_id is None:
+        chunk_results = chunk_loader(session, request, candidate_limit=candidate_limit)
+        table_results = table_loader(session, request, candidate_limit=candidate_limit)
+    else:
+        chunk_results = chunk_loader(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            run_id=run_id,
+        )
+        table_results = table_loader(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            run_id=run_id,
+        )
+    return chunk_results, table_results
+
+
+def _load_semantic_candidates(
+    session: Session,
+    request: SearchRequest,
+    *,
+    query_embedding: list[float],
+    candidate_limit: int,
+    run_id: UUID | None,
+) -> list[RankedResult]:
+    if run_id is None:
+        semantic_results = _run_semantic_chunk_search(
+            session,
+            request,
+            query_embedding,
+            candidate_limit=candidate_limit,
+        )
+        semantic_results.extend(
+            _run_semantic_table_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+            )
+        )
+    else:
+        semantic_results = _run_semantic_chunk_search(
+            session,
+            request,
+            query_embedding,
+            candidate_limit=candidate_limit,
+            run_id=run_id,
+        )
+        semantic_results.extend(
+            _run_semantic_table_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+                run_id=run_id,
+            )
+        )
+    return _sort_ranked_candidates_by_score(semantic_results, score_getter=_semantic_score)
+
+
+def _apply_metadata_supplement_stage(
+    session: Session,
+    request: SearchRequest,
+    *,
+    query_intent: str,
+    strict_keyword_count: int,
+    harness_name: str,
+    keyword_results: list[RankedResult],
+    keyword_strategy: str,
+    run_id: UUID | None,
+) -> tuple[list[RankedResult], list[RankedResult], str]:
+    metadata_enabled = hasattr(session, "execute") and _should_run_metadata_supplement(
+        query=request.query,
+        query_intent=query_intent,
+        strict_keyword_count=strict_keyword_count,
+        harness_name=harness_name,
+    )
+    if not metadata_enabled:
+        return keyword_results, [], keyword_strategy
+
+    metadata_candidates = _run_prose_metadata_chunk_search(
+        session,
+        request,
+        run_id=run_id,
+    )
+    if not metadata_candidates:
+        return keyword_results, [], keyword_strategy
+
+    merged_results = _dedupe_ranked_results([*keyword_results, *metadata_candidates])
+    merged_results = _sort_ranked_candidates_by_score(merged_results, score_getter=_keyword_score)
+    if not keyword_results:
+        next_keyword_strategy = "metadata_supplement"
+    elif keyword_strategy == "strict":
+        next_keyword_strategy = "strict_plus_metadata"
+    elif keyword_strategy == "relaxed_or":
+        next_keyword_strategy = "relaxed_or_plus_metadata"
+    else:
+        next_keyword_strategy = keyword_strategy
+    return merged_results, metadata_candidates, next_keyword_strategy
+
+
+def _resolve_candidate_items(
+    *,
+    candidate_strategy: SearchCandidateStrategy,
+    request_mode: str,
+    embedding_status: str,
+    keyword_results: list[RankedResult],
+    semantic_results: list[RankedResult],
+) -> tuple[list[RankedResult], Callable[[RankedResult], float], str, bool]:
+    served_mode = request_mode if request_mode == "keyword" else "keyword"
+    semantic_augmented_with_keyword_context = False
+    if request_mode == "semantic" and embedding_status == "completed":
+        if candidate_strategy == SearchCandidateStrategy.SEMANTIC_WITH_KEYWORD_CONTEXT:
+            return (
+                _merge_hybrid_candidates(keyword_results, semantic_results),
+                _hybrid_score,
+                "semantic",
+                True,
+            )
+        return semantic_results, _semantic_score, "semantic", False
+
+    if request_mode == "hybrid" and embedding_status == "completed":
+        return _merge_hybrid_candidates(keyword_results, semantic_results), _hybrid_score, "hybrid", False
+
+    return _dedupe_ranked_results(keyword_results), _keyword_score, served_mode, False
+
+
+def _build_search_execution_details(
+    *,
+    keyword_results: list[RankedResult],
+    strict_keyword_count: int,
+    keyword_strategy: str,
+    semantic_results: list[RankedResult],
+    candidate_items: list[RankedResult],
+    query_intent: str,
+    requested_mode: str,
+    served_mode: str,
+    harness: SearchHarness,
+    fallback_reason: str | None,
+    semantic_augmented_with_keyword_context: bool,
+) -> dict:
+    details = {
+        "keyword_candidate_count": len(keyword_results),
+        "keyword_strict_candidate_count": strict_keyword_count,
+        "keyword_strategy": keyword_strategy,
+        "semantic_candidate_count": len(semantic_results),
+        "query_intent": query_intent,
+        "candidate_source_breakdown": _candidate_source_breakdown(candidate_items),
+        "metadata_candidate_count": sum(
+            1 for item in candidate_items if "metadata_supplement" in item.retrieval_sources
+        ),
+        "context_expansion_count": sum(
+            1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
+        ),
+        "requested_mode": requested_mode,
+        "served_mode": served_mode,
+        "harness_name": harness.name,
+        "reranker_name": harness.reranker_name,
+        "reranker_version": harness.reranker_version,
+        "retrieval_profile_name": harness.retrieval_profile_name,
+    }
+    if semantic_augmented_with_keyword_context:
+        details["semantic_augmented_with_keyword_context"] = True
+    if fallback_reason is not None:
+        details["fallback_reason"] = fallback_reason
+    return details
+
+
 def execute_search(
     session: Session,
     request: SearchRequest,
@@ -1687,109 +1878,113 @@ def execute_search(
     active_reranker = reranker or harness.build_reranker()
     tabular_query = _is_tabular_query(request.query)
     query_intent = _classify_query_intent(request.query)
-    prose_v3_query = harness.name == "prose_v3" and query_intent in {
-        QUERY_INTENT_PROSE_LOOKUP,
-        QUERY_INTENT_PROSE_BROAD,
-    }
+    execution_plan = build_search_execution_plan(
+        request_mode=request.mode,
+        harness_name=harness.name,
+        query_intent=query_intent,
+        prose_lookup_intent=QUERY_INTENT_PROSE_LOOKUP,
+        prose_broad_intent=QUERY_INTENT_PROSE_BROAD,
+    )
     keyword_candidate_limit = max(
         request.limit * harness.retrieval_profile.keyword_candidate_multiplier,
         harness.retrieval_profile.min_candidate_limit,
     )
-
-    if run_id is None:
-        keyword_chunk_results = _run_keyword_chunk_search(
-            session, request, candidate_limit=keyword_candidate_limit
-        )
-        keyword_table_results = _run_keyword_table_search(
-            session, request, candidate_limit=keyword_candidate_limit
-        )
-    else:
-        keyword_chunk_results = _run_keyword_chunk_search(
-            session,
-            request,
-            candidate_limit=keyword_candidate_limit,
-            run_id=run_id,
-        )
-        keyword_table_results = _run_keyword_table_search(
-            session,
-            request,
-            candidate_limit=keyword_candidate_limit,
-            run_id=run_id,
-        )
-    keyword_results = [*keyword_chunk_results, *keyword_table_results]
-    keyword_results = _sort_ranked_candidates_by_score(
-        keyword_results, score_getter=_keyword_score
-    )
-
+    keyword_chunk_results: list[RankedResult] = []
+    keyword_table_results: list[RankedResult] = []
+    keyword_results: list[RankedResult] = []
     keyword_strategy = "strict"
-    strict_keyword_count = len(keyword_results)
-    if strict_keyword_count == 0:
-        if run_id is None:
-            keyword_chunk_results = _run_relaxed_keyword_chunk_search(
-                session, request, candidate_limit=keyword_candidate_limit
-            )
-            keyword_table_results = _run_relaxed_keyword_table_search(
-                session, request, candidate_limit=keyword_candidate_limit
-            )
-        else:
-            keyword_chunk_results = _run_relaxed_keyword_chunk_search(
-                session,
-                request,
-                candidate_limit=keyword_candidate_limit,
-                run_id=run_id,
-            )
-            keyword_table_results = _run_relaxed_keyword_table_search(
-                session,
-                request,
-                candidate_limit=keyword_candidate_limit,
-                run_id=run_id,
-            )
-        keyword_results = [*keyword_chunk_results, *keyword_table_results]
-        if keyword_results:
-            keyword_results = _sort_ranked_candidates_by_score(
-                keyword_results, score_getter=_keyword_score
-            )
-            keyword_strategy = "relaxed_or"
-
+    strict_keyword_count = 0
     metadata_candidates: list[RankedResult] = []
-    metadata_supplement_enabled = hasattr(session, "execute") and _should_run_metadata_supplement(
-        query=request.query,
-        query_intent=query_intent,
-        strict_keyword_count=strict_keyword_count,
-        harness_name=harness.name,
-    )
-    zero_result_metadata_fallback = metadata_supplement_enabled and not keyword_results
-    if metadata_supplement_enabled:
-        metadata_candidates = _run_prose_metadata_chunk_search(
-            session,
-            request,
-            run_id=run_id,
-        )
-        keyword_results = _dedupe_ranked_results([*keyword_results, *metadata_candidates])
-        keyword_results = _sort_ranked_candidates_by_score(
-            keyword_results, score_getter=_keyword_score
-        )
-        if metadata_candidates:
-            if zero_result_metadata_fallback:
-                keyword_strategy = "metadata_supplement"
-            elif keyword_strategy == "strict":
-                keyword_strategy = "strict_plus_metadata"
-            elif keyword_strategy == "relaxed_or":
-                keyword_strategy = "relaxed_or_plus_metadata"
-
-    keyword_details = {
-        "keyword_candidate_count": len(keyword_results),
-        "keyword_strict_candidate_count": strict_keyword_count,
-        "keyword_strategy": keyword_strategy,
-    }
     embedding_status = "skipped"
     embedding_error: str | None = None
-    served_mode = request.mode
     fallback_reason: str | None = None
-    candidate_items: list[RankedResult] = keyword_results
-    score_getter: Callable[[RankedResult], float] = _keyword_score
     semantic_results: list[RankedResult] = []
     adjacent_candidates: list[RankedResult] = []
+    for stage in execution_plan.stages:
+        if stage == SearchStage.STRICT_KEYWORD:
+            keyword_chunk_results, keyword_table_results = _load_keyword_candidates(
+                session,
+                request,
+                candidate_limit=keyword_candidate_limit,
+                run_id=run_id,
+            )
+            keyword_results = _sort_ranked_candidates_by_score(
+                [*keyword_chunk_results, *keyword_table_results],
+                score_getter=_keyword_score,
+            )
+            strict_keyword_count = len(keyword_results)
+        elif stage == SearchStage.RELAXED_KEYWORD and strict_keyword_count == 0:
+            keyword_chunk_results, keyword_table_results = _load_keyword_candidates(
+                session,
+                request,
+                candidate_limit=keyword_candidate_limit,
+                run_id=run_id,
+                relaxed=True,
+            )
+            keyword_results = [*keyword_chunk_results, *keyword_table_results]
+            if keyword_results:
+                keyword_results = _sort_ranked_candidates_by_score(
+                    keyword_results,
+                    score_getter=_keyword_score,
+                )
+                keyword_strategy = "relaxed_or"
+        elif stage == SearchStage.METADATA_SUPPLEMENT:
+            keyword_results, metadata_candidates, keyword_strategy = _apply_metadata_supplement_stage(
+                session,
+                request,
+                query_intent=query_intent,
+                strict_keyword_count=strict_keyword_count,
+                harness_name=harness.name,
+                keyword_results=keyword_results,
+                keyword_strategy=keyword_strategy,
+                run_id=run_id,
+            )
+        elif stage == SearchStage.SEMANTIC:
+            provider = embedding_provider
+            if provider is None:
+                try:
+                    provider = get_embedding_provider()
+                except Exception as exc:
+                    embedding_status = "provider_unavailable"
+                    embedding_error = str(exc)
+                    fallback_reason = "embedding_provider_unavailable"
+                    continue
+
+            try:
+                query_embedding = provider.embed_texts([request.query])[0]
+                embedding_status = "completed"
+                semantic_candidate_limit = max(
+                    request.limit * harness.retrieval_profile.semantic_candidate_multiplier,
+                    harness.retrieval_profile.min_candidate_limit,
+                )
+                semantic_results = _load_semantic_candidates(
+                    session,
+                    request,
+                    query_embedding=query_embedding,
+                    candidate_limit=semantic_candidate_limit,
+                    run_id=run_id,
+                )
+            except Exception as exc:
+                embedding_status = "embedding_failed"
+                embedding_error = str(exc)
+                fallback_reason = "embedding_failed"
+        elif stage == SearchStage.ADJACENT_CONTEXT and execution_plan.prose_query:
+            adjacent_seed_candidates = _dedupe_ranked_results(
+                [*keyword_results, *semantic_results, *metadata_candidates]
+            )
+            adjacent_candidates = _expand_adjacent_chunk_context(
+                session,
+                request,
+                seed_candidates=adjacent_seed_candidates,
+                run_id=run_id,
+            )
+            if adjacent_candidates:
+                keyword_results = _dedupe_ranked_results([*keyword_results, *adjacent_candidates])
+                keyword_results = _sort_ranked_candidates_by_score(
+                    keyword_results,
+                    score_getter=_keyword_score,
+                )
+
     table_evidence_query = (
         request.filters is not None
         and request.filters.document_id is not None
@@ -1798,122 +1993,28 @@ def execute_search(
     )
     effective_tabular_query = tabular_query or table_evidence_query
 
-    if request.mode != "keyword":
-        provider = embedding_provider
-        if provider is None:
-            try:
-                provider = get_embedding_provider()
-            except Exception as exc:
-                served_mode = "keyword"
-                embedding_status = "provider_unavailable"
-                embedding_error = str(exc)
-                fallback_reason = "embedding_provider_unavailable"
-                provider = None
-
-        if provider is not None:
-            try:
-                query_embedding = provider.embed_texts([request.query])[0]
-                embedding_status = "completed"
-                semantic_candidate_limit = max(
-                    request.limit * harness.retrieval_profile.semantic_candidate_multiplier,
-                    harness.retrieval_profile.min_candidate_limit,
-                )
-                if run_id is None:
-                    semantic_results = _run_semantic_chunk_search(
-                        session,
-                        request,
-                        query_embedding,
-                        candidate_limit=semantic_candidate_limit,
-                    )
-                    semantic_results.extend(
-                        _run_semantic_table_search(
-                            session,
-                            request,
-                            query_embedding,
-                            candidate_limit=semantic_candidate_limit,
-                        )
-                    )
-                else:
-                    semantic_results = _run_semantic_chunk_search(
-                        session,
-                        request,
-                        query_embedding,
-                        candidate_limit=semantic_candidate_limit,
-                        run_id=run_id,
-                    )
-                    semantic_results.extend(
-                        _run_semantic_table_search(
-                            session,
-                            request,
-                            query_embedding,
-                            candidate_limit=semantic_candidate_limit,
-                            run_id=run_id,
-                        )
-                    )
-            except Exception as exc:
-                served_mode = "keyword"
-                embedding_status = "embedding_failed"
-                embedding_error = str(exc)
-                fallback_reason = "embedding_failed"
-    semantic_results = _sort_ranked_candidates_by_score(
-        semantic_results, score_getter=_semantic_score
+    candidate_items, score_getter, served_mode, semantic_augmented_with_keyword_context = (
+        _resolve_candidate_items(
+            candidate_strategy=execution_plan.candidate_strategy,
+            request_mode=request.mode,
+            embedding_status=embedding_status,
+            keyword_results=keyword_results,
+            semantic_results=semantic_results,
+        )
     )
-
-    if prose_v3_query:
-        adjacent_seed_candidates = _dedupe_ranked_results(
-            [*keyword_results, *semantic_results, *metadata_candidates]
-        )
-        adjacent_candidates = _expand_adjacent_chunk_context(
-            session,
-            request,
-            seed_candidates=adjacent_seed_candidates,
-            run_id=run_id,
-        )
-        if adjacent_candidates:
-            keyword_results = _dedupe_ranked_results([*keyword_results, *adjacent_candidates])
-            keyword_results = _sort_ranked_candidates_by_score(
-                keyword_results, score_getter=_keyword_score
-            )
-
-    semantic_augmented_with_keyword_context = False
-    if request.mode == "semantic" and embedding_status == "completed":
-        if prose_v3_query:
-            candidate_items = _merge_hybrid_candidates(keyword_results, semantic_results)
-            score_getter = _hybrid_score
-            semantic_augmented_with_keyword_context = True
-        else:
-            candidate_items = semantic_results
-            score_getter = _semantic_score
-        served_mode = "semantic"
-    elif request.mode == "hybrid" and embedding_status == "completed":
-        candidate_items = _merge_hybrid_candidates(keyword_results, semantic_results)
-        score_getter = _hybrid_score
-        served_mode = "hybrid"
-    elif request.mode == "keyword":
-        candidate_items = _dedupe_ranked_results(keyword_results)
-
-    details = {
-        **keyword_details,
-        "semantic_candidate_count": len(semantic_results),
-        "query_intent": query_intent,
-        "candidate_source_breakdown": _candidate_source_breakdown(candidate_items),
-        "metadata_candidate_count": sum(
-            1 for item in candidate_items if "metadata_supplement" in item.retrieval_sources
-        ),
-        "context_expansion_count": sum(
-            1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
-        ),
-        "requested_mode": request.mode,
-        "served_mode": served_mode,
-        "harness_name": harness.name,
-        "reranker_name": harness.reranker_name,
-        "reranker_version": harness.reranker_version,
-        "retrieval_profile_name": harness.retrieval_profile_name,
-    }
-    if semantic_augmented_with_keyword_context:
-        details["semantic_augmented_with_keyword_context"] = True
-    if fallback_reason is not None:
-        details["fallback_reason"] = fallback_reason
+    details = _build_search_execution_details(
+        keyword_results=keyword_results,
+        strict_keyword_count=strict_keyword_count,
+        keyword_strategy=keyword_strategy,
+        semantic_results=semantic_results,
+        candidate_items=candidate_items,
+        query_intent=query_intent,
+        requested_mode=request.mode,
+        served_mode=served_mode,
+        harness=harness,
+        fallback_reason=fallback_reason,
+        semantic_augmented_with_keyword_context=semantic_augmented_with_keyword_context,
+    )
 
     reranked_results = _rerank_results(
         candidate_items,
