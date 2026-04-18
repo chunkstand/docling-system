@@ -9,7 +9,7 @@ from uuid import UUID
 
 import uvicorn
 import yaml
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Response, UploadFile, status
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -178,14 +178,11 @@ def _require_api_key_for_mutations(
     if resolve_api_mode(settings) != "remote" and not configured_api_key:
         return
 
-    bearer_token: str | None = None
-    if authorization:
-        scheme, _, token = authorization.partition(" ")
-        if scheme.lower() == "bearer" and token:
-            bearer_token = token
-
-    provided_values = [value for value in (x_api_key, bearer_token) if value]
-    if any(secrets.compare_digest(value, configured_api_key) for value in provided_values):
+    if _has_valid_api_key(
+        configured_api_key=configured_api_key,
+        x_api_key=x_api_key,
+        authorization=authorization,
+    ):
         return
 
     raise api_error(
@@ -212,6 +209,28 @@ def _require_api_capability(capability: str):
         )
 
     return dependency
+
+
+def _bearer_token_from_header(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token:
+        return token
+    return None
+
+
+def _has_valid_api_key(
+    *,
+    configured_api_key: str | None,
+    x_api_key: str | None,
+    authorization: str | None,
+) -> bool:
+    if not configured_api_key:
+        return False
+    bearer_token = _bearer_token_from_header(authorization)
+    provided_values = [value for value in (x_api_key, bearer_token) if value]
+    return any(secrets.compare_digest(value, configured_api_key) for value in provided_values)
 
 
 def _validate_runtime_bind_settings() -> tuple[str, int]:
@@ -242,6 +261,34 @@ app = FastAPI(title="Docling System", version="0.1.0", lifespan=lifespan)
 app.add_exception_handler(HTTPException, structured_http_exception_handler)
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
+
+PUBLIC_REMOTE_PATHS = frozenset({"/health"})
+
+
+@app.middleware("http")
+async def require_remote_api_key_for_reads(request: Request, call_next):
+    settings = get_settings()
+    if resolve_api_mode(settings) != "remote":
+        return await call_next(request)
+    if request.method not in {"GET", "HEAD"}:
+        return await call_next(request)
+    if request.url.path in PUBLIC_REMOTE_PATHS:
+        return await call_next(request)
+    if _has_valid_api_key(
+        configured_api_key=settings.api_key,
+        x_api_key=request.headers.get("X-API-Key"),
+        authorization=request.headers.get("Authorization"),
+    ):
+        return await call_next(request)
+    return await structured_http_exception_handler(
+        request,
+        api_error(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="auth_required",
+            message="Valid API key required for remote API access.",
+            headers={"WWW-Authenticate": "Bearer"},
+        ),
+    )
 
 
 @lru_cache(maxsize=1)

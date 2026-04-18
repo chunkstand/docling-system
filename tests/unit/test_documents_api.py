@@ -94,6 +94,33 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
     assert authorized.status_code == 202
 
 
+def test_document_list_route_requires_api_key_in_remote_mode(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.list_documents", lambda session: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+
+    client = TestClient(app)
+
+    unauthorized = client.get("/documents")
+    authorized = client.get("/documents", headers={"X-API-Key": "operator-secret"})
+
+    assert unauthorized.status_code == 401
+    assert unauthorized.json() == {
+        "detail": "Valid API key required for remote API access.",
+        "error_code": "auth_required",
+    }
+    assert authorized.status_code == 200
+    assert authorized.json() == []
+
+
 def test_create_document_route_passes_idempotency_key(monkeypatch) -> None:
     captured: dict = {}
 
