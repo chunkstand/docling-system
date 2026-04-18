@@ -77,6 +77,22 @@ def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
     assert response.json() == []
 
 
+def test_search_route_returns_machine_readable_error_code(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.main.execute_search",
+        lambda session, request, origin="api": (_ for _ in ()).throw(ValueError("bad search request")),
+    )
+
+    client = TestClient(app)
+    response = client.post("/search", json={"query": "hello", "mode": "keyword", "limit": 5})
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "bad search request",
+        "error_code": "invalid_search_request",
+    }
+
+
 def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
     request_id = uuid4()
 

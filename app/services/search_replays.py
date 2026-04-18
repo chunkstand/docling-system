@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.files import source_filename_matches
 from app.core.time import utcnow
 from app.db.models import (
@@ -44,6 +45,8 @@ CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE = "cross_document_prose_regressions
 EVALUATION_QUERY_SOURCE_TYPE = "evaluation_queries"
 REPLAY_CASE_SCAN_FACTOR = 25
 REPLAY_CASE_MIN_SCAN_LIMIT = 100
+
+
 @dataclass
 class ReplayCase:
     query_text: str
@@ -66,9 +69,11 @@ class ReplayCase:
 
 
 def _replay_run_not_found(replay_run_id: UUID) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Search replay run not found: {replay_run_id}",
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "search_replay_run_not_found",
+        f"Search replay run not found: {replay_run_id}",
+        replay_run_id=str(replay_run_id),
     )
 
 

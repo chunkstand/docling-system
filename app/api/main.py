@@ -434,7 +434,11 @@ def create_agent_task_route(
     try:
         task_response = create_agent_task(session, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_agent_task_request",
+            str(exc),
+        ) from exc
     task_id = _response_field(task_response, "task_id")
     if task_id is not None:
         response.headers["Location"] = f"/agent-tasks/{task_id}"
@@ -702,9 +706,11 @@ def read_agent_task_context(
             content=yaml.safe_dump(context_payload, sort_keys=False, allow_unicode=True),
             media_type="application/yaml",
         )
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="Unsupported context format. Use 'json' or 'yaml'.",
+    raise api_error(
+        status.HTTP_400_BAD_REQUEST,
+        "invalid_context_format",
+        "Unsupported context format. Use 'json' or 'yaml'.",
+        requested_format=format,
     )
 
 
@@ -1145,7 +1151,11 @@ def search_corpus(
     try:
         execution = execute_search(session, request, origin="api")
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_search_request",
+            str(exc),
+        ) from exc
     session.commit()
     if execution.request_id is not None:
         response.headers["X-Search-Request-Id"] = str(execution.request_id)
@@ -1234,7 +1244,11 @@ def create_search_harness_evaluation(
     try:
         evaluation = evaluate_search_harness(session, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_search_harness_evaluation",
+            str(exc),
+        ) from exc
     session.commit()
     return evaluation
 
@@ -1255,7 +1269,11 @@ def create_search_replay_run(
     try:
         replay_run = run_search_replay_suite(session, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_search_replay_request",
+            str(exc),
+        ) from exc
     session.commit()
     replay_run_id = _response_field(replay_run, "replay_run_id")
     if replay_run_id is not None:
@@ -1307,7 +1325,11 @@ def chat_with_corpus(
     try:
         response = answer_question(session, request)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_chat_request",
+            str(exc),
+        ) from exc
     session.commit()
     return response
 

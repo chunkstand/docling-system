@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import SearchFeedback, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import (
@@ -22,10 +23,14 @@ from app.schemas.search import (
     SearchScores,
 )
 from app.services.search import execute_search
+
+
 def _not_found(search_request_id: UUID) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Search request not found: {search_request_id}",
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "search_request_not_found",
+        f"Search request not found: {search_request_id}",
+        search_request_id=str(search_request_id),
     )
 
 
@@ -170,9 +175,11 @@ def record_search_feedback(
     result_row = None
     if payload.feedback_type in {"relevant", "irrelevant"}:
         if payload.result_rank is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Result-specific feedback requires result_rank.",
+            raise api_error(
+                status.HTTP_400_BAD_REQUEST,
+                "result_rank_required",
+                "Result-specific feedback requires result_rank.",
+                feedback_type=payload.feedback_type,
             )
         result_row = session.execute(
             select(SearchRequestResult).where(
@@ -181,14 +188,18 @@ def record_search_feedback(
             )
         ).scalar_one_or_none()
         if result_row is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Search result rank not found: {payload.result_rank}",
+            raise api_error(
+                status.HTTP_404_NOT_FOUND,
+                "search_result_rank_not_found",
+                f"Search result rank not found: {payload.result_rank}",
+                result_rank=payload.result_rank,
             )
     elif payload.result_rank is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Request-level feedback must not include result_rank.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "unexpected_result_rank",
+            "Request-level feedback must not include result_rank.",
+            result_rank=payload.result_rank,
         )
 
     feedback = SearchFeedback(
@@ -233,9 +244,11 @@ def replay_search_request(session: Session, search_request_id: UUID) -> SearchRe
         parent_request_id=request_row.id,
     )
     if execution.request_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Replay search request was not persisted.",
+        raise api_error(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "search_replay_not_persisted",
+            "Replay search request was not persisted.",
+            search_request_id=str(search_request_id),
         )
 
     original = _build_request_detail(session, request_row)

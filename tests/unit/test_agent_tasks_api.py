@@ -889,6 +889,7 @@ def test_create_agent_task_route_returns_bad_request_on_unknown_task_type(monkey
     response = client.post("/agent-tasks", json={"task_type": "unknown_task", "input": {}})
 
     assert response.status_code == 400
+    assert response.json()["error_code"] == "invalid_agent_task_request"
     assert "Unknown agent task type" in response.json()["detail"]
 
 
@@ -937,6 +938,22 @@ def test_create_agent_task_route_requires_remote_capability(monkeypatch) -> None
 
     assert response.status_code == 403
     assert response.json()["error_code"] == "capability_not_allowed"
+
+
+def test_agent_task_context_route_returns_machine_readable_error_code_for_bad_format(
+    monkeypatch,
+) -> None:
+    task_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_agent_task_context",
+        lambda session, requested_task_id: {"summary": {}, "refs": []},
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/context?format=xml")
+
+    assert response.status_code == 400
+    assert response.json()["error_code"] == "invalid_context_format"
 
 
 def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> None:
