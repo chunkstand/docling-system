@@ -378,6 +378,121 @@ def test_process_run_keeps_promoted_run_completed_when_semantics_raises(
     assert failure_called["value"] is False
 
 
+def test_process_run_skips_semantic_stage_when_feature_disabled(
+    monkeypatch, tmp_path: Path
+) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    source_path = tmp_path / "report.pdf"
+    source_path.write_bytes(b"%PDF-1.7\n")
+
+    run = SimpleNamespace(
+        id=run_id,
+        document_id=document_id,
+        locked_by="worker-1",
+        status="processing",
+    )
+    document = SimpleNamespace(
+        id=document_id,
+        source_path=str(source_path),
+        active_run_id=None,
+        latest_run_id=None,
+    )
+    parsed = SimpleNamespace(
+        raw_table_segments=[],
+        chunks=[],
+        tables=[],
+        figures=[],
+        title="Report",
+        page_count=1,
+    )
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == run_id:
+                return run
+            if model is Document and key == document_id:
+                return document
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    @contextmanager
+    def fake_run_lease_heartbeat(run_id, *, worker_id):
+        yield
+
+    monkeypatch.setattr("app.services.runs.get_settings", lambda: SimpleNamespace(semantics_enabled=False))
+    monkeypatch.setattr("app.services.runs.run_lease_heartbeat", fake_run_lease_heartbeat)
+    monkeypatch.setattr("app.services.runs.heartbeat_run", lambda session, run: None)
+    monkeypatch.setattr("app.services.runs.increment", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.runs._apply_embeddings", lambda parsed, embedding_provider, run: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._build_lineage_assignments", lambda session, document, parsed: {}
+    )
+    monkeypatch.setattr(
+        "app.services.runs._persist_parsed_artifacts",
+        lambda storage_service, document, run, parsed: (
+            tmp_path / "docling.json",
+            tmp_path / "document.yaml",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_chunks", lambda session, document, run, parsed: None
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_tables",
+        lambda session, document, run, parsed, storage_service, lineage_assignments: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._replace_run_figures",
+        lambda session, document, run, parsed, storage_service: None,
+    )
+    monkeypatch.setattr(
+        "app.services.runs._mark_run_persisted",
+        lambda session, document, run, parsed, json_path, yaml_path: None,
+    )
+    monkeypatch.setattr("app.services.runs._mark_run_validating", lambda session, run: None)
+    monkeypatch.setattr(
+        "app.services.runs.validate_persisted_run",
+        lambda session, document, run, parsed: ValidationReport(
+            passed=True, summary="ok", details={}
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.finalize_run_success",
+        lambda session, document, run, parsed, report, **kwargs: (
+            setattr(run, "status", "completed"),
+            setattr(document, "active_run_id", run.id),
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.evaluate_run",
+        lambda session, document, run, baseline_run_id=None: SimpleNamespace(
+            status="completed", fixture_name="fixture"
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.runs.execute_semantic_pass",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("semantic pass should stay disabled unless explicitly enabled")
+        ),
+    )
+
+    process_run(
+        session=FakeSession(),
+        run_id=run_id,
+        storage_service=object(),
+        parser=SimpleNamespace(parse_pdf=lambda _: parsed),
+        embedding_provider=None,
+    )
+
+    assert document.active_run_id == run_id
+    assert run.status == "completed"
+
+
 def test_run_worker_loop_exits_when_runtime_code_is_stale(monkeypatch) -> None:
     events: dict[str, object] = {"claimed": False, "slept": False}
 

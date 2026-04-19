@@ -6,6 +6,8 @@ __pycache__/
 build/
 dist/
 storage/
+storage-semantics/
+.docker/
 .env
 *.pyc
 *.swp

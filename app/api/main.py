@@ -33,6 +33,7 @@ from app.core.config import (
     resolve_api_credentials,
     resolve_api_mode,
     resolve_remote_api_capabilities,
+    semantics_feature_enabled,
 )
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
@@ -191,6 +192,7 @@ def _api_mode_metadata() -> dict[str, object]:
         "api_mode_explicit": settings.api_mode is not None,
         "api_host": settings.api_host,
         "api_port": settings.api_port,
+        "semantics_enabled": semantics_feature_enabled(settings),
     }
     if resolved_mode == "remote":
         payload["remote_api_auth_mode"] = (
@@ -205,6 +207,17 @@ def _api_mode_metadata() -> dict[str, object]:
         if not getattr(settings, "api_credentials_json", None):
             payload["remote_api_capabilities"] = sorted(resolve_remote_api_capabilities(settings))
     return payload
+
+
+def _ensure_semantics_enabled() -> None:
+    settings = get_settings()
+    if semantics_feature_enabled(settings):
+        return
+    raise api_error(
+        status.HTTP_409_CONFLICT,
+        "semantics_disabled",
+        "Semantic layer is disabled. Set DOCLING_SYSTEM_SEMANTICS_ENABLED=1 to enable it.",
+    )
 
 
 def _require_api_key_for_mutations(
@@ -1007,6 +1020,7 @@ def read_latest_document_semantics(
     document_id: UUID,
     session: Session = Depends(get_db_session),
 ) -> DocumentSemanticPassResponse:
+    _ensure_semantics_enabled()
     return get_active_semantic_pass_detail(session, document_id)
 
 
@@ -1019,6 +1033,7 @@ def read_latest_document_semantic_continuity(
     document_id: UUID,
     session: Session = Depends(get_db_session),
 ) -> SemanticContinuityResponse:
+    _ensure_semantics_enabled()
     return get_active_semantic_continuity(session, document_id)
 
 
@@ -1036,6 +1051,7 @@ def review_latest_document_semantic_assertion(
     request: SemanticReviewDecisionRequest,
     session: Session = Depends(get_db_session),
 ) -> SemanticReviewEventResponse:
+    _ensure_semantics_enabled()
     return review_active_semantic_assertion(
         session,
         document_id,
@@ -1061,6 +1077,7 @@ def review_latest_document_semantic_assertion_category_binding(
     request: SemanticReviewDecisionRequest,
     session: Session = Depends(get_db_session),
 ) -> SemanticReviewEventResponse:
+    _ensure_semantics_enabled()
     return review_active_semantic_assertion_category_binding(
         session,
         document_id,
@@ -1257,6 +1274,7 @@ def read_latest_semantic_json_artifact(
     document_id: UUID,
     session: Session = Depends(get_db_session),
 ):
+    _ensure_semantics_enabled()
     semantic_pass = get_active_semantic_pass_row(session, document_id)
     if semantic_pass is None:
         raise api_error(
@@ -1290,6 +1308,7 @@ def read_latest_semantic_yaml_artifact(
     document_id: UUID,
     session: Session = Depends(get_db_session),
 ):
+    _ensure_semantics_enabled()
     semantic_pass = get_active_semantic_pass_row(session, document_id)
     if semantic_pass is None:
         raise api_error(

@@ -1,34 +1,41 @@
+name: ${DOCLING_SYSTEM_COMPOSE_PROJECT_NAME:-docling-system}
+
 x-docling-service: &docling-service
   build:
     context: .
   image: docling-system:local
   environment:
-    DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/docling_system
+    DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}
     DOCLING_SYSTEM_STORAGE_ROOT: /app/storage
+    DOCLING_SYSTEM_SEMANTICS_ENABLED: ${DOCLING_SYSTEM_SEMANTICS_ENABLED:-0}
   volumes:
-    - docling-system-storage:/app/storage
+    - ${DOCLING_SYSTEM_HOST_STORAGE_ROOT:-./storage}:/app/storage
 
 services:
   db:
     image: pgvector/pgvector:pg17
-    container_name: docling-system-db
+    container_name: ${DOCLING_SYSTEM_DB_CONTAINER_NAME:-docling-system-db}
     environment:
-      POSTGRES_DB: docling_system
+      POSTGRES_DB: ${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}
       POSTGRES_USER: docling
       POSTGRES_PASSWORD: docling
     ports:
-      - "5432:5432"
+      - "${DOCLING_SYSTEM_POSTGRES_PORT:-5432}:5432"
     volumes:
-      - docling-system-postgres:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U docling -d docling_system"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U docling -d ${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
 
   migrate:
     <<: *docling-service
-    container_name: docling-system-migrate
+    container_name: ${DOCLING_SYSTEM_MIGRATE_CONTAINER_NAME:-docling-system-migrate}
     command: ["alembic", "upgrade", "head"]
     depends_on:
       db:
@@ -37,21 +44,24 @@ services:
 
   api:
     <<: *docling-service
-    container_name: docling-system-api
+    container_name: ${DOCLING_SYSTEM_API_CONTAINER_NAME:-docling-system-api}
     command: ["docling-system-api"]
     environment:
-      DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/docling_system
+      DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}
       DOCLING_SYSTEM_STORAGE_ROOT: /app/storage
+      DOCLING_SYSTEM_SEMANTICS_ENABLED: ${DOCLING_SYSTEM_SEMANTICS_ENABLED:-0}
       DOCLING_SYSTEM_API_MODE: remote
       DOCLING_SYSTEM_API_HOST: 0.0.0.0
-      DOCLING_SYSTEM_API_KEY: docling-local-secret
+      DOCLING_SYSTEM_API_PORT: 8000
+      DOCLING_SYSTEM_API_KEY: ${DOCLING_SYSTEM_API_KEY:-docling-local-secret}
+      DOCLING_SYSTEM_REMOTE_API_CAPABILITIES: ${DOCLING_SYSTEM_REMOTE_API_CAPABILITIES:-documents:upload,search:query,search:feedback,chat:query,chat:feedback}
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
     ports:
-      - "8000:8000"
+      - "${DOCLING_SYSTEM_API_PORT:-8000}:8000"
     healthcheck:
       test:
         [
@@ -68,7 +78,7 @@ services:
 
   worker:
     <<: *docling-service
-    container_name: docling-system-worker
+    container_name: ${DOCLING_SYSTEM_WORKER_CONTAINER_NAME:-docling-system-worker}
     command: ["docling-system-worker"]
     depends_on:
       db:
@@ -79,7 +89,7 @@ services:
 
   agent-worker:
     <<: *docling-service
-    container_name: docling-system-agent-worker
+    container_name: ${DOCLING_SYSTEM_AGENT_WORKER_CONTAINER_NAME:-docling-system-agent-worker}
     command: ["docling-system-agent-worker"]
     depends_on:
       db:
@@ -89,5 +99,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  docling-system-postgres:
-  docling-system-storage:
+  postgres-data:

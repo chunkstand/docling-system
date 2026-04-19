@@ -17,6 +17,7 @@ from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.config import semantics_feature_enabled
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.models import (
@@ -836,7 +837,8 @@ class RunProcessor:
                 )
 
     def _stages(self) -> tuple[RunProcessingStage, ...]:
-        return (
+        settings = get_settings()
+        stages = [
             RunProcessingStage.PARSE,
             RunProcessingStage.EMBEDDING,
             RunProcessingStage.ARTIFACT_WRITE,
@@ -847,8 +849,10 @@ class RunProcessor:
             RunProcessingStage.VALIDATION,
             RunProcessingStage.PROMOTION,
             RunProcessingStage.POST_PROMOTION_EVALUATION,
-            RunProcessingStage.POST_PROMOTION_SEMANTICS,
-        )
+        ]
+        if semantics_feature_enabled(settings):
+            stages.append(RunProcessingStage.POST_PROMOTION_SEMANTICS)
+        return tuple(stages)
 
     def _run_stage(self, stage: RunProcessingStage) -> None:
         if stage == RunProcessingStage.PARSE:

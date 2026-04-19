@@ -55,7 +55,7 @@ clearly separate non-platform tags from the semantics branch.
 - OpenAI embeddings with `text-embedding-3-small` and a pinned 1536-dimension contract
 - One polling worker with DB-backed leasing and retries
 - One additional agent-task worker with DB-backed leasing and retries
-- Local filesystem storage under `storage/`
+- Local filesystem storage under `DOCLING_SYSTEM_STORAGE_ROOT`
 - Docker Compose definitions for local Postgres, migrations, API, worker, and agent worker
 - Static operator UI served from `/` with assets mounted under `/ui`
 
@@ -64,32 +64,37 @@ clearly separate non-platform tags from the semantics branch.
 The manual loopback-local flow is still the recommended development path. It keeps the API in local mode, avoids auth headers for the browser UI, and matches the operator-oriented workflow used by the tests and CLIs.
 
 1. Copy `.env.example` to `.env`.
-2. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings and OpenAI-backed grounded chat should be generated.
-3. Start Postgres:
+2. Keep this checkout isolated from the stable `main` checkout. The checked-in example values in this branch use:
+   - `localhost:5432/docling_system_semantics`
+   - `./storage-semantics`
+   - `127.0.0.1:8001`
+   - `DOCLING_SYSTEM_SEMANTICS_ENABLED=0`
+3. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings and OpenAI-backed grounded chat should be generated. The semantics sidecar still stays off until `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`.
+4. Ensure local Postgres is running and create the isolated semantics database if it does not already exist:
 
 ```bash
-docker compose up -d db
+docker exec docling-system-db psql -U docling -d postgres -c 'CREATE DATABASE docling_system_semantics'
 ```
 
-4. Install dependencies:
+5. Install dependencies:
 
 ```bash
 uv sync --extra dev
 ```
 
-5. Run migrations:
+6. Run migrations:
 
 ```bash
 uv run alembic upgrade head
 ```
 
-6. Start the API:
+7. Start the API:
 
 ```bash
 uv run docling-system-api
 ```
 
-7. Start the ingest/search worker in a second shell:
+8. Start the ingest/search worker in a second shell:
 
 ```bash
 uv run docling-system-worker
@@ -99,22 +104,22 @@ Workers now register a runtime code fingerprint under `storage/runtime/process_r
 If a newer code fingerprint takes over, older workers exit before claiming the next run instead
 of continuing to process documents on stale code.
 
-8. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
+9. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
 
 ```bash
 uv run docling-system-agent-worker
 ```
 
-9. Open the UI:
+10. Open the UI:
 
 ```text
-http://localhost:8000/
+http://localhost:8001/
 ```
 
 You can inspect the current API runtime fingerprint with:
 
 ```bash
-curl http://localhost:8000/runtime/status
+curl http://localhost:8001/runtime/status
 ```
 
 ## Docker Compose Stack
@@ -135,8 +140,12 @@ That stack includes:
 
 Current compose behavior:
 
-- the API binds `0.0.0.0:8000` in `remote` mode
-- the compose file currently uses one legacy API key: `docling-local-secret`
+- the host DB port, host API port, DB name, bind mounts, compose project name, and container names all come from `.env`
+- the checked-in example values for this checkout use `localhost:5433`, `localhost:8001`, `docling_system_semantics`, and `./storage-semantics`
+- Postgres data is isolated through the semantics-specific Compose project and volume name
+- the API binds `0.0.0.0:8000` inside the container and is published on the host port from `DOCLING_SYSTEM_API_PORT`
+- the compose file uses `DOCLING_SYSTEM_API_KEY` when set and otherwise falls back to `docling-local-secret`
+- the semantics layer remains disabled unless `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`
 - `GET /health` remains public
 - most other remote endpoints require auth and, for many surfaces, explicit capabilities
 

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.core.config import get_settings
+from app.core.config import get_settings, semantics_feature_enabled
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
 from app.db.models import (
@@ -1484,6 +1484,9 @@ def execute_semantic_pass(
     baseline_run_id: UUID | None = None,
     storage_service: StorageService,
 ) -> DocumentRunSemanticPass:
+    settings = get_settings()
+    if not semantics_feature_enabled(settings):
+        raise ValueError("Semantic layer is disabled by configuration.")
     registry = get_semantic_registry()
     semantic_pass = _prepare_semantic_pass_row(
         session,
