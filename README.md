@@ -16,6 +16,8 @@ The current experimental retrieval-accuracy track adds a non-default `prose_v3` 
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
+The runtime now supports both loopback-local operator mode and authenticated remote mode. Loopback-local mode is still the smoothest path for the browser UI and ad hoc operator work. Remote mode supports either one legacy shared API key or actor-scoped credentials with per-principal capabilities for upload, inspection, quality, replay, chat, and agent-task surfaces.
+
 ## Current Contracts
 
 - `docling.json` is the canonical machine-readable document parse artifact.
@@ -31,7 +33,7 @@ The repository now also includes a Postgres-backed agent-task substrate for orch
 - `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
 - Run evaluations are first-class persisted records with summary and per-query detail.
 - Every successful validated ingest also writes an auto-generated evaluation fixture to `storage/evaluation_corpus.auto.yaml` so new documents do not remain unevaluated while waiting for a hand-authored fixture.
-- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; fixtures are matched by `source_filename`, and if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins.
+- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; fixture lookup matches document `sha256` first and falls back to unambiguous source-filename matching only when needed. Hand-authored corpus entries load before auto-generated companions and win when both are eligible.
 - `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
 - Table supplements are registry-driven via `config/table_supplements.yaml`; the registry selects document-specific clean supplement PDFs without changing the canonical source document contract.
@@ -47,13 +49,15 @@ The repository now also includes a Postgres-backed agent-task substrate for orch
 - One polling worker with DB-backed leasing and retries
 - One additional agent-task worker with DB-backed leasing and retries
 - Local filesystem storage under `storage/`
-- Docker Compose for local Postgres
-- Read-only local UI mounted at `http://localhost:8000/`
+- Docker Compose definitions for local Postgres, migrations, API, worker, and agent worker
+- Static operator UI served from `/` with assets mounted under `/ui`
 
 ## Local Setup
 
+The manual loopback-local flow is still the recommended development path. It keeps the API in local mode, avoids auth headers for the browser UI, and matches the operator-oriented workflow used by the tests and CLIs.
+
 1. Copy `.env.example` to `.env`.
-2. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings should be generated.
+2. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings and OpenAI-backed grounded chat should be generated.
 3. Start Postgres:
 
 ```bash
@@ -106,6 +110,72 @@ You can inspect the current API runtime fingerprint with:
 curl http://localhost:8000/runtime/status
 ```
 
+## Docker Compose Stack
+
+The checked-in compose file now brings up the full local topology:
+
+```bash
+docker compose up --build
+```
+
+That stack includes:
+
+- `db`
+- `migrate`
+- `api`
+- `worker`
+- `agent-worker`
+
+Current compose behavior:
+
+- the API binds `0.0.0.0:8000` in `remote` mode
+- the compose file currently uses one legacy API key: `docling-local-secret`
+- `GET /health` remains public
+- most other remote endpoints require auth and, for many surfaces, explicit capabilities
+
+The shipped browser UI does not inject API credentials. In practice, that means the compose stack is best treated as a process-topology and API-auth wiring stack unless you add your own remote-mode browser auth handling. For interactive operator use in the browser, prefer the manual loopback-local flow above.
+
+## Remote API Auth
+
+API mode is inferred from the bind host unless you set `DOCLING_SYSTEM_API_MODE` explicitly:
+
+- loopback host -> `local`
+- non-loopback host -> `remote`
+
+Remote mode requires one of:
+
+- `DOCLING_SYSTEM_API_KEY`
+- `DOCLING_SYSTEM_API_CREDENTIALS_JSON`
+
+The current auth model supports:
+
+- one legacy shared API key with a shared capability set configured by `DOCLING_SYSTEM_REMOTE_API_CAPABILITIES`
+- actor-scoped credentials through `DOCLING_SYSTEM_API_CREDENTIALS_JSON`, with one or more principals, each with its own key and capability list
+- `X-API-Key` and `Authorization: Bearer ...` credential transport
+
+Current capability families are:
+
+- `system:read`
+- `documents:upload`
+- `documents:inspect`
+- `documents:reprocess`
+- `search:query`
+- `search:history:read`
+- `search:feedback`
+- `search:replay`
+- `search:evaluate`
+- `chat:query`
+- `chat:feedback`
+- `quality:read`
+- `agent_tasks:read`
+- `agent_tasks:write`
+
+Important legacy-key behavior:
+
+- if you use only `DOCLING_SYSTEM_API_KEY` and leave `DOCLING_SYSTEM_REMOTE_API_CAPABILITIES` unset, the current default capability set is limited to `documents:upload`, `search:query`, `search:feedback`, `chat:query`, and `chat:feedback`
+- document inspection, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
+- `GET /runtime/status` reports the current auth mode, effective principals, and shared capabilities when the caller has `system:read`
+
 ## Ingesting PDFs
 
 Local-file ingest is CLI-only:
@@ -128,8 +198,9 @@ Local path ingest policy:
 - Symlink file paths are rejected, including symlinked PDFs discovered inside a queued directory.
 - Files must have a `.pdf` suffix and a `%PDF-` header.
 - Duplicate content is deduped by checksum, not by path string.
-- File size defaults to `268435456` bytes.
-- Page count defaults to a maximum of `1000` pages.
+- File size and page count limits are enforced through environment settings.
+- Code defaults are `268435456` bytes and `1000` pages when the limits are unset.
+- The checked-in `.env.example` currently uses lower local-development limits: `104857600` bytes and `750` pages.
 
 `POST /documents` remains multipart upload-based for compatibility. No arbitrary path-based ingest is exposed through public HTTP.
 
@@ -141,11 +212,13 @@ Batch CLI commands:
 ## API Overview
 
 - `GET /health`
+- `GET /runtime/status`
 - `GET /metrics`
 - `GET /documents`
 - `POST /documents`
 - `GET /documents/{document_id}`
 - `GET /documents/{document_id}/runs`
+- `GET /runs/{run_id}`
 - `GET /documents/{document_id}/evaluations/latest`
 - `GET /documents/{document_id}/chunks`
 - `GET /documents/{document_id}/tables`
@@ -195,6 +268,7 @@ Batch CLI commands:
 - `GET /agent-tasks/analytics/workflow-versions`
 - `GET /agent-tasks/traces/export`
 - `GET /agent-tasks/{task_id}`
+- `GET /agent-tasks/{task_id}/context`
 - `GET /agent-tasks/{task_id}/outcomes`
 - `POST /agent-tasks/{task_id}/outcomes`
 - `GET /agent-tasks/{task_id}/artifacts`
@@ -361,8 +435,11 @@ Table telemetry is available from `GET /metrics`, including detected tables, per
 ```bash
 uv run pytest tests
 uv run pytest tests/unit
+uv run ruff check .
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest tests/integration/test_postgres_roundtrip.py -q
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 uv run alembic upgrade head
+docker compose up --build
 uv run docling-system-cleanup
 uv run docling-system-ingest-file /absolute/path/to/file.pdf
 uv run docling-system-ingest-dir /absolute/path/to/folder --recursive
