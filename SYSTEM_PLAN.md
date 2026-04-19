@@ -2,7 +2,11 @@
 
 This document supersedes the original rebuilt v1 system plan. It describes the system as it exists now: the live contracts, the architecture in the repository, the operator workflows, and the bounded orchestration layer that sits on top of ingestion, retrieval, evaluation, and search-harness management.
 
-The repository-level branching, release-tag, and promotion rules for the stable `v1` lane and the experimental `v2` lane live in [docs/versioning_policy.md](./docs/versioning_policy.md).
+The repository-level branching, release-tag, and promotion rules live in
+[docs/versioning_policy.md](./docs/versioning_policy.md). The semantics layer is defined separately
+from the future `v2` platform lane; additive semantics-layer work does not automatically imply a
+`v2` platform fork. Stable platform releases still ship from `main` under `v1.x.y`; semantics
+branch checkpoints, when needed, use separate experiment tags rather than platform release tags.
 
 ## Summary
 

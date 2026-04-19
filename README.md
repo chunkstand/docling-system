@@ -18,7 +18,12 @@ The repository now also includes a Postgres-backed agent-task substrate for orch
 
 The runtime now supports both loopback-local operator mode and authenticated remote mode. Loopback-local mode is still the smoothest path for the browser UI and ad hoc operator work. Remote mode supports either one legacy shared API key or actor-scoped credentials with per-principal capabilities for upload, inspection, quality, replay, chat, and agent-task surfaces.
 
-The repository versioning policy lives in [docs/versioning_policy.md](./docs/versioning_policy.md). `main` is the stable `v1` platform branch. `v2` is the experimental agentic branch for changes that are not yet stable enough to become part of the `v1` contract.
+The repository versioning policy lives in [docs/versioning_policy.md](./docs/versioning_policy.md).
+`main` is the stable `v1` platform branch. The semantics layer is a separate additive initiative
+within this repository and is not synonymous with `v2`. `v2` is reserved for a future agentic
+platform project rather than the default home for semantics-layer work. Stable platform releases
+continue to use `v1.x.y` tags from `main`; optional semantics experiment checkpoints should use
+clearly separate non-platform tags from the semantics branch.
 
 ## Current Contracts
 
