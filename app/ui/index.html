@@ -25,6 +25,7 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-link is-active" href="/">Overview</a>
+          <a class="nav-link" href="/ui/documents.html">Documents</a>
           <a class="nav-link" href="/ui/search.html">Search</a>
           <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
           <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
@@ -42,8 +43,43 @@
             <span>Approval backlog</span>
             <strong id="global-backlog">0</strong>
           </article>
+          <article class="signal-chip">
+            <span>Access</span>
+            <strong id="global-auth">Checking</strong>
+          </article>
         </div>
       </header>
+
+      <section class="panel auth-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Remote access</p>
+          <h2>UI credential and runtime posture</h2>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label>
+            <span class="field-caption">Credential type</span>
+            <select id="auth-scheme">
+              <option value="x-api-key">X-API-Key</option>
+              <option value="bearer">Bearer token</option>
+            </select>
+          </label>
+          <label class="auth-token-field">
+            <span class="field-caption">Credential</span>
+            <input
+              id="auth-credential"
+              type="password"
+              placeholder="Save an API key or bearer token for remote mode"
+            />
+          </label>
+          <button class="primary-link button-link" type="submit">Save credential</button>
+          <button class="secondary-link button-link secondary-button" id="auth-clear" type="button">
+            Clear
+          </button>
+        </form>
+        <div id="auth-note" class="inline-note">
+          Anonymous mode only works against loopback-local API access.
+        </div>
+      </section>
 
       <main class="page-stack">
         <section class="hero hero-overview reveal">
@@ -203,6 +239,46 @@
             </div>
             <div id="landing-decision-signals" class="stack-list empty-state">
               Decision signals will appear here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Runtime posture</p>
+              <h2>Current API mode and code fingerprint state</h2>
+            </div>
+            <div id="landing-runtime" class="stack-list empty-state">
+              Runtime details will appear here when the current credential can read them.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Operator surfaces</p>
+              <h2>Current UI coverage</h2>
+            </div>
+            <div class="feature-grid compact-grid">
+              <article class="feature-card">
+                <p class="eyebrow">Documents</p>
+                <h3>Runs, artifacts, tables, figures, and latest evaluations.</h3>
+                <p>Inspect the active corpus and queue reprocesses from the document surface.</p>
+              </article>
+              <article class="feature-card">
+                <p class="eyebrow">Search</p>
+                <h3>Persisted request history, replay suites, and feedback.</h3>
+                <p>Inspect a search request after it runs and replay it against the current harnesses.</p>
+              </article>
+              <article class="feature-card">
+                <p class="eyebrow">Evals</p>
+                <h3>Quality posture, gap mining, and harness comparison.</h3>
+                <p>Use quality endpoints and harness evaluation to decide what to review next.</p>
+              </article>
+              <article class="feature-card">
+                <p class="eyebrow">Agents</p>
+                <h3>Task detail, context, outcomes, approvals, and artifacts.</h3>
+                <p>Inspect the durable agent-task graph instead of relying on hidden workflow state.</p>
+              </article>
             </div>
           </div>
         </section>

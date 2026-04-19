@@ -25,6 +25,7 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link" href="/ui/documents.html">Documents</a>
           <a class="nav-link" href="/ui/search.html">Search</a>
           <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
           <a class="nav-link is-active" href="/ui/agents.html">Agent Workflows</a>
@@ -42,8 +43,43 @@
             <span>Approval backlog</span>
             <strong id="global-backlog">0</strong>
           </article>
+          <article class="signal-chip">
+            <span>Access</span>
+            <strong id="global-auth">Checking</strong>
+          </article>
         </div>
       </header>
+
+      <section class="panel auth-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Remote access</p>
+          <h2>Saved credential for current API calls</h2>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label>
+            <span class="field-caption">Credential type</span>
+            <select id="auth-scheme">
+              <option value="x-api-key">X-API-Key</option>
+              <option value="bearer">Bearer token</option>
+            </select>
+          </label>
+          <label class="auth-token-field">
+            <span class="field-caption">Credential</span>
+            <input
+              id="auth-credential"
+              type="password"
+              placeholder="Save an API key or bearer token for remote mode"
+            />
+          </label>
+          <button class="primary-link button-link" type="submit">Save credential</button>
+          <button class="secondary-link button-link secondary-button" id="auth-clear" type="button">
+            Clear
+          </button>
+        </form>
+        <div id="auth-note" class="inline-note">
+          Anonymous mode only works against loopback-local API access.
+        </div>
+      </section>
 
       <main class="page-stack">
         <section class="hero reveal">
@@ -149,6 +185,96 @@
             </div>
             <div id="agent-value-density" class="stack-list empty-state">
               Workflow value density will appear here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Recent task detail</p>
+              <h2>Inspect a durable task record</h2>
+            </div>
+            <div id="agent-task-list" class="stack-list empty-state">
+              Recent task summaries will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Selected task</p>
+              <h2>Summary, lineage, context, and artifacts</h2>
+            </div>
+            <div id="agent-task-detail" class="stack-list empty-state">
+              Select a task to inspect its durable detail, context, outcomes, and artifacts.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Context and verification</p>
+              <h2>Typed context refs and verifier outcomes</h2>
+            </div>
+            <div id="agent-task-context" class="stack-list empty-state">
+              Task context detail will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Operator actions</p>
+              <h2>Approvals, rejections, and outcome labels</h2>
+            </div>
+            <form id="agent-approval-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Actor</span>
+                <input id="agent-approval-actor" type="text" placeholder="operator@example.com" />
+              </label>
+              <label class="auth-token-field">
+                <span class="field-caption">Approval note</span>
+                <input id="agent-approval-note" type="text" placeholder="Optional approval note" />
+              </label>
+              <button class="primary-link button-link" id="agent-approve" type="submit">
+                Approve selected task
+              </button>
+            </form>
+            <form id="agent-rejection-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Actor</span>
+                <input id="agent-rejection-actor" type="text" placeholder="reviewer@example.com" />
+              </label>
+              <label class="auth-token-field">
+                <span class="field-caption">Rejection note</span>
+                <input id="agent-rejection-note" type="text" placeholder="Optional rejection note" />
+              </label>
+              <button class="secondary-link button-link" id="agent-reject" type="submit">
+                Reject selected task
+              </button>
+            </form>
+            <form id="agent-outcome-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Outcome label</span>
+                <select id="agent-outcome-label">
+                  <option value="useful">Useful</option>
+                  <option value="not_useful">Not useful</option>
+                  <option value="correct">Correct</option>
+                  <option value="incorrect">Incorrect</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-caption">Actor</span>
+                <input id="agent-outcome-actor" type="text" placeholder="operator@example.com" />
+              </label>
+              <label class="auth-token-field">
+                <span class="field-caption">Note</span>
+                <input id="agent-outcome-note" type="text" placeholder="Optional learning note" />
+              </label>
+              <button class="secondary-link button-link" id="agent-outcome-submit" type="submit">
+                Attach outcome label
+              </button>
+            </form>
+            <div id="agent-action-note" class="inline-note">
+              Select a task first. Approval actions only work for tasks waiting on approval.
             </div>
           </div>
         </section>

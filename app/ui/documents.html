@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System | Documents</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/styles.css" />
+    <script defer src="/ui/app.js"></script>
+  </head>
+  <body data-page="documents">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link is-active" href="/ui/documents.html">Documents</a>
+          <a class="nav-link" href="/ui/search.html">Search</a>
+          <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Validated corpus</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Access</span>
+            <strong id="global-auth">Checking</strong>
+          </article>
+        </div>
+      </header>
+
+      <section class="panel auth-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Remote access</p>
+          <h2>Saved credential for current API calls</h2>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label>
+            <span class="field-caption">Credential type</span>
+            <select id="auth-scheme">
+              <option value="x-api-key">X-API-Key</option>
+              <option value="bearer">Bearer token</option>
+            </select>
+          </label>
+          <label class="auth-token-field">
+            <span class="field-caption">Credential</span>
+            <input
+              id="auth-credential"
+              type="password"
+              placeholder="Save an API key or bearer token for remote mode"
+            />
+          </label>
+          <button class="primary-link button-link" type="submit">Save credential</button>
+          <button class="secondary-link button-link secondary-button" id="auth-clear" type="button">
+            Clear
+          </button>
+        </form>
+        <div id="auth-note" class="inline-note">
+          Anonymous mode only works against loopback-local API access.
+        </div>
+      </section>
+
+      <main class="page-stack">
+        <section class="hero reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Document inspection</p>
+            <h1>Inspect documents, runs, artifacts, evaluations, tables, and figures.</h1>
+            <p class="hero-summary">
+              The document surface is the operator view into the active corpus: what is searchable,
+              what most recently failed, which artifacts exist, and whether a reprocess should be
+              queued.
+            </p>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Documents</span>
+              <strong id="documents-total-count">0</strong>
+              <p>Logical documents currently known to the system.</p>
+            </article>
+            <article class="metric-card">
+              <span>Searchable documents</span>
+              <strong id="documents-searchable-count">0</strong>
+              <p>Documents with an active validated run.</p>
+            </article>
+            <article class="metric-card">
+              <span>Active tables</span>
+              <strong id="documents-table-count">0</strong>
+              <p>Current first-class table retrieval objects across the active corpus.</p>
+            </article>
+            <article class="metric-card accent">
+              <span>Active figures</span>
+              <strong id="documents-figure-count">0</strong>
+              <p>Persisted figures with active-run inspection surfaces.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="panel document-stage reveal">
+          <div class="panel document-browser">
+            <div class="section-heading">
+              <p class="eyebrow">Corpus browser</p>
+              <h2>Choose a document</h2>
+            </div>
+            <label class="search-box">
+              <span class="field-caption">Filter documents</span>
+              <input
+                id="documents-filter"
+                type="text"
+                placeholder="Filter by title or source filename"
+              />
+            </label>
+            <div id="documents-list" class="stack-list empty-state">
+              Documents will appear here.
+            </div>
+          </div>
+
+          <div class="document-browser-detail">
+            <section class="panel">
+              <div class="section-heading">
+                <p class="eyebrow">Document summary</p>
+                <h2>Selected document</h2>
+              </div>
+              <div id="document-detail" class="stack-list empty-state">
+                Select a document to inspect its detail and actions.
+              </div>
+            </section>
+            <section class="panel">
+              <div class="section-heading">
+                <p class="eyebrow">Run history</p>
+                <h2>Recent runs</h2>
+              </div>
+              <div id="document-runs" class="stack-list empty-state">
+                Recent document runs will appear here.
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Latest evaluation</p>
+              <h2>Persisted quality evidence for the active run</h2>
+            </div>
+            <div id="document-evaluation" class="stack-list empty-state">
+              Latest evaluation detail will appear here when available.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Reprocess</p>
+              <h2>Queue a fresh run without replacing the current active corpus</h2>
+            </div>
+            <div class="action-row">
+              <button class="primary-link button-link" id="document-reprocess" type="button">
+                Queue reprocess
+              </button>
+            </div>
+            <div id="document-action-note" class="inline-note">
+              Select a document first. Reprocess still flows through the normal validation gate.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Active tables</p>
+              <h2>Current table inspection surface</h2>
+            </div>
+            <div id="document-tables" class="stack-list empty-state">
+              Active tables for the selected document will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Active figures</p>
+              <h2>Current figure inspection surface</h2>
+            </div>
+            <div id="document-figures" class="stack-list empty-state">
+              Active figures for the selected document will appear here.
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

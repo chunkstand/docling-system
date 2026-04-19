@@ -25,6 +25,7 @@
         </a>
         <nav class="site-nav" aria-label="Primary">
           <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link" href="/ui/documents.html">Documents</a>
           <a class="nav-link is-active" href="/ui/search.html">Search</a>
           <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
           <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
@@ -42,8 +43,43 @@
             <span>Approval backlog</span>
             <strong id="global-backlog">0</strong>
           </article>
+          <article class="signal-chip">
+            <span>Access</span>
+            <strong id="global-auth">Checking</strong>
+          </article>
         </div>
       </header>
+
+      <section class="panel auth-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Remote access</p>
+          <h2>Saved credential for current API calls</h2>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label>
+            <span class="field-caption">Credential type</span>
+            <select id="auth-scheme">
+              <option value="x-api-key">X-API-Key</option>
+              <option value="bearer">Bearer token</option>
+            </select>
+          </label>
+          <label class="auth-token-field">
+            <span class="field-caption">Credential</span>
+            <input
+              id="auth-credential"
+              type="password"
+              placeholder="Save an API key or bearer token for remote mode"
+            />
+          </label>
+          <button class="primary-link button-link" type="submit">Save credential</button>
+          <button class="secondary-link button-link secondary-button" id="auth-clear" type="button">
+            Clear
+          </button>
+        </form>
+        <div id="auth-note" class="inline-note">
+          Anonymous mode only works against loopback-local API access.
+        </div>
+      </section>
 
       <main class="page-stack">
         <section class="hero reveal">
@@ -157,6 +193,99 @@
               </div>
             </section>
           </aside>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Persisted request</p>
+              <h2>Search request detail and feedback</h2>
+            </div>
+            <div id="search-request-detail" class="stack-list empty-state">
+              Run a search or open a request from a replay run to inspect persisted request detail.
+            </div>
+            <form id="search-feedback-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Feedback type</span>
+                <select id="search-feedback-type">
+                  <option value="relevant">Relevant</option>
+                  <option value="irrelevant">Irrelevant</option>
+                  <option value="missing_table">Missing table</option>
+                  <option value="missing_chunk">Missing chunk</option>
+                  <option value="no_answer">No answer</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-caption">Result rank</span>
+                <input id="search-feedback-rank" type="number" min="1" placeholder="Optional" />
+              </label>
+              <label class="auth-token-field">
+                <span class="field-caption">Note</span>
+                <input id="search-feedback-note" type="text" placeholder="Optional operator note" />
+              </label>
+              <button class="secondary-link button-link" id="search-feedback-submit" type="submit">
+                Attach feedback
+              </button>
+            </form>
+            <div id="search-feedback-note-inline" class="inline-note">
+              Feedback is attached to the currently selected search request.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Replay current request</p>
+              <h2>One-off replay against the current system</h2>
+            </div>
+            <div class="action-row">
+              <button class="primary-link button-link" id="search-replay-request" type="button">
+                Replay selected request
+              </button>
+            </div>
+            <div id="search-replay-detail" class="stack-list empty-state">
+              Replay output for the selected request will appear here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Replay suites</p>
+              <h2>Run and inspect persisted replay runs</h2>
+            </div>
+            <form id="replay-suite-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Source type</span>
+                <select id="replay-suite-source-type">
+                  <option value="evaluation_queries">Evaluation queries</option>
+                  <option value="feedback">Feedback</option>
+                  <option value="live_search_gaps">Live search gaps</option>
+                  <option value="cross_document_prose_regressions">Cross-document prose</option>
+                </select>
+              </label>
+              <label>
+                <span class="field-caption">Harness</span>
+                <select id="replay-suite-harness"></select>
+              </label>
+              <label>
+                <span class="field-caption">Limit</span>
+                <input id="replay-suite-limit" type="number" min="1" max="200" value="12" />
+              </label>
+              <button class="secondary-link button-link" type="submit">Run replay suite</button>
+            </form>
+            <div id="search-replay-runs" class="stack-list empty-state">
+              Replay run summaries will appear here.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Replay run detail</p>
+              <h2>Inspect one persisted replay run</h2>
+            </div>
+            <div id="search-replay-run-detail" class="stack-list empty-state">
+              Select a replay run to inspect per-query results and summary metrics.
+            </div>
+          </div>
         </section>
       </main>
     </div>
