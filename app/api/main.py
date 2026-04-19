@@ -1025,7 +1025,10 @@ def read_latest_document_semantic_continuity(
 @app.post(
     "/documents/{document_id}/semantics/latest/assertions/{assertion_id}/review",
     response_model=SemanticReviewEventResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:review")),
+    ],
 )
 def review_latest_document_semantic_assertion(
     document_id: UUID,
@@ -1047,7 +1050,10 @@ def review_latest_document_semantic_assertion(
 @app.post(
     "/documents/{document_id}/semantics/latest/assertion-category-bindings/{binding_id}/review",
     response_model=SemanticReviewEventResponse,
-    dependencies=[Depends(_require_api_key_for_mutations)],
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:review")),
+    ],
 )
 def review_latest_document_semantic_assertion_category_binding(
     document_id: UUID,

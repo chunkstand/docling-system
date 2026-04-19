@@ -810,6 +810,37 @@ def test_latest_semantic_continuity_route_returns_machine_readable_error_when_pa
     assert response.json()["error_code"] == "semantic_pass_not_found"
 
 
+def test_latest_semantic_continuity_route_requires_inspect_capability_in_remote_mode(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_active_semantic_continuity",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before semantic continuity runs")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/documents/{document_id}/semantics/latest/continuity",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
+
+
 def test_semantic_assertion_review_route_returns_machine_readable_error_when_target_missing(
     monkeypatch,
 ) -> None:
@@ -837,6 +868,103 @@ def test_semantic_assertion_review_route_returns_machine_readable_error_when_tar
 
     assert response.status_code == 404
     assert response.json()["error_code"] == "semantic_assertion_not_found"
+
+
+def test_semantic_assertion_review_route_requires_remote_review_capability(monkeypatch) -> None:
+    document_id = uuid4()
+    assertion_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.review_active_semantic_assertion",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before semantic assertion review")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertions/{assertion_id}/review",
+        headers={"X-API-Key": "operator-secret"},
+        json={"review_status": "approved", "review_note": "missing", "reviewed_by": "tester"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
+
+
+def test_semantic_assertion_category_binding_review_route_returns_machine_readable_error_when_target_missing(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+    binding_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.review_active_semantic_assertion_category_binding",
+        lambda session, requested_document_id, requested_binding_id, **kwargs: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "semantic_assertion_category_binding_not_found",
+                "Semantic assertion category binding not found.",
+                document_id=str(requested_document_id),
+                binding_id=str(requested_binding_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertion-category-bindings/{binding_id}/review",
+        json={"review_status": "approved", "review_note": "missing", "reviewed_by": "tester"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "semantic_assertion_category_binding_not_found"
+
+
+def test_semantic_assertion_category_binding_review_route_requires_remote_review_capability(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+    binding_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.review_active_semantic_assertion_category_binding",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "remote capability gate should block before semantic category binding review"
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertion-category-bindings/{binding_id}/review",
+        headers={"X-API-Key": "operator-secret"},
+        json={"review_status": "approved", "review_note": "missing", "reviewed_by": "tester"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
 
 
 def test_run_failure_artifact_route_returns_machine_readable_error_when_run_missing() -> None:

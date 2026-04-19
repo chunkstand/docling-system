@@ -165,6 +165,7 @@ Current capability families are:
 - `system:read`
 - `documents:upload`
 - `documents:inspect`
+- `documents:review`
 - `documents:reprocess`
 - `search:query`
 - `search:history:read`
@@ -180,7 +181,7 @@ Current capability families are:
 Important legacy-key behavior:
 
 - if you use only `DOCLING_SYSTEM_API_KEY` and leave `DOCLING_SYSTEM_REMOTE_API_CAPABILITIES` unset, the current default capability set is limited to `documents:upload`, `search:query`, `search:feedback`, `chat:query`, and `chat:feedback`
-- document inspection, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
+- document inspection, semantic review, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
 - `GET /runtime/status` reports the current auth mode, effective principals, and shared capabilities when the caller has `system:read`
 
 ## Ingesting PDFs
