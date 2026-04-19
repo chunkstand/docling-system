@@ -69,3 +69,11 @@ Unless the user says otherwise, prefer:
 - avoid scope drift beyond the v1 system plan unless required to make the system buildable and testable
 - restart API/worker after environment, migration, or runtime dependency changes before live verification
 - when OpenAI returns `429 insufficient_quota`, treat it as a quota/billing/key-project issue; ingestion may still validate and promote without embeddings, but semantic search degrades to keyword-backed behavior
+- for any externally reachable API or service path, use `app.api.errors.api_error(...)` for handled failures; do not add plain-string `HTTPException` responses or bare `Response(status_code=404)` except for static/UI-only routes
+- for storage-backed artifact and failure-artifact routes, missing files must return structured JSON with `error_code`, not an empty 404
+- when changing `app/db/models.py` or Alembic migrations, verify both migration execution and the `Base.metadata.create_all(...)` path against local Postgres before closing the task
+- do not land generated or computed column changes without executing the exact emitted DDL against Postgres; ORM annotations can silently change nullability and emitted schema
+- prefer readable multiline SQL constants over dense hand-built SQL strings for schema expressions, and add a live DB execution test for the emitted expression when the SQL is non-trivial
+- after touching `app/api/main.py`, `app/db/models.py`, `alembic/`, or storage-backed artifact routing, run `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` before closing the task
+- for every API contract change, add at least one HTTP-boundary test for the error path, not only happy-path coverage or monkeypatched route tests
+- when fixing one externally reachable route family, sweep sibling surfaces in the same family before stopping: detail, list, artifact, failure-artifact, and latest-evaluation endpoints
