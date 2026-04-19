@@ -4,11 +4,11 @@ Docling-based PDF ingestion and retrieval system for plumbing-code knowledge.
 
 ## What It Does
 
-This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and a read-only browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.
+This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and an operator browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.
 
 The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, figures, artifacts, validation status, evaluation status, metrics, and mixed chunk/table search.
 
-The UI also includes a grounded chat box that answers questions from retrieved chunks and tables in the active corpus, with source citations. If OpenAI is configured, answers are synthesized against retrieved context; otherwise the UI falls back to extractive evidence snippets. Both direct search and grounded chat can now run under named search harnesses so operators can compare retrieval profiles and reranker versions against the same corpus.
+The current browser UI focuses on search, replay, evaluation, document inspection, and agent workflow governance. Grounded chat remains available through the API, but there is not currently a browser chat panel mounted in the shipped UI.
 
 The system also records replayable failure artifacts for failed runs, exposes recent run history per document, persists direct-search telemetry with operator feedback labels, stores answer-level feedback for grounded chat responses, and includes replay/audit CLIs for checking run and retrieval invariants against the local corpus.
 
@@ -133,7 +133,7 @@ Current compose behavior:
 - `GET /health` remains public
 - most other remote endpoints require auth and, for many surfaces, explicit capabilities
 
-The shipped browser UI does not inject API credentials. In practice, that means the compose stack is best treated as a process-topology and API-auth wiring stack unless you add your own remote-mode browser auth handling. For interactive operator use in the browser, prefer the manual loopback-local flow above.
+The shipped browser UI can store an `X-API-Key` or bearer token in local browser storage and applies that credential to API requests and protected downloads. For interactive operator use, the manual loopback-local flow is still the simplest path because it avoids remote auth setup.
 
 ## Remote API Auth
 

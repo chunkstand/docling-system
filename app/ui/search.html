@@ -36,7 +36,7 @@
             <strong id="global-health">Checking</strong>
           </article>
           <article class="signal-chip">
-            <span>Validated corpus</span>
+            <span>Latest eval coverage</span>
             <strong id="global-validated">0</strong>
           </article>
           <article class="signal-chip">
@@ -237,7 +237,12 @@
               <h2>One-off replay against the current system</h2>
             </div>
             <div class="action-row">
-              <button class="primary-link button-link" id="search-replay-request" type="button">
+              <button
+                class="primary-link button-link"
+                id="search-replay-request"
+                type="button"
+                data-ui-action="replay-selected-request"
+              >
                 Replay selected request
               </button>
             </div>

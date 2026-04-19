@@ -181,7 +181,7 @@ def test_document_list_route_requires_inspect_capability_in_remote_mode(monkeypa
 
 
 def test_document_list_route_accepts_actor_scoped_bearer_token(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_documents", lambda session: [])
+    monkeypatch.setattr("app.api.main.list_documents", lambda session, limit=50: [])
     monkeypatch.setattr(
         "app.api.main.get_settings",
         lambda: SimpleNamespace(
@@ -207,6 +207,23 @@ def test_document_list_route_accepts_actor_scoped_bearer_token(monkeypatch) -> N
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_document_list_route_forwards_limit_query_param(monkeypatch) -> None:
+    captured: dict[str, int] = {}
+
+    def fake_list_documents(session, limit=50):
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr("app.api.main.list_documents", fake_list_documents)
+
+    client = TestClient(app)
+    response = client.get("/documents?limit=125")
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert captured == {"limit": 125}
 
 
 def test_document_detail_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:

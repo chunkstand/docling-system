@@ -645,12 +645,12 @@ These cover:
 
 ### UI
 
-The API also mounts the read-only operator UI under `/ui`.
+The API also mounts the operator UI under `/ui`.
 
 The UI currently exposes:
 
 - documents and runs
-- search and grounded chat
+- search, replay, and feedback
 - tables and figures
 - evaluation and quality inspection
 - active agent tasks and workflow lineage
@@ -662,8 +662,8 @@ The current intended operator workflow is:
 1. ingest PDFs through CLI local-file/directory ingest or API upload
 2. let the worker parse, validate, promote, and evaluate
 3. inspect document artifacts, tables, figures, and evaluations through the API or UI
-4. use search and chat to inspect the active corpus
-5. label gaps through search feedback, chat feedback, and quality inspection
+4. use search to inspect the active corpus
+5. label gaps through search feedback and quality inspection
 6. run replay suites or harness evaluations to compare retrieval behavior
 7. use agent tasks to triage regressions, draft harness updates, verify them, and require approval before publishing overrides or queueing reprocess work
 

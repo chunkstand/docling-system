@@ -39,6 +39,7 @@ const uiState = {
   harnessCatalogPromise: null,
   documents: {
     rows: [],
+    totalCount: 0,
     selectedDocumentId: queryParams.get("document_id"),
     filter: "",
   },
@@ -185,6 +186,23 @@ function authLabel() {
     return "Local / anon";
   }
   return uiState.auth.scheme === "bearer" ? "Bearer stored" : "Key stored";
+}
+
+function runtimeApiMode(runtime) {
+  return runtime?.api_mode || "local";
+}
+
+function runtimeBindLabel(runtime) {
+  const host = runtime?.api_host || window.location.hostname || "loopback";
+  const port = runtime?.api_port || window.location.port || "";
+  return port ? `${host}:${port}` : host;
+}
+
+function runtimeAuthMode(runtime) {
+  if (runtime?.remote_api_auth_mode) {
+    return runtime.remote_api_auth_mode;
+  }
+  return runtimeApiMode(runtime) === "remote" ? "configured" : "local";
 }
 
 function isAuthError(error) {
@@ -502,6 +520,14 @@ function getDefaultHarnessName(harnesses) {
   return harnesses.find((row) => row.is_default)?.harness_name || DEFAULT_HARNESS_NAME;
 }
 
+function getSelectedSearchRequestId() {
+  return (
+    uiState.search.selectedRequestId ||
+    byId("search-request-detail")?.dataset.requestId ||
+    new URLSearchParams(window.location.search).get("request_id")
+  );
+}
+
 function renderAuthControls(context) {
   const form = byId("auth-form");
   const scheme = byId("auth-scheme");
@@ -519,8 +545,8 @@ function renderAuthControls(context) {
   if (context.runtimeStatus) {
     const runtime = context.runtimeStatus;
     const principalCount = runtime.remote_api_principals?.length || 0;
-    const authMode = runtime.remote_api_auth_mode || "local";
-    note = `Runtime ${runtime.api_mode} on ${runtime.api_host}:${runtime.api_port}. Auth mode ${authMode}${principalCount ? ` with ${principalCount} principal${principalCount === 1 ? "" : "s"}` : ""}.`;
+    const authMode = runtimeAuthMode(runtime);
+    note = `Runtime ${runtimeApiMode(runtime)} on ${runtimeBindLabel(runtime)}. Auth mode ${authMode}${principalCount ? ` with ${principalCount} principal${principalCount === 1 ? "" : "s"}` : ""}.`;
   } else if (context.authRequired && !uiState.auth.credential) {
     note = "Protected API routes are active. Save an API key or bearer token to unlock the current system.";
   } else if (uiState.auth.credential) {
@@ -544,22 +570,25 @@ function renderAuthControls(context) {
 }
 
 async function loadGlobalChrome() {
-  const [healthState, documentsState, qualityState, agentState, runtimeState] = await Promise.all([
+  const [healthState, qualityState, agentState, runtimeState] = await Promise.all([
     fetchState("/health"),
-    fetchState("/documents"),
     fetchState("/quality/summary"),
     fetchState("/agent-tasks/analytics/summary"),
     fetchState("/runtime/status"),
   ]);
+  const documentsState = await fetchState("/documents");
 
   const documents = documentsState.data || [];
-  const validatedCount = documents.filter((row) => row.active_run_id != null).length;
   const authRequired = [documentsState, qualityState, agentState].some((state) =>
     isAuthError(state.error),
   );
+  const evalCoverageLabel =
+    qualityState.data?.document_count != null
+      ? `${formatInteger(qualityState.data?.documents_with_latest_evaluation || 0)} / ${formatInteger(qualityState.data?.document_count || 0)}`
+      : formatInteger(documents.filter((row) => row.active_run_id != null).length);
 
   setText("global-health", healthState.data?.status === "ok" ? "Ready" : "Offline");
-  setText("global-validated", formatInteger(validatedCount));
+  setText("global-validated", evalCoverageLabel);
   setText("global-backlog", formatInteger(agentState.data?.awaiting_approval_count || 0));
   setText("global-auth", authRequired && !uiState.auth.credential ? "Required" : authLabel());
 
@@ -619,13 +648,13 @@ function renderLandingRuntime(context) {
       `
         <article class="stack-card">
           <header>
-            <strong>${escapeHtml(runtime.api_mode)} mode</strong>
+            <strong>${escapeHtml(runtimeApiMode(runtime))} mode</strong>
             <span class="status-pill ${runtime.is_current ? "completed" : "failed"}">${runtime.is_current ? "current" : "stale"}</span>
           </header>
           <div class="stack-meta">
-            <span>${escapeHtml(runtime.api_host)}:${escapeHtml(runtime.api_port)}</span>
+            <span>${escapeHtml(runtimeBindLabel(runtime))}</span>
             <span>${escapeHtml(runtime.process_identity || "api")}</span>
-            <span>${escapeHtml(runtime.remote_api_auth_mode || "local")}</span>
+            <span>${escapeHtml(runtimeAuthMode(runtime))}</span>
           </div>
           <p>Startup fingerprint ${escapeHtml(runtime.startup_code_fingerprint || "unknown")}.</p>
           <p>Desired fingerprint ${escapeHtml(runtime.desired_code_fingerprint || "unknown")}.</p>
@@ -647,7 +676,10 @@ function renderLandingRuntime(context) {
 
 async function loadLandingPage(context) {
   const decisionSignalsState = await fetchState("/agent-tasks/analytics/decision-signals");
-  setText("landing-doc-count", formatInteger(context.documents.length));
+  setText(
+    "landing-doc-count",
+    formatInteger(context.qualitySummary?.document_count || context.documents.length),
+  );
   setText(
     "landing-eval-coverage",
     `${formatInteger(context.qualitySummary?.documents_with_latest_evaluation || 0)} / ${formatInteger(context.qualitySummary?.document_count || 0)}`,
@@ -673,10 +705,12 @@ function renderDocumentList() {
   });
 
   if (!filtered.length) {
+    renderDocumentScopeNote(0);
     renderEmpty(container, "No documents match the current filter.");
     return;
   }
 
+  renderDocumentScopeNote(filtered.length);
   renderStackCards(
     container,
     filtered.map(
@@ -701,6 +735,29 @@ function renderDocumentList() {
       `,
     ),
   );
+}
+
+function renderDocumentScopeNote(filteredCount) {
+  const note = byId("documents-scope-note");
+  if (!note) {
+    return;
+  }
+  const loadedCount = uiState.documents.rows.length;
+  const totalCount = Number(uiState.documents.totalCount || loadedCount);
+  const filterActive = uiState.documents.filter.trim().length > 0;
+
+  if (totalCount > loadedCount) {
+    const matchingLabel = filterActive
+      ? `${formatInteger(filteredCount)} matching summaries`
+      : `${formatInteger(loadedCount)} recent summaries`;
+    note.textContent = `Showing ${matchingLabel} from ${formatInteger(loadedCount)} loaded / ${formatInteger(totalCount)} total documents.`;
+    return;
+  }
+
+  const baselineLabel = filterActive
+    ? `${formatInteger(filteredCount)} matching documents`
+    : `${formatInteger(loadedCount)} document summaries`;
+  note.textContent = `Showing ${baselineLabel}.`;
 }
 
 function renderDocumentDetail(detailState) {
@@ -978,8 +1035,10 @@ async function loadSelectedDocument(documentId) {
 }
 
 async function loadDocumentsPage(context) {
+  const corpusDocumentCount = Number(context.qualitySummary?.document_count || context.documents.length);
   uiState.documents.rows = context.documents;
-  setText("documents-total-count", formatInteger(context.documents.length));
+  uiState.documents.totalCount = corpusDocumentCount;
+  setText("documents-total-count", formatInteger(corpusDocumentCount));
   setText(
     "documents-searchable-count",
     formatInteger(context.documents.filter((row) => row.active_run_id != null).length),
@@ -1040,6 +1099,7 @@ function renderSearchRequestDetail(detailState) {
     return;
   }
   if (detailState.error) {
+    delete container.dataset.requestId;
     renderEmpty(
       container,
       formatApiError(detailState.error, "Unable to load persisted search request detail."),
@@ -1048,9 +1108,11 @@ function renderSearchRequestDetail(detailState) {
   }
   const detail = detailState.data;
   if (!detail) {
+    delete container.dataset.requestId;
     renderEmpty(container, "Run a search or select a persisted request to inspect detail.");
     return;
   }
+  container.dataset.requestId = detail.search_request_id;
 
   const cards = [
     `
@@ -1255,6 +1317,20 @@ async function loadReplayRunDetail(replayRunId) {
   renderReplayRunDetail(detailState);
 }
 
+async function replaySelectedSearchRequest() {
+  const requestId = getSelectedSearchRequestId();
+  if (!requestId) {
+    renderEmpty(byId("search-replay-detail"), "Select a search request first.");
+    return;
+  }
+  renderEmpty(byId("search-replay-detail"), "Replaying the selected request...");
+  const replayState = await fetchState(`/search/requests/${requestId}/replay`, { method: "POST" });
+  renderSearchReplayDetail(replayState);
+  if (replayState.data?.replay_request?.search_request_id) {
+    await loadSearchRequestDetail(replayState.data.replay_request.search_request_id);
+  }
+}
+
 async function loadSearchPage(context) {
   const [harnessState, metricsState, replayRunsState] = await Promise.all([
     getHarnessCatalogState(),
@@ -1388,17 +1464,9 @@ async function loadSearchPage(context) {
     }
   });
 
-  byId("search-replay-request")?.addEventListener("click", async () => {
-    const requestId = uiState.search.selectedRequestId;
-    if (!requestId) {
-      renderEmpty(byId("search-replay-detail"), "Select a search request first.");
-      return;
-    }
-    const replayState = await fetchState(`/search/requests/${requestId}/replay`, { method: "POST" });
-    renderSearchReplayDetail(replayState);
-    if (replayState.data?.replay_request?.search_request_id) {
-      await loadSearchRequestDetail(replayState.data.replay_request.search_request_id);
-    }
+  byId("search-replay-request")?.addEventListener("click", async (event) => {
+    event.preventDefault();
+    await replaySelectedSearchRequest();
   });
 
   byId("replay-suite-form")?.addEventListener("submit", async (event) => {
@@ -2160,7 +2228,9 @@ async function loadAgentsPage() {
 
 function bindGlobalActionDelegation() {
   document.addEventListener("click", async (event) => {
-    const trigger = event.target.closest("[data-ui-action]");
+    const target =
+      event.target instanceof Element ? event.target : event.target?.parentElement || null;
+    const trigger = target?.closest("[data-ui-action]");
     if (!trigger) {
       return;
     }
@@ -2188,6 +2258,12 @@ function bindGlobalActionDelegation() {
     if (action === "load-replay-run") {
       event.preventDefault();
       await loadReplayRunDetail(trigger.dataset.replayRunId);
+      return;
+    }
+
+    if (action === "replay-selected-request") {
+      event.preventDefault();
+      await replaySelectedSearchRequest();
       return;
     }
 

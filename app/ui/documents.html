@@ -36,7 +36,7 @@
             <strong id="global-health">Checking</strong>
           </article>
           <article class="signal-chip">
-            <span>Validated corpus</span>
+            <span>Latest eval coverage</span>
             <strong id="global-validated">0</strong>
           </article>
           <article class="signal-chip">
@@ -94,24 +94,24 @@
           </div>
           <aside class="hero-metrics">
             <article class="metric-card">
-              <span>Documents</span>
+              <span>Corpus documents</span>
               <strong id="documents-total-count">0</strong>
-              <p>Logical documents currently known to the system.</p>
+              <p>Logical documents currently tracked in the corpus-wide quality summary.</p>
             </article>
             <article class="metric-card">
-              <span>Searchable documents</span>
+              <span>Loaded searchable docs</span>
               <strong id="documents-searchable-count">0</strong>
-              <p>Documents with an active validated run.</p>
+              <p>Documents with an active validated run inside the currently loaded browser slice.</p>
             </article>
             <article class="metric-card">
-              <span>Active tables</span>
+              <span>Tables in loaded view</span>
               <strong id="documents-table-count">0</strong>
-              <p>Current first-class table retrieval objects across the active corpus.</p>
+              <p>First-class table retrieval objects represented by the loaded document summaries.</p>
             </article>
             <article class="metric-card accent">
-              <span>Active figures</span>
+              <span>Figures in loaded view</span>
               <strong id="documents-figure-count">0</strong>
-              <p>Persisted figures with active-run inspection surfaces.</p>
+              <p>Persisted figures represented by the loaded document summaries.</p>
             </article>
           </aside>
         </section>
@@ -130,6 +130,9 @@
                 placeholder="Filter by title or source filename"
               />
             </label>
+            <div id="documents-scope-note" class="inline-note">
+              Showing the current document browser slice.
+            </div>
             <div id="documents-list" class="stack-list empty-state">
               Documents will appear here.
             </div>

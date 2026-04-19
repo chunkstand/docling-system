@@ -15,6 +15,7 @@ from fastapi import (
     File,
     Header,
     HTTPException,
+    Query,
     Request,
     Response,
     UploadFile,
@@ -902,8 +903,11 @@ def reject_agent_task_route(
     response_model=list[DocumentSummaryResponse],
     dependencies=[Depends(_require_api_capability("documents:inspect"))],
 )
-def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentSummaryResponse]:
-    return list_documents(session)
+def read_documents(
+    limit: int = Query(default=50, ge=1, le=10000),
+    session: Session = Depends(get_db_session),
+) -> list[DocumentSummaryResponse]:
+    return list_documents(session, limit=limit)
 
 
 @app.post(

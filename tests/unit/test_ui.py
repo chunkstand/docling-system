@@ -14,10 +14,12 @@ def test_index_serves_overview_ui() -> None:
         "Observe the corpus, verify every change, and promote only what is earned." in response.text
     )
     assert "System diagram" in response.text
+    assert "Search, replay, and feedback" in response.text
     assert "Validation-gated promotion" in response.text
     assert "Governed retrieval" in response.text
     assert "Agent orchestration" in response.text
     assert "UI credential and runtime posture" in response.text
+    assert "Latest eval coverage" in response.text
     assert "/ui/documents.html" in response.text
     assert "/ui/search.html" in response.text
     assert "/ui/evals.html" in response.text
@@ -34,6 +36,8 @@ def test_documents_page_serves_document_operator_workspace() -> None:
     assert "Document inspection" in response.text
     assert "Inspect documents, runs, artifacts, evaluations, tables, and figures." in response.text
     assert "Saved credential for current API calls" in response.text
+    assert "Corpus documents" in response.text
+    assert "Showing the current document browser slice." in response.text
     assert "Choose a document" in response.text
     assert "Persisted quality evidence for the active run" in response.text
     assert "Current figure inspection surface" in response.text
@@ -54,6 +58,7 @@ def test_search_page_serves_dedicated_search_workspace() -> None:
     assert "Harness registry" in response.text
     assert "Search discipline" in response.text
     assert "Run search" in response.text
+    assert 'data-ui-action="replay-selected-request"' in response.text
     assert "Replay suites" in response.text
     assert "Inspect one persisted replay run" in response.text
 
