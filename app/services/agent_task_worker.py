@@ -20,7 +20,11 @@ from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
-from app.services.runtime import get_process_identity
+from app.services.runtime import (
+    get_process_identity,
+    register_runtime_process,
+    runtime_code_is_current,
+)
 from app.services.storage import StorageService
 
 AgentTaskExecutor = Callable[[Session, AgentTask], dict]
@@ -548,8 +552,21 @@ def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> 
     session_factory = get_session_factory()
     storage_service = StorageService()
     worker_id = get_process_identity()
+    registration = register_runtime_process("agent_worker", worker_id)
+    logger.info(
+        "agent_worker_runtime_registered",
+        worker_id=worker_id,
+        code_fingerprint=registration.startup_code_fingerprint,
+    )
 
     while True:
+        if not runtime_code_is_current(registration.startup_code_fingerprint):
+            logger.warning(
+                "agent_worker_exiting_stale_code",
+                worker_id=worker_id,
+                code_fingerprint=registration.startup_code_fingerprint,
+            )
+            return
         with session_factory() as session:
             unblock_ready_agent_tasks(session)
             requeue_stale_agent_tasks(session, storage_service=storage_service)
