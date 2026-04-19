@@ -733,7 +733,7 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
-        artifact_schema_version="2.0",
+        artifact_schema_version="2.1",
         artifact_json_path=str(tmp_path / "missing-semantic.json"),
         artifact_yaml_path=str(tmp_path / "missing-semantic.yaml"),
     )
@@ -784,6 +784,59 @@ def test_latest_semantics_route_returns_machine_readable_error_when_pass_missing
 
     assert response.status_code == 404
     assert response.json()["error_code"] == "semantic_pass_not_found"
+
+
+def test_latest_semantic_continuity_route_returns_machine_readable_error_when_pass_missing(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_active_semantic_continuity",
+        lambda session, requested_document_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "semantic_pass_not_found",
+                "Semantic pass not found.",
+                document_id=str(requested_document_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/documents/{document_id}/semantics/latest/continuity")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "semantic_pass_not_found"
+
+
+def test_semantic_assertion_review_route_returns_machine_readable_error_when_target_missing(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+    assertion_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.review_active_semantic_assertion",
+        lambda session, requested_document_id, requested_assertion_id, **kwargs: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "semantic_assertion_not_found",
+                "Semantic assertion not found.",
+                document_id=str(requested_document_id),
+                assertion_id=str(requested_assertion_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertions/{assertion_id}/review",
+        json={"review_status": "approved", "review_note": "missing", "reviewed_by": "tester"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "semantic_assertion_not_found"
 
 
 def test_run_failure_artifact_route_returns_machine_readable_error_when_run_missing() -> None:
@@ -924,12 +977,12 @@ def test_semantic_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
     document_id = uuid4()
     run_id = uuid4()
 
-    storage_service.get_semantic_json_path(document_id, run_id, "2.0").write_text('{"kind":"semantic"}')
-    storage_service.get_semantic_yaml_path(document_id, run_id, "2.0").write_text("kind: semantic\n")
+    storage_service.get_semantic_json_path(document_id, run_id, "2.1").write_text('{"kind":"semantic"}')
+    storage_service.get_semantic_yaml_path(document_id, run_id, "2.1").write_text("kind: semantic\n")
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
-        artifact_schema_version="2.0",
+        artifact_schema_version="2.1",
         artifact_json_path="/tmp/ignored-semantic.json",
         artifact_yaml_path="/tmp/ignored-semantic.yaml",
     )

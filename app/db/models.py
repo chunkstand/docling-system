@@ -662,6 +662,77 @@ class SemanticConceptCategoryBinding(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class DocumentSemanticConceptReview(Base):
+    __tablename__ = "document_semantic_concept_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_document_semantic_concept_reviews_review_status",
+        ),
+        Index("ix_document_semantic_concept_reviews_document_id", "document_id"),
+        Index("ix_document_semantic_concept_reviews_concept_id", "concept_id"),
+        Index(
+            "ix_doc_sem_concept_reviews_doc_concept_created_at",
+            "document_id",
+            "concept_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentSemanticCategoryReview(Base):
+    __tablename__ = "document_semantic_category_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_document_semantic_category_reviews_review_status",
+        ),
+        Index("ix_document_semantic_category_reviews_document_id", "document_id"),
+        Index("ix_document_semantic_category_reviews_concept_id", "concept_id"),
+        Index("ix_document_semantic_category_reviews_category_id", "category_id"),
+        Index(
+            "ix_doc_sem_category_reviews_doc_binding_created_at",
+            "document_id",
+            "concept_id",
+            "category_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DocumentRunSemanticPass(Base):
     __tablename__ = "document_run_semantic_passes"
     __table_args__ = (
@@ -682,6 +753,7 @@ class DocumentRunSemanticPass(Base):
         ),
         Index("ix_document_run_semantic_passes_document_id", "document_id"),
         Index("ix_document_run_semantic_passes_run_id", "run_id"),
+        Index("ix_document_run_semantic_passes_baseline_run_id", "baseline_run_id"),
         Index("ix_document_run_semantic_passes_status", "status"),
     )
 
@@ -691,6 +763,14 @@ class DocumentRunSemanticPass(Base):
     )
     run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    baseline_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_runs.id", ondelete="SET NULL"),
+    )
+    baseline_semantic_pass_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_semantic_passes.id", ondelete="SET NULL"),
     )
     status: Mapped[str] = mapped_column(
         Text, nullable=False, default="pending", server_default=sql_text("'pending'")
@@ -721,6 +801,13 @@ class DocumentRunSemanticPass(Base):
     )
     evaluation_summary_json: Mapped[dict] = mapped_column(
         "evaluation_summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    continuity_summary_json: Mapped[dict] = mapped_column(
+        "continuity_summary",
         JSONB,
         nullable=False,
         default=dict,

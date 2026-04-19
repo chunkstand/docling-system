@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from app.db.models import (
     DocumentChunk,
     DocumentFigure,
     DocumentRun,
+    DocumentSemanticCategoryReview,
+    DocumentSemanticConceptReview,
     DocumentRunSemanticPass,
     DocumentTable,
     SemanticAssertion,
@@ -47,7 +50,9 @@ from app.schemas.semantics import (
     SemanticAssertionEvidenceResponse,
     SemanticAssertionResponse,
     SemanticAssertionCategoryBindingResponse,
+    SemanticContinuityResponse,
     SemanticConceptCategoryBindingResponse,
+    SemanticReviewEventResponse,
 )
 from app.services.documents import get_document_or_404
 from app.services.semantic_registry import (
@@ -59,8 +64,8 @@ from app.services.semantic_registry import (
 from app.services.storage import StorageService
 
 SEMANTIC_ARTIFACT_SCHEMA_NAME = "docling.semantic_pass"
-SEMANTIC_ARTIFACT_SCHEMA_VERSION = "2.0"
-SEMANTIC_EXTRACTOR_VERSION = "semantics_sidecar_v2"
+SEMANTIC_ARTIFACT_SCHEMA_VERSION = "2.1"
+SEMANTIC_EXTRACTOR_VERSION = "semantics_sidecar_v2_1"
 SEMANTIC_MATCH_STRATEGY = "normalized_phrase_contains"
 SEMANTIC_EVAL_VERSION = 2
 SEMANTIC_EXCERPT_LIMIT = 240
@@ -95,6 +100,15 @@ class SemanticAssertionMaterialization:
     matched_terms: set[str]
     source_types: set[str]
     evidence: list[SemanticEvidenceMaterialization]
+
+
+@dataclass(frozen=True)
+class SemanticReviewOverlay:
+    review_id: UUID
+    review_status: str
+    review_note: str | None
+    reviewed_by: str | None
+    created_at: datetime
 
 
 @dataclass(frozen=True)
@@ -328,6 +342,107 @@ def _materialize_semantic_assertions(
     )
 
 
+def _latest_concept_review_overlays(
+    session: Session,
+    document_id: UUID,
+    registry_version: str,
+) -> dict[str, SemanticReviewOverlay]:
+    rows = session.execute(
+        select(
+            DocumentSemanticConceptReview,
+            SemanticConcept,
+        )
+        .join(
+            SemanticConcept,
+            SemanticConcept.id == DocumentSemanticConceptReview.concept_id,
+        )
+        .where(
+            DocumentSemanticConceptReview.document_id == document_id,
+            SemanticConcept.registry_version == registry_version,
+        )
+        .order_by(
+            SemanticConcept.concept_key,
+            DocumentSemanticConceptReview.created_at.desc(),
+        )
+    ).all()
+    overlays: dict[str, SemanticReviewOverlay] = {}
+    for review, concept in rows:
+        overlays.setdefault(
+            concept.concept_key,
+            SemanticReviewOverlay(
+                review_id=review.id,
+                review_status=review.review_status,
+                review_note=review.review_note,
+                reviewed_by=review.reviewed_by,
+                created_at=review.created_at,
+            ),
+        )
+    return overlays
+
+
+def _latest_category_review_overlays(
+    session: Session,
+    document_id: UUID,
+    registry_version: str,
+) -> dict[tuple[str, str], SemanticReviewOverlay]:
+    rows = session.execute(
+        select(
+            DocumentSemanticCategoryReview,
+            SemanticConcept,
+            SemanticCategory,
+        )
+        .join(
+            SemanticConcept,
+            SemanticConcept.id == DocumentSemanticCategoryReview.concept_id,
+        )
+        .join(
+            SemanticCategory,
+            SemanticCategory.id == DocumentSemanticCategoryReview.category_id,
+        )
+        .where(
+            DocumentSemanticCategoryReview.document_id == document_id,
+            SemanticConcept.registry_version == registry_version,
+            SemanticCategory.registry_version == registry_version,
+        )
+        .order_by(
+            SemanticConcept.concept_key,
+            SemanticCategory.category_key,
+            DocumentSemanticCategoryReview.created_at.desc(),
+        )
+    ).all()
+    overlays: dict[tuple[str, str], SemanticReviewOverlay] = {}
+    for review, concept, category in rows:
+        overlays.setdefault(
+            (concept.concept_key, category.category_key),
+            SemanticReviewOverlay(
+                review_id=review.id,
+                review_status=review.review_status,
+                review_note=review.review_note,
+                reviewed_by=review.reviewed_by,
+                created_at=review.created_at,
+            ),
+        )
+    return overlays
+
+
+def _details_with_review_overlay(
+    details: dict[str, Any],
+    overlay: SemanticReviewOverlay | None,
+) -> dict[str, Any]:
+    payload = dict(details or {})
+    if overlay is None:
+        payload.pop("review_overlay", None)
+        return payload
+    payload["review_overlay"] = {
+        "review_id": str(overlay.review_id),
+        "review_status": overlay.review_status,
+        "review_note": overlay.review_note,
+        "reviewed_by": overlay.reviewed_by,
+        "created_at": overlay.created_at.isoformat(),
+    }
+    return payload
+
+
 def _sync_registry_definitions(
     session: Session,
     registry: SemanticRegistry,
@@ -498,6 +613,8 @@ def _replace_pass_assertions(
     concept_rows: dict[str, SemanticConcept],
     category_rows: dict[str, SemanticCategory],
     concept_category_binding_rows: dict[tuple[str, str], SemanticConceptCategoryBinding],
+    concept_review_overlays: dict[str, SemanticReviewOverlay],
+    category_review_overlays: dict[tuple[str, str], SemanticReviewOverlay],
     materializations: list[SemanticAssertionMaterialization],
 ) -> None:
     session.query(SemanticAssertion).filter(
@@ -507,21 +624,31 @@ def _replace_pass_assertions(
     now = utcnow()
     for materialization in materializations:
         concept_row = concept_rows[materialization.concept_definition.concept_key]
+        concept_overlay = concept_review_overlays.get(
+            materialization.concept_definition.concept_key
+        )
         assertion = SemanticAssertion(
             semantic_pass_id=semantic_pass.id,
             concept_id=concept_row.id,
             assertion_kind=SemanticAssertionKind.CONCEPT_MENTION.value,
             epistemic_status=SemanticEpistemicStatus.OBSERVED.value,
             context_scope=SemanticContextScope.DOCUMENT_RUN.value,
-            review_status=SemanticReviewStatus.CANDIDATE.value,
+            review_status=(
+                concept_overlay.review_status
+                if concept_overlay is not None
+                else SemanticReviewStatus.CANDIDATE.value
+            ),
             matched_terms_json=sorted(materialization.matched_terms),
             source_types_json=sorted(materialization.source_types),
             evidence_count=len(materialization.evidence),
             confidence=min(1.0, 0.65 + (0.1 * len(materialization.source_types))),
-            details_json={
-                "scope_note": materialization.concept_definition.scope_note,
-                "match_strategy": SEMANTIC_MATCH_STRATEGY,
-            },
+            details_json=_details_with_review_overlay(
+                {
+                    "scope_note": materialization.concept_definition.scope_note,
+                    "match_strategy": SEMANTIC_MATCH_STRATEGY,
+                },
+                concept_overlay,
+            ),
             created_at=now,
         )
         session.add(assertion)
@@ -532,6 +659,9 @@ def _replace_pass_assertions(
             concept_category_binding = concept_category_binding_rows[
                 (materialization.concept_definition.concept_key, category_key)
             ]
+            category_overlay = category_review_overlays.get(
+                (materialization.concept_definition.concept_key, category_key)
+            )
             session.add(
                 SemanticAssertionCategoryBinding(
                     assertion_id=assertion.id,
@@ -539,13 +669,20 @@ def _replace_pass_assertions(
                     concept_category_binding_id=concept_category_binding.id,
                     binding_type=SemanticCategoryBindingType.ASSERTION_CATEGORY.value,
                     created_from=SemanticBindingOrigin.DERIVED.value,
-                    review_status=SemanticReviewStatus.CANDIDATE.value,
-                    details_json={
-                        "inherited_from_concept_category_binding_id": str(
-                            concept_category_binding.id
-                        ),
-                        "concept_category_review_status": concept_category_binding.review_status,
-                    },
+                    review_status=(
+                        category_overlay.review_status
+                        if category_overlay is not None
+                        else SemanticReviewStatus.CANDIDATE.value
+                    ),
+                    details_json=_details_with_review_overlay(
+                        {
+                            "inherited_from_concept_category_binding_id": str(
+                                concept_category_binding.id
+                            ),
+                            "concept_category_review_status": concept_category_binding.review_status,
+                        },
+                        category_overlay,
+                    ),
                     created_at=now,
                 )
             )
@@ -757,6 +894,138 @@ def _semantic_summary(
         "source_type_counts": source_type_counts,
         "review_status_counts": review_status_counts,
         "match_strategy": SEMANTIC_MATCH_STRATEGY,
+    }
+
+
+def _semantic_pass_row_for_run(
+    session: Session,
+    document_id: UUID,
+    run_id: UUID,
+) -> DocumentRunSemanticPass | None:
+    return session.execute(
+        select(DocumentRunSemanticPass)
+        .where(
+            DocumentRunSemanticPass.document_id == document_id,
+            DocumentRunSemanticPass.run_id == run_id,
+        )
+        .order_by(DocumentRunSemanticPass.created_at.desc())
+    ).scalars().first()
+
+
+def _continuity_summary(
+    assertions: list[dict[str, Any]],
+    *,
+    baseline_run_id: UUID | None,
+    baseline_semantic_pass: DocumentRunSemanticPass | None,
+    baseline_assertions: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if baseline_run_id is None:
+        return {
+            "has_baseline": False,
+            "reason": "no_prior_active_run",
+            "baseline_run_id": None,
+            "baseline_semantic_pass_id": None,
+            "added_concept_keys": [],
+            "removed_concept_keys": [],
+            "changed_assertion_review_statuses": [],
+            "changed_category_bindings": [],
+            "current_assertion_count": len(assertions),
+            "baseline_assertion_count": 0,
+            "change_count": 0,
+        }
+
+    if baseline_semantic_pass is None:
+        return {
+            "has_baseline": False,
+            "reason": "baseline_semantic_pass_not_found",
+            "baseline_run_id": str(baseline_run_id),
+            "baseline_semantic_pass_id": None,
+            "added_concept_keys": [],
+            "removed_concept_keys": [],
+            "changed_assertion_review_statuses": [],
+            "changed_category_bindings": [],
+            "current_assertion_count": len(assertions),
+            "baseline_assertion_count": 0,
+            "change_count": 0,
+        }
+
+    current_by_concept = {assertion["concept_key"]: assertion for assertion in assertions}
+    baseline_by_concept = {assertion["concept_key"]: assertion for assertion in baseline_assertions}
+    current_keys = set(current_by_concept)
+    baseline_keys = set(baseline_by_concept)
+
+    added_concept_keys = sorted(current_keys - baseline_keys)
+    removed_concept_keys = sorted(baseline_keys - current_keys)
+    changed_assertion_review_statuses: list[dict[str, Any]] = []
+    changed_category_bindings: list[dict[str, Any]] = []
+
+    for concept_key in sorted(current_keys & baseline_keys):
+        current_assertion = current_by_concept[concept_key]
+        baseline_assertion = baseline_by_concept[concept_key]
+        if current_assertion.get("review_status") != baseline_assertion.get("review_status"):
+            changed_assertion_review_statuses.append(
+                {
+                    "concept_key": concept_key,
+                    "baseline_review_status": baseline_assertion.get("review_status"),
+                    "current_review_status": current_assertion.get("review_status"),
+                }
+            )
+
+        current_binding_index = {
+            binding["category_key"]: binding
+            for binding in current_assertion.get("category_bindings") or []
+        }
+        baseline_binding_index = {
+            binding["category_key"]: binding
+            for binding in baseline_assertion.get("category_bindings") or []
+        }
+        current_binding_keys = set(current_binding_index)
+        baseline_binding_keys = set(baseline_binding_index)
+        added_category_keys = sorted(current_binding_keys - baseline_binding_keys)
+        removed_category_keys = sorted(baseline_binding_keys - current_binding_keys)
+        changed_binding_review_statuses = [
+            {
+                "category_key": category_key,
+                "baseline_review_status": baseline_binding_index[category_key].get("review_status"),
+                "current_review_status": current_binding_index[category_key].get("review_status"),
+            }
+            for category_key in sorted(current_binding_keys & baseline_binding_keys)
+            if current_binding_index[category_key].get("review_status")
+            != baseline_binding_index[category_key].get("review_status")
+        ]
+        if added_category_keys or removed_category_keys or changed_binding_review_statuses:
+            changed_category_bindings.append(
+                {
+                    "concept_key": concept_key,
+                    "added_category_keys": added_category_keys,
+                    "removed_category_keys": removed_category_keys,
+                    "changed_review_statuses": changed_binding_review_statuses,
+                }
+            )
+
+    change_count = (
+        len(added_concept_keys)
+        + len(removed_concept_keys)
+        + len(changed_assertion_review_statuses)
+        + sum(
+            len(item["added_category_keys"])
+            + len(item["removed_category_keys"])
+            + len(item["changed_review_statuses"])
+            for item in changed_category_bindings
+        )
+    )
+    return {
+        "has_baseline": True,
+        "reason": "baseline_comparison_completed",
+        "baseline_run_id": str(baseline_run_id),
+        "baseline_semantic_pass_id": str(baseline_semantic_pass.id),
+        "added_concept_keys": added_concept_keys,
+        "removed_concept_keys": removed_concept_keys,
+        "changed_assertion_review_statuses": changed_assertion_review_statuses,
+        "changed_category_bindings": changed_category_bindings,
+        "current_assertion_count": len(assertions),
+        "baseline_assertion_count": len(baseline_assertions),
+        "change_count": change_count,
     }
 
 
@@ -1032,6 +1301,7 @@ def _semantic_artifact_payload(
     evaluation_status: str,
     evaluation_fixture_name: str | None,
     evaluation_summary: dict[str, Any],
+    continuity_summary: dict[str, Any],
     artifact_sha256: str,
 ) -> dict[str, Any]:
     return {
@@ -1041,6 +1311,12 @@ def _semantic_artifact_payload(
         "document_id": str(document.id),
         "run_id": str(run.id),
         "semantic_pass_id": str(semantic_pass.id),
+        "baseline_run_id": str(semantic_pass.baseline_run_id) if semantic_pass.baseline_run_id else None,
+        "baseline_semantic_pass_id": (
+            str(semantic_pass.baseline_semantic_pass_id)
+            if semantic_pass.baseline_semantic_pass_id
+            else None
+        ),
         "status": semantic_pass.status,
         "created_at": semantic_pass.created_at.isoformat(),
         "completed_at": semantic_pass.completed_at.isoformat() if semantic_pass.completed_at else None,
@@ -1060,6 +1336,7 @@ def _semantic_artifact_payload(
             "version": SEMANTIC_EVAL_VERSION,
             "summary": evaluation_summary,
         },
+        "continuity": continuity_summary,
         "concept_category_bindings": concept_category_bindings,
         "assertions": assertions,
     }
@@ -1077,6 +1354,7 @@ def _persist_semantic_artifacts(
     evaluation_status: str,
     evaluation_fixture_name: str | None,
     evaluation_summary: dict[str, Any],
+    continuity_summary: dict[str, Any],
 ) -> tuple[Path, Path, str, str]:
     base_payload = _semantic_artifact_payload(
         document=document,
@@ -1089,6 +1367,7 @@ def _persist_semantic_artifacts(
         evaluation_status=evaluation_status,
         evaluation_fixture_name=evaluation_fixture_name,
         evaluation_summary=evaluation_summary,
+        continuity_summary=continuity_summary,
         artifact_sha256="",
     )
     normalized_base_payload = json.loads(json.dumps(base_payload, default=str))
@@ -1106,6 +1385,7 @@ def _persist_semantic_artifacts(
         evaluation_status=evaluation_status,
         evaluation_fixture_name=evaluation_fixture_name,
         evaluation_summary=evaluation_summary,
+        continuity_summary=continuity_summary,
         artifact_sha256=artifact_seed,
     )
     normalized_payload = json.loads(json.dumps(payload, default=str))
@@ -1138,6 +1418,8 @@ def _prepare_semantic_pass_row(
     document: Document,
     run: DocumentRun,
     registry: SemanticRegistry,
+    *,
+    baseline_run_id: UUID | None,
 ) -> DocumentRunSemanticPass:
     semantic_pass = session.execute(
         select(DocumentRunSemanticPass).where(
@@ -1152,6 +1434,7 @@ def _prepare_semantic_pass_row(
         semantic_pass = DocumentRunSemanticPass(
             document_id=document.id,
             run_id=run.id,
+            baseline_run_id=baseline_run_id,
             status=SemanticPassStatus.PENDING.value,
             registry_version=registry.registry_version,
             registry_sha256=registry.sha256,
@@ -1161,6 +1444,7 @@ def _prepare_semantic_pass_row(
             evaluation_status=SemanticEvaluationStatus.PENDING.value,
             evaluation_version=SEMANTIC_EVAL_VERSION,
             evaluation_summary_json={},
+            continuity_summary_json={},
             assertion_count=0,
             evidence_count=0,
             created_at=now,
@@ -1168,12 +1452,15 @@ def _prepare_semantic_pass_row(
         session.add(semantic_pass)
         session.flush()
     else:
+        semantic_pass.baseline_run_id = baseline_run_id
+        semantic_pass.baseline_semantic_pass_id = None
         semantic_pass.status = SemanticPassStatus.PENDING.value
         semantic_pass.registry_sha256 = registry.sha256
         semantic_pass.summary_json = {}
         semantic_pass.evaluation_status = SemanticEvaluationStatus.PENDING.value
         semantic_pass.evaluation_fixture_name = None
         semantic_pass.evaluation_summary_json = {}
+        semantic_pass.continuity_summary_json = {}
         semantic_pass.error_message = None
         semantic_pass.artifact_json_path = None
         semantic_pass.artifact_yaml_path = None
@@ -1194,10 +1481,17 @@ def execute_semantic_pass(
     document: Document,
     run: DocumentRun,
     *,
+    baseline_run_id: UUID | None = None,
     storage_service: StorageService,
 ) -> DocumentRunSemanticPass:
     registry = get_semantic_registry()
-    semantic_pass = _prepare_semantic_pass_row(session, document, run, registry)
+    semantic_pass = _prepare_semantic_pass_row(
+        session,
+        document,
+        run,
+        registry,
+        baseline_run_id=baseline_run_id,
+    )
 
     try:
         semantic_pass = session.get(DocumentRunSemanticPass, semantic_pass.id)
@@ -1209,6 +1503,16 @@ def execute_semantic_pass(
             category_rows,
             concept_category_binding_rows,
         ) = _sync_registry_definitions(session, registry)
+        concept_review_overlays = _latest_concept_review_overlays(
+            session,
+            document.id,
+            registry.registry_version,
+        )
+        category_review_overlays = _latest_category_review_overlays(
+            session,
+            document.id,
+            registry.registry_version,
+        )
         sources = _build_semantic_sources(session, run.id)
         materializations = _materialize_semantic_assertions(registry, sources)
         _replace_pass_assertions(
@@ -1217,6 +1521,8 @@ def execute_semantic_pass(
             concept_rows,
             category_rows,
             concept_category_binding_rows,
+            concept_review_overlays,
+            category_review_overlays,
             materializations,
         )
 
@@ -1231,12 +1537,33 @@ def execute_semantic_pass(
             assertions,
             concept_category_bindings,
         )
+        baseline_semantic_pass = (
+            _semantic_pass_row_for_run(session, document.id, baseline_run_id)
+            if baseline_run_id is not None
+            else None
+        )
+        baseline_assertions = (
+            _assertion_records(session, baseline_semantic_pass.id)
+            if baseline_semantic_pass is not None
+            else []
+        )
+        continuity_summary = _continuity_summary(
+            assertions,
+            baseline_run_id=baseline_run_id,
+            baseline_semantic_pass=baseline_semantic_pass,
+            baseline_assertions=baseline_assertions,
+        )
 
+        semantic_pass.baseline_run_id = baseline_run_id
+        semantic_pass.baseline_semantic_pass_id = (
+            baseline_semantic_pass.id if baseline_semantic_pass is not None else None
+        )
         semantic_pass.status = SemanticPassStatus.COMPLETED.value
         semantic_pass.summary_json = summary
         semantic_pass.evaluation_status = evaluation_status
         semantic_pass.evaluation_fixture_name = evaluation_fixture_name
         semantic_pass.evaluation_summary_json = evaluation_summary
+        semantic_pass.continuity_summary_json = continuity_summary
         semantic_pass.assertion_count = summary["assertion_count"]
         semantic_pass.evidence_count = summary["evidence_count"]
         semantic_pass.completed_at = utcnow()
@@ -1259,6 +1586,7 @@ def execute_semantic_pass(
             evaluation_status,
             evaluation_fixture_name,
             evaluation_summary,
+            continuity_summary,
         )
         semantic_pass.artifact_json_path = str(json_path)
         semantic_pass.artifact_yaml_path = str(yaml_path)
@@ -1283,10 +1611,253 @@ def execute_semantic_pass(
             "expectations": [],
             "reason": "semantic_pass_failed",
         }
+        failed_pass.continuity_summary_json = {}
         failed_pass.error_message = str(exc)
         failed_pass.completed_at = utcnow()
         session.commit()
         return failed_pass
+
+
+def _refresh_semantic_pass_projection(
+    session: Session,
+    semantic_pass: DocumentRunSemanticPass,
+    *,
+    storage_service: StorageService,
+) -> None:
+    document = session.get(Document, semantic_pass.document_id)
+    run = session.get(DocumentRun, semantic_pass.run_id)
+    if document is None or run is None:
+        raise ValueError("Semantic pass refresh requires persisted document and run.")
+
+    registry = get_semantic_registry()
+    assertions = _assertion_records(session, semantic_pass.id)
+    concept_category_bindings = _concept_category_binding_records(
+        session,
+        semantic_pass.registry_version,
+    )
+    summary = _semantic_summary(assertions, concept_category_bindings)
+    baseline_semantic_pass = (
+        _semantic_pass_row_for_run(session, document.id, semantic_pass.baseline_run_id)
+        if semantic_pass.baseline_run_id is not None
+        else None
+    )
+    baseline_assertions = (
+        _assertion_records(session, baseline_semantic_pass.id)
+        if baseline_semantic_pass is not None
+        else []
+    )
+    continuity_summary = _continuity_summary(
+        assertions,
+        baseline_run_id=semantic_pass.baseline_run_id,
+        baseline_semantic_pass=baseline_semantic_pass,
+        baseline_assertions=baseline_assertions,
+    )
+    semantic_pass.baseline_semantic_pass_id = (
+        baseline_semantic_pass.id if baseline_semantic_pass is not None else None
+    )
+    semantic_pass.summary_json = summary
+    semantic_pass.continuity_summary_json = continuity_summary
+    semantic_pass.assertion_count = summary["assertion_count"]
+    semantic_pass.evidence_count = summary["evidence_count"]
+    (
+        json_path,
+        yaml_path,
+        json_sha256,
+        yaml_sha256,
+    ) = _persist_semantic_artifacts(
+        storage_service,
+        document,
+        run,
+        semantic_pass,
+        registry,
+        assertions,
+        concept_category_bindings,
+        summary,
+        semantic_pass.evaluation_status,
+        semantic_pass.evaluation_fixture_name,
+        semantic_pass.evaluation_summary_json,
+        continuity_summary,
+    )
+    semantic_pass.artifact_json_path = str(json_path)
+    semantic_pass.artifact_yaml_path = str(yaml_path)
+    semantic_pass.artifact_json_sha256 = json_sha256
+    semantic_pass.artifact_yaml_sha256 = yaml_sha256
+    session.flush()
+
+
+def _assertion_or_404(
+    session: Session,
+    document_id: UUID,
+    assertion_id: UUID,
+) -> tuple[DocumentRunSemanticPass, SemanticAssertion, SemanticConcept]:
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            404,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    assertion = session.get(SemanticAssertion, assertion_id)
+    if assertion is None or assertion.semantic_pass_id != semantic_pass.id:
+        raise api_error(
+            404,
+            "semantic_assertion_not_found",
+            "Semantic assertion not found.",
+            document_id=str(document_id),
+            assertion_id=str(assertion_id),
+        )
+    concept = session.get(SemanticConcept, assertion.concept_id)
+    if concept is None:
+        raise ValueError("Semantic assertion concept disappeared.")
+    return semantic_pass, assertion, concept
+
+
+def _assertion_category_binding_or_404(
+    session: Session,
+    document_id: UUID,
+    binding_id: UUID,
+) -> tuple[
+    DocumentRunSemanticPass,
+    SemanticAssertionCategoryBinding,
+    SemanticAssertion,
+    SemanticConcept,
+    SemanticCategory,
+]:
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            404,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    binding = session.get(SemanticAssertionCategoryBinding, binding_id)
+    assertion = session.get(SemanticAssertion, binding.assertion_id) if binding is not None else None
+    if (
+        binding is None
+        or assertion is None
+        or assertion.semantic_pass_id != semantic_pass.id
+    ):
+        raise api_error(
+            404,
+            "semantic_assertion_category_binding_not_found",
+            "Semantic assertion category binding not found.",
+            document_id=str(document_id),
+            binding_id=str(binding_id),
+        )
+    concept = session.get(SemanticConcept, assertion.concept_id)
+    category = session.get(SemanticCategory, binding.category_id)
+    if concept is None or category is None:
+        raise ValueError("Semantic assertion category binding dependencies disappeared.")
+    return semantic_pass, binding, assertion, concept, category
+
+
+def review_active_semantic_assertion(
+    session: Session,
+    document_id: UUID,
+    assertion_id: UUID,
+    *,
+    review_status: str,
+    review_note: str | None,
+    reviewed_by: str | None,
+    storage_service: StorageService,
+) -> SemanticReviewEventResponse:
+    semantic_pass, assertion, concept = _assertion_or_404(session, document_id, assertion_id)
+    review_event = DocumentSemanticConceptReview(
+        document_id=document_id,
+        concept_id=concept.id,
+        review_status=review_status,
+        review_note=review_note,
+        reviewed_by=reviewed_by,
+        created_at=utcnow(),
+    )
+    session.add(review_event)
+    session.flush()
+    assertion.review_status = review_status
+    assertion.details_json = _details_with_review_overlay(
+        assertion.details_json or {},
+        SemanticReviewOverlay(
+            review_id=review_event.id,
+            review_status=review_status,
+            review_note=review_note,
+            reviewed_by=reviewed_by,
+            created_at=review_event.created_at,
+        ),
+    )
+    _refresh_semantic_pass_projection(session, semantic_pass, storage_service=storage_service)
+    session.commit()
+    session.refresh(semantic_pass)
+    return SemanticReviewEventResponse(
+        review_id=review_event.id,
+        scope="assertion",
+        document_id=document_id,
+        semantic_pass_id=semantic_pass.id,
+        assertion_id=assertion.id,
+        binding_id=None,
+        concept_key=concept.concept_key,
+        category_key=None,
+        review_status=review_status,
+        review_note=review_note,
+        reviewed_by=reviewed_by,
+        created_at=review_event.created_at,
+    )
+
+
+def review_active_semantic_assertion_category_binding(
+    session: Session,
+    document_id: UUID,
+    binding_id: UUID,
+    *,
+    review_status: str,
+    review_note: str | None,
+    reviewed_by: str | None,
+    storage_service: StorageService,
+) -> SemanticReviewEventResponse:
+    semantic_pass, binding, assertion, concept, category = _assertion_category_binding_or_404(
+        session,
+        document_id,
+        binding_id,
+    )
+    review_event = DocumentSemanticCategoryReview(
+        document_id=document_id,
+        concept_id=concept.id,
+        category_id=category.id,
+        review_status=review_status,
+        review_note=review_note,
+        reviewed_by=reviewed_by,
+        created_at=utcnow(),
+    )
+    session.add(review_event)
+    session.flush()
+    binding.review_status = review_status
+    binding.details_json = _details_with_review_overlay(
+        binding.details_json or {},
+        SemanticReviewOverlay(
+            review_id=review_event.id,
+            review_status=review_status,
+            review_note=review_note,
+            reviewed_by=reviewed_by,
+            created_at=review_event.created_at,
+        ),
+    )
+    _refresh_semantic_pass_projection(session, semantic_pass, storage_service=storage_service)
+    session.commit()
+    session.refresh(semantic_pass)
+    return SemanticReviewEventResponse(
+        review_id=review_event.id,
+        scope="assertion_category_binding",
+        document_id=document_id,
+        semantic_pass_id=semantic_pass.id,
+        assertion_id=assertion.id,
+        binding_id=binding.id,
+        concept_key=concept.concept_key,
+        category_key=category.category_key,
+        review_status=review_status,
+        review_note=review_note,
+        reviewed_by=reviewed_by,
+        created_at=review_event.created_at,
+    )
 
 
 def get_active_semantic_pass_row(
@@ -1333,6 +1904,8 @@ def get_active_semantic_pass_detail(
         registry_sha256=semantic_pass.registry_sha256,
         extractor_version=semantic_pass.extractor_version,
         artifact_schema_version=semantic_pass.artifact_schema_version,
+        baseline_run_id=semantic_pass.baseline_run_id,
+        baseline_semantic_pass_id=semantic_pass.baseline_semantic_pass_id,
         has_json_artifact=bool(semantic_pass.artifact_json_path),
         has_yaml_artifact=bool(semantic_pass.artifact_yaml_path),
         artifact_json_sha256=semantic_pass.artifact_json_sha256,
@@ -1344,6 +1917,7 @@ def get_active_semantic_pass_detail(
         evaluation_fixture_name=semantic_pass.evaluation_fixture_name,
         evaluation_version=semantic_pass.evaluation_version,
         evaluation_summary=semantic_pass.evaluation_summary_json,
+        continuity_summary=semantic_pass.continuity_summary_json,
         error_message=semantic_pass.error_message,
         created_at=semantic_pass.created_at,
         completed_at=semantic_pass.completed_at,
@@ -1408,4 +1982,26 @@ def get_active_semantic_pass_detail(
             )
             for assertion in assertions
         ],
+    )
+
+
+def get_active_semantic_continuity(
+    session: Session,
+    document_id: UUID,
+) -> SemanticContinuityResponse:
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            404,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    return SemanticContinuityResponse(
+        semantic_pass_id=semantic_pass.id,
+        document_id=semantic_pass.document_id,
+        run_id=semantic_pass.run_id,
+        baseline_run_id=semantic_pass.baseline_run_id,
+        baseline_semantic_pass_id=semantic_pass.baseline_semantic_pass_id,
+        summary=semantic_pass.continuity_summary_json,
     )

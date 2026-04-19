@@ -31,7 +31,11 @@ class StubParser:
         return self.parsed_document
 
 
-def _build_parsed_document(*, title: str | None = "Integration Report") -> ParsedDocument:
+def _build_parsed_document(
+    *,
+    title: str | None = "Integration Report",
+    figure_caption: str = "Integration system diagram",
+) -> ParsedDocument:
     chunk_text = "Integration threshold guidance keeps active retrieval grounded."
     table_rows = [
         ["Tier", "Threshold"],
@@ -90,14 +94,14 @@ def _build_parsed_document(*, title: str | None = "Integration Report") -> Parse
     figure = ParsedFigure(
         figure_index=0,
         source_figure_ref="figure-0",
-        caption="Integration system diagram",
+        caption=figure_caption,
         heading="Section 1",
         page_from=1,
         page_to=1,
         confidence=0.99,
         metadata={
             "caption_resolution_source": "explicit_ref",
-            "caption_candidates": ["Integration system diagram"],
+            "caption_candidates": [figure_caption],
             "caption_attachment_confidence": 1.0,
             "source_confidence": 0.99,
             "annotations": [],
@@ -222,7 +226,7 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     semantics = semantics_response.json()
     assert semantics["status"] == "completed"
     assert semantics["registry_version"] == "semantics-layer-foundation-alpha.2"
-    assert semantics["artifact_schema_version"] == "2.0"
+    assert semantics["artifact_schema_version"] == "2.1"
     assert semantics["evaluation_status"] == "completed"
     assert semantics["evaluation_version"] == 2
     assert semantics["evaluation_summary"]["all_expectations_passed"] is True
@@ -304,7 +308,7 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert semantic_artifact_response.status_code == 200
     semantic_artifact = semantic_artifact_response.json()
     assert semantic_artifact["schema_name"] == "docling.semantic_pass"
-    assert semantic_artifact["schema_version"] == "2.0"
+    assert semantic_artifact["schema_version"] == "2.1"
     assert semantic_artifact["registry"]["version"] == "semantics-layer-foundation-alpha.2"
     assert semantic_artifact["evaluation"]["version"] == 2
     assert semantic_artifact["evaluation"]["summary"]["all_expectations_passed"] is True
@@ -356,6 +360,125 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     duplicate_body = duplicate_response.json()
     assert duplicate_body["duplicate"] is True
     assert duplicate_body["active_run_id"] == str(run_id)
+
+
+def test_semantic_reviews_persist_across_reruns_and_emit_continuity(
+    postgres_integration_harness,
+) -> None:
+    client = postgres_integration_harness.client
+    upload_files = {
+        "file": (
+            "integration-report.pdf",
+            valid_test_pdf_bytes(),
+            "application/pdf",
+        )
+    }
+
+    create_response = client.post("/documents", files=upload_files)
+    assert create_response.status_code == 202
+    document_id = create_response.json()["document_id"]
+    original_run_id = UUID(create_response.json()["run_id"])
+
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document()))
+
+    first_semantics = client.get(f"/documents/{document_id}/semantics/latest")
+    assert first_semantics.status_code == 200
+    first_payload = first_semantics.json()
+    threshold_assertion = next(
+        assertion
+        for assertion in first_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    threshold_binding = threshold_assertion["category_bindings"][0]
+
+    assertion_review_response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertions/{threshold_assertion['assertion_id']}/review",
+        json={
+            "review_status": "approved",
+            "review_note": "Confirmed governance concept for this document.",
+            "reviewed_by": "semantic-operator",
+        },
+    )
+    assert assertion_review_response.status_code == 200
+    assert assertion_review_response.json()["scope"] == "assertion"
+    assert assertion_review_response.json()["review_status"] == "approved"
+
+    binding_review_response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertion-category-bindings/{threshold_binding['binding_id']}/review",
+        json={
+            "review_status": "approved",
+            "review_note": "Confirmed category binding for governance.",
+            "reviewed_by": "semantic-operator",
+        },
+    )
+    assert binding_review_response.status_code == 200
+    assert binding_review_response.json()["scope"] == "assertion_category_binding"
+    assert binding_review_response.json()["review_status"] == "approved"
+
+    reviewed_semantics = client.get(f"/documents/{document_id}/semantics/latest")
+    assert reviewed_semantics.status_code == 200
+    reviewed_payload = reviewed_semantics.json()
+    reviewed_threshold_assertion = next(
+        assertion
+        for assertion in reviewed_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    assert reviewed_threshold_assertion["review_status"] == "approved"
+    assert reviewed_threshold_assertion["details"]["review_overlay"]["review_note"] == (
+        "Confirmed governance concept for this document."
+    )
+    assert reviewed_threshold_assertion["category_bindings"][0]["review_status"] == "approved"
+    assert reviewed_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
+        "review_note"
+    ] == "Confirmed category binding for governance."
+
+    reviewed_artifact = client.get(f"/documents/{document_id}/semantics/latest/artifacts/json")
+    assert reviewed_artifact.status_code == 200
+    reviewed_artifact_payload = reviewed_artifact.json()
+    reviewed_artifact_threshold_assertion = next(
+        assertion
+        for assertion in reviewed_artifact_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    assert reviewed_artifact_threshold_assertion["review_status"] == "approved"
+    assert reviewed_artifact_threshold_assertion["category_bindings"][0]["review_status"] == (
+        "approved"
+    )
+
+    reprocess_response = client.post(f"/documents/{document_id}/reprocess")
+    assert reprocess_response.status_code == 202
+    rerun_id = UUID(reprocess_response.json()["run_id"])
+    assert rerun_id != original_run_id
+
+    postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document(figure_caption="Overview illustration"))
+    )
+
+    latest_semantics = client.get(f"/documents/{document_id}/semantics/latest")
+    assert latest_semantics.status_code == 200
+    latest_payload = latest_semantics.json()
+    assert latest_payload["run_id"] == str(rerun_id)
+    assert latest_payload["baseline_run_id"] == str(original_run_id)
+    assert latest_payload["baseline_semantic_pass_id"] is not None
+    assert latest_payload["continuity_summary"]["has_baseline"] is True
+    assert latest_payload["continuity_summary"]["removed_concept_keys"] == ["system_diagram"]
+    assert latest_payload["continuity_summary"]["added_concept_keys"] == []
+    assert latest_payload["continuity_summary"]["changed_assertion_review_statuses"] == []
+    latest_threshold_assertion = next(
+        assertion
+        for assertion in latest_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    assert latest_threshold_assertion["review_status"] == "approved"
+    assert latest_threshold_assertion["category_bindings"][0]["review_status"] == "approved"
+    assert latest_payload["evaluation_summary"]["all_expectations_passed"] is False
+
+    continuity_response = client.get(f"/documents/{document_id}/semantics/latest/continuity")
+    assert continuity_response.status_code == 200
+    continuity = continuity_response.json()
+    assert continuity["baseline_run_id"] == str(original_run_id)
+    assert continuity["summary"]["removed_concept_keys"] == ["system_diagram"]
+    assert continuity["summary"]["change_count"] == 1
 
 
 def test_failed_reprocess_does_not_replace_active_run(postgres_integration_harness) -> None:

@@ -751,6 +751,7 @@ def _run_post_promotion_semantics(
     document: Document,
     run: DocumentRun,
     *,
+    baseline_run_id: UUID | None,
     storage_service: StorageService,
 ) -> None:
     try:
@@ -758,6 +759,7 @@ def _run_post_promotion_semantics(
             session,
             document,
             run,
+            baseline_run_id=baseline_run_id,
             storage_service=storage_service,
         )
     except Exception:
@@ -967,6 +969,7 @@ class RunProcessor:
                 self.session,
                 self.document,
                 self.run,
+                baseline_run_id=resolve_baseline_run_id(self.run.id, self.prior_active_run_id),
                 storage_service=self.storage_service,
             )
             return

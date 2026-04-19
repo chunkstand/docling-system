@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SemanticAssertionEvidenceResponse(BaseModel):
@@ -43,6 +43,36 @@ class SemanticAssertionCategoryBindingResponse(BaseModel):
     details: dict
 
 
+class SemanticReviewDecisionRequest(BaseModel):
+    review_status: str = Field(pattern="^(candidate|approved|rejected)$")
+    review_note: str | None = None
+    reviewed_by: str | None = None
+
+
+class SemanticReviewEventResponse(BaseModel):
+    review_id: UUID
+    scope: str
+    document_id: UUID
+    semantic_pass_id: UUID
+    assertion_id: UUID | None = None
+    binding_id: UUID | None = None
+    concept_key: str
+    category_key: str | None = None
+    review_status: str
+    review_note: str | None = None
+    reviewed_by: str | None = None
+    created_at: datetime
+
+
+class SemanticContinuityResponse(BaseModel):
+    semantic_pass_id: UUID
+    document_id: UUID
+    run_id: UUID
+    baseline_run_id: UUID | None = None
+    baseline_semantic_pass_id: UUID | None = None
+    summary: dict
+
+
 class SemanticAssertionResponse(BaseModel):
     assertion_id: UUID
     concept_key: str
@@ -70,6 +100,8 @@ class DocumentSemanticPassResponse(BaseModel):
     registry_sha256: str
     extractor_version: str
     artifact_schema_version: str
+    baseline_run_id: UUID | None = None
+    baseline_semantic_pass_id: UUID | None = None
     has_json_artifact: bool = False
     has_yaml_artifact: bool = False
     artifact_json_sha256: str | None = None
@@ -81,6 +113,7 @@ class DocumentSemanticPassResponse(BaseModel):
     evaluation_fixture_name: str | None = None
     evaluation_version: int
     evaluation_summary: dict
+    continuity_summary: dict
     error_message: str | None = None
     created_at: datetime
     completed_at: datetime | None = None

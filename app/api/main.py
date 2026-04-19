@@ -85,7 +85,12 @@ from app.schemas.quality import (
     QualitySummaryResponse,
     QualityTrendsResponse,
 )
-from app.schemas.semantics import DocumentSemanticPassResponse
+from app.schemas.semantics import (
+    DocumentSemanticPassResponse,
+    SemanticContinuityResponse,
+    SemanticReviewDecisionRequest,
+    SemanticReviewEventResponse,
+)
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
@@ -166,8 +171,11 @@ from app.services.search_replays import (
     run_search_replay_suite,
 )
 from app.services.semantics import (
+    get_active_semantic_continuity,
     get_active_semantic_pass_detail,
     get_active_semantic_pass_row,
+    review_active_semantic_assertion,
+    review_active_semantic_assertion_category_binding,
 )
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
@@ -1000,6 +1008,62 @@ def read_latest_document_semantics(
     session: Session = Depends(get_db_session),
 ) -> DocumentSemanticPassResponse:
     return get_active_semantic_pass_detail(session, document_id)
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/continuity",
+    response_model=SemanticContinuityResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_document_semantic_continuity(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SemanticContinuityResponse:
+    return get_active_semantic_continuity(session, document_id)
+
+
+@app.post(
+    "/documents/{document_id}/semantics/latest/assertions/{assertion_id}/review",
+    response_model=SemanticReviewEventResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
+def review_latest_document_semantic_assertion(
+    document_id: UUID,
+    assertion_id: UUID,
+    request: SemanticReviewDecisionRequest,
+    session: Session = Depends(get_db_session),
+) -> SemanticReviewEventResponse:
+    return review_active_semantic_assertion(
+        session,
+        document_id,
+        assertion_id,
+        review_status=request.review_status,
+        review_note=request.review_note,
+        reviewed_by=request.reviewed_by,
+        storage_service=get_storage_service(),
+    )
+
+
+@app.post(
+    "/documents/{document_id}/semantics/latest/assertion-category-bindings/{binding_id}/review",
+    response_model=SemanticReviewEventResponse,
+    dependencies=[Depends(_require_api_key_for_mutations)],
+)
+def review_latest_document_semantic_assertion_category_binding(
+    document_id: UUID,
+    binding_id: UUID,
+    request: SemanticReviewDecisionRequest,
+    session: Session = Depends(get_db_session),
+) -> SemanticReviewEventResponse:
+    return review_active_semantic_assertion_category_binding(
+        session,
+        document_id,
+        binding_id,
+        review_status=request.review_status,
+        review_note=request.review_note,
+        reviewed_by=request.reviewed_by,
+        storage_service=get_storage_service(),
+    )
 
 
 @app.get(
