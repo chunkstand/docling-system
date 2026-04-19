@@ -255,3 +255,56 @@ class SearchHarnessEvaluationResponse(BaseModel):
     total_regressed_count: int = 0
     total_unchanged_count: int = 0
     sources: list[SearchHarnessEvaluationSourceResponse] = Field(default_factory=list)
+
+
+class SearchHarnessOptimizationRequest(BaseModel):
+    base_harness_name: str = "default_v1"
+    baseline_harness_name: str = "default_v1"
+    candidate_harness_name: str
+    source_types: list[str] = Field(
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
+    )
+    limit: int = Field(default=25, ge=1, le=200)
+    iterations: int = Field(default=2, ge=1, le=20)
+    tune_fields: list[str] = Field(default_factory=list)
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=1)
+
+
+class SearchHarnessOptimizationAttemptResponse(BaseModel):
+    iteration: int = Field(ge=0)
+    field_name: str
+    direction: str = Field(pattern="^(increase|decrease|baseline)$")
+    scope: str = Field(pattern="^(retrieval_profile_overrides|reranker_overrides|baseline)$")
+    proposed_value: int | float | None = None
+    accepted: bool = False
+    score: dict = Field(default_factory=dict)
+    evaluation: SearchHarnessEvaluationResponse
+    gate: dict = Field(default_factory=dict)
+    override_spec: dict = Field(default_factory=dict)
+
+
+class SearchHarnessOptimizationResponse(BaseModel):
+    base_harness_name: str
+    baseline_harness_name: str
+    candidate_harness_name: str
+    source_types: list[str] = Field(default_factory=list)
+    limit: int
+    iterations_requested: int
+    iterations_completed: int = 0
+    tuned_fields: list[str] = Field(default_factory=list)
+    stopped_reason: str
+    artifact_path: str | None = None
+    best_override_spec: dict = Field(default_factory=dict)
+    best_score: dict = Field(default_factory=dict)
+    best_evaluation: SearchHarnessEvaluationResponse
+    best_gate: dict = Field(default_factory=dict)
+    attempts: list[SearchHarnessOptimizationAttemptResponse] = Field(default_factory=list)

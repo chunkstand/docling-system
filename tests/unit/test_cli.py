@@ -42,6 +42,7 @@ from app.cli import (
     run_ingest_batch_show,
     run_ingest_dir,
     run_ingest_file,
+    run_optimize_search_harness,
     run_replay_search,
     run_replay_suite,
 )
@@ -698,6 +699,57 @@ def test_gate_search_harness_release_cli_exits_nonzero_on_failed_gate(monkeypatc
     output = json.loads(capsys.readouterr().out.strip())
     assert output["gate"]["outcome"] == "failed"
     assert output["gate"]["reasons"] == ["no shared queries"]
+
+
+def test_optimize_search_harness_cli_prints_loop_result(monkeypatch, capsys) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-optimize-search-harness",
+            "wide_v2",
+            "--baseline-harness-name",
+            "default_v1",
+            "--source-type",
+            "evaluation_queries",
+            "--iterations",
+            "1",
+            "--field",
+            "keyword_candidate_multiplier",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.run_search_harness_optimization_loop",
+        lambda session, payload: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "base_harness_name": payload.base_harness_name,
+                "baseline_harness_name": payload.baseline_harness_name,
+                "candidate_harness_name": payload.candidate_harness_name,
+                "iterations_requested": payload.iterations,
+                "stopped_reason": "iteration_limit_reached",
+                "artifact_path": "/tmp/search_harness_loop.json",
+            }
+        ),
+    )
+
+    run_optimize_search_harness()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["base_harness_name"] == "wide_v2"
+    assert output["baseline_harness_name"] == "default_v1"
+    assert output["candidate_harness_name"] == "wide_v2_loop"
+    assert output["artifact_path"] == "/tmp/search_harness_loop.json"
 
 
 def test_agent_task_create_cli_prints_created_task(monkeypatch, capsys) -> None:

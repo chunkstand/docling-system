@@ -16,7 +16,11 @@ from app.schemas.agent_tasks import (
     AgentTaskRejectionRequest,
     VerifySearchHarnessEvaluationTaskInput,
 )
-from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
+from app.schemas.search import (
+    SearchHarnessEvaluationRequest,
+    SearchHarnessOptimizationRequest,
+    SearchReplayRunRequest,
+)
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_context import get_agent_task_context
 from app.services.agent_task_verifications import (
@@ -57,6 +61,7 @@ from app.services.ingest_batches import (
 )
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_harness_optimization import run_search_harness_optimization_loop
 from app.services.search_history import replay_search_request
 from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_replays import (
@@ -485,6 +490,108 @@ def run_gate_search_harness_release() -> None:
     )
     if gate.outcome != "passed":
         raise SystemExit(1)
+
+
+def run_optimize_search_harness() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run a bounded local hill-climbing loop over transient search harness overrides."
+        )
+    )
+    parser.add_argument("base_harness_name", help="Base harness to optimize from.")
+    parser.add_argument(
+        "--candidate-harness-name",
+        help="Transient candidate harness alias. Defaults to <base_harness_name>_loop.",
+    )
+    parser.add_argument(
+        "--baseline-harness-name",
+        default="default_v1",
+        help="Baseline harness name to compare against.",
+    )
+    parser.add_argument(
+        "--source-type",
+        action="append",
+        dest="source_types",
+        choices=[
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ],
+        help="Replay source type to include. Can be passed multiple times.",
+    )
+    parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=2,
+        help="Maximum number of hill-climbing iterations to run.",
+    )
+    parser.add_argument(
+        "--field",
+        action="append",
+        dest="tune_fields",
+        help="Optional tuning field to include. Can be passed multiple times.",
+    )
+    parser.add_argument(
+        "--max-total-regressed-count",
+        type=int,
+        default=0,
+        help="Maximum allowed regressed query count across any source.",
+    )
+    parser.add_argument(
+        "--max-mrr-drop",
+        type=float,
+        default=0.0,
+        help="Maximum allowed per-source MRR drop.",
+    )
+    parser.add_argument(
+        "--max-zero-result-count-increase",
+        type=int,
+        default=0,
+        help="Maximum allowed per-source increase in zero-result queries.",
+    )
+    parser.add_argument(
+        "--max-foreign-top-result-count-increase",
+        type=int,
+        default=0,
+        help="Maximum allowed per-source increase in foreign top results.",
+    )
+    parser.add_argument(
+        "--min-total-shared-query-count",
+        type=int,
+        default=1,
+        help="Minimum number of shared replay queries required for a valid gate.",
+    )
+    args = parser.parse_args()
+
+    candidate_harness_name = args.candidate_harness_name or f"{args.base_harness_name}_loop"
+    request = SearchHarnessOptimizationRequest(
+        base_harness_name=args.base_harness_name,
+        baseline_harness_name=args.baseline_harness_name,
+        candidate_harness_name=candidate_harness_name,
+        source_types=args.source_types
+        or [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ],
+        limit=args.limit,
+        iterations=args.iterations,
+        tune_fields=args.tune_fields or [],
+        max_total_regressed_count=args.max_total_regressed_count,
+        max_mrr_drop=args.max_mrr_drop,
+        max_zero_result_count_increase=args.max_zero_result_count_increase,
+        max_foreign_top_result_count_increase=args.max_foreign_top_result_count_increase,
+        min_total_shared_query_count=args.min_total_shared_query_count,
+    )
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = run_search_harness_optimization_loop(session, request)
+        session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))
 
 
 def run_agent_task_actions() -> None:
