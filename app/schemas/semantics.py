@@ -17,7 +17,7 @@ class SemanticAssertionEvidenceResponse(BaseModel):
     matched_terms: list[str]
     excerpt: str | None = None
     source_label: str | None = None
-    source_artifact_path: str | None = None
+    source_artifact_api_path: str | None = None
     source_artifact_sha256: str | None = None
     details: dict
 

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.errors import api_error
 from app.api.main import app
 from app.db.models import DocumentRun
 from app.db.session import get_db_session
@@ -732,6 +733,7 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
+        artifact_schema_version="1.0",
         artifact_json_path=str(tmp_path / "missing-semantic.json"),
         artifact_yaml_path=str(tmp_path / "missing-semantic.yaml"),
     )
@@ -758,6 +760,30 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
     assert semantic_json.json()["error_code"] == "semantic_artifact_not_found"
     assert semantic_yaml.status_code == 404
     assert semantic_yaml.json()["error_code"] == "semantic_artifact_not_found"
+
+
+def test_latest_semantics_route_returns_machine_readable_error_when_pass_missing(
+    monkeypatch,
+) -> None:
+    document_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_active_semantic_pass_detail",
+        lambda session, requested_document_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "semantic_pass_not_found",
+                "Semantic pass not found.",
+                document_id=str(requested_document_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/documents/{document_id}/semantics/latest")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "semantic_pass_not_found"
 
 
 def test_run_failure_artifact_route_returns_machine_readable_error_when_run_missing() -> None:
@@ -888,6 +914,45 @@ def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
         assert (
             "kind: figure"
             in client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").text
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_semantic_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_path: Path) -> None:
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    document_id = uuid4()
+    run_id = uuid4()
+
+    storage_service.get_semantic_json_path(document_id, run_id).write_text('{"kind":"semantic"}')
+    storage_service.get_semantic_yaml_path(document_id, run_id).write_text("kind: semantic\n")
+
+    semantic_pass = SimpleNamespace(
+        run_id=run_id,
+        artifact_schema_version="1.0",
+        artifact_json_path="/tmp/ignored-semantic.json",
+        artifact_yaml_path="/tmp/ignored-semantic.yaml",
+    )
+
+    class FakeSession:
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.api.main.get_active_semantic_pass_row",
+        lambda session, requested_document_id: semantic_pass,
+    )
+    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        assert client.get(f"/documents/{document_id}/semantics/latest/artifacts/json").json() == {
+            "kind": "semantic"
+        }
+        assert (
+            "kind: semantic"
+            in client.get(f"/documents/{document_id}/semantics/latest/artifacts/yaml").text
         )
     finally:
         app.dependency_overrides.clear()

@@ -122,6 +122,20 @@ def _content_sha256(value: str | None) -> str:
     return hashlib.sha256((value or "").encode("utf-8")).hexdigest()
 
 
+def _source_artifact_api_path(
+    document_id: UUID,
+    *,
+    source_type: str,
+    table_id: UUID | None,
+    figure_id: UUID | None,
+) -> str | None:
+    if source_type == SemanticEvidenceSourceType.TABLE.value and table_id is not None:
+        return f"/documents/{document_id}/tables/{table_id}/artifacts/json"
+    if source_type == SemanticEvidenceSourceType.FIGURE.value and figure_id is not None:
+        return f"/documents/{document_id}/figures/{figure_id}/artifacts/json"
+    return None
+
+
 def _build_semantic_sources(
     session: Session,
     run_id: UUID,
@@ -192,7 +206,14 @@ def _build_semantic_sources(
                     "logical_table_key": table.logical_table_key,
                     "source_content_sha256": _content_sha256(combined_text),
                     "metadata": table.metadata_json,
-                    "yaml_artifact_path": table.yaml_path,
+                    "artifact_formats": [
+                        artifact_format
+                        for artifact_format, artifact_path in (
+                            ("json", table.json_path),
+                            ("yaml", table.yaml_path),
+                        )
+                        if artifact_path
+                    ],
                 },
             )
         )
@@ -229,7 +250,14 @@ def _build_semantic_sources(
                     "source_figure_ref": figure.source_figure_ref,
                     "source_content_sha256": _content_sha256(combined_text),
                     "metadata": figure.metadata_json,
-                    "yaml_artifact_path": figure.yaml_path,
+                    "artifact_formats": [
+                        artifact_format
+                        for artifact_format, artifact_path in (
+                            ("json", figure.json_path),
+                            ("yaml", figure.yaml_path),
+                        )
+                        if artifact_path
+                    ],
                 },
             )
         )
@@ -463,7 +491,12 @@ def _assertion_records(
                 "matched_terms": list(evidence.matched_terms_json or []),
                 "excerpt": evidence.excerpt,
                 "source_label": evidence.source_label,
-                "source_artifact_path": evidence.source_artifact_path,
+                "source_artifact_api_path": _source_artifact_api_path(
+                    evidence.document_id,
+                    source_type=evidence.source_type,
+                    table_id=evidence.table_id,
+                    figure_id=evidence.figure_id,
+                ),
                 "source_artifact_sha256": evidence.source_artifact_sha256,
                 "details": evidence.details_json or {},
             }
@@ -968,7 +1001,7 @@ def get_active_semantic_pass_detail(
                         matched_terms=list(evidence["matched_terms"]),
                         excerpt=evidence["excerpt"],
                         source_label=evidence["source_label"],
-                        source_artifact_path=evidence["source_artifact_path"],
+                        source_artifact_api_path=evidence["source_artifact_api_path"],
                         source_artifact_sha256=evidence["source_artifact_sha256"],
                         details=evidence["details"],
                     )

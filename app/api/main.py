@@ -1196,7 +1196,11 @@ def read_latest_semantic_json_artifact(
             document_id=str(document_id),
         )
     return _storage_file_response(
-        semantic_pass.artifact_json_path,
+        get_storage_service().build_semantic_json_path(
+            document_id,
+            semantic_pass.run_id,
+            semantic_pass.artifact_schema_version,
+        ),
         media_type="application/json",
         not_found_detail="Semantic JSON artifact not found.",
         not_found_error_code="semantic_artifact_not_found",
@@ -1225,7 +1229,11 @@ def read_latest_semantic_yaml_artifact(
             document_id=str(document_id),
         )
     return _storage_file_response(
-        semantic_pass.artifact_yaml_path,
+        get_storage_service().build_semantic_yaml_path(
+            document_id,
+            semantic_pass.run_id,
+            semantic_pass.artifact_schema_version,
+        ),
         not_found_detail="Semantic YAML artifact not found.",
         not_found_error_code="semantic_artifact_not_found",
         not_found_context={

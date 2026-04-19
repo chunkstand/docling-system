@@ -234,6 +234,22 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         "table",
     ]
     assert assertions_by_concept["system_diagram"]["source_types"] == ["figure"]
+    threshold_table_evidence = next(
+        evidence
+        for evidence in assertions_by_concept["integration_threshold"]["evidence"]
+        if evidence["source_type"] == "table"
+    )
+    system_diagram_evidence = assertions_by_concept["system_diagram"]["evidence"][0]
+    assert (
+        threshold_table_evidence["source_artifact_api_path"]
+        == f"/documents/{document_id}/tables/{table_id}/artifacts/json"
+    )
+    assert (
+        system_diagram_evidence["source_artifact_api_path"]
+        == f"/documents/{document_id}/figures/{figure_id}/artifacts/json"
+    )
+    assert "source_artifact_path" not in threshold_table_evidence
+    assert "yaml_artifact_path" not in threshold_table_evidence["details"]
 
     assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 200
     assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 200
@@ -258,6 +274,15 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert semantic_artifact["schema_version"] == "1.0"
     assert semantic_artifact["registry"]["version"] == "semantics-layer-foundation-alpha.1"
     assert semantic_artifact["evaluation"]["summary"]["all_expectations_passed"] is True
+    artifact_threshold_table_evidence = next(
+        evidence
+        for assertion in semantic_artifact["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+        for evidence in assertion["evidence"]
+        if evidence["source_type"] == "table"
+    )
+    assert "source_artifact_path" not in artifact_threshold_table_evidence
+    assert "yaml_artifact_path" not in artifact_threshold_table_evidence["details"]
     assert (
         client.get(f"/documents/{document_id}/semantics/latest/artifacts/yaml").status_code == 200
     )
