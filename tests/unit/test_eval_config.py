@@ -129,9 +129,7 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     assert contaminated_query["minimum_top_n_hits_from_expected_document"] == 2
     assert contaminated_query["maximum_foreign_results_before_first_expected_hit"] == 0
     assert (
-        bitter_lesson_thresholds["expected_answer_queries"][0][
-            "expected_citation_source_filename"
-        ]
+        bitter_lesson_thresholds["expected_answer_queries"][0]["expected_citation_source_filename"]
         == "The Bitter Lesson.pdf"
     )
     assert bitter_lesson_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
@@ -218,16 +216,15 @@ def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> Non
     )
     assert transportation_contamination_query["minimum_top_n_hits_from_expected_document"] == 1
     assert (
-        transportation_contamination_query["maximum_foreign_results_before_first_expected_hit"]
-        == 0
+        transportation_contamination_query["maximum_foreign_results_before_first_expected_hit"] == 0
     )
     assert (
-        transportation_thresholds["expected_answer_queries"][0][
-            "expected_citation_source_filename"
-        ]
+        transportation_thresholds["expected_answer_queries"][0]["expected_citation_source_filename"]
         == "20251216_TK_TransportationReport.pdf"
     )
-    assert transportation_thresholds["expected_answer_queries"][0]["expected_result_type"] == "table"
+    assert (
+        transportation_thresholds["expected_answer_queries"][0]["expected_result_type"] == "table"
+    )
     assert transportation_thresholds["expected_answer_queries"][0]["maximum_foreign_citations"] == 0
 
     wildlife_document = next(

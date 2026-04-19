@@ -1,3 +1,13 @@
+x-docling-service: &docling-service
+  build:
+    context: .
+  image: docling-system:local
+  environment:
+    DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/docling_system
+    DOCLING_SYSTEM_STORAGE_ROOT: /app/storage
+  volumes:
+    - docling-system-storage:/app/storage
+
 services:
   db:
     image: pgvector/pgvector:pg17
@@ -16,5 +26,68 @@ services:
       timeout: 5s
       retries: 10
 
+  migrate:
+    <<: *docling-service
+    container_name: docling-system-migrate
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    <<: *docling-service
+    container_name: docling-system-api
+    command: ["docling-system-api"]
+    environment:
+      DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/docling_system
+      DOCLING_SYSTEM_STORAGE_ROOT: /app/storage
+      DOCLING_SYSTEM_API_MODE: remote
+      DOCLING_SYSTEM_API_HOST: 0.0.0.0
+      DOCLING_SYSTEM_API_KEY: docling-local-secret
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3).read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  worker:
+    <<: *docling-service
+    container_name: docling-system-worker
+    command: ["docling-system-worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  agent-worker:
+    <<: *docling-service
+    container_name: docling-system-agent-worker
+    command: ["docling-system-agent-worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
 volumes:
   docling-system-postgres:
+  docling-system-storage:

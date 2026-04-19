@@ -10,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
-    ApplyHarnessConfigUpdateTaskOutput,
     ApplyHarnessConfigUpdateTaskInput,
-    DraftHarnessConfigUpdateTaskOutput,
+    ApplyHarnessConfigUpdateTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
+    DraftHarnessConfigUpdateTaskOutput,
     EnqueueDocumentReprocessTaskInput,
     EnqueueDocumentReprocessTaskOutput,
     EvaluateSearchHarnessTaskOutput,
@@ -24,12 +24,12 @@ from app.schemas.agent_tasks import (
     ReplaySearchRequestTaskInput,
     ReplaySearchRequestTaskOutput,
     RunSearchReplaySuiteTaskOutput,
-    TriageReplayRegressionTaskOutput,
     TriageReplayRegressionTaskInput,
-    VerifyDraftHarnessConfigTaskOutput,
+    TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
-    VerifySearchHarnessEvaluationTaskOutput,
+    VerifyDraftHarnessConfigTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
+    VerifySearchHarnessEvaluationTaskOutput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
@@ -57,8 +57,8 @@ from app.services.search import get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_harness_overrides import upsert_applied_search_harness_override
 from app.services.search_history import replay_search_request
-from app.services.search_replays import run_search_replay_suite
 from app.services.search_release_gate import evaluate_search_harness_release_gate
+from app.services.search_replays import run_search_replay_suite
 from app.services.storage import StorageService
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
@@ -265,8 +265,7 @@ def _apply_harness_config_update_executor(
             "verification_task dependency."
         ),
         rerun_message=(
-            "Verification task must be rerun after the context migration before it can be "
-            "applied."
+            "Verification task must be rerun after the context migration before it can be applied."
         ),
     )
 

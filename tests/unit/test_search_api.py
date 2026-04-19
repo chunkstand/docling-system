@@ -80,7 +80,9 @@ def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
 def test_search_route_returns_machine_readable_error_code(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.main.execute_search",
-        lambda session, request, origin="api": (_ for _ in ()).throw(ValueError("bad search request")),
+        lambda session, request, origin="api": (_ for _ in ()).throw(
+            ValueError("bad search request")
+        ),
     )
 
     client = TestClient(app)

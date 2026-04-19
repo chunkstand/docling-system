@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Date, String, and_, case, cast, func, literal, null, or_, select, union_all
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -40,6 +40,16 @@ from app.services.session_utils import uses_in_memory_session
 QUALITY_CANDIDATE_SCAN_FACTOR = 25
 QUALITY_CANDIDATE_MIN_SCAN_LIMIT = 100
 QUALITY_CANDIDATE_RESOLUTION_SCAN_LIMIT = 25
+QUALITY_CANDIDATE_PAGE_MIN_LIMIT = 50
+
+QUALITY_CANDIDATE_REASON_BY_CODE = {
+    "failed_answer_evaluation": "failed answer evaluation",
+    "failed_evaluation_query": "failed evaluation query",
+    "live_search_no_results": "live search returned no results",
+    "live_search_no_table_hits": "tabular search returned no table hits",
+    "answer_feedback_incomplete": "chat answer marked incomplete",
+    "answer_feedback_unsupported": "chat answer marked unsupported",
+}
 
 
 @dataclass
@@ -81,6 +91,8 @@ def _evaluation_structural_passed(evaluation: object | None) -> bool | None:
     if value is None:
         return None
     return bool(value)
+
+
 def _to_quality_evaluation_row(
     document: object,
     latest_run: object | None,
@@ -148,9 +160,7 @@ def _quality_summary_from_rows(
             1 for row in rows if row.evaluation_status != "missing"
         ),
         missing_latest_evaluations=sum(1 for row in rows if row.evaluation_status == "missing"),
-        completed_latest_evaluations=sum(
-            1 for row in rows if row.evaluation_status == "completed"
-        ),
+        completed_latest_evaluations=sum(1 for row in rows if row.evaluation_status == "completed"),
         failed_latest_evaluations=sum(1 for row in rows if row.evaluation_status == "failed"),
         skipped_latest_evaluations=sum(1 for row in rows if row.evaluation_status == "skipped"),
         total_failed_queries=sum(row.failed_queries for row in rows),
@@ -228,7 +238,7 @@ def build_quality_failures(
     run_failures: list[QualityRunFailureResponse] = []
     for run in sorted(
         (item for item in context.runs if item.status == RunStatus.FAILED.value),
-        key=lambda item: (item.completed_at or item.created_at),
+        key=lambda item: item.completed_at or item.created_at,
         reverse=True,
     ):
         document = documents_by_id.get(run.document_id)
@@ -489,9 +499,7 @@ def _list_quality_eval_candidates_in_memory(
         filters = row.filters_json or {}
         evaluation_kind = _evaluation_kind(getattr(row, "details_json", None))
         reason = (
-            "failed answer evaluation"
-            if evaluation_kind == "answer"
-            else "failed evaluation query"
+            "failed answer evaluation" if evaluation_kind == "answer" else "failed evaluation query"
         )
         key = _candidate_key(
             "evaluation_failure",
@@ -543,9 +551,7 @@ def _list_quality_eval_candidates_in_memory(
             if not _is_actionable_zero_result_gap(row.query_text, filters):
                 continue
         elif (
-            row.tabular_query
-            and filters.get("result_type") != "chunk"
-            and row.table_hit_count == 0
+            row.tabular_query and filters.get("result_type") != "chunk" and row.table_hit_count == 0
         ):
             reason = "tabular search returned no table hits"
             expected_result_type = "table"
@@ -768,6 +774,326 @@ def _candidate_scan_limit(limit: int) -> int:
     return max(limit * QUALITY_CANDIDATE_SCAN_FACTOR, QUALITY_CANDIDATE_MIN_SCAN_LIMIT)
 
 
+def _quality_candidate_page_limit(limit: int) -> int:
+    return max(limit * 4, QUALITY_CANDIDATE_PAGE_MIN_LIMIT)
+
+
+def _normalized_answer_filters_sql():
+    empty_filters = cast(literal("{}"), SearchRequestRecord.filters_json.type)
+    fallback_filters = case(
+        (
+            ChatAnswerRecord.document_id.is_not(None),
+            func.jsonb_build_object("document_id", cast(ChatAnswerRecord.document_id, String)),
+        ),
+        else_=empty_filters,
+    )
+    request_filters = case(
+        (
+            and_(
+                SearchRequestRecord.id.is_not(None),
+                SearchRequestRecord.filters_json != empty_filters,
+            ),
+            SearchRequestRecord.filters_json,
+        ),
+        else_=fallback_filters,
+    )
+    return case(
+        (
+            request_filters.op("->>")("result_type") == "chunk",
+            request_filters.op("-")("result_type"),
+        ),
+        else_=request_filters,
+    )
+
+
+def _quality_candidate_rows_page(session: Session, *, limit: int, offset: int):
+    null_uuid = cast(null(), Document.id.type)
+    null_text = cast(null(), Document.source_filename.type)
+    null_search_request_id = cast(null(), SearchRequestRecord.id.type)
+    null_chat_answer_id = cast(null(), ChatAnswerRecord.id.type)
+    evaluation_kind = func.coalesce(
+        DocumentRunEvaluationQuery.details_json["evaluation_kind"].astext,
+        literal("retrieval"),
+    )
+
+    evaluation_partition = (
+        DocumentRunEvaluationQuery.query_text,
+        DocumentRunEvaluationQuery.mode,
+        DocumentRunEvaluationQuery.filters_json,
+        DocumentRunEvaluationQuery.expected_result_type,
+        evaluation_kind,
+    )
+    evaluation_ranked = (
+        select(
+            literal("evaluation_failure").label("candidate_type"),
+            case(
+                (
+                    evaluation_kind == "answer",
+                    literal("failed_answer_evaluation"),
+                ),
+                else_=literal("failed_evaluation_query"),
+            ).label("reason_code"),
+            DocumentRunEvaluationQuery.query_text.label("query_text"),
+            DocumentRunEvaluationQuery.mode.label("mode"),
+            DocumentRunEvaluationQuery.filters_json.label("filters_json"),
+            evaluation_kind.label("evaluation_kind"),
+            DocumentRunEvaluationQuery.expected_result_type.label("expected_result_type"),
+            DocumentRunEvaluation.fixture_name.label("fixture_name"),
+            DocumentRunEvaluationQuery.created_at.label("latest_seen_at"),
+            Document.id.label("document_id"),
+            Document.source_filename.label("source_filename"),
+            DocumentRunEvaluation.id.label("evaluation_id"),
+            null_search_request_id.label("search_request_id"),
+            null_chat_answer_id.label("chat_answer_id"),
+            null_text.label("harness_name"),
+            func.count().over(partition_by=evaluation_partition).label("occurrence_count"),
+            func.row_number()
+            .over(
+                partition_by=evaluation_partition,
+                order_by=(
+                    DocumentRunEvaluationQuery.created_at.desc(),
+                    DocumentRunEvaluationQuery.id.desc(),
+                ),
+            )
+            .label("row_number"),
+        )
+        .join(
+            DocumentRunEvaluation,
+            DocumentRunEvaluation.id == DocumentRunEvaluationQuery.evaluation_id,
+        )
+        .join(DocumentRun, DocumentRun.id == DocumentRunEvaluation.run_id)
+        .join(Document, Document.id == DocumentRun.document_id)
+        .where(DocumentRunEvaluationQuery.passed.is_(False))
+        .subquery()
+    )
+    evaluation_candidates = select(
+        evaluation_ranked.c.candidate_type,
+        evaluation_ranked.c.reason_code,
+        evaluation_ranked.c.query_text,
+        evaluation_ranked.c.mode,
+        evaluation_ranked.c.filters_json,
+        evaluation_ranked.c.evaluation_kind,
+        evaluation_ranked.c.expected_result_type,
+        evaluation_ranked.c.fixture_name,
+        evaluation_ranked.c.latest_seen_at,
+        evaluation_ranked.c.document_id,
+        evaluation_ranked.c.source_filename,
+        evaluation_ranked.c.evaluation_id,
+        evaluation_ranked.c.search_request_id,
+        evaluation_ranked.c.chat_answer_id,
+        evaluation_ranked.c.harness_name,
+        evaluation_ranked.c.occurrence_count,
+    ).where(evaluation_ranked.c.row_number == 1)
+
+    live_result_type = SearchRequestRecord.filters_json["result_type"].astext
+    live_expected_result_type = case(
+        (
+            and_(
+                SearchRequestRecord.tabular_query.is_(True),
+                func.coalesce(live_result_type, literal("")) != "chunk",
+                SearchRequestRecord.table_hit_count == 0,
+            ),
+            literal("table"),
+        ),
+        else_=cast(null(), SearchRequestRecord.mode.type),
+    )
+    live_reason_code = case(
+        (
+            SearchRequestRecord.result_count == 0,
+            literal("live_search_no_results"),
+        ),
+        else_=literal("live_search_no_table_hits"),
+    )
+    live_partition = (
+        SearchRequestRecord.query_text,
+        SearchRequestRecord.mode,
+        SearchRequestRecord.filters_json,
+        live_expected_result_type,
+    )
+    live_ranked = (
+        select(
+            literal("live_search_gap").label("candidate_type"),
+            live_reason_code.label("reason_code"),
+            SearchRequestRecord.query_text.label("query_text"),
+            SearchRequestRecord.mode.label("mode"),
+            SearchRequestRecord.filters_json.label("filters_json"),
+            literal("retrieval").label("evaluation_kind"),
+            live_expected_result_type.label("expected_result_type"),
+            null_text.label("fixture_name"),
+            SearchRequestRecord.created_at.label("latest_seen_at"),
+            null_uuid.label("document_id"),
+            null_text.label("source_filename"),
+            SearchRequestRecord.evaluation_id.label("evaluation_id"),
+            SearchRequestRecord.id.label("search_request_id"),
+            null_chat_answer_id.label("chat_answer_id"),
+            SearchRequestRecord.harness_name.label("harness_name"),
+            func.count().over(partition_by=live_partition).label("occurrence_count"),
+            func.row_number()
+            .over(
+                partition_by=live_partition,
+                order_by=(SearchRequestRecord.created_at.desc(), SearchRequestRecord.id.desc()),
+            )
+            .label("row_number"),
+        )
+        .where(
+            SearchRequestRecord.origin.in_(("api", "chat")),
+            or_(
+                SearchRequestRecord.result_count == 0,
+                and_(
+                    SearchRequestRecord.tabular_query.is_(True),
+                    func.coalesce(live_result_type, literal("")) != "chunk",
+                    SearchRequestRecord.table_hit_count == 0,
+                ),
+            ),
+        )
+        .subquery()
+    )
+    live_candidates = select(
+        live_ranked.c.candidate_type,
+        live_ranked.c.reason_code,
+        live_ranked.c.query_text,
+        live_ranked.c.mode,
+        live_ranked.c.filters_json,
+        live_ranked.c.evaluation_kind,
+        live_ranked.c.expected_result_type,
+        live_ranked.c.fixture_name,
+        live_ranked.c.latest_seen_at,
+        live_ranked.c.document_id,
+        live_ranked.c.source_filename,
+        live_ranked.c.evaluation_id,
+        live_ranked.c.search_request_id,
+        live_ranked.c.chat_answer_id,
+        live_ranked.c.harness_name,
+        live_ranked.c.occurrence_count,
+    ).where(live_ranked.c.row_number == 1)
+
+    answer_filters = _normalized_answer_filters_sql()
+    answer_partition = (
+        ChatAnswerRecord.question_text,
+        ChatAnswerRecord.mode,
+        answer_filters,
+        ChatAnswerFeedback.feedback_type,
+    )
+    answer_ranked = (
+        select(
+            literal("answer_feedback_gap").label("candidate_type"),
+            case(
+                (
+                    ChatAnswerFeedback.feedback_type == "unsupported",
+                    literal("answer_feedback_unsupported"),
+                ),
+                else_=literal("answer_feedback_incomplete"),
+            ).label("reason_code"),
+            ChatAnswerRecord.question_text.label("query_text"),
+            ChatAnswerRecord.mode.label("mode"),
+            answer_filters.label("filters_json"),
+            literal("answer").label("evaluation_kind"),
+            null_text.label("expected_result_type"),
+            null_text.label("fixture_name"),
+            ChatAnswerFeedback.created_at.label("latest_seen_at"),
+            ChatAnswerRecord.document_id.label("document_id"),
+            null_text.label("source_filename"),
+            SearchRequestRecord.evaluation_id.label("evaluation_id"),
+            ChatAnswerRecord.search_request_id.label("search_request_id"),
+            ChatAnswerRecord.id.label("chat_answer_id"),
+            ChatAnswerRecord.harness_name.label("harness_name"),
+            func.count().over(partition_by=answer_partition).label("occurrence_count"),
+            func.row_number()
+            .over(
+                partition_by=answer_partition,
+                order_by=(ChatAnswerFeedback.created_at.desc(), ChatAnswerFeedback.id.desc()),
+            )
+            .label("row_number"),
+        )
+        .join(ChatAnswerRecord, ChatAnswerRecord.id == ChatAnswerFeedback.chat_answer_id)
+        .outerjoin(
+            SearchRequestRecord,
+            SearchRequestRecord.id == ChatAnswerRecord.search_request_id,
+        )
+        .where(ChatAnswerFeedback.feedback_type.in_(("unsupported", "incomplete")))
+        .subquery()
+    )
+    answer_candidates = select(
+        answer_ranked.c.candidate_type,
+        answer_ranked.c.reason_code,
+        answer_ranked.c.query_text,
+        answer_ranked.c.mode,
+        answer_ranked.c.filters_json,
+        answer_ranked.c.evaluation_kind,
+        answer_ranked.c.expected_result_type,
+        answer_ranked.c.fixture_name,
+        answer_ranked.c.latest_seen_at,
+        answer_ranked.c.document_id,
+        answer_ranked.c.source_filename,
+        answer_ranked.c.evaluation_id,
+        answer_ranked.c.search_request_id,
+        answer_ranked.c.chat_answer_id,
+        answer_ranked.c.harness_name,
+        answer_ranked.c.occurrence_count,
+    ).where(answer_ranked.c.row_number == 1)
+
+    unioned_candidates = union_all(
+        evaluation_candidates,
+        live_candidates,
+        answer_candidates,
+    ).subquery()
+    return session.execute(
+        select(unioned_candidates)
+        .order_by(
+            unioned_candidates.c.occurrence_count.desc(),
+            unioned_candidates.c.latest_seen_at.desc(),
+            func.lower(unioned_candidates.c.query_text).asc(),
+        )
+        .limit(limit)
+        .offset(offset)
+    ).all()
+
+
+def _load_documents_by_id(session: Session, document_ids: set[UUID]) -> dict[UUID, Document]:
+    if not document_ids:
+        return {}
+    return {
+        document.id: document
+        for document in session.execute(select(Document).where(Document.id.in_(document_ids)))
+        .scalars()
+        .all()
+    }
+
+
+def _quality_candidate_from_row(
+    row,
+    *,
+    documents_by_id: dict[UUID, Document],
+) -> QualityEvaluationCandidateResponse | None:
+    filters = row.filters_json or {}
+    if row.reason_code == "live_search_no_results" and not _is_actionable_zero_result_gap(
+        row.query_text,
+        filters,
+    ):
+        return None
+
+    document_id = row.document_id or _maybe_uuid(filters.get("document_id"))
+    document = documents_by_id.get(document_id) if document_id is not None else None
+    return QualityEvaluationCandidateResponse(
+        candidate_type=row.candidate_type,
+        reason=QUALITY_CANDIDATE_REASON_BY_CODE[row.reason_code],
+        query_text=row.query_text,
+        mode=row.mode,
+        filters=filters,
+        evaluation_kind=row.evaluation_kind,
+        expected_result_type=row.expected_result_type,
+        fixture_name=row.fixture_name,
+        occurrence_count=int(row.occurrence_count),
+        latest_seen_at=row.latest_seen_at,
+        document_id=document_id,
+        source_filename=row.source_filename or getattr(document, "source_filename", None),
+        evaluation_id=row.evaluation_id,
+        search_request_id=row.search_request_id,
+        chat_answer_id=row.chat_answer_id,
+        harness_name=row.harness_name,
+    )
+
+
 def _resolve_candidate_status_optimized(
     session: Session,
     candidate: QualityEvaluationCandidateResponse,
@@ -836,7 +1162,10 @@ def _resolve_candidate_status_optimized(
     helpful_feedback_rows = session.execute(
         select(ChatAnswerFeedback, ChatAnswerRecord, SearchRequestRecord)
         .join(ChatAnswerRecord, ChatAnswerRecord.id == ChatAnswerFeedback.chat_answer_id)
-        .outerjoin(SearchRequestRecord, SearchRequestRecord.id == ChatAnswerRecord.search_request_id)
+        .outerjoin(
+            SearchRequestRecord,
+            SearchRequestRecord.id == ChatAnswerRecord.search_request_id,
+        )
         .where(
             ChatAnswerFeedback.feedback_type == "helpful",
             ChatAnswerFeedback.created_at > candidate.latest_seen_at,
@@ -886,234 +1215,53 @@ def list_quality_eval_candidates(
             include_resolved=include_resolved,
         )
 
-    scan_limit = _candidate_scan_limit(limit)
-    candidates: dict[
-        tuple[str, str, str, str, str, str, str],
-        QualityEvaluationCandidateResponse,
-    ] = {}
+    page_limit = _quality_candidate_page_limit(limit)
+    unresolved_rows: list[QualityEvaluationCandidateResponse] = []
+    resolved_rows: list[QualityEvaluationCandidateResponse] = []
+    offset = 0
 
-    evaluation_failure_rows = session.execute(
-        select(DocumentRunEvaluationQuery, DocumentRunEvaluation, Document)
-        .join(
-            DocumentRunEvaluation,
-            DocumentRunEvaluation.id == DocumentRunEvaluationQuery.evaluation_id,
-        )
-        .join(DocumentRun, DocumentRun.id == DocumentRunEvaluation.run_id)
-        .join(Document, Document.id == DocumentRun.document_id)
-        .where(DocumentRunEvaluationQuery.passed.is_(False))
-        .order_by(DocumentRunEvaluationQuery.created_at.desc())
-        .limit(scan_limit)
-    ).all()
-    for row, evaluation, document in evaluation_failure_rows:
-        filters = row.filters_json or {}
-        evaluation_kind = _evaluation_kind(getattr(row, "details_json", None))
-        reason = (
-            "failed answer evaluation"
-            if evaluation_kind == "answer"
-            else "failed evaluation query"
-        )
-        key = _candidate_key(
-            "evaluation_failure",
-            reason,
-            row.query_text,
-            row.mode,
-            filters,
-            row.expected_result_type,
-            evaluation_kind,
-        )
-        current = candidates.get(key)
-        if current is None:
-            current = QualityEvaluationCandidateResponse(
-                candidate_type="evaluation_failure",
-                reason=reason,
-                query_text=row.query_text,
-                mode=row.mode,
-                filters=filters,
-                evaluation_kind=evaluation_kind,
-                expected_result_type=row.expected_result_type,
-                fixture_name=evaluation.fixture_name,
-                occurrence_count=0,
-                latest_seen_at=row.created_at,
-                document_id=document.id,
-                source_filename=document.source_filename,
-                evaluation_id=evaluation.id,
-                search_request_id=None,
-                chat_answer_id=None,
-                harness_name=None,
-            )
-            candidates[key] = current
-        current.occurrence_count += 1
-        if row.created_at >= current.latest_seen_at:
-            current.latest_seen_at = row.created_at
-            current.fixture_name = evaluation.fixture_name
-            current.document_id = document.id
-            current.source_filename = document.source_filename
-            current.evaluation_id = evaluation.id
+    while True:
+        page = _quality_candidate_rows_page(session, limit=page_limit, offset=offset)
+        if not page:
+            break
+        document_ids = {
+            document_id
+            for row in page
+            for document_id in [
+                row.document_id or _maybe_uuid((row.filters_json or {}).get("document_id"))
+            ]
+            if document_id is not None
+        }
+        documents_by_id = _load_documents_by_id(session, document_ids)
 
-    search_requests = (
-        session.execute(
-            select(SearchRequestRecord)
-            .where(SearchRequestRecord.origin.in_(("api", "chat")))
-            .order_by(SearchRequestRecord.created_at.desc())
-            .limit(scan_limit)
-        )
-        .scalars()
-        .all()
-    )
-    document_ids = {
-        document_id
-        for row in search_requests
-        for document_id in [_maybe_uuid((row.filters_json or {}).get("document_id"))]
-        if document_id is not None
-    }
-    documents_by_id = {
-        row.id: row
-        for row in (
-            session.execute(select(Document).where(Document.id.in_(document_ids)))
-            .scalars()
-            .all()
-            if document_ids
-            else []
-        )
-    }
-    for row in search_requests:
-        reason: str | None = None
-        expected_result_type: str | None = None
-        filters = row.filters_json or {}
-        if row.result_count == 0:
-            reason = "live search returned no results"
-            if not _is_actionable_zero_result_gap(row.query_text, filters):
+        for row in page:
+            candidate = _quality_candidate_from_row(row, documents_by_id=documents_by_id)
+            if candidate is None:
                 continue
-        elif (
-            row.tabular_query
-            and filters.get("result_type") != "chunk"
-            and row.table_hit_count == 0
-        ):
-            reason = "tabular search returned no table hits"
-            expected_result_type = "table"
-        if reason is None:
+            resolution_status, resolved_at, resolution_reason = _resolve_candidate_status_optimized(
+                session,
+                candidate,
+            )
+            candidate.resolution_status = resolution_status
+            candidate.resolved_at = resolved_at
+            candidate.resolution_reason = resolution_reason
+            if resolution_status == "resolved":
+                resolved_rows.append(candidate)
+            else:
+                unresolved_rows.append(candidate)
+
+        offset += page_limit
+        if len(unresolved_rows) >= limit:
+            break
+        if not include_resolved:
             continue
-        document_id = _maybe_uuid(filters.get("document_id"))
-        document = documents_by_id.get(document_id)
-        key = _candidate_key(
-            "live_search_gap",
-            reason,
-            row.query_text,
-            row.mode,
-            filters,
-            expected_result_type,
-            "retrieval",
-        )
-        current = candidates.get(key)
-        if current is None:
-            current = QualityEvaluationCandidateResponse(
-                candidate_type="live_search_gap",
-                reason=reason,
-                query_text=row.query_text,
-                mode=row.mode,
-                filters=filters,
-                evaluation_kind="retrieval",
-                expected_result_type=expected_result_type,
-                fixture_name=None,
-                occurrence_count=0,
-                latest_seen_at=row.created_at,
-                document_id=document_id,
-                source_filename=getattr(document, "source_filename", None),
-                evaluation_id=row.evaluation_id,
-                search_request_id=row.id,
-                chat_answer_id=None,
-                harness_name=row.harness_name,
-            )
-            candidates[key] = current
-        current.occurrence_count += 1
-        if row.created_at >= current.latest_seen_at:
-            current.latest_seen_at = row.created_at
-            current.document_id = document_id
-            current.source_filename = getattr(document, "source_filename", None)
-            current.evaluation_id = row.evaluation_id
-            current.search_request_id = row.id
-            current.harness_name = row.harness_name
-
-    answer_feedback_rows = session.execute(
-        select(ChatAnswerFeedback, ChatAnswerRecord, SearchRequestRecord)
-        .join(ChatAnswerRecord, ChatAnswerRecord.id == ChatAnswerFeedback.chat_answer_id)
-        .outerjoin(SearchRequestRecord, SearchRequestRecord.id == ChatAnswerRecord.search_request_id)
-        .where(ChatAnswerFeedback.feedback_type.in_(("unsupported", "incomplete")))
-        .order_by(ChatAnswerFeedback.created_at.desc())
-        .limit(scan_limit)
-    ).all()
-    for feedback, answer, request_row in answer_feedback_rows:
-        filters = _filters_for_answer(answer, request_row)
-        document_id = answer.document_id or _maybe_uuid(filters.get("document_id"))
-        document = documents_by_id.get(document_id)
-        reason = (
-            "chat answer marked unsupported"
-            if feedback.feedback_type == "unsupported"
-            else "chat answer marked incomplete"
-        )
-        key = _candidate_key(
-            "answer_feedback_gap",
-            reason,
-            answer.question_text,
-            answer.mode,
-            filters,
-            None,
-            "answer",
-        )
-        current = candidates.get(key)
-        if current is None:
-            current = QualityEvaluationCandidateResponse(
-                candidate_type="answer_feedback_gap",
-                reason=reason,
-                query_text=answer.question_text,
-                mode=answer.mode,
-                filters=filters,
-                evaluation_kind="answer",
-                expected_result_type=None,
-                fixture_name=None,
-                occurrence_count=0,
-                latest_seen_at=feedback.created_at,
-                document_id=document_id,
-                source_filename=getattr(document, "source_filename", None),
-                evaluation_id=request_row.evaluation_id if request_row is not None else None,
-                search_request_id=answer.search_request_id,
-                chat_answer_id=answer.id,
-                harness_name=answer.harness_name,
-            )
-            candidates[key] = current
-        current.occurrence_count += 1
-        if feedback.created_at >= current.latest_seen_at:
-            current.latest_seen_at = feedback.created_at
-            current.document_id = document_id
-            current.source_filename = getattr(document, "source_filename", None)
-            current.evaluation_id = request_row.evaluation_id if request_row is not None else None
-            current.search_request_id = answer.search_request_id
-            current.chat_answer_id = answer.id
-            current.harness_name = answer.harness_name
-
-    rows = list(candidates.values())
-    for row in rows:
-        resolution_status, resolved_at, resolution_reason = _resolve_candidate_status_optimized(
-            session,
-            row,
-        )
-        row.resolution_status = resolution_status
-        row.resolved_at = resolved_at
-        row.resolution_reason = resolution_reason
 
     if not include_resolved:
-        rows = [row for row in rows if row.resolution_status != "resolved"]
+        return unresolved_rows[:limit]
 
-    rows = sorted(
-        rows,
-        key=lambda row: (
-            row.resolution_status == "resolved",
-            -row.occurrence_count,
-            -row.latest_seen_at.timestamp(),
-            row.query_text.lower(),
-        ),
-    )
-    return rows[:limit]
+    if len(unresolved_rows) >= limit:
+        return unresolved_rows[:limit]
+    return unresolved_rows + resolved_rows[: max(limit - len(unresolved_rows), 0)]
 
 
 def get_quality_trends(
@@ -1127,31 +1275,42 @@ def get_quality_trends(
         )
 
     today = datetime.now(UTC).date()
-    cutoff = datetime.combine(today - timedelta(days=day_count - 1), datetime.min.time(), tzinfo=UTC)
-    search_requests = (
-        session.execute(
-            select(SearchRequestRecord)
-            .where(
-                SearchRequestRecord.origin.in_(("api", "chat")),
-                SearchRequestRecord.created_at >= cutoff,
-            )
-        )
-        .scalars()
-        .all()
+    cutoff = datetime.combine(
+        today - timedelta(days=day_count - 1),
+        datetime.min.time(),
+        tzinfo=UTC,
     )
+    bucket_date = cast(func.timezone("UTC", SearchRequestRecord.created_at), Date)
+    search_request_days = session.execute(
+        select(
+            bucket_date.label("bucket_date"),
+            func.count().label("request_count"),
+            func.sum(case((SearchRequestRecord.result_count == 0, 1), else_=0)).label(
+                "zero_result_count"
+            ),
+            func.sum(case((SearchRequestRecord.table_hit_count > 0, 1), else_=0)).label(
+                "table_hit_requests"
+            ),
+        )
+        .where(
+            SearchRequestRecord.origin.in_(("api", "chat")),
+            SearchRequestRecord.created_at >= cutoff,
+        )
+        .group_by(bucket_date)
+    ).all()
     feedback_counts = session.execute(
-        select(SearchFeedback.feedback_type, func.count().label("count"))
-        .group_by(SearchFeedback.feedback_type)
+        select(SearchFeedback.feedback_type, func.count().label("count")).group_by(
+            SearchFeedback.feedback_type
+        )
     ).all()
     answer_feedback_counts = session.execute(
-        select(ChatAnswerFeedback.feedback_type, func.count().label("count"))
-        .group_by(ChatAnswerFeedback.feedback_type)
+        select(ChatAnswerFeedback.feedback_type, func.count().label("count")).group_by(
+            ChatAnswerFeedback.feedback_type
+        )
     ).all()
     replay_runs = (
         session.execute(
-            select(SearchReplayRun)
-            .order_by(SearchReplayRun.created_at.desc())
-            .limit(replay_limit)
+            select(SearchReplayRun).order_by(SearchReplayRun.created_at.desc()).limit(replay_limit)
         )
         .scalars()
         .all()
@@ -1165,13 +1324,13 @@ def get_quality_trends(
         }
         for offset in reversed(range(day_count))
     }
-    for row in search_requests:
-        bucket = day_buckets.get(row.created_at.date().isoformat())
+    for bucket_row in search_request_days:
+        bucket = day_buckets.get(bucket_row.bucket_date.isoformat())
         if bucket is None:
             continue
-        bucket["request_count"] += 1
-        bucket["zero_result_count"] += int(row.result_count == 0)
-        bucket["table_hit_requests"] += int(row.table_hit_count > 0)
+        bucket["request_count"] = int(bucket_row.request_count)
+        bucket["zero_result_count"] = int(bucket_row.zero_result_count or 0)
+        bucket["table_hit_requests"] = int(bucket_row.table_hit_requests or 0)
 
     return QualityTrendsResponse(
         search_request_days=[

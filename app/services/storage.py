@@ -79,7 +79,9 @@ class StorageService:
         staged_path: Path | None = None
 
         try:
-            with NamedTemporaryFile(delete=False, dir=self.staging_root, suffix=suffix) as temp_file:
+            with NamedTemporaryFile(
+                delete=False, dir=self.staging_root, suffix=suffix
+            ) as temp_file:
                 staged_path = Path(temp_file.name)
                 while chunk := upload.file.read(1024 * 1024):
                     if len(header_prefix) < 5:

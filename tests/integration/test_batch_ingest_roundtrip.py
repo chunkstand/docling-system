@@ -251,7 +251,9 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
     assert batch.run_status_counts == {"queued": 2}
 
     postgres_integration_harness.process_next_run(FailingParser())
-    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document(title="Recovered")))
+    postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document(title="Recovered"))
+    )
 
     with postgres_integration_harness.session_factory() as session:
         refreshed = get_ingest_batch_detail(session, batch.batch_id)
@@ -300,7 +302,9 @@ def test_queue_local_directory_ingest_resolves_failed_item_after_successful_repr
         assert item.resolved_status == "failed"
         reprocess_document(session, item.document_id)
 
-    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document(title="Recovered")))
+    postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document(title="Recovered"))
+    )
 
     with postgres_integration_harness.session_factory() as session:
         refreshed = get_ingest_batch_detail(session, batch.batch_id)

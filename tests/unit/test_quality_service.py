@@ -200,9 +200,9 @@ def test_list_quality_eval_candidates_mines_eval_failures_live_gaps_and_answer_f
         "live_search_gap",
         "answer_feedback_gap",
     }
-    assert {
-        row.expected_result_type for row in rows if row.expected_result_type is not None
-    } == {"table"}
+    assert {row.expected_result_type for row in rows if row.expected_result_type is not None} == {
+        "table"
+    }
     answer_gap = next(row for row in rows if row.candidate_type == "answer_feedback_gap")
     assert answer_gap.chat_answer_id == chat_answer_id
     assert answer_gap.harness_name == "wide_v2"

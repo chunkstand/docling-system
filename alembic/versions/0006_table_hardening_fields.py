@@ -4,11 +4,12 @@ Revision ID: 0006_table_hardening_fields
 Revises: 0005_validation_gate_fields
 Create Date: 2026-04-09 23:45:00.000000
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0006_table_hardening_fields"
 down_revision = "0005_validation_gate_fields"

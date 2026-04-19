@@ -545,6 +545,7 @@ def process_agent_task(
                 error=str(exc),
             )
 
+
 def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> None:
     from app.db.session import get_session_factory
 

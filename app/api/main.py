@@ -1,15 +1,25 @@
 from __future__ import annotations
 
+import os
+import secrets
 from contextlib import asynccontextmanager
 from functools import lru_cache
-import os
 from pathlib import Path
-import secrets
 from uuid import UUID
 
 import uvicorn
 import yaml
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, Response, UploadFile, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -19,6 +29,7 @@ from app.api.file_delivery import file_response_if_exists
 from app.core.config import (
     get_settings,
     is_loopback_host,
+    resolve_api_credentials,
     resolve_api_mode,
     resolve_remote_api_capabilities,
 )
@@ -43,13 +54,13 @@ from app.schemas.agent_tasks import (
     AgentTaskRecommendationTrendResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
-    TaskContextEnvelope,
     AgentTaskTraceExportResponse,
     AgentTaskTrendResponse,
     AgentTaskValueDensityRowResponse,
     AgentTaskVerificationResponse,
     AgentTaskVerificationTrendResponse,
     AgentTaskWorkflowVersionSummaryResponse,
+    TaskContextEnvelope,
 )
 from app.schemas.chat import (
     ChatAnswerFeedbackCreateRequest,
@@ -155,9 +166,12 @@ from app.services.search_replays import (
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
 from app.services.telemetry import snapshot_metrics
+
+
 def _api_mode_metadata() -> dict[str, object]:
     settings = get_settings()
     resolved_mode = resolve_api_mode(settings)
+    resolved_credentials = resolve_api_credentials(settings)
     payload = {
         "api_mode": resolved_mode,
         "api_mode_explicit": settings.api_mode is not None,
@@ -165,24 +179,36 @@ def _api_mode_metadata() -> dict[str, object]:
         "api_port": settings.api_port,
     }
     if resolved_mode == "remote":
-        payload["remote_api_capabilities"] = sorted(resolve_remote_api_capabilities(settings))
+        payload["remote_api_auth_mode"] = (
+            "actor_scoped"
+            if getattr(settings, "api_credentials_json", None)
+            else "legacy_single_key"
+        )
+        payload["remote_api_principals"] = [
+            {"actor": credential.actor, "capabilities": sorted(credential.capabilities)}
+            for credential in resolved_credentials
+        ]
+        if not getattr(settings, "api_credentials_json", None):
+            payload["remote_api_capabilities"] = sorted(resolve_remote_api_capabilities(settings))
     return payload
 
 
 def _require_api_key_for_mutations(
+    request: Request,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> None:
     settings = get_settings()
-    configured_api_key = settings.api_key
-    if resolve_api_mode(settings) != "remote" and not configured_api_key:
+    if resolve_api_mode(settings) != "remote" and not _api_auth_is_configured(settings):
         return
 
-    if _has_valid_api_key(
-        configured_api_key=configured_api_key,
+    credential = _resolve_api_credential(
+        settings=settings,
         x_api_key=x_api_key,
         authorization=authorization,
-    ):
+    )
+    if credential is not None:
+        request.state.api_credential = credential
         return
 
     raise api_error(
@@ -194,11 +220,28 @@ def _require_api_key_for_mutations(
 
 
 def _require_api_capability(capability: str):
-    def dependency() -> None:
+    def dependency(
+        request: Request,
+        x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+        authorization: str | None = Header(default=None, alias="Authorization"),
+    ) -> None:
         settings = get_settings()
         if resolve_api_mode(settings) != "remote":
             return
-        allowed_capabilities = resolve_remote_api_capabilities(settings)
+        credential = getattr(request.state, "api_credential", None) or _resolve_api_credential(
+            settings=settings,
+            x_api_key=x_api_key,
+            authorization=authorization,
+        )
+        if credential is None:
+            raise api_error(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="auth_required",
+                message="Valid API key required for remote API access.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        request.state.api_credential = credential
+        allowed_capabilities = credential.capabilities
         if "*" in allowed_capabilities or capability in allowed_capabilities:
             return
         raise api_error(
@@ -206,6 +249,7 @@ def _require_api_capability(capability: str):
             "capability_not_allowed",
             f"Remote API capability '{capability}' is not enabled.",
             capability=capability,
+            actor=credential.actor,
         )
 
     return dependency
@@ -220,33 +264,45 @@ def _bearer_token_from_header(authorization: str | None) -> str | None:
     return None
 
 
-def _has_valid_api_key(
+def _api_auth_is_configured(settings) -> bool:
+    return bool(resolve_api_credentials(settings))
+
+
+def _resolve_api_credential(
     *,
-    configured_api_key: str | None,
+    settings,
     x_api_key: str | None,
     authorization: str | None,
-) -> bool:
-    if not configured_api_key:
-        return False
+) -> object | None:
     bearer_token = _bearer_token_from_header(authorization)
     provided_values = [value for value in (x_api_key, bearer_token) if value]
-    return any(secrets.compare_digest(value, configured_api_key) for value in provided_values)
+    for credential in resolve_api_credentials(settings):
+        if any(secrets.compare_digest(value, credential.key) for value in provided_values):
+            return credential
+    return None
 
 
 def _validate_runtime_bind_settings() -> tuple[str, int]:
     settings = get_settings()
     resolved_mode = resolve_api_mode(settings)
+    auth_is_configured = _api_auth_is_configured(settings)
     if resolved_mode == "local" and not is_loopback_host(settings.api_host):
         raise ValueError(
             "DOCLING_SYSTEM_API_MODE=local requires DOCLING_SYSTEM_API_HOST to remain loopback."
         )
-    if settings.api_mode is None and not is_loopback_host(settings.api_host) and not settings.api_key:
+    if (
+        settings.api_mode is None
+        and not is_loopback_host(settings.api_host)
+        and not auth_is_configured
+    ):
         raise ValueError(
-            "DOCLING_SYSTEM_API_KEY must be set when binding the API to a non-loopback host."
+            "DOCLING_SYSTEM_API_KEY or DOCLING_SYSTEM_API_CREDENTIALS_JSON must be set "
+            "when binding the API to a non-loopback host."
         )
-    if resolved_mode == "remote" and not settings.api_key:
+    if resolved_mode == "remote" and not auth_is_configured:
         raise ValueError(
-            "DOCLING_SYSTEM_API_MODE=remote requires DOCLING_SYSTEM_API_KEY to be set."
+            "DOCLING_SYSTEM_API_MODE=remote requires DOCLING_SYSTEM_API_KEY or "
+            "DOCLING_SYSTEM_API_CREDENTIALS_JSON to be set."
         )
     return settings.api_host, settings.api_port
 
@@ -274,11 +330,13 @@ async def require_remote_api_key_for_reads(request: Request, call_next):
         return await call_next(request)
     if request.url.path in PUBLIC_REMOTE_PATHS:
         return await call_next(request)
-    if _has_valid_api_key(
-        configured_api_key=settings.api_key,
+    credential = _resolve_api_credential(
+        settings=settings,
         x_api_key=request.headers.get("X-API-Key"),
         authorization=request.headers.get("Authorization"),
-    ):
+    )
+    if credential is not None:
+        request.state.api_credential = credential
         return await call_next(request)
     return await structured_http_exception_handler(
         request,
@@ -702,9 +760,7 @@ def read_agent_task_context(
     session: Session = Depends(get_db_session),
 ):
     context = get_agent_task_context(session, task_id)
-    context_payload = (
-        context.model_dump(mode="json") if hasattr(context, "model_dump") else context
-    )
+    context_payload = context.model_dump(mode="json") if hasattr(context, "model_dump") else context
     if format == "json":
         return context
     if format == "yaml":
@@ -841,7 +897,11 @@ def reject_agent_task_route(
     return reject_agent_task(session, task_id, payload)
 
 
-@app.get("/documents", response_model=list[DocumentSummaryResponse])
+@app.get(
+    "/documents",
+    response_model=list[DocumentSummaryResponse],
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_documents(session: Session = Depends(get_db_session)) -> list[DocumentSummaryResponse]:
     return list_documents(session)
 
@@ -873,7 +933,11 @@ def create_document(
     return payload
 
 
-@app.get("/documents/{document_id}", response_model=DocumentDetailResponse)
+@app.get(
+    "/documents/{document_id}",
+    response_model=DocumentDetailResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -881,7 +945,11 @@ def read_document(
     return get_document_detail(session, document_id)
 
 
-@app.get("/documents/{document_id}/runs", response_model=list[DocumentRunSummaryResponse])
+@app.get(
+    "/documents/{document_id}/runs",
+    response_model=list[DocumentRunSummaryResponse],
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_runs(
     document_id: UUID,
     session: Session = Depends(get_db_session),
@@ -889,7 +957,11 @@ def read_document_runs(
     return list_document_runs(session, document_id)
 
 
-@app.get("/runs/{run_id}", response_model=DocumentRunSummaryResponse)
+@app.get(
+    "/runs/{run_id}",
+    response_model=DocumentRunSummaryResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
 def read_document_run(
     run_id: UUID,
     session: Session = Depends(get_db_session),
@@ -1193,7 +1265,11 @@ def read_figure_json_artifact(
             figure_id=str(figure_id),
         )
     return _storage_file_response(
-        get_storage_service().build_figure_json_path(document_id, figure.run_id, figure.figure_index),
+        get_storage_service().build_figure_json_path(
+            document_id,
+            figure.run_id,
+            figure.figure_index,
+        ),
         not_found_detail="Figure JSON artifact not found.",
         not_found_error_code="figure_artifact_not_found",
         not_found_context={
@@ -1223,7 +1299,11 @@ def read_figure_yaml_artifact(
             figure_id=str(figure_id),
         )
     return _storage_file_response(
-        get_storage_service().build_figure_yaml_path(document_id, figure.run_id, figure.figure_index),
+        get_storage_service().build_figure_yaml_path(
+            document_id,
+            figure.run_id,
+            figure.figure_index,
+        ),
         not_found_detail="Figure YAML artifact not found.",
         not_found_error_code="figure_artifact_not_found",
         not_found_context={

@@ -11,8 +11,7 @@ from typing import Any
 import yaml
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.pipeline_options import PdfPipelineOptions
-from docling.document_converter import DocumentConverter
-from docling.document_converter import PdfFormatOption
+from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from app.core.config import default_local_ingest_roots, get_settings
 
@@ -316,7 +315,11 @@ def _conversion_error_message(
         detail = "; ".join(str(item) for item in errors if item)
     else:
         detail = str(errors)
-    prefix = "Docling conversion failed after fallback" if attempted_fallback else "Docling conversion failed"
+    prefix = (
+        "Docling conversion failed after fallback"
+        if attempted_fallback
+        else "Docling conversion failed"
+    )
     if detail:
         return f"{prefix} for {source_path.name}: status={status}; {detail}"
     return f"{prefix} for {source_path.name}: status={status}"
@@ -1023,9 +1026,11 @@ def _merge_table_family(
             total_removed_headers += removed
         rows.extend(table_rows)
 
-    merged_segments = segments if segments is not None else [
-        segment for table in tables for segment in table.segments
-    ]
+    merged_segments = (
+        segments
+        if segments is not None
+        else [segment for table in tables for segment in table.segments]
+    )
     resolved_title = _preferred_family_title(tables)
     resolved_heading = heading or next((table.heading for table in tables if table.heading), None)
     resolved_page_from = (
@@ -1338,7 +1343,9 @@ def _build_logical_tables(raw_segments: list[ParsedTableSegment]) -> list[Parsed
 def _annotate_ambiguous_continuations(
     raw_segments: list[ParsedTableSegment], tables: list[ParsedTable]
 ) -> None:
-    segment_to_table = {segment.segment_index: table for table in tables for segment in table.segments}
+    segment_to_table = {
+        segment.segment_index: table for table in tables for segment in table.segments
+    }
     for left, right in zip(raw_segments, raw_segments[1:], strict=False):
         if not _pages_adjacent(left, right):
             continue

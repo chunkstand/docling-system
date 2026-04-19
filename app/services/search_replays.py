@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import and_, case, cast, func, literal, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
@@ -32,19 +32,17 @@ from app.schemas.search import (
     SearchReplayRunSummaryResponse,
     SearchRequest,
 )
-from app.services.evaluations import get_latest_evaluations_by_run_id
-from app.services.session_utils import uses_in_memory_session
 from app.services.search import execute_search, get_search_harness
 from app.services.search_history import (
     build_search_replay_diff,
     get_search_request_detail,
 )
+from app.services.session_utils import uses_in_memory_session
 
 RANKING_DATASET_SCHEMA_VERSION = 2
 CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE = "cross_document_prose_regressions"
 EVALUATION_QUERY_SOURCE_TYPE = "evaluation_queries"
-REPLAY_CASE_SCAN_FACTOR = 25
-REPLAY_CASE_MIN_SCAN_LIMIT = 100
+REPLAY_CASE_PAGE_MIN_LIMIT = 50
 
 
 @dataclass
@@ -106,8 +104,8 @@ def _smoke_test_feedback_request_ids(session: Session) -> set[UUID]:
     }
 
 
-def _replay_case_scan_limit(limit: int) -> int:
-    return max(limit * REPLAY_CASE_SCAN_FACTOR, REPLAY_CASE_MIN_SCAN_LIMIT)
+def _replay_case_page_limit(limit: int) -> int:
+    return max(limit * 4, REPLAY_CASE_PAGE_MIN_LIMIT)
 
 
 def _is_low_signal_zero_result_gap(row: SearchRequestRecord) -> bool:
@@ -171,6 +169,17 @@ def _foreign_results_before_first_expected_hit(
 
 def _effective_replay_source_type(row: SearchReplayRun) -> str:
     return (getattr(row, "summary_json", None) or {}).get("source_type") or row.source_type
+
+
+def _smoke_test_note_expression(note_column):
+    return func.lower(
+        func.regexp_replace(
+            func.btrim(func.coalesce(note_column, literal(""))),
+            r"\s+",
+            " ",
+            "g",
+        )
+    ).like("smoke test%")
 
 
 def _empty_replay_rank_metrics() -> dict:
@@ -249,9 +258,7 @@ def list_search_replay_runs(
 ) -> list[SearchReplayRunSummaryResponse]:
     rows = (
         session.execute(
-            select(SearchReplayRun)
-            .order_by(SearchReplayRun.created_at.desc())
-            .limit(limit)
+            select(SearchReplayRun).order_by(SearchReplayRun.created_at.desc()).limit(limit)
         )
         .scalars()
         .all()
@@ -346,37 +353,21 @@ def _latest_evaluation_queries(
             source_type=source_type,
         )
 
-    documents = (
-        session.execute(select(Document).order_by(Document.updated_at.desc())).scalars().all()
-    )
-    latest_run_ids = [
-        document.latest_run_id for document in documents if document.latest_run_id is not None
-    ]
-    latest_evaluations = get_latest_evaluations_by_run_id(session, latest_run_ids)
-    evaluation_ids = [evaluation.id for evaluation in latest_evaluations.values()]
-    evaluation_queries_by_evaluation_id: dict[UUID, list[DocumentRunEvaluationQuery]] = {}
-    if evaluation_ids:
-        evaluation_queries = (
-            session.execute(
-                select(DocumentRunEvaluationQuery)
-                .where(DocumentRunEvaluationQuery.evaluation_id.in_(evaluation_ids))
-                .order_by(
-                    DocumentRunEvaluationQuery.evaluation_id.asc(),
-                    DocumentRunEvaluationQuery.query_text.asc(),
-                )
-            )
-            .scalars()
-            .all()
-        )
-        for row in evaluation_queries:
-            evaluation_queries_by_evaluation_id.setdefault(row.evaluation_id, []).append(row)
-
     cases: list[ReplayCase] = []
-    for document in documents:
-        evaluation = latest_evaluations.get(document.latest_run_id)
-        if evaluation is None:
-            continue
-        for row in evaluation_queries_by_evaluation_id.get(evaluation.id, []):
+    offset = 0
+    page_limit = _replay_case_page_limit(limit)
+
+    while True:
+        query_rows = _latest_evaluation_query_rows_page(
+            session,
+            limit=page_limit,
+            offset=offset,
+            source_type=source_type,
+        )
+        if not query_rows:
+            return cases
+
+        for row in query_rows:
             details = row.details_json or {}
             if source_type == CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE:
                 replay_case = _cross_document_prose_replay_case(row, details)
@@ -400,7 +391,55 @@ def _latest_evaluation_queries(
                 )
             if len(cases) >= limit:
                 return cases
-    return cases
+
+        offset += page_limit
+
+
+def _latest_evaluation_query_rows_page(
+    session: Session,
+    *,
+    limit: int,
+    offset: int,
+    source_type: str,
+) -> list[DocumentRunEvaluationQuery]:
+    evaluation_kind = func.coalesce(
+        DocumentRunEvaluationQuery.details_json["evaluation_kind"].astext,
+        literal("retrieval"),
+    )
+    latest_evaluations = select(
+        DocumentRunEvaluation.id.label("evaluation_id"),
+        DocumentRunEvaluation.run_id.label("run_id"),
+        func.row_number()
+        .over(
+            partition_by=DocumentRunEvaluation.run_id,
+            order_by=(
+                DocumentRunEvaluation.created_at.desc(),
+                DocumentRunEvaluation.id.desc(),
+            ),
+        )
+        .label("row_number"),
+    ).subquery()
+    statement = (
+        select(DocumentRunEvaluationQuery)
+        .join(
+            latest_evaluations,
+            and_(
+                latest_evaluations.c.evaluation_id == DocumentRunEvaluationQuery.evaluation_id,
+                latest_evaluations.c.row_number == 1,
+            ),
+        )
+        .join(Document, Document.latest_run_id == latest_evaluations.c.run_id)
+        .order_by(
+            Document.updated_at.desc(),
+            DocumentRunEvaluationQuery.query_text.asc(),
+            DocumentRunEvaluationQuery.id.asc(),
+        )
+        .limit(limit)
+        .offset(offset)
+    )
+    if source_type == EVALUATION_QUERY_SOURCE_TYPE:
+        statement = statement.where(evaluation_kind != "answer")
+    return session.execute(statement).scalars().all()
 
 
 def _latest_evaluation_queries_in_memory(
@@ -466,71 +505,97 @@ def _live_search_gap_cases(session: Session, limit: int) -> list[ReplayCase]:
     if uses_in_memory_session(session):
         return _live_search_gap_cases_in_memory(session, limit)
 
-    rows = (
-        session.execute(
-            select(SearchRequestRecord)
-            .where(SearchRequestRecord.origin.in_(("api", "chat")))
-            .order_by(SearchRequestRecord.created_at.desc())
-            .limit(_replay_case_scan_limit(limit))
+    empty_filters = cast(literal("{}"), SearchRequestRecord.filters_json.type)
+    smoke_test_feedback_exists = (
+        select(SearchFeedback.id)
+        .where(
+            SearchFeedback.search_request_id == SearchRequestRecord.id,
+            _smoke_test_note_expression(SearchFeedback.note),
         )
-        .scalars()
-        .all()
+        .exists()
     )
-    request_ids = [row.id for row in rows]
-    smoke_test_request_ids = {
-        feedback.search_request_id
-        for feedback in (
-            session.execute(
-                select(SearchFeedback)
-                .where(SearchFeedback.search_request_id.in_(request_ids))
-                .order_by(SearchFeedback.created_at.desc())
+    token_count = case(
+        (
+            func.length(func.btrim(SearchRequestRecord.query_text)) == 0,
+            0,
+        ),
+        else_=func.array_length(
+            func.regexp_split_to_array(func.btrim(SearchRequestRecord.query_text), r"\s+"),
+            1,
+        ),
+    )
+    live_result_type = SearchRequestRecord.filters_json["result_type"].astext
+    source_reason = case(
+        (
+            SearchRequestRecord.result_count == 0,
+            literal("zero_result_gap"),
+        ),
+        else_=literal("missing_table_gap"),
+    )
+    ranked_rows = (
+        select(
+            SearchRequestRecord.id.label("source_search_request_id"),
+            SearchRequestRecord.query_text.label("query_text"),
+            SearchRequestRecord.mode.label("mode"),
+            SearchRequestRecord.filters_json.label("filters_json"),
+            SearchRequestRecord.limit.label("limit"),
+            source_reason.label("source_reason"),
+            SearchRequestRecord.created_at.label("created_at"),
+            func.row_number()
+            .over(
+                partition_by=(
+                    SearchRequestRecord.query_text,
+                    SearchRequestRecord.mode,
+                    SearchRequestRecord.filters_json,
+                ),
+                order_by=(
+                    SearchRequestRecord.created_at.desc(),
+                    SearchRequestRecord.id.desc(),
+                ),
             )
-            .scalars()
-            .all()
-            if request_ids
-            else []
+            .label("row_number"),
         )
-        if _is_smoke_test_note(feedback.note)
-    }
+        .where(
+            SearchRequestRecord.origin.in_(("api", "chat")),
+            ~smoke_test_feedback_exists,
+            ~and_(
+                SearchRequestRecord.result_count == 0,
+                SearchRequestRecord.filters_json == empty_filters,
+                SearchRequestRecord.tabular_query.is_(False),
+                token_count <= 1,
+            ),
+            case(
+                (
+                    SearchRequestRecord.result_count == 0,
+                    literal(True),
+                ),
+                else_=and_(
+                    SearchRequestRecord.tabular_query.is_(True),
+                    func.coalesce(live_result_type, literal("")) != "chunk",
+                    SearchRequestRecord.table_hit_count == 0,
+                ),
+            ),
+        )
+        .subquery()
+    )
+    rows = session.execute(
+        select(ranked_rows)
+        .where(ranked_rows.c.row_number == 1)
+        .order_by(ranked_rows.c.created_at.desc())
+        .limit(limit)
+    ).all()
     cases: list[ReplayCase] = []
-    seen: set[tuple[str, str, str]] = set()
-
     for row in rows:
-        filters = row.filters_json or {}
-        request_key = _query_key(row.query_text, row.mode, filters)
-        if request_key in seen:
-            continue
-
-        reason = None
-        if row.result_count == 0:
-            reason = "zero_result_gap"
-        elif (
-            row.tabular_query
-            and filters.get("result_type") != "chunk"
-            and row.table_hit_count == 0
-        ):
-            reason = "missing_table_gap"
-
-        if reason is None:
-            continue
-        if row.id in smoke_test_request_ids:
-            continue
-        if reason == "zero_result_gap" and _is_low_signal_zero_result_gap(row):
-            continue
-
-        seen.add(request_key)
         cases.append(
             ReplayCase(
                 query_text=row.query_text,
                 mode=row.mode,
-                filters=filters,
+                filters=row.filters_json or {},
                 limit=row.limit,
-                source_search_request_id=row.id,
-                source_reason=reason,
+                source_search_request_id=row.source_search_request_id,
+                source_reason=row.source_reason,
             )
         )
-        if len(cases) >= limit:
-            break
     return cases
 
 
@@ -558,9 +623,7 @@ def _live_search_gap_cases_in_memory(session: Session, limit: int) -> list[Repla
         if row.result_count == 0:
             reason = "zero_result_gap"
         elif (
-            row.tabular_query
-            and filters.get("result_type") != "chunk"
-            and row.table_hit_count == 0
+            row.tabular_query and filters.get("result_type") != "chunk" and row.table_hit_count == 0
         ):
             reason = "missing_table_gap"
 
@@ -598,8 +661,9 @@ def _feedback_cases(session: Session, limit: int) -> list[ReplayCase]:
             SearchRequestResult,
             SearchRequestResult.id == SearchFeedback.search_request_result_id,
         )
+        .where(~_smoke_test_note_expression(SearchFeedback.note))
         .order_by(SearchFeedback.created_at.desc())
-        .limit(_replay_case_scan_limit(limit))
+        .limit(limit)
     ).all()
     cases: list[ReplayCase] = []
 
@@ -640,7 +704,7 @@ def _feedback_cases_in_memory(session: Session, limit: int) -> list[ReplayCase]:
     )
     cases: list[ReplayCase] = []
 
-    for feedback in feedback_rows[:limit]:
+    for feedback in feedback_rows:
         if _is_smoke_test_note(feedback.note):
             continue
         request_row = session.get(SearchRequestRecord, feedback.search_request_id)
@@ -669,6 +733,8 @@ def _feedback_cases_in_memory(session: Session, limit: int) -> list[ReplayCase]:
                 source_reason="feedback_label",
             )
         )
+        if len(cases) >= limit:
+            break
     return cases
 
 
@@ -715,8 +781,7 @@ def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
             )
         if case.minimum_top_n_hits_from_expected_document is not None:
             passed = passed and (
-                (expected_source_hit_count or 0)
-                >= case.minimum_top_n_hits_from_expected_document
+                (expected_source_hit_count or 0) >= case.minimum_top_n_hits_from_expected_document
             )
         if case.maximum_foreign_results_before_first_expected_hit is not None:
             passed = passed and (
@@ -845,10 +910,9 @@ def run_search_replay_suite(
                 rank_metrics["query_count"] += 1
                 matching_rank = pass_details.get("matching_rank")
                 if matching_rank:
-                    rank_metrics["reciprocal_rank_sum"] = (
-                        float(rank_metrics.get("reciprocal_rank_sum") or 0.0)
-                        + (1.0 / matching_rank)
-                    )
+                    rank_metrics["reciprocal_rank_sum"] = float(
+                        rank_metrics.get("reciprocal_rank_sum") or 0.0
+                    ) + (1.0 / matching_rank)
                 if any(
                     (
                         case.expected_source_filename,
@@ -1018,15 +1082,15 @@ def compare_search_replay_runs(
 
 def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
     feedback_rows = (
-        session.execute(select(SearchFeedback).order_by(SearchFeedback.created_at.desc()).limit(limit))
+        session.execute(
+            select(SearchFeedback).order_by(SearchFeedback.created_at.desc()).limit(limit)
+        )
         .scalars()
         .all()
     )
     replay_rows = (
         session.execute(
-            select(SearchReplayQuery)
-            .order_by(SearchReplayQuery.created_at.desc())
-            .limit(limit)
+            select(SearchReplayQuery).order_by(SearchReplayQuery.created_at.desc()).limit(limit)
         )
         .scalars()
         .all()
@@ -1068,8 +1132,7 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
                 "result_rank": feedback.result_rank,
                 "result_type": getattr(result_row, "result_type", None),
                 "result_id": str(
-                    getattr(result_row, "table_id", None)
-                    or getattr(result_row, "chunk_id", None)
+                    getattr(result_row, "table_id", None) or getattr(result_row, "chunk_id", None)
                 )
                 if result_row is not None
                 else None,

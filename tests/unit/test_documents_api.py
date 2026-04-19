@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -94,8 +95,69 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
     assert authorized.status_code == 202
 
 
-def test_document_list_route_requires_api_key_in_remote_mode(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_documents", lambda session: [])
+def test_create_document_route_enforces_actor_scoped_capabilities(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+
+    def fake_ingest_upload(session, upload, storage_service, *, idempotency_key=None):
+        return (
+            {
+                "document_id": str(document_id),
+                "run_id": str(run_id),
+                "status": "queued",
+                "duplicate": False,
+                "recovery_run": False,
+                "active_run_id": None,
+                "active_run_status": None,
+            },
+            202,
+        )
+
+    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key=None,
+            api_credentials_json=json.dumps(
+                [
+                    {
+                        "actor": "reader",
+                        "key": "reader-secret",
+                        "capabilities": ["documents:inspect"],
+                    },
+                    {
+                        "actor": "uploader",
+                        "key": "upload-secret",
+                        "capabilities": ["documents:upload"],
+                    },
+                ]
+            ),
+            remote_api_capabilities=None,
+        ),
+    )
+
+    client = TestClient(app)
+    forbidden = client.post(
+        "/documents",
+        files={"file": ("report.pdf", b"%PDF-1.4 test", "application/pdf")},
+        headers={"X-API-Key": "reader-secret"},
+    )
+    allowed = client.post(
+        "/documents",
+        files={"file": ("report.pdf", b"%PDF-1.4 test", "application/pdf")},
+        headers={"X-API-Key": "upload-secret"},
+    )
+
+    assert forbidden.status_code == 403
+    assert forbidden.json()["error_code"] == "capability_not_allowed"
+    assert forbidden.json()["error_context"]["actor"] == "reader"
+    assert allowed.status_code == 202
+
+
+def test_document_list_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.main.get_settings",
         lambda: SimpleNamespace(
@@ -113,12 +175,119 @@ def test_document_list_route_requires_api_key_in_remote_mode(monkeypatch) -> Non
     authorized = client.get("/documents", headers={"X-API-Key": "operator-secret"})
 
     assert unauthorized.status_code == 401
-    assert unauthorized.json() == {
-        "detail": "Valid API key required for remote API access.",
-        "error_code": "auth_required",
-    }
-    assert authorized.status_code == 200
-    assert authorized.json() == []
+    assert unauthorized.json()["error_code"] == "auth_required"
+    assert authorized.status_code == 403
+    assert authorized.json()["error_code"] == "capability_not_allowed"
+
+
+def test_document_list_route_accepts_actor_scoped_bearer_token(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.list_documents", lambda session: [])
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key=None,
+            api_credentials_json=json.dumps(
+                [
+                    {
+                        "actor": "inspector",
+                        "key": "inspect-secret",
+                        "capabilities": ["documents:inspect"],
+                    }
+                ]
+            ),
+            remote_api_capabilities=None,
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get("/documents", headers={"Authorization": "Bearer inspect-secret"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_document_detail_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
+    document_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities=None,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_document_detail",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("remote capability gate should block before document detail runs")
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/documents/{document_id}",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
+
+
+def test_document_run_route_allows_inspect_capability_in_remote_mode(monkeypatch) -> None:
+    run_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_settings",
+        lambda: SimpleNamespace(
+            api_mode="remote",
+            api_host="0.0.0.0",
+            api_port=8000,
+            api_key="operator-secret",
+            remote_api_capabilities="documents:inspect",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_document_run_summary",
+        lambda session, requested_run_id: {
+            "run_id": str(requested_run_id),
+            "run_number": 1,
+            "status": "completed",
+            "attempts": 1,
+            "validation_status": "passed",
+            "chunk_count": 1,
+            "table_count": 0,
+            "figure_count": 0,
+            "error_message": None,
+            "failure_stage": None,
+            "has_failure_artifact": False,
+            "current_stage": "completed",
+            "stage_started_at": "2026-04-18T00:00:00Z",
+            "locked_at": None,
+            "locked_by": None,
+            "last_heartbeat_at": None,
+            "lease_stale": False,
+            "heartbeat_age_seconds": None,
+            "validation_warning_count": 0,
+            "progress_summary": {},
+            "is_active_run": True,
+            "created_at": "2026-04-18T00:00:00Z",
+            "started_at": "2026-04-18T00:00:01Z",
+            "completed_at": "2026-04-18T00:00:02Z",
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/runs/{run_id}",
+        headers={"X-API-Key": "operator-secret"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["run_id"] == str(run_id)
 
 
 def test_document_chunks_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
@@ -332,7 +501,10 @@ def test_latest_evaluation_route_returns_machine_readable_error_when_missing(mon
         def close(self) -> None:
             return None
 
-    monkeypatch.setattr("app.services.documents.get_latest_document_evaluation", lambda *_args: None)
+    monkeypatch.setattr(
+        "app.services.documents.get_latest_document_evaluation",
+        lambda *_args: None,
+    )
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
         client = TestClient(app)
@@ -649,18 +821,16 @@ def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
         client = TestClient(app)
         assert client.get(f"/documents/{document_id}/artifacts/json").json() == {"kind": "document"}
         assert "kind: document" in client.get(f"/documents/{document_id}/artifacts/yaml").text
-        assert (
-            client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").json()
-            == {"kind": "table"}
-        )
+        assert client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").json() == {
+            "kind": "table"
+        }
         assert (
             "kind: table"
             in client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml").text
         )
-        assert (
-            client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/json").json()
-            == {"kind": "figure"}
-        )
+        assert client.get(
+            f"/documents/{document_id}/figures/{figure_id}/artifacts/json"
+        ).json() == {"kind": "figure"}
         assert (
             "kind: figure"
             in client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").text

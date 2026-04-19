@@ -57,8 +57,8 @@ from app.services.ingest_batches import (
 )
 from app.services.quality import list_quality_eval_candidates
 from app.services.search_harness_evaluations import evaluate_search_harness
-from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_history import replay_search_request
+from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_replays import (
     export_ranking_dataset,
     run_search_replay_suite,

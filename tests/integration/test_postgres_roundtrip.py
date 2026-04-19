@@ -220,12 +220,10 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 200
     assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 200
     assert (
-        client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").status_code
-        == 200
+        client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").status_code == 200
     )
     assert (
-        client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml").status_code
-        == 200
+        client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml").status_code == 200
     )
     assert (
         client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/json").status_code
@@ -281,9 +279,7 @@ def test_failed_reprocess_does_not_replace_active_run(postgres_integration_harne
     failed_run_id = UUID(reprocess_response.json()["run_id"])
     assert failed_run_id != original_run_id
 
-    postgres_integration_harness.process_next_run(
-        StubParser(_build_parsed_document(title=None))
-    )
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document(title=None)))
 
     detail_response = client.get(f"/documents/{document_id}")
     assert detail_response.status_code == 200

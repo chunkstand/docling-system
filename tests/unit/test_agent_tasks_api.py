@@ -1054,7 +1054,9 @@ def test_agent_task_context_route_returns_machine_readable_error_code_for_bad_fo
 
 
 def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: [])
+    monkeypatch.setattr(
+        "app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: []
+    )
     monkeypatch.setattr(
         "app.api.main.get_settings",
         lambda: type(
@@ -1081,7 +1083,9 @@ def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> N
 
 
 def test_agent_task_list_route_allows_remote_read_capability(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: [])
+    monkeypatch.setattr(
+        "app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: []
+    )
     monkeypatch.setattr(
         "app.api.main.get_settings",
         lambda: type(

@@ -36,7 +36,12 @@ from app.services.storage import StorageService
 
 
 def _payload_sha256(payload: dict) -> str:
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -158,7 +163,11 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
         from app.services.agent_task_actions import get_agent_task_action
 
         action = get_agent_task_action(task.task_type)
-        if ref.schema_name and action.output_schema_name and ref.schema_name != action.output_schema_name:
+        if (
+            ref.schema_name
+            and action.output_schema_name
+            and ref.schema_name != action.output_schema_name
+        ):
             updated.freshness_status = ContextFreshnessStatus.SCHEMA_MISMATCH
             return updated
         if (
@@ -173,7 +182,9 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
             if source_context_row is None:
                 updated.freshness_status = ContextFreshnessStatus.MISSING
                 return updated
-            source_context = TaskContextEnvelope.model_validate(source_context_row.payload_json or {})
+            source_context = TaskContextEnvelope.model_validate(
+                source_context_row.payload_json or {}
+            )
             current_payload = source_context.output
         else:
             current_payload = task.result_json or {}
@@ -251,6 +262,82 @@ def refresh_task_context_freshness(
     return refreshed
 
 
+def _target_task_not_found(task_id: UUID) -> HTTPException:
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "agent_task_context_target_task_not_found",
+        "Target task not found.",
+        task_id=str(task_id),
+    )
+
+
+def _target_task_type_mismatch(
+    task_id: UUID,
+    *,
+    expected_task_type: str,
+    actual_task_type: str,
+) -> HTTPException:
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        "agent_task_context_target_task_type_mismatch",
+        f"Target task must be a {expected_task_type} task.",
+        task_id=str(task_id),
+        expected_task_type=expected_task_type,
+        actual_task_type=actual_task_type,
+    )
+
+
+def _target_task_not_completed(task_id: UUID, *, task_status: str | None) -> HTTPException:
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        "agent_task_context_target_task_not_completed",
+        "Target task must be completed before it can be consumed.",
+        task_id=str(task_id),
+        task_status=task_status,
+    )
+
+
+def _rerun_required(
+    code: str,
+    *,
+    task_id: UUID,
+    message: str,
+    expected_schema_name: str,
+    expected_schema_version: str,
+    actual_schema_name: str | None = None,
+    actual_schema_version: str | None = None,
+) -> HTTPException:
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        code,
+        message,
+        task_id=str(task_id),
+        expected_schema_name=expected_schema_name,
+        expected_schema_version=expected_schema_version,
+        actual_schema_name=actual_schema_name,
+        actual_schema_version=actual_schema_version,
+    )
+
+
+def _dependency_mismatch(
+    *,
+    task_id: UUID,
+    depends_on_task_id: UUID,
+    expected_dependency_kind: str,
+    actual_dependency_kind: str | None,
+    message: str,
+) -> HTTPException:
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        "agent_task_context_dependency_mismatch",
+        message,
+        task_id=str(task_id),
+        depends_on_task_id=str(depends_on_task_id),
+        expected_dependency_kind=expected_dependency_kind,
+        actual_dependency_kind=actual_dependency_kind,
+    )
+
+
 def resolve_required_task_output_context(
     session: Session,
     *,
@@ -262,28 +349,48 @@ def resolve_required_task_output_context(
 ) -> TaskContextEnvelope:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Target task not found: {task_id}")
+        raise _target_task_not_found(task_id)
     if task.task_type != expected_task_type:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Target task must be a {expected_task_type} task.",
+        raise _target_task_type_mismatch(
+            task_id,
+            expected_task_type=expected_task_type,
+            actual_task_type=task.task_type,
         )
     if task.status != "completed":
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Target task must be completed before it can be consumed.",
-        )
+        raise _target_task_not_completed(task_id, task_status=task.status)
     context_row = _get_context_artifact_row(session, task.id)
     if context_row is None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=rerun_message)
+        raise _rerun_required(
+            "agent_task_context_output_missing",
+            task_id=task.id,
+            message=rerun_message,
+            expected_schema_name=expected_schema_name,
+            expected_schema_version=expected_schema_version,
+        )
     context = refresh_task_context_freshness(
         session,
         TaskContextEnvelope.model_validate(context_row.payload_json or {}),
     )
     if context.output_schema_name != expected_schema_name:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=rerun_message)
+        raise _rerun_required(
+            "agent_task_context_output_schema_mismatch",
+            task_id=task.id,
+            message=rerun_message,
+            expected_schema_name=expected_schema_name,
+            expected_schema_version=expected_schema_version,
+            actual_schema_name=context.output_schema_name,
+            actual_schema_version=context.output_schema_version,
+        )
     if context.output_schema_version != expected_schema_version:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=rerun_message)
+        raise _rerun_required(
+            "agent_task_context_output_schema_version_mismatch",
+            task_id=task.id,
+            message=rerun_message,
+            expected_schema_name=expected_schema_name,
+            expected_schema_version=expected_schema_version,
+            actual_schema_name=context.output_schema_name,
+            actual_schema_version=context.output_schema_version,
+        )
     return context
 
 
@@ -312,7 +419,15 @@ def resolve_required_dependency_task_output_context(
         .first()
     )
     if dependency_row is None or dependency_row.dependency_kind != dependency_kind:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=dependency_error_message)
+        raise _dependency_mismatch(
+            task_id=task_id,
+            depends_on_task_id=depends_on_task_id,
+            expected_dependency_kind=dependency_kind,
+            actual_dependency_kind=(
+                dependency_row.dependency_kind if dependency_row is not None else None
+            ),
+            message=dependency_error_message,
+        )
     return resolve_required_task_output_context(
         session,
         task_id=depends_on_task_id,
@@ -342,7 +457,9 @@ def _build_draft_harness_config_context(
             source_action = get_agent_task_action(source_task.task_type)
             source_context_row = _get_context_artifact_row(session, source_task.id)
             if source_context_row is not None:
-                source_context = TaskContextEnvelope.model_validate(source_context_row.payload_json or {})
+                source_context = TaskContextEnvelope.model_validate(
+                    source_context_row.payload_json or {}
+                )
                 observed_payload = source_context.output
             else:
                 observed_payload = source_task.result_json or {}
@@ -466,7 +583,9 @@ def _build_evaluate_search_harness_context(
             "source type(s)."
         ),
         goal="Compare a candidate harness to a baseline without changing live search behavior.",
-        decision="Review the evaluation deltas before deciding whether to run the verification gate.",
+        decision=(
+            "Review the evaluation deltas before deciding whether to run the verification gate."
+        ),
         next_action="Create verify_search_harness_evaluation to enforce rollout thresholds.",
         approval_state="not_required",
         verification_state="pending",
@@ -511,8 +630,7 @@ def _build_verify_draft_harness_config_context(
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         rerun_message=(
-            "Target draft task must be rerun after the context migration before it can be "
-            "verified."
+            "Target draft task must be rerun after the context migration before it can be verified."
         ),
     )
     refs.append(
@@ -730,9 +848,7 @@ def _build_triage_replay_regression_context(
                 ContextRef(
                     ref_key=f"{source.source_type}_baseline_replay_run",
                     ref_kind="replay_run",
-                    summary=(
-                        f"Baseline replay run for {source.source_type} used by triage."
-                    ),
+                    summary=(f"Baseline replay run for {source.source_type} used by triage."),
                     replay_run_id=baseline_run.id,
                     observed_sha256=_payload_sha256(_search_replay_run_payload(baseline_run)),
                     source_updated_at=baseline_run.completed_at or baseline_run.created_at,
@@ -746,9 +862,7 @@ def _build_triage_replay_regression_context(
                 ContextRef(
                     ref_key=f"{source.source_type}_candidate_replay_run",
                     ref_kind="replay_run",
-                    summary=(
-                        f"Candidate replay run for {source.source_type} used by triage."
-                    ),
+                    summary=(f"Candidate replay run for {source.source_type} used by triage."),
                     replay_run_id=candidate_run.id,
                     observed_sha256=_payload_sha256(_search_replay_run_payload(candidate_run)),
                     source_updated_at=candidate_run.completed_at or candidate_run.created_at,
@@ -881,8 +995,7 @@ def _build_apply_harness_config_update_context(
             "verification_task dependency."
         ),
         rerun_message=(
-            "Verification task must be rerun after the context migration before it can be "
-            "applied."
+            "Verification task must be rerun after the context migration before it can be applied."
         ),
     )
     refs.append(
@@ -919,7 +1032,9 @@ def _build_apply_harness_config_update_context(
             )
         )
 
-    verification_output = VerifyDraftHarnessConfigTaskOutput.model_validate(verification_context.output)
+    verification_output = VerifyDraftHarnessConfigTaskOutput.model_validate(
+        verification_context.output
+    )
     summary = TaskContextSummary(
         headline=f"Applied verified harness {output.draft_harness_name} to live search.",
         goal="Publish a verified draft harness after approval without changing the workflow model.",

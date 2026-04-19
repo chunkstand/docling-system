@@ -4,11 +4,12 @@ Revision ID: 0005_validation_gate_fields
 Revises: 0004_yaml_artifacts
 Create Date: 2026-04-09 22:40:00.000000
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0005_validation_gate_fields"
 down_revision = "0004_yaml_artifacts"
@@ -23,7 +24,9 @@ def upgrade() -> None:
         "document_runs",
         sa.Column(
             "validation_results",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),

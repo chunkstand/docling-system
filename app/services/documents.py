@@ -114,7 +114,9 @@ def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True)
         )
     resolved_path = raw_path.resolve()
     if not resolved_path.is_file():
-        raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", f"File not found: {resolved_path}")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND, "document_not_found", f"File not found: {resolved_path}"
+        )
     if resolved_path.suffix.lower() != ".pdf":
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "Only PDF files are supported.")
     if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
@@ -130,7 +132,9 @@ def _pdf_page_count(file_path: Path) -> int:
     try:
         pdf = pdfium.PdfDocument(str(file_path))
     except Exception as exc:
-        raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "File is not a valid PDF.") from exc
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST, "invalid_pdf", "File is not a valid PDF."
+        ) from exc
     try:
         return len(pdf)
     finally:
@@ -149,11 +153,7 @@ def _runs_by_id(
 ) -> dict[UUID, DocumentRun]:
     if not run_ids:
         return {}
-    rows = (
-        session.execute(select(DocumentRun).where(DocumentRun.id.in_(run_ids)))
-        .scalars()
-        .all()
-    )
+    rows = session.execute(select(DocumentRun).where(DocumentRun.id.in_(run_ids))).scalars().all()
     return {row.id: row for row in rows}
 
 
@@ -344,7 +344,9 @@ def _store_document_upload_response(
 def _document_run_inflight_count(session: Session) -> int:
     return int(
         session.execute(
-            select(func.count()).select_from(DocumentRun).where(DocumentRun.status.in_(INFLIGHT_RUN_STATUSES))
+            select(func.count())
+            .select_from(DocumentRun)
+            .where(DocumentRun.status.in_(INFLIGHT_RUN_STATUSES))
         ).scalar_one()
     )
 
@@ -382,7 +384,9 @@ def _admit_staged_document(
 ) -> tuple[DocumentUploadResponse, int]:
     try:
         if check_existing:
-            existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+            existing = session.execute(
+                select(Document).where(Document.sha256 == sha256)
+            ).scalar_one_or_none()
             if existing is not None:
                 storage_service.delete_file_if_exists(staged_path)
                 response, status_code = _resolve_existing_document_upload(session, existing)
@@ -493,7 +497,9 @@ def _queue_document_run(
             session.add(document)
             session.flush()
     except IntegrityError:
-        existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+        existing = session.execute(
+            select(Document).where(Document.sha256 == sha256)
+        ).scalar_one_or_none()
         if existing is None:
             raise
         storage_service.delete_file_if_exists(staged_path)
@@ -596,7 +602,9 @@ def ingest_local_file(
 ) -> tuple[DocumentUploadResponse, int]:
     file_path = _validate_local_ingest_path(file_path, enforce_limits=False)
     sha256 = _sha256_file(file_path)
-    existing = session.execute(select(Document).where(Document.sha256 == sha256)).scalar_one_or_none()
+    existing = session.execute(
+        select(Document).where(Document.sha256 == sha256)
+    ).scalar_one_or_none()
     if existing is not None:
         return _resolve_existing_document_upload(session, existing)
     file_path = _validate_local_ingest_path(file_path)
@@ -792,7 +800,9 @@ def list_document_runs(
 def get_document_run_summary(session: Session, run_id: UUID) -> DocumentRunSummaryResponse:
     run = session.get(DocumentRun, run_id)
     if run is None:
-        raise api_error(status.HTTP_404_NOT_FOUND, "document_run_not_found", "Document run not found.")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND, "document_run_not_found", "Document run not found."
+        )
     document = session.get(Document, run.document_id)
     if document is None:
         raise api_error(status.HTTP_404_NOT_FOUND, "document_not_found", "Document not found.")

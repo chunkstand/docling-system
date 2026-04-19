@@ -18,8 +18,8 @@ from app.schemas.agent_tasks import (
     DraftHarnessConfigUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
-    VerifySearchHarnessEvaluationTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
+    VerifySearchHarnessEvaluationTaskOutput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchHarnessEvaluationResponse
 from app.services.agent_task_context import (
@@ -212,8 +212,7 @@ def verify_draft_harness_config_task(
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         rerun_message=(
-            "Target draft task must be rerun after the context migration before it can be "
-            "verified."
+            "Target draft task must be rerun after the context migration before it can be verified."
         ),
     )
     output = DraftHarnessConfigUpdateTaskOutput.model_validate(draft_context.output)

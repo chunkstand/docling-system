@@ -21,6 +21,7 @@ from app.schemas.ingest_batches import (
 )
 from app.services.documents import _allowed_ingest_roots, ingest_local_file
 from app.services.storage import StorageService
+
 IN_FLIGHT_RUN_STATUSES = {
     RunStatus.QUEUED.value,
     RunStatus.PROCESSING.value,
@@ -123,15 +124,12 @@ def _load_batch_rows(
     session: Session,
     batch_id: UUID,
 ) -> list[tuple[IngestBatchItem, DocumentRun | None]]:
-    return (
-        session.execute(
-            select(IngestBatchItem, DocumentRun)
-            .outerjoin(DocumentRun, IngestBatchItem.run_id == DocumentRun.id)
-            .where(IngestBatchItem.batch_id == batch_id)
-            .order_by(IngestBatchItem.created_at.asc(), IngestBatchItem.relative_path.asc())
-        )
-        .all()
-    )
+    return session.execute(
+        select(IngestBatchItem, DocumentRun)
+        .outerjoin(DocumentRun, IngestBatchItem.run_id == DocumentRun.id)
+        .where(IngestBatchItem.batch_id == batch_id)
+        .order_by(IngestBatchItem.created_at.asc(), IngestBatchItem.relative_path.asc())
+    ).all()
 
 
 def _batch_run_status_counts(
@@ -378,9 +376,7 @@ def _derive_batch_completed_at(
         return None
 
     run_completed_at_values = [
-        run.completed_at
-        for _, run in rows
-        if run is not None and run.completed_at
+        run.completed_at for _, run in rows if run is not None and run.completed_at
     ]
     resolution_completed_at_values = [
         resolution.resolved_at for resolution in resolutions if resolution.resolved_at is not None
@@ -528,9 +524,7 @@ def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDeta
 
 def list_ingest_batches(session: Session, *, limit: int = 20) -> list[IngestBatchSummaryResponse]:
     rows = (
-        session.execute(
-            select(IngestBatch).order_by(IngestBatch.created_at.desc()).limit(limit)
-        )
+        session.execute(select(IngestBatch).order_by(IngestBatch.created_at.desc()).limit(limit))
         .scalars()
         .all()
     )

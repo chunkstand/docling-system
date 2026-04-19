@@ -49,9 +49,7 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
         )
 
     def fake_compare_search_replay_runs(session, baseline_replay_run_id, candidate_replay_run_id):
-        improved_count = int(
-            candidate_replay_run_id in {candidate_eval_id, candidate_feedback_id}
-        )
+        improved_count = int(candidate_replay_run_id in {candidate_eval_id, candidate_feedback_id})
         return SimpleNamespace(
             shared_query_count=3,
             improved_count=improved_count,

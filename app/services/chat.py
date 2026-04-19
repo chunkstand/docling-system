@@ -11,9 +11,9 @@ from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
-from app.core.logging import get_logger
 from app.db.models import ChatAnswerFeedback, ChatAnswerRecord
 from app.schemas.chat import (
     ChatAnswerFeedbackCreateRequest,
@@ -71,6 +71,8 @@ QUESTION_STOPWORDS = {
 }
 
 logger = get_logger(__name__)
+
+
 def _page_label(page_from: int | None, page_to: int | None) -> str:
     if page_from is None and page_to is None:
         return "unknown pages"
@@ -246,9 +248,7 @@ def _normalize_question_query(question: str) -> str | None:
     return normalized
 
 
-def _missing_qualified_date_phrases(
-    question: str, citations: list[ChatCitation]
-) -> list[str]:
+def _missing_qualified_date_phrases(question: str, citations: list[ChatCitation]) -> list[str]:
     citation_text = " ".join(
         collapse_whitespace(f"{citation.label} {citation.excerpt}").lower()
         for citation in citations
@@ -422,8 +422,7 @@ def answer_question(
         return response
 
     contexts = [
-        AnswerContext(citation_index=item.citation_index, citation=item)
-        for item in citations
+        AnswerContext(citation_index=item.citation_index, citation=item) for item in citations
     ]
     try:
         answer = generator.generate_answer(question=request.question, contexts=contexts)

@@ -4,6 +4,7 @@ Revision ID: 0010_search_request_history
 Revises: 0009_run_failure_artifacts
 Create Date: 2026-04-12 12:00:00.000000
 """
+
 from __future__ import annotations
 
 import sqlalchemy as sa

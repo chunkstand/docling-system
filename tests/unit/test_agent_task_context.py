@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 
 from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency, SearchReplayRun
-from app.schemas.agent_tasks import ContextRef, ContextFreshnessStatus, TaskContextEnvelope
+from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.agent_task_context import (
     refresh_task_context_freshness,
     resolve_required_dependency_task_output_context,
@@ -16,9 +16,13 @@ from app.services.agent_task_context import (
 
 
 def _payload_sha256(payload: dict) -> str:
-    return __import__("hashlib").sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    ).hexdigest()
+    return (
+        __import__("hashlib")
+        .sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        )
+        .hexdigest()
+    )
 
 
 class FakeScalarResult:
@@ -314,7 +318,7 @@ def test_refresh_task_context_freshness_detects_stale_missing_and_schema_mismatc
     assert refreshed_mismatch.refs[0].freshness_status == ContextFreshnessStatus.SCHEMA_MISMATCH
 
 
-def test_resolve_required_task_output_context_blocks_missing_and_schema_mismatch_but_not_stale() -> None:
+def test_required_task_output_context_blocks_missing_and_schema_mismatch() -> None:
     task_id = uuid4()
     now = datetime.now(UTC)
     task = _build_draft_task(task_id=task_id, updated_at=now)
@@ -375,7 +379,8 @@ def test_resolve_required_task_output_context_blocks_missing_and_schema_mismatch
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert exc.detail == "rerun required"
+        assert exc.detail["code"] == "agent_task_context_output_missing"
+        assert exc.detail["message"] == "rerun required"
     else:
         raise AssertionError("Expected missing context to block")
 
@@ -394,9 +399,67 @@ def test_resolve_required_task_output_context_blocks_missing_and_schema_mismatch
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert exc.detail == "rerun required"
+        assert exc.detail["code"] == "agent_task_context_output_schema_mismatch"
+        assert exc.detail["message"] == "rerun required"
     else:
         raise AssertionError("Expected schema mismatch to block")
+
+
+def test_resolve_required_task_output_context_uses_structured_errors_for_task_state() -> None:
+    task_id = uuid4()
+    now = datetime.now(UTC)
+    wrong_type_task = _build_draft_task(task_id=task_id, updated_at=now)
+    wrong_type_task.task_type = "evaluate_search_harness"
+    incomplete_task = _build_draft_task(task_id=task_id, updated_at=now)
+    incomplete_task.status = "processing"
+
+    try:
+        resolve_required_task_output_context(
+            FakeSession(),
+            task_id=task_id,
+            expected_task_type="draft_harness_config_update",
+            expected_schema_name="draft_harness_config_update_output",
+            expected_schema_version="1.0",
+            rerun_message="rerun required",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail["code"] == "agent_task_context_target_task_not_found"
+        assert exc.detail["context"]["task_id"] == str(task_id)
+    else:
+        raise AssertionError("Expected missing task to block")
+
+    try:
+        resolve_required_task_output_context(
+            FakeSession(tasks={task_id: wrong_type_task}),
+            task_id=task_id,
+            expected_task_type="draft_harness_config_update",
+            expected_schema_name="draft_harness_config_update_output",
+            expected_schema_version="1.0",
+            rerun_message="rerun required",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail["code"] == "agent_task_context_target_task_type_mismatch"
+        assert exc.detail["context"]["actual_task_type"] == "evaluate_search_harness"
+    else:
+        raise AssertionError("Expected wrong task type to block")
+
+    try:
+        resolve_required_task_output_context(
+            FakeSession(tasks={task_id: incomplete_task}),
+            task_id=task_id,
+            expected_task_type="draft_harness_config_update",
+            expected_schema_name="draft_harness_config_update_output",
+            expected_schema_version="1.0",
+            rerun_message="rerun required",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail["code"] == "agent_task_context_target_task_not_completed"
+        assert exc.detail["context"]["task_status"] == "processing"
+    else:
+        raise AssertionError("Expected incomplete task to block")
 
 
 def test_resolve_required_dependency_task_output_context_requires_matching_role() -> None:
@@ -477,7 +540,8 @@ def test_resolve_required_dependency_task_output_context_requires_matching_role(
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert exc.detail == "wrong dependency kind"
+        assert exc.detail["code"] == "agent_task_context_dependency_mismatch"
+        assert exc.detail["message"] == "wrong dependency kind"
     else:
         raise AssertionError("Expected mismatched dependency kind to block")
 

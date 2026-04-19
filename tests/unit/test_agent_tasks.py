@@ -617,6 +617,7 @@ def test_create_apply_harness_task_auto_adds_draft_and_verification_dependencies
         verification_task_id,
     }
 
+
 def test_agent_task_trends_bucket_attempt_metrics_with_attempt_task() -> None:
     first_created = datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
     second_created = datetime(2026, 4, 13, 10, 0, tzinfo=UTC)

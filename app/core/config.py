@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -17,6 +19,13 @@ DEFAULT_REMOTE_API_CAPABILITIES = frozenset(
         "chat:feedback",
     }
 )
+
+
+@dataclass(frozen=True)
+class ResolvedApiCredential:
+    actor: str
+    key: str
+    capabilities: frozenset[str]
 
 
 class Settings(BaseSettings):
@@ -37,6 +46,7 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     api_key: str | None = None
+    api_credentials_json: str | None = None
     remote_api_capabilities: str | None = None
     remote_ingest_max_inflight_runs: int | None = 8
     openai_api_key: str | None = None
@@ -84,11 +94,62 @@ def resolve_remote_api_capabilities(settings: Settings | None = None) -> set[str
     configured_capabilities = getattr(current_settings, "remote_api_capabilities", None)
     if configured_capabilities is None:
         return set(DEFAULT_REMOTE_API_CAPABILITIES)
-    return {
-        item.strip()
-        for item in configured_capabilities.split(",")
-        if item.strip()
-    }
+    return {item.strip() for item in configured_capabilities.split(",") if item.strip()}
+
+
+def resolve_api_credentials(
+    settings: Settings | None = None,
+) -> tuple[ResolvedApiCredential, ...]:
+    current_settings = settings or get_settings()
+    configured_credentials = getattr(current_settings, "api_credentials_json", None)
+    if configured_credentials:
+        try:
+            payload = json.loads(configured_credentials)
+        except json.JSONDecodeError as exc:
+            raise ValueError("DOCLING_SYSTEM_API_CREDENTIALS_JSON must be valid JSON.") from exc
+        if not isinstance(payload, list):
+            raise ValueError("DOCLING_SYSTEM_API_CREDENTIALS_JSON must decode to a list.")
+
+        resolved_credentials: list[ResolvedApiCredential] = []
+        for index, raw_credential in enumerate(payload, start=1):
+            if not isinstance(raw_credential, dict):
+                raise ValueError("DOCLING_SYSTEM_API_CREDENTIALS_JSON entries must be objects.")
+            key = str(raw_credential.get("key") or "").strip()
+            if not key:
+                raise ValueError("Each API credential must include a non-empty 'key'.")
+            actor = str(raw_credential.get("actor") or f"credential_{index}").strip()
+            raw_capabilities = raw_credential.get("capabilities")
+            if raw_capabilities is None:
+                capabilities = set(DEFAULT_REMOTE_API_CAPABILITIES)
+            elif isinstance(raw_capabilities, str):
+                capabilities = {
+                    item.strip() for item in raw_capabilities.split(",") if item.strip()
+                }
+            elif isinstance(raw_capabilities, list):
+                capabilities = {str(item).strip() for item in raw_capabilities if str(item).strip()}
+            else:
+                raise ValueError(
+                    "API credential capabilities must be a comma-separated string or list."
+                )
+            resolved_credentials.append(
+                ResolvedApiCredential(
+                    actor=actor,
+                    key=key,
+                    capabilities=frozenset(capabilities),
+                )
+            )
+        return tuple(resolved_credentials)
+
+    legacy_api_key = getattr(current_settings, "api_key", None)
+    if not legacy_api_key:
+        return ()
+    return (
+        ResolvedApiCredential(
+            actor="legacy_api_key",
+            key=legacy_api_key,
+            capabilities=frozenset(resolve_remote_api_capabilities(current_settings)),
+        ),
+    )
 
 
 @lru_cache(maxsize=1)

@@ -4,11 +4,12 @@ Revision ID: 0008_run_evaluations
 Revises: 0007_document_figures
 Create Date: 2026-04-11 18:50:00.000000
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0008_run_evaluations"
 down_revision = "0007_document_figures"
@@ -27,7 +28,9 @@ def upgrade() -> None:
         sa.Column("status", sa.Text(), nullable=False, server_default="pending"),
         sa.Column(
             "summary",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
@@ -40,7 +43,12 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["run_id"], ["document_runs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("run_id", "corpus_name", "eval_version", name="uq_document_run_evaluations_run_corpus_version"),
+        sa.UniqueConstraint(
+            "run_id",
+            "corpus_name",
+            "eval_version",
+            name="uq_document_run_evaluations_run_corpus_version",
+        ),
     )
     op.create_index("ix_document_run_evaluations_run_id", "document_run_evaluations", ["run_id"])
     op.create_index("ix_document_run_evaluations_status", "document_run_evaluations", ["status"])
@@ -53,7 +61,9 @@ def upgrade() -> None:
         sa.Column("mode", sa.Text(), nullable=False),
         sa.Column(
             "filters",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
@@ -71,21 +81,39 @@ def upgrade() -> None:
         sa.Column("baseline_label", sa.Text(), nullable=True),
         sa.Column(
             "details",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["evaluation_id"], ["document_run_evaluations.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(
+            ["evaluation_id"], ["document_run_evaluations.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_document_run_evaluation_queries_evaluation_id", "document_run_evaluation_queries", ["evaluation_id"])
-    op.create_index("ix_document_run_evaluation_queries_query_text", "document_run_evaluation_queries", ["query_text"])
+    op.create_index(
+        "ix_document_run_evaluation_queries_evaluation_id",
+        "document_run_evaluation_queries",
+        ["evaluation_id"],
+    )
+    op.create_index(
+        "ix_document_run_evaluation_queries_query_text",
+        "document_run_evaluation_queries",
+        ["query_text"],
+    )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_document_run_evaluation_queries_query_text", table_name="document_run_evaluation_queries")
-    op.drop_index("ix_document_run_evaluation_queries_evaluation_id", table_name="document_run_evaluation_queries")
+    op.drop_index(
+        "ix_document_run_evaluation_queries_query_text",
+        table_name="document_run_evaluation_queries",
+    )
+    op.drop_index(
+        "ix_document_run_evaluation_queries_evaluation_id",
+        table_name="document_run_evaluation_queries",
+    )
     op.drop_table("document_run_evaluation_queries")
     op.drop_index("ix_document_run_evaluations_status", table_name="document_run_evaluations")
     op.drop_index("ix_document_run_evaluations_run_id", table_name="document_run_evaluations")

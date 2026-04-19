@@ -384,9 +384,7 @@ def _normalized_document_sha256(value: str | None) -> str | None:
 
 
 def _fixture_document_sha256(document: dict) -> str | None:
-    return _normalized_document_sha256(
-        document.get("sha256") or document.get("document_sha256")
-    )
+    return _normalized_document_sha256(document.get("sha256") or document.get("document_sha256"))
 
 
 def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[EvaluationFixture]:
@@ -450,9 +448,7 @@ def fixture_for_document(
     if len(filename_matches) == 1:
         return filename_matches[0]
 
-    manual_matches = [
-        fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND
-    ]
+    manual_matches = [fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND]
     if len(manual_matches) == 1:
         return manual_matches[0]
     return None
@@ -473,8 +469,7 @@ def _collapse_adjacent_duplicate_words(value: str) -> str:
         if (
             collapsed
             and normalized_word
-            and normalized_word
-            == re.sub(r"[^A-Za-z0-9]+", "", collapsed[-1]).lower()
+            and normalized_word == re.sub(r"[^A-Za-z0-9]+", "", collapsed[-1]).lower()
         ):
             continue
         collapsed.append(word)
@@ -1099,10 +1094,7 @@ def _table_matches_merge_expectation(
         and getattr(table, "page_from", None) != expectation.page_from
     ):
         return False
-    if (
-        expectation.page_to is not None
-        and getattr(table, "page_to", None) != expectation.page_to
-    ):
+    if expectation.page_to is not None and getattr(table, "page_to", None) != expectation.page_to:
         return False
     if _source_segment_count(table) < expectation.minimum_source_segment_count:
         return False
@@ -1129,9 +1121,7 @@ def _answer_excerpt(answer_text: str, limit: int = 180) -> str:
 def _missing_answer_substrings(answer_text: str, expected_substrings: list[str]) -> list[str]:
     normalized_answer = answer_text.lower()
     return [
-        substring
-        for substring in expected_substrings
-        if substring.lower() not in normalized_answer
+        substring for substring in expected_substrings if substring.lower() not in normalized_answer
     ]
 
 
@@ -1786,9 +1776,7 @@ def _summarize_structural_checks(
     expectation_results: list[dict] = []
     for expectation in thresholds.expected_merged_tables:
         matches = [
-            table
-            for table in merged_tables
-            if _table_matches_merge_expectation(table, expectation)
+            table for table in merged_tables if _table_matches_merge_expectation(table, expectation)
         ]
         matched_merged_ids.update(id(table) for table in matches)
         expectation_results.append(

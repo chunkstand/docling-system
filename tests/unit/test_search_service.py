@@ -102,10 +102,7 @@ def test_is_tabular_query_does_not_treat_identifier_like_filename_as_tabular() -
 
 def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:
     assert _classify_query_intent("TABLE 701.2") == "tabular"
-    assert (
-        _classify_query_intent("What is the main claim of The Bitter Lesson?")
-        == "prose_lookup"
-    )
+    assert _classify_query_intent("What is the main claim of The Bitter Lesson?") == "prose_lookup"
     assert (
         _classify_query_intent(
             "Summarize the major themes across the wildlife report and explain how they connect."
@@ -331,7 +328,9 @@ def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> No
         "app.services.search._run_semantic_table_search",
         lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
     )
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider()
+    )
     monkeypatch.setattr(
         "app.services.search.observe_search_results",
         lambda table_hits, mixed_request: None,
@@ -473,7 +472,9 @@ def test_prose_v3_metadata_supplement_prefers_exact_phrase_cover_letter_probe(
                 document_title="Chalk Buttes Cover Letter",
                 page_from=1,
                 page_to=1,
-                chunk_text="Dear Interested Party, the Chalk Buttes project is available for review.",
+                chunk_text=(
+                    "Dear Interested Party, the Chalk Buttes project is available for review."
+                ),
                 heading=None,
                 keyword_score=6.5,
                 retrieval_sources=("metadata_supplement",),
@@ -517,7 +518,9 @@ def test_prose_v3_metadata_supplement_prefers_exact_phrase_cover_letter_probe(
         "app.services.search._run_semantic_table_search",
         lambda session, request, query_embedding, candidate_limit=None, run_id=None: [],
     )
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider()
+    )
     monkeypatch.setattr(
         "app.services.search.observe_search_results",
         lambda table_hits, mixed_request: None,
@@ -538,7 +541,9 @@ def test_prose_v3_metadata_supplement_prefers_exact_phrase_cover_letter_probe(
     assert execution.results[0].source_filename == "Chalk Buttes Cover Letter.pdf"
 
 
-def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunks(monkeypatch) -> None:
+def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunks(
+    monkeypatch,
+) -> None:
     table_document_id = uuid4()
 
     class FakeEmbeddingProvider:
@@ -594,7 +599,9 @@ def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunk
                 page_from=2,
                 page_to=2,
                 table_title="Table 1",
-                table_heading="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+                table_heading=(
+                    "Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t"
+                ),
                 table_preview="Habitat type | Species",
                 row_count=2,
                 col_count=2,
@@ -620,7 +627,9 @@ def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunk
                 page_from=2,
                 page_to=2,
                 table_title="Table 1",
-                table_heading="Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t",
+                table_heading=(
+                    "Forest habitat types and Abies lasiocarpa/Streptopus amplexifolius h.t"
+                ),
                 table_preview="Habitat type | Species",
                 row_count=2,
                 col_count=2,
@@ -629,7 +638,9 @@ def test_filtered_hybrid_query_keeps_table_ahead_of_filename_only_metadata_chunk
             )
         ],
     )
-    monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider())
+    monkeypatch.setattr(
+        "app.services.search.get_embedding_provider", lambda: FakeEmbeddingProvider()
+    )
     monkeypatch.setattr(
         "app.services.search.observe_search_results",
         lambda table_hits, mixed_request: None,
@@ -774,8 +785,7 @@ def test_prose_query_prefers_document_with_source_title_overlap(monkeypatch) -> 
                 page_from=2,
                 page_to=2,
                 chunk_text=(
-                    "General methods that leverage computation are ultimately "
-                    "the most effective."
+                    "General methods that leverage computation are ultimately the most effective."
                 ),
                 heading="The Bitter Lesson",
                 keyword_score=0.8,
@@ -1073,8 +1083,7 @@ def test_execute_search_falls_back_to_relaxed_keyword_matching(monkeypatch) -> N
                 page_from=1,
                 page_to=1,
                 chunk_text=(
-                    "General methods that leverage computation are ultimately the most "
-                    "effective."
+                    "General methods that leverage computation are ultimately the most effective."
                 ),
                 heading=None,
                 keyword_score=0.4,
@@ -1291,7 +1300,6 @@ def test_execute_search_uses_metadata_supplement_as_zero_result_fallback(monkeyp
             return None
 
     document_id = uuid4()
-    run_id = uuid4()
     chunk_id = uuid4()
 
     monkeypatch.setattr(
@@ -1367,7 +1375,6 @@ def test_execute_search_default_v1_uses_metadata_supplement_for_identifier_looku
             return None
 
     document_id = uuid4()
-    run_id = uuid4()
     chunk_id = uuid4()
 
     monkeypatch.setattr(
@@ -1628,7 +1635,10 @@ def test_execute_search_default_v1_does_not_run_metadata_supplement(monkeypatch)
     request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
 
     assert execution.details["metadata_candidate_count"] == 0
-    assert request_rows[0].details_json["candidate_source_breakdown"].get("metadata_supplement", 0) == 0
+    assert (
+        request_rows[0].details_json["candidate_source_breakdown"].get("metadata_supplement", 0)
+        == 0
+    )
 
 
 def test_execute_search_does_not_rollback_before_persisting_evaluation_request(monkeypatch) -> None:
@@ -1785,7 +1795,9 @@ def test_execute_search_uses_camel_case_source_filename_exact_match(monkeypatch)
                 document_id=uuid4(),
                 run_id=uuid4(),
                 source_filename="BabcockLEX.pdf",
-                document_title="Chapter 1: National Forest Land Exchanges and Land Grant Timber Companies",
+                document_title=(
+                    "Chapter 1: National Forest Land Exchanges and Land Grant Timber Companies"
+                ),
                 page_from=1,
                 page_to=1,
                 chunk_index=0,

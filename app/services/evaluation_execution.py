@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 from uuid import UUID
 
 from app.db.models import Document, DocumentRun, DocumentRunEvaluationQuery
@@ -48,7 +49,7 @@ class EvaluationBatchResult:
         self.improved_queries += int(outcome["delta_kind"] == "improved")
         self.stable_queries += int(outcome["delta_kind"] == "stable")
 
-    def merge(self, other: "EvaluationBatchResult") -> "EvaluationBatchResult":
+    def merge(self, other: EvaluationBatchResult) -> EvaluationBatchResult:
         return EvaluationBatchResult(
             query_count=self.query_count + other.query_count,
             retrieval_query_count=self.retrieval_query_count + other.retrieval_query_count,

@@ -226,9 +226,7 @@ def get_search_request_detail(
 def replay_search_request(session: Session, search_request_id: UUID) -> SearchReplayResponse:
     request_row = _load_request_row(session, search_request_id)
     filters = (
-        SearchFilters.model_validate(request_row.filters_json)
-        if request_row.filters_json
-        else None
+        SearchFilters.model_validate(request_row.filters_json) if request_row.filters_json else None
     )
     execution = execute_search(
         session,

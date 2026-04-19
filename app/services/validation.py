@@ -21,9 +21,10 @@ class ValidationReport:
 
 def _table_has_ambiguous_structure(table: ParsedTable) -> bool:
     metadata = table.metadata
-    return bool(metadata.get("ambiguous_continuation_candidate")) or float(
-        metadata.get("merge_confidence") or 1.0
-    ) < 0.9
+    return (
+        bool(metadata.get("ambiguous_continuation_candidate"))
+        or float(metadata.get("merge_confidence") or 1.0) < 0.9
+    )
 
 
 def _table_validation_findings(table: ParsedTable, detail: dict) -> tuple[list[dict], list[dict]]:
@@ -191,8 +192,10 @@ def validate_persisted_run(
         and figure_checks["detected_count_matches_persisted"]
         and figure_checks["all_figure_checks_passed"]
     )
-    summary = "Validation passed with warnings." if passed and warnings else (
-        "Validation passed." if passed else "Validation failed."
+    summary = (
+        "Validation passed with warnings."
+        if passed and warnings
+        else ("Validation passed." if passed else "Validation failed.")
     )
     details = {
         "summary": summary,

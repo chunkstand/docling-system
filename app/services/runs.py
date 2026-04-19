@@ -48,6 +48,8 @@ class ValidationError(ValueError):
     def __init__(self, report: ValidationReport) -> None:
         super().__init__(report.summary)
         self.report = report
+
+
 logger = get_logger(__name__)
 
 

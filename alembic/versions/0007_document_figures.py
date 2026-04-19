@@ -4,11 +4,12 @@ Revision ID: 0007_document_figures
 Revises: 0006_table_hardening_fields
 Create Date: 2026-04-10 14:45:00.000000
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "0007_document_figures"
 down_revision = "0006_table_hardening_fields"
@@ -34,7 +35,9 @@ def upgrade() -> None:
         sa.Column("status", sa.Text(), nullable=False, server_default="persisted"),
         sa.Column(
             "metadata",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),

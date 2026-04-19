@@ -16,8 +16,8 @@ from app.services.evaluations import (
     _summarize_retrieval_rank_metrics,
     _summarize_structural_checks,
     build_auto_evaluation_fixture_document,
-    evaluate_run,
     ensure_auto_evaluation_fixture,
+    evaluate_run,
     fixture_for_document,
     load_evaluation_fixtures,
     resolve_baseline_run_id,
@@ -37,8 +37,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert len(chapter_five.queries) >= 4
     assert len(chapter_five.thresholds.expected_merged_tables) == 1
     assert (
-        chapter_five.thresholds.expected_merged_tables[0].overlay_family_key
-        == "TABLE 510.1.2(2)"
+        chapter_five.thresholds.expected_merged_tables[0].overlay_family_key == "TABLE 510.1.2(2)"
     )
 
     appendix_b = next(
@@ -70,14 +69,11 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
         "computation",
     ]
     assert bitter_lesson.queries[-1].expected_source_filename == "The Bitter Lesson.pdf"
-    assert (
-        bitter_lesson.queries[-1].expected_top_result_source_filename == "The Bitter Lesson.pdf"
-    )
+    assert bitter_lesson.queries[-1].expected_top_result_source_filename == "The Bitter Lesson.pdf"
     assert bitter_lesson.queries[-1].minimum_top_n_hits_from_expected_document == 2
     assert bitter_lesson.queries[-1].maximum_foreign_results_before_first_expected_hit == 0
     assert (
-        bitter_lesson.answer_queries[0].expected_citation_source_filename
-        == "The Bitter Lesson.pdf"
+        bitter_lesson.answer_queries[0].expected_citation_source_filename == "The Bitter Lesson.pdf"
     )
     assert bitter_lesson.answer_queries[0].maximum_foreign_citations == 0
 
@@ -146,8 +142,7 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert len(wildlife_report.queries) == 5
     assert len(wildlife_report.answer_queries) == 1
     assert (
-        wildlife_report.queries[-1].expected_source_filename
-        == "20251215_TK_WildlifeSpecReport.pdf"
+        wildlife_report.queries[-1].expected_source_filename == "20251215_TK_WildlifeSpecReport.pdf"
     )
     assert wildlife_report.queries[-1].expected_result_type == "table"
     assert (
@@ -351,7 +346,7 @@ def test_build_auto_evaluation_fixture_document_strips_date_prefix_from_filename
     assert chunk_queries[0]["query"] == "TK SoilReport"
 
 
-def test_build_auto_evaluation_fixture_document_skips_ambiguous_chunk_queries_when_tables_exist() -> None:
+def test_auto_fixture_skips_ambiguous_chunk_queries_when_tables_exist() -> None:
     fixture = build_auto_evaluation_fixture_document(
         "TaylorParkRTC_Scoping.pdf",
         title="Table of Contents",
@@ -432,7 +427,7 @@ def test_build_auto_evaluation_fixture_document_skips_cover_boilerplate_when_tab
     ]
 
 
-def test_build_auto_evaluation_fixture_document_uses_cover_title_when_metadata_title_is_heading() -> None:
+def test_auto_fixture_uses_cover_title_when_metadata_title_is_heading() -> None:
     fixture = build_auto_evaluation_fixture_document(
         "GMUG SUHFER EA_Biological Assessment_March 2026.pdf",
         title="1.0 Introduction",
@@ -485,7 +480,9 @@ def test_build_auto_evaluation_fixture_document_uses_cover_title_when_metadata_t
     ]
 
 
-def test_build_auto_evaluation_fixture_document_skips_alternative_headings_when_tables_exist() -> None:
+def test_build_auto_evaluation_fixture_document_skips_alternative_headings_when_tables_exist() -> (
+    None
+):
     fixture = build_auto_evaluation_fixture_document(
         "GMUG SUHFER EA_Biological Assessment_March 2026.pdf",
         title="1.0 Introduction",
@@ -528,7 +525,7 @@ def test_build_auto_evaluation_fixture_document_skips_alternative_headings_when_
     ]
 
 
-def test_build_auto_evaluation_fixture_document_skips_forwarded_headers_and_project_report_queries() -> None:
+def test_auto_fixture_skips_forwarded_headers_and_project_report_queries() -> None:
     fixture = build_auto_evaluation_fixture_document(
         "Losensky1993HistoricalVegetationR1ByClimaticSection.pdf",
         title=None,
@@ -615,8 +612,8 @@ def test_build_auto_evaluation_fixture_document_skips_duplicate_word_table_queri
             SimpleNamespace(
                 title="Population",
                 heading=None,
-                preview_text="Population ................................................................................................ | 4",
-                search_text="Population Population ................................................................................................ | 4",
+                preview_text="Population " + ("." * 96) + " | 4",
+                search_text="Population Population " + ("." * 96) + " | 4",
             ),
             SimpleNamespace(
                 title="Age and Gender",
@@ -632,7 +629,9 @@ def test_build_auto_evaluation_fixture_document_skips_duplicate_word_table_queri
     assert [entry["query"] for entry in table_queries] == ["Age and Gender"]
 
 
-def test_build_auto_evaluation_fixture_document_builds_specific_table_queries_from_pipe_cells() -> None:
+def test_build_auto_evaluation_fixture_document_builds_specific_table_queries_from_pipe_cells() -> (
+    None
+):
     fixture = build_auto_evaluation_fixture_document(
         "K-003-55_12022025_TK_Kosterman, M. 2018..pdf",
         title="Canada lynx habitat relationships",
@@ -648,20 +647,16 @@ def test_build_auto_evaluation_fixture_document_builds_specific_table_queries_fr
                 title=None,
                 heading=None,
                 preview_text=(
-                    "Forest structure class. | Stand description | "
-                    "Relationship to snowshoe hares"
+                    "Forest structure class. | Stand description | Relationship to snowshoe hares"
                 ),
                 search_text=(
-                    "Forest structure class. | Stand description | "
-                    "Relationship to snowshoe hares"
+                    "Forest structure class. | Stand description | Relationship to snowshoe hares"
                 ),
             ),
             SimpleNamespace(
                 title="Table 2. Survival of Young",
                 heading="Chapter 3",
-                preview_text=(
-                    "Survival of Young | Management Considerations | Research Needs"
-                ),
+                preview_text=("Survival of Young | Management Considerations | Research Needs"),
                 search_text=(
                     "Table 2. Survival of Young\nChapter 3\n"
                     "Survival of Young | Management Considerations | Research Needs"
@@ -846,8 +841,12 @@ def test_build_auto_evaluation_fixture_document_skips_contents_pipe_table_querie
             SimpleNamespace(
                 title=None,
                 heading=None,
-                preview_text="Contents | __________________________________ Page What forest resources are",
-                search_text="Contents | __________________________________ Page What forest resources are",
+                preview_text=(
+                    "Contents | __________________________________ Page What forest resources are"
+                ),
+                search_text=(
+                    "Contents | __________________________________ Page What forest resources are"
+                ),
             ),
             SimpleNamespace(
                 title="Forest Resources at Risk",
@@ -878,20 +877,16 @@ def test_build_auto_evaluation_fixture_document_skips_cfr_and_report_title_table
             SimpleNamespace(
                 title=None,
                 heading="50 CFR Part 17",
-                preview_text=(
-                    "Species | Historic Range | Critical habitat | Special rules"
-                ),
+                preview_text=("Species | Historic Range | Critical habitat | Special rules"),
                 search_text=(
-                    "50 CFR Part 17\nSpecies | Historic Range | Critical habitat | "
-                    "Special rules"
+                    "50 CFR Part 17\nSpecies | Historic Range | Critical habitat | Special rules"
                 ),
             ),
             SimpleNamespace(
                 title=None,
                 heading="2022 FORESTRY BMP FIELD REVIEW REPORT",
                 preview_text=(
-                    "Page\nFigure 1: Application and Effectiveness of High Risk BMPs "
-                    "1990-2022 | 19"
+                    "Page\nFigure 1: Application and Effectiveness of High Risk BMPs 1990-2022 | 19"
                 ),
                 search_text=(
                     "2022 FORESTRY BMP FIELD REVIEW REPORT\nPage\nFigure 1: "
@@ -923,21 +918,20 @@ def test_build_auto_evaluation_fixture_document_skips_stat_header_table_queries(
             SimpleNamespace(
                 title="Table 2.",
                 heading="2022 Howard Creek",
-                preview_text=(
-                    "WEPE Occupancy Pre- 2010 | 2022 # revisited | "
-                    "Δ Trend p-value"
-                ),
+                preview_text=("WEPE Occupancy Pre- 2010 | 2022 # revisited | Δ Trend p-value"),
                 search_text=(
                     "Table 2.\n2022 Howard Creek\nWEPE Occupancy Pre- 2010 | "
                     "2022 # revisited | Δ Trend p-value"
                 ),
             ),
             SimpleNamespace(
-                title="Appendix A. Mussel survey population data and viability ranks from pre-2010 and 2014.",
+                title=(
+                    "Appendix A. Mussel survey population data and viability "
+                    "ranks from pre-2010 and 2014."
+                ),
                 heading="2022 Howard Creek",
                 preview_text=(
-                    "4th_Code HUC | StreamName | Viability Rank pre-2010 | "
-                    "Viability Rank 2014"
+                    "4th_Code HUC | StreamName | Viability Rank pre-2010 | Viability Rank 2014"
                 ),
                 search_text=(
                     "Appendix A. Mussel survey population data and viability ranks "
@@ -973,21 +967,15 @@ def test_build_auto_evaluation_fixture_document_skips_author_bylines_and_pipe_ro
             SimpleNamespace(
                 heading=None,
                 page_from=1,
-                text=(
-                    "Measuring Landscape Esthetics: The Scenic Beauty Estimation Method"
-                ),
+                text=("Measuring Landscape Esthetics: The Scenic Beauty Estimation Method"),
             ),
         ],
         tables=[
             SimpleNamespace(
                 title=None,
                 heading=None,
-                preview_text=(
-                    "1 | LANDSCAPE EVALUATION: OVERVIEW 2 | What's in a Name?"
-                ),
-                search_text=(
-                    "1 | LANDSCAPE EVALUATION: OVERVIEW 2 | What's in a Name?"
-                ),
+                preview_text=("1 | LANDSCAPE EVALUATION: OVERVIEW 2 | What's in a Name?"),
+                search_text=("1 | LANDSCAPE EVALUATION: OVERVIEW 2 | What's in a Name?"),
             ),
             SimpleNamespace(
                 title=None,
@@ -1372,7 +1360,9 @@ def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:
         state["fixture_calls"] += 1
         return fixture
 
-    monkeypatch.setattr("app.services.evaluations._upsert_evaluation_row", lambda *args, **kwargs: evaluation_row)
+    monkeypatch.setattr(
+        "app.services.evaluations._upsert_evaluation_row", lambda *args, **kwargs: evaluation_row
+    )
     monkeypatch.setattr("app.services.evaluations.fixture_for_document", fake_fixture_for_document)
     monkeypatch.setattr(
         "app.services.evaluations.ensure_auto_evaluation_fixture",
@@ -1446,7 +1436,9 @@ def test_evaluate_run_persists_failed_row_when_auto_fixture_refresh_raises(monke
         "app.services.evaluations._upsert_evaluation_row",
         lambda *args, **kwargs: rows.pop(0),
     )
-    monkeypatch.setattr("app.services.evaluations.fixture_for_document", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        "app.services.evaluations.fixture_for_document", lambda *args, **kwargs: None
+    )
     monkeypatch.setattr(
         "app.services.evaluations.ensure_auto_evaluation_fixture",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fixture refresh failed")),

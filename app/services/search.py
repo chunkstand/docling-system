@@ -38,9 +38,7 @@ QUERY_INTENT_PROSE_BROAD = "prose_broad"
 PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
 PROSE_ADJACENT_EXPANSION_LIMIT = 12
 PROSE_ADJACENT_SEED_LIMIT = 6
-TABULAR_REFERENCE_PATTERN = re.compile(
-    r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b"
-)
+TABULAR_REFERENCE_PATTERN = re.compile(r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b")
 
 
 @dataclass
@@ -115,8 +113,7 @@ class SearchReranker(Protocol):
         tabular_query: bool,
         query_intent: str,
         query_features: QueryFeatureSet | None = None,
-    ) -> list[RerankedResult]:
-        ...
+    ) -> list[RerankedResult]: ...
 
 
 @dataclass(frozen=True)
@@ -463,9 +460,7 @@ class LinearFeatureSearchReranker:
                         "document_title_boost": document_title_boost,
                         "document_cluster_strength": document_cluster_strength,
                         "prose_document_cluster_boost": prose_document_cluster_boost,
-                        "heading_token_coverage": prose_match_features[
-                            "heading_token_coverage"
-                        ],
+                        "heading_token_coverage": prose_match_features["heading_token_coverage"],
                         "heading_boost": heading_boost,
                         "phrase_overlap": prose_match_features["phrase_overlap"],
                         "phrase_overlap_boost": phrase_overlap_boost,
@@ -1088,8 +1083,7 @@ def _query_phrases_from_normalized(normalized: str, phrase_size: int = 2) -> set
     if len(tokens) < phrase_size:
         return set()
     return {
-        " ".join(tokens[idx : idx + phrase_size])
-        for idx in range(len(tokens) - phrase_size + 1)
+        " ".join(tokens[idx : idx + phrase_size]) for idx in range(len(tokens) - phrase_size + 1)
     }
 
 
@@ -1277,9 +1271,9 @@ def _document_cluster_strengths(
     document_score_sums: dict[UUID, float] = {}
     for item in items:
         document_counts[item.document_id] = document_counts.get(item.document_id, 0) + 1
-        document_score_sums[item.document_id] = (
-            document_score_sums.get(item.document_id, 0.0) + score_getter(item)
-        )
+        document_score_sums[item.document_id] = document_score_sums.get(
+            item.document_id, 0.0
+        ) + score_getter(item)
 
     max_count = max(document_counts.values(), default=0)
     max_score_sum = max(document_score_sums.values(), default=0.0)
@@ -1610,9 +1604,7 @@ def _expand_adjacent_chunk_context(
         chunk_statement = _apply_chunk_filters(_chunk_query(run_id), request.filters).where(
             DocumentChunk.document_id == seed.document_id,
             DocumentChunk.run_id == seed.run_id,
-            DocumentChunk.chunk_index.in_(
-                (max(seed.chunk_index - 1, -1), seed.chunk_index + 1)
-            ),
+            DocumentChunk.chunk_index.in_((max(seed.chunk_index - 1, -1), seed.chunk_index + 1)),
         )
         for chunk, document in session.execute(chunk_statement).all():
             key = ("chunk", chunk.id)

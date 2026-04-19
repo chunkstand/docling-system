@@ -224,8 +224,7 @@ def load_ruff_baseline(
     baseline_payload = payload.get("ruff_baseline") or {}
     return {
         str(relative_path): {
-            str(code): int(count)
-            for code, count in sorted((counts or {}).items())
+            str(code): int(count) for code, count in sorted((counts or {}).items())
         }
         for relative_path, counts in sorted(baseline_payload.items())
     }
@@ -339,10 +338,7 @@ def find_file_budget_findings(
                     message=f"{line_count} lines exceeds budget {budget.max_lines}",
                 )
             )
-        if (
-            budget.max_private_helpers is not None
-            and helper_count > budget.max_private_helpers
-        ):
+        if budget.max_private_helpers is not None and helper_count > budget.max_private_helpers:
             findings.append(
                 HygieneFinding(
                     kind="helper_budget",

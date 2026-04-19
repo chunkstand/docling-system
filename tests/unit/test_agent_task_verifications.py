@@ -515,7 +515,7 @@ def test_verify_search_harness_evaluation_task_rejects_pre_context_evaluations()
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "must be rerun after the context migration" in exc.detail
+        assert "must be rerun after the context migration" in exc.detail["message"]
     else:
         raise AssertionError("Expected pre-context evaluation task to be rejected")
 
@@ -686,6 +686,6 @@ def test_verify_draft_harness_config_task_rejects_pre_context_drafts() -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "rerun after the context migration" in exc.detail
+        assert "rerun after the context migration" in exc.detail["message"]
     else:
         raise AssertionError("Expected legacy draft task to be rejected")

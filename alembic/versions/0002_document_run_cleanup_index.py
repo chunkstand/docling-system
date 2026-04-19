@@ -4,10 +4,10 @@ Revision ID: 0002_document_run_cleanup_index
 Revises: 0001_initial
 Create Date: 2026-04-09 00:30:00.000000
 """
+
 from __future__ import annotations
 
 from alembic import op
-
 
 revision = "0002_document_run_cleanup_index"
 down_revision = "0001_initial"

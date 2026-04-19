@@ -81,6 +81,8 @@ def _load_audit_context(session: Session) -> AuditContext:
         figures=session.execute(select(DocumentFigure)).scalars().all(),
         evaluations=session.execute(select(DocumentRunEvaluation)).scalars().all(),
     )
+
+
 def _missing_failure_artifact_fields(payload: dict[str, object]) -> list[str]:
     missing: list[str] = []
     for field in sorted(REQUIRED_FAILURE_ARTIFACT_FIELDS):

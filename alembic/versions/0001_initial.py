@@ -4,12 +4,13 @@ Revision ID: 0001_initial
 Revises:
 Create Date: 2026-04-09 00:00:00.000000
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 
+from alembic import op
 
 revision = "0001_initial"
 down_revision = None
@@ -66,7 +67,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("document_id", "run_number", name="uq_document_runs_doc_run_number"),
     )
 
-    op.create_index("ix_document_runs_status_next_attempt_at", "document_runs", ["status", "next_attempt_at"])
+    op.create_index(
+        "ix_document_runs_status_next_attempt_at", "document_runs", ["status", "next_attempt_at"]
+    )
     op.create_index("ix_document_runs_locked_at", "document_runs", ["locked_at"])
 
     op.create_foreign_key(
@@ -98,7 +101,9 @@ def upgrade() -> None:
         sa.Column("page_to", sa.Integer(), nullable=True),
         sa.Column(
             "metadata",
-            sa.JSON().with_variant(sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"),
+            sa.JSON().with_variant(
+                sa.dialects.postgresql.JSONB(astext_type=sa.Text()), "postgresql"
+            ),
             nullable=False,
             server_default=sa.text("'{}'::jsonb"),
         ),

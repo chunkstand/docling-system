@@ -138,30 +138,30 @@ def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None
 
     monkeypatch.setattr(
         "app.api.main.list_quality_eval_candidates",
-        lambda session, limit=12, include_resolved=False: captured.update(
-            {"limit": limit, "include_resolved": include_resolved}
-        )
-        or [
-            {
-                "candidate_type": "live_search_gap",
-                "reason": "tabular search returned no table hits",
-                "query_text": "table 701.2",
-                "mode": "hybrid",
-                "filters": {},
-                "evaluation_kind": "retrieval",
-                "expected_result_type": "table",
-                "fixture_name": None,
-                "occurrence_count": 3,
-                "latest_seen_at": "2026-04-12T00:00:00Z",
-                "resolution_status": "unresolved",
-                "resolved_at": None,
-                "resolution_reason": None,
-                "document_id": None,
-                "source_filename": None,
-                "evaluation_id": None,
-                "search_request_id": str(search_request_id),
-            }
-        ],
+        lambda session, limit=12, include_resolved=False: (
+            captured.update({"limit": limit, "include_resolved": include_resolved})
+            or [
+                {
+                    "candidate_type": "live_search_gap",
+                    "reason": "tabular search returned no table hits",
+                    "query_text": "table 701.2",
+                    "mode": "hybrid",
+                    "filters": {},
+                    "evaluation_kind": "retrieval",
+                    "expected_result_type": "table",
+                    "fixture_name": None,
+                    "occurrence_count": 3,
+                    "latest_seen_at": "2026-04-12T00:00:00Z",
+                    "resolution_status": "unresolved",
+                    "resolved_at": None,
+                    "resolution_reason": None,
+                    "document_id": None,
+                    "source_filename": None,
+                    "evaluation_id": None,
+                    "search_request_id": str(search_request_id),
+                }
+            ]
+        ),
     )
 
     client = TestClient(app)

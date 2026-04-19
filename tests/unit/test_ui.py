@@ -11,8 +11,7 @@ def test_index_serves_overview_ui() -> None:
     assert response.status_code == 200
     assert "Docling System" in response.text
     assert (
-        "Observe the corpus, verify every change, and promote only what is earned."
-        in response.text
+        "Observe the corpus, verify every change, and promote only what is earned." in response.text
     )
     assert "System diagram" in response.text
     assert "Validation-gated promotion" in response.text

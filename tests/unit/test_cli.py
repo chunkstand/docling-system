@@ -34,10 +34,10 @@ from app.cli import (
     run_backfill_legacy_audit,
     run_eval_candidates,
     run_eval_corpus,
-    run_gate_search_harness_release,
     run_eval_reranker,
     run_eval_run,
     run_export_ranking_dataset,
+    run_gate_search_harness_release,
     run_ingest_batch_list,
     run_ingest_batch_show,
     run_ingest_dir,
@@ -404,32 +404,32 @@ def test_eval_candidates_cli_prints_summary(monkeypatch, capsys) -> None:
     monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
         "app.cli.list_quality_eval_candidates",
-        lambda session, limit=12, include_resolved=False: captured.update(
-            {"limit": limit, "include_resolved": include_resolved}
-        )
-        or [
-            SimpleNamespace(
-                model_dump=lambda mode="json": {
-                    "candidate_type": "live_search_gap",
-                    "reason": "live search returned no results",
-                    "query_text": "vent stack",
-                    "mode": "hybrid",
-                    "filters": {},
-                    "evaluation_kind": "retrieval",
-                    "expected_result_type": None,
-                    "fixture_name": None,
-                    "occurrence_count": 2,
-                    "latest_seen_at": "2026-04-12T00:00:00Z",
-                    "resolution_status": "resolved",
-                    "resolved_at": "2026-04-12T00:05:00Z",
-                    "resolution_reason": "later live search returned results",
-                    "document_id": None,
-                    "source_filename": None,
-                    "evaluation_id": None,
-                    "search_request_id": str(search_request_id),
-                }
-            )
-        ],
+        lambda session, limit=12, include_resolved=False: (
+            captured.update({"limit": limit, "include_resolved": include_resolved})
+            or [
+                SimpleNamespace(
+                    model_dump=lambda mode="json": {
+                        "candidate_type": "live_search_gap",
+                        "reason": "live search returned no results",
+                        "query_text": "vent stack",
+                        "mode": "hybrid",
+                        "filters": {},
+                        "evaluation_kind": "retrieval",
+                        "expected_result_type": None,
+                        "fixture_name": None,
+                        "occurrence_count": 2,
+                        "latest_seen_at": "2026-04-12T00:00:00Z",
+                        "resolution_status": "resolved",
+                        "resolved_at": "2026-04-12T00:05:00Z",
+                        "resolution_reason": "later live search returned results",
+                        "document_id": None,
+                        "source_filename": None,
+                        "evaluation_id": None,
+                        "search_request_id": str(search_request_id),
+                    }
+                )
+            ]
+        ),
     )
 
     run_eval_candidates()
@@ -644,9 +644,7 @@ def test_gate_search_harness_release_cli_prints_passed_gate(monkeypatch, capsys)
     assert output["gate"]["outcome"] == "passed"
 
 
-def test_gate_search_harness_release_cli_exits_nonzero_on_failed_gate(
-    monkeypatch, capsys
-) -> None:
+def test_gate_search_harness_release_cli_exits_nonzero_on_failed_gate(monkeypatch, capsys) -> None:
     class FakeSession:
         def __enter__(self):
             return self
@@ -840,7 +838,9 @@ def test_agent_task_context_cli_prints_json(monkeypatch, capsys) -> None:
     assert output["schema_name"] == "agent_task_context"
 
 
-def test_agent_task_apply_cli_surfaces_consistent_applied_state(monkeypatch, capsys, tmp_path) -> None:
+def test_agent_task_apply_cli_surfaces_consistent_applied_state(
+    monkeypatch, capsys, tmp_path
+) -> None:
     task_id = uuid4()
     artifact_id = uuid4()
     artifact_path = tmp_path / "applied_harness_config_update.json"

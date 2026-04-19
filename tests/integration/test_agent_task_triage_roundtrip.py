@@ -264,12 +264,14 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         )
         assert context_path.exists()
         context_payload = json.loads(context_path.read_text())
-        assert context_payload["summary"]["next_action"] == result_payload["recommendation"][
-            "next_action"
-        ]
-        assert context_payload["summary"]["metrics"]["confidence"] == result_payload[
-            "recommendation"
-        ]["confidence"]
+        assert (
+            context_payload["summary"]["next_action"]
+            == result_payload["recommendation"]["next_action"]
+        )
+        assert (
+            context_payload["summary"]["metrics"]["confidence"]
+            == result_payload["recommendation"]["confidence"]
+        )
         assert {row["ref_key"] for row in context_payload["refs"]} >= {
             "triage_summary_artifact",
             "verification_record",
@@ -289,9 +291,7 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert verification.outcome in {"passed", "failed"}
 
         artifact_rows = (
-            session.execute(
-                select(AgentTaskArtifact).where(AgentTaskArtifact.task_id == task_id)
-            )
+            session.execute(select(AgentTaskArtifact).where(AgentTaskArtifact.task_id == task_id))
             .scalars()
             .all()
         )
@@ -302,9 +302,7 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         artifact_path = Path(artifact.storage_path)
         assert artifact_path.exists()
         assert artifact_path.parent == (
-            postgres_integration_harness.storage_service.storage_root
-            / "agent_tasks"
-            / str(task_id)
+            postgres_integration_harness.storage_service.storage_root / "agent_tasks" / str(task_id)
         )
 
         artifact_payload = json.loads(artifact_path.read_text())
@@ -348,9 +346,10 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
 
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200
-    assert detail_response.json()["context_summary"]["next_action"] == context_response.json()[
-        "summary"
-    ]["next_action"]
+    assert (
+        detail_response.json()["context_summary"]["next_action"]
+        == context_response.json()["summary"]["next_action"]
+    )
     assert detail_response.json()["context_freshness_status"] == "fresh"
 
     verification_response = client.get(f"/agent-tasks/{task_id}/verifications")
@@ -432,9 +431,12 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
         },
     )
     assert export_response.status_code == 200
-    assert export_response.json()["traces"][0]["context_summary"]["metrics"][
-        "total_shared_query_count"
-    ] >= 1
+    assert (
+        export_response.json()["traces"][0]["context_summary"]["metrics"][
+            "total_shared_query_count"
+        ]
+        >= 1
+    )
 
 
 def test_verify_search_harness_evaluation_context_roundtrip(postgres_integration_harness) -> None:
@@ -508,9 +510,10 @@ def test_verify_search_harness_evaluation_context_roundtrip(postgres_integration
     context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert context_response.status_code == 200
     context_json = context_response.json()
-    assert context_json["output"]["verification"]["details"]["thresholds"][
-        "max_total_regressed_count"
-    ] == 0
+    assert (
+        context_json["output"]["verification"]["details"]["thresholds"]["max_total_regressed_count"]
+        == 0
+    )
     assert context_json["refs"][0]["ref_key"] == "target_task_output"
 
     detail_response = client.get(f"/agent-tasks/{verify_task_id}")
@@ -569,9 +572,7 @@ def test_triage_replay_regression_failure_writes_failure_artifact(
         failure_path = Path(task.failure_artifact_path)
         assert failure_path.exists()
         assert failure_path.parent == (
-            postgres_integration_harness.storage_service.storage_root
-            / "agent_tasks"
-            / str(task_id)
+            postgres_integration_harness.storage_service.storage_root / "agent_tasks" / str(task_id)
         )
 
         failure_payload = json.loads(failure_path.read_text())
@@ -648,8 +649,7 @@ def test_enqueue_document_reprocess_requires_approval_before_queuing_new_run(
         assert task.approved_at is not None
         assert task.result_json["payload"]["document_id"] == str(document_id)
         assert (
-            task.result_json["payload"]["reason"]
-            == "shadow-mode triage recommended a fresh parse"
+            task.result_json["payload"]["reason"] == "shadow-mode triage recommended a fresh parse"
         )
         reprocess_payload = task.result_json["payload"]["reprocess"]
         assert reprocess_payload["document_id"] == str(document_id)
@@ -906,26 +906,38 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         assert draft_task_row is not None
         assert draft_task_row.status == AgentTaskStatus.COMPLETED.value
         draft_context_path = (
-            postgres_integration_harness.storage_service.get_agent_task_context_json_path(draft_task_id)
+            postgres_integration_harness.storage_service.get_agent_task_context_json_path(
+                draft_task_id
+            )
         )
         draft_context_yaml_path = (
-            postgres_integration_harness.storage_service.get_agent_task_context_yaml_path(draft_task_id)
+            postgres_integration_harness.storage_service.get_agent_task_context_yaml_path(
+                draft_task_id
+            )
         )
         assert draft_context_path.exists()
         assert draft_context_yaml_path.exists()
         assert draft_task_row.result_json["payload"]["draft"]["draft_harness_name"] == (
             "wide_v2_review_integration"
         )
-        draft_context_row = session.execute(
-            select(AgentTaskArtifact).where(
-                AgentTaskArtifact.task_id == draft_task_id,
-                AgentTaskArtifact.artifact_kind == "context",
+        draft_context_row = (
+            session.execute(
+                select(AgentTaskArtifact).where(
+                    AgentTaskArtifact.task_id == draft_task_id,
+                    AgentTaskArtifact.artifact_kind == "context",
+                )
             )
-        ).scalars().one()
+            .scalars()
+            .one()
+        )
         assert draft_context_row.storage_path == str(draft_context_path)
-        draft_dependencies = session.execute(
-            select(AgentTaskDependency).where(AgentTaskDependency.task_id == draft_task_id)
-        ).scalars().all()
+        draft_dependencies = (
+            session.execute(
+                select(AgentTaskDependency).where(AgentTaskDependency.task_id == draft_task_id)
+            )
+            .scalars()
+            .all()
+        )
         assert len(draft_dependencies) == 1
         assert draft_dependencies[0].depends_on_task_id == triage_task_id
         assert draft_dependencies[0].dependency_kind == AgentTaskDependencyKind.SOURCE_TASK.value
@@ -1029,16 +1041,24 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         )
         assert apply_context_path.exists()
         assert apply_context_yaml_path.exists()
-        apply_context_row = session.execute(
-            select(AgentTaskArtifact).where(
-                AgentTaskArtifact.task_id == apply_task_id,
-                AgentTaskArtifact.artifact_kind == "context",
+        apply_context_row = (
+            session.execute(
+                select(AgentTaskArtifact).where(
+                    AgentTaskArtifact.task_id == apply_task_id,
+                    AgentTaskArtifact.artifact_kind == "context",
+                )
             )
-        ).scalars().one()
+            .scalars()
+            .one()
+        )
         assert apply_context_row.storage_path == str(apply_context_path)
-        apply_dependencies = session.execute(
-            select(AgentTaskDependency).where(AgentTaskDependency.task_id == apply_task_id)
-        ).scalars().all()
+        apply_dependencies = (
+            session.execute(
+                select(AgentTaskDependency).where(AgentTaskDependency.task_id == apply_task_id)
+            )
+            .scalars()
+            .all()
+        )
         assert {row.dependency_kind for row in apply_dependencies} == {
             AgentTaskDependencyKind.DRAFT_TASK.value,
             AgentTaskDependencyKind.VERIFICATION_TASK.value,
@@ -1051,11 +1071,15 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
             "verification_task_output",
             "applied_artifact",
         }
-        apply_attempt = session.execute(
-            select(AgentTaskAttempt)
-            .where(AgentTaskAttempt.task_id == apply_task_id)
-            .order_by(AgentTaskAttempt.attempt_number.desc())
-        ).scalars().first()
+        apply_attempt = (
+            session.execute(
+                select(AgentTaskAttempt)
+                .where(AgentTaskAttempt.task_id == apply_task_id)
+                .order_by(AgentTaskAttempt.attempt_number.desc())
+            )
+            .scalars()
+            .first()
+        )
         assert apply_attempt is not None
         assert apply_attempt.cost_json["estimated_usd"] == 0.0
         assert apply_attempt.performance_json["execution_latency_ms"] is not None
@@ -1169,8 +1193,7 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     value_density_response = client.get("/agent-tasks/analytics/value-density")
     assert value_density_response.status_code == 200
     assert any(
-        row["workflow_version"] == "milestone8_integration"
-        for row in value_density_response.json()
+        row["workflow_version"] == "milestone8_integration" for row in value_density_response.json()
     )
 
     decision_signals_response = client.get("/agent-tasks/analytics/decision-signals")

@@ -20,8 +20,8 @@ from app.services.documents import (
     _resolve_existing_document_upload,
     _to_run_summary,
     _validate_local_ingest_path,
-    ingest_upload,
     ingest_local_file,
+    ingest_upload,
     reprocess_document,
 )
 from app.services.storage import StorageService
@@ -175,7 +175,10 @@ def test_enforce_remote_document_run_backpressure_rejects_at_capacity(monkeypatc
     except HTTPException as exc:
         assert exc.status_code == 429
         assert exc.detail["code"] == "rate_limited"
-        assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
+        assert (
+            exc.detail["message"]
+            == "Remote ingest is at capacity. Try again after existing runs finish."
+        )
     else:
         raise AssertionError("Expected remote backpressure to reject the request")
 
@@ -231,7 +234,10 @@ def test_upload_ingest_rejects_when_remote_capacity_reached_and_cleans_staging(
         except HTTPException as exc:
             assert exc.status_code == 429
             assert exc.detail["code"] == "rate_limited"
-            assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
+            assert (
+                exc.detail["message"]
+                == "Remote ingest is at capacity. Try again after existing runs finish."
+            )
         else:
             raise AssertionError("Expected remote ingest to reject when capacity is exhausted")
 
@@ -540,7 +546,9 @@ def test_resolve_existing_document_upload_uses_locked_state_to_reuse_inflight_ru
                 return queued_run
             return None
 
-    monkeypatch.setattr("app.services.documents._lock_document_row", lambda session, _: locked_document)
+    monkeypatch.setattr(
+        "app.services.documents._lock_document_row", lambda session, _: locked_document
+    )
     monkeypatch.setattr(
         "app.services.documents._create_run_for_locked_document",
         lambda session, document: (_ for _ in ()).throw(
@@ -665,7 +673,9 @@ def test_reprocess_document_uses_locked_state_to_reject_inflight_run(monkeypatch
                 return queued_run
             return None
 
-    monkeypatch.setattr("app.services.documents._lock_document_row", lambda session, _: locked_document)
+    monkeypatch.setattr(
+        "app.services.documents._lock_document_row", lambda session, _: locked_document
+    )
 
     try:
         reprocess_document(FakeSession(), document_id)
@@ -703,7 +713,9 @@ def test_reprocess_document_rejects_when_remote_capacity_reached(monkeypatch) ->
         def execute(self, _statement):
             return FakeExecuteResult()
 
-    monkeypatch.setattr("app.services.documents._lock_document_row", lambda session, _: locked_document)
+    monkeypatch.setattr(
+        "app.services.documents._lock_document_row", lambda session, _: locked_document
+    )
     monkeypatch.setattr(
         "app.services.documents.get_settings",
         lambda: SimpleNamespace(
@@ -725,7 +737,10 @@ def test_reprocess_document_rejects_when_remote_capacity_reached(monkeypatch) ->
     except HTTPException as exc:
         assert exc.status_code == 429
         assert exc.detail["code"] == "rate_limited"
-        assert exc.detail["message"] == "Remote ingest is at capacity. Try again after existing runs finish."
+        assert (
+            exc.detail["message"]
+            == "Remote ingest is at capacity. Try again after existing runs finish."
+        )
     else:
         raise AssertionError("Expected remote reprocess to reject when capacity is exhausted")
 

@@ -42,7 +42,9 @@ def _memo_date_result() -> SearchResult:
         run_id=uuid4(),
         score=0.9,
         chunk_id=uuid4(),
-        chunk_text="Standing Framework - Government Contract Opportunity Screening (March 23, 2026)",
+        chunk_text=(
+            "Standing Framework - Government Contract Opportunity Screening (March 23, 2026)"
+        ),
         heading=None,
         page_from=1,
         page_to=1,
@@ -263,7 +265,9 @@ def test_openai_answer_generator_configures_timeout_and_retries(monkeypatch) -> 
         captured["api_key"] = api_key
         captured["timeout"] = timeout
         captured["max_retries"] = max_retries
-        return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: None)))
+        return SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **kwargs: None))
+        )
 
     monkeypatch.setattr("app.services.chat.OpenAI", fake_openai)
 

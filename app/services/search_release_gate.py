@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.db.models import AgentTaskVerificationOutcome, SearchReplayRun
 from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import SearchHarnessEvaluationResponse
@@ -34,7 +34,14 @@ def _load_replay_run(
         return None
     if replay_run.status != "completed":
         msg = f"{label} replay run {replay_run_id} is not completed."
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+        raise api_error(
+            409,
+            "search_replay_run_not_completed",
+            msg,
+            replay_run_id=str(replay_run_id),
+            replay_run_status=replay_run.status,
+            label=label,
+        )
     return replay_run
 
 

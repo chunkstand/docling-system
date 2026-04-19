@@ -23,8 +23,8 @@ from app.services.agent_task_actions import (
     _draft_harness_config_update_executor,
     _enqueue_document_reprocess_executor,
     _verify_draft_harness_config_executor,
-    get_agent_task_action,
     execute_agent_task_action,
+    get_agent_task_action,
     validate_agent_task_output,
 )
 
@@ -350,7 +350,9 @@ def test_execute_agent_task_action_includes_output_schema_metadata(monkeypatch) 
             "artifact_path": "/tmp/harness_config_draft.json",
         },
     )
-    monkeypatch.setattr("app.services.agent_task_actions.get_agent_task_action", lambda _task_type: action)
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.get_agent_task_action", lambda _task_type: action
+    )
 
     result = execute_agent_task_action(object(), task)
 
@@ -749,7 +751,9 @@ def test_apply_harness_config_update_executor_bubbles_missing_verification(monke
 
     def fake_resolve(session, *, dependency_kind, depends_on_task_id, **_kwargs):
         if dependency_kind == "verification_task":
-            raise HTTPException(status_code=404, detail=f"Target task not found: {depends_on_task_id}")
+            raise HTTPException(
+                status_code=404, detail=f"Target task not found: {depends_on_task_id}"
+            )
         return SimpleNamespace(output=_draft_output_payload(draft_task_id=draft_task_id))
 
     monkeypatch.setattr(

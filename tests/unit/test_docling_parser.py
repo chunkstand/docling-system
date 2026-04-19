@@ -13,12 +13,12 @@ from app.services.docling_parser import (
     _apply_registered_table_supplements,
     _apply_table_family_overlays,
     _build_logical_tables,
-    get_fallback_document_converter,
     _group_tables_by_upc_510_family,
     _load_table_supplement_registry,
     _meaningful_table_segments,
     _normalize_chunks,
     _snapshot_items,
+    get_fallback_document_converter,
 )
 
 
@@ -468,7 +468,7 @@ def test_docling_parser_uses_timeout_rescue_converter_after_timeout_failures() -
     assert timeout_rescue.calls[0][1]["raises_on_error"] is False
 
 
-def test_docling_parser_uses_timeout_rescue_when_fallback_returns_partial_success_without_timeout_text() -> None:
+def test_docling_parser_uses_timeout_rescue_after_partial_success() -> None:
     primary = RecordingConverter(
         SimpleNamespace(
             status="partial_success",
@@ -524,7 +524,10 @@ def test_docling_parser_raises_when_primary_and_fallback_conversion_fail() -> No
 
     with pytest.raises(
         ValueError,
-        match="Docling conversion failed after fallback for sample.pdf: status=failure; backend text extraction failed",
+        match=(
+            "Docling conversion failed after fallback for sample.pdf: "
+            "status=failure; backend text extraction failed"
+        ),
     ):
         parser.parse_pdf(Path("/tmp/sample.pdf"))
 
@@ -668,7 +671,11 @@ def test_build_logical_tables_does_not_flag_repeated_numeric_rows_as_headers() -
             ["", "!I l", "", "0."],
             ["", "-1.", "", "-1."],
         ],
-        metadata={"title_source": "title_hint", "header_rows_removed": 0, "header_rows_retained": 0},
+        metadata={
+            "title_source": "title_hint",
+            "header_rows_removed": 0,
+            "header_rows_retained": 0,
+        },
     )
     second = ParsedTableSegment(
         segment_index=1,

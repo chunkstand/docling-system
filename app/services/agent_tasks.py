@@ -547,6 +547,7 @@ def _average_terminal_duration_seconds(tasks: list[AgentTask]) -> float | None:
         return None
     return sum(durations) / len(durations)
 
+
 def _percentile(values: list[float], percentile: float) -> float | None:
     if not values:
         return None
@@ -616,13 +617,17 @@ def _list_filtered_tasks(
     workflow_version: str | None = None,
     task_types: tuple[str, ...] | None = None,
 ) -> list[AgentTask]:
-    return session.execute(
-        _task_select_statement(
-            task_type=task_type,
-            workflow_version=workflow_version,
-            task_types=task_types,
+    return (
+        session.execute(
+            _task_select_statement(
+                task_type=task_type,
+                workflow_version=workflow_version,
+                task_types=task_types,
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
 
 def _list_task_attempt_rows(
@@ -674,9 +679,8 @@ def _list_verification_trend_rows(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> list[tuple[datetime, str]]:
-    statement = (
-        select(AgentTaskVerification.created_at, AgentTaskVerification.outcome)
-        .join(AgentTask, AgentTask.id == AgentTaskVerification.target_task_id)
+    statement = select(AgentTaskVerification.created_at, AgentTaskVerification.outcome).join(
+        AgentTask, AgentTask.id == AgentTaskVerification.target_task_id
     )
     if task_type is not None:
         statement = statement.where(AgentTask.task_type == task_type)
@@ -761,10 +765,7 @@ def _recommendation_family_tasks(
         and _task_input_task_id(task, "draft_task_id") in draft_ids
     ]
     family_ids = (
-        recommendation_ids
-        | draft_ids
-        | _task_ids(verification_tasks)
-        | _task_ids(apply_tasks)
+        recommendation_ids | draft_ids | _task_ids(verification_tasks) | _task_ids(apply_tasks)
     )
     return [task for task in all_tasks if task.id in family_ids]
 
@@ -826,12 +827,8 @@ def _recommendation_summary_from_tasks(
             draft_count += 1
 
         positive_labels = outcomes_by_task_id.get(recommendation_task.id, [])
-        useful_label_count += sum(
-            1 for row in positive_labels if row.outcome_label == "useful"
-        )
-        correct_label_count += sum(
-            1 for row in positive_labels if row.outcome_label == "correct"
-        )
+        useful_label_count += sum(1 for row in positive_labels if row.outcome_label == "useful")
+        correct_label_count += sum(1 for row in positive_labels if row.outcome_label == "correct")
 
         saw_improvement = False
         saw_regression = False
@@ -841,9 +838,9 @@ def _recommendation_summary_from_tasks(
                 verified_draft_count += 1
             passed_tasks = []
             for verification_task in verification_tasks:
-                verification = (((verification_task.result_json or {}).get("payload") or {}).get(
+                verification = ((verification_task.result_json or {}).get("payload") or {}).get(
                     "verification"
-                ) or {})
+                ) or {}
                 if verification.get("outcome") == AgentTaskVerificationOutcome.PASSED.value:
                     passed_tasks.append(verification_task)
                     metrics = verification.get("metrics") or {}
@@ -869,9 +866,7 @@ def _recommendation_summary_from_tasks(
                 apply_outcomes = outcomes_by_task_id.get(apply_task.id, [])
                 if any(row.outcome_label in {"useful", "correct"} for row in apply_outcomes):
                     saw_improvement = True
-                if any(
-                    row.outcome_label in {"not_useful", "incorrect"} for row in apply_outcomes
-                ):
+                if any(row.outcome_label in {"not_useful", "incorrect"} for row in apply_outcomes):
                     saw_regression = True
 
         if saw_improvement:
@@ -1139,10 +1134,7 @@ def list_agent_task_workflow_summaries(
             max(0.0, (completed_at - started_at).total_seconds())
         )
 
-    workflow_versions = {
-        workflow_version
-        for workflow_version, *_rest in status_rows
-    }
+    workflow_versions = {workflow_version for workflow_version, *_rest in status_rows}
     summaries: list[AgentTaskWorkflowVersionSummaryResponse] = []
     for workflow_version in sorted(workflow_versions):
         status_counts = status_counts_by_version[workflow_version]
@@ -1574,9 +1566,7 @@ def get_agent_task_value_density(
                     if cost_summary.estimated_usd_total > 0
                     else None
                 ),
-                improvements_per_hour=(
-                    improvements / total_hours if total_hours > 0 else None
-                ),
+                improvements_per_hour=(improvements / total_hours if total_hours > 0 else None),
             )
         )
     return rows
