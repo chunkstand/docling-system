@@ -3,7 +3,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import SearchRequestRecord, SearchRequestResult
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateTable
+
+from app.db.models import Document, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search import (
     RankedResult,
@@ -13,6 +16,7 @@ from app.services.search import (
     _looks_like_identifier_lookup,
     _merge_hybrid_results,
     _ranked_metadata_overlap_score,
+    _run_prose_metadata_chunk_search,
     _should_run_metadata_supplement,
     _table_title_match_features,
     execute_search,
@@ -346,6 +350,84 @@ def test_hybrid_search_resorts_metadata_candidates_before_rrf(monkeypatch) -> No
 
     assert execution.results[0].document_id == winning_document_id
     assert execution.results[0].source_filename.endswith("Billings Gazette Legal Notice.pdf")
+
+
+def test_run_prose_metadata_chunk_search_uses_textsearch_queries_without_ilike() -> None:
+    winning_document = SimpleNamespace(
+        id=uuid4(),
+        title="Chalk Buttes Cover Letter",
+        source_filename="Chalk Buttes Cover Letter.pdf",
+    )
+    losing_document = SimpleNamespace(
+        id=uuid4(),
+        title="Chalk Buttes Silviculture",
+        source_filename="20260407_ChalkButtes_Silviculture.pdf",
+    )
+    winning_chunk = SimpleNamespace(
+        id=uuid4(),
+        document_id=winning_document.id,
+        run_id=uuid4(),
+        page_from=1,
+        page_to=1,
+        chunk_index=0,
+        text="Dear Interested Party, the Chalk Buttes project is available for review.",
+        heading=None,
+    )
+    losing_chunk = SimpleNamespace(
+        id=uuid4(),
+        document_id=losing_document.id,
+        run_id=uuid4(),
+        page_from=2,
+        page_to=2,
+        chunk_index=1,
+        text="Chalk Buttes silviculture overview.",
+        heading=None,
+    )
+
+    class FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def all(self):
+            return list(self._rows)
+
+        def scalars(self):
+            return self
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.statements: list[str] = []
+
+        def execute(self, statement):
+            self.statements.append(str(statement))
+            if len(self.statements) == 1:
+                return FakeResult([])
+            if len(self.statements) == 2:
+                return FakeResult([winning_document, losing_document])
+            return FakeResult(
+                [
+                    (winning_chunk, winning_document),
+                    (losing_chunk, losing_document),
+                ]
+            )
+
+    session = FakeSession()
+    results = _run_prose_metadata_chunk_search(
+        session,
+        SearchRequest(query="Chalk Buttes Cover Letter", mode="keyword", limit=5),
+    )
+
+    assert results[0].source_filename == "Chalk Buttes Cover Letter.pdf"
+    assert any("metadata_textsearch" in statement for statement in session.statements)
+    assert any("@@" in statement for statement in session.statements)
+    assert all("ILIKE" not in statement.upper() for statement in session.statements)
+
+
+def test_document_metadata_textsearch_ddl_uses_valid_generated_column_syntax() -> None:
+    ddl = str(CreateTable(Document.__table__).compile(dialect=postgresql.dialect()))
+
+    assert "metadata_textsearch TSVECTOR GENERATED ALWAYS AS" in ddl
+    assert "STORED NOT NULL" not in ddl
 
 
 def test_prose_v3_metadata_supplement_prefers_exact_phrase_cover_letter_probe(

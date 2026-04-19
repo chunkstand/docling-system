@@ -212,7 +212,9 @@ PROSE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
     min_candidate_limit=40,
 )
 
-METADATA_SUPPLEMENT_SCAN_LIMIT = 1000
+METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER = 4
+METADATA_SUPPLEMENT_DOCUMENT_LIMIT = 8
+METADATA_SUPPLEMENT_DOCUMENT_CHUNK_MULTIPLIER = 6
 METADATA_SUPPLEMENT_SCORE_SCALE = 4.0
 
 SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS = {
@@ -651,6 +653,22 @@ def _table_query(run_id: UUID | None = None) -> Select[tuple[DocumentTable, Docu
     )
 
 
+def _document_query(run_id: UUID | None = None) -> Select:
+    if run_id is None:
+        return select(Document).where(Document.active_run_id.is_not(None))
+    return (
+        select(Document)
+        .join(
+            DocumentChunk,
+            and_(
+                DocumentChunk.document_id == Document.id,
+                DocumentChunk.run_id == run_id,
+            ),
+        )
+        .distinct()
+    )
+
+
 def _apply_chunk_filters(statement: Select, filters: SearchFilters | None) -> Select:
     if filters is None:
         return statement
@@ -692,6 +710,16 @@ def _apply_table_filters(statement: Select, filters: SearchFilters | None) -> Se
             )
         )
 
+    return statement
+
+
+def _apply_document_filters(statement: Select, filters: SearchFilters | None) -> Select:
+    if filters is None:
+        return statement
+    if filters.result_type == "table":
+        return statement.where(false())
+    if filters.document_id is not None:
+        statement = statement.where(Document.id == filters.document_id)
     return statement
 
 
@@ -1409,6 +1437,17 @@ def _ranked_metadata_overlap_score(
     )
 
 
+def _metadata_query_tokens(value: str | None) -> list[str]:
+    normalized = _normalize_text(value)
+    return sorted(set(_phrase_tokens_from_normalized(normalized)))
+
+
+def _metadata_tsquery(config: str, tokens: list[str]):
+    if not tokens:
+        return None
+    return func.to_tsquery(config, " | ".join(tokens))
+
+
 def _run_prose_metadata_chunk_search(
     session: Session,
     request: SearchRequest,
@@ -1416,31 +1455,81 @@ def _run_prose_metadata_chunk_search(
     run_id: UUID | None = None,
     candidate_limit: int = PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT,
 ) -> list[RankedResult]:
-    tokens = sorted(_salient_tokens(request.query))
-    if not tokens:
+    metadata_tokens = _metadata_query_tokens(request.query)
+    content_tokens = sorted(_salient_tokens(request.query))
+    document_tsquery = _metadata_tsquery("simple", metadata_tokens)
+    content_tsquery = _metadata_tsquery("english", content_tokens)
+    if document_tsquery is None and content_tsquery is None:
         return []
 
-    conditions = []
-    for token in tokens:
-        pattern = f"%{token}%"
-        conditions.extend(
-            [
-                Document.title.ilike(pattern),
-                DocumentChunk.heading.ilike(pattern),
-                Document.source_filename.ilike(pattern),
-            ]
+    chunk_rows: list[tuple[DocumentChunk, Document]] = []
+    if content_tsquery is not None:
+        chunk_rank = func.ts_rank_cd(DocumentChunk.textsearch, content_tsquery)
+        chunk_statement = (
+            _apply_chunk_filters(_chunk_query(run_id), request.filters)
+            .where(DocumentChunk.textsearch.op("@@")(content_tsquery))
+            .order_by(chunk_rank.desc(), DocumentChunk.chunk_index.asc())
+            .limit(
+                max(
+                    candidate_limit * METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER,
+                    candidate_limit,
+                )
+            )
+        )
+        chunk_rows.extend(session.execute(chunk_statement).all())
+
+    document_conditions = []
+    document_rank_expressions = []
+    if document_tsquery is not None:
+        document_conditions.append(Document.metadata_textsearch.op("@@")(document_tsquery))
+        document_rank_expressions.append(
+            func.ts_rank_cd(Document.metadata_textsearch, document_tsquery)
+        )
+    if content_tsquery is not None:
+        document_conditions.append(Document.metadata_textsearch.op("@@")(content_tsquery))
+        document_rank_expressions.append(
+            func.ts_rank_cd(Document.metadata_textsearch, content_tsquery)
         )
 
-    statement = (
-        _apply_chunk_filters(_chunk_query(run_id), request.filters)
-        .where(or_(*conditions))
-        .order_by(DocumentChunk.chunk_index.asc())
-        .limit(max(candidate_limit * 20, METADATA_SUPPLEMENT_SCAN_LIMIT))
-    )
-    rows = session.execute(statement).all()
+    document_rows: list[Document] = []
+    if document_conditions:
+        document_rank = (
+            func.greatest(*document_rank_expressions)
+            if len(document_rank_expressions) > 1
+            else document_rank_expressions[0]
+        )
+        document_statement = (
+            _apply_document_filters(_document_query(run_id), request.filters)
+            .where(or_(*document_conditions))
+            .order_by(document_rank.desc(), Document.id.asc())
+            .limit(max(candidate_limit * 2, METADATA_SUPPLEMENT_DOCUMENT_LIMIT))
+        )
+        document_rows = session.execute(document_statement).scalars().all()
+
+    if document_rows:
+        document_ids = [document.id for document in document_rows]
+        hydration_statement = _apply_chunk_filters(_chunk_query(run_id), request.filters).where(
+            DocumentChunk.document_id.in_(document_ids)
+        )
+        if content_tsquery is not None:
+            hydration_rank = func.ts_rank_cd(DocumentChunk.textsearch, content_tsquery)
+            hydration_statement = hydration_statement.order_by(
+                hydration_rank.desc(),
+                DocumentChunk.chunk_index.asc(),
+            )
+        else:
+            hydration_statement = hydration_statement.order_by(DocumentChunk.chunk_index.asc())
+        hydration_statement = hydration_statement.limit(
+            max(
+                candidate_limit * max(len(document_ids), 2),
+                candidate_limit * METADATA_SUPPLEMENT_DOCUMENT_CHUNK_MULTIPLIER,
+            )
+        )
+        chunk_rows.extend(session.execute(hydration_statement).all())
+
     candidates: list[RankedResult] = []
     include_document_context = request.filters is None or request.filters.document_id is None
-    for chunk, document in rows:
+    for chunk, document in chunk_rows:
         score = _ranked_metadata_overlap_score(
             request.query,
             document_title=document.title,

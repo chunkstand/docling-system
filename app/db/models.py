@@ -202,8 +202,38 @@ class ApiIdempotencyKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+DOCUMENT_METADATA_NORMALIZE_SQL = """
+trim(
+    regexp_replace(
+        regexp_replace(
+            regexp_replace(
+                regexp_replace(
+                    regexp_replace(
+                        coalesce(title, '') || ' ' ||
+                        regexp_replace(coalesce(source_filename, ''), '\\.[^.]+$', '', 'g'),
+                        '([A-Z]+)([A-Z][a-z])', '\\1 \\2', 'g'
+                    ),
+                    '([a-z0-9])([A-Z])', '\\1 \\2', 'g'
+                ),
+                '([A-Za-z])([0-9])', '\\1 \\2', 'g'
+            ),
+            '([0-9])([A-Za-z])', '\\1 \\2', 'g'
+        ),
+        '[^A-Za-z0-9]+', ' ', 'g'
+    )
+)
+""".strip()
+DOCUMENT_METADATA_TEXTSEARCH_SQL = (
+    "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+    f"setweight(to_tsvector('simple', {DOCUMENT_METADATA_NORMALIZE_SQL}), 'A')"
+)
+
+
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (
+        Index("ix_documents_metadata_textsearch", "metadata_textsearch", postgresql_using="gin"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     source_filename: Mapped[str] = mapped_column(Text, nullable=False)
@@ -211,6 +241,10 @@ class Document(Base):
     sha256: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
     mime_type: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str | None] = mapped_column(Text)
+    metadata_textsearch: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(DOCUMENT_METADATA_TEXTSEARCH_SQL, persisted=True),
+    )
     page_count: Mapped[int | None] = mapped_column(Integer)
     active_run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
