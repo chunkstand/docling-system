@@ -2,6 +2,8 @@
 
 This document supersedes the original rebuilt v1 system plan. It describes the system as it exists now: the live contracts, the architecture in the repository, the operator workflows, and the bounded orchestration layer that sits on top of ingestion, retrieval, evaluation, and search-harness management.
 
+The repository-level branching, release-tag, and promotion rules for the stable `v1` lane and the experimental `v2` lane live in [docs/versioning_policy.md](./docs/versioning_policy.md).
+
 ## Summary
 
 `docling-system` is now a local, operator-oriented PDF ingestion and retrieval system with five major layers:
