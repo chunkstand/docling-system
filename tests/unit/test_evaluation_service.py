@@ -3,6 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
+import yaml
+
 from app.schemas.chat import ChatCitation, ChatResponse
 from app.schemas.search import SearchResult, SearchScores
 from app.services.evaluations import (
@@ -177,11 +179,86 @@ def test_fixture_for_document_matches_by_source_filename() -> None:
     assert fixture.name == "born_digital_simple"
 
 
+def test_fixture_for_document_matches_by_sha256_when_source_filename_collides(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    corpus_path = tmp_path / "evaluation_corpus.yaml"
+    corpus_path.write_text(
+        """
+documents:
+  - name: first_collision
+    kind: prose
+    source_filename: duplicate.pdf
+    sha256: aaa111
+    thresholds: {}
+  - name: second_collision
+    kind: prose
+    source_filename: duplicate.pdf
+    sha256: bbb222
+    thresholds: {}
+"""
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
+    fixture = fixture_for_document(
+        SimpleNamespace(source_filename="duplicate.pdf", sha256="bbb222"),
+        corpus_path=corpus_path,
+    )
+
+    assert fixture is not None
+    assert fixture.name == "second_collision"
+    assert fixture.document_sha256 == "bbb222"
+
+
+def test_fixture_for_document_returns_none_for_ambiguous_source_filename_without_sha256(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    corpus_path = tmp_path / "evaluation_corpus.yaml"
+    corpus_path.write_text(
+        """
+documents:
+  - name: first_collision
+    kind: prose
+    source_filename: duplicate.pdf
+    thresholds: {}
+  - name: second_collision
+    kind: prose
+    source_filename: duplicate.pdf
+    thresholds: {}
+"""
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
+    fixture = fixture_for_document(
+        SimpleNamespace(source_filename="duplicate.pdf"),
+        corpus_path=corpus_path,
+    )
+
+    assert fixture is None
+
+
 def test_build_auto_evaluation_fixture_document_generates_structural_queries() -> None:
     run_id = uuid4()
 
     fixture = build_auto_evaluation_fixture_document(
         "auto_generated_report.pdf",
+        sha256="deadbeef",
         title="Forest Health Assessment",
         chunks=[
             SimpleNamespace(
@@ -214,6 +291,7 @@ def test_build_auto_evaluation_fixture_document_generates_structural_queries() -
 
     assert fixture["name"] == "auto_auto_generated_report"
     assert fixture["kind"] == AUTO_FIXTURE_KIND
+    assert fixture["sha256"] == "deadbeef"
     assert fixture["generated_from_run_id"] == str(run_id)
     assert fixture["thresholds"]["expected_logical_table_count"] == 1
     assert fixture["thresholds"]["expected_figure_count"] == 1
@@ -1026,15 +1104,23 @@ def test_ensure_auto_evaluation_fixture_writes_auto_corpus_entry(monkeypatch, tm
 
     fixture = ensure_auto_evaluation_fixture(
         FakeSession(),
-        SimpleNamespace(id=uuid4(), source_filename="autogen_doc.pdf", title="Autogen Document"),
+        SimpleNamespace(
+            id=uuid4(),
+            source_filename="autogen_doc.pdf",
+            sha256="abc123",
+            title="Autogen Document",
+        ),
         SimpleNamespace(id=uuid4()),
     )
 
     auto_corpus_path = storage_root / "evaluation_corpus.auto.yaml"
     assert auto_corpus_path.exists() is True
     assert fixture["source_filename"] == "autogen_doc.pdf"
+    assert fixture["sha256"] == "abc123"
     assert fixture["thresholds"]["expected_logical_table_count"] == 1
-    loaded = fixture_for_document(SimpleNamespace(source_filename="autogen_doc.pdf"))
+    loaded = fixture_for_document(
+        SimpleNamespace(source_filename="autogen_doc.pdf", sha256="abc123")
+    )
     assert loaded is not None
     assert loaded.name == fixture["name"]
 
@@ -1134,7 +1220,12 @@ def test_ensure_auto_evaluation_fixture_keeps_only_retrieval_backed_queries(
 
     fixture = ensure_auto_evaluation_fixture(
         FakeSession(),
-        SimpleNamespace(id=uuid4(), source_filename="autogen_doc.pdf", title="Autogen Document"),
+        SimpleNamespace(
+            id=uuid4(),
+            source_filename="autogen_doc.pdf",
+            sha256="abc123",
+            title="Autogen Document",
+        ),
         SimpleNamespace(id=uuid4()),
     )
 
@@ -1174,6 +1265,78 @@ documents:
 
     assert fixture is not None
     assert fixture.name == "test_pdf_prose"
+
+
+def test_ensure_auto_evaluation_fixture_keeps_other_same_filename_sha256_entries(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+    storage_root.mkdir(parents=True, exist_ok=True)
+    auto_corpus_path = storage_root / "evaluation_corpus.auto.yaml"
+    auto_corpus_path.write_text(
+        """
+documents:
+  - name: auto_duplicate_old
+    kind: auto_generated_document
+    source_filename: duplicate.pdf
+    sha256: oldsha
+    thresholds:
+      expected_top_n_chunk_hit_queries:
+        - query: Old query
+"""
+    )
+
+    tables: list[object] = []
+    figures: list[object] = []
+    chunks = [SimpleNamespace(heading=None, text="Fresh duplicate document content.")]
+
+    class FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self._rows
+
+    class FakeSession:
+        def __init__(self):
+            self._results = [tables, figures, chunks]
+            self.calls = 0
+
+        def execute(self, _query):
+            rows = self._results[self.calls]
+            self.calls += 1
+            return FakeResult(rows)
+
+    monkeypatch.setattr("app.services.evaluations.search_documents", lambda *args, **kwargs: [])
+
+    fixture = ensure_auto_evaluation_fixture(
+        FakeSession(),
+        SimpleNamespace(
+            id=uuid4(),
+            source_filename="duplicate.pdf",
+            sha256="newsha",
+            title="New Duplicate",
+        ),
+        SimpleNamespace(id=uuid4()),
+    )
+
+    payload = yaml.safe_load(auto_corpus_path.read_text())
+    documents = payload["documents"]
+
+    assert fixture["sha256"] == "newsha"
+    assert len(documents) == 2
+    assert {document["sha256"] for document in documents} == {"oldsha", "newsha"}
 
 
 def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:

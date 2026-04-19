@@ -110,6 +110,7 @@ AUTO_FILENAME_DATE_PREFIX_PATTERN = re.compile(r"^\d{6,8}\s+")
 class EvaluationFixture:
     name: str
     source_filename: str
+    document_sha256: str | None
     kind: str | None
     path: str | None
     queries: list[EvaluationQueryCase]
@@ -375,17 +376,26 @@ def _fixture_source_filename(document: dict) -> str | None:
     return None
 
 
+def _normalized_document_sha256(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    return normalized or None
+
+
+def _fixture_document_sha256(document: dict) -> str | None:
+    return _normalized_document_sha256(
+        document.get("sha256") or document.get("document_sha256")
+    )
+
+
 def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[EvaluationFixture]:
     fixtures: list[EvaluationFixture] = []
-    seen_filenames: set[str] = set()
     for path in _fixture_paths(corpus_path):
         for document in _load_corpus_documents(path):
             source_filename = _fixture_source_filename(document)
             if source_filename is None:
                 continue
-            if source_filename in seen_filenames:
-                continue
-            seen_filenames.add(source_filename)
             doc_path = document.get("path")
             thresholds = document.get("thresholds", {})
             queries: list[EvaluationQueryCase] = []
@@ -407,6 +417,7 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
                 EvaluationFixture(
                     name=document["name"],
                     source_filename=source_filename,
+                    document_sha256=_fixture_document_sha256(document),
                     kind=document.get("kind"),
                     path=str(doc_path) if doc_path else None,
                     queries=queries,
@@ -420,9 +431,30 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
 def fixture_for_document(
     document: Document, corpus_path: Path | None = None
 ) -> EvaluationFixture | None:
-    for fixture in load_evaluation_fixtures(corpus_path):
-        if fixture.source_filename == document.source_filename:
-            return fixture
+    fixtures = load_evaluation_fixtures(corpus_path)
+    document_sha256 = _normalized_document_sha256(getattr(document, "sha256", None))
+    if document_sha256 is not None:
+        for fixture in fixtures:
+            if fixture.document_sha256 == document_sha256:
+                return fixture
+
+    document_source_filename = getattr(document, "source_filename", None)
+    if not document_source_filename:
+        return None
+
+    filename_matches = [
+        fixture
+        for fixture in fixtures
+        if source_filename_matches(fixture.source_filename, document_source_filename)
+    ]
+    if len(filename_matches) == 1:
+        return filename_matches[0]
+
+    manual_matches = [
+        fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND
+    ]
+    if len(manual_matches) == 1:
+        return manual_matches[0]
     return None
 
 
@@ -834,6 +866,7 @@ def _materialize_retrieval_backed_auto_fixture(
 def build_auto_evaluation_fixture_document(
     source_filename: str,
     *,
+    sha256: str | None = None,
     title: str | None,
     chunks: list[object],
     tables: list[object],
@@ -893,7 +926,7 @@ def build_auto_evaluation_fixture_document(
     if chunk_queries:
         thresholds["expected_top_n_chunk_hit_queries"] = chunk_queries
 
-    return {
+    fixture_document = {
         "name": _auto_fixture_name(source_filename),
         "kind": AUTO_FIXTURE_KIND,
         "source_filename": source_filename,
@@ -901,6 +934,10 @@ def build_auto_evaluation_fixture_document(
         "generated_from_run_id": str(run_id) if run_id else None,
         "thresholds": thresholds,
     }
+    normalized_sha256 = _normalized_document_sha256(sha256)
+    if normalized_sha256 is not None:
+        fixture_document["sha256"] = normalized_sha256
+    return fixture_document
 
 
 def ensure_auto_evaluation_fixture(
@@ -940,6 +977,7 @@ def ensure_auto_evaluation_fixture(
 
     fixture_document = build_auto_evaluation_fixture_document(
         document.source_filename,
+        sha256=getattr(document, "sha256", None),
         title=title or getattr(document, "title", None),
         chunks=chunks,
         tables=tables,
@@ -956,7 +994,17 @@ def ensure_auto_evaluation_fixture(
     documents = [
         entry
         for entry in _load_corpus_documents(path)
-        if _fixture_source_filename(entry) != document.source_filename
+        if not (
+            _fixture_document_sha256(entry)
+            == _normalized_document_sha256(getattr(document, "sha256", None))
+            or (
+                _fixture_document_sha256(entry) is None
+                and source_filename_matches(
+                    _fixture_source_filename(entry),
+                    document.source_filename,
+                )
+            )
+        )
     ]
     documents.append(fixture_document)
     documents.sort(key=lambda entry: (_fixture_source_filename(entry) or "").lower())
