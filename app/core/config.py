@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     docling_document_timeout_seconds: float | None = 120.0
     docling_fallback_document_timeout_seconds: float | None = 30.0
     table_supplement_registry_path: Path = Field(default=Path("./config/table_supplements.yaml"))
+    semantic_registry_path: Path = Field(default=Path("./config/semantic_registry.yaml"))
+    semantic_evaluation_corpus_path: Path = Field(
+        default=Path("./docs/semantic_evaluation_corpus.yaml")
+    )
 
 
 def default_local_ingest_roots() -> list[Path]:

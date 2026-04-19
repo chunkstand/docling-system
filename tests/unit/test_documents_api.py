@@ -723,6 +723,43 @@ def test_document_artifact_routes_return_404_for_missing_storage_owned_paths(
     assert figure_yaml.json()["error_code"] == "figure_artifact_not_found"
 
 
+def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
+    monkeypatch, tmp_path: Path
+) -> None:
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    document_id = uuid4()
+    run_id = uuid4()
+
+    semantic_pass = SimpleNamespace(
+        run_id=run_id,
+        artifact_json_path=str(tmp_path / "missing-semantic.json"),
+        artifact_yaml_path=str(tmp_path / "missing-semantic.yaml"),
+    )
+
+    class FakeSession:
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.api.main.get_active_semantic_pass_row",
+        lambda session, requested_document_id: semantic_pass,
+    )
+    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        semantic_json = client.get(f"/documents/{document_id}/semantics/latest/artifacts/json")
+        semantic_yaml = client.get(f"/documents/{document_id}/semantics/latest/artifacts/yaml")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert semantic_json.status_code == 404
+    assert semantic_json.json()["error_code"] == "semantic_artifact_not_found"
+    assert semantic_yaml.status_code == 404
+    assert semantic_yaml.json()["error_code"] == "semantic_artifact_not_found"
+
+
 def test_run_failure_artifact_route_returns_machine_readable_error_when_run_missing() -> None:
     run_id = uuid4()
 

@@ -34,6 +34,7 @@ from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
+from app.services.semantics import execute_semantic_pass
 from app.services.runtime import (
     get_process_identity,
     register_runtime_process,
@@ -745,6 +746,29 @@ def _evaluate_promoted_run(
     )
 
 
+def _run_post_promotion_semantics(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    *,
+    storage_service: StorageService,
+) -> None:
+    try:
+        execute_semantic_pass(
+            session,
+            document,
+            run,
+            storage_service=storage_service,
+        )
+    except Exception:
+        session.rollback()
+        logger.exception(
+            "run_post_promotion_semantics_failed",
+            run_id=str(run.id),
+            document_id=str(document.id),
+        )
+
+
 class RunProcessingStage(StrEnum):
     PARSE = "parse"
     EMBEDDING = "embedding"
@@ -756,6 +780,7 @@ class RunProcessingStage(StrEnum):
     VALIDATION = "validation"
     PROMOTION = "promotion"
     POST_PROMOTION_EVALUATION = "post_promotion_evaluation"
+    POST_PROMOTION_SEMANTICS = "post_promotion_semantics"
 
 
 @dataclass
@@ -820,6 +845,7 @@ class RunProcessor:
             RunProcessingStage.VALIDATION,
             RunProcessingStage.PROMOTION,
             RunProcessingStage.POST_PROMOTION_EVALUATION,
+            RunProcessingStage.POST_PROMOTION_SEMANTICS,
         )
 
     def _run_stage(self, stage: RunProcessingStage) -> None:
@@ -933,6 +959,15 @@ class RunProcessor:
                 self.document,
                 self.run,
                 baseline_run_id=resolve_baseline_run_id(self.run.id, self.prior_active_run_id),
+            )
+            return
+
+        if stage == RunProcessingStage.POST_PROMOTION_SEMANTICS:
+            _run_post_promotion_semantics(
+                self.session,
+                self.document,
+                self.run,
+                storage_service=self.storage_service,
             )
             return
 

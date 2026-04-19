@@ -1,0 +1,15 @@
+corpus_name: semantic_foundation
+eval_version: 1
+documents:
+  - fixture_name: integration_report_semantics
+    source_filename: integration-report.pdf
+    expected_concepts:
+      - concept_key: integration_threshold
+        minimum_evidence_count: 2
+        required_source_types:
+          - chunk
+          - table
+      - concept_key: system_diagram
+        minimum_evidence_count: 1
+        required_source_types:
+          - figure

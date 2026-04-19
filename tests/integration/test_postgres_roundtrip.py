@@ -217,6 +217,24 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert figure_detail_response.status_code == 200
     assert figure_detail_response.json()["caption"] == "Integration system diagram"
 
+    semantics_response = client.get(f"/documents/{document_id}/semantics/latest")
+    assert semantics_response.status_code == 200
+    semantics = semantics_response.json()
+    assert semantics["status"] == "completed"
+    assert semantics["registry_version"] == "semantics-layer-foundation-alpha.1"
+    assert semantics["artifact_schema_version"] == "1.0"
+    assert semantics["evaluation_status"] == "completed"
+    assert semantics["evaluation_summary"]["all_expectations_passed"] is True
+    assert semantics["assertion_count"] == 2
+    assertions_by_concept = {
+        assertion["concept_key"]: assertion for assertion in semantics["assertions"]
+    }
+    assert sorted(assertions_by_concept["integration_threshold"]["source_types"]) == [
+        "chunk",
+        "table",
+    ]
+    assert assertions_by_concept["system_diagram"]["source_types"] == ["figure"]
+
     assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 200
     assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 200
     assert (
@@ -232,6 +250,16 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert (
         client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").status_code
         == 200
+    )
+    semantic_artifact_response = client.get(f"/documents/{document_id}/semantics/latest/artifacts/json")
+    assert semantic_artifact_response.status_code == 200
+    semantic_artifact = semantic_artifact_response.json()
+    assert semantic_artifact["schema_name"] == "docling.semantic_pass"
+    assert semantic_artifact["schema_version"] == "1.0"
+    assert semantic_artifact["registry"]["version"] == "semantics-layer-foundation-alpha.1"
+    assert semantic_artifact["evaluation"]["summary"]["all_expectations_passed"] is True
+    assert (
+        client.get(f"/documents/{document_id}/semantics/latest/artifacts/yaml").status_code == 200
     )
 
     evaluation_response = client.get(f"/documents/{document_id}/evaluations/latest")

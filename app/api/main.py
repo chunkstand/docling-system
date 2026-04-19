@@ -85,6 +85,7 @@ from app.schemas.quality import (
     QualitySummaryResponse,
     QualityTrendsResponse,
 )
+from app.schemas.semantics import DocumentSemanticPassResponse
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
@@ -163,6 +164,10 @@ from app.services.search_replays import (
     get_search_replay_run_detail,
     list_search_replay_runs,
     run_search_replay_suite,
+)
+from app.services.semantics import (
+    get_active_semantic_pass_detail,
+    get_active_semantic_pass_row,
 )
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
@@ -986,6 +991,18 @@ def read_latest_document_evaluation(
 
 
 @app.get(
+    "/documents/{document_id}/semantics/latest",
+    response_model=DocumentSemanticPassResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_document_semantics(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> DocumentSemanticPassResponse:
+    return get_active_semantic_pass_detail(session, document_id)
+
+
+@app.get(
     "/documents/{document_id}/chunks",
     response_model=list[DocumentChunkResponse],
     dependencies=[Depends(_require_api_capability("documents:inspect"))],
@@ -1159,6 +1176,63 @@ def read_yaml_artifact(
         not_found_detail="Document YAML artifact not found.",
         not_found_error_code="document_artifact_not_found",
         not_found_context={"document_id": str(document_id), "artifact_format": "yaml"},
+    )
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/artifacts/json",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_semantic_json_artifact(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    return _storage_file_response(
+        semantic_pass.artifact_json_path,
+        media_type="application/json",
+        not_found_detail="Semantic JSON artifact not found.",
+        not_found_error_code="semantic_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "run_id": str(semantic_pass.run_id),
+            "artifact_format": "json",
+        },
+    )
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/artifacts/yaml",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_semantic_yaml_artifact(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    return _storage_file_response(
+        semantic_pass.artifact_yaml_path,
+        not_found_detail="Semantic YAML artifact not found.",
+        not_found_error_code="semantic_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "run_id": str(semantic_pass.run_id),
+            "artifact_format": "yaml",
+        },
     )
 
 

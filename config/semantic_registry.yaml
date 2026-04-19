@@ -1,0 +1,15 @@
+registry_name: semantics_layer_foundation
+registry_version: semantics-layer-foundation-alpha.1
+concepts:
+  - concept_key: integration_threshold
+    preferred_label: Integration Threshold
+    scope_note: Threshold guidance or threshold matrices used to govern integration decisions.
+    aliases:
+      - integration threshold
+      - threshold guidance
+  - concept_key: system_diagram
+    preferred_label: System Diagram
+    scope_note: Figures or diagrams that communicate a system structure, flow, or arrangement.
+    aliases:
+      - system diagram
+      - architecture diagram
