@@ -34,6 +34,7 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
+from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -163,7 +164,7 @@ def _create_processed_document(postgres_integration_harness) -> tuple[UUID, UUID
     upload_files = {
         "file": (
             "integration-report.pdf",
-            b"%PDF-1.7\nintegration-test",
+            valid_test_pdf_bytes(),
             "application/pdf",
         )
     }

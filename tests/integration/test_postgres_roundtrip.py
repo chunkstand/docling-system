@@ -13,6 +13,7 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
+from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -144,7 +145,7 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     upload_files = {
         "file": (
             "integration-report.pdf",
-            b"%PDF-1.7\nintegration-test",
+            valid_test_pdf_bytes(),
             "application/pdf",
         )
     }
@@ -260,7 +261,7 @@ def test_failed_reprocess_does_not_replace_active_run(postgres_integration_harne
     upload_files = {
         "file": (
             "integration-report.pdf",
-            b"%PDF-1.7\nintegration-test",
+            valid_test_pdf_bytes(),
             "application/pdf",
         )
     }

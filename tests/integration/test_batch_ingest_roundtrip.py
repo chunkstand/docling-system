@@ -16,6 +16,7 @@ from app.services.docling_parser import (
 )
 from app.services.documents import reprocess_document
 from app.services.ingest_batches import get_ingest_batch_detail, queue_local_ingest_directory
+from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -31,6 +32,16 @@ class StubParser:
         assert source_path.exists()
         assert source_filename
         return self.parsed_document
+
+
+def _documents_settings_stub() -> SimpleNamespace:
+    return SimpleNamespace(
+        api_mode=None,
+        api_host="127.0.0.1",
+        remote_ingest_max_inflight_runs=None,
+        local_ingest_max_file_bytes=1024 * 1024,
+        local_ingest_max_pages=10,
+    )
 
 
 def _build_parsed_document(*, title: str = "Batch Integration Report") -> ParsedDocument:
@@ -145,8 +156,8 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
     root = tmp_path / "corpus"
     nested = root / "nested"
     nested.mkdir(parents=True)
-    (root / "a.pdf").write_bytes(b"%PDF-1.7\nbatch-a")
-    (nested / "b.PDF").write_bytes(b"%PDF-1.7\nbatch-b")
+    (root / "a.pdf").write_bytes(valid_test_pdf_bytes(marker="batch-a"))
+    (nested / "b.PDF").write_bytes(valid_test_pdf_bytes(marker="batch-b"))
     (root / "ignore.txt").write_text("not a pdf")
 
     allowed_root = root.resolve()
@@ -160,7 +171,7 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
     )
     monkeypatch.setattr(
         "app.services.documents.get_settings",
-        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+        _documents_settings_stub,
     )
     monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
 
@@ -210,8 +221,8 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
 ) -> None:
     root = tmp_path / "corpus"
     root.mkdir()
-    (root / "a.pdf").write_bytes(b"%PDF-1.7\nbatch-a")
-    (root / "b.pdf").write_bytes(b"%PDF-1.7\nbatch-b")
+    (root / "a.pdf").write_bytes(valid_test_pdf_bytes(marker="batch-a"))
+    (root / "b.pdf").write_bytes(valid_test_pdf_bytes(marker="batch-b"))
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
@@ -224,7 +235,7 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
     )
     monkeypatch.setattr(
         "app.services.documents.get_settings",
-        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+        _documents_settings_stub,
     )
     monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
 
@@ -257,7 +268,7 @@ def test_queue_local_directory_ingest_resolves_failed_item_after_successful_repr
 ) -> None:
     root = tmp_path / "corpus"
     root.mkdir()
-    (root / "a.pdf").write_bytes(b"%PDF-1.7\nbatch-a")
+    (root / "a.pdf").write_bytes(valid_test_pdf_bytes(marker="batch-a"))
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
@@ -270,7 +281,7 @@ def test_queue_local_directory_ingest_resolves_failed_item_after_successful_repr
     )
     monkeypatch.setattr(
         "app.services.documents.get_settings",
-        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024 * 1024, local_ingest_max_pages=10),
+        _documents_settings_stub,
     )
     monkeypatch.setattr("app.services.documents._pdf_page_count", lambda _path: 1)
 
