@@ -1,6 +1,6 @@
 """add document metadata textsearch
 
-Revision ID: 0023_document_metadata_textsearch
+Revision ID: 0023_doc_metadata_textsearch
 Revises: 0022_api_idempotency_keys
 Create Date: 2026-04-18 20:30:00.000000
 """
@@ -12,8 +12,8 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
-# revision identifiers, used by Alembic.
-revision: str = "0023_document_metadata_textsearch"
+# Keep revision ids within Alembic's default alembic_version.version_num VARCHAR(32) contract.
+revision: str = "0023_doc_metadata_textsearch"
 down_revision: str | Sequence[str] | None = "0022_api_idempotency_keys"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
