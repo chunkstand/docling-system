@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.db.models import DocumentTable, DocumentTableSegment
 from app.schemas.tables import (
     DocumentTableDetailResponse,
@@ -54,7 +54,13 @@ def get_active_table_detail(
 ) -> DocumentTableDetailResponse:
     document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found.")
+        raise api_error(
+            404,
+            "table_not_found",
+            "Table not found.",
+            document_id=str(document_id),
+            table_id=str(table_id),
+        )
 
     table = session.execute(
         select(DocumentTable).where(
@@ -64,7 +70,13 @@ def get_active_table_detail(
         )
     ).scalar_one_or_none()
     if table is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Table not found.")
+        raise api_error(
+            404,
+            "table_not_found",
+            "Table not found.",
+            document_id=str(document_id),
+            table_id=str(table_id),
+        )
 
     segments = session.execute(
         select(DocumentTableSegment)

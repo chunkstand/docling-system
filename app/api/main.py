@@ -300,11 +300,17 @@ def _storage_file_response(
     path_value: str | Path | None,
     *,
     media_type: str | None = None,
+    not_found_detail: str | None = None,
+    not_found_error_code: str | None = None,
+    not_found_context: dict[str, object] | None = None,
 ):
     return file_response_if_exists(
         get_storage_service().resolve_existing_path(path_value),
         media_type=media_type,
         response_factory=FileResponse,
+        not_found_detail=not_found_detail,
+        not_found_error_code=not_found_error_code,
+        not_found_context=not_found_context,
     )
 
 
@@ -797,6 +803,9 @@ def read_agent_task_failure_artifact(
     return _storage_file_response(
         get_storage_service().build_agent_task_failure_artifact_path(task_id),
         media_type="application/json",
+        not_found_detail="Agent task failure artifact not found.",
+        not_found_error_code="agent_task_failure_artifact_not_found",
+        not_found_context={"task_id": str(task_id)},
     )
 
 
@@ -994,10 +1003,18 @@ def read_run_failure_artifact(
 ):
     run = session.get(DocumentRun, run_id)
     if run is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_run_not_found",
+            "Document run not found.",
+            run_id=str(run_id),
+        )
     return _storage_file_response(
         get_storage_service().build_failure_artifact_path(run.document_id, run.id),
         media_type="application/json",
+        not_found_detail="Run failure artifact not found.",
+        not_found_error_code="run_failure_artifact_not_found",
+        not_found_context={"run_id": str(run_id), "document_id": str(run.document_id)},
     )
 
 
@@ -1011,12 +1028,27 @@ def read_docling_json_artifact(
 ):
     document = get_document_detail(session, document_id)
     if not document.has_json_artifact or document.active_run_id is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_artifact_not_found",
+            "Document JSON artifact not found.",
+            document_id=str(document_id),
+            artifact_format="json",
+        )
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_artifact_not_found",
+            "Document JSON artifact not found.",
+            document_id=str(document_id),
+            artifact_format="json",
+        )
     return _storage_file_response(
         get_storage_service().build_docling_json_path(document_id, run.id),
+        not_found_detail="Document JSON artifact not found.",
+        not_found_error_code="document_artifact_not_found",
+        not_found_context={"document_id": str(document_id), "artifact_format": "json"},
     )
 
 
@@ -1030,12 +1062,27 @@ def read_yaml_artifact(
 ):
     document = get_document_detail(session, document_id)
     if not document.has_yaml_artifact or document.active_run_id is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_artifact_not_found",
+            "Document YAML artifact not found.",
+            document_id=str(document_id),
+            artifact_format="yaml",
+        )
     run = session.get(DocumentRun, document.active_run_id)
     if run is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_artifact_not_found",
+            "Document YAML artifact not found.",
+            document_id=str(document_id),
+            artifact_format="yaml",
+        )
     return _storage_file_response(
         get_storage_service().build_yaml_path(document_id, run.id),
+        not_found_detail="Document YAML artifact not found.",
+        not_found_error_code="document_artifact_not_found",
+        not_found_context={"document_id": str(document_id), "artifact_format": "yaml"},
     )
 
 
@@ -1078,9 +1125,22 @@ def read_table_json_artifact(
 ):
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "table_not_found",
+            "Table not found.",
+            document_id=str(document_id),
+            table_id=str(table_id),
+        )
     return _storage_file_response(
         get_storage_service().build_table_json_path(document_id, table.run_id, table.table_index),
+        not_found_detail="Table JSON artifact not found.",
+        not_found_error_code="table_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "table_id": str(table_id),
+            "artifact_format": "json",
+        },
     )
 
 
@@ -1095,9 +1155,22 @@ def read_table_yaml_artifact(
 ):
     table = _get_active_table_row(session, document_id, table_id)
     if table is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "table_not_found",
+            "Table not found.",
+            document_id=str(document_id),
+            table_id=str(table_id),
+        )
     return _storage_file_response(
         get_storage_service().build_table_yaml_path(document_id, table.run_id, table.table_index),
+        not_found_detail="Table YAML artifact not found.",
+        not_found_error_code="table_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "table_id": str(table_id),
+            "artifact_format": "yaml",
+        },
     )
 
 
@@ -1112,9 +1185,22 @@ def read_figure_json_artifact(
 ):
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "figure_not_found",
+            "Figure not found.",
+            document_id=str(document_id),
+            figure_id=str(figure_id),
+        )
     return _storage_file_response(
         get_storage_service().build_figure_json_path(document_id, figure.run_id, figure.figure_index),
+        not_found_detail="Figure JSON artifact not found.",
+        not_found_error_code="figure_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "figure_id": str(figure_id),
+            "artifact_format": "json",
+        },
     )
 
 
@@ -1129,9 +1215,22 @@ def read_figure_yaml_artifact(
 ):
     figure = _get_active_figure_row(session, document_id, figure_id)
     if figure is None:
-        return Response(status_code=404)
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "figure_not_found",
+            "Figure not found.",
+            document_id=str(document_id),
+            figure_id=str(figure_id),
+        )
     return _storage_file_response(
         get_storage_service().build_figure_yaml_path(document_id, figure.run_id, figure.figure_index),
+        not_found_detail="Figure YAML artifact not found.",
+        not_found_error_code="figure_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "figure_id": str(figure_id),
+            "artifact_format": "yaml",
+        },
     )
 
 

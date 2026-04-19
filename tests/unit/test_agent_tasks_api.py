@@ -6,6 +6,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.db.session import get_db_session
 from app.services.storage import StorageService
 
 
@@ -846,6 +847,102 @@ def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch)
     response = client.get(f"/agent-tasks/{task_id}/failure-artifact")
 
     assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_failure_artifact_not_found"
+
+
+def test_agent_task_context_route_returns_machine_readable_error_when_task_missing() -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/agent-tasks/{task_id}/context")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_not_found"
+
+
+def test_agent_task_context_route_returns_machine_readable_error_when_context_missing() -> None:
+    task_id = uuid4()
+
+    class FakeScalarResult:
+        def first(self):
+            return None
+
+    class FakeExecuteResult:
+        def scalars(self):
+            return FakeScalarResult()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return object()
+
+        def execute(self, _statement):
+            return FakeExecuteResult()
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/agent-tasks/{task_id}/context")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_context_not_found"
+
+
+def test_agent_task_artifacts_route_returns_machine_readable_error_when_task_missing() -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/agent-tasks/{task_id}/artifacts")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_not_found"
+
+
+def test_agent_task_verifications_route_returns_machine_readable_error_when_task_missing() -> None:
+    task_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/agent-tasks/{task_id}/verifications")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_not_found"
 
 
 def test_agent_task_artifact_route_does_not_serve_paths_outside_storage_root(

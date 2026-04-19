@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.db.models import DocumentFigure
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.services.documents import get_document_or_404
@@ -48,7 +48,13 @@ def get_active_figure_detail(
 ) -> DocumentFigureDetailResponse:
     document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Figure not found.")
+        raise api_error(
+            404,
+            "figure_not_found",
+            "Figure not found.",
+            document_id=str(document_id),
+            figure_id=str(figure_id),
+        )
 
     figure = session.execute(
         select(DocumentFigure).where(
@@ -58,7 +64,13 @@ def get_active_figure_detail(
         )
     ).scalar_one_or_none()
     if figure is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Figure not found.")
+        raise api_error(
+            404,
+            "figure_not_found",
+            "Figure not found.",
+            document_id=str(document_id),
+            figure_id=str(figure_id),
+        )
 
     return DocumentFigureDetailResponse(
         figure_id=figure.id,

@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -32,6 +33,8 @@ from app.schemas.agent_tasks import (
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
+
+
 def _payload_sha256(payload: dict) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
@@ -69,12 +72,19 @@ def _get_context_artifact_row(session: Session, task_id: UUID) -> AgentTaskArtif
 def get_agent_task_context_artifact(session: Session, task_id: UUID) -> AgentTaskArtifact:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_not_found",
+            "Agent task not found.",
+            task_id=str(task_id),
+        )
     row = _get_context_artifact_row(session, task_id)
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agent task context not found.",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_context_not_found",
+            "Agent task context not found.",
+            task_id=str(task_id),
         )
     return row
 

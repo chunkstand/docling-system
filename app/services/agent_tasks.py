@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -33,8 +34,8 @@ from app.schemas.agent_tasks import (
     AgentTaskCostTrendPointResponse,
     AgentTaskCostTrendResponse,
     AgentTaskCreateRequest,
-    AgentTaskDependencyResponse,
     AgentTaskDecisionSignalResponse,
+    AgentTaskDependencyResponse,
     AgentTaskDetailResponse,
     AgentTaskOutcomeCreateRequest,
     AgentTaskOutcomeResponse,
@@ -52,15 +53,26 @@ from app.schemas.agent_tasks import (
     AgentTaskValueDensityRowResponse,
     AgentTaskVerificationTrendPointResponse,
     AgentTaskVerificationTrendResponse,
-    TaskContextEnvelope,
     AgentTaskWorkflowVersionSummaryResponse,
+    TaskContextEnvelope,
 )
-from app.services.agent_task_context import get_agent_task_context, get_agent_task_context_artifact
 from app.services.agent_task_artifacts import list_agent_task_artifacts
+from app.services.agent_task_context import get_agent_task_context, get_agent_task_context_artifact
 from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
 )
+
+
+def _agent_task_not_found(task_id: UUID) -> HTTPException:
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "agent_task_not_found",
+        "Agent task not found.",
+        task_id=str(task_id),
+    )
+
+
 def _initial_task_status(*, requires_approval: bool, has_incomplete_dependencies: bool) -> str:
     if has_incomplete_dependencies:
         return AgentTaskStatus.BLOCKED.value
@@ -221,14 +233,17 @@ def _validate_dependency_ids(session: Session, dependency_task_ids: list[UUID]) 
     if not dependency_task_ids:
         return
     existing_ids = set(
-        session.execute(select(AgentTask.id).where(AgentTask.id.in_(dependency_task_ids))).scalars()
+        session.execute(select(AgentTask.id).where(AgentTask.id.in_(dependency_task_ids)))
+        .scalars()
+        .all()
     )
     missing_ids = [task_id for task_id in dependency_task_ids if task_id not in existing_ids]
     if missing_ids:
-        missing_str = ", ".join(str(task_id) for task_id in missing_ids)
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Dependency task(s) not found: {missing_str}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_dependency_not_found",
+            "Dependency task not found.",
+            dependency_task_ids=[str(task_id) for task_id in missing_ids],
         )
 
 
@@ -236,9 +251,11 @@ def _validate_parent_task_id(session: Session, parent_task_id: UUID | None) -> N
     if parent_task_id is None:
         return
     if session.get(AgentTask, parent_task_id) is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Parent task not found: {parent_task_id}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "parent_task_not_found",
+            "Parent task not found.",
+            parent_task_id=str(parent_task_id),
         )
 
 
@@ -298,9 +315,10 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
     now = utcnow()
     dependency_task_ids = list(dict.fromkeys(payload.dependency_task_ids))
     if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A task cannot depend on its parent task explicitly.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_agent_task_request",
+            "A task cannot depend on its parent task explicitly.",
         )
     action = get_agent_task_action(payload.task_type)
     try:
@@ -316,18 +334,22 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
     )
     dependency_task_ids = [task_id for task_id, _kind in dependency_specs]
     if payload.parent_task_id is not None and payload.parent_task_id in dependency_task_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A task cannot depend on its parent task explicitly.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_agent_task_request",
+            "A task cannot depend on its parent task explicitly.",
         )
     effective_side_effect_level = payload.side_effect_level or action.side_effect_level
     if effective_side_effect_level != action.side_effect_level:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_agent_task_request",
+            (
                 f"Task type '{payload.task_type}' requires side_effect_level "
                 f"'{action.side_effect_level}'."
             ),
+            task_type=payload.task_type,
+            required_side_effect_level=action.side_effect_level,
         )
     effective_requires_approval = (
         payload.requires_approval
@@ -335,18 +357,25 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
         else action.requires_approval
     )
     if effective_requires_approval != action.requires_approval:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_agent_task_request",
+            (
                 f"Task type '{payload.task_type}' requires requires_approval="
                 f"{str(action.requires_approval).lower()}."
             ),
+            task_type=payload.task_type,
+            requires_approval=action.requires_approval,
         )
 
     _validate_parent_task_id(session, payload.parent_task_id)
     _validate_dependency_ids(session, dependency_task_ids)
     has_incomplete_dependencies = _incomplete_dependency_count(session, dependency_task_ids) > 0
 
+    # Dependencies are only attached during task creation and must reference
+    # already-existing tasks. Because the system does not expose dependency
+    # mutation for existing tasks, dependency edges remain append-only from new
+    # tasks to older tasks, which keeps the supported task graph acyclic.
     task = AgentTask(
         task_type=payload.task_type,
         status=_initial_task_status(
@@ -400,7 +429,9 @@ def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionRespon
                 output_schema_name=action.output_schema_name,
                 output_schema_version=action.output_schema_version,
                 output_schema=(
-                    action.output_model.model_json_schema() if action.output_model is not None else None
+                    action.output_model.model_json_schema()
+                    if action.output_model is not None
+                    else None
                 ),
                 input_example=action.input_example or {},
             )
@@ -423,7 +454,7 @@ def list_agent_tasks(
 def get_agent_task_detail(session: Session, task_id: UUID) -> AgentTaskDetailResponse:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise _agent_task_not_found(task_id)
     return _build_detail(session, task)
 
 
@@ -435,7 +466,7 @@ def list_agent_task_outcomes(
 ) -> list[AgentTaskOutcomeResponse]:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise _agent_task_not_found(task_id)
     rows = (
         session.execute(
             select(AgentTaskOutcome)
@@ -456,15 +487,18 @@ def create_agent_task_outcome(
 ) -> AgentTaskOutcomeResponse:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise _agent_task_not_found(task_id)
     if task.status not in {
         AgentTaskStatus.COMPLETED.value,
         AgentTaskStatus.FAILED.value,
         AgentTaskStatus.REJECTED.value,
     }:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Only terminal tasks can receive outcome labels.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "Only terminal tasks can receive outcome labels.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     existing = session.execute(
         select(AgentTaskOutcome).where(
@@ -474,9 +508,13 @@ def create_agent_task_outcome(
         )
     ).scalar_one_or_none()
     if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This outcome label has already been recorded by that actor for this task.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "agent_task_outcome_already_recorded",
+            "This outcome label has already been recorded by that actor for this task.",
+            task_id=str(task_id),
+            outcome_label=payload.outcome_label,
+            created_by=payload.created_by,
         )
 
     row = AgentTaskOutcome(
@@ -531,8 +569,134 @@ def _bucket_start(value: datetime, bucket: str) -> datetime:
     return datetime.combine(start_date, datetime.min.time(), tzinfo=UTC)
 
 
-def _list_task_attempt_rows(session: Session) -> list[AgentTaskAttempt]:
-    return session.execute(select(AgentTaskAttempt)).scalars().all()
+RECOMMENDATION_FAMILY_TASK_TYPES = (
+    "triage_replay_regression",
+    "draft_harness_config_update",
+    "verify_draft_harness_config",
+    "apply_harness_config_update",
+)
+
+
+def _task_select_statement(
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    task_types: tuple[str, ...] | None = None,
+):
+    statement = select(AgentTask)
+    if task_types is not None:
+        statement = statement.where(AgentTask.task_type.in_(task_types))
+    elif task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    return statement
+
+
+def _task_id_select_statement(
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    task_types: tuple[str, ...] | None = None,
+):
+    statement = select(AgentTask.id)
+    if task_types is not None:
+        statement = statement.where(AgentTask.task_type.in_(task_types))
+    elif task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    return statement
+
+
+def _list_filtered_tasks(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+    task_types: tuple[str, ...] | None = None,
+) -> list[AgentTask]:
+    return session.execute(
+        _task_select_statement(
+            task_type=task_type,
+            workflow_version=workflow_version,
+            task_types=task_types,
+        )
+    ).scalars().all()
+
+
+def _list_task_attempt_rows(
+    session: Session,
+    *,
+    task_ids: set[UUID] | None = None,
+    task_id_select=None,
+) -> list[AgentTaskAttempt]:
+    statement = select(AgentTaskAttempt)
+    if task_ids is not None:
+        if not task_ids:
+            return []
+        statement = statement.where(AgentTaskAttempt.task_id.in_(task_ids))
+    elif task_id_select is not None:
+        statement = statement.where(AgentTaskAttempt.task_id.in_(task_id_select))
+    return session.execute(statement).scalars().all()
+
+
+def _list_task_outcome_rows(
+    session: Session,
+    *,
+    task_ids: set[UUID] | None = None,
+) -> list[AgentTaskOutcome]:
+    statement = select(AgentTaskOutcome)
+    if task_ids is not None:
+        if not task_ids:
+            return []
+        statement = statement.where(AgentTaskOutcome.task_id.in_(task_ids))
+    return session.execute(statement).scalars().all()
+
+
+def _list_task_trend_rows(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> list[tuple[UUID, datetime, str]]:
+    statement = select(AgentTask.id, AgentTask.created_at, AgentTask.status)
+    if task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    return session.execute(statement).all()
+
+
+def _list_verification_trend_rows(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> list[tuple[datetime, str]]:
+    statement = (
+        select(AgentTaskVerification.created_at, AgentTaskVerification.outcome)
+        .join(AgentTask, AgentTask.id == AgentTaskVerification.target_task_id)
+    )
+    if task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    return session.execute(statement).all()
+
+
+def _list_approval_trend_rows(
+    session: Session,
+    *,
+    task_type: str | None = None,
+    workflow_version: str | None = None,
+) -> list[tuple[datetime | None, datetime | None]]:
+    statement = select(AgentTask.approved_at, AgentTask.rejected_at)
+    if task_type is not None:
+        statement = statement.where(AgentTask.task_type == task_type)
+    if workflow_version is not None:
+        statement = statement.where(AgentTask.workflow_version == workflow_version)
+    return session.execute(statement).all()
 
 
 def _filter_task_rows(
@@ -603,26 +767,6 @@ def _recommendation_family_tasks(
         | _task_ids(apply_tasks)
     )
     return [task for task in all_tasks if task.id in family_ids]
-
-
-def _attempt_group_values(
-    attempts: list[AgentTaskAttempt],
-    task_lookup: dict[UUID, AgentTask],
-    *,
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> list[tuple[AgentTaskAttempt, AgentTask]]:
-    rows: list[tuple[AgentTaskAttempt, AgentTask]] = []
-    for attempt in attempts:
-        task = task_lookup.get(attempt.task_id)
-        if task is None:
-            continue
-        if task_type is not None and task.task_type != task_type:
-            continue
-        if workflow_version is not None and task.workflow_version != workflow_version:
-            continue
-        rows.append((attempt, task))
-    return rows
 
 
 def _float_value(payload: dict, key: str) -> float:
@@ -764,7 +908,7 @@ def _recommendation_summary_from_tasks(
 
 
 def _cost_summary_from_attempts(
-    attempts: list[tuple[AgentTaskAttempt, AgentTask]],
+    attempts: list[AgentTaskAttempt],
     *,
     task_type: str | None = None,
     workflow_version: str | None = None,
@@ -775,7 +919,7 @@ def _cost_summary_from_attempts(
     embedding_count = 0
     replay_query_count = 0
     evaluation_query_count = 0
-    for attempt, _task in attempts:
+    for attempt in attempts:
         cost = attempt.cost_json or {}
         if cost:
             instrumented_attempt_count += 1
@@ -798,7 +942,7 @@ def _cost_summary_from_attempts(
 
 
 def _performance_summary_from_attempts(
-    attempts: list[tuple[AgentTaskAttempt, AgentTask]],
+    attempts: list[AgentTaskAttempt],
     *,
     task_type: str | None = None,
     workflow_version: str | None = None,
@@ -807,7 +951,7 @@ def _performance_summary_from_attempts(
     execution_latencies: list[float] = []
     end_to_end_latencies: list[float] = []
     instrumented_attempt_count = 0
-    for attempt, _task in attempts:
+    for attempt in attempts:
         performance = attempt.performance_json or {}
         if performance:
             instrumented_attempt_count += 1
@@ -973,11 +1117,15 @@ def list_agent_task_workflow_summaries(
     ).all()
 
     status_counts_by_version: dict[str, Counter[str]] = defaultdict(Counter)
-    for workflow_version, status, count in status_rows:
-        status_counts_by_version[workflow_version][status] = int(count)
+    for workflow_version, task_status, count in status_rows:
+        status_counts_by_version[workflow_version][task_status] = int(count)
 
-    approved_by_version = {workflow_version: int(count) for workflow_version, count in approved_rows}
-    rejected_by_version = {workflow_version: int(count) for workflow_version, count in rejected_rows}
+    approved_by_version = {
+        workflow_version: int(count) for workflow_version, count in approved_rows
+    }
+    rejected_by_version = {
+        workflow_version: int(count) for workflow_version, count in rejected_rows
+    }
     labeled_by_version = {workflow_version: int(count) for workflow_version, count in labeled_rows}
     outcome_counts_by_version: dict[str, Counter[str]] = defaultdict(Counter)
     for workflow_version, outcome_label, count in outcome_rows:
@@ -1027,17 +1175,13 @@ def get_agent_task_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskTrendResponse:
-    tasks = _filter_task_rows(
-        session.execute(select(AgentTask)).scalars().all(),
+    task_rows = _list_task_trend_rows(
+        session,
         task_type=task_type,
         workflow_version=workflow_version,
     )
-    attempts = _attempt_group_values(
-        _list_task_attempt_rows(session),
-        {task.id: task for task in tasks},
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
+    task_created_at_by_id = {task_id: created_at for task_id, created_at, _status in task_rows}
+    attempts = _list_task_attempt_rows(session, task_ids=set(task_created_at_by_id))
     bucket_rows: dict[datetime, dict] = defaultdict(
         lambda: {
             "created_count": 0,
@@ -1049,20 +1193,23 @@ def get_agent_task_trends(
             "execution_latencies": [],
         }
     )
-    for task in tasks:
-        bucket_key = _bucket_start(task.created_at, bucket)
+    for _task_id, created_at, task_status in task_rows:
+        bucket_key = _bucket_start(created_at, bucket)
         row = bucket_rows[bucket_key]
         row["created_count"] += 1
-        if task.status == AgentTaskStatus.COMPLETED.value:
+        if task_status == AgentTaskStatus.COMPLETED.value:
             row["completed_count"] += 1
-        elif task.status == AgentTaskStatus.FAILED.value:
+        elif task_status == AgentTaskStatus.FAILED.value:
             row["failed_count"] += 1
-        elif task.status == AgentTaskStatus.REJECTED.value:
+        elif task_status == AgentTaskStatus.REJECTED.value:
             row["rejected_count"] += 1
-        elif task.status == AgentTaskStatus.AWAITING_APPROVAL.value:
+        elif task_status == AgentTaskStatus.AWAITING_APPROVAL.value:
             row["awaiting_approval_count"] += 1
-    for attempt, attempt_task in attempts:
-        bucket_key = _bucket_start(attempt_task.created_at, bucket)
+    for attempt in attempts:
+        task_created_at = task_created_at_by_id.get(attempt.task_id)
+        if task_created_at is None:
+            continue
+        bucket_key = _bucket_start(task_created_at, bucket)
         performance = attempt.performance_json or {}
         queue_latency_ms = _float_value(performance, "queue_latency_ms")
         execution_latency_ms = _float_value(performance, "execution_latency_ms")
@@ -1103,23 +1250,19 @@ def get_agent_verification_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskVerificationTrendResponse:
-    tasks = _filter_task_rows(
-        session.execute(select(AgentTask)).scalars().all(),
+    rows = _list_verification_trend_rows(
+        session,
         task_type=task_type,
         workflow_version=workflow_version,
     )
-    task_lookup = {task.id: task for task in tasks}
     bucket_rows: dict[datetime, dict] = defaultdict(
         lambda: {"passed_count": 0, "failed_count": 0, "error_count": 0}
     )
-    for row in session.execute(select(AgentTaskVerification)).scalars().all():
-        task = task_lookup.get(row.target_task_id)
-        if task is None:
-            continue
-        bucket_key = _bucket_start(row.created_at, bucket)
-        if row.outcome == AgentTaskVerificationOutcome.PASSED.value:
+    for created_at, outcome in rows:
+        bucket_key = _bucket_start(created_at, bucket)
+        if outcome == AgentTaskVerificationOutcome.PASSED.value:
             bucket_rows[bucket_key]["passed_count"] += 1
-        elif row.outcome == AgentTaskVerificationOutcome.FAILED.value:
+        elif outcome == AgentTaskVerificationOutcome.FAILED.value:
             bucket_rows[bucket_key]["failed_count"] += 1
         else:
             bucket_rows[bucket_key]["error_count"] += 1
@@ -1146,19 +1289,19 @@ def get_agent_approval_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskApprovalTrendResponse:
-    tasks = _filter_task_rows(
-        session.execute(select(AgentTask)).scalars().all(),
+    rows = _list_approval_trend_rows(
+        session,
         task_type=task_type,
         workflow_version=workflow_version,
     )
     bucket_rows: dict[datetime, dict] = defaultdict(
         lambda: {"approval_count": 0, "rejection_count": 0}
     )
-    for task in tasks:
-        if task.approved_at is not None:
-            bucket_rows[_bucket_start(task.approved_at, bucket)]["approval_count"] += 1
-        if task.rejected_at is not None:
-            bucket_rows[_bucket_start(task.rejected_at, bucket)]["rejection_count"] += 1
+    for approved_at, rejected_at in rows:
+        if approved_at is not None:
+            bucket_rows[_bucket_start(approved_at, bucket)]["approval_count"] += 1
+        if rejected_at is not None:
+            bucket_rows[_bucket_start(rejected_at, bucket)]["rejection_count"] += 1
     return AgentTaskApprovalTrendResponse(
         bucket=bucket,
         task_type=task_type,
@@ -1181,20 +1324,19 @@ def get_agent_task_recommendation_summary(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskRecommendationSummaryResponse:
-    all_tasks = _filter_task_rows(
-        session.execute(select(AgentTask)).scalars().all(),
+    all_tasks = _list_filtered_tasks(
+        session,
         workflow_version=workflow_version,
+        task_types=RECOMMENDATION_FAMILY_TASK_TYPES,
     )
     recommendation_tasks = [
         task
         for task in all_tasks
         if _is_recommendation_task(task) and (task_type is None or task.task_type == task_type)
     ]
-    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
-    summary = _recommendation_summary_from_tasks(
-        _recommendation_family_tasks(all_tasks, recommendation_tasks),
-        outcomes,
-    )
+    family_tasks = _recommendation_family_tasks(all_tasks, recommendation_tasks)
+    outcomes = _list_task_outcome_rows(session, task_ids=_task_ids(family_tasks))
+    summary = _recommendation_summary_from_tasks(family_tasks, outcomes)
     summary.task_type = task_type
     summary.workflow_version = workflow_version
     return summary
@@ -1207,11 +1349,12 @@ def get_agent_task_recommendation_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskRecommendationTrendResponse:
-    tasks = _filter_task_rows(
-        session.execute(select(AgentTask)).scalars().all(),
+    tasks = _list_filtered_tasks(
+        session,
         workflow_version=workflow_version,
+        task_types=RECOMMENDATION_FAMILY_TASK_TYPES,
     )
-    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
+    outcomes = _list_task_outcome_rows(session, task_ids=_task_ids(tasks))
     bucket_rows: dict[datetime, list[AgentTask]] = defaultdict(list)
     for task in tasks:
         if _is_recommendation_task(task) and (task_type is None or task.task_type == task_type):
@@ -1248,13 +1391,12 @@ def get_agent_task_cost_summary(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskCostSummaryResponse:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    task_lookup = {task.id: task for task in tasks}
-    attempts = _attempt_group_values(
-        _list_task_attempt_rows(session),
-        task_lookup,
-        task_type=task_type,
-        workflow_version=workflow_version,
+    attempts = _list_task_attempt_rows(
+        session,
+        task_id_select=_task_id_select_statement(
+            task_type=task_type,
+            workflow_version=workflow_version,
+        ),
     )
     return _cost_summary_from_attempts(
         attempts,
@@ -1270,13 +1412,12 @@ def get_agent_task_cost_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskCostTrendResponse:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    task_lookup = {task.id: task for task in tasks}
-    attempts = _attempt_group_values(
-        _list_task_attempt_rows(session),
-        task_lookup,
-        task_type=task_type,
-        workflow_version=workflow_version,
+    attempts = _list_task_attempt_rows(
+        session,
+        task_id_select=_task_id_select_statement(
+            task_type=task_type,
+            workflow_version=workflow_version,
+        ),
     )
     bucket_rows: dict[datetime, dict] = defaultdict(
         lambda: {
@@ -1287,7 +1428,7 @@ def get_agent_task_cost_trends(
             "embedding_count": 0,
         }
     )
-    for attempt, _task in attempts:
+    for attempt in attempts:
         row = bucket_rows[_bucket_start(attempt.created_at, bucket)]
         row["attempt_count"] += 1
         cost = attempt.cost_json or {}
@@ -1317,13 +1458,12 @@ def get_agent_task_performance_summary(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskPerformanceSummaryResponse:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    task_lookup = {task.id: task for task in tasks}
-    attempts = _attempt_group_values(
-        _list_task_attempt_rows(session),
-        task_lookup,
-        task_type=task_type,
-        workflow_version=workflow_version,
+    attempts = _list_task_attempt_rows(
+        session,
+        task_id_select=_task_id_select_statement(
+            task_type=task_type,
+            workflow_version=workflow_version,
+        ),
     )
     return _performance_summary_from_attempts(
         attempts,
@@ -1339,13 +1479,12 @@ def get_agent_task_performance_trends(
     task_type: str | None = None,
     workflow_version: str | None = None,
 ) -> AgentTaskPerformanceTrendResponse:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    task_lookup = {task.id: task for task in tasks}
-    attempts = _attempt_group_values(
-        _list_task_attempt_rows(session),
-        task_lookup,
-        task_type=task_type,
-        workflow_version=workflow_version,
+    attempts = _list_task_attempt_rows(
+        session,
+        task_id_select=_task_id_select_statement(
+            task_type=task_type,
+            workflow_version=workflow_version,
+        ),
     )
     bucket_rows: dict[datetime, dict] = defaultdict(
         lambda: {
@@ -1354,7 +1493,7 @@ def get_agent_task_performance_trends(
             "execution_latencies": [],
         }
     )
-    for attempt, _task in attempts:
+    for attempt in attempts:
         row = bucket_rows[_bucket_start(attempt.created_at, bucket)]
         row["attempt_count"] += 1
         performance = attempt.performance_json or {}
@@ -1387,9 +1526,10 @@ def get_agent_task_performance_trends(
 def get_agent_task_value_density(
     session: Session,
 ) -> list[AgentTaskValueDensityRowResponse]:
-    tasks = session.execute(select(AgentTask)).scalars().all()
-    outcomes = session.execute(select(AgentTaskOutcome)).scalars().all()
-    attempts = _list_task_attempt_rows(session)
+    tasks = _list_filtered_tasks(session, task_types=RECOMMENDATION_FAMILY_TASK_TYPES)
+    task_ids = _task_ids(tasks)
+    outcomes = _list_task_outcome_rows(session, task_ids=task_ids)
+    attempts = _list_task_attempt_rows(session, task_ids=task_ids)
     rows: list[AgentTaskValueDensityRowResponse] = []
     grouped_tasks: dict[tuple[str, str], list[AgentTask]] = defaultdict(list)
     for task in tasks:
@@ -1397,12 +1537,8 @@ def get_agent_task_value_density(
             grouped_tasks[(task.task_type, task.workflow_version)].append(task)
     for (task_type, workflow_version), grouped in sorted(grouped_tasks.items()):
         family_tasks = _recommendation_family_tasks(tasks, grouped)
-        family_attempts = [
-            (attempt, task)
-            for attempt in attempts
-            for task in family_tasks
-            if attempt.task_id == task.id
-        ]
+        family_task_ids = _task_ids(family_tasks)
+        family_attempts = [attempt for attempt in attempts if attempt.task_id in family_task_ids]
         recommendation_summary = _recommendation_summary_from_tasks(family_tasks, outcomes)
         performance_summary = _performance_summary_from_attempts(
             family_attempts,
@@ -1521,26 +1657,38 @@ def approve_agent_task(
 ) -> AgentTaskDetailResponse:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise _agent_task_not_found(task_id)
     if not task.requires_approval:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This task does not require approval.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "This task does not require approval.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.approved_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This task has already been approved.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "This task has already been approved.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.rejected_at is not None or task.status == AgentTaskStatus.REJECTED.value:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Rejected tasks cannot be approved.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "Rejected tasks cannot be approved.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.status in {AgentTaskStatus.COMPLETED.value, AgentTaskStatus.FAILED.value}:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Completed or failed tasks cannot be approved.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "Completed or failed tasks cannot be approved.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
 
     now = utcnow()
@@ -1564,21 +1712,30 @@ def reject_agent_task(
 ) -> AgentTaskDetailResponse:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise _agent_task_not_found(task_id)
     if not task.requires_approval:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This task does not require approval.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "This task does not require approval.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.approved_at is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Approved tasks cannot be rejected.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "Approved tasks cannot be rejected.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.rejected_at is not None or task.status == AgentTaskStatus.REJECTED.value:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This task has already been rejected.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "This task has already been rejected.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
     if task.status in {
         AgentTaskStatus.COMPLETED.value,
@@ -1587,9 +1744,12 @@ def reject_agent_task(
         AgentTaskStatus.RETRY_WAIT.value,
         AgentTaskStatus.QUEUED.value,
     }:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Only pending approval tasks can be rejected.",
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "invalid_agent_task_state",
+            "Only pending approval tasks can be rejected.",
+            task_id=str(task_id),
+            task_status=task.status,
         )
 
     now = utcnow()

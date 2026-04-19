@@ -24,9 +24,13 @@ from app.services.agent_tasks import (
     approve_agent_task,
     create_agent_task,
     create_agent_task_outcome,
+    get_agent_approval_trends,
+    get_agent_task_cost_summary,
+    get_agent_task_performance_summary,
     get_agent_task_recommendation_summary,
     get_agent_task_trends,
     get_agent_task_value_density,
+    get_agent_verification_trends,
     reject_agent_task,
 )
 
@@ -51,6 +55,9 @@ class FakeExecuteResult:
     def __init__(self, rows):
         self._rows = rows
 
+    def all(self):
+        return list(self._rows)
+
     def scalars(self):
         return FakeScalarResult(self._rows)
 
@@ -67,11 +74,15 @@ class FakeSession:
         outcome_rows: list[object] | None = None,
         task_rows: list[object] | None = None,
         attempt_rows: list[object] | None = None,
+        dependency_rows: list[object] | None = None,
+        verification_rows: list[object] | None = None,
     ) -> None:
         self.task = task
         self.outcome_rows = outcome_rows or []
         self.task_rows = task_rows or ([] if task is None else [task])
         self.attempt_rows = attempt_rows or []
+        self.dependency_rows = dependency_rows or []
+        self.verification_rows = verification_rows or []
         self.added: list[object] = []
         self.flushed = False
         self.committed = False
@@ -94,7 +105,23 @@ class FakeSession:
         rendered = str(statement)
         if "agent_task_attempts" in rendered:
             return FakeExecuteResult(self.attempt_rows)
+        if "agent_task_verifications" in rendered:
+            if "agent_task_verifications.created_at, agent_task_verifications.outcome" in rendered:
+                return FakeExecuteResult(
+                    [(row.created_at, row.outcome) for row in self.verification_rows]
+                )
+            return FakeExecuteResult(self.verification_rows)
+        if "agent_task_dependencies" in rendered:
+            return FakeExecuteResult(self.dependency_rows)
         if "FROM agent_tasks" in rendered:
+            if "agent_tasks.id, agent_tasks.created_at, agent_tasks.status" in rendered:
+                return FakeExecuteResult(
+                    [(row.id, row.created_at, row.status) for row in self.task_rows]
+                )
+            if "agent_tasks.approved_at, agent_tasks.rejected_at" in rendered:
+                return FakeExecuteResult(
+                    [(row.approved_at, row.rejected_at) for row in self.task_rows]
+                )
             return FakeExecuteResult(self.task_rows)
         if "agent_task_outcomes" in rendered:
             return FakeExecuteResult(self.outcome_rows)
@@ -201,9 +228,53 @@ def test_create_agent_task_rejects_parent_as_explicit_dependency() -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 400
-        assert "depend on its parent task explicitly" in exc.detail
+        assert exc.detail["code"] == "invalid_agent_task_request"
+        assert "depend on its parent task explicitly" in exc.detail["message"]
     else:
         raise AssertionError("Expected parent/dependency overlap to be rejected")
+
+
+def test_create_agent_task_rejects_missing_dependency_ids() -> None:
+    missing_dependency_id = uuid4()
+    session = FakeSession(task_rows=[])
+
+    try:
+        create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_search_harness",
+                side_effect_level="read_only",
+                requires_approval=False,
+                dependency_task_ids=[missing_dependency_id],
+                input={"candidate_harness_name": "prose_v3"},
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail["code"] == "agent_task_dependency_not_found"
+        assert exc.detail["context"]["dependency_task_ids"] == [str(missing_dependency_id)]
+    else:
+        raise AssertionError("Expected missing dependency IDs to be rejected")
+
+
+def test_create_agent_task_rejects_missing_action_linked_dependency_ids() -> None:
+    missing_target_task_id = uuid4()
+    session = FakeSession(task_rows=[])
+
+    try:
+        create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_search_harness_evaluation",
+                input={"target_task_id": str(missing_target_task_id)},
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail["code"] == "agent_task_dependency_not_found"
+        assert exc.detail["context"]["dependency_task_ids"] == [str(missing_target_task_id)]
+    else:
+        raise AssertionError("Expected missing linked task IDs to be rejected")
 
 
 def test_approve_agent_task_moves_ready_task_to_queue(monkeypatch) -> None:
@@ -269,7 +340,8 @@ def test_approve_agent_task_rejects_non_approval_task(monkeypatch) -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "does not require approval" in exc.detail
+        assert exc.detail["code"] == "invalid_agent_task_state"
+        assert "does not require approval" in exc.detail["message"]
     else:
         raise AssertionError("Expected non-approval task to reject approval")
 
@@ -339,7 +411,8 @@ def test_reject_agent_task_rejects_already_approved_task(monkeypatch) -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "Approved tasks cannot be rejected" in exc.detail
+        assert exc.detail["code"] == "invalid_agent_task_state"
+        assert "Approved tasks cannot be rejected" in exc.detail["message"]
     else:
         raise AssertionError("Expected approved task rejection to fail")
 
@@ -408,7 +481,8 @@ def test_create_agent_task_outcome_rejects_non_terminal_task() -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "Only terminal tasks can receive outcome labels" in exc.detail
+        assert exc.detail["code"] == "invalid_agent_task_state"
+        assert "Only terminal tasks can receive outcome labels" in exc.detail["message"]
     else:
         raise AssertionError("Expected non-terminal task labeling to fail")
 
@@ -454,7 +528,8 @@ def test_create_agent_task_outcome_rejects_duplicate_label_from_same_actor() -> 
         )
     except HTTPException as exc:
         assert exc.status_code == 409
-        assert "already been recorded" in exc.detail
+        assert exc.detail["code"] == "agent_task_outcome_already_recorded"
+        assert "already been recorded" in exc.detail["message"]
     else:
         raise AssertionError("Expected duplicate outcome labeling to fail")
 
@@ -474,7 +549,8 @@ def test_create_agent_task_rejects_registry_side_effect_mismatch() -> None:
         )
     except HTTPException as exc:
         assert exc.status_code == 400
-        assert "requires side_effect_level 'read_only'" in exc.detail
+        assert exc.detail["code"] == "invalid_agent_task_request"
+        assert "requires side_effect_level 'read_only'" in exc.detail["message"]
     else:
         raise AssertionError("Expected side-effect mismatch to be rejected")
 
@@ -541,7 +617,6 @@ def test_create_apply_harness_task_auto_adds_draft_and_verification_dependencies
         verification_task_id,
     }
 
-
 def test_agent_task_trends_bucket_attempt_metrics_with_attempt_task() -> None:
     first_created = datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
     second_created = datetime(2026, 4, 13, 10, 0, tzinfo=UTC)
@@ -605,6 +680,178 @@ def test_agent_task_trends_bucket_attempt_metrics_with_attempt_task() -> None:
     assert len(response.series) == 2
     assert response.series[0].median_execution_latency_ms == 10.0
     assert response.series[1].median_execution_latency_ms == 14.0
+
+
+def test_agent_verification_trends_counts_outcomes_by_bucket() -> None:
+    created_at = datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
+    verification_rows = [
+        type("VerificationRow", (), {"created_at": created_at, "outcome": "passed"})(),
+        type("VerificationRow", (), {"created_at": created_at, "outcome": "failed"})(),
+    ]
+    session = FakeSession(verification_rows=verification_rows)
+
+    response = get_agent_verification_trends(session)
+
+    assert len(response.series) == 1
+    assert response.series[0].passed_count == 1
+    assert response.series[0].failed_count == 1
+    assert response.series[0].error_count == 0
+
+
+def test_agent_approval_trends_counts_approved_and_rejected_tasks() -> None:
+    approved_at = datetime(2026, 4, 12, 10, 0, tzinfo=UTC)
+    rejected_at = datetime(2026, 4, 13, 9, 0, tzinfo=UTC)
+    session = FakeSession(
+        task_rows=[
+            AgentTask(
+                id=uuid4(),
+                task_type="apply_harness_config_update",
+                status=AgentTaskStatus.COMPLETED.value,
+                priority=100,
+                side_effect_level="promotable",
+                requires_approval=True,
+                input_json={},
+                result_json={},
+                workflow_version="v1",
+                model_settings_json={},
+                approved_at=approved_at,
+                created_at=approved_at,
+                updated_at=approved_at,
+            ),
+            AgentTask(
+                id=uuid4(),
+                task_type="apply_harness_config_update",
+                status=AgentTaskStatus.REJECTED.value,
+                priority=100,
+                side_effect_level="promotable",
+                requires_approval=True,
+                input_json={},
+                result_json={},
+                workflow_version="v1",
+                model_settings_json={},
+                rejected_at=rejected_at,
+                created_at=rejected_at,
+                updated_at=rejected_at,
+            ),
+        ]
+    )
+
+    response = get_agent_approval_trends(session)
+
+    assert len(response.series) == 2
+    assert response.series[0].approval_count == 1
+    assert response.series[1].rejection_count == 1
+
+
+def test_agent_task_cost_summary_aggregates_attempt_costs() -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    attempts = [
+        AgentTaskAttempt(
+            id=uuid4(),
+            task_id=task.id,
+            attempt_number=1,
+            status="completed",
+            input_json={},
+            result_json={},
+            cost_json={"estimated_usd": 1.25, "call_count": 2, "embedding_count": 1},
+            performance_json={},
+            created_at=now,
+        ),
+        AgentTaskAttempt(
+            id=uuid4(),
+            task_id=task.id,
+            attempt_number=2,
+            status="completed",
+            input_json={},
+            result_json={},
+            cost_json={"estimated_usd": 0.75, "call_count": 1, "replay_query_count": 3},
+            performance_json={},
+            created_at=now,
+        ),
+    ]
+    session = FakeSession(task_rows=[task], attempt_rows=attempts)
+
+    summary = get_agent_task_cost_summary(session, task_type="triage_replay_regression")
+
+    assert summary.attempt_count == 2
+    assert summary.instrumented_attempt_count == 2
+    assert summary.estimated_usd_total == 2.0
+    assert summary.model_call_count == 3
+    assert summary.embedding_count == 1
+    assert summary.replay_query_count == 3
+
+
+def test_agent_task_performance_summary_aggregates_attempt_latencies() -> None:
+    now = datetime.now(UTC)
+    task = AgentTask(
+        id=uuid4(),
+        task_type="triage_replay_regression",
+        status=AgentTaskStatus.COMPLETED.value,
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+    )
+    attempts = [
+        AgentTaskAttempt(
+            id=uuid4(),
+            task_id=task.id,
+            attempt_number=1,
+            status="completed",
+            input_json={},
+            result_json={},
+            cost_json={},
+            performance_json={
+                "queue_latency_ms": 5.0,
+                "execution_latency_ms": 20.0,
+                "end_to_end_latency_ms": 40.0,
+            },
+            created_at=now,
+        ),
+        AgentTaskAttempt(
+            id=uuid4(),
+            task_id=task.id,
+            attempt_number=2,
+            status="completed",
+            input_json={},
+            result_json={},
+            cost_json={},
+            performance_json={
+                "queue_latency_ms": 15.0,
+                "execution_latency_ms": 30.0,
+                "end_to_end_latency_ms": 60.0,
+            },
+            created_at=now,
+        ),
+    ]
+    session = FakeSession(task_rows=[task], attempt_rows=attempts)
+
+    summary = get_agent_task_performance_summary(session, task_type="triage_replay_regression")
+
+    assert summary.attempt_count == 2
+    assert summary.instrumented_attempt_count == 2
+    assert summary.median_queue_latency_ms == 5.0
+    assert summary.median_execution_latency_ms == 20.0
+    assert summary.median_end_to_end_latency_ms == 40.0
 
 
 def test_recommendation_summary_task_type_filter_keeps_linked_tasks() -> None:

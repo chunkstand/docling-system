@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pypdfium2 as pdfium
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -623,9 +623,7 @@ def create_run_for_existing_document(session: Session, document: Document) -> Do
 
 
 def get_document_detail(session: Session, document_id: UUID) -> DocumentDetailResponse:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    document = get_document_or_404(session, document_id)
 
     active_run = _get_run(session, document.active_run_id)
     latest_run = _get_run(session, document.latest_run_id)
@@ -775,9 +773,7 @@ def reprocess_document(
 def list_document_runs(
     session: Session, document_id: UUID, limit: int = 20
 ) -> list[DocumentRunSummaryResponse]:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    document = get_document_or_404(session, document_id)
 
     runs = (
         session.execute(
@@ -804,12 +800,13 @@ def get_document_run_summary(session: Session, run_id: UUID) -> DocumentRunSumma
 
 
 def get_latest_document_evaluation_detail(session: Session, document_id: UUID):
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    document = get_document_or_404(session, document_id)
     evaluation = get_latest_document_evaluation(session, document)
     if evaluation is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No evaluation found for the document."
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "document_evaluation_not_found",
+            "No evaluation found for the document.",
+            document_id=str(document_id),
         )
     return evaluation

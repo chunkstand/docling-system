@@ -169,6 +169,69 @@ def test_document_chunks_route_allows_inspect_capability_in_remote_mode(monkeypa
     assert response.json() == []
 
 
+def test_document_detail_route_returns_machine_readable_error_when_missing() -> None:
+    document_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/documents/{document_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_not_found"
+
+
+def test_document_runs_route_returns_machine_readable_error_when_document_missing() -> None:
+    document_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/documents/{document_id}/runs")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_not_found"
+
+
+def test_document_chunks_route_returns_machine_readable_error_when_document_missing() -> None:
+    document_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/documents/{document_id}/chunks")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_not_found"
+
+
 def test_create_document_route_passes_idempotency_key(monkeypatch) -> None:
     captured: dict = {}
 
@@ -236,6 +299,49 @@ def test_latest_evaluation_route_uses_evaluation_service(monkeypatch) -> None:
     assert body["evaluation_id"] == str(evaluation_id)
     assert body["run_id"] == str(run_id)
     assert body["status"] == "completed"
+
+
+def test_latest_evaluation_route_returns_machine_readable_error_when_document_missing() -> None:
+    document_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/documents/{document_id}/evaluations/latest")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_not_found"
+
+
+def test_latest_evaluation_route_returns_machine_readable_error_when_missing(monkeypatch) -> None:
+    document_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return SimpleNamespace(id=document_id)
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("app.services.documents.get_latest_document_evaluation", lambda *_args: None)
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/documents/{document_id}/evaluations/latest")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_evaluation_not_found"
 
 
 def test_document_runs_route_uses_run_history_service(monkeypatch) -> None:
@@ -405,14 +511,76 @@ def test_document_artifact_routes_return_404_for_missing_storage_owned_paths(
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
         client = TestClient(app)
-        assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 404
-        assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 404
-        assert client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json").status_code == 404
-        assert client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml").status_code == 404
-        assert client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/json").status_code == 404
-        assert client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").status_code == 404
+        document_json = client.get(f"/documents/{document_id}/artifacts/json")
+        document_yaml = client.get(f"/documents/{document_id}/artifacts/yaml")
+        table_json = client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json")
+        table_yaml = client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml")
+        figure_json = client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/json")
+        figure_yaml = client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml")
     finally:
         app.dependency_overrides.clear()
+
+    assert document_json.status_code == 404
+    assert document_json.json()["error_code"] == "document_artifact_not_found"
+    assert document_yaml.status_code == 404
+    assert document_yaml.json()["error_code"] == "document_artifact_not_found"
+    assert table_json.status_code == 404
+    assert table_json.json()["error_code"] == "table_artifact_not_found"
+    assert table_yaml.status_code == 404
+    assert table_yaml.json()["error_code"] == "table_artifact_not_found"
+    assert figure_json.status_code == 404
+    assert figure_json.json()["error_code"] == "figure_artifact_not_found"
+    assert figure_yaml.status_code == 404
+    assert figure_yaml.json()["error_code"] == "figure_artifact_not_found"
+
+
+def test_run_failure_artifact_route_returns_machine_readable_error_when_run_missing() -> None:
+    run_id = uuid4()
+
+    class FakeSession:
+        def get(self, _model, _key):
+            return None
+
+        def close(self) -> None:
+            return None
+
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/runs/{run_id}/failure-artifact")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "document_run_not_found"
+
+
+def test_run_failure_artifact_route_returns_machine_readable_error_when_artifact_missing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    document_id = uuid4()
+    run_id = uuid4()
+
+    class FakeSession:
+        def get(self, model, key):
+            if model is DocumentRun and key == run_id:
+                return SimpleNamespace(id=run_id, document_id=document_id)
+            return None
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    try:
+        client = TestClient(app)
+        response = client.get(f"/runs/{run_id}/failure-artifact")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "run_failure_artifact_not_found"
 
 
 def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_path: Path) -> None:

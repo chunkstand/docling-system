@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskArtifact
 from app.schemas.agent_tasks import AgentTaskArtifactResponse
@@ -65,7 +66,12 @@ def list_agent_task_artifacts(
 ) -> list[AgentTaskArtifactResponse]:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_not_found",
+            "Agent task not found.",
+            task_id=str(task_id),
+        )
     rows = (
         session.execute(
             select(AgentTaskArtifact)
@@ -86,11 +92,19 @@ def get_agent_task_artifact(
 ) -> AgentTaskArtifact:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_not_found",
+            "Agent task not found.",
+            task_id=str(task_id),
+        )
     row = session.get(AgentTaskArtifact, artifact_id)
     if row is None or row.task_id != task_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agent task artifact not found.",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_artifact_not_found",
+            "Agent task artifact not found.",
+            task_id=str(task_id),
+            artifact_id=str(artifact_id),
         )
     return row

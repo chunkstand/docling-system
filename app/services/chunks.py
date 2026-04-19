@@ -2,18 +2,16 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Document, DocumentChunk
+from app.db.models import DocumentChunk
 from app.schemas.chunks import DocumentChunkResponse
+from app.services.documents import get_document_or_404
 
 
 def get_active_chunks(session: Session, document_id: UUID) -> list[DocumentChunkResponse]:
-    document = session.get(Document, document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+    document = get_document_or_404(session, document_id)
     if document.active_run_id is None:
         return []
 

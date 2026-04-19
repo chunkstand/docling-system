@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import HTTPException, status
+from fastapi import status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -32,6 +33,8 @@ from app.services.search_release_gate import (
 )
 
 VerificationOutcome = SearchHarnessReleaseGateOutcome
+
+
 def _to_verification_response(row: AgentTaskVerification) -> AgentTaskVerificationResponse:
     return AgentTaskVerificationResponse(
         verification_id=row.id,
@@ -82,7 +85,12 @@ def get_agent_task_verifications(
 ) -> list[AgentTaskVerificationResponse]:
     task = session.get(AgentTask, task_id)
     if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent task not found.")
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_not_found",
+            "Agent task not found.",
+            task_id=str(task_id),
+        )
     return list_agent_task_verifications(session, task_id, limit=limit)
 
 
