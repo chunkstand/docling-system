@@ -22,17 +22,42 @@ class SemanticAssertionEvidenceResponse(BaseModel):
     details: dict
 
 
+class SemanticConceptCategoryBindingResponse(BaseModel):
+    binding_id: UUID
+    concept_key: str
+    category_key: str
+    category_label: str
+    binding_type: str
+    created_from: str
+    review_status: str
+    details: dict
+
+
+class SemanticAssertionCategoryBindingResponse(BaseModel):
+    binding_id: UUID
+    category_key: str
+    category_label: str
+    binding_type: str
+    created_from: str
+    review_status: str
+    details: dict
+
+
 class SemanticAssertionResponse(BaseModel):
     assertion_id: UUID
     concept_key: str
     preferred_label: str
     scope_note: str | None = None
     assertion_kind: str
+    epistemic_status: str
+    context_scope: str
+    review_status: str
     matched_terms: list[str]
     source_types: list[str]
     evidence_count: int
     confidence: float | None = None
     details: dict
+    category_bindings: list[SemanticAssertionCategoryBindingResponse]
     evidence: list[SemanticAssertionEvidenceResponse]
 
 
@@ -59,4 +84,5 @@ class DocumentSemanticPassResponse(BaseModel):
     error_message: str | None = None
     created_at: datetime
     completed_at: datetime | None = None
+    concept_category_bindings: list[SemanticConceptCategoryBindingResponse]
     assertions: list[SemanticAssertionResponse]

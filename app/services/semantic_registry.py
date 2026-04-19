@@ -34,6 +34,15 @@ class SemanticRegistryConceptDefinition:
     scope_note: str | None
     metadata: dict[str, Any]
     terms: tuple[SemanticRegistryTermDefinition, ...]
+    category_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SemanticRegistryCategoryDefinition:
+    category_key: str
+    preferred_label: str
+    scope_note: str | None
+    metadata: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -41,6 +50,7 @@ class SemanticRegistry:
     registry_name: str
     registry_version: str
     sha256: str
+    categories: tuple[SemanticRegistryCategoryDefinition, ...]
     concepts: tuple[SemanticRegistryConceptDefinition, ...]
 
 
@@ -94,6 +104,36 @@ def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
     if not registry_version:
         raise ValueError("Semantic registry requires registry_version.")
 
+    raw_categories = payload.get("categories") or []
+    if not isinstance(raw_categories, list):
+        raise ValueError("Semantic registry categories must be a list.")
+    categories: list[SemanticRegistryCategoryDefinition] = []
+    seen_category_keys: set[str] = set()
+    for raw_category in raw_categories:
+        if not isinstance(raw_category, dict):
+            raise ValueError("Each semantic category must be a mapping.")
+        category_key = collapse_whitespace(str(raw_category.get("category_key") or ""))
+        if not category_key:
+            raise ValueError("Semantic categories require category_key.")
+        if category_key in seen_category_keys:
+            raise ValueError(f"Duplicate semantic category key: {category_key}")
+        seen_category_keys.add(category_key)
+        preferred_label = collapse_whitespace(str(raw_category.get("preferred_label") or ""))
+        if not preferred_label:
+            raise ValueError("Semantic categories require a non-empty preferred_label.")
+        categories.append(
+            SemanticRegistryCategoryDefinition(
+                category_key=category_key,
+                preferred_label=preferred_label,
+                scope_note=collapse_whitespace(str(raw_category.get("scope_note") or "")) or None,
+                metadata={
+                    key: value
+                    for key, value in raw_category.items()
+                    if key not in {"category_key", "preferred_label", "scope_note"}
+                },
+            )
+        )
+
     raw_concepts = payload.get("concepts") or []
     if not isinstance(raw_concepts, list):
         raise ValueError("Semantic registry concepts must be a list.")
@@ -110,6 +150,21 @@ def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
             raise ValueError(f"Duplicate semantic concept key: {concept_key}")
         seen_concept_keys.add(concept_key)
         preferred_label = collapse_whitespace(str(raw_concept.get("preferred_label") or ""))
+        raw_category_keys = raw_concept.get("category_keys") or []
+        if raw_category_keys and not isinstance(raw_category_keys, list):
+            raise ValueError("Semantic concept category_keys must be a list when provided.")
+        category_keys = tuple(
+            sorted(
+                collapse_whitespace(str(item or ""))
+                for item in raw_category_keys
+                if collapse_whitespace(str(item or ""))
+            )
+        )
+        for category_key in category_keys:
+            if category_key not in seen_category_keys:
+                raise ValueError(
+                    f"Semantic concept references unknown category_key: {category_key}"
+                )
         concepts.append(
             SemanticRegistryConceptDefinition(
                 concept_key=concept_key,
@@ -118,9 +173,17 @@ def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
                 metadata={
                     key: value
                     for key, value in raw_concept.items()
-                    if key not in {"concept_key", "preferred_label", "scope_note", "aliases"}
+                    if key
+                    not in {
+                        "concept_key",
+                        "preferred_label",
+                        "scope_note",
+                        "aliases",
+                        "category_keys",
+                    }
                 },
                 terms=_concept_terms(raw_concept),
+                category_keys=category_keys,
             )
         )
 
@@ -128,6 +191,7 @@ def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
         registry_name=registry_name,
         registry_version=registry_version,
         sha256=hashlib.sha256(raw_bytes).hexdigest(),
+        categories=tuple(categories),
         concepts=tuple(concepts),
     )
 

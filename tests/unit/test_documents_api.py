@@ -733,7 +733,7 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
-        artifact_schema_version="1.0",
+        artifact_schema_version="2.0",
         artifact_json_path=str(tmp_path / "missing-semantic.json"),
         artifact_yaml_path=str(tmp_path / "missing-semantic.yaml"),
     )
@@ -924,12 +924,12 @@ def test_semantic_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
     document_id = uuid4()
     run_id = uuid4()
 
-    storage_service.get_semantic_json_path(document_id, run_id).write_text('{"kind":"semantic"}')
-    storage_service.get_semantic_yaml_path(document_id, run_id).write_text("kind: semantic\n")
+    storage_service.get_semantic_json_path(document_id, run_id, "2.0").write_text('{"kind":"semantic"}')
+    storage_service.get_semantic_yaml_path(document_id, run_id, "2.0").write_text("kind: semantic\n")
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
-        artifact_schema_version="1.0",
+        artifact_schema_version="2.0",
         artifact_json_path="/tmp/ignored-semantic.json",
         artifact_yaml_path="/tmp/ignored-semantic.yaml",
     )

@@ -221,11 +221,19 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert semantics_response.status_code == 200
     semantics = semantics_response.json()
     assert semantics["status"] == "completed"
-    assert semantics["registry_version"] == "semantics-layer-foundation-alpha.1"
-    assert semantics["artifact_schema_version"] == "1.0"
+    assert semantics["registry_version"] == "semantics-layer-foundation-alpha.2"
+    assert semantics["artifact_schema_version"] == "2.0"
     assert semantics["evaluation_status"] == "completed"
+    assert semantics["evaluation_version"] == 2
     assert semantics["evaluation_summary"]["all_expectations_passed"] is True
     assert semantics["assertion_count"] == 2
+    assert {
+        (binding["concept_key"], binding["category_key"], binding["review_status"])
+        for binding in semantics["concept_category_bindings"]
+    } == {
+        ("integration_threshold", "integration_governance", "approved"),
+        ("system_diagram", "system_representation", "approved"),
+    }
     assertions_by_concept = {
         assertion["concept_key"]: assertion for assertion in semantics["assertions"]
     }
@@ -234,6 +242,31 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         "table",
     ]
     assert assertions_by_concept["system_diagram"]["source_types"] == ["figure"]
+    assert assertions_by_concept["integration_threshold"]["epistemic_status"] == "observed"
+    assert assertions_by_concept["integration_threshold"]["context_scope"] == "document_run"
+    assert assertions_by_concept["integration_threshold"]["review_status"] == "candidate"
+    assert assertions_by_concept["integration_threshold"]["category_bindings"] == [
+        {
+            "binding_id": assertions_by_concept["integration_threshold"]["category_bindings"][0]["binding_id"],
+            "category_key": "integration_governance",
+            "category_label": "Integration Governance",
+            "binding_type": "assertion_category",
+            "created_from": "derived",
+            "review_status": "candidate",
+            "details": assertions_by_concept["integration_threshold"]["category_bindings"][0]["details"],
+        }
+    ]
+    assert assertions_by_concept["system_diagram"]["category_bindings"] == [
+        {
+            "binding_id": assertions_by_concept["system_diagram"]["category_bindings"][0]["binding_id"],
+            "category_key": "system_representation",
+            "category_label": "System Representation",
+            "binding_type": "assertion_category",
+            "created_from": "derived",
+            "review_status": "candidate",
+            "details": assertions_by_concept["system_diagram"]["category_bindings"][0]["details"],
+        }
+    ]
     threshold_table_evidence = next(
         evidence
         for evidence in assertions_by_concept["integration_threshold"]["evidence"]
@@ -271,9 +304,17 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert semantic_artifact_response.status_code == 200
     semantic_artifact = semantic_artifact_response.json()
     assert semantic_artifact["schema_name"] == "docling.semantic_pass"
-    assert semantic_artifact["schema_version"] == "1.0"
-    assert semantic_artifact["registry"]["version"] == "semantics-layer-foundation-alpha.1"
+    assert semantic_artifact["schema_version"] == "2.0"
+    assert semantic_artifact["registry"]["version"] == "semantics-layer-foundation-alpha.2"
+    assert semantic_artifact["evaluation"]["version"] == 2
     assert semantic_artifact["evaluation"]["summary"]["all_expectations_passed"] is True
+    assert {
+        (binding["concept_key"], binding["category_key"], binding["review_status"])
+        for binding in semantic_artifact["concept_category_bindings"]
+    } == {
+        ("integration_threshold", "integration_governance", "approved"),
+        ("system_diagram", "system_representation", "approved"),
+    }
     artifact_threshold_table_evidence = next(
         evidence
         for assertion in semantic_artifact["assertions"]
@@ -281,6 +322,16 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         for evidence in assertion["evidence"]
         if evidence["source_type"] == "table"
     )
+    artifact_threshold_assertion = next(
+        assertion
+        for assertion in semantic_artifact["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    assert artifact_threshold_assertion["epistemic_status"] == "observed"
+    assert artifact_threshold_assertion["context_scope"] == "document_run"
+    assert artifact_threshold_assertion["review_status"] == "candidate"
+    assert artifact_threshold_assertion["category_bindings"][0]["category_key"] == "integration_governance"
+    assert artifact_threshold_assertion["category_bindings"][0]["review_status"] == "candidate"
     assert "source_artifact_path" not in artifact_threshold_table_evidence
     assert "yaml_artifact_path" not in artifact_threshold_table_evidence["details"]
     assert (

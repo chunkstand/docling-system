@@ -24,13 +24,21 @@ from app.db.models import (
     DocumentRunSemanticPass,
     DocumentTable,
     SemanticAssertion,
+    SemanticAssertionCategoryBinding,
     SemanticAssertionEvidence,
     SemanticAssertionKind,
+    SemanticBindingOrigin,
+    SemanticCategory,
+    SemanticCategoryBindingType,
     SemanticConcept,
+    SemanticConceptCategoryBinding,
     SemanticConceptTerm,
+    SemanticContextScope,
+    SemanticEpistemicStatus,
     SemanticEvaluationStatus,
     SemanticEvidenceSourceType,
     SemanticPassStatus,
+    SemanticReviewStatus,
     SemanticTerm,
     SemanticTermKind,
 )
@@ -38,6 +46,8 @@ from app.schemas.semantics import (
     DocumentSemanticPassResponse,
     SemanticAssertionEvidenceResponse,
     SemanticAssertionResponse,
+    SemanticAssertionCategoryBindingResponse,
+    SemanticConceptCategoryBindingResponse,
 )
 from app.services.documents import get_document_or_404
 from app.services.semantic_registry import (
@@ -49,10 +59,10 @@ from app.services.semantic_registry import (
 from app.services.storage import StorageService
 
 SEMANTIC_ARTIFACT_SCHEMA_NAME = "docling.semantic_pass"
-SEMANTIC_ARTIFACT_SCHEMA_VERSION = "1.0"
-SEMANTIC_EXTRACTOR_VERSION = "semantics_sidecar_v1"
+SEMANTIC_ARTIFACT_SCHEMA_VERSION = "2.0"
+SEMANTIC_EXTRACTOR_VERSION = "semantics_sidecar_v2"
 SEMANTIC_MATCH_STRATEGY = "normalized_phrase_contains"
-SEMANTIC_EVAL_VERSION = 1
+SEMANTIC_EVAL_VERSION = 2
 SEMANTIC_EXCERPT_LIMIT = 240
 
 
@@ -92,6 +102,17 @@ class SemanticEvaluationExpectation:
     concept_key: str
     minimum_evidence_count: int
     required_source_types: tuple[str, ...]
+    expected_category_keys: tuple[str, ...] = ()
+    expected_epistemic_status: str | None = None
+    expected_review_status: str | None = None
+    expected_category_binding_review_status: str | None = None
+
+
+@dataclass(frozen=True)
+class SemanticConceptCategoryBindingExpectation:
+    concept_key: str
+    category_key: str
+    expected_review_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -99,6 +120,7 @@ class SemanticEvaluationFixture:
     fixture_name: str
     source_filename: str
     expected_concepts: tuple[SemanticEvaluationExpectation, ...]
+    expected_concept_category_bindings: tuple[SemanticConceptCategoryBindingExpectation, ...] = ()
 
 
 def _truncate_excerpt(value: str | None) -> str | None:
@@ -309,12 +331,26 @@ def _materialize_semantic_assertions(
 def _sync_registry_definitions(
     session: Session,
     registry: SemanticRegistry,
-) -> dict[str, SemanticConcept]:
+) -> tuple[
+    dict[str, SemanticConcept],
+    dict[str, SemanticCategory],
+    dict[tuple[str, str], SemanticConceptCategoryBinding],
+]:
     now = utcnow()
     concept_rows = {
         row.concept_key: row
         for row in session.execute(
             select(SemanticConcept).where(SemanticConcept.registry_version == registry.registry_version)
+        )
+        .scalars()
+        .all()
+    }
+    category_rows = {
+        row.category_key: row
+        for row in session.execute(
+            select(SemanticCategory).where(
+                SemanticCategory.registry_version == registry.registry_version
+            )
         )
         .scalars()
         .all()
@@ -339,6 +375,46 @@ def _sync_registry_definitions(
             .where(SemanticConcept.registry_version == registry.registry_version)
         ).all()
     )
+    concept_category_binding_rows = {
+        (concept.concept_key, category.category_key): binding
+        for binding, concept, category in session.execute(
+            select(
+                SemanticConceptCategoryBinding,
+                SemanticConcept,
+                SemanticCategory,
+            )
+            .join(
+                SemanticConcept,
+                SemanticConcept.id == SemanticConceptCategoryBinding.concept_id,
+            )
+            .join(
+                SemanticCategory,
+                SemanticCategory.id == SemanticConceptCategoryBinding.category_id,
+            )
+            .where(SemanticConcept.registry_version == registry.registry_version)
+        ).all()
+    }
+
+    for category_definition in registry.categories:
+        category_row = category_rows.get(category_definition.category_key)
+        if category_row is None:
+            category_row = SemanticCategory(
+                category_key=category_definition.category_key,
+                preferred_label=category_definition.preferred_label,
+                scope_note=category_definition.scope_note,
+                registry_version=registry.registry_version,
+                metadata_json=category_definition.metadata,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(category_row)
+            session.flush()
+            category_rows[category_definition.category_key] = category_row
+        else:
+            category_row.preferred_label = category_definition.preferred_label
+            category_row.scope_note = category_definition.scope_note
+            category_row.metadata_json = category_definition.metadata
+            category_row.updated_at = now
 
     for concept_definition in registry.concepts:
         concept_row = concept_rows.get(concept_definition.concept_key)
@@ -387,18 +463,41 @@ def _sync_registry_definitions(
                     concept_id=concept_row.id,
                     term_id=term_row.id,
                     mapping_kind=term_definition.term_kind,
+                    created_from=SemanticBindingOrigin.REGISTRY.value,
+                    review_status=SemanticReviewStatus.APPROVED.value,
+                    details_json={},
                     created_at=now,
                 )
             )
             concept_term_pairs.add(pair)
 
-    return concept_rows
+        for category_key in concept_definition.category_keys:
+            category_row = category_rows[category_key]
+            binding_key = (concept_definition.concept_key, category_key)
+            binding_row = concept_category_binding_rows.get(binding_key)
+            if binding_row is None:
+                binding_row = SemanticConceptCategoryBinding(
+                    concept_id=concept_row.id,
+                    category_id=category_row.id,
+                    binding_type=SemanticCategoryBindingType.CONCEPT_CATEGORY.value,
+                    created_from=SemanticBindingOrigin.REGISTRY.value,
+                    review_status=SemanticReviewStatus.APPROVED.value,
+                    details_json={},
+                    created_at=now,
+                )
+                session.add(binding_row)
+                session.flush()
+                concept_category_binding_rows[binding_key] = binding_row
+
+    return concept_rows, category_rows, concept_category_binding_rows
 
 
 def _replace_pass_assertions(
     session: Session,
     semantic_pass: DocumentRunSemanticPass,
     concept_rows: dict[str, SemanticConcept],
+    category_rows: dict[str, SemanticCategory],
+    concept_category_binding_rows: dict[tuple[str, str], SemanticConceptCategoryBinding],
     materializations: list[SemanticAssertionMaterialization],
 ) -> None:
     session.query(SemanticAssertion).filter(
@@ -412,6 +511,9 @@ def _replace_pass_assertions(
             semantic_pass_id=semantic_pass.id,
             concept_id=concept_row.id,
             assertion_kind=SemanticAssertionKind.CONCEPT_MENTION.value,
+            epistemic_status=SemanticEpistemicStatus.OBSERVED.value,
+            context_scope=SemanticContextScope.DOCUMENT_RUN.value,
+            review_status=SemanticReviewStatus.CANDIDATE.value,
             matched_terms_json=sorted(materialization.matched_terms),
             source_types_json=sorted(materialization.source_types),
             evidence_count=len(materialization.evidence),
@@ -424,6 +526,29 @@ def _replace_pass_assertions(
         )
         session.add(assertion)
         session.flush()
+
+        for category_key in materialization.concept_definition.category_keys:
+            category_row = category_rows[category_key]
+            concept_category_binding = concept_category_binding_rows[
+                (materialization.concept_definition.concept_key, category_key)
+            ]
+            session.add(
+                SemanticAssertionCategoryBinding(
+                    assertion_id=assertion.id,
+                    category_id=category_row.id,
+                    concept_category_binding_id=concept_category_binding.id,
+                    binding_type=SemanticCategoryBindingType.ASSERTION_CATEGORY.value,
+                    created_from=SemanticBindingOrigin.DERIVED.value,
+                    review_status=SemanticReviewStatus.CANDIDATE.value,
+                    details_json={
+                        "inherited_from_concept_category_binding_id": str(
+                            concept_category_binding.id
+                        ),
+                        "concept_category_review_status": concept_category_binding.review_status,
+                    },
+                    created_at=now,
+                )
+            )
 
         for evidence_materialization in materialization.evidence:
             source = evidence_materialization.source_item
@@ -448,6 +573,7 @@ def _replace_pass_assertions(
                     created_at=now,
                 )
             )
+    session.flush()
 
 
 def _assertion_records(
@@ -461,6 +587,22 @@ def _assertion_records(
         .order_by(SemanticConcept.preferred_label, SemanticAssertion.created_at)
     ).all()
     assertion_ids = [assertion.id for assertion, _concept in assertion_rows]
+    assertion_category_binding_rows = (
+        session.execute(
+            select(
+                SemanticAssertionCategoryBinding,
+                SemanticCategory,
+            )
+            .join(
+                SemanticCategory,
+                SemanticCategory.id == SemanticAssertionCategoryBinding.category_id,
+            )
+            .where(SemanticAssertionCategoryBinding.assertion_id.in_(assertion_ids))
+            .order_by(SemanticCategory.preferred_label, SemanticAssertionCategoryBinding.created_at)
+        ).all()
+        if assertion_ids
+        else []
+    )
     evidence_rows = (
         session.execute(
             select(SemanticAssertionEvidence)
@@ -476,6 +618,20 @@ def _assertion_records(
         if assertion_ids
         else []
     )
+
+    assertion_category_bindings_by_assertion: dict[UUID, list[dict[str, Any]]] = {}
+    for binding, category in assertion_category_binding_rows:
+        assertion_category_bindings_by_assertion.setdefault(binding.assertion_id, []).append(
+            {
+                "binding_id": binding.id,
+                "category_key": category.category_key,
+                "category_label": category.preferred_label,
+                "binding_type": binding.binding_type,
+                "created_from": binding.created_from,
+                "review_status": binding.review_status,
+                "details": binding.details_json or {},
+            }
+        )
 
     evidence_by_assertion: dict[UUID, list[dict[str, Any]]] = {}
     for evidence in evidence_rows:
@@ -511,18 +667,61 @@ def _assertion_records(
                 "preferred_label": concept.preferred_label,
                 "scope_note": concept.scope_note,
                 "assertion_kind": assertion.assertion_kind,
+                "epistemic_status": assertion.epistemic_status,
+                "context_scope": assertion.context_scope,
+                "review_status": assertion.review_status,
                 "matched_terms": list(assertion.matched_terms_json or []),
                 "source_types": list(assertion.source_types_json or []),
                 "evidence_count": assertion.evidence_count,
                 "confidence": assertion.confidence,
                 "details": assertion.details_json or {},
+                "category_bindings": assertion_category_bindings_by_assertion.get(assertion.id, []),
                 "evidence": evidence_by_assertion.get(assertion.id, []),
             }
         )
     return records
 
 
-def _semantic_summary(assertions: list[dict[str, Any]]) -> dict[str, Any]:
+def _concept_category_binding_records(
+    session: Session,
+    registry_version: str,
+) -> list[dict[str, Any]]:
+    rows = session.execute(
+        select(
+            SemanticConceptCategoryBinding,
+            SemanticConcept,
+            SemanticCategory,
+        )
+        .join(
+            SemanticConcept,
+            SemanticConcept.id == SemanticConceptCategoryBinding.concept_id,
+        )
+        .join(
+            SemanticCategory,
+            SemanticCategory.id == SemanticConceptCategoryBinding.category_id,
+        )
+        .where(SemanticConcept.registry_version == registry_version)
+        .order_by(SemanticConcept.preferred_label, SemanticCategory.preferred_label)
+    ).all()
+    return [
+        {
+            "binding_id": binding.id,
+            "concept_key": concept.concept_key,
+            "category_key": category.category_key,
+            "category_label": category.preferred_label,
+            "binding_type": binding.binding_type,
+            "created_from": binding.created_from,
+            "review_status": binding.review_status,
+            "details": binding.details_json or {},
+        }
+        for binding, concept, category in rows
+    ]
+
+
+def _semantic_summary(
+    assertions: list[dict[str, Any]],
+    concept_category_bindings: list[dict[str, Any]],
+) -> dict[str, Any]:
     source_type_counts = {
         source_type: sum(
             1 for assertion in assertions if source_type in set(assertion.get("source_types") or [])
@@ -534,11 +733,29 @@ def _semantic_summary(assertions: list[dict[str, Any]]) -> dict[str, Any]:
         )
     }
     evidence_count = sum(len(assertion.get("evidence") or []) for assertion in assertions)
+    category_keys = sorted(
+        {
+            binding["category_key"]
+            for assertion in assertions
+            for binding in assertion.get("category_bindings") or []
+        }
+    )
+    review_status_counts = {
+        review_status: sum(1 for assertion in assertions if assertion.get("review_status") == review_status)
+        for review_status in (
+            SemanticReviewStatus.CANDIDATE.value,
+            SemanticReviewStatus.APPROVED.value,
+            SemanticReviewStatus.REJECTED.value,
+        )
+    }
     return {
         "assertion_count": len(assertions),
         "evidence_count": evidence_count,
         "concept_keys": [assertion["concept_key"] for assertion in assertions],
+        "category_keys": category_keys,
+        "concept_category_binding_count": len(concept_category_bindings),
         "source_type_counts": source_type_counts,
+        "review_status_counts": review_status_counts,
         "match_strategy": SEMANTIC_MATCH_STRATEGY,
     }
 
@@ -590,6 +807,52 @@ def _load_semantic_evaluation_fixtures(path_value: str) -> tuple[SemanticEvaluat
                             if collapse_whitespace(str(item or ""))
                         )
                     ),
+                    expected_category_keys=tuple(
+                        sorted(
+                            collapse_whitespace(str(item or ""))
+                            for item in (raw_expectation.get("expected_category_keys") or [])
+                            if collapse_whitespace(str(item or ""))
+                        )
+                    ),
+                    expected_epistemic_status=collapse_whitespace(
+                        str(raw_expectation.get("expected_epistemic_status") or "")
+                    )
+                    or None,
+                    expected_review_status=collapse_whitespace(
+                        str(raw_expectation.get("expected_review_status") or "")
+                    )
+                    or None,
+                    expected_category_binding_review_status=collapse_whitespace(
+                        str(raw_expectation.get("expected_category_binding_review_status") or "")
+                    )
+                    or None,
+                )
+            )
+        raw_concept_category_bindings = raw_document.get("expected_concept_category_bindings") or []
+        if raw_concept_category_bindings and not isinstance(raw_concept_category_bindings, list):
+            raise ValueError(
+                "Semantic evaluation expected_concept_category_bindings must be a list."
+            )
+        concept_category_binding_expectations: list[SemanticConceptCategoryBindingExpectation] = []
+        for raw_binding in raw_concept_category_bindings:
+            if not isinstance(raw_binding, dict):
+                raise ValueError(
+                    "Semantic evaluation expected_concept_category_bindings entries must be mappings."
+                )
+            concept_key = collapse_whitespace(str(raw_binding.get("concept_key") or ""))
+            category_key = collapse_whitespace(str(raw_binding.get("category_key") or ""))
+            if not concept_key or not category_key:
+                raise ValueError(
+                    "Semantic evaluation concept-category binding expectations require concept_key and category_key."
+                )
+            concept_category_binding_expectations.append(
+                SemanticConceptCategoryBindingExpectation(
+                    concept_key=concept_key,
+                    category_key=category_key,
+                    expected_review_status=collapse_whitespace(
+                        str(raw_binding.get("expected_review_status") or "")
+                    )
+                    or None,
                 )
             )
         fixtures.append(
@@ -597,6 +860,7 @@ def _load_semantic_evaluation_fixtures(path_value: str) -> tuple[SemanticEvaluat
                 fixture_name=fixture_name,
                 source_filename=source_filename,
                 expected_concepts=tuple(expectations),
+                expected_concept_category_bindings=tuple(concept_category_binding_expectations),
             )
         )
     return tuple(fixtures)
@@ -610,6 +874,7 @@ def _load_semantic_evaluation_fixtures_cached(path_value: str) -> tuple[Semantic
 def _semantic_evaluation_result(
     document: Document,
     assertions: list[dict[str, Any]],
+    concept_category_bindings: list[dict[str, Any]],
 ) -> tuple[str, str | None, dict[str, Any]]:
     settings = get_settings()
     fixtures = _load_semantic_evaluation_fixtures_cached(
@@ -632,21 +897,62 @@ def _semantic_evaluation_result(
         )
 
     assertions_by_concept = {assertion["concept_key"]: assertion for assertion in assertions}
+    concept_category_binding_index = {
+        (binding["concept_key"], binding["category_key"]): binding
+        for binding in concept_category_bindings
+    }
     expectation_results: list[dict[str, Any]] = []
     passed_expectations = 0
     for expectation in fixture.expected_concepts:
         assertion = assertions_by_concept.get(expectation.concept_key)
         observed_source_types = sorted(set(assertion.get("source_types") or [])) if assertion else []
         observed_evidence_count = int(assertion.get("evidence_count") or 0) if assertion else 0
+        observed_category_keys = sorted(
+            {
+                binding["category_key"]
+                for binding in assertion.get("category_bindings") or []
+            }
+        ) if assertion else []
+        observed_category_binding_review_statuses = sorted(
+            {
+                binding["review_status"]
+                for binding in assertion.get("category_bindings") or []
+            }
+        ) if assertion else []
         missing_source_types = [
             source_type
             for source_type in expectation.required_source_types
             if source_type not in observed_source_types
         ]
+        missing_category_keys = [
+            category_key
+            for category_key in expectation.expected_category_keys
+            if category_key not in observed_category_keys
+        ]
+        epistemic_status_matches = (
+            expectation.expected_epistemic_status is None
+            or (assertion is not None and assertion.get("epistemic_status") == expectation.expected_epistemic_status)
+        )
+        review_status_matches = (
+            expectation.expected_review_status is None
+            or (assertion is not None and assertion.get("review_status") == expectation.expected_review_status)
+        )
+        category_binding_review_status_matches = (
+            expectation.expected_category_binding_review_status is None
+            or (
+                assertion is not None
+                and expectation.expected_category_binding_review_status
+                in observed_category_binding_review_statuses
+            )
+        )
         passed = (
             assertion is not None
             and observed_evidence_count >= expectation.minimum_evidence_count
             and not missing_source_types
+            and not missing_category_keys
+            and epistemic_status_matches
+            and review_status_matches
+            and category_binding_review_status_matches
         )
         if passed:
             passed_expectations += 1
@@ -658,20 +964,58 @@ def _semantic_evaluation_result(
                 "observed_evidence_count": observed_evidence_count,
                 "observed_source_types": observed_source_types,
                 "missing_source_types": missing_source_types,
+                "expected_category_keys": list(expectation.expected_category_keys),
+                "observed_category_keys": observed_category_keys,
+                "missing_category_keys": missing_category_keys,
+                "expected_epistemic_status": expectation.expected_epistemic_status,
+                "observed_epistemic_status": assertion.get("epistemic_status") if assertion else None,
+                "expected_review_status": expectation.expected_review_status,
+                "observed_review_status": assertion.get("review_status") if assertion else None,
+                "expected_category_binding_review_status": expectation.expected_category_binding_review_status,
+                "observed_category_binding_review_statuses": observed_category_binding_review_statuses,
+                "passed": passed,
+            }
+        )
+
+    concept_category_binding_results: list[dict[str, Any]] = []
+    passed_concept_category_binding_expectations = 0
+    for expectation in fixture.expected_concept_category_bindings:
+        binding = concept_category_binding_index.get((expectation.concept_key, expectation.category_key))
+        passed = binding is not None and (
+            expectation.expected_review_status is None
+            or binding.get("review_status") == expectation.expected_review_status
+        )
+        if passed:
+            passed_concept_category_binding_expectations += 1
+        concept_category_binding_results.append(
+            {
+                "concept_key": expectation.concept_key,
+                "category_key": expectation.category_key,
+                "expected_review_status": expectation.expected_review_status,
+                "observed_review_status": binding.get("review_status") if binding else None,
                 "passed": passed,
             }
         )
 
     failed_expectations = len(expectation_results) - passed_expectations
+    failed_concept_category_binding_expectations = (
+        len(concept_category_binding_results) - passed_concept_category_binding_expectations
+    )
     return (
         SemanticEvaluationStatus.COMPLETED.value,
         fixture.fixture_name,
         {
-            "all_expectations_passed": failed_expectations == 0,
+            "all_expectations_passed": (
+                failed_expectations == 0 and failed_concept_category_binding_expectations == 0
+            ),
             "expected_concept_count": len(expectation_results),
             "passed_expectations": passed_expectations,
             "failed_expectations": failed_expectations,
+            "expected_concept_category_binding_count": len(concept_category_binding_results),
+            "passed_concept_category_binding_expectations": passed_concept_category_binding_expectations,
+            "failed_concept_category_binding_expectations": failed_concept_category_binding_expectations,
             "expectations": expectation_results,
+            "concept_category_binding_expectations": concept_category_binding_results,
         },
     )
 
@@ -683,6 +1027,7 @@ def _semantic_artifact_payload(
     semantic_pass: DocumentRunSemanticPass,
     registry: SemanticRegistry,
     assertions: list[dict[str, Any]],
+    concept_category_bindings: list[dict[str, Any]],
     summary: dict[str, Any],
     evaluation_status: str,
     evaluation_fixture_name: str | None,
@@ -715,6 +1060,7 @@ def _semantic_artifact_payload(
             "version": SEMANTIC_EVAL_VERSION,
             "summary": evaluation_summary,
         },
+        "concept_category_bindings": concept_category_bindings,
         "assertions": assertions,
     }
 
@@ -726,6 +1072,7 @@ def _persist_semantic_artifacts(
     semantic_pass: DocumentRunSemanticPass,
     registry: SemanticRegistry,
     assertions: list[dict[str, Any]],
+    concept_category_bindings: list[dict[str, Any]],
     summary: dict[str, Any],
     evaluation_status: str,
     evaluation_fixture_name: str | None,
@@ -737,6 +1084,7 @@ def _persist_semantic_artifacts(
         semantic_pass=semantic_pass,
         registry=registry,
         assertions=assertions,
+        concept_category_bindings=concept_category_bindings,
         summary=summary,
         evaluation_status=evaluation_status,
         evaluation_fixture_name=evaluation_fixture_name,
@@ -753,6 +1101,7 @@ def _persist_semantic_artifacts(
         semantic_pass=semantic_pass,
         registry=registry,
         assertions=assertions,
+        concept_category_bindings=concept_category_bindings,
         summary=summary,
         evaluation_status=evaluation_status,
         evaluation_fixture_name=evaluation_fixture_name,
@@ -855,16 +1204,32 @@ def execute_semantic_pass(
         if semantic_pass is None:
             raise ValueError("Semantic pass row disappeared before processing.")
 
-        concept_rows = _sync_registry_definitions(session, registry)
+        (
+            concept_rows,
+            category_rows,
+            concept_category_binding_rows,
+        ) = _sync_registry_definitions(session, registry)
         sources = _build_semantic_sources(session, run.id)
         materializations = _materialize_semantic_assertions(registry, sources)
-        _replace_pass_assertions(session, semantic_pass, concept_rows, materializations)
+        _replace_pass_assertions(
+            session,
+            semantic_pass,
+            concept_rows,
+            category_rows,
+            concept_category_binding_rows,
+            materializations,
+        )
 
         assertions = _assertion_records(session, semantic_pass.id)
-        summary = _semantic_summary(assertions)
+        concept_category_bindings = _concept_category_binding_records(
+            session,
+            registry.registry_version,
+        )
+        summary = _semantic_summary(assertions, concept_category_bindings)
         evaluation_status, evaluation_fixture_name, evaluation_summary = _semantic_evaluation_result(
             document,
             assertions,
+            concept_category_bindings,
         )
 
         semantic_pass.status = SemanticPassStatus.COMPLETED.value
@@ -889,6 +1254,7 @@ def execute_semantic_pass(
             semantic_pass,
             registry,
             assertions,
+            concept_category_bindings,
             summary,
             evaluation_status,
             evaluation_fixture_name,
@@ -954,6 +1320,10 @@ def get_active_semantic_pass_detail(
         )
 
     assertions = _assertion_records(session, semantic_pass.id)
+    concept_category_bindings = _concept_category_binding_records(
+        session,
+        semantic_pass.registry_version,
+    )
     return DocumentSemanticPassResponse(
         semantic_pass_id=semantic_pass.id,
         document_id=semantic_pass.document_id,
@@ -977,6 +1347,19 @@ def get_active_semantic_pass_detail(
         error_message=semantic_pass.error_message,
         created_at=semantic_pass.created_at,
         completed_at=semantic_pass.completed_at,
+        concept_category_bindings=[
+            SemanticConceptCategoryBindingResponse(
+                binding_id=binding["binding_id"],
+                concept_key=binding["concept_key"],
+                category_key=binding["category_key"],
+                category_label=binding["category_label"],
+                binding_type=binding["binding_type"],
+                created_from=binding["created_from"],
+                review_status=binding["review_status"],
+                details=binding["details"],
+            )
+            for binding in concept_category_bindings
+        ],
         assertions=[
             SemanticAssertionResponse(
                 assertion_id=assertion["assertion_id"],
@@ -984,11 +1367,26 @@ def get_active_semantic_pass_detail(
                 preferred_label=assertion["preferred_label"],
                 scope_note=assertion["scope_note"],
                 assertion_kind=assertion["assertion_kind"],
+                epistemic_status=assertion["epistemic_status"],
+                context_scope=assertion["context_scope"],
+                review_status=assertion["review_status"],
                 matched_terms=list(assertion["matched_terms"]),
                 source_types=list(assertion["source_types"]),
                 evidence_count=assertion["evidence_count"],
                 confidence=assertion["confidence"],
                 details=assertion["details"],
+                category_bindings=[
+                    SemanticAssertionCategoryBindingResponse(
+                        binding_id=binding["binding_id"],
+                        category_key=binding["category_key"],
+                        category_label=binding["category_label"],
+                        binding_type=binding["binding_type"],
+                        created_from=binding["created_from"],
+                        review_status=binding["review_status"],
+                        details=binding["details"],
+                    )
+                    for binding in assertion["category_bindings"]
+                ],
                 evidence=[
                     SemanticAssertionEvidenceResponse(
                         evidence_id=evidence["evidence_id"],

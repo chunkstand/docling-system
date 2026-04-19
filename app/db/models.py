@@ -108,6 +108,34 @@ class SemanticEvidenceSourceType(StrEnum):
     FIGURE = "figure"
 
 
+class SemanticReviewStatus(StrEnum):
+    CANDIDATE = "candidate"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class SemanticEpistemicStatus(StrEnum):
+    OBSERVED = "observed"
+    INFERRED = "inferred"
+    CURATED = "curated"
+
+
+class SemanticContextScope(StrEnum):
+    DOCUMENT_RUN = "document_run"
+    DOCUMENT = "document"
+    REGISTRY = "registry"
+
+
+class SemanticBindingOrigin(StrEnum):
+    REGISTRY = "registry"
+    DERIVED = "derived"
+
+
+class SemanticCategoryBindingType(StrEnum):
+    CONCEPT_CATEGORY = "concept_category"
+    ASSERTION_CATEGORY = "assertion_category"
+
+
 class IngestBatch(Base):
     __tablename__ = "ingest_batches"
     __table_args__ = (
@@ -459,6 +487,34 @@ class SemanticConcept(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SemanticCategory(Base):
+    __tablename__ = "semantic_categories"
+    __table_args__ = (
+        UniqueConstraint(
+            "category_key",
+            "registry_version",
+            name="uq_semantic_categories_key_registry_version",
+        ),
+        Index("ix_semantic_categories_category_key", "category_key"),
+        Index("ix_semantic_categories_registry_version", "registry_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category_key: Mapped[str] = mapped_column(Text, nullable=False)
+    preferred_label: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_note: Mapped[str | None] = mapped_column(Text)
+    registry_version: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class SemanticTerm(Base):
     __tablename__ = "semantic_terms"
     __table_args__ = (
@@ -497,6 +553,14 @@ class SemanticConceptTerm(Base):
             "mapping_kind IN ('preferred_label', 'alias')",
             name="ck_semantic_concept_terms_mapping_kind",
         ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_concept_terms_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_concept_terms_review_status",
+        ),
         UniqueConstraint(
             "concept_id",
             "term_id",
@@ -518,6 +582,83 @@ class SemanticConceptTerm(Base):
         nullable=False,
     )
     mapping_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.REGISTRY.value,
+        server_default=sql_text("'registry'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.APPROVED.value,
+        server_default=sql_text("'approved'"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticConceptCategoryBinding(Base):
+    __tablename__ = "semantic_concept_category_bindings"
+    __table_args__ = (
+        CheckConstraint(
+            "binding_type IN ('concept_category')",
+            name="ck_semantic_concept_category_bindings_binding_type",
+        ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_concept_category_bindings_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_concept_category_bindings_review_status",
+        ),
+        UniqueConstraint(
+            "concept_id",
+            "category_id",
+            name="uq_semantic_concept_category_bindings_concept_category",
+        ),
+        Index("ix_semantic_concept_category_bindings_concept_id", "concept_id"),
+        Index("ix_semantic_concept_category_bindings_category_id", "category_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    binding_type: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.REGISTRY.value,
+        server_default=sql_text("'registry'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.APPROVED.value,
+        server_default=sql_text("'approved'"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
@@ -607,6 +748,18 @@ class SemanticAssertion(Base):
             "assertion_kind IN ('concept_mention')",
             name="ck_semantic_assertions_assertion_kind",
         ),
+        CheckConstraint(
+            "epistemic_status IN ('observed', 'inferred', 'curated')",
+            name="ck_semantic_assertions_epistemic_status",
+        ),
+        CheckConstraint(
+            "context_scope IN ('document_run', 'document', 'registry')",
+            name="ck_semantic_assertions_context_scope",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_assertions_review_status",
+        ),
         UniqueConstraint(
             "semantic_pass_id",
             "concept_id",
@@ -629,6 +782,24 @@ class SemanticAssertion(Base):
         nullable=False,
     )
     assertion_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    epistemic_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticEpistemicStatus.OBSERVED.value,
+        server_default=sql_text("'observed'"),
+    )
+    context_scope: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticContextScope.DOCUMENT_RUN.value,
+        server_default=sql_text("'document_run'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.CANDIDATE.value,
+        server_default=sql_text("'candidate'"),
+    )
     matched_terms_json: Mapped[list] = mapped_column(
         "matched_terms",
         JSONB,
@@ -647,6 +818,68 @@ class SemanticAssertion(Base):
         Integer, nullable=False, default=0, server_default=sql_text("0")
     )
     confidence: Mapped[float | None] = mapped_column(Float)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticAssertionCategoryBinding(Base):
+    __tablename__ = "semantic_assertion_category_bindings"
+    __table_args__ = (
+        CheckConstraint(
+            "binding_type IN ('assertion_category')",
+            name="ck_semantic_assertion_category_bindings_binding_type",
+        ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_assertion_category_bindings_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_assertion_category_bindings_review_status",
+        ),
+        UniqueConstraint(
+            "assertion_id",
+            "category_id",
+            name="uq_semantic_assertion_category_bindings_assertion_category",
+        ),
+        Index("ix_semantic_assertion_category_bindings_assertion_id", "assertion_id"),
+        Index("ix_semantic_assertion_category_bindings_category_id", "category_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    assertion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    concept_category_binding_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concept_category_bindings.id", ondelete="SET NULL"),
+    )
+    binding_type: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.DERIVED.value,
+        server_default=sql_text("'derived'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.CANDIDATE.value,
+        server_default=sql_text("'candidate'"),
+    )
     details_json: Mapped[dict] = mapped_column(
         "details",
         JSONB,
