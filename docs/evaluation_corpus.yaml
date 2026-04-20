@@ -197,6 +197,30 @@ documents:
           top_n: 3
         - query: search and learning
           top_n: 3
+        - query: What does the essay say about methods that leverage computation?
+          top_n: 3
+          mode: keyword
+          include_document_filter: false
+          expected_source_filename: The Bitter Lesson.pdf
+          expected_top_result_source_filename: The Bitter Lesson.pdf
+          minimum_top_n_hits_from_expected_document: 2
+          maximum_foreign_results_before_first_expected_hit: 0
+        - query: What does the essay say about search and learning?
+          top_n: 3
+          mode: keyword
+          include_document_filter: false
+          expected_source_filename: The Bitter Lesson.pdf
+          expected_top_result_source_filename: The Bitter Lesson.pdf
+          minimum_top_n_hits_from_expected_document: 2
+          maximum_foreign_results_before_first_expected_hit: 0
+        - query: claim bitter lesson
+          top_n: 3
+          mode: keyword
+          include_document_filter: false
+          expected_source_filename: The Bitter Lesson.pdf
+          expected_top_result_source_filename: The Bitter Lesson.pdf
+          minimum_top_n_hits_from_expected_document: 2
+          maximum_foreign_results_before_first_expected_hit: 0
         - query: Why does the essay favor general methods over hand-built approaches?
           top_n: 3
         - query: What is the main claim of The Bitter Lesson?
@@ -241,6 +265,22 @@ documents:
           expected_source_filename: TEST_PDF.pdf
           expected_top_result_source_filename: TEST_PDF.pdf
           minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
+        - query: What is the opportunity due date?
+          top_n: 3
+          mode: keyword
+          include_document_filter: false
+          expected_source_filename: TEST_PDF.pdf
+          expected_top_result_source_filename: TEST_PDF.pdf
+          minimum_top_n_hits_from_expected_document: 2
+          maximum_foreign_results_before_first_expected_hit: 0
+        - query: When is the opportunity due?
+          top_n: 3
+          mode: keyword
+          include_document_filter: false
+          expected_source_filename: TEST_PDF.pdf
+          expected_top_result_source_filename: TEST_PDF.pdf
+          minimum_top_n_hits_from_expected_document: 2
           maximum_foreign_results_before_first_expected_hit: 0
       expected_answer_queries:
         - question: What is the due date in the opportunity screening memo?

@@ -17,10 +17,8 @@ from app.core.config import default_local_ingest_roots, get_settings
 
 HEADING_PATTERN = re.compile(r"^(Chapter\s+\d+|Part\s+[IVXLC]+|[0-9]+(?:\.[0-9]+)*\s)")
 TABLE_LABEL_PATTERN = re.compile(r"^TABLE\s+[0-9A-Z().-]+", re.IGNORECASE)
-PROVISIONAL_UPC_510_FAMILY_PATTERN = re.compile(
-    r"TABLE\s+510\.1\.2\s*(?:\(\s*(\d+)\s*\)|(\d+))",
-    re.IGNORECASE,
-)
+TITLE_REGEX_FAMILY_MATCHER = "title_regex_family"
+DEFAULT_CONTINUATION_TITLE_PATTERN = r"\bcontinued\b"
 TABLE_ARTIFACT_SCHEMA_VERSION = "1.0"
 FIGURE_ARTIFACT_SCHEMA_VERSION = "1.0"
 UUID_LIKE_PATTERN = re.compile(
@@ -182,10 +180,19 @@ class ItemSnapshot:
 
 
 @dataclass(frozen=True)
+class TableFamilyMatcher:
+    kind: str
+    family_key_pattern: str
+    continuation_title_pattern: str | None = DEFAULT_CONTINUATION_TITLE_PATTERN
+    max_page_gap: int = 1
+    require_same_heading: bool = True
+
+
+@dataclass(frozen=True)
 class TableSupplementRule:
     document_filenames: tuple[str, ...]
     supplement_filename: str
-    matcher: str
+    matcher: TableFamilyMatcher
     overlay_type: str
     description: str | None = None
 
@@ -375,9 +382,37 @@ def _load_table_supplement_registry(registry_path: str) -> tuple[TableSupplement
         else:
             raise ValueError("Table supplement rules require document_filenames.")
 
-        matcher = str(raw_rule.get("matcher") or "").strip()
-        if matcher not in {"upc_510_family"}:
-            raise ValueError(f"Unsupported table supplement matcher: {matcher}")
+        raw_matcher = raw_rule.get("matcher")
+        matcher_payload = raw_matcher if isinstance(raw_matcher, dict) else {}
+        matcher_kind = (
+            matcher_payload.get("kind")
+            if isinstance(raw_matcher, dict)
+            else raw_matcher or raw_rule.get("matcher_kind")
+        )
+        if not matcher_kind and raw_rule.get("family_key_pattern"):
+            matcher_kind = TITLE_REGEX_FAMILY_MATCHER
+        matcher_kind = str(matcher_kind or "").strip()
+        if matcher_kind != TITLE_REGEX_FAMILY_MATCHER:
+            raise ValueError(f"Unsupported table supplement matcher: {matcher_kind}")
+
+        family_key_pattern = str(
+            matcher_payload.get("family_key_pattern") or raw_rule.get("family_key_pattern") or ""
+        ).strip()
+        if not family_key_pattern:
+            raise ValueError("Table supplement rules require family_key_pattern.")
+        continuation_title_pattern = (
+            matcher_payload.get("continuation_title_pattern")
+            or raw_rule.get("continuation_title_pattern")
+            or DEFAULT_CONTINUATION_TITLE_PATTERN
+        )
+        if continuation_title_pattern is not None:
+            continuation_title_pattern = str(continuation_title_pattern).strip() or None
+        max_page_gap = int(
+            matcher_payload.get("max_page_gap") or raw_rule.get("max_page_gap") or 1
+        )
+        require_same_heading = bool(
+            matcher_payload.get("require_same_heading", raw_rule.get("require_same_heading", True))
+        )
 
         supplement_filename = Path(str(raw_rule.get("supplement_filename") or "")).name
         if not supplement_filename:
@@ -391,7 +426,13 @@ def _load_table_supplement_registry(registry_path: str) -> tuple[TableSupplement
             TableSupplementRule(
                 document_filenames=document_filenames,
                 supplement_filename=supplement_filename,
-                matcher=matcher,
+                matcher=TableFamilyMatcher(
+                    kind=matcher_kind,
+                    family_key_pattern=family_key_pattern,
+                    continuation_title_pattern=continuation_title_pattern,
+                    max_page_gap=max_page_gap,
+                    require_same_heading=require_same_heading,
+                ),
                 overlay_type=overlay_type,
                 description=str(description).strip() if description else None,
             )
@@ -960,31 +1001,72 @@ def _preferred_family_title(tables: list[ParsedTable]) -> str | None:
     return max(candidates, key=title_score)
 
 
-def _extract_upc_510_family_key(title: str | None) -> str | None:
+@lru_cache(maxsize=32)
+def _compiled_family_key_pattern(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern, re.IGNORECASE)
+
+
+@lru_cache(maxsize=32)
+def _compiled_optional_pattern(pattern: str | None) -> re.Pattern[str] | None:
+    if pattern is None:
+        return None
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def _canonicalize_family_key(value: str | None) -> str | None:
+    normalized = _normalize_text(value)
+    if not normalized:
+        return None
+    normalized = re.sub(r"\s*([()[\]{}])\s*", r"\1", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized.upper()
+
+
+def _extract_title_regex_family_key(title: str | None, matcher: TableFamilyMatcher) -> str | None:
     normalized = _normalize_text(title)
-    match = PROVISIONAL_UPC_510_FAMILY_PATTERN.search(normalized)
+    match = _compiled_family_key_pattern(matcher.family_key_pattern).search(normalized)
     if not match:
         return None
-    family_number = match.group(1) or match.group(2)
-    return f"TABLE 510.1.2({family_number})"
+    explicit_family_key = match.groupdict().get("family_key") if match.groupdict() else None
+    return _canonicalize_family_key(explicit_family_key or match.group(0))
 
 
-def _group_tables_by_upc_510_family(tables: list[ParsedTable]) -> dict[str, list[ParsedTable]]:
+def _is_family_continuation_fragment(
+    normalized_title: str,
+    *,
+    matcher: TableFamilyMatcher,
+) -> bool:
+    if not normalized_title:
+        return True
+    if "continued" in normalized_title.lower():
+        return True
+    continuation_pattern = _compiled_optional_pattern(matcher.continuation_title_pattern)
+    if continuation_pattern is not None and continuation_pattern.search(normalized_title):
+        return True
+    return not TABLE_LABEL_PATTERN.match(normalized_title)
+
+
+def _group_tables_by_title_regex_family(
+    tables: list[ParsedTable],
+    *,
+    matcher: TableFamilyMatcher,
+) -> dict[str, list[ParsedTable]]:
     grouped: dict[str, list[ParsedTable]] = {}
     current_family: str | None = None
     previous_table: ParsedTable | None = None
 
     for table in tables:
         normalized_title = _normalize_text(table.title)
-        family_key = _extract_upc_510_family_key(normalized_title)
+        family_key = _extract_title_regex_family_key(normalized_title, matcher)
         if family_key is None and current_family and previous_table is not None:
-            same_heading = table.heading == previous_table.heading
+            same_heading = (
+                table.heading == previous_table.heading if matcher.require_same_heading else True
+            )
             previous_page = previous_table.page_to or previous_table.page_from
             current_page = table.page_from or table.page_to
-            is_continuation_fragment = (
-                not normalized_title
-                or not TABLE_LABEL_PATTERN.match(normalized_title)
-                or "continued" in normalized_title.lower()
+            is_continuation_fragment = _is_family_continuation_fragment(
+                normalized_title,
+                matcher=matcher,
             )
             if (
                 is_continuation_fragment
@@ -992,7 +1074,7 @@ def _group_tables_by_upc_510_family(tables: list[ParsedTable]) -> dict[str, list
                 and previous_page is not None
                 and current_page is not None
             ):
-                if current_page - previous_page <= 1:
+                if current_page - previous_page <= matcher.max_page_gap:
                     family_key = current_family
 
         if family_key is None:
@@ -1089,18 +1171,19 @@ def _merge_table_family(
 
 
 def _group_tables_for_supplement_matcher(
-    matcher: str, tables: list[ParsedTable]
+    matcher: TableFamilyMatcher,
+    tables: list[ParsedTable],
 ) -> dict[str, list[ParsedTable]]:
-    if matcher == "upc_510_family":
-        return _group_tables_by_upc_510_family(tables)
-    raise ValueError(f"Unsupported table supplement matcher: {matcher}")
+    if matcher.kind == TITLE_REGEX_FAMILY_MATCHER:
+        return _group_tables_by_title_regex_family(tables, matcher=matcher)
+    raise ValueError(f"Unsupported table supplement matcher: {matcher.kind}")
 
 
 def _apply_table_family_overlays(
     tables: list[ParsedTable],
     supplement_tables: list[ParsedTable],
     *,
-    family_matcher: str = "upc_510_family",
+    family_matcher: TableFamilyMatcher,
     overlay_type: str = "clean_pdf_family_replacement",
     supplement_filename: str,
 ) -> list[ParsedTable]:
@@ -1192,9 +1275,6 @@ def _resolve_table_supplement_path(
         direct_candidate = root / supplement_filename
         if direct_candidate.is_file():
             candidate_paths.append(direct_candidate)
-        upc_candidate = root / "UPC" / supplement_filename
-        if upc_candidate.is_file():
-            candidate_paths.append(upc_candidate)
         if any(path.is_file() for path in candidate_paths):
             break
         recursive_matches = list(root.rglob(supplement_filename))

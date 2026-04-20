@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     local_ingest_allowed_roots: str | None = None
     local_ingest_max_file_bytes: int = 268435456
     local_ingest_max_pages: int = 1000
+    manual_evaluation_corpus_path: Path | None = None
     docling_document_timeout_seconds: float | None = 120.0
     docling_fallback_document_timeout_seconds: float | None = 30.0
     table_supplement_registry_path: Path = Field(default=Path("./config/table_supplements.yaml"))

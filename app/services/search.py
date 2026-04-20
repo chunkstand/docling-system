@@ -985,15 +985,6 @@ def _classify_query_intent(query: str) -> str:
                 "are ",
             )
         )
-        or any(
-            phrase in normalized
-            for phrase in (
-                "main claim",
-                "due date",
-                "what habitat",
-                "what does table",
-            )
-        )
         or salient_count <= 6
     ):
         return QUERY_INTENT_PROSE_LOOKUP

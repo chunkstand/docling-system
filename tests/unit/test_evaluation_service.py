@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -7,8 +9,10 @@ import yaml
 
 from app.schemas.chat import ChatCitation, ChatResponse
 from app.schemas.search import SearchResult, SearchScores
+from app.services.evaluation_execution import execute_retrieval_queries
 from app.services.evaluations import (
     AUTO_FIXTURE_KIND,
+    DEFAULT_CORPUS_PATH,
     EvaluationAnswerCase,
     EvaluationQueryCase,
     _evaluate_answer_case,
@@ -25,7 +29,7 @@ from app.services.evaluations import (
 
 
 def test_load_evaluation_fixtures_compiles_search_queries() -> None:
-    fixtures = load_evaluation_fixtures()
+    fixtures = load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
 
     born_digital = next(fixture for fixture in fixtures if fixture.name == "born_digital_simple")
     assert born_digital.source_filename == "UPC_Appendix_N.pdf"
@@ -61,8 +65,23 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     assert bitter_lesson.source_filename == "The Bitter Lesson.pdf"
     assert bitter_lesson.thresholds.expected_logical_table_count == 0
     assert bitter_lesson.thresholds.expected_figure_count == 0
+    assert len(bitter_lesson.queries) == 8
     assert all(query.expected_result_type == "chunk" for query in bitter_lesson.queries)
     assert any(query.mode == "keyword" for query in bitter_lesson.queries)
+    assert any(
+        query.query == "What does the essay say about methods that leverage computation?"
+        and query.include_document_filter is False
+        for query in bitter_lesson.queries
+    )
+    assert any(
+        query.query == "What does the essay say about search and learning?"
+        and query.include_document_filter is False
+        for query in bitter_lesson.queries
+    )
+    assert any(
+        query.query == "claim bitter lesson" and query.include_document_filter is False
+        for query in bitter_lesson.queries
+    )
     assert len(bitter_lesson.answer_queries) == 1
     assert bitter_lesson.answer_queries[0].expected_answer_contains == [
         "general methods",
@@ -79,11 +98,23 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
 
     test_pdf = next(fixture for fixture in fixtures if fixture.name == "test_pdf_prose")
     assert test_pdf.source_filename == "TEST_PDF.pdf"
-    assert len(test_pdf.queries) == 5
-    assert test_pdf.queries[-1].expected_source_filename == "TEST_PDF.pdf"
-    assert test_pdf.queries[-1].expected_top_result_source_filename == "TEST_PDF.pdf"
-    assert test_pdf.queries[-1].minimum_top_n_hits_from_expected_document == 1
-    assert test_pdf.queries[-1].maximum_foreign_results_before_first_expected_hit == 0
+    assert len(test_pdf.queries) == 7
+    opportunity_due_date = next(
+        query for query in test_pdf.queries if query.query == "What is the opportunity due date?"
+    )
+    assert opportunity_due_date.expected_source_filename == "TEST_PDF.pdf"
+    assert opportunity_due_date.expected_top_result_source_filename == "TEST_PDF.pdf"
+    assert opportunity_due_date.minimum_top_n_hits_from_expected_document == 2
+    assert opportunity_due_date.maximum_foreign_results_before_first_expected_hit == 0
+    assert opportunity_due_date.include_document_filter is False
+    opportunity_due = next(
+        query for query in test_pdf.queries if query.query == "When is the opportunity due?"
+    )
+    assert opportunity_due.expected_source_filename == "TEST_PDF.pdf"
+    assert opportunity_due.expected_top_result_source_filename == "TEST_PDF.pdf"
+    assert opportunity_due.minimum_top_n_hits_from_expected_document == 2
+    assert opportunity_due.maximum_foreign_results_before_first_expected_hit == 0
+    assert opportunity_due.include_document_filter is False
     assert len(test_pdf.answer_queries) == 2
     assert test_pdf.answer_queries[0].minimum_citation_count == 1
     assert test_pdf.answer_queries[0].expected_citation_source_filename == "TEST_PDF.pdf"
@@ -165,10 +196,51 @@ def test_load_evaluation_fixtures_compiles_search_queries() -> None:
     ]
 
 
-def test_fixture_for_document_matches_by_source_filename() -> None:
+def test_fixture_for_document_matches_auto_fixture_by_source_filename(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True, exist_ok=True)
+    (storage_root / "evaluation_corpus.auto.yaml").write_text(
+        """
+documents:
+  - name: auto_duplicate
+    kind: auto_generated_document
+    source_filename: duplicate.pdf
+    thresholds: {}
+"""
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
+    fixture = fixture_for_document(SimpleNamespace(source_filename="duplicate.pdf"))
+
+    assert fixture is not None
+    assert fixture.name == "auto_duplicate"
+
+
+def test_fixture_for_document_does_not_match_manual_fixture_by_source_filename_by_default() -> None:
     document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")
 
     fixture = fixture_for_document(document)
+
+    assert fixture is None
+
+
+def test_fixture_for_document_can_opt_into_manual_filename_fallback() -> None:
+    document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")
+
+    fixture = fixture_for_document(
+        document,
+        corpus_path=DEFAULT_CORPUS_PATH,
+        allow_manual_filename_fallback=True,
+    )
 
     assert fixture is not None
     assert fixture.name == "born_digital_simple"
@@ -246,6 +318,35 @@ documents:
     )
 
     assert fixture is None
+
+
+def test_load_evaluation_fixtures_uses_configured_manual_corpus_path(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    corpus_path = tmp_path / "configured_manual.yaml"
+    corpus_path.write_text(
+        """
+documents:
+  - name: configured_manual
+    kind: prose
+    source_filename: configured.pdf
+    thresholds: {}
+"""
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            manual_evaluation_corpus_path=corpus_path,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
+    fixtures = load_evaluation_fixtures()
+
+    assert [fixture.name for fixture in fixtures] == ["configured_manual"]
 
 
 def test_build_auto_evaluation_fixture_document_generates_structural_queries() -> None:
@@ -1226,7 +1327,9 @@ def test_ensure_auto_evaluation_fixture_keeps_only_retrieval_backed_queries(
     assert thresholds["expected_top_n_chunk_hit_queries"] == []
 
 
-def test_fixture_for_document_prefers_manual_fixture_over_auto(monkeypatch, tmp_path) -> None:
+def test_fixture_for_document_prefers_auto_fixture_over_manual_filename_match(
+    monkeypatch, tmp_path
+) -> None:
     storage_root = tmp_path / "storage"
     monkeypatch.setattr(
         "app.services.evaluations.get_settings",
@@ -1252,7 +1355,7 @@ documents:
     fixture = fixture_for_document(SimpleNamespace(source_filename="TEST_PDF.pdf"))
 
     assert fixture is not None
-    assert fixture.name == "test_pdf_prose"
+    assert fixture.name == "auto_test_pdf"
 
 
 def test_ensure_auto_evaluation_fixture_keeps_other_same_filename_sha256_entries(
@@ -1397,6 +1500,87 @@ def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:
     assert evaluation.summary_json["structural_passed"] is True
 
 
+def test_evaluate_run_uses_auto_corpus_by_default(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+    auto_corpus_path = storage_root.resolve() / "evaluation_corpus.auto.yaml"
+    run_id = uuid4()
+    document_id = uuid4()
+    evaluation_row = SimpleNamespace(
+        id=uuid4(),
+        fixture_name=None,
+        status=None,
+        summary_json=None,
+        error_message=None,
+        completed_at=None,
+    )
+    fixture = SimpleNamespace(
+        name="auto_generated",
+        kind=AUTO_FIXTURE_KIND,
+        queries=[],
+        answer_queries=[],
+        thresholds=SimpleNamespace(),
+    )
+    state = {"refreshed": False}
+    seen_corpus_paths: list[Path | None] = []
+
+    class FakeSession:
+        def add(self, _row) -> None:
+            return None
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            manual_evaluation_corpus_path=None,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations._upsert_evaluation_row", lambda *args, **kwargs: evaluation_row
+    )
+
+    def fake_fixture_for_document(_document, corpus_path=None, **_kwargs):
+        seen_corpus_paths.append(corpus_path)
+        return fixture if state["refreshed"] else None
+
+    monkeypatch.setattr("app.services.evaluations.fixture_for_document", fake_fixture_for_document)
+    monkeypatch.setattr(
+        "app.services.evaluations.ensure_auto_evaluation_fixture",
+        lambda *args, **kwargs: state.__setitem__("refreshed", True),
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations._evaluate_structural_checks",
+        lambda *args, **kwargs: {
+            "check_count": 0,
+            "passed_checks": 0,
+            "failed_checks": 0,
+            "passed": True,
+            "checks": [],
+        },
+    )
+
+    evaluation = evaluate_run(
+        FakeSession(),
+        document=SimpleNamespace(
+            id=document_id,
+            source_filename="new_document.pdf",
+            active_run_id=run_id,
+        ),
+        run=SimpleNamespace(id=run_id, document_id=document_id),
+    )
+
+    assert seen_corpus_paths == [auto_corpus_path, auto_corpus_path]
+    assert evaluation.fixture_name == "auto_generated"
+    assert evaluation.status == "completed"
+
+
 def test_evaluate_run_persists_failed_row_when_auto_fixture_refresh_raises(monkeypatch) -> None:
     run_id = uuid4()
     document_id = uuid4()
@@ -1493,7 +1677,9 @@ def test_summarize_structural_checks_passes_expected_overlay_merge(tmp_path) -> 
     json_path.write_text("{}")
     yaml_path.write_text("caption: ok\n")
 
-    fixture = next(fixture for fixture in load_evaluation_fixtures() if fixture.name == "upc_ch5")
+    fixture = next(
+        fixture for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH) if fixture.name == "upc_ch5"
+    )
     table = SimpleNamespace(
         title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
         heading="510.1.2 Elbows",
@@ -1533,7 +1719,9 @@ def test_summarize_structural_checks_flags_missing_expected_merge(tmp_path) -> N
     json_path.write_text("{}")
     yaml_path.write_text("caption: ok\n")
 
-    fixture = next(fixture for fixture in load_evaluation_fixtures() if fixture.name == "upc_ch5")
+    fixture = next(
+        fixture for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH) if fixture.name == "upc_ch5"
+    )
     table = SimpleNamespace(
         title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
         heading="510.1.2 Elbows",
@@ -1605,6 +1793,7 @@ def test_evaluate_retrieval_case_flags_foreign_top_result_before_expected_hit() 
         query="What is the main claim of The Bitter Lesson?",
         mode="keyword",
         filters={},
+        include_document_filter=True,
         expected_result_type="chunk",
         expected_top_n=3,
         expected_source_filename="The Bitter Lesson.pdf",
@@ -1675,6 +1864,69 @@ def test_evaluate_retrieval_case_flags_foreign_top_result_before_expected_hit() 
     assert outcome["details_json"]["candidate_failure_kind"] == "foreign_top_result"
 
 
+def test_execute_retrieval_queries_can_skip_document_filter() -> None:
+    captured_filters: list[dict] = []
+    captured_run_ids: list[object] = []
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.rows: list[object] = []
+
+        def add(self, row) -> None:
+            self.rows.append(row)
+
+    def fake_search_documents(_session, request, *_args, **kwargs):
+        captured_filters.append(
+            request.filters.model_dump(mode="json", exclude_none=True) if request.filters else {}
+        )
+        captured_run_ids.append(kwargs.get("run_id"))
+        return [
+            SearchResult(
+                result_type="chunk",
+                document_id=uuid4(),
+                run_id=uuid4(),
+                score=0.91,
+                chunk_id=uuid4(),
+                chunk_text="The Bitter Lesson says general methods that leverage computation win.",
+                heading="The Bitter Lesson",
+                page_from=1,
+                page_to=1,
+                source_filename="The Bitter Lesson.pdf",
+                scores=SearchScores(keyword_score=0.91),
+            )
+        ]
+
+    batch = execute_retrieval_queries(
+        FakeSession(),
+        document=SimpleNamespace(id=uuid4(), source_filename="The Bitter Lesson.pdf"),
+        run=SimpleNamespace(id=uuid4()),
+        evaluation_id=uuid4(),
+        baseline_run_id=None,
+        queries=[
+            EvaluationQueryCase(
+                query="claim bitter lesson",
+                mode="keyword",
+                filters={},
+                include_document_filter=False,
+                expected_result_type="chunk",
+                expected_top_n=3,
+                expected_source_filename="The Bitter Lesson.pdf",
+                expected_top_result_source_filename="The Bitter Lesson.pdf",
+                minimum_top_n_hits_from_expected_document=1,
+                maximum_foreign_results_before_first_expected_hit=0,
+            )
+        ],
+        created_at=datetime.now(UTC),
+        search_documents_fn=fake_search_documents,
+        evaluate_retrieval_case_fn=_evaluate_retrieval_case,
+    )
+
+    assert captured_filters == [{}]
+    assert captured_run_ids == [None]
+    assert batch.query_count == 1
+    assert batch.passed_retrieval_queries == 1
+
+
 def test_evaluate_answer_case_flags_foreign_citations(monkeypatch) -> None:
     candidate_response = ChatResponse(
         answer=(
@@ -1714,6 +1966,7 @@ def test_evaluate_answer_case_flags_foreign_citations(monkeypatch) -> None:
             question="What is the main claim of The Bitter Lesson?",
             mode="hybrid",
             filters={},
+            include_document_filter=True,
             expected_answer_contains=["general methods", "computation"],
             minimum_citation_count=1,
             allow_fallback=False,
@@ -1751,6 +2004,7 @@ def test_evaluate_answer_case_supports_expected_no_answer(monkeypatch) -> None:
             question="What launch date does the opportunity screening memo announce?",
             mode="hybrid",
             filters={},
+            include_document_filter=True,
             expected_answer_contains=[],
             minimum_citation_count=0,
             allow_fallback=True,

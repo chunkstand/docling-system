@@ -42,10 +42,10 @@ clearly separate non-platform tags from the semantics branch.
 - `table_id` is run-scoped. `logical_table_key` is best-effort cross-run lineage and can be null.
 - Run evaluations are first-class persisted records with summary and per-query detail.
 - Every successful validated ingest also writes an auto-generated evaluation fixture to `storage/evaluation_corpus.auto.yaml` so new documents do not remain unevaluated while waiting for a hand-authored fixture.
-- `docs/evaluation_corpus.yaml` remains the durable hand-authored evaluation contract; fixture lookup matches document `sha256` first and falls back to unambiguous source-filename matching only when needed. Hand-authored corpus entries load before auto-generated companions and win when both are eligible.
+- `docs/evaluation_corpus.yaml` remains an optional hand-authored evaluation contract for explicitly identified documents. Runtime evaluation uses the auto-generated ingest corpus by default; a manual corpus is only loaded when an explicit corpus path is passed or `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH` is configured. Runtime fixture lookup matches by document `sha256`; filename fallback is reserved for auto-generated fixtures written from ingested data.
 - `GET /documents/{document_id}/evaluations/latest` is the top-level persisted evaluation detail endpoint for the document's latest run.
 - `GET /documents/{document_id}/figures` and `GET /documents/{document_id}/figures/{figure_id}` are top-level figure inspection endpoints for the active run.
-- Table supplements are registry-driven via `config/table_supplements.yaml`; the registry selects document-specific clean supplement PDFs without changing the canonical source document contract.
+- Table supplements are registry-driven via `config/table_supplements.yaml`; the registry accepts config-defined regex family matchers instead of code-defined corpus matchers, and the checked-in registry ships empty by default.
 - Supplement overlays preserve chapter-local page spans and original segment provenance while replacing known-bad logical table families with cleaner extracted rows.
 
 ## Stack
@@ -209,7 +209,7 @@ The CLI passes through the same checksum dedupe, run queue, worker processing, v
 
 Directory ingest creates a durable ingest batch, scans the directory for `.pdf` files, and queues each file through the same single-file ingest contract. Each batch item records whether the file queued a new run, attached to an existing in-flight recovery run, hit an already-active duplicate, or failed validation before queueing. Batch status stays `running` until the linked document runs reach terminal states, so `docling-system-ingest-batch-show` reflects end-to-end progress instead of only the initial fan-out step.
 
-After a run validates successfully, the worker also writes or refreshes an auto-generated evaluation fixture under `storage/evaluation_corpus.auto.yaml` and immediately evaluates the run against the combined manual-plus-auto corpus.
+After a run validates successfully, the worker writes or refreshes an auto-generated evaluation fixture under `storage/evaluation_corpus.auto.yaml` and immediately evaluates the run against the ingested-data-derived corpus for that document. Hand-authored fixtures can still be added later for explicitly identified documents by passing a corpus path or setting `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH`.
 
 Local path ingest policy:
 
@@ -467,7 +467,7 @@ The current learning surface is intentionally simple and durable: operators can 
 
 Tables are first-class retrieval objects. The parser stores logical tables, source table segment provenance, merge metadata, repeated-header removal metadata, and audit hashes. Continued tables can be merged into one logical table when the evidence is strong enough; ambiguous continuation candidates are recorded instead of guessed.
 
-The current parser also supports a small, explicit supplement registry for known-bad scanned table families. This is a provisional v1 mechanism, not a second ingest path: the chapter PDF remains canonical, and matching registry rules selectively overlay cleaner table-family rows from a supplement PDF while retaining chapter-local page ranges and source-segment lineage.
+The current parser also supports an optional supplement registry for known-bad scanned table families. This is a provisional v1 mechanism, not a second ingest path: the source PDF remains canonical, and matching registry rules selectively overlay cleaner table-family rows from a supplement PDF while retaining source page ranges and segment lineage. No sample-specific supplement rules are enabled in the checked-in config.
 
 For future repairs, the intended workflow is:
 
@@ -576,11 +576,11 @@ The ranking dataset export schema is documented in [docs/ranking_dataset_schema.
 
 ## Evaluation
 
-The fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance.
+The optional fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). It records the mixed-search rollout mode, embedding contract, target document types, and threshold checks for table counts, continued-table merges, golden table queries, prose queries, figure counts, figure artifact/provenance coverage, expected figure captions, and unexpected merge/split tolerance. It is not on the default runtime path unless explicitly configured.
 
 The current corpus also includes explicit cross-document prose-contamination guards and answer-side citation-purity checks for non-UPC prose documents, plus negative answer cases that require a fallback-style "no confident answer" outcome.
 
-The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as a source-filename-keyed auto-generated companion corpus for newly ingested documents that do not yet have hand-authored fixtures. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they are refreshed per source filename and provide immediate retrieval/structural coverage without replacing the hand-authored corpus.
+The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as the default auto-generated corpus for ingested documents. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they are refreshed as new runs are promoted and provide immediate retrieval and structural coverage derived from the ingested data itself.
 
 Current hand-authored fixtures include the UPC corpus plus non-UPC prose, table, figure, and Tyler's Kitchen documents such as:
 

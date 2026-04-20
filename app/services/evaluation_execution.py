@@ -116,7 +116,11 @@ def execute_retrieval_queries(
 ) -> EvaluationBatchResult:
     batch = EvaluationBatchResult()
     for case in queries:
-        filters_payload = {**case.filters, "document_id": str(document.id)}
+        filters_payload = dict(case.filters)
+        if case.include_document_filter:
+            filters_payload["document_id"] = str(document.id)
+        candidate_run_id = run.id if case.include_document_filter else None
+        baseline_search_run_id = baseline_run_id if case.include_document_filter else None
         filters = SearchFilters.model_validate(filters_payload)
         request = SearchRequest(
             query=case.query,
@@ -127,7 +131,7 @@ def execute_retrieval_queries(
         candidate_results = search_documents_fn(
             session,
             request,
-            run_id=run.id,
+            run_id=candidate_run_id,
             origin="evaluation_candidate",
             evaluation_id=evaluation_id,
         )
@@ -135,11 +139,11 @@ def execute_retrieval_queries(
             search_documents_fn(
                 session,
                 request,
-                run_id=baseline_run_id,
+                run_id=baseline_search_run_id,
                 origin="evaluation_baseline",
                 evaluation_id=evaluation_id,
             )
-            if baseline_run_id
+            if baseline_search_run_id
             else []
         )
         outcome = evaluate_retrieval_case_fn(

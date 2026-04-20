@@ -78,11 +78,7 @@ LOW_SIGNAL_CHUNK_QUERY_PATTERNS = (
     ),
     re.compile(r"^[A-Za-z0-9'/-]+(?:\s+[A-Za-z0-9'/-]+){0,3}\s+project\b", re.IGNORECASE),
     re.compile(r".*\bdoi:\s*\S+", re.IGNORECASE),
-    re.compile(
-        r".*\b(?:department of agriculture|experiment station|forest service research paper)\b.*",
-        re.IGNORECASE,
-    ),
-    re.compile(r"^[A-Za-z0-9._-]+\s+on\s+DSK[A-Z0-9]+\s+with\s+[A-Z0-9]+$", re.IGNORECASE),
+    re.compile(r".*\b(?:research paper|experiment station)\b.*", re.IGNORECASE),
 )
 LOW_SIGNAL_TABLE_QUERY_PATTERNS = (
     re.compile(r"^chapter\s+[ivxlcdm0-9a-z]+\b", re.IGNORECASE),
@@ -96,10 +92,7 @@ LOW_SIGNAL_TABLE_QUERY_PATTERNS = (
         r"^\d{4}\s+[A-Za-z][A-Za-z'().-]+(?:\s+[A-Za-z][A-Za-z'().-]+){1,2}$",
         re.IGNORECASE,
     ),
-    re.compile(
-        r"^\d{4}\s+[A-Za-z0-9/&'().:-]+(?:\s+[A-Za-z0-9/&'().:-]+){0,5}\s+field\s+review\s+report\b",
-        re.IGNORECASE,
-    ),
+    re.compile(r".*\bfield\s+review\s+report\b.*", re.IGNORECASE),
 )
 AUTO_FIXTURE_NAME_PATTERN = re.compile(r"[^a-z0-9]+")
 AUTO_FILENAME_SPLIT_PATTERN = re.compile(r"\s*(?:[-|:]+)\s*")
@@ -123,6 +116,7 @@ class EvaluationQueryCase:
     query: str
     mode: str
     filters: dict
+    include_document_filter: bool
     expected_result_type: str
     expected_top_n: int
     expected_source_filename: str | None = None
@@ -136,6 +130,7 @@ class EvaluationAnswerCase:
     question: str
     mode: str
     filters: dict
+    include_document_filter: bool
     expected_answer_contains: list[str]
     minimum_citation_count: int
     allow_fallback: bool
@@ -177,6 +172,13 @@ class EvaluationThresholds:
 
 def _auto_corpus_path() -> Path:
     return get_settings().storage_root.resolve() / AUTO_CORPUS_FILENAME
+
+
+def _configured_manual_corpus_path() -> Path | None:
+    configured = getattr(get_settings(), "manual_evaluation_corpus_path", None)
+    if configured is None:
+        return None
+    return Path(configured).expanduser().resolve()
 
 
 def _load_corpus_documents(path: Path) -> list[dict]:
@@ -289,6 +291,7 @@ def _normalize_fixture_query(entry: dict, expected_result_type: str) -> Evaluati
         query=entry["query"],
         mode=entry.get("mode", "hybrid"),
         filters=entry.get("filters") or {},
+        include_document_filter=bool(entry.get("include_document_filter", True)),
         expected_result_type=entry.get("expected_result_type", expected_result_type),
         expected_top_n=entry.get("top_n", 3),
         expected_source_filename=entry.get("expected_source_filename"),
@@ -310,6 +313,7 @@ def _normalize_fixture_answer(entry: dict) -> EvaluationAnswerCase:
         question=entry.get("question") or entry["query"],
         mode=entry.get("mode", "hybrid"),
         filters=entry.get("filters") or {},
+        include_document_filter=bool(entry.get("include_document_filter", True)),
         expected_answer_contains=answer_contains,
         minimum_citation_count=entry.get("minimum_citation_count", 1),
         allow_fallback=bool(entry.get("allow_fallback", False)),
@@ -356,10 +360,16 @@ def _normalize_thresholds(thresholds: dict) -> EvaluationThresholds:
 
 
 def _fixture_paths(corpus_path: Path | None = None) -> list[Path]:
-    primary_path = corpus_path or DEFAULT_CORPUS_PATH
-    paths = [primary_path]
+    primary_path = (
+        Path(corpus_path).expanduser().resolve()
+        if corpus_path is not None
+        else _configured_manual_corpus_path()
+    )
+    paths: list[Path] = []
+    if primary_path is not None:
+        paths.append(primary_path)
     auto_path = _auto_corpus_path()
-    if auto_path != primary_path and auto_path.exists():
+    if auto_path.exists() and auto_path not in paths:
         paths.append(auto_path)
     return paths
 
@@ -427,7 +437,10 @@ def load_evaluation_fixtures(corpus_path: Path | None = None) -> list[Evaluation
 
 
 def fixture_for_document(
-    document: Document, corpus_path: Path | None = None
+    document: Document,
+    corpus_path: Path | None = None,
+    *,
+    allow_manual_filename_fallback: bool = False,
 ) -> EvaluationFixture | None:
     fixtures = load_evaluation_fixtures(corpus_path)
     document_sha256 = _normalized_document_sha256(getattr(document, "sha256", None))
@@ -445,12 +458,16 @@ def fixture_for_document(
         for fixture in fixtures
         if source_filename_matches(fixture.source_filename, document_source_filename)
     ]
-    if len(filename_matches) == 1:
-        return filename_matches[0]
+    auto_matches = [fixture for fixture in filename_matches if fixture.kind == AUTO_FIXTURE_KIND]
+    if len(auto_matches) == 1:
+        return auto_matches[0]
 
-    manual_matches = [fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND]
-    if len(manual_matches) == 1:
-        return manual_matches[0]
+    if allow_manual_filename_fallback:
+        if len(filename_matches) == 1:
+            return filename_matches[0]
+        manual_matches = [fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND]
+        if len(manual_matches) == 1:
+            return manual_matches[0]
     return None
 
 
@@ -1522,13 +1539,13 @@ def _evaluate_answer_case(
     request = ChatRequest(
         question=case.question,
         mode=case.mode,
-        document_id=document.id,
+        document_id=document.id if case.include_document_filter else None,
         top_k=case.top_k,
     )
     candidate_response = answer_question(
         session,
         request,
-        run_id=run_id,
+        run_id=run_id if case.include_document_filter else None,
         origin="evaluation_answer_candidate",
         evaluation_id=evaluation_id,
         persist=False,
@@ -1537,12 +1554,12 @@ def _evaluate_answer_case(
         answer_question(
             session,
             request,
-            run_id=baseline_run_id,
+            run_id=baseline_run_id if case.include_document_filter else None,
             origin="evaluation_answer_baseline",
             evaluation_id=evaluation_id,
             persist=False,
         )
-        if baseline_run_id
+        if baseline_run_id and case.include_document_filter
         else None
     )
 
@@ -1608,7 +1625,9 @@ def _evaluate_answer_case(
         baseline_foreign_citation_count,
     ) = _answer_passed(baseline_response)
     delta_kind = _classify_delta(candidate_passed, baseline_passed, None)
-    filters_payload = {**case.filters, "document_id": str(document.id)}
+    filters_payload = dict(case.filters)
+    if case.include_document_filter:
+        filters_payload["document_id"] = str(document.id)
 
     return {
         "query_text": case.question,
@@ -1880,6 +1899,7 @@ def evaluate_run(
     corpus_path: Path | None = None,
     corpus_name: str = DEFAULT_CORPUS_NAME,
 ) -> DocumentRunEvaluation:
+    active_corpus_path = corpus_path or _configured_manual_corpus_path() or _auto_corpus_path()
     baseline_run_id = resolve_baseline_run_id(
         run.id,
         document.active_run_id,
@@ -1896,17 +1916,17 @@ def evaluate_run(
     now = utcnow()
     fixture = None
     try:
-        fixture = fixture_for_document(document, corpus_path)
+        fixture = fixture_for_document(document, active_corpus_path)
         if fixture is None or fixture.kind == AUTO_FIXTURE_KIND:
             ensure_auto_evaluation_fixture(session, document, run)
-            fixture = fixture_for_document(document, corpus_path)
+            fixture = fixture_for_document(document, active_corpus_path)
 
         if fixture is None:
             evaluation.fixture_name = None
             evaluation.status = "skipped"
             evaluation.summary_json = {
                 "status": "skipped",
-                "reason": "No evaluation fixture matches the document source filename.",
+                "reason": "No evaluation fixture matches the document identity.",
                 "query_count": 0,
                 "retrieval_query_count": 0,
                 "answer_query_count": 0,

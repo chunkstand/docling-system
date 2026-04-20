@@ -9,17 +9,20 @@ from app.services.docling_parser import (
     DoclingParser,
     ParsedTable,
     ParsedTableSegment,
+    TableFamilyMatcher,
     TableSupplementRule,
     _apply_registered_table_supplements,
     _apply_table_family_overlays,
     _build_logical_tables,
-    _group_tables_by_upc_510_family,
+    _group_tables_by_title_regex_family,
     _load_table_supplement_registry,
     _meaningful_table_segments,
     _normalize_chunks,
     _snapshot_items,
     get_fallback_document_converter,
 )
+
+UPC_510_FAMILY_PATTERN = r"TABLE\s+510\.1\.2\s*(?:\(\s*\d+\s*\)|\d+)"
 
 
 class FakeDocument:
@@ -757,6 +760,22 @@ def _make_table(
     )
 
 
+def _make_title_regex_matcher(
+    *,
+    family_key_pattern: str = UPC_510_FAMILY_PATTERN,
+    continuation_title_pattern: str | None = r"\bcontinued\b",
+    max_page_gap: int = 1,
+    require_same_heading: bool = True,
+) -> TableFamilyMatcher:
+    return TableFamilyMatcher(
+        kind="title_regex_family",
+        family_key_pattern=family_key_pattern,
+        continuation_title_pattern=continuation_title_pattern,
+        max_page_gap=max_page_gap,
+        require_same_heading=require_same_heading,
+    )
+
+
 def test_apply_table_family_overlays_replaces_corrupted_upc_family() -> None:
     corrupted_tables = [
         _make_table(
@@ -810,6 +829,7 @@ def test_apply_table_family_overlays_replaces_corrupted_upc_family() -> None:
     result = _apply_table_family_overlays(
         corrupted_tables,
         supplement_tables,
+        family_matcher=_make_title_regex_matcher(),
         supplement_filename="510.1.2.pdf",
     )
 
@@ -864,6 +884,7 @@ def test_apply_table_family_overlays_does_not_absorb_later_titled_tables() -> No
     result = _apply_table_family_overlays(
         chapter_tables,
         supplement_tables,
+        family_matcher=_make_title_regex_matcher(),
         supplement_filename="510.1.2.pdf",
     )
 
@@ -874,7 +895,7 @@ def test_apply_table_family_overlays_does_not_absorb_later_titled_tables() -> No
     assert result[1].metadata.get("overlay_applied") is None
 
 
-def test_group_tables_by_upc_510_family_keeps_titled_continued_fragment() -> None:
+def test_group_tables_by_title_regex_family_keeps_titled_continued_fragment() -> None:
     tables = [
         _make_table(
             table_index=0,
@@ -908,7 +929,10 @@ def test_group_tables_by_upc_510_family_keeps_titled_continued_fragment() -> Non
         ),
     ]
 
-    grouped = _group_tables_by_upc_510_family(tables)
+    grouped = _group_tables_by_title_regex_family(
+        tables,
+        matcher=_make_title_regex_matcher(),
+    )
 
     assert list(grouped) == ["TABLE 510.1.2(1)"]
     assert [table.table_index for table in grouped["TABLE 510.1.2(1)"]] == [0, 1]
@@ -923,7 +947,9 @@ rules:
       - UPC_CH_5.pdf
       - nested/UPC_CH_6.pdf
     supplement_filename: UPC/510.1.2.pdf
-    matcher: upc_510_family
+    matcher: title_regex_family
+    family_key_pattern: 'TABLE\\s+510\\.1\\.2\\s*(?:\\(\\s*\\d+\\s*\\)|\\d+)'
+    continuation_title_pattern: '\\bcontinued\\b'
     overlay_type: clean_pdf_family_replacement
     description: Example rule
 """.strip()
@@ -934,7 +960,8 @@ rules:
     assert len(rules) == 1
     assert rules[0].document_filenames == ("UPC_CH_5.pdf", "UPC_CH_6.pdf")
     assert rules[0].supplement_filename == "510.1.2.pdf"
-    assert rules[0].matcher == "upc_510_family"
+    assert rules[0].matcher.kind == "title_regex_family"
+    assert rules[0].matcher.family_key_pattern == UPC_510_FAMILY_PATTERN
     assert rules[0].overlay_type == "clean_pdf_family_replacement"
     assert rules[0].description == "Example rule"
 
@@ -974,7 +1001,7 @@ def test_apply_registered_table_supplements_uses_matching_rule(monkeypatch, tmp_
         TableSupplementRule(
             document_filenames=("UPC_CH_5.pdf",),
             supplement_filename="510.1.2.pdf",
-            matcher="upc_510_family",
+            matcher=_make_title_regex_matcher(),
             overlay_type="clean_pdf_family_replacement",
         ),
     )
@@ -1006,7 +1033,7 @@ def test_apply_registered_table_supplements_skips_non_matching_rule(tmp_path) ->
         TableSupplementRule(
             document_filenames=("UPC_CH_6.pdf",),
             supplement_filename="510.1.2.pdf",
-            matcher="upc_510_family",
+            matcher=_make_title_regex_matcher(),
             overlay_type="clean_pdf_family_replacement",
         ),
     )
