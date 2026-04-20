@@ -6,7 +6,6 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.models import AgentTask, AgentTaskStatus, Document, SemanticOntologySnapshot
@@ -43,59 +42,40 @@ def _write_registry(path: Path) -> None:
     path.write_text(
         """registry_name: semantics_layer_foundation
 registry_version: semantics-layer-foundation-alpha.2
-categories:
-  - category_key: integration_governance
-    preferred_label: Integration Governance
-    scope_note: Controls, thresholds, and governance mechanisms for integration decisions.
+categories: []
 concepts:
   - concept_key: integration_threshold
     preferred_label: Integration Threshold
-    scope_note: Threshold guidance or threshold matrices used to govern integration decisions.
-    category_keys:
-      - integration_governance
     aliases:
       - integration threshold
-      - threshold guidance
 """
     )
 
 
-def _write_semantic_eval_corpus(path: Path) -> None:
+def _write_empty_semantic_eval_corpus(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        """corpus_name: semantic_guardrail
+        """corpus_name: semantic_bootstrap
 eval_version: 2
-documents:
-  - fixture_name: integration_guardrail_semantics
-    source_filename: integration-guardrail-report.pdf
-    expected_concepts:
-      - concept_key: integration_threshold
-        minimum_evidence_count: 2
-        required_source_types:
-          - chunk
-          - table
-        expected_category_keys:
-          - integration_governance
-        suggested_aliases:
-          - integration guardrail
-        expected_epistemic_status: observed
-        expected_review_status: candidate
-        expected_category_binding_review_status: candidate
+documents: []
 """
     )
 
 
 def _build_parsed_document() -> ParsedDocument:
-    chunk_text = "Integration guardrail keeps active retrieval grounded."
+    chunk_text = (
+        "Incident response latency target remains under fifteen minutes. "
+        "The incident response latency dashboard is reviewed every week."
+    )
     table_rows = [
-        ["Tier", "Guardrail"],
-        ["alpha", "integration guardrail"],
+        ["Metric", "Target"],
+        ["incident response latency", "15 minutes"],
     ]
     segment = ParsedTableSegment(
         segment_index=0,
         segment_order=0,
         source_table_ref="table-0",
-        title="Integration Guardrail Matrix",
+        title="Incident Response Latency Targets",
         heading="Section 1",
         page_from=1,
         page_to=1,
@@ -103,7 +83,7 @@ def _build_parsed_document() -> ParsedDocument:
         col_count=2,
         rows=table_rows,
         metadata={
-            "caption": "Integration Guardrail Matrix",
+            "caption": "Incident Response Latency Targets",
             "title_hint": None,
             "segment_label": "table",
             "title_source": "caption",
@@ -114,15 +94,15 @@ def _build_parsed_document() -> ParsedDocument:
     )
     table = ParsedTable(
         table_index=0,
-        title="Integration Guardrail Matrix",
+        title="Incident Response Latency Targets",
         heading="Section 1",
         page_from=1,
         page_to=1,
         row_count=len(table_rows),
         col_count=2,
         rows=table_rows,
-        search_text="Integration Guardrail Matrix integration guardrail alpha",
-        preview_text="Tier | Guardrail\nalpha | integration guardrail",
+        search_text="incident response latency targets incident response latency 15 minutes",
+        preview_text="Metric | Target\nincident response latency | 15 minutes",
         metadata={
             "is_merged": False,
             "source_segment_count": 1,
@@ -137,20 +117,20 @@ def _build_parsed_document() -> ParsedDocument:
             "merge_sanity_passed": True,
             "header_removal_passed": True,
             "source_segment_indices": [0],
-            "source_titles": ["Integration Guardrail Matrix"],
+            "source_titles": ["Incident Response Latency Targets"],
         },
         segments=[segment],
     )
     exported_payload = {
-        "name": "Guardrail Report",
+        "name": "Incident Review",
         "texts": [{"self_ref": "chunk-0", "text": chunk_text}],
         "tables": [{"self_ref": "table-0", "data": {"grid": []}}],
         "pictures": [],
     }
     return ParsedDocument(
-        title="Guardrail Report",
+        title="Incident Review",
         page_count=1,
-        yaml_text="document: guardrail-report\n",
+        yaml_text="document: incident-review\n",
         docling_json=json.dumps(exported_payload, indent=2),
         chunks=[
             ParsedChunk(
@@ -176,74 +156,80 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         return task.id
 
 
-def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypatch, tmp_path) -> None:
+def test_semantic_bootstrap_roundtrip(postgres_integration_harness, monkeypatch, tmp_path) -> None:
     registry_path = tmp_path / "config" / "semantic_registry.yaml"
     eval_corpus_path = tmp_path / "docs" / "semantic_evaluation_corpus.yaml"
     _write_registry(registry_path)
-    _write_semantic_eval_corpus(eval_corpus_path)
+    _write_empty_semantic_eval_corpus(eval_corpus_path)
     monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
     monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH", str(eval_corpus_path))
     get_settings.cache_clear()
     clear_semantic_registry_cache()
 
     client = postgres_integration_harness.client
-    upload_files = {
-        "file": (
-            "integration-guardrail-report.pdf",
-            valid_test_pdf_bytes(),
-            "application/pdf",
-        )
-    }
-
-    create_response = client.post("/documents", files=upload_files)
+    create_response = client.post(
+        "/documents",
+        files={
+            "file": (
+                "incident-review.pdf",
+                valid_test_pdf_bytes(),
+                "application/pdf",
+            )
+        },
+    )
     assert create_response.status_code == 202
     document_id = UUID(create_response.json()["document_id"])
     original_run_id = UUID(create_response.json()["run_id"])
 
-    processed_run_id = postgres_integration_harness.process_next_run(StubParser(_build_parsed_document()))
+    processed_run_id = postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document())
+    )
     assert processed_run_id == original_run_id
 
     semantics_response = client.get(f"/documents/{document_id}/semantics/latest")
     assert semantics_response.status_code == 200
     semantics = semantics_response.json()
-    assert semantics["evaluation_summary"]["all_expectations_passed"] is False
     assert semantics["assertion_count"] == 0
 
-    workflow_version = "semantic_milestone_integration"
+    workflow_version = "semantic_bootstrap_integration"
     with postgres_integration_harness.session_factory() as session:
-        latest_task = create_agent_task(
+        discover_task = create_agent_task(
             session,
             AgentTaskCreateRequest(
-                task_type="get_latest_semantic_pass",
-                input={"document_id": str(document_id)},
+                task_type="discover_semantic_bootstrap_candidates",
+                input={
+                    "document_ids": [str(document_id)],
+                    "max_candidates": 6,
+                    "min_document_count": 1,
+                    "min_source_count": 2,
+                    "min_phrase_tokens": 2,
+                    "max_phrase_tokens": 4,
+                    "exclude_existing_registry_terms": True,
+                },
                 workflow_version=workflow_version,
             ),
         )
-        latest_task_id = latest_task.task_id
+        discover_task_id = discover_task.task_id
 
     _process_next_task(postgres_integration_harness)
 
     with postgres_integration_harness.session_factory() as session:
-        triage_task = create_agent_task(
-            session,
-            AgentTaskCreateRequest(
-                task_type="triage_semantic_pass",
-                input={"target_task_id": str(latest_task_id), "low_evidence_threshold": 2},
-                workflow_version=workflow_version,
-            ),
+        discover_task_row = session.get(AgentTask, discover_task_id)
+        assert discover_task_row is not None
+        report = discover_task_row.result_json["payload"]["report"]
+        candidate = next(
+            row for row in report["candidates"] if row["concept_key"] == "incident_response_latency"
         )
-        triage_task_id = triage_task.task_id
+        candidate_id = candidate["candidate_id"]
 
-    _process_next_task(postgres_integration_harness)
-
-    with postgres_integration_harness.session_factory() as session:
         draft_task = create_agent_task(
             session,
             AgentTaskCreateRequest(
                 task_type="draft_semantic_registry_update",
                 input={
-                    "source_task_id": str(triage_task_id),
-                    "rationale": "add the missing integration guardrail alias",
+                    "source_task_id": str(discover_task_id),
+                    "candidate_ids": [candidate_id],
+                    "rationale": "bootstrap a registry concept from corpus evidence",
                 },
                 workflow_version=workflow_version,
             ),
@@ -271,6 +257,10 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
     _process_next_task(postgres_integration_harness)
 
     with postgres_integration_harness.session_factory() as session:
+        verify_task_row = session.get(AgentTask, verify_task_id)
+        assert verify_task_row is not None
+        assert verify_task_row.result_json["payload"]["verification"]["outcome"] == "passed"
+
         apply_task = create_agent_task(
             session,
             AgentTaskCreateRequest(
@@ -278,7 +268,7 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
                 input={
                     "draft_task_id": str(draft_task_id),
                     "verification_task_id": str(verify_task_id),
-                    "reason": "publish the verified semantic registry update",
+                    "reason": "publish the verified bootstrap concept",
                 },
                 workflow_version=workflow_version,
             ),
@@ -294,7 +284,7 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
             apply_task_id,
             AgentTaskApprovalRequest(
                 approved_by="semantic-operator@example.com",
-                approval_note="publish the verified registry update",
+                approval_note="publish the bootstrap registry concept",
             ),
         )
 
@@ -306,17 +296,13 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
         apply_payload = apply_task_row.result_json["payload"]
         assert apply_payload["config_path"].startswith("db://semantic_ontology_snapshots/")
         snapshot_rows = (
-            session.execute(
-                select(SemanticOntologySnapshot).order_by(
-                    SemanticOntologySnapshot.created_at.desc()
-                )
-            )
-            .scalars()
+            session.query(SemanticOntologySnapshot)
+            .order_by(SemanticOntologySnapshot.created_at.desc())
             .all()
         )
         assert snapshot_rows
         assert snapshot_rows[0].ontology_version == "semantics-layer-foundation-alpha.3"
-        assert "integration guardrail" in json.dumps(snapshot_rows[0].payload_json)
+        assert "incident_response_latency" in json.dumps(snapshot_rows[0].payload_json)
 
     with postgres_integration_harness.session_factory() as session:
         reprocess_task = create_agent_task(
@@ -326,7 +312,7 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
                 input={
                     "document_id": str(document_id),
                     "source_task_id": str(apply_task_id),
-                    "reason": "refresh the document under the new semantic registry",
+                    "reason": "refresh the document under the bootstrap registry",
                 },
                 workflow_version=workflow_version,
             ),
@@ -337,7 +323,7 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
             reprocess_task_id,
             AgentTaskApprovalRequest(
                 approved_by="semantic-operator@example.com",
-                approval_note="refresh semantics under the new registry",
+                approval_note="refresh semantics under the bootstrap registry",
             ),
         )
 
@@ -359,32 +345,8 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
     final_semantics = final_semantics_response.json()
     assert final_semantics["run_id"] == str(latest_run_id)
     assert final_semantics["registry_version"] == "semantics-layer-foundation-alpha.3"
-    assert final_semantics["evaluation_summary"]["all_expectations_passed"] is True
-    assert final_semantics["assertion_count"] == 1
-    assert final_semantics["assertions"][0]["concept_key"] == "integration_threshold"
-    assert sorted(final_semantics["assertions"][0]["source_types"]) == ["chunk", "table"]
-
-    triage_context_response = client.get(f"/agent-tasks/{triage_task_id}/context")
-    assert triage_context_response.status_code == 200
-    assert triage_context_response.json()["summary"]["next_action"] == "draft_registry_update"
-    assert triage_context_response.json()["freshness_status"] == "fresh"
-
-    verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
-    assert verify_context_response.status_code == 200
-    assert verify_context_response.json()["summary"]["verification_state"] == "passed"
-
-    apply_context_response = client.get(f"/agent-tasks/{apply_task_id}/context")
-    assert apply_context_response.status_code == 200
-    assert apply_context_response.json()["summary"]["approval_state"] == "approved"
-    assert apply_context_response.json()["summary"]["verification_state"] == "passed"
-
-    recommendation_summary_response = client.get(
-        "/agent-tasks/analytics/recommendations",
-        params={"workflow_version": workflow_version},
+    assert final_semantics["assertion_count"] >= 1
+    assert any(
+        assertion["concept_key"] == "incident_response_latency"
+        for assertion in final_semantics["assertions"]
     )
-    assert recommendation_summary_response.status_code == 200
-    recommendation_summary = recommendation_summary_response.json()
-    assert recommendation_summary["recommendation_task_count"] >= 1
-    assert recommendation_summary["draft_count"] >= 1
-    assert recommendation_summary["passed_verification_count"] >= 1
-    assert recommendation_summary["applied_count"] >= 1

@@ -573,6 +573,7 @@ def _bucket_start(value: datetime, bucket: str) -> datetime:
 RECOMMENDATION_FAMILY_TASK_TYPES = (
     "triage_replay_regression",
     "triage_semantic_pass",
+    "triage_semantic_candidate_disagreements",
     "draft_harness_config_update",
     "draft_semantic_registry_update",
     "verify_draft_harness_config",
@@ -726,7 +727,11 @@ def _task_ids(tasks: list[AgentTask]) -> set[UUID]:
 
 
 def _is_recommendation_task(task: AgentTask) -> bool:
-    return task.task_type in {"triage_replay_regression", "triage_semantic_pass"} or bool(
+    return task.task_type in {
+        "triage_replay_regression",
+        "triage_semantic_pass",
+        "triage_semantic_candidate_disagreements",
+    } or bool(
         (task.result_json or {}).get("recommendation")
     )
 

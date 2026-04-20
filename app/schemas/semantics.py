@@ -95,6 +95,8 @@ class DocumentSemanticPassResponse(BaseModel):
     semantic_pass_id: UUID
     document_id: UUID
     run_id: UUID
+    ontology_snapshot_id: UUID | None = None
+    upper_ontology_version: str | None = None
     status: str
     registry_version: str
     registry_sha256: str
@@ -108,6 +110,7 @@ class DocumentSemanticPassResponse(BaseModel):
     artifact_yaml_sha256: str | None = None
     assertion_count: int = 0
     evidence_count: int = 0
+    fact_count: int = 0
     summary: dict
     evaluation_status: str
     evaluation_fixture_name: str | None = None

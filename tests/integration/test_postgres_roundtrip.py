@@ -15,7 +15,14 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
-from app.services.semantic_registry import clear_semantic_registry_cache
+from app.db.models import SemanticGraphSourceKind, SemanticOntologySourceKind
+from app.services.semantic_graph import persist_semantic_graph_snapshot
+from app.services.semantic_registry import (
+    clear_semantic_registry_cache,
+    ensure_workspace_semantic_registry,
+    get_active_semantic_ontology_snapshot,
+    persist_semantic_ontology_snapshot,
+)
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
@@ -145,9 +152,25 @@ def _build_parsed_document(
     )
 
 
+def _configure_sample_semantics(monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    monkeypatch.setenv(
+        "DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH",
+        str(repo_root / "config" / "semantic_registry.yaml"),
+    )
+    monkeypatch.setenv(
+        "DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH",
+        str(repo_root / "docs" / "semantic_evaluation_corpus.yaml"),
+    )
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+
 def test_upload_process_search_and_evaluate_document_roundtrip(
     postgres_integration_harness,
+    monkeypatch,
 ) -> None:
+    _configure_sample_semantics(monkeypatch)
     client = postgres_integration_harness.client
     upload_files = {
         "file": (
@@ -367,7 +390,9 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
 
 def test_semantic_reviews_persist_across_reruns_and_emit_continuity(
     postgres_integration_harness,
+    monkeypatch,
 ) -> None:
+    _configure_sample_semantics(monkeypatch)
     client = postgres_integration_harness.client
     upload_files = {
         "file": (
@@ -482,6 +507,205 @@ def test_semantic_reviews_persist_across_reruns_and_emit_continuity(
     assert continuity["baseline_run_id"] == str(original_run_id)
     assert continuity["summary"]["removed_concept_keys"] == ["system_diagram"]
     assert continuity["summary"]["change_count"] == 1
+
+
+def test_workspace_seed_snapshot_same_version_resync_does_not_self_parent(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "config" / "semantic_registry.yaml"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        """registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts: []
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+"""
+    )
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        original_snapshot = get_active_semantic_ontology_snapshot(session)
+        original_snapshot_id = original_snapshot.id
+        assert original_snapshot.parent_snapshot_id is None
+        original_sha256 = original_snapshot.sha256
+
+    registry_path.write_text(
+        """registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts:
+  - concept_key: incident_response_latency
+    preferred_label: Incident Response Latency
+    scope_note: Time to respond to incidents.
+    aliases:
+      - response latency
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+"""
+    )
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        active_snapshot = get_active_semantic_ontology_snapshot(session)
+        assert active_snapshot.id == original_snapshot_id
+        assert active_snapshot.parent_snapshot_id is None
+        assert active_snapshot.sha256 != original_sha256
+        assert active_snapshot.payload_json["concepts"][0]["concept_key"] == (
+            "incident_response_latency"
+        )
+
+
+def test_ontology_extension_snapshot_version_is_immutable(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "config" / "semantic_registry.yaml"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        """registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts: []
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+"""
+    )
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        base_snapshot = get_active_semantic_ontology_snapshot(session)
+
+        persist_semantic_ontology_snapshot(
+            session,
+            {
+                "registry_name": "portable_upper_ontology",
+                "registry_version": "portable-upper-ontology-v2",
+                "upper_ontology_version": "portable-upper-ontology-v1",
+                "categories": [],
+                "concepts": [
+                    {
+                        "concept_key": "incident_response_latency",
+                        "preferred_label": "Incident Response Latency",
+                        "aliases": ["response latency"],
+                    }
+                ],
+                "relations": [
+                    {
+                        "relation_key": "document_mentions_concept",
+                        "preferred_label": "Document Mentions Concept",
+                    }
+                ],
+            },
+            source_kind=SemanticOntologySourceKind.ONTOLOGY_EXTENSION_APPLY.value,
+            parent_snapshot_id=base_snapshot.id,
+            activate=False,
+        )
+
+        with pytest.raises(ValueError, match="immutable"):
+            persist_semantic_ontology_snapshot(
+                session,
+                {
+                    "registry_name": "portable_upper_ontology",
+                    "registry_version": "portable-upper-ontology-v2",
+                    "upper_ontology_version": "portable-upper-ontology-v1",
+                    "categories": [],
+                    "concepts": [
+                        {
+                            "concept_key": "vendor_escalation_owner",
+                            "preferred_label": "Vendor Escalation Owner",
+                            "aliases": ["escalation owner"],
+                        }
+                    ],
+                    "relations": [
+                        {
+                            "relation_key": "document_mentions_concept",
+                            "preferred_label": "Document Mentions Concept",
+                        }
+                    ],
+                },
+                source_kind=SemanticOntologySourceKind.ONTOLOGY_EXTENSION_APPLY.value,
+                parent_snapshot_id=base_snapshot.id,
+                activate=False,
+            )
+
+
+def test_semantic_graph_snapshot_version_is_immutable(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "config" / "semantic_registry.yaml"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        """registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts: []
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+  - relation_key: concept_related_to_concept
+    preferred_label: Concept Related To Concept
+"""
+    )
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        ontology_snapshot = get_active_semantic_ontology_snapshot(session)
+        persist_semantic_graph_snapshot(
+            session,
+            {
+                "graph_name": "workspace_semantic_graph",
+                "graph_version": "portable-upper-ontology-v1.graph.1",
+                "ontology_snapshot_id": str(ontology_snapshot.id),
+                "nodes": [],
+                "edges": [],
+            },
+            source_kind=SemanticGraphSourceKind.GRAPH_PROMOTION_APPLY.value,
+            activate=False,
+        )
+
+        with pytest.raises(ValueError, match="immutable"):
+            persist_semantic_graph_snapshot(
+                session,
+                {
+                    "graph_name": "workspace_semantic_graph",
+                    "graph_version": "portable-upper-ontology-v1.graph.1",
+                    "ontology_snapshot_id": str(ontology_snapshot.id),
+                    "nodes": [],
+                    "edges": [
+                        {
+                            "edge_id": "graph_edge:concept_related_to_concept:concept:incident_response_latency:concept:vendor_escalation_owner",
+                            "relation_key": "concept_related_to_concept",
+                        }
+                    ],
+                },
+                source_kind=SemanticGraphSourceKind.GRAPH_PROMOTION_APPLY.value,
+                activate=False,
+            )
 
 
 def test_semantic_reviews_survive_additive_registry_version_bump(

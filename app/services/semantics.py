@@ -22,9 +22,9 @@ from app.db.models import (
     DocumentChunk,
     DocumentFigure,
     DocumentRun,
+    DocumentRunSemanticPass,
     DocumentSemanticCategoryReview,
     DocumentSemanticConceptReview,
-    DocumentRunSemanticPass,
     DocumentTable,
     SemanticAssertion,
     SemanticAssertionCategoryBinding,
@@ -40,6 +40,7 @@ from app.db.models import (
     SemanticEpistemicStatus,
     SemanticEvaluationStatus,
     SemanticEvidenceSourceType,
+    SemanticFact,
     SemanticPassStatus,
     SemanticReviewStatus,
     SemanticTerm,
@@ -47,11 +48,11 @@ from app.db.models import (
 )
 from app.schemas.semantics import (
     DocumentSemanticPassResponse,
+    SemanticAssertionCategoryBindingResponse,
     SemanticAssertionEvidenceResponse,
     SemanticAssertionResponse,
-    SemanticAssertionCategoryBindingResponse,
-    SemanticContinuityResponse,
     SemanticConceptCategoryBindingResponse,
+    SemanticContinuityResponse,
     SemanticReviewEventResponse,
 )
 from app.services.documents import get_document_or_404
@@ -1434,6 +1435,9 @@ def _semantic_artifact_payload(
         "document_id": str(document.id),
         "run_id": str(run.id),
         "semantic_pass_id": str(semantic_pass.id),
+        "ontology_snapshot_id": (
+            str(semantic_pass.ontology_snapshot_id) if semantic_pass.ontology_snapshot_id else None
+        ),
         "baseline_run_id": str(semantic_pass.baseline_run_id) if semantic_pass.baseline_run_id else None,
         "baseline_semantic_pass_id": (
             str(semantic_pass.baseline_semantic_pass_id)
@@ -1447,6 +1451,7 @@ def _semantic_artifact_payload(
             "name": registry.registry_name,
             "version": registry.registry_version,
             "sha256": registry.sha256,
+            "upper_ontology_version": registry.upper_ontology_version,
         },
         "extractor": {
             "version": SEMANTIC_EXTRACTOR_VERSION,
@@ -1558,6 +1563,8 @@ def _prepare_semantic_pass_row(
             document_id=document.id,
             run_id=run.id,
             baseline_run_id=baseline_run_id,
+            ontology_snapshot_id=registry.snapshot_id,
+            upper_ontology_version=registry.upper_ontology_version,
             status=SemanticPassStatus.PENDING.value,
             registry_version=registry.registry_version,
             registry_sha256=registry.sha256,
@@ -1577,6 +1584,8 @@ def _prepare_semantic_pass_row(
     else:
         semantic_pass.baseline_run_id = baseline_run_id
         semantic_pass.baseline_semantic_pass_id = None
+        semantic_pass.ontology_snapshot_id = registry.snapshot_id
+        semantic_pass.upper_ontology_version = registry.upper_ontology_version
         semantic_pass.status = SemanticPassStatus.PENDING.value
         semantic_pass.registry_sha256 = registry.sha256
         semantic_pass.summary_json = {}
@@ -1610,7 +1619,7 @@ def execute_semantic_pass(
     settings = get_settings()
     if not semantics_feature_enabled(settings):
         raise ValueError("Semantic layer is disabled by configuration.")
-    registry = get_semantic_registry()
+    registry = get_semantic_registry(session)
     semantic_pass = _prepare_semantic_pass_row(
         session,
         document,
@@ -1755,7 +1764,7 @@ def _refresh_semantic_pass_projection(
     if document is None or run is None:
         raise ValueError("Semantic pass refresh requires persisted document and run.")
 
-    registry = get_semantic_registry()
+    registry = get_semantic_registry(session)
     assertions = _assertion_records(session, semantic_pass.id)
     concept_category_bindings = _concept_category_binding_records(
         session,
@@ -2021,10 +2030,15 @@ def get_active_semantic_pass_detail(
         session,
         semantic_pass.registry_version,
     )
+    fact_count = session.execute(
+        select(SemanticFact.id).where(SemanticFact.semantic_pass_id == semantic_pass.id)
+    ).scalars().all()
     return DocumentSemanticPassResponse(
         semantic_pass_id=semantic_pass.id,
         document_id=semantic_pass.document_id,
         run_id=semantic_pass.run_id,
+        ontology_snapshot_id=semantic_pass.ontology_snapshot_id,
+        upper_ontology_version=semantic_pass.upper_ontology_version,
         status=semantic_pass.status,
         registry_version=semantic_pass.registry_version,
         registry_sha256=semantic_pass.registry_sha256,
@@ -2038,6 +2052,7 @@ def get_active_semantic_pass_detail(
         artifact_yaml_sha256=semantic_pass.artifact_yaml_sha256,
         assertion_count=semantic_pass.assertion_count,
         evidence_count=semantic_pass.evidence_count,
+        fact_count=len(fact_count),
         summary=semantic_pass.summary_json,
         evaluation_status=semantic_pass.evaluation_status,
         evaluation_fixture_name=semantic_pass.evaluation_fixture_name,

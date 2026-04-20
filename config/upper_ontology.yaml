@@ -1,0 +1,19 @@
+registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts: []
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+    scope_note: Generic relation connecting a document subject to a governed concept supported by evidence.
+  - relation_key: concept_related_to_concept
+    preferred_label: Concept Related To Concept
+    scope_note: Generic cross-document relation connecting governed concepts that repeatedly co-occur in supported evidence.
+entity_types:
+  - entity_type: document
+    preferred_label: Document
+  - entity_type: concept
+    preferred_label: Concept
+  - entity_type: literal
+    preferred_label: Literal

@@ -12,6 +12,9 @@ from app.schemas.agent_tasks import (
     GroundedDocumentDraftPayload,
     SemanticGenerationBriefPayload,
 )
+from app.services.semantic_candidates import collect_shadow_candidates_for_brief
+from app.services.semantic_facts import list_document_semantic_facts
+from app.services.semantic_graph import graph_memory_for_brief
 from app.services.semantics import get_active_semantic_pass_detail
 
 DOCUMENT_KIND_KNOWLEDGE_BRIEF = "knowledge_brief"
@@ -65,11 +68,16 @@ def _page_label(page_from: int | None, page_to: int | None) -> str:
     return f"pages {page_from}-{page_to}"
 
 
-def _support_level(assertions: list[dict[str, Any]], evidence_count: int) -> str:
+def _support_level(
+    assertions: list[dict[str, Any]],
+    facts: list[dict[str, Any]],
+    evidence_count: int,
+) -> str:
     approved_count = sum(1 for row in assertions if row["review_status"] == "approved")
-    if approved_count and evidence_count >= 2:
+    approved_fact_count = sum(1 for row in facts if row["review_status"] == "approved")
+    if (approved_count or approved_fact_count) and evidence_count >= 2:
         return "strong"
-    if approved_count or evidence_count >= 2:
+    if approved_count or approved_fact_count or facts or evidence_count >= 2:
         return "supported"
     return "provisional"
 
@@ -185,13 +193,41 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
     claim_candidates = list(brief.get("claim_candidates") or [])
     evidence_pack = list(brief.get("evidence_pack") or [])
     semantic_dossier = list(brief.get("semantic_dossier") or [])
+    graph_index = list(brief.get("graph_index") or [])
+    shadow_candidates = list(brief.get("shadow_candidates") or [])
     traceable_claim_ratio = (
         sum(
-            1 for row in claim_candidates if row.get("assertion_ids") and row.get("evidence_labels")
+            1
+            for row in claim_candidates
+            if row.get("graph_edge_ids")
+            or row.get("fact_ids")
+            or (row.get("assertion_ids") and row.get("evidence_labels"))
         )
         / len(claim_candidates)
         if claim_candidates
         else 0.0
+    )
+    facts_by_concept = {
+        str(entry.get("concept_key") or ""): list(entry.get("facts") or [])
+        for entry in semantic_dossier
+    }
+    fact_backed_claim_count = 0
+    approved_fact_backed_claim_count = 0
+    for row in claim_candidates:
+        claim_facts = [
+            fact
+            for concept_key in row.get("concept_keys") or []
+            for fact in facts_by_concept.get(str(concept_key), [])
+        ]
+        if not claim_facts:
+            continue
+        fact_backed_claim_count += 1
+        if all(fact.get("review_status") == "approved" for fact in claim_facts):
+            approved_fact_backed_claim_count += 1
+    approved_fact_support_ratio = (
+        approved_fact_backed_claim_count / fact_backed_claim_count
+        if fact_backed_claim_count
+        else 1.0
     )
     return [
         {
@@ -221,6 +257,7 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "details": {
                 "claim_count": len(claim_candidates),
                 "section_count": len(brief.get("sections") or []),
+                "graph_edge_count": len(graph_index),
             },
         },
         {
@@ -240,6 +277,24 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             },
         },
         {
+            "metric_key": "explicit_shadow_boundary",
+            "stakeholder": "Figay",
+            "passed": (
+                not brief.get("shadow_mode")
+                or all(
+                    row.get("concept_key") not in set(brief.get("selected_concept_keys") or [])
+                    for row in shadow_candidates
+                )
+            ),
+            "summary": (
+                "Shadow candidates stay additive and separate from the live semantic dossier."
+            ),
+            "details": {
+                "shadow_mode": brief.get("shadow_mode"),
+                "shadow_candidate_count": len(shadow_candidates),
+            },
+        },
+        {
             "metric_key": "owned_context",
             "stakeholder": "Jones",
             "passed": bool(semantic_dossier) and bool(evidence_pack),
@@ -249,6 +304,7 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "details": {
                 "concept_count": len(semantic_dossier),
                 "evidence_count": len(evidence_pack),
+                "graph_edge_count": len(graph_index),
             },
         },
         {
@@ -262,6 +318,16 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "details": {
                 "claim_count": len(claim_candidates),
                 "evidence_count": len(evidence_pack),
+            },
+        },
+        {
+            "metric_key": "approved_fact_support_ratio",
+            "stakeholder": "Milestone",
+            "passed": not claim_candidates or approved_fact_support_ratio >= 0.8,
+            "summary": "Generation prefers approved fact support when it is available.",
+            "details": {
+                "approved_fact_support_ratio": approved_fact_support_ratio,
+                "fact_backed_claim_count": fact_backed_claim_count,
             },
         },
     ]
@@ -278,6 +344,10 @@ def prepare_semantic_generation_brief(
     category_keys: list[str],
     target_length: str,
     review_policy: str,
+    include_shadow_candidates: bool = False,
+    candidate_extractor_name: str = "concept_ranker_v1",
+    candidate_score_threshold: float = 0.34,
+    max_shadow_candidates: int = 8,
 ) -> dict[str, Any]:
     unique_document_ids = _unique_uuids(document_ids)
     requested_concept_order = {concept_key: index for index, concept_key in enumerate(concept_keys)}
@@ -314,6 +384,20 @@ def prepare_semantic_generation_brief(
         }
         document_refs.append(document_ref)
         document_refs_by_id[document_id] = document_ref
+        document_facts = [
+            fact
+            for fact in list_document_semantic_facts(session, document_id)
+            if fact["semantic_pass_id"] == semantic_pass.semantic_pass_id
+        ]
+        facts_by_concept: dict[str, list[dict[str, Any]]] = {}
+        for fact in document_facts:
+            object_entity_key = str(fact.get("object_entity_key") or "")
+            if not object_entity_key.startswith("concept:"):
+                continue
+            concept_key = object_entity_key.split("concept:", 1)[1]
+            if not concept_key:
+                continue
+            facts_by_concept.setdefault(concept_key, []).append(fact)
 
         category_labels_by_concept: dict[str, dict[str, str]] = {}
         for binding in semantic_pass.concept_category_bindings:
@@ -329,13 +413,6 @@ def prepare_semantic_generation_brief(
                     continue
                 category_labels[binding.category_key] = binding.category_label
             category_key_list = sorted(category_labels)
-            if not _matches_filters(
-                assertion.concept_key,
-                category_key_list,
-                requested_concept_keys=requested_concept_keys,
-                requested_category_keys=requested_category_keys,
-            ):
-                continue
 
             bucket = concept_buckets.setdefault(
                 assertion.concept_key,
@@ -345,6 +422,7 @@ def prepare_semantic_generation_brief(
                     "category_keys": set(),
                     "category_labels": {},
                     "assertions": [],
+                    "facts": [],
                     "document_ids": [],
                 },
             )
@@ -386,8 +464,30 @@ def prepare_semantic_generation_brief(
                     ],
                 }
             )
+        for concept_key, fact_rows in facts_by_concept.items():
+            bucket = concept_buckets.setdefault(
+                concept_key,
+                {
+                    "concept_key": concept_key,
+                    "preferred_label": next(
+                        (
+                            assertion.preferred_label
+                            for assertion in semantic_pass.assertions
+                            if assertion.concept_key == concept_key
+                        ),
+                        fact_rows[0]["object_label"] or concept_key.replace("_", " ").title(),
+                    ),
+                    "category_keys": set(),
+                    "category_labels": {},
+                    "assertions": [],
+                    "facts": [],
+                    "document_ids": [],
+                },
+            )
+            bucket["document_ids"].append(document_id)
+            bucket["facts"].extend(dict(row) for row in fact_rows)
 
-    concept_entries: list[dict[str, Any]] = []
+    raw_concept_entries: list[dict[str, Any]] = []
     for concept_key, bucket in concept_buckets.items():
         projected_assertions, review_policy_status, disclosure_note = _review_policy_projection(
             list(bucket["assertions"]),
@@ -399,6 +499,14 @@ def prepare_semantic_generation_brief(
                 f"satisfy the {review_policy} policy."
             )
             continue
+        projected_facts = [
+            row
+            for row in bucket["facts"]
+            if row["review_status"] != "rejected"
+            and (
+                review_policy != "approved_only" or row["review_status"] == "approved"
+            )
+        ]
 
         assertion_refs: list[dict[str, Any]] = []
         evidence_refs_by_id: dict[UUID, dict[str, Any]] = {}
@@ -423,11 +531,11 @@ def prepare_semantic_generation_brief(
                 evidence_refs_by_id[evidence["evidence_id"]] = dict(evidence)
 
         evidence_count = len(evidence_refs_by_id)
-        support_level = _support_level(projected_assertions, evidence_count)
+        support_level = _support_level(projected_assertions, projected_facts, evidence_count)
         for assertion_ref in assertion_refs:
             assertion_ref["support_level"] = support_level
 
-        concept_entries.append(
+        raw_concept_entries.append(
             {
                 "concept_key": concept_key,
                 "preferred_label": bucket["preferred_label"],
@@ -446,13 +554,54 @@ def prepare_semantic_generation_brief(
                 "support_level": support_level,
                 "review_policy_status": review_policy_status,
                 "disclosure_note": disclosure_note,
+                "facts": projected_facts,
                 "assertions": assertion_refs,
                 "evidence_refs": list(evidence_refs_by_id.values()),
             }
         )
 
-    if not concept_entries:
+    if not raw_concept_entries:
         raise ValueError("No semantic concepts matched the requested generation scope.")
+
+    base_concept_entries = [
+        entry
+        for entry in raw_concept_entries
+        if _matches_filters(
+            entry["concept_key"],
+            list(entry["category_keys"]),
+            requested_concept_keys=requested_concept_keys,
+            requested_category_keys=requested_category_keys,
+        )
+    ]
+    if not base_concept_entries:
+        raise ValueError("No semantic concepts matched the requested generation scope.")
+
+    graph_index: list[dict[str, Any]] = []
+    graph_summary: dict[str, Any] = {}
+    graph_related_concept_keys: set[str] = set()
+    if requested_concept_keys or requested_category_keys:
+        related_concept_keys, graph_edge_refs, graph_summary, graph_warnings = graph_memory_for_brief(
+            session,
+            document_ids=unique_document_ids,
+            requested_concept_keys=requested_concept_keys
+            or {entry["concept_key"] for entry in base_concept_entries},
+            available_concept_keys={entry["concept_key"] for entry in raw_concept_entries},
+        )
+        graph_index = graph_edge_refs
+        graph_related_concept_keys = set(related_concept_keys)
+        warnings.extend(graph_warnings)
+
+    if requested_concept_keys or requested_category_keys:
+        selected_concept_key_set = {
+            entry["concept_key"] for entry in base_concept_entries
+        } | graph_related_concept_keys
+        concept_entries = [
+            entry
+            for entry in raw_concept_entries
+            if entry["concept_key"] in selected_concept_key_set
+        ]
+    else:
+        concept_entries = list(raw_concept_entries)
 
     concept_entries.sort(
         key=lambda entry: _concept_sort_key(
@@ -513,6 +662,28 @@ def prepare_semantic_generation_brief(
         )
         section["title"] = only_concept["preferred_label"]
 
+    if graph_index:
+        section_specs["section:cross_document_relationships"] = {
+            "section_id": "section:cross_document_relationships",
+            "title": "Cross-Document Relationships",
+            "summary": (
+                "This section captures approved cross-document graph links "
+                "between the selected concepts."
+            ),
+            "focus_concept_keys": sorted(
+                {
+                    concept_key
+                    for edge in graph_index
+                    for concept_key in (
+                        str(edge["subject_entity_key"]).split("concept:", 1)[-1],
+                        str(edge["object_entity_key"]).split("concept:", 1)[-1],
+                    )
+                }
+            ),
+            "focus_category_keys": [],
+            "claim_ids": [],
+        }
+
     claim_candidates: list[dict[str, Any]] = []
     evidence_limit = TARGET_LENGTH_EVIDENCE_LIMIT[target_length]
     for entry in concept_entries:
@@ -528,6 +699,8 @@ def prepare_semantic_generation_brief(
                 "section_id": section_id,
                 "summary": _build_claim_summary(entry, document_refs_by_id=document_refs_by_id),
                 "concept_keys": [entry["concept_key"]],
+                "graph_edge_ids": [],
+                "fact_ids": [row["fact_id"] for row in entry["facts"]],
                 "assertion_ids": [row["assertion_id"] for row in entry["assertions"]],
                 "evidence_labels": [
                     row["citation_label"] for row in entry["evidence_refs"][:evidence_limit]
@@ -540,8 +713,39 @@ def prepare_semantic_generation_brief(
         )
         section_specs[section_id]["claim_ids"].append(claim_id)
 
+    if graph_index:
+        for graph_edge in graph_index:
+            claim_id = f"claim:{graph_edge['edge_id']}"
+            claim_candidates.append(
+                {
+                    "claim_id": claim_id,
+                    "section_id": "section:cross_document_relationships",
+                    "summary": (
+                        f"{graph_edge['subject_label']} is linked to {graph_edge['object_label']} "
+                        f"through approved cross-document graph memory across "
+                        f"{len(graph_edge['supporting_document_ids'])} document"
+                        f"{'' if len(graph_edge['supporting_document_ids']) == 1 else 's'}."
+                    ),
+                    "concept_keys": [
+                        str(graph_edge["subject_entity_key"]).split("concept:", 1)[-1],
+                        str(graph_edge["object_entity_key"]).split("concept:", 1)[-1],
+                    ],
+                    "graph_edge_ids": [graph_edge["edge_id"]],
+                    "fact_ids": [],
+                    "assertion_ids": [],
+                    "evidence_labels": [],
+                    "source_document_ids": list(graph_edge["supporting_document_ids"]),
+                    "support_level": graph_edge["support_level"],
+                    "review_policy_status": "approved_graph",
+                    "disclosure_note": None,
+                }
+            )
+            section_specs["section:cross_document_relationships"]["claim_ids"].append(claim_id)
+
     for section in section_specs.values():
         concept_count = len(section["focus_concept_keys"])
+        if section["section_id"] == "section:cross_document_relationships":
+            continue
         section["summary"] = (
             f"This section covers {concept_count} semantic concept"
             f"{'' if concept_count == 1 else 's'} from the selected corpus scope."
@@ -574,11 +778,37 @@ def prepare_semantic_generation_brief(
         "selected_concept_keys": selected_concept_keys,
         "selected_category_keys": selected_category_keys,
         "semantic_dossier": concept_entries,
+        "graph_index": graph_index,
+        "graph_summary": graph_summary,
         "sections": sections,
         "claim_candidates": claim_candidates,
         "evidence_pack": evidence_pack,
+        "shadow_mode": False,
+        "shadow_candidate_extractor_name": None,
+        "shadow_candidate_summary": {},
+        "shadow_candidates": [],
         "warnings": warnings,
     }
+    if include_shadow_candidates:
+        shadow_candidates, shadow_candidate_summary = collect_shadow_candidates_for_brief(
+            session,
+            document_ids=unique_document_ids,
+            candidate_extractor_name=candidate_extractor_name,
+            score_threshold=candidate_score_threshold,
+            requested_concept_keys=requested_concept_keys,
+            requested_category_keys=requested_category_keys,
+            max_shadow_candidates=max_shadow_candidates,
+        )
+        brief["shadow_mode"] = True
+        brief["shadow_candidate_extractor_name"] = candidate_extractor_name
+        brief["shadow_candidate_summary"] = shadow_candidate_summary
+        brief["shadow_candidates"] = shadow_candidates
+        if shadow_candidates:
+            warnings.append(
+                f"{len(shadow_candidates)} shadow semantic candidate"
+                f"{'' if len(shadow_candidates) == 1 else 's'} were captured separately "
+                "from the live semantic dossier."
+            )
     brief["success_metrics"] = _brief_success_metrics(brief)
     return brief
 
@@ -587,9 +817,17 @@ def _draft_success_metrics(draft: dict[str, Any]) -> list[dict[str, Any]]:
     claims = list(draft.get("claims") or [])
     sections = list(draft.get("sections") or [])
     evidence_pack = list(draft.get("evidence_pack") or [])
+    graph_index = list(draft.get("graph_index") or [])
+    fact_index = list(draft.get("fact_index") or [])
     assertion_index = list(draft.get("assertion_index") or [])
     traceable_claim_ratio = (
-        sum(1 for row in claims if row.get("assertion_ids") and row.get("evidence_labels"))
+        sum(
+            1
+            for row in claims
+            if row.get("graph_edge_ids")
+            or row.get("fact_ids")
+            or (row.get("assertion_ids") and row.get("evidence_labels"))
+        )
         / len(claims)
         if claims
         else 0.0
@@ -610,13 +848,17 @@ def _draft_success_metrics(draft: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "metric_key": "agent_legibility",
             "stakeholder": "Lopopolo",
-            "passed": bool(sections) and bool(claims) and bool(assertion_index),
+            "passed": bool(sections)
+            and bool(claims)
+            and bool(graph_index or assertion_index or fact_index),
             "summary": (
-                "The draft exposes sections, claims, assertion refs, and an evidence appendix."
+                "The draft exposes sections, claims, fact or assertion refs, and an evidence appendix."
             ),
             "details": {
                 "section_count": len(sections),
                 "claim_count": len(claims),
+                "graph_edge_count": len(graph_index),
+                "fact_count": len(fact_index),
                 "assertion_count": len(assertion_index),
             },
         },
@@ -670,7 +912,11 @@ def draft_semantic_grounded_document(
         raise ValueError("Semantic generation brief does not contain any claim candidates.")
 
     assertion_index: list[dict[str, Any]] = []
+    fact_index: list[dict[str, Any]] = []
+    graph_index: list[dict[str, Any]] = [edge.model_dump(mode="json") for edge in brief.graph_index]
     for concept_entry in brief.semantic_dossier:
+        for fact in concept_entry.facts:
+            fact_index.append(fact.model_dump(mode="json"))
         for assertion in concept_entry.assertions:
             assertion_index.append(assertion.model_dump(mode="json"))
 
@@ -690,6 +936,8 @@ def draft_semantic_grounded_document(
                     "section_id": claim.section_id,
                     "rendered_text": rendered_text,
                     "concept_keys": list(claim.concept_keys),
+                    "graph_edge_ids": list(claim.graph_edge_ids),
+                    "fact_ids": list(claim.fact_ids),
                     "assertion_ids": list(claim.assertion_ids),
                     "evidence_labels": list(claim.evidence_labels),
                     "source_document_ids": list(claim.source_document_ids),
@@ -748,6 +996,8 @@ def draft_semantic_grounded_document(
         "used_fallback": True,
         "required_concept_keys": list(brief.required_concept_keys or brief.selected_concept_keys),
         "document_refs": [row.model_dump(mode="json") for row in brief.document_refs],
+        "graph_index": graph_index,
+        "fact_index": fact_index,
         "assertion_index": assertion_index,
         "sections": sections,
         "claims": claims,
@@ -781,14 +1031,20 @@ def _verification_success_metrics(summary: dict[str, Any]) -> list[dict[str, Any
             "metric_key": "agent_legibility",
             "stakeholder": "Lopopolo",
             "passed": (
+                summary["graph_ref_coverage_ratio"] == 1.0
+                and
+                summary["fact_ref_coverage_ratio"] == 1.0
+                and
                 summary["assertion_ref_coverage_ratio"] == 1.0
                 and summary["evidence_ref_coverage_ratio"] == 1.0
             ),
             "summary": (
                 "The verifier can resolve every claim back to the draft's "
-                "typed assertion and evidence indexes."
+                "typed fact, assertion, and evidence indexes."
             ),
             "details": {
+                "graph_ref_coverage_ratio": summary["graph_ref_coverage_ratio"],
+                "fact_ref_coverage_ratio": summary["fact_ref_coverage_ratio"],
                 "assertion_ref_coverage_ratio": summary["assertion_ref_coverage_ratio"],
                 "evidence_ref_coverage_ratio": summary["evidence_ref_coverage_ratio"],
             },
@@ -845,12 +1101,16 @@ def verify_semantic_grounded_document(
     require_full_concept_coverage: bool = True,
 ) -> SemanticGroundedDocumentVerificationOutcome:
     draft = GroundedDocumentDraftPayload.model_validate(draft_payload)
+    graph_index = {row.edge_id: row for row in draft.graph_index}
+    fact_index = {row.fact_id: row for row in draft.fact_index}
     assertion_index = {row.assertion_id: row for row in draft.assertion_index}
     evidence_index = {row.citation_label: row for row in draft.evidence_pack}
     required_concept_keys = set(draft.required_concept_keys)
     covered_concept_keys: set[str] = set()
     supported_concept_keys: set[str] = set()
     supported_claim_count = 0
+    resolved_graph_edge_count = 0
+    resolved_fact_count = 0
     resolved_assertion_count = 0
     resolved_evidence_count = 0
     candidate_disclosure_count = 0
@@ -860,8 +1120,14 @@ def verify_semantic_grounded_document(
 
     for claim in draft.claims:
         covered_concept_keys.update(claim.concept_keys)
+        has_graph_edges = bool(claim.graph_edge_ids)
+        has_facts = bool(claim.fact_ids)
         has_assertions = bool(claim.assertion_ids)
         has_evidence = bool(claim.evidence_labels)
+        resolved_graph_edges = [
+            graph_index[edge_id] for edge_id in claim.graph_edge_ids if edge_id in graph_index
+        ]
+        resolved_facts = [fact_index[fact_id] for fact_id in claim.fact_ids if fact_id in fact_index]
         resolved_assertions = [
             assertion_index[assertion_id]
             for assertion_id in claim.assertion_ids
@@ -872,11 +1138,22 @@ def verify_semantic_grounded_document(
             for evidence_label in claim.evidence_labels
             if evidence_label in evidence_index
         ]
+        if has_graph_edges and len(resolved_graph_edges) == len(claim.graph_edge_ids):
+            resolved_graph_edge_count += 1
+        if has_facts and len(resolved_facts) == len(claim.fact_ids):
+            resolved_fact_count += 1
         if has_assertions and len(resolved_assertions) == len(claim.assertion_ids):
             resolved_assertion_count += 1
         if has_evidence and len(resolved_evidence) == len(claim.evidence_labels):
             resolved_evidence_count += 1
-        if has_assertions and has_evidence and resolved_assertions and resolved_evidence:
+        graph_backed = bool(resolved_graph_edges) and all(
+            row.support_ref_ids for row in resolved_graph_edges
+        )
+        fact_backed = bool(resolved_facts) and all(row.evidence_ids for row in resolved_facts)
+        assertion_backed = (
+            has_assertions and has_evidence and resolved_assertions and resolved_evidence
+        )
+        if graph_backed or fact_backed or assertion_backed:
             supported_claim_count += 1
             supported_concept_keys.update(claim.concept_keys)
         else:
@@ -888,17 +1165,33 @@ def verify_semantic_grounded_document(
                 reasons.append(
                     f"{claim.claim_id} is candidate-backed but missing a disclosure note."
                 )
-        if resolved_assertions and all(
-            row.review_status == "approved" for row in resolved_assertions
-        ):
+        if resolved_facts and all(row.review_status == "approved" for row in resolved_facts):
+            approved_supported_claim_count += 1
+        elif resolved_graph_edges and all(row.review_status == "approved" for row in resolved_graph_edges):
+            approved_supported_claim_count += 1
+        elif resolved_assertions and all(row.review_status == "approved" for row in resolved_assertions):
             approved_supported_claim_count += 1
 
     claim_count = len(draft.claims)
     required_concept_count = len(required_concept_keys)
     covered_required_concept_count = len(required_concept_keys.intersection(supported_concept_keys))
     traceable_claim_ratio = supported_claim_count / claim_count if claim_count else 0.0
-    assertion_ref_coverage_ratio = resolved_assertion_count / claim_count if claim_count else 0.0
-    evidence_ref_coverage_ratio = resolved_evidence_count / claim_count if claim_count else 0.0
+    graph_claim_count = sum(1 for claim in draft.claims if claim.graph_edge_ids)
+    fact_claim_count = sum(1 for claim in draft.claims if claim.fact_ids)
+    assertion_claim_count = sum(1 for claim in draft.claims if claim.assertion_ids)
+    evidence_claim_count = sum(1 for claim in draft.claims if claim.evidence_labels)
+    graph_ref_coverage_ratio = (
+        resolved_graph_edge_count / graph_claim_count if graph_claim_count else 1.0
+    )
+    fact_ref_coverage_ratio = (
+        resolved_fact_count / fact_claim_count if fact_claim_count else 1.0
+    )
+    assertion_ref_coverage_ratio = (
+        resolved_assertion_count / assertion_claim_count if assertion_claim_count else 1.0
+    )
+    evidence_ref_coverage_ratio = (
+        resolved_evidence_count / evidence_claim_count if evidence_claim_count else 1.0
+    )
     required_concept_coverage_ratio = (
         covered_required_concept_count / required_concept_count if required_concept_count else 1.0
     )
@@ -910,7 +1203,7 @@ def verify_semantic_grounded_document(
             f"of {max_unsupported_claim_count}."
         )
     if require_full_claim_traceability and traceable_claim_ratio < 1.0:
-        reasons.append("Not every draft claim resolves to both assertion and evidence support.")
+        reasons.append("Not every draft claim resolves to graph, fact, or assertion-plus-evidence support.")
     if require_full_concept_coverage and required_concept_coverage_ratio < 1.0:
         reasons.append("The draft does not cover every required concept from the generation brief.")
 
@@ -918,9 +1211,13 @@ def verify_semantic_grounded_document(
         "claim_count": claim_count,
         "section_count": len(draft.sections),
         "evidence_count": len(draft.evidence_pack),
+        "graph_edge_count": len(draft.graph_index),
+        "fact_count": len(draft.fact_index),
         "required_concept_count": required_concept_count,
         "covered_required_concept_count": covered_required_concept_count,
         "traceable_claim_ratio": traceable_claim_ratio,
+        "graph_ref_coverage_ratio": graph_ref_coverage_ratio,
+        "fact_ref_coverage_ratio": fact_ref_coverage_ratio,
         "assertion_ref_coverage_ratio": assertion_ref_coverage_ratio,
         "evidence_ref_coverage_ratio": evidence_ref_coverage_ratio,
         "required_concept_coverage_ratio": required_concept_coverage_ratio,

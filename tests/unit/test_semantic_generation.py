@@ -198,6 +198,10 @@ def test_prepare_semantic_generation_brief_builds_cross_document_dossier(monkeyp
         "app.services.semantic_generation.get_active_semantic_pass_detail",
         lambda session, document_id: passes[document_id],
     )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
+    )
 
     brief = prepare_semantic_generation_brief(
         FakeSession(documents),
@@ -221,6 +225,160 @@ def test_prepare_semantic_generation_brief_builds_cross_document_dossier(monkeyp
     assert any(metric["stakeholder"] == "Lopopolo" for metric in brief["success_metrics"])
 
 
+def test_prepare_semantic_generation_brief_keeps_shadow_candidates_additive(monkeypatch) -> None:
+    document_id = uuid4()
+    documents = {
+        document_id: _document(
+            document_id=document_id,
+            source_filename="integration-one.pdf",
+            title="Integration One",
+        )
+    }
+    passes = {
+        document_id: _semantic_pass(
+            document_id=document_id,
+            run_id=uuid4(),
+            review_status="approved",
+            source_filename="integration-one.pdf",
+        )
+    }
+    monkeypatch.setattr(
+        "app.services.semantic_generation.get_active_semantic_pass_detail",
+        lambda session, requested_document_id: passes[requested_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.collect_shadow_candidates_for_brief",
+        lambda *args, **kwargs: (
+            [
+                {
+                    "concept_key": "integration_owner",
+                    "preferred_label": "Integration Owner",
+                    "max_score": 0.71,
+                    "source_count": 1,
+                    "source_types": ["chunk"],
+                    "category_keys": ["integration_governance"],
+                    "expected_by_evaluation": True,
+                    "evidence_refs": [
+                        {
+                            "source_type": "chunk",
+                            "source_locator": "chunk-1",
+                            "page_from": 1,
+                            "page_to": 1,
+                            "excerpt": "Owners for integration approve changes.",
+                            "source_artifact_api_path": None,
+                            "source_artifact_sha256": "chunk-sha",
+                            "score": 0.71,
+                        }
+                    ],
+                    "note": "Shadow candidate aligns with a semantic evaluation expectation.",
+                }
+            ],
+            {
+                "candidate_count": 1,
+                "candidate_only_concept_count": 1,
+                "expected_shadow_candidate_count": 1,
+            },
+        ),
+    )
+
+    brief = prepare_semantic_generation_brief(
+        FakeSession(documents),
+        title="Integration Governance Brief",
+        goal="Summarize the knowledge base guidance on integration governance.",
+        audience="Operators",
+        document_ids=[document_id],
+        concept_keys=[],
+        category_keys=[],
+        target_length="medium",
+        review_policy="allow_candidate_with_disclosure",
+        include_shadow_candidates=True,
+        candidate_extractor_name="concept_ranker_v1",
+        candidate_score_threshold=0.34,
+        max_shadow_candidates=8,
+    )
+
+    assert brief["shadow_mode"] is True
+    assert brief["shadow_candidate_extractor_name"] == "concept_ranker_v1"
+    assert brief["selected_concept_keys"] == ["integration_threshold"]
+    assert [row["concept_key"] for row in brief["shadow_candidates"]] == ["integration_owner"]
+    assert any(
+        metric["metric_key"] == "explicit_shadow_boundary"
+        for metric in brief["success_metrics"]
+    )
+
+
+def test_prepare_semantic_generation_brief_includes_approved_fact_support(monkeypatch) -> None:
+    document_id = uuid4()
+    run_id = uuid4()
+    documents = {
+        document_id: _document(
+            document_id=document_id,
+            source_filename="integration-one.pdf",
+            title="Integration One",
+        )
+    }
+    passes = {
+        document_id: _semantic_pass(
+            document_id=document_id,
+            run_id=run_id,
+            review_status="approved",
+            source_filename="integration-one.pdf",
+        )
+    }
+    monkeypatch.setattr(
+        "app.services.semantic_generation.get_active_semantic_pass_detail",
+        lambda session, requested_document_id: passes[requested_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, requested_document_id: [
+            {
+                "fact_id": uuid4(),
+                "document_id": requested_document_id,
+                "run_id": run_id,
+                "semantic_pass_id": passes[requested_document_id].semantic_pass_id,
+                "relation_key": "document_mentions_concept",
+                "relation_label": "Document Mentions Concept",
+                "subject_entity_key": f"document:{requested_document_id}",
+                "subject_label": "Integration One",
+                "object_entity_key": "concept:integration_threshold",
+                "object_label": "Integration Threshold",
+                "object_value_text": None,
+                "review_status": "approved",
+                "assertion_id": passes[requested_document_id].assertions[0].assertion_id,
+                "evidence_ids": [
+                    evidence.evidence_id
+                    for evidence in passes[requested_document_id].assertions[0].evidence
+                ],
+            }
+        ],
+    )
+
+    brief = prepare_semantic_generation_brief(
+        FakeSession(documents),
+        title="Integration Governance Brief",
+        goal="Summarize the knowledge base guidance on integration governance.",
+        audience="Operators",
+        document_ids=[document_id],
+        concept_keys=[],
+        category_keys=[],
+        target_length="medium",
+        review_policy="approved_only",
+    )
+    draft = draft_semantic_grounded_document(brief, brief_task_id=uuid4())
+    verification = verify_semantic_grounded_document(draft)
+
+    assert len(brief["semantic_dossier"][0]["facts"]) == 1
+    assert draft["claims"][0]["fact_ids"]
+    assert draft["fact_index"][0]["relation_key"] == "document_mentions_concept"
+    assert verification.verification_outcome == "passed"
+    assert verification.summary["fact_ref_coverage_ratio"] == 1.0
+
+
 def test_draft_and_verify_semantic_grounded_document_roundtrip(monkeypatch) -> None:
     document_id = uuid4()
     documents = {
@@ -241,6 +399,10 @@ def test_draft_and_verify_semantic_grounded_document_roundtrip(monkeypatch) -> N
     monkeypatch.setattr(
         "app.services.semantic_generation.get_active_semantic_pass_detail",
         lambda session, requested_document_id: passes[requested_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
     )
     brief = prepare_semantic_generation_brief(
         FakeSession(documents),
@@ -293,6 +455,10 @@ def test_verify_semantic_grounded_document_fails_when_claim_loses_evidence(monke
     monkeypatch.setattr(
         "app.services.semantic_generation.get_active_semantic_pass_detail",
         lambda session, requested_document_id: passes[requested_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
     )
     brief = prepare_semantic_generation_brief(
         FakeSession(documents),
@@ -364,6 +530,10 @@ def test_verify_semantic_grounded_document_fails_when_requested_concept_is_omitt
         "app.services.semantic_generation.get_active_semantic_pass_detail",
         lambda session, requested_document_id: {document_id: requested_pass}[requested_document_id],
     )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
+    )
 
     brief = prepare_semantic_generation_brief(
         FakeSession(documents),
@@ -412,6 +582,10 @@ def test_verify_semantic_grounded_document_requires_supported_concept_coverage(m
     monkeypatch.setattr(
         "app.services.semantic_generation.get_active_semantic_pass_detail",
         lambda session, requested_document_id: passes[requested_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_generation.list_document_semantic_facts",
+        lambda session, document_id: [],
     )
     brief = prepare_semantic_generation_brief(
         FakeSession(documents),

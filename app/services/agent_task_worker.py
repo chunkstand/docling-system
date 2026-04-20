@@ -129,9 +129,71 @@ def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
         metrics = verification.get("metrics") or {}
         evaluation_query_count = int(metrics.get("issue_count") or 0)
         call_count = 1 if verification else 0
+    elif task.task_type == "export_semantic_supervision_corpus":
+        corpus = payload.get("corpus") or {}
+        evaluation_query_count = int(corpus.get("row_count") or 0)
+        call_count = 1
+    elif task.task_type == "evaluate_semantic_candidate_extractor":
+        summary = payload.get("summary") or {}
+        evaluation_query_count = int(summary.get("expected_concept_count") or 0)
+        call_count = max(int(summary.get("document_count") or 0), 1)
+    elif task.task_type == "build_shadow_semantic_graph":
+        graph_payload = payload.get("shadow_graph") or {}
+        evaluation_query_count = int(graph_payload.get("edge_count") or 0)
+        call_count = max(int(graph_payload.get("document_count") or 0), 1)
+    elif task.task_type == "evaluate_semantic_relation_extractor":
+        summary = payload.get("summary") or {}
+        evaluation_query_count = int(summary.get("expected_edge_count") or 0)
+        call_count = max(int(summary.get("document_count") or 0), 1)
+    elif task.task_type == "triage_semantic_candidate_disagreements":
+        report = payload.get("disagreement_report") or {}
+        metrics = verification.get("metrics") or {}
+        evaluation_query_count = int(metrics.get("issue_count") or report.get("issue_count") or 0)
+        call_count = 1 if report or verification else 0
+    elif task.task_type == "triage_semantic_graph_disagreements":
+        report = payload.get("disagreement_report") or {}
+        metrics = verification.get("metrics") or {}
+        evaluation_query_count = int(metrics.get("issue_count") or report.get("issue_count") or 0)
+        call_count = 1 if report or verification else 0
     elif task.task_type == "prepare_semantic_generation_brief":
         brief = payload.get("brief") or {}
         evaluation_query_count = int(len(brief.get("claim_candidates") or []))
+        call_count = 1
+    elif task.task_type == "initialize_workspace_ontology":
+        snapshot = payload.get("snapshot") or {}
+        evaluation_query_count = int(snapshot.get("concept_count") or 0)
+        call_count = 1
+    elif task.task_type == "get_active_ontology_snapshot":
+        snapshot = payload.get("snapshot") or {}
+        evaluation_query_count = int(snapshot.get("concept_count") or 0)
+        call_count = 1 if snapshot else 0
+    elif task.task_type == "draft_ontology_extension":
+        draft = payload.get("draft") or {}
+        evaluation_query_count = int(len(draft.get("operations") or []))
+        call_count = 1
+    elif task.task_type == "draft_graph_promotions":
+        draft = payload.get("draft") or {}
+        evaluation_query_count = int(len(draft.get("promoted_edges") or []))
+        call_count = 1
+    elif task.task_type == "verify_draft_ontology_extension":
+        verification = payload.get("verification") or {}
+        metrics = verification.get("metrics") or {}
+        evaluation_query_count = int(metrics.get("document_count") or 0)
+        call_count = max(int(metrics.get("document_count") or 0), 1) if metrics else 0
+    elif task.task_type == "verify_draft_graph_promotions":
+        metrics = verification.get("metrics") or {}
+        evaluation_query_count = int(metrics.get("promoted_edge_count") or 0)
+        call_count = max(int(metrics.get("promoted_edge_count") or 0), 1) if metrics else 0
+    elif task.task_type == "apply_ontology_extension":
+        apply_payload = payload
+        evaluation_query_count = int(len(apply_payload.get("applied_operations") or []))
+        call_count = 1
+    elif task.task_type == "apply_graph_promotions":
+        apply_payload = payload
+        evaluation_query_count = int(apply_payload.get("applied_edge_count") or 0)
+        call_count = 1
+    elif task.task_type == "build_document_fact_graph":
+        evaluation_query_count = int(payload.get("fact_count") or 0)
         call_count = 1
     elif task.task_type == "draft_semantic_grounded_document":
         draft = payload.get("draft") or {}
@@ -183,7 +245,12 @@ def _derive_attempt_performance(
     verification_latency_ms = (
         execution_latency_ms
         if task.task_type.startswith("verify_")
-        or task.task_type in {"triage_replay_regression", "triage_semantic_pass"}
+        or task.task_type
+        in {
+            "triage_replay_regression",
+            "triage_semantic_pass",
+            "triage_semantic_candidate_disagreements",
+        }
         else None
     )
     return {

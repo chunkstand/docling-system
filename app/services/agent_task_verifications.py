@@ -328,6 +328,8 @@ def verify_draft_semantic_registry_update_task(
         "regressed_document_count": summary["regressed_document_count"],
         "total_improved_count": summary["improved_expectation_count"],
         "total_regressed_count": summary["regressed_expectation_count"],
+        "total_added_concept_count": summary["added_concept_count"],
+        "total_removed_concept_count": summary["removed_concept_count"],
     }
     details = {
         "thresholds": {

@@ -10,12 +10,26 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
+    ApplyGraphPromotionsTaskInput,
+    ApplyGraphPromotionsTaskOutput,
     ApplyHarnessConfigUpdateTaskInput,
     ApplyHarnessConfigUpdateTaskOutput,
+    ApplyOntologyExtensionTaskInput,
+    ApplyOntologyExtensionTaskOutput,
     ApplySemanticRegistryUpdateTaskInput,
     ApplySemanticRegistryUpdateTaskOutput,
+    BuildDocumentFactGraphTaskInput,
+    BuildDocumentFactGraphTaskOutput,
+    BuildShadowSemanticGraphTaskInput,
+    BuildShadowSemanticGraphTaskOutput,
+    DiscoverSemanticBootstrapCandidatesTaskInput,
+    DiscoverSemanticBootstrapCandidatesTaskOutput,
+    DraftGraphPromotionsTaskInput,
+    DraftGraphPromotionsTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
     DraftHarnessConfigUpdateTaskOutput,
+    DraftOntologyExtensionTaskInput,
+    DraftOntologyExtensionTaskOutput,
     DraftSemanticGroundedDocumentTaskInput,
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskInput,
@@ -23,6 +37,16 @@ from app.schemas.agent_tasks import (
     EnqueueDocumentReprocessTaskInput,
     EnqueueDocumentReprocessTaskOutput,
     EvaluateSearchHarnessTaskOutput,
+    EvaluateSemanticCandidateExtractorTaskInput,
+    EvaluateSemanticCandidateExtractorTaskOutput,
+    EvaluateSemanticRelationExtractorTaskInput,
+    EvaluateSemanticRelationExtractorTaskOutput,
+    ExportSemanticSupervisionCorpusTaskInput,
+    ExportSemanticSupervisionCorpusTaskOutput,
+    GetActiveOntologySnapshotTaskInput,
+    GetActiveOntologySnapshotTaskOutput,
+    InitializeWorkspaceOntologyTaskInput,
+    InitializeWorkspaceOntologyTaskOutput,
     LatestEvaluationTaskInput,
     LatestEvaluationTaskOutput,
     LatestSemanticPassTaskInput,
@@ -36,10 +60,18 @@ from app.schemas.agent_tasks import (
     RunSearchReplaySuiteTaskOutput,
     TriageReplayRegressionTaskInput,
     TriageReplayRegressionTaskOutput,
+    TriageSemanticCandidateDisagreementsTaskInput,
+    TriageSemanticCandidateDisagreementsTaskOutput,
+    TriageSemanticGraphDisagreementsTaskInput,
+    TriageSemanticGraphDisagreementsTaskOutput,
     TriageSemanticPassTaskInput,
     TriageSemanticPassTaskOutput,
+    VerifyDraftGraphPromotionsTaskInput,
+    VerifyDraftGraphPromotionsTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifyDraftHarnessConfigTaskOutput,
+    VerifyDraftOntologyExtensionTaskInput,
+    VerifyDraftOntologyExtensionTaskOutput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
@@ -50,22 +82,39 @@ from app.schemas.agent_tasks import (
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context import (
+    _build_apply_graph_promotions_context,
     _build_apply_harness_config_update_context,
+    _build_apply_ontology_extension_context,
     _build_apply_semantic_registry_update_context,
+    _build_build_document_fact_graph_context,
+    _build_build_shadow_semantic_graph_context,
+    _build_discover_semantic_bootstrap_candidates_context,
+    _build_draft_graph_promotions_context,
     _build_draft_harness_config_context,
+    _build_draft_ontology_extension_context,
     _build_draft_semantic_grounded_document_context,
     _build_draft_semantic_registry_update_context,
     _build_evaluate_search_harness_context,
+    _build_evaluate_semantic_candidate_extractor_context,
+    _build_evaluate_semantic_relation_extractor_context,
+    _build_export_semantic_supervision_corpus_context,
     _build_generic_task_context,
+    _build_get_active_ontology_snapshot_context,
+    _build_initialize_workspace_ontology_context,
     _build_latest_semantic_pass_context,
     _build_prepare_semantic_generation_brief_context,
     _build_triage_replay_regression_context,
+    _build_triage_semantic_candidate_disagreements_context,
+    _build_triage_semantic_graph_disagreements_context,
     _build_triage_semantic_pass_context,
+    _build_verify_draft_graph_promotions_context,
     _build_verify_draft_harness_config_context,
+    _build_verify_draft_ontology_extension_context,
     _build_verify_draft_semantic_registry_update_context,
     _build_verify_search_harness_evaluation_context,
     _build_verify_semantic_grounded_document_context,
     resolve_required_dependency_task_output_context,
+    resolve_required_task_output_context,
 )
 from app.services.agent_task_verifications import (
     create_agent_task_verification_record,
@@ -85,17 +134,41 @@ from app.services.search_harness_overrides import upsert_applied_search_harness_
 from app.services.search_history import replay_search_request
 from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_replays import run_search_replay_suite
+from app.services.semantic_bootstrap import discover_semantic_bootstrap_candidates
+from app.services.semantic_candidates import (
+    evaluate_semantic_candidate_extractor,
+    export_semantic_supervision_corpus,
+    triage_semantic_candidate_disagreements,
+)
+from app.services.semantic_facts import build_document_fact_graph
 from app.services.semantic_generation import (
     draft_semantic_grounded_document,
     prepare_semantic_generation_brief,
 )
+from app.services.semantic_graph import (
+    apply_graph_promotions,
+    build_shadow_semantic_graph,
+    draft_graph_promotions,
+    evaluate_semantic_relation_extractor,
+    triage_semantic_graph_disagreements,
+    verify_draft_graph_promotions,
+)
+from app.services.semantic_ontology import (
+    apply_ontology_extension,
+    draft_ontology_extension,
+    draft_ontology_extension_from_bootstrap_report,
+    get_active_ontology_snapshot_payload,
+    initialize_workspace_ontology,
+    verify_draft_ontology_extension,
+)
 from app.services.semantic_orchestration import (
     build_semantic_success_metrics,
     draft_semantic_registry_update,
+    draft_semantic_registry_update_from_bootstrap_report,
     semantic_registry_apply_metrics,
     triage_semantic_pass,
 )
-from app.services.semantic_registry import get_semantic_registry, write_semantic_registry_payload
+from app.services.semantic_registry import get_semantic_registry, persist_semantic_ontology_snapshot
 from app.services.semantics import get_active_semantic_pass_detail
 from app.services.storage import StorageService
 
@@ -155,6 +228,122 @@ def _latest_semantic_pass_executor(
     }
 
 
+def _initialize_workspace_ontology_executor(
+    session: Session, task: AgentTask, _payload: InitializeWorkspaceOntologyTaskInput
+) -> dict:
+    result = initialize_workspace_ontology(session)
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="active_ontology_snapshot",
+        payload=result,
+        storage_service=StorageService(),
+        filename="active_ontology_snapshot.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _get_active_ontology_snapshot_executor(
+    session: Session, _task: AgentTask, _payload: GetActiveOntologySnapshotTaskInput
+) -> dict:
+    return get_active_ontology_snapshot_payload(session)
+
+
+def _discover_semantic_bootstrap_candidates_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DiscoverSemanticBootstrapCandidatesTaskInput,
+) -> dict:
+    report_payload = discover_semantic_bootstrap_candidates(
+        session,
+        document_ids=list(payload.document_ids),
+        max_candidates=payload.max_candidates,
+        min_document_count=payload.min_document_count,
+        min_source_count=payload.min_source_count,
+        min_phrase_tokens=payload.min_phrase_tokens,
+        max_phrase_tokens=payload.max_phrase_tokens,
+        exclude_existing_registry_terms=payload.exclude_existing_registry_terms,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_bootstrap_candidate_report",
+        payload=report_payload,
+        storage_service=StorageService(),
+        filename="semantic_bootstrap_candidate_report.json",
+    )
+    return {
+        "report": report_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _export_semantic_supervision_corpus_executor(
+    session: Session,
+    task: AgentTask,
+    payload: ExportSemanticSupervisionCorpusTaskInput,
+) -> dict:
+    storage_service = StorageService()
+    jsonl_path = storage_service.get_agent_task_dir(task.id) / "semantic_supervision_corpus.jsonl"
+    corpus_payload = export_semantic_supervision_corpus(
+        session,
+        document_ids=list(payload.document_ids),
+        reviewed_only=payload.reviewed_only,
+        include_generation_verifications=payload.include_generation_verifications,
+        output_path=jsonl_path,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_supervision_corpus",
+        payload=corpus_payload,
+        storage_service=storage_service,
+        filename="semantic_supervision_corpus.json",
+    )
+    return {
+        "corpus": corpus_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _evaluate_semantic_candidate_extractor_executor(
+    session: Session,
+    task: AgentTask,
+    payload: EvaluateSemanticCandidateExtractorTaskInput,
+) -> dict:
+    evaluation_payload = evaluate_semantic_candidate_extractor(
+        session,
+        document_ids=list(payload.document_ids),
+        baseline_extractor_name=payload.baseline_extractor_name,
+        candidate_extractor_name=payload.candidate_extractor_name,
+        score_threshold=payload.score_threshold,
+        max_candidates_per_source=payload.max_candidates_per_source,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_candidate_evaluation",
+        payload=evaluation_payload,
+        storage_service=StorageService(),
+        filename="semantic_candidate_evaluation.json",
+    )
+    return {
+        **evaluation_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
 def _prepare_semantic_generation_brief_executor(
     session: Session,
     task: AgentTask,
@@ -170,6 +359,10 @@ def _prepare_semantic_generation_brief_executor(
         category_keys=list(payload.category_keys),
         target_length=payload.target_length,
         review_policy=payload.review_policy,
+        include_shadow_candidates=payload.include_shadow_candidates,
+        candidate_extractor_name=payload.candidate_extractor_name,
+        candidate_score_threshold=payload.candidate_score_threshold,
+        max_shadow_candidates=payload.max_shadow_candidates,
     )
     artifact = create_agent_task_artifact(
         session,
@@ -487,30 +680,82 @@ def _draft_semantic_registry_update_executor(
     task: AgentTask,
     payload: DraftSemanticRegistryUpdateTaskInput,
 ) -> dict:
-    source_context = resolve_required_dependency_task_output_context(
-        session,
-        task_id=task.id,
-        depends_on_task_id=payload.source_task_id,
-        dependency_kind="source_task",
-        expected_task_type="triage_semantic_pass",
-        expected_schema_name="triage_semantic_pass_output",
-        expected_schema_version="1.0",
-        dependency_error_message=(
-            "Semantic registry drafts must declare the requested triage task "
-            "as a source_task dependency."
-        ),
-        rerun_message=(
-            "Source semantic triage task must be rerun after the context migration before drafting."
-        ),
-    )
-    source_output = TriageSemanticPassTaskOutput.model_validate(source_context.output)
-    draft_payload = draft_semantic_registry_update(
-        source_output.gap_report.model_dump(mode="json"),
-        source_task_id=payload.source_task_id,
-        source_task_type=source_context.task_type,
-        proposed_registry_version=payload.proposed_registry_version,
-        rationale=payload.rationale,
-    )
+    source_task = session.get(AgentTask, payload.source_task_id)
+    if source_task is None:
+        raise ValueError(f"Source task not found: {payload.source_task_id}")
+    if source_task.task_type == "triage_semantic_pass":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="triage_semantic_pass",
+            expected_schema_name="triage_semantic_pass_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Semantic registry drafts must declare the requested semantic triage task "
+                "as a source_task dependency."
+            ),
+            rerun_message=(
+                "Source semantic triage task must be rerun after the context "
+                "migration before drafting."
+            ),
+        )
+        source_output = TriageSemanticPassTaskOutput.model_validate(source_context.output)
+        draft_payload = draft_semantic_registry_update(
+            session,
+            source_output.gap_report.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_context.task_type,
+            proposed_registry_version=payload.proposed_registry_version,
+            rationale=payload.rationale,
+            candidate_ids=list(payload.candidate_ids),
+        )
+    elif source_task.task_type == "discover_semantic_bootstrap_candidates":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="discover_semantic_bootstrap_candidates",
+            expected_schema_name="discover_semantic_bootstrap_candidates_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Semantic registry drafts must declare the requested bootstrap candidate task "
+                "as a source_task dependency."
+            ),
+            rerun_message=(
+                "Source bootstrap candidate task must be rerun after the context "
+                "migration before drafting."
+            ),
+        )
+        source_output = DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
+            source_context.output
+        )
+        draft_payload = draft_semantic_registry_update_from_bootstrap_report(
+            session,
+            source_output.report.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_context.task_type,
+            proposed_registry_version=payload.proposed_registry_version,
+            rationale=payload.rationale,
+            candidate_ids=list(payload.candidate_ids),
+        )
+    else:
+        unsupported_action = get_agent_task_action(source_task.task_type)
+        resolve_required_task_output_context(
+            session,
+            task_id=payload.source_task_id,
+            expected_task_type=source_task.task_type,
+            expected_schema_name=unsupported_action.output_schema_name or "",
+            expected_schema_version=unsupported_action.output_schema_version or "",
+            rerun_message=(
+                "Source task must be rerun after the context migration before drafting."
+            ),
+        )
+        raise ValueError(
+            f"Unsupported source task for semantic registry draft: {source_task.task_type}"
+        )
     artifact = create_agent_task_artifact(
         session,
         task_id=task.id,
@@ -518,6 +763,91 @@ def _draft_semantic_registry_update_executor(
         payload=draft_payload,
         storage_service=StorageService(),
         filename="semantic_registry_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _draft_ontology_extension_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftOntologyExtensionTaskInput,
+) -> dict:
+    source_task = session.get(AgentTask, payload.source_task_id)
+    if source_task is None:
+        raise ValueError(f"Ontology extension source task not found: {payload.source_task_id}")
+
+    if source_task.task_type == "triage_semantic_pass":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="triage_semantic_pass",
+            expected_schema_name="triage_semantic_pass_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Ontology extension draft must declare the semantic triage task as a source_task dependency."
+            ),
+            rerun_message=(
+                "Semantic triage task must be rerun after the context migration before ontology drafting."
+            ),
+        )
+        triage_output = TriageSemanticPassTaskOutput.model_validate(source_context.output)
+        draft_payload = draft_ontology_extension(
+            session,
+            triage_output.gap_report.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_task.task_type,
+            proposed_ontology_version=payload.proposed_ontology_version,
+            rationale=payload.rationale,
+            candidate_ids=payload.candidate_ids,
+        )
+    elif source_task.task_type == "discover_semantic_bootstrap_candidates":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="discover_semantic_bootstrap_candidates",
+            expected_schema_name="discover_semantic_bootstrap_candidates_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Ontology extension draft must declare the bootstrap discovery task as a source_task dependency."
+            ),
+            rerun_message=(
+                "Bootstrap discovery task must be rerun after the context migration before ontology drafting."
+            ),
+        )
+        bootstrap_output = DiscoverSemanticBootstrapCandidatesTaskOutput.model_validate(
+            source_context.output
+        )
+        draft_payload = draft_ontology_extension_from_bootstrap_report(
+            session,
+            bootstrap_output.report.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_task.task_type,
+            proposed_ontology_version=payload.proposed_ontology_version,
+            rationale=payload.rationale,
+            candidate_ids=payload.candidate_ids,
+        )
+    else:
+        raise ValueError(
+            "Ontology extension drafting only supports triage_semantic_pass or "
+            "discover_semantic_bootstrap_candidates source tasks."
+        )
+
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="ontology_extension_draft",
+        payload=draft_payload,
+        storage_service=StorageService(),
+        filename="ontology_extension_draft.json",
     )
     return {
         "draft": draft_payload,
@@ -540,6 +870,86 @@ def _verify_draft_semantic_registry_update_executor(
         payload=result,
         storage_service=StorageService(),
         filename="semantic_registry_draft_verification.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_draft_ontology_extension_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifyDraftOntologyExtensionTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_ontology_extension",
+        expected_schema_name="draft_ontology_extension_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Ontology extension verification must declare the requested ontology draft as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target ontology draft must be rerun after the context migration before verification."
+        ),
+    )
+    output = DraftOntologyExtensionTaskOutput.model_validate(draft_context.output)
+    (
+        document_deltas,
+        summary,
+        metrics,
+        reasons,
+        outcome,
+        success_metrics,
+    ) = verify_draft_ontology_extension(
+        session,
+        output.draft.model_dump(mode="json"),
+        document_ids=payload.document_ids,
+        max_regressed_document_count=payload.max_regressed_document_count,
+        max_failed_expectation_increase=payload.max_failed_expectation_increase,
+        min_improved_document_count=payload.min_improved_document_count,
+    )
+    details = {
+        "thresholds": {
+            "max_regressed_document_count": payload.max_regressed_document_count,
+            "max_failed_expectation_increase": payload.max_failed_expectation_increase,
+            "min_improved_document_count": payload.min_improved_document_count,
+        },
+        "summary": summary,
+        "target_task_id": str(draft_context.task_id),
+        "target_task_type": draft_context.task_type,
+        "proposed_ontology_version": output.draft.proposed_ontology_version,
+    }
+    record = create_agent_task_verification_record(
+        session,
+        target_task_id=draft_context.task_id,
+        verification_task_id=task.id,
+        verifier_type="ontology_extension_draft_gate",
+        outcome=outcome,
+        metrics=metrics,
+        reasons=reasons,
+        details=details,
+    )
+    result = {
+        "draft": output.draft.model_dump(mode="json"),
+        "document_deltas": document_deltas,
+        "summary": summary,
+        "success_metrics": success_metrics,
+        "verification": record.model_dump(mode="json"),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="ontology_extension_draft_verification",
+        payload=result,
+        storage_service=StorageService(),
+        filename="ontology_extension_draft_verification.json",
     )
     return {
         **result,
@@ -597,15 +1007,23 @@ def _apply_semantic_registry_update_executor(
     if verification.target_task_id != payload.draft_task_id:
         raise ValueError("Verification task does not target the requested semantic draft task.")
 
-    config_path = write_semantic_registry_payload(draft_output.draft.effective_registry)
-    applied_registry = get_semantic_registry()
+    snapshot = persist_semantic_ontology_snapshot(
+        session,
+        draft_output.draft.effective_registry,
+        source_kind="ontology_extension_apply",
+        source_task_id=task.id,
+        source_task_type=task.task_type,
+        activate=True,
+    )
+    session.commit()
+    applied_registry = get_semantic_registry(session)
     apply_payload = {
         "draft_task_id": str(payload.draft_task_id),
         "verification_task_id": str(payload.verification_task_id),
         "applied_registry_version": applied_registry.registry_version,
         "applied_registry_sha256": applied_registry.sha256,
         "reason": payload.reason,
-        "config_path": str(config_path),
+        "config_path": f"db://semantic_ontology_snapshots/{snapshot.id}",
         "applied_operations": [
             operation.model_dump(mode="json") for operation in draft_output.draft.operations
         ],
@@ -627,6 +1045,166 @@ def _apply_semantic_registry_update_executor(
     )
     return {
         **apply_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _apply_ontology_extension_executor(
+    session: Session,
+    task: AgentTask,
+    payload: ApplyOntologyExtensionTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_ontology_extension",
+        expected_schema_name="draft_ontology_extension_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply ontology task must declare the requested ontology draft as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Ontology draft task must be rerun after the context migration before it can be applied."
+        ),
+    )
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_ontology_extension",
+        expected_schema_name="verify_draft_ontology_extension_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply ontology task must declare the requested ontology verification as a verification_task dependency."
+        ),
+        rerun_message=(
+            "Ontology verification task must be rerun after the context migration before it can be applied."
+        ),
+    )
+    draft_output = DraftOntologyExtensionTaskOutput.model_validate(draft_context.output)
+    verification_output = VerifyDraftOntologyExtensionTaskOutput.model_validate(
+        verification_context.output
+    )
+    verification = verification_output.verification
+    if verification.outcome != "passed":
+        raise ValueError("Only passed ontology extension verifications can be applied.")
+    if verification.target_task_id != payload.draft_task_id:
+        raise ValueError("Verification task does not target the requested ontology draft task.")
+
+    apply_payload = apply_ontology_extension(
+        session,
+        draft_output.draft.model_dump(mode="json"),
+        source_task_id=task.id,
+        source_task_type=task.task_type,
+        reason=payload.reason,
+    )
+    apply_payload.update(
+        {
+            "draft_task_id": str(payload.draft_task_id),
+            "verification_task_id": str(payload.verification_task_id),
+        }
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="applied_ontology_extension",
+        payload=apply_payload,
+        storage_service=StorageService(),
+        filename="applied_ontology_extension.json",
+    )
+    return {
+        **apply_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _build_document_fact_graph_executor(
+    session: Session,
+    task: AgentTask,
+    payload: BuildDocumentFactGraphTaskInput,
+) -> dict:
+    result = build_document_fact_graph(
+        session,
+        document_id=payload.document_id,
+        minimum_review_status=payload.minimum_review_status,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_fact_graph",
+        payload=result,
+        storage_service=StorageService(),
+        filename="semantic_fact_graph.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _build_shadow_semantic_graph_executor(
+    session: Session,
+    task: AgentTask,
+    payload: BuildShadowSemanticGraphTaskInput,
+) -> dict:
+    shadow_graph = build_shadow_semantic_graph(
+        session,
+        document_ids=list(payload.document_ids),
+        relation_extractor_name=payload.relation_extractor_name,
+        minimum_review_status=payload.minimum_review_status,
+        min_shared_documents=payload.min_shared_documents,
+        score_threshold=payload.score_threshold,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="shadow_semantic_graph",
+        payload=shadow_graph,
+        storage_service=StorageService(),
+        filename="shadow_semantic_graph.json",
+    )
+    return {
+        "shadow_graph": shadow_graph,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _evaluate_semantic_relation_extractor_executor(
+    session: Session,
+    task: AgentTask,
+    payload: EvaluateSemanticRelationExtractorTaskInput,
+) -> dict:
+    evaluation_payload = evaluate_semantic_relation_extractor(
+        session,
+        document_ids=list(payload.document_ids),
+        baseline_extractor_name=payload.baseline_extractor_name,
+        candidate_extractor_name=payload.candidate_extractor_name,
+        minimum_review_status=payload.minimum_review_status,
+        baseline_min_shared_documents=payload.baseline_min_shared_documents,
+        candidate_score_threshold=payload.candidate_score_threshold,
+        expected_min_shared_documents=payload.expected_min_shared_documents,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_relation_evaluation",
+        payload=evaluation_payload,
+        storage_service=StorageService(),
+        filename="semantic_relation_evaluation.json",
+    )
+    return {
+        **evaluation_payload,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
@@ -687,6 +1265,367 @@ def _triage_semantic_pass_executor(
         "gap_report": triage_output.gap_report,
         "verification": verification_record.model_dump(mode="json"),
         "recommendation": triage_output.recommendation,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _triage_semantic_graph_disagreements_executor(
+    session: Session,
+    task: AgentTask,
+    payload: TriageSemanticGraphDisagreementsTaskInput,
+) -> dict:
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="evaluate_semantic_relation_extractor",
+        expected_schema_name="evaluate_semantic_relation_extractor_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Graph disagreement triage must declare the requested graph evaluation "
+            "task as a target_task dependency."
+        ),
+        rerun_message=(
+            "Graph evaluation task must be rerun after the context migration before triage."
+        ),
+    )
+    evaluation_output = EvaluateSemanticRelationExtractorTaskOutput.model_validate(
+        target_context.output
+    )
+    disagreement_report = triage_semantic_graph_disagreements(
+        evaluation_output.model_dump(mode="json"),
+        min_score=payload.min_score,
+        expected_only=payload.expected_only,
+    )
+    verification_record = create_agent_task_verification_record(
+        session,
+        target_task_id=task.id,
+        verification_task_id=task.id,
+        verifier_type="semantic_graph_shadow_gate",
+        outcome="passed",
+        metrics={"issue_count": disagreement_report["issue_count"]},
+        reasons=[],
+        details={
+            "evaluation_task_id": str(payload.target_task_id),
+            "issue_count": disagreement_report["issue_count"],
+        },
+    )
+    recommendation = (
+        {
+            "next_action": "draft_graph_promotions",
+            "priority": "high",
+        }
+        if disagreement_report["issue_count"] > 0
+        else {
+            "next_action": "observe_only",
+            "priority": "low",
+        }
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_graph_disagreement_report",
+        payload={
+            "evaluation_task_id": str(payload.target_task_id),
+            "disagreement_report": disagreement_report,
+            "verification": verification_record.model_dump(mode="json"),
+            "recommendation": recommendation,
+        },
+        storage_service=StorageService(),
+        filename="semantic_graph_disagreement_report.json",
+    )
+    return {
+        "evaluation_task_id": str(payload.target_task_id),
+        "disagreement_report": disagreement_report,
+        "verification": verification_record.model_dump(mode="json"),
+        "recommendation": recommendation,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _triage_semantic_candidate_disagreements_executor(
+    session: Session,
+    task: AgentTask,
+    payload: TriageSemanticCandidateDisagreementsTaskInput,
+) -> dict:
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="evaluate_semantic_candidate_extractor",
+        expected_schema_name="evaluate_semantic_candidate_extractor_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Candidate disagreement triage must declare the requested evaluation "
+            "task as a target_task dependency."
+        ),
+        rerun_message=(
+            "Candidate evaluation task must be rerun after the context migration before triage."
+        ),
+    )
+    evaluation_output = EvaluateSemanticCandidateExtractorTaskOutput.model_validate(
+        target_context.output
+    )
+    disagreement_report, verification_outcome, recommendation = (
+        triage_semantic_candidate_disagreements(
+            evaluation_output.model_dump(mode="json"),
+            min_score=payload.min_score,
+            include_expected_only=payload.include_expected_only,
+        )
+    )
+    verification_record = create_agent_task_verification_record(
+        session,
+        target_task_id=task.id,
+        verification_task_id=task.id,
+        verifier_type="semantic_candidate_shadow_gate",
+        outcome=verification_outcome["outcome"],
+        metrics=verification_outcome["metrics"],
+        reasons=verification_outcome["reasons"],
+        details=verification_outcome["details"],
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_candidate_disagreement_report",
+        payload={
+            "evaluation_task_id": str(payload.target_task_id),
+            "disagreement_report": disagreement_report,
+            "verification": verification_record.model_dump(mode="json"),
+            "recommendation": recommendation,
+        },
+        storage_service=StorageService(),
+        filename="semantic_candidate_disagreement_report.json",
+    )
+    return {
+        "evaluation_task_id": str(payload.target_task_id),
+        "disagreement_report": disagreement_report,
+        "verification": verification_record.model_dump(mode="json"),
+        "recommendation": recommendation,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _draft_graph_promotions_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftGraphPromotionsTaskInput,
+) -> dict:
+    source_task = session.get(AgentTask, payload.source_task_id)
+    if source_task is None:
+        raise ValueError(f"Graph promotion source task not found: {payload.source_task_id}")
+    if source_task.task_type == "build_shadow_semantic_graph":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="build_shadow_semantic_graph",
+            expected_schema_name="build_shadow_semantic_graph_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Graph promotion drafts must declare the requested shadow graph task "
+                "as a source_task dependency."
+            ),
+            rerun_message=(
+                "Source shadow graph task must be rerun after the context migration before drafting."
+            ),
+        )
+        source_output = BuildShadowSemanticGraphTaskOutput.model_validate(source_context.output)
+        draft_payload = draft_graph_promotions(
+            session,
+            source_payload=source_output.shadow_graph.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_context.task_type,
+            proposed_graph_version=payload.proposed_graph_version,
+            rationale=payload.rationale,
+            edge_ids=list(payload.edge_ids),
+            min_score=payload.min_score,
+        )
+    elif source_task.task_type == "triage_semantic_graph_disagreements":
+        source_context = resolve_required_dependency_task_output_context(
+            session,
+            task_id=task.id,
+            depends_on_task_id=payload.source_task_id,
+            dependency_kind="source_task",
+            expected_task_type="triage_semantic_graph_disagreements",
+            expected_schema_name="triage_semantic_graph_disagreements_output",
+            expected_schema_version="1.0",
+            dependency_error_message=(
+                "Graph promotion drafts must declare the requested graph triage task "
+                "as a source_task dependency."
+            ),
+            rerun_message=(
+                "Source graph triage task must be rerun after the context migration before drafting."
+            ),
+        )
+        source_output = TriageSemanticGraphDisagreementsTaskOutput.model_validate(
+            source_context.output
+        )
+        draft_payload = draft_graph_promotions(
+            session,
+            source_payload=source_output.disagreement_report.model_dump(mode="json"),
+            source_task_id=payload.source_task_id,
+            source_task_type=source_context.task_type,
+            proposed_graph_version=payload.proposed_graph_version,
+            rationale=payload.rationale,
+            edge_ids=list(payload.edge_ids),
+            min_score=payload.min_score,
+        )
+    else:
+        raise ValueError(f"Unsupported source task for graph promotion draft: {source_task.task_type}")
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_graph_promotion_draft",
+        payload=draft_payload,
+        storage_service=StorageService(),
+        filename="semantic_graph_promotion_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_draft_graph_promotions_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifyDraftGraphPromotionsTaskInput,
+) -> dict:
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_graph_promotions",
+        expected_schema_name="draft_graph_promotions_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Graph promotion verification must declare the requested graph draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target graph promotion draft must be rerun after the context migration before verification."
+        ),
+    )
+    draft_output = DraftGraphPromotionsTaskOutput.model_validate(target_context.output)
+    summary, metrics, reasons, outcome, success_metrics = verify_draft_graph_promotions(
+        session,
+        draft_output.draft.model_dump(mode="json"),
+        min_supporting_document_count=payload.min_supporting_document_count,
+        max_conflict_count=payload.max_conflict_count,
+        require_current_ontology_snapshot=payload.require_current_ontology_snapshot,
+    )
+    verification_record = create_agent_task_verification_record(
+        session,
+        target_task_id=payload.target_task_id,
+        verification_task_id=task.id,
+        verifier_type="semantic_graph_promotion_gate",
+        outcome=outcome,
+        metrics=metrics,
+        reasons=reasons,
+        details=summary,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_graph_promotion_verification",
+        payload={
+            "draft": draft_output.draft.model_dump(mode="json"),
+            "summary": summary,
+            "success_metrics": success_metrics,
+            "verification": verification_record.model_dump(mode="json"),
+        },
+        storage_service=StorageService(),
+        filename="semantic_graph_promotion_verification.json",
+    )
+    return {
+        "draft": draft_output.draft.model_dump(mode="json"),
+        "summary": summary,
+        "success_metrics": success_metrics,
+        "verification": verification_record.model_dump(mode="json"),
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _apply_graph_promotions_executor(
+    session: Session,
+    task: AgentTask,
+    payload: ApplyGraphPromotionsTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_graph_promotions",
+        expected_schema_name="draft_graph_promotions_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply graph promotions must declare the requested graph draft task "
+            "as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Graph promotion draft task must be rerun after the context migration before apply."
+        ),
+    )
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_graph_promotions",
+        expected_schema_name="verify_draft_graph_promotions_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply graph promotions must declare the requested graph verification task "
+            "as a verification_task dependency."
+        ),
+        rerun_message=(
+            "Graph promotion verification task must be rerun after the context migration before apply."
+        ),
+    )
+    draft_output = DraftGraphPromotionsTaskOutput.model_validate(draft_context.output)
+    verification_output = VerifyDraftGraphPromotionsTaskOutput.model_validate(
+        verification_context.output
+    )
+    if verification_output.verification.outcome != "passed":
+        raise ValueError("Only passed graph promotion verifications can be applied.")
+    apply_payload = apply_graph_promotions(
+        session,
+        draft_output.draft.model_dump(mode="json"),
+        source_task_id=task.id,
+        source_task_type=task.task_type,
+        reason=payload.reason,
+    )
+    apply_payload.update(
+        {
+            "draft_task_id": str(payload.draft_task_id),
+            "verification_task_id": str(payload.verification_task_id),
+        }
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="applied_semantic_graph_snapshot",
+        payload=apply_payload,
+        storage_service=StorageService(),
+        filename="applied_semantic_graph_snapshot.json",
+    )
+    return {
+        **apply_payload,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
@@ -836,6 +1775,135 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
         context_builder=_build_latest_semantic_pass_context,
     ),
+    "initialize_workspace_ontology": AgentTaskActionDefinition(
+        task_type="initialize_workspace_ontology",
+        definition_kind="workflow",
+        description="Initialize the workspace ontology from the configured upper ontology seed.",
+        payload_model=InitializeWorkspaceOntologyTaskInput,
+        executor=_initialize_workspace_ontology_executor,
+        output_model=InitializeWorkspaceOntologyTaskOutput,
+        output_schema_name="initialize_workspace_ontology_output",
+        output_schema_version="1.0",
+        input_example={},
+        context_builder=_build_initialize_workspace_ontology_context,
+    ),
+    "get_active_ontology_snapshot": AgentTaskActionDefinition(
+        task_type="get_active_ontology_snapshot",
+        definition_kind="action",
+        description="Fetch the active workspace ontology snapshot.",
+        payload_model=GetActiveOntologySnapshotTaskInput,
+        executor=_get_active_ontology_snapshot_executor,
+        output_model=GetActiveOntologySnapshotTaskOutput,
+        output_schema_name="get_active_ontology_snapshot_output",
+        output_schema_version="1.0",
+        input_example={},
+        context_builder=_build_get_active_ontology_snapshot_context,
+    ),
+    "discover_semantic_bootstrap_candidates": AgentTaskActionDefinition(
+        task_type="discover_semantic_bootstrap_candidates",
+        definition_kind="workflow",
+        description=(
+            "Discover provisional semantic concept candidates directly from active "
+            "document corpora without mutating the live registry."
+        ),
+        payload_model=DiscoverSemanticBootstrapCandidatesTaskInput,
+        executor=_discover_semantic_bootstrap_candidates_executor,
+        output_model=DiscoverSemanticBootstrapCandidatesTaskOutput,
+        output_schema_name="discover_semantic_bootstrap_candidates_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "max_candidates": 12,
+            "min_document_count": 1,
+            "min_source_count": 2,
+            "min_phrase_tokens": 2,
+            "max_phrase_tokens": 4,
+            "exclude_existing_registry_terms": True,
+        },
+        context_builder=_build_discover_semantic_bootstrap_candidates_context,
+    ),
+    "export_semantic_supervision_corpus": AgentTaskActionDefinition(
+        task_type="export_semantic_supervision_corpus",
+        definition_kind="action",
+        description=(
+            "Export reviewed semantic, evaluation, continuity, and grounded-verification "
+            "signals as a supervision corpus."
+        ),
+        payload_model=ExportSemanticSupervisionCorpusTaskInput,
+        executor=_export_semantic_supervision_corpus_executor,
+        output_model=ExportSemanticSupervisionCorpusTaskOutput,
+        output_schema_name="export_semantic_supervision_corpus_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "reviewed_only": True,
+            "include_generation_verifications": True,
+        },
+        context_builder=_build_export_semantic_supervision_corpus_context,
+    ),
+    "evaluate_semantic_candidate_extractor": AgentTaskActionDefinition(
+        task_type="evaluate_semantic_candidate_extractor",
+        definition_kind="workflow",
+        description=(
+            "Evaluate a shadow semantic candidate extractor against the lexical baseline "
+            "and fixed semantic expectations."
+        ),
+        payload_model=EvaluateSemanticCandidateExtractorTaskInput,
+        executor=_evaluate_semantic_candidate_extractor_executor,
+        output_model=EvaluateSemanticCandidateExtractorTaskOutput,
+        output_schema_name="evaluate_semantic_candidate_extractor_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "candidate_extractor_name": "concept_ranker_v1",
+            "baseline_extractor_name": "registry_lexical_v1",
+            "max_candidates_per_source": 3,
+            "score_threshold": 0.34,
+        },
+        context_builder=_build_evaluate_semantic_candidate_extractor_context,
+    ),
+    "build_shadow_semantic_graph": AgentTaskActionDefinition(
+        task_type="build_shadow_semantic_graph",
+        definition_kind="workflow",
+        description=(
+            "Build a shadow cross-document semantic graph memory artifact without mutating live graph state."
+        ),
+        payload_model=BuildShadowSemanticGraphTaskInput,
+        executor=_build_shadow_semantic_graph_executor,
+        output_model=BuildShadowSemanticGraphTaskOutput,
+        output_schema_name="build_shadow_semantic_graph_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "relation_extractor_name": "relation_ranker_v1",
+            "minimum_review_status": "candidate",
+            "min_shared_documents": 2,
+            "score_threshold": 0.45,
+        },
+        context_builder=_build_build_shadow_semantic_graph_context,
+    ),
+    "evaluate_semantic_relation_extractor": AgentTaskActionDefinition(
+        task_type="evaluate_semantic_relation_extractor",
+        definition_kind="workflow",
+        description=(
+            "Evaluate a shadow semantic relation extractor against a deterministic graph baseline."
+        ),
+        payload_model=EvaluateSemanticRelationExtractorTaskInput,
+        executor=_evaluate_semantic_relation_extractor_executor,
+        output_model=EvaluateSemanticRelationExtractorTaskOutput,
+        output_schema_name="evaluate_semantic_relation_extractor_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "baseline_extractor_name": "cooccurrence_v1",
+            "candidate_extractor_name": "relation_ranker_v1",
+            "minimum_review_status": "candidate",
+            "baseline_min_shared_documents": 2,
+            "candidate_score_threshold": 0.45,
+            "expected_min_shared_documents": 1,
+        },
+        context_builder=_build_evaluate_semantic_relation_extractor_context,
+    ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",
         definition_kind="workflow",
@@ -854,6 +1922,10 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "document_ids": ["00000000-0000-0000-0000-000000000000"],
             "target_length": "medium",
             "review_policy": "allow_candidate_with_disclosure",
+            "include_shadow_candidates": False,
+            "candidate_extractor_name": "concept_ranker_v1",
+            "candidate_score_threshold": 0.34,
+            "max_shadow_candidates": 8,
         },
         context_builder=_build_prepare_semantic_generation_brief_context,
     ),
@@ -960,7 +2032,8 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         task_type="draft_semantic_registry_update",
         definition_kind="draft",
         description=(
-            "Draft an additive semantic registry update from a typed semantic gap report."
+            "Draft an additive semantic registry update from semantic triage or "
+            "bootstrap candidate discovery."
         ),
         payload_model=DraftSemanticRegistryUpdateTaskInput,
         executor=_draft_semantic_registry_update_executor,
@@ -971,8 +2044,46 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         input_example={
             "source_task_id": "00000000-0000-0000-0000-000000000000",
             "rationale": "Add the missing synonym surfaced by semantic triage.",
+            "candidate_ids": [],
         },
         context_builder=_build_draft_semantic_registry_update_context,
+    ),
+    "draft_ontology_extension": AgentTaskActionDefinition(
+        task_type="draft_ontology_extension",
+        definition_kind="draft",
+        description=(
+            "Draft an additive ontology extension from semantic triage or bootstrap discovery."
+        ),
+        payload_model=DraftOntologyExtensionTaskInput,
+        executor=_draft_ontology_extension_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftOntologyExtensionTaskOutput,
+        output_schema_name="draft_ontology_extension_output",
+        output_schema_version="1.0",
+        input_example={
+            "source_task_id": "00000000-0000-0000-0000-000000000000",
+            "rationale": "Extend the portable ontology from corpus evidence.",
+            "candidate_ids": [],
+        },
+        context_builder=_build_draft_ontology_extension_context,
+    ),
+    "draft_graph_promotions": AgentTaskActionDefinition(
+        task_type="draft_graph_promotions",
+        definition_kind="draft",
+        description="Draft approved cross-document graph edges without mutating live graph memory.",
+        payload_model=DraftGraphPromotionsTaskInput,
+        executor=_draft_graph_promotions_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftGraphPromotionsTaskOutput,
+        output_schema_name="draft_graph_promotions_output",
+        output_schema_version="1.0",
+        input_example={
+            "source_task_id": "00000000-0000-0000-0000-000000000000",
+            "edge_ids": [],
+            "rationale": "Promote approved cross-document graph memory.",
+            "min_score": 0.45,
+        },
+        context_builder=_build_draft_graph_promotions_context,
     ),
     "verify_draft_harness_config": AgentTaskActionDefinition(
         task_type="verify_draft_harness_config",
@@ -1017,6 +2128,42 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_improved_document_count": 1,
         },
         context_builder=_build_verify_draft_semantic_registry_update_context,
+    ),
+    "verify_draft_ontology_extension": AgentTaskActionDefinition(
+        task_type="verify_draft_ontology_extension",
+        definition_kind="verifier",
+        description=(
+            "Verify an additive ontology extension draft against active documents."
+        ),
+        payload_model=VerifyDraftOntologyExtensionTaskInput,
+        executor=_verify_draft_ontology_extension_executor,
+        output_model=VerifyDraftOntologyExtensionTaskOutput,
+        output_schema_name="verify_draft_ontology_extension_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "max_regressed_document_count": 0,
+            "max_failed_expectation_increase": 0,
+            "min_improved_document_count": 1,
+        },
+        context_builder=_build_verify_draft_ontology_extension_context,
+    ),
+    "verify_draft_graph_promotions": AgentTaskActionDefinition(
+        task_type="verify_draft_graph_promotions",
+        definition_kind="verifier",
+        description="Verify a graph promotion draft against current ontology and traceability constraints.",
+        payload_model=VerifyDraftGraphPromotionsTaskInput,
+        executor=_verify_draft_graph_promotions_executor,
+        output_model=VerifyDraftGraphPromotionsTaskOutput,
+        output_schema_name="verify_draft_graph_promotions_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "min_supporting_document_count": 2,
+            "max_conflict_count": 0,
+            "require_current_ontology_snapshot": True,
+        },
+        context_builder=_build_verify_draft_graph_promotions_context,
     ),
     "draft_semantic_grounded_document": AgentTaskActionDefinition(
         task_type="draft_semantic_grounded_document",
@@ -1096,6 +2243,43 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         },
         context_builder=_build_triage_semantic_pass_context,
     ),
+    "triage_semantic_candidate_disagreements": AgentTaskActionDefinition(
+        task_type="triage_semantic_candidate_disagreements",
+        definition_kind="workflow",
+        description=(
+            "Compact shadow semantic disagreements into typed issues and "
+            "bounded follow-up recommendations."
+        ),
+        payload_model=TriageSemanticCandidateDisagreementsTaskInput,
+        executor=_triage_semantic_candidate_disagreements_executor,
+        output_model=TriageSemanticCandidateDisagreementsTaskOutput,
+        output_schema_name="triage_semantic_candidate_disagreements_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "min_score": 0.34,
+            "include_expected_only": False,
+        },
+        context_builder=_build_triage_semantic_candidate_disagreements_context,
+    ),
+    "triage_semantic_graph_disagreements": AgentTaskActionDefinition(
+        task_type="triage_semantic_graph_disagreements",
+        definition_kind="workflow",
+        description=(
+            "Compact shadow semantic graph disagreements into typed issues and promotion follow-ups."
+        ),
+        payload_model=TriageSemanticGraphDisagreementsTaskInput,
+        executor=_triage_semantic_graph_disagreements_executor,
+        output_model=TriageSemanticGraphDisagreementsTaskOutput,
+        output_schema_name="triage_semantic_graph_disagreements_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "min_score": 0.45,
+            "expected_only": True,
+        },
+        context_builder=_build_triage_semantic_graph_disagreements_context,
+    ),
     "enqueue_document_reprocess": AgentTaskActionDefinition(
         task_type="enqueue_document_reprocess",
         definition_kind="promotion",
@@ -1153,6 +2337,57 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "reason": "Publish the verified registry update.",
         },
         context_builder=_build_apply_semantic_registry_update_context,
+    ),
+    "apply_ontology_extension": AgentTaskActionDefinition(
+        task_type="apply_ontology_extension",
+        definition_kind="promotion",
+        description="Apply a verified ontology extension as the new active workspace snapshot.",
+        payload_model=ApplyOntologyExtensionTaskInput,
+        executor=_apply_ontology_extension_executor,
+        side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
+        requires_approval=True,
+        output_model=ApplyOntologyExtensionTaskOutput,
+        output_schema_name="apply_ontology_extension_output",
+        output_schema_version="1.0",
+        input_example={
+            "draft_task_id": "00000000-0000-0000-0000-000000000000",
+            "verification_task_id": "00000000-0000-0000-0000-000000000000",
+            "reason": "Publish the verified ontology extension.",
+        },
+        context_builder=_build_apply_ontology_extension_context,
+    ),
+    "apply_graph_promotions": AgentTaskActionDefinition(
+        task_type="apply_graph_promotions",
+        definition_kind="promotion",
+        description="Apply a verified semantic graph promotion draft as the new active graph snapshot.",
+        payload_model=ApplyGraphPromotionsTaskInput,
+        executor=_apply_graph_promotions_executor,
+        side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
+        requires_approval=True,
+        output_model=ApplyGraphPromotionsTaskOutput,
+        output_schema_name="apply_graph_promotions_output",
+        output_schema_version="1.0",
+        input_example={
+            "draft_task_id": "00000000-0000-0000-0000-000000000000",
+            "verification_task_id": "00000000-0000-0000-0000-000000000000",
+            "reason": "Publish the verified semantic graph memory snapshot.",
+        },
+        context_builder=_build_apply_graph_promotions_context,
+    ),
+    "build_document_fact_graph": AgentTaskActionDefinition(
+        task_type="build_document_fact_graph",
+        definition_kind="workflow",
+        description="Build a minimal semantic fact graph for one document.",
+        payload_model=BuildDocumentFactGraphTaskInput,
+        executor=_build_document_fact_graph_executor,
+        output_model=BuildDocumentFactGraphTaskOutput,
+        output_schema_name="build_document_fact_graph_output",
+        output_schema_version="1.0",
+        input_example={
+            "document_id": "00000000-0000-0000-0000-000000000000",
+            "minimum_review_status": "approved",
+        },
+        context_builder=_build_build_document_fact_graph_context,
     ),
 }
 

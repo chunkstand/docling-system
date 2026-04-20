@@ -6,11 +6,16 @@ from uuid import uuid4
 from app.schemas.semantics import DocumentSemanticPassResponse
 from app.services.semantic_orchestration import (
     build_semantic_success_metrics,
+    draft_semantic_registry_update_from_bootstrap_report,
+    semantic_registry_verification_summary,
     triage_semantic_pass,
 )
+from app.services.semantic_registry import semantic_registry_from_payload
 
 
-def _semantic_pass_response(*, assertions=None, evaluation_summary=None) -> DocumentSemanticPassResponse:
+def _semantic_pass_response(
+    *, assertions=None, evaluation_summary=None
+) -> DocumentSemanticPassResponse:
     now = datetime.now(UTC)
     return DocumentSemanticPassResponse(
         semantic_pass_id=uuid4(),
@@ -33,7 +38,8 @@ def _semantic_pass_response(*, assertions=None, evaluation_summary=None) -> Docu
         evaluation_status="completed",
         evaluation_fixture_name="semantic_fixture",
         evaluation_version=2,
-        evaluation_summary=evaluation_summary or {"all_expectations_passed": True, "expectations": []},
+        evaluation_summary=evaluation_summary
+        or {"all_expectations_passed": True, "expectations": []},
         continuity_summary={"reason": "no_prior_active_run", "change_count": 0},
         error_message=None,
         created_at=now,
@@ -99,3 +105,128 @@ def test_triage_semantic_pass_emits_missing_concept_issue_and_registry_hint() ->
             "reason": "Evaluation fixture marked this alias as a missing semantic synonym.",
         }
     ]
+
+
+def test_draft_semantic_registry_update_from_bootstrap_report_adds_concept(monkeypatch) -> None:
+    base_registry_payload = {
+        "registry_name": "semantic_registry",
+        "registry_version": "semantics-layer-foundation-alpha.2",
+        "categories": [],
+        "concepts": [
+            {
+                "concept_key": "integration_threshold",
+                "preferred_label": "Integration Threshold",
+                "aliases": ["integration threshold"],
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        "app.services.semantic_orchestration.get_semantic_registry",
+        lambda session: semantic_registry_from_payload(base_registry_payload),
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_orchestration.get_active_semantic_ontology_snapshot",
+        lambda session: type("Snapshot", (), {"payload_json": base_registry_payload})(),
+    )
+
+    draft = draft_semantic_registry_update_from_bootstrap_report(
+        object(),
+        {
+            "input_document_ids": [str(uuid4())],
+            "candidate_count": 1,
+            "candidates": [
+                {
+                    "candidate_id": "bootstrap:incident_response_latency",
+                    "concept_key": "incident_response_latency",
+                    "preferred_label": "Incident Response Latency",
+                }
+            ],
+        },
+        source_task_id=uuid4(),
+        source_task_type="discover_semantic_bootstrap_candidates",
+        proposed_registry_version=None,
+        rationale="bootstrap the registry from corpus evidence",
+    )
+
+    assert draft["operations"][0]["operation_type"] == "add_concept"
+    assert any(
+        concept["concept_key"] == "incident_response_latency"
+        for concept in draft["effective_registry"]["concepts"]
+    )
+
+
+def test_draft_semantic_registry_update_from_bootstrap_report_preserves_discovered_label(
+    monkeypatch,
+) -> None:
+    base_registry_payload = {
+        "registry_name": "semantic_registry",
+        "registry_version": "semantics-layer-foundation-alpha.2",
+        "categories": [],
+        "concepts": [
+            {
+                "concept_key": "incident_response_latency",
+                "preferred_label": "Incident Response Latency",
+                "aliases": ["incident response latency"],
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        "app.services.semantic_orchestration.get_semantic_registry",
+        lambda session: semantic_registry_from_payload(base_registry_payload),
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_orchestration.get_active_semantic_ontology_snapshot",
+        lambda session: type("Snapshot", (), {"payload_json": base_registry_payload})(),
+    )
+
+    draft = draft_semantic_registry_update_from_bootstrap_report(
+        object(),
+        {
+            "input_document_ids": [str(uuid4())],
+            "candidate_count": 1,
+            "candidates": [
+                {
+                    "candidate_id": "bootstrap:incident_response_latency_2",
+                    "concept_key": "incident_response_latency_2",
+                    "preferred_label": "Incident Response Latency",
+                }
+            ],
+        },
+        source_task_id=uuid4(),
+        source_task_type="discover_semantic_bootstrap_candidates",
+        proposed_registry_version=None,
+        rationale="bootstrap the registry from corpus evidence",
+    )
+
+    assert draft["operations"][0]["preferred_label"] == "Incident Response Latency"
+    drafted_concept = next(
+        concept
+        for concept in draft["effective_registry"]["concepts"]
+        if concept["concept_key"] == "incident_response_latency_2"
+    )
+    assert drafted_concept["preferred_label"] == "Incident Response Latency"
+
+
+def test_semantic_registry_verification_summary_counts_added_concepts_as_improvement() -> None:
+    summary = semantic_registry_verification_summary(
+        [
+            {
+                "document_id": str(uuid4()),
+                "run_id": str(uuid4()),
+                "evaluation_fixture_name": None,
+                "before_all_expectations_passed": False,
+                "after_all_expectations_passed": False,
+                "before_failed_expectations": 0,
+                "after_failed_expectations": 0,
+                "before_assertion_count": 0,
+                "after_assertion_count": 1,
+                "added_concept_keys": ["incident_response_latency"],
+                "removed_concept_keys": [],
+                "introduced_expected_concepts": [],
+                "regressed_expected_concepts": [],
+            }
+        ]
+    )
+
+    assert summary["improved_document_count"] == 1
+    assert summary["added_concept_count"] == 1

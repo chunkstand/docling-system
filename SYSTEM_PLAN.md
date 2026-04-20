@@ -550,13 +550,34 @@ Current workflow-heavy paths include:
 - `evaluate_search_harness`, which produces typed evaluation output and context refs to replay evidence
 - `verify_search_harness_evaluation`, which verifies a target evaluation through its `target_task` context ref
 - `triage_replay_regression`, which mines unresolved quality candidates, runs comparative replay work, and produces a recommendation plus a deeper triage summary artifact
+- `export_semantic_supervision_corpus`, which exports reviewed semantic signals, semantic expectations, and grounded-document verification outcomes into durable supervision artifacts
+- `discover_semantic_bootstrap_candidates`, which mines provisional concept candidates directly from active document corpora so the semantic layer can bootstrap on arbitrary user data without assuming the current registry already matches the domain
+- `evaluate_semantic_candidate_extractor`, which compares a shadow semantic candidate extractor against the lexical baseline and fixed semantic expectations without mutating live semantics
+- `triage_semantic_candidate_disagreements`, which consumes that evaluation through its `target_task` context ref and turns candidate-only gaps into typed issues plus bounded follow-up recommendations
+- `draft_semantic_registry_update` can now consume either semantic triage output or bootstrap candidate discovery through its `source_task` context ref, while keeping publication on the existing verify/apply/reprocess path
+- `initialize_workspace_ontology`, which seeds an empty workspace from the generic upper ontology without assuming any sample-domain semantics already exist
+- `get_active_ontology_snapshot`, which exposes the DB-backed live ontology snapshot that semantic passes and generation now reference
+- `draft_ontology_extension`, which turns bootstrap or semantic-triage output into a reviewable additive ontology draft without mutating live state
+- `verify_draft_ontology_extension`, which checks that ontology draft against active documents before publication
+- `apply_ontology_extension`, which is approval-gated and publishes the verified ontology draft as the new active workspace snapshot
+- `build_document_fact_graph`, which compacts approved semantic assertions into a small reusable fact graph for grounded generation and later orchestration
+- `build_shadow_semantic_graph`, which compacts reviewed semantic assertions into a reusable cross-document shadow graph without mutating live state
+- `evaluate_semantic_relation_extractor`, which compares a shadow relation extractor against a deterministic baseline and fixed expected graph edges
+- `triage_semantic_graph_disagreements`, which consumes that evaluation through its `target_task` context ref and turns candidate-only graph gaps into typed issues plus bounded promotion follow-ups
+- `draft_graph_promotions`, which prepares a reviewable graph-memory snapshot update without changing the live graph
+- `verify_draft_graph_promotions`, which verifies those promotions against ontology compatibility, traceability, and conflict constraints
+- `apply_graph_promotions`, which is approval-gated and publishes the verified graph snapshot as the new active workspace graph memory
 - `prepare_semantic_generation_brief`, which builds a typed semantic dossier, section plan, claim set, and evidence pack for one bounded `knowledge_brief`
+- `prepare_semantic_generation_brief` can also consume approved graph memory so grounded briefs can pull in cross-document concept relations without reparsing raw evidence every time
+- `prepare_semantic_generation_brief` can also expose additive `shadow_candidates` and `shadow_candidate_summary` fields from the candidate layer while keeping grounded drafting tied only to the live dossier
 - `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
 - `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`
 - `enqueue_document_reprocess`, which is approval-gated and queues document reprocessing without changing the current active run until the normal ingest path completes successfully
+
+The portable ontology workflow keeps the repo domain agnostic: `config/upper_ontology.yaml` is the only shipped semantic seed, while corpus-derived ontology snapshots, approved facts, and workspace review state live in the database and can be rebuilt from arbitrary user data.
 
 ### Analytics and exports
 

@@ -16,6 +16,8 @@ The current experimental retrieval-accuracy track adds a non-default `prose_v3` 
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
+The semantics stack is now portable across arbitrary user corpora. The repo ships only a generic upper ontology seed plus workflow code; the active ontology, approved fact graph, and approved cross-document graph memory live in DB-backed snapshots that can be rebuilt from whatever documents a user ingests. Shadow semantic extractors and graph builders stay additive until they pass verification and an operator approves publication.
+
 The runtime now supports both loopback-local operator mode and authenticated remote mode. Loopback-local mode is still the smoothest path for the browser UI and ad hoc operator work. Remote mode supports either one legacy shared API key or actor-scoped credentials with per-principal capabilities for upload, inspection, quality, replay, chat, and agent-task surfaces.
 
 The repository versioning policy lives in [docs/versioning_policy.md](./docs/versioning_policy.md).
@@ -58,6 +60,7 @@ clearly separate non-platform tags from the semantics branch.
 - Local filesystem storage under `DOCLING_SYSTEM_STORAGE_ROOT`
 - Docker Compose definitions for local Postgres, migrations, API, worker, and agent worker
 - Static operator UI served from `/` with assets mounted under `/ui`
+- Generic upper ontology seed plus DB-backed active ontology, fact-graph, and semantic-graph snapshots
 
 ## Local Setup
 
@@ -439,6 +442,14 @@ The first promotable task is `enqueue_document_reprocess`. It is approval-gated,
 
 The current semantic-generation path is deliberately narrow. `prepare_semantic_generation_brief` builds a typed cross-document semantic dossier and claim/evidence brief, `draft_semantic_grounded_document` renders a bounded `knowledge_brief` draft plus markdown sidecar from that brief, and `verify_semantic_grounded_document` enforces claim traceability, evidence coverage, and required-concept coverage before downstream use.
 
+The current shadow semantic-learning path is also bounded. `export_semantic_supervision_corpus` exports reviewed semantic rows, semantic expectations, and grounded-document verification outcomes as durable JSON/JSONL supervision artifacts; `evaluate_semantic_candidate_extractor` compares a shadow candidate extractor against the lexical baseline on fixed documents and semantic expectations; `triage_semantic_candidate_disagreements` compacts the resulting candidate-only gaps into typed issues, verifier-style metrics, and bounded follow-up recommendations. `prepare_semantic_generation_brief` can also include shadow candidates in additive `shadow_candidates` fields without changing the live semantic dossier or grounded claims.
+
+For domain-agnostic bootstrap on arbitrary user data, `discover_semantic_bootstrap_candidates` now mines provisional concept candidates directly from active document corpora without assuming the current registry matches the domain. Those candidates remain explicitly provisional, but they can flow into the same governed `draft_semantic_registry_update -> verify_draft_semantic_registry_update -> apply_semantic_registry_update -> enqueue_document_reprocess` path as any other semantic contract change.
+
+The ontology layer is now portable across workspaces. The repo ships only a generic `config/upper_ontology.yaml` seed, while the live ontology contract is stored as DB-backed `semantic_ontology_snapshots` with one active workspace pointer. `initialize_workspace_ontology` seeds an empty workspace from the upper ontology, `get_active_ontology_snapshot` exposes the current live snapshot, `draft_ontology_extension -> verify_draft_ontology_extension -> apply_ontology_extension` governs additive ontology changes without mutating repo defaults, and `build_document_fact_graph` compacts approved semantic assertions into a minimal reusable fact graph for grounded generation.
+
+That split keeps the process portable: two different users can ingest different corpora, run the same workflow, and end up with different approved ontology snapshots and fact graphs without changing the repo code or shipping domain-specific defaults.
+
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
 
 ## Tables
@@ -490,6 +501,15 @@ uv run docling-system-agent-task-create triage_replay_regression --input-json '{
 uv run docling-system-agent-task-create draft_harness_config_update --input-json '{"draft_harness_name":"wide_v2_review","base_harness_name":"wide_v2","source_task_id":"<triage_task_id>","rationale":"publish a review harness","reranker_overrides":{"result_type_priority_bonus":0.009}}'
 uv run docling-system-agent-task-create verify_draft_harness_config --input-json '{"target_task_id":"<draft_task_id>","baseline_harness_name":"wide_v2","source_types":["evaluation_queries"],"limit":12,"max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
 uv run docling-system-agent-task-create apply_harness_config_update --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish review harness"}'
+uv run docling-system-agent-task-create export_semantic_supervision_corpus --input-json '{"document_ids":["<document_id>"],"reviewed_only":true,"include_generation_verifications":true}'
+uv run docling-system-agent-task-create evaluate_semantic_candidate_extractor --input-json '{"document_ids":["<document_id>"],"candidate_extractor_name":"concept_ranker_v1","baseline_extractor_name":"registry_lexical_v1","max_candidates_per_source":3,"score_threshold":0.34}'
+uv run docling-system-agent-task-create triage_semantic_candidate_disagreements --input-json '{"target_task_id":"<evaluation_task_id>","min_score":0.34,"include_expected_only":false}'
+uv run docling-system-agent-task-create initialize_workspace_ontology --input-json '{}'
+uv run docling-system-agent-task-create get_active_ontology_snapshot --input-json '{}'
+uv run docling-system-agent-task-create draft_ontology_extension --input-json '{"source_task_id":"<bootstrap_or_triage_task_id>","rationale":"publish corpus-derived ontology extensions"}'
+uv run docling-system-agent-task-create verify_draft_ontology_extension --input-json '{"target_task_id":"<draft_task_id>","max_regressed_document_count":0,"max_failed_expectation_increase":0,"min_improved_document_count":1}'
+uv run docling-system-agent-task-create apply_ontology_extension --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish verified ontology extension"}'
+uv run docling-system-agent-task-create build_document_fact_graph --input-json '{"document_id":"<document_id>","minimum_review_status":"approved"}'
 uv run docling-system-agent-task-create prepare_semantic_generation_brief --input-json '{"title":"Integration Governance Brief","goal":"Summarize the knowledge base guidance on integration governance.","audience":"Operators","document_ids":["<document_id>"],"target_length":"medium","review_policy":"allow_candidate_with_disclosure"}'
 uv run docling-system-agent-task-create draft_semantic_grounded_document --input-json '{"target_task_id":"<brief_task_id>"}'
 uv run docling-system-agent-task-create verify_semantic_grounded_document --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true}'

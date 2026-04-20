@@ -1,18 +1,29 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 import yaml
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.text import collapse_whitespace
+from app.core.time import utcnow
+from app.db.models import (
+    SemanticOntologySnapshot,
+    SemanticOntologySourceKind,
+    WorkspaceSemanticState,
+)
 
 NORMALIZE_PATTERN = re.compile(r"[^a-z0-9]+")
+WORKSPACE_SEMANTIC_STATE_KEY = "default"
 
 
 def normalize_semantic_text(value: str | None) -> str:
@@ -46,12 +57,23 @@ class SemanticRegistryCategoryDefinition:
 
 
 @dataclass(frozen=True)
+class SemanticRegistryRelationDefinition:
+    relation_key: str
+    preferred_label: str
+    scope_note: str | None
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class SemanticRegistry:
     registry_name: str
     registry_version: str
     sha256: str
     categories: tuple[SemanticRegistryCategoryDefinition, ...]
     concepts: tuple[SemanticRegistryConceptDefinition, ...]
+    relations: tuple[SemanticRegistryRelationDefinition, ...] = ()
+    snapshot_id: UUID | None = None
+    upper_ontology_version: str | None = None
 
 
 def _validate_registry_payload(payload: Any) -> dict[str, Any]:
@@ -97,6 +119,9 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
     registry_version = collapse_whitespace(str(payload.get("registry_version") or ""))
     if not registry_version:
         raise ValueError("Semantic registry requires registry_version.")
+    upper_ontology_version = collapse_whitespace(
+        str(payload.get("upper_ontology_version") or registry_version)
+    )
 
     raw_categories = payload.get("categories") or []
     if not isinstance(raw_categories, list):
@@ -181,12 +206,44 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
             )
         )
 
+    raw_relations = payload.get("relations") or []
+    if raw_relations and not isinstance(raw_relations, list):
+        raise ValueError("Semantic registry relations must be a list.")
+    relations: list[SemanticRegistryRelationDefinition] = []
+    seen_relation_keys: set[str] = set()
+    for raw_relation in raw_relations:
+        if not isinstance(raw_relation, dict):
+            raise ValueError("Each semantic relation must be a mapping.")
+        relation_key = collapse_whitespace(str(raw_relation.get("relation_key") or ""))
+        if not relation_key:
+            raise ValueError("Semantic relations require relation_key.")
+        if relation_key in seen_relation_keys:
+            raise ValueError(f"Duplicate semantic relation key: {relation_key}")
+        seen_relation_keys.add(relation_key)
+        preferred_label = collapse_whitespace(str(raw_relation.get("preferred_label") or ""))
+        if not preferred_label:
+            raise ValueError("Semantic relations require a non-empty preferred_label.")
+        relations.append(
+            SemanticRegistryRelationDefinition(
+                relation_key=relation_key,
+                preferred_label=preferred_label,
+                scope_note=collapse_whitespace(str(raw_relation.get("scope_note") or "")) or None,
+                metadata={
+                    key: value
+                    for key, value in raw_relation.items()
+                    if key not in {"relation_key", "preferred_label", "scope_note"}
+                },
+            )
+        )
+
     return SemanticRegistry(
         registry_name=registry_name,
         registry_version=registry_version,
         sha256=hashlib.sha256(raw_bytes).hexdigest(),
         categories=tuple(categories),
         concepts=tuple(concepts),
+        relations=tuple(relations),
+        upper_ontology_version=upper_ontology_version,
     )
 
 
@@ -200,11 +257,18 @@ def semantic_registry_from_payload(payload: dict[str, Any]) -> SemanticRegistry:
     return _semantic_registry_from_payload(raw_bytes, normalized_payload)
 
 
+def _resolve_seed_registry_path() -> Path:
+    settings = get_settings()
+    if settings.semantic_registry_path is not None:
+        return settings.semantic_registry_path.expanduser().resolve()
+    return settings.upper_ontology_path.expanduser().resolve()
+
+
 def load_semantic_registry_payload(registry_path: str | Path | None = None) -> dict[str, Any]:
     current_path = (
         Path(registry_path).expanduser().resolve()
         if registry_path is not None
-        else get_settings().semantic_registry_path.expanduser().resolve()
+        else _resolve_seed_registry_path()
     )
     if not current_path.is_file():
         raise ValueError(f"Semantic registry path does not exist: {current_path}")
@@ -224,7 +288,7 @@ def write_semantic_registry_payload(
     current_path = (
         Path(registry_path).expanduser().resolve()
         if registry_path is not None
-        else get_settings().semantic_registry_path.expanduser().resolve()
+        else _resolve_seed_registry_path()
     )
     current_path.parent.mkdir(parents=True, exist_ok=True)
     current_path.write_text(
@@ -253,7 +317,165 @@ def _load_semantic_registry_cached(registry_path: str) -> SemanticRegistry:
     return _load_semantic_registry(registry_path)
 
 
-def get_semantic_registry() -> SemanticRegistry:
-    settings = get_settings()
-    registry_path = settings.semantic_registry_path.expanduser().resolve()
+def _snapshot_payload_sha256(payload: dict[str, Any]) -> str:
+    normalized_payload = _validate_registry_payload(payload)
+    return hashlib.sha256(
+        json.dumps(
+            normalized_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _workspace_state(session: Session) -> WorkspaceSemanticState | None:
+    return session.get(WorkspaceSemanticState, WORKSPACE_SEMANTIC_STATE_KEY)
+
+
+def _snapshot_to_registry(snapshot: SemanticOntologySnapshot) -> SemanticRegistry:
+    registry = semantic_registry_from_payload(snapshot.payload_json or {})
+    return SemanticRegistry(
+        registry_name=registry.registry_name,
+        registry_version=registry.registry_version,
+        sha256=snapshot.sha256,
+        categories=registry.categories,
+        concepts=registry.concepts,
+        relations=registry.relations,
+        snapshot_id=snapshot.id,
+        upper_ontology_version=snapshot.upper_ontology_version,
+    )
+
+
+def persist_semantic_ontology_snapshot(
+    session: Session,
+    payload: dict[str, Any],
+    *,
+    source_kind: str,
+    source_task_id: UUID | None = None,
+    source_task_type: str | None = None,
+    parent_snapshot_id: UUID | None = None,
+    activate: bool = False,
+) -> SemanticOntologySnapshot:
+    registry = semantic_registry_from_payload(payload)
+    normalized_payload = _validate_registry_payload(payload)
+    incoming_sha256 = _snapshot_payload_sha256(normalized_payload)
+    now = utcnow()
+    requested_parent_snapshot_id = parent_snapshot_id
+    snapshot = session.execute(
+        select(SemanticOntologySnapshot).where(
+            SemanticOntologySnapshot.ontology_version == registry.registry_version
+        )
+    ).scalar_one_or_none()
+    if snapshot is None:
+        snapshot = SemanticOntologySnapshot(
+            ontology_name=registry.registry_name,
+            ontology_version=registry.registry_version,
+            upper_ontology_version=registry.upper_ontology_version or registry.registry_version,
+            source_kind=source_kind,
+            source_task_id=source_task_id,
+            source_task_type=source_task_type,
+            parent_snapshot_id=requested_parent_snapshot_id,
+            payload_json=normalized_payload,
+            sha256=incoming_sha256,
+            created_at=now,
+            activated_at=now if activate else None,
+        )
+        session.add(snapshot)
+        session.flush()
+    else:
+        if (
+            snapshot.source_kind == SemanticOntologySourceKind.UPPER_SEED.value
+            and source_kind == SemanticOntologySourceKind.UPPER_SEED.value
+        ):
+            resolved_parent_snapshot_id = requested_parent_snapshot_id
+            if resolved_parent_snapshot_id == snapshot.id:
+                resolved_parent_snapshot_id = snapshot.parent_snapshot_id
+            snapshot.ontology_name = registry.registry_name
+            snapshot.upper_ontology_version = (
+                registry.upper_ontology_version or registry.registry_version
+            )
+            snapshot.source_kind = source_kind
+            snapshot.source_task_id = source_task_id
+            snapshot.source_task_type = source_task_type
+            snapshot.parent_snapshot_id = resolved_parent_snapshot_id
+            snapshot.payload_json = normalized_payload
+            snapshot.sha256 = incoming_sha256
+        elif snapshot.sha256 != incoming_sha256:
+            raise ValueError(
+                "Semantic ontology snapshot versions are immutable once published; "
+                "choose a new ontology_version for changed payloads."
+            )
+        if activate:
+            snapshot.activated_at = now
+    if activate:
+        state = _workspace_state(session)
+        if state is None:
+            state = WorkspaceSemanticState(
+                workspace_key=WORKSPACE_SEMANTIC_STATE_KEY,
+                active_ontology_snapshot_id=snapshot.id,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(state)
+        else:
+            state.active_ontology_snapshot_id = snapshot.id
+            state.updated_at = now
+        snapshot.activated_at = now
+        clear_semantic_registry_cache()
+    session.flush()
+    return snapshot
+
+
+def ensure_workspace_semantic_registry(session: Session) -> SemanticRegistry:
+    state = _workspace_state(session)
+    if state is not None and state.active_ontology_snapshot_id is not None:
+        snapshot = session.get(SemanticOntologySnapshot, state.active_ontology_snapshot_id)
+        if snapshot is not None:
+            if snapshot.source_kind != SemanticOntologySourceKind.UPPER_SEED.value:
+                return _snapshot_to_registry(snapshot)
+
+            seed_payload = load_semantic_registry_payload()
+            seed_sha256 = _snapshot_payload_sha256(seed_payload)
+            if snapshot.sha256 == seed_sha256:
+                return _snapshot_to_registry(snapshot)
+
+            synced_snapshot = persist_semantic_ontology_snapshot(
+                session,
+                seed_payload,
+                source_kind=SemanticOntologySourceKind.UPPER_SEED.value,
+                parent_snapshot_id=snapshot.id,
+                activate=True,
+            )
+            session.commit()
+            return _snapshot_to_registry(synced_snapshot)
+
+    seed_payload = load_semantic_registry_payload()
+    snapshot = persist_semantic_ontology_snapshot(
+        session,
+        seed_payload,
+        source_kind=SemanticOntologySourceKind.UPPER_SEED.value,
+        activate=True,
+    )
+    session.commit()
+    return _snapshot_to_registry(snapshot)
+
+
+def get_active_semantic_ontology_snapshot(session: Session) -> SemanticOntologySnapshot:
+    state = _workspace_state(session)
+    if state is None or state.active_ontology_snapshot_id is None:
+        ensure_workspace_semantic_registry(session)
+        state = _workspace_state(session)
+    if state is None or state.active_ontology_snapshot_id is None:
+        raise ValueError("Workspace semantic state is missing an active ontology snapshot.")
+    snapshot = session.get(SemanticOntologySnapshot, state.active_ontology_snapshot_id)
+    if snapshot is None:
+        raise ValueError("Active ontology snapshot disappeared.")
+    return snapshot
+
+
+def get_semantic_registry(session: Session | None = None) -> SemanticRegistry:
+    if session is not None:
+        return ensure_workspace_semantic_registry(session)
+    registry_path = _resolve_seed_registry_path()
     return _load_semantic_registry_cached(str(registry_path))
