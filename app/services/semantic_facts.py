@@ -18,6 +18,10 @@ from app.db.models import (
     SemanticOntologySnapshot,
     SemanticReviewStatus,
 )
+from app.services.semantic_registry import (
+    get_semantic_registry,
+    validate_semantic_relation_instance,
+)
 from app.services.semantics import get_active_semantic_pass_detail, get_active_semantic_pass_row
 
 DOCUMENT_MENTIONS_CONCEPT_RELATION_KEY = "document_mentions_concept"
@@ -38,11 +42,10 @@ def _fact_graph_success_metrics(
     approved_fact_count: int,
     entity_count: int,
     supported_fact_count: int,
+    constraint_valid_fact_count: int,
     minimum_review_status: str,
 ) -> list[dict[str, Any]]:
-    approved_fact_support_ratio = (
-        approved_fact_count / fact_count if fact_count else 0.0
-    )
+    approved_fact_support_ratio = approved_fact_count / fact_count if fact_count else 0.0
     return [
         {
             "metric_key": "semantic_integrity",
@@ -52,6 +55,16 @@ def _fact_graph_success_metrics(
             "details": {
                 "fact_count": fact_count,
                 "supported_fact_count": supported_fact_count,
+            },
+        },
+        {
+            "metric_key": "constraint_valid_relation_ratio",
+            "stakeholder": "Milestone",
+            "passed": fact_count == constraint_valid_fact_count,
+            "summary": "Every fact satisfies the active ontology relation constraints.",
+            "details": {
+                "fact_count": fact_count,
+                "constraint_valid_fact_count": constraint_valid_fact_count,
             },
         },
         {
@@ -74,15 +87,22 @@ def _fact_graph_success_metrics(
         {
             "metric_key": "owned_context",
             "stakeholder": "Jones",
-            "passed": fact_count > 0 or minimum_review_status == SemanticReviewStatus.APPROVED.value,
-            "summary": "The workspace stores reusable fact context instead of recomputing it ad hoc.",
+            "passed": fact_count > 0
+            or minimum_review_status == SemanticReviewStatus.APPROVED.value,
+            "summary": (
+                "The workspace stores reusable fact context instead of "
+                "recomputing it ad hoc."
+            ),
             "details": {"fact_count": fact_count},
         },
         {
             "metric_key": "memory_compaction",
             "stakeholder": "Yegge",
             "passed": fact_count >= 0 and entity_count >= fact_count,
-            "summary": "The fact graph compacts assertion evidence into a smaller relational memory surface.",
+            "summary": (
+                "The fact graph compacts assertion evidence into a smaller "
+                "relational memory surface."
+            ),
             "details": {
                 "fact_count": fact_count,
                 "entity_count": entity_count,
@@ -179,17 +199,19 @@ def list_document_semantic_facts(
     evidence_ids_by_fact: dict[UUID, list[UUID]] = {}
     for evidence in evidence_rows:
         if evidence.assertion_evidence_id is not None:
-            evidence_ids_by_fact.setdefault(evidence.fact_id, []).append(evidence.assertion_evidence_id)
+            evidence_ids_by_fact.setdefault(evidence.fact_id, []).append(
+                evidence.assertion_evidence_id
+            )
 
-    entity_ids = {
-        row.subject_entity_id for row in rows
-    } | {row.object_entity_id for row in rows if row.object_entity_id is not None}
+    entity_ids = {row.subject_entity_id for row in rows} | {
+        row.object_entity_id for row in rows if row.object_entity_id is not None
+    }
     entities = {
         entity.id: entity
         for entity in (
-            session.execute(
-                select(SemanticEntity).where(SemanticEntity.id.in_(entity_ids))
-            ).scalars().all()
+            session.execute(select(SemanticEntity).where(SemanticEntity.id.in_(entity_ids)))
+            .scalars()
+            .all()
             if entity_ids
             else []
         )
@@ -244,6 +266,7 @@ def build_document_fact_graph(
         else None
     )
     relation_label = _fact_relation_label(snapshot)
+    registry = get_semantic_registry(session)
 
     prior_fact_ids = list(
         session.execute(
@@ -254,9 +277,9 @@ def build_document_fact_graph(
         session.query(SemanticFactEvidence).filter(
             SemanticFactEvidence.fact_id.in_(prior_fact_ids)
         ).delete(synchronize_session=False)
-        session.query(SemanticFact).filter(
-            SemanticFact.id.in_(prior_fact_ids)
-        ).delete(synchronize_session=False)
+        session.query(SemanticFact).filter(SemanticFact.id.in_(prior_fact_ids)).delete(
+            synchronize_session=False
+        )
     session.flush()
 
     document_entity = _upsert_entity(
@@ -273,12 +296,15 @@ def build_document_fact_graph(
     )
 
     approved_fact_count = 0
+    constraint_valid_fact_count = 0
     entity_ids: set[UUID] = {document_entity.id}
     for assertion in semantic_pass_detail.assertions:
         if _review_rank(assertion.review_status) < minimum_rank:
             continue
         assertion_row = session.get(SemanticAssertion, assertion.assertion_id)
-        concept_row = session.get(SemanticConcept, assertion_row.concept_id) if assertion_row else None
+        concept_row = (
+            session.get(SemanticConcept, assertion_row.concept_id) if assertion_row else None
+        )
         concept_entity = _upsert_entity(
             session,
             entity_key=f"concept:{assertion.concept_key}",
@@ -292,6 +318,15 @@ def build_document_fact_graph(
             },
         )
         entity_ids.add(concept_entity.id)
+        validation_errors = validate_semantic_relation_instance(
+            registry,
+            relation_key=DOCUMENT_MENTIONS_CONCEPT_RELATION_KEY,
+            subject_entity_key=document_entity.entity_key,
+            object_entity_key=concept_entity.entity_key,
+        )
+        if validation_errors:
+            raise ValueError("; ".join(validation_errors))
+        constraint_valid_fact_count += 1
         fact = SemanticFact(
             document_id=document.id,
             run_id=semantic_pass.run_id,
@@ -354,6 +389,7 @@ def build_document_fact_graph(
             approved_fact_count=approved_fact_count,
             entity_count=entity_count,
             supported_fact_count=supported_fact_count,
+            constraint_valid_fact_count=constraint_valid_fact_count,
             minimum_review_status=minimum_review_status,
         ),
     }

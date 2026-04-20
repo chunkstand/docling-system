@@ -65,8 +65,39 @@ concepts:
 relations:
   - relation_key: document_mentions_concept
     preferred_label: Document Mentions Concept
+    domain_entity_types:
+      - document
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
   - relation_key: concept_related_to_concept
     preferred_label: Concept Related To Concept
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: true
+    allow_literal_object: false
+    inverse_relation_key: concept_related_to_concept
+  - relation_key: concept_depends_on_concept
+    preferred_label: Concept Depends On Concept
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    inverse_relation_key: concept_enables_concept
+  - relation_key: concept_enables_concept
+    preferred_label: Concept Enables Concept
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    inverse_relation_key: concept_depends_on_concept
 """
     )
 
@@ -113,10 +144,12 @@ documents:
     )
 
 
-def _build_parsed_document(*, title: str, threshold_phrase: str, owner_phrase: str) -> ParsedDocument:
+def _build_parsed_document(
+    *, title: str, threshold_phrase: str, owner_phrase: str
+) -> ParsedDocument:
     chunk_text = (
         f"{title} keeps the {threshold_phrase} in force and assigns an {owner_phrase} "
-        "for every rollout."
+        f"that depends on the {threshold_phrase} for every rollout."
     )
     table_rows = [
         ["Tier", "Threshold"],
@@ -281,7 +314,7 @@ def test_semantic_graph_roundtrip(
             files={
                 "file": (
                     source_filename,
-                    valid_test_pdf_bytes() + f"\n% {source_filename}\n".encode("utf-8"),
+                    valid_test_pdf_bytes() + f"\n% {source_filename}\n".encode(),
                     "application/pdf",
                 )
             },
@@ -289,7 +322,9 @@ def test_semantic_graph_roundtrip(
         assert create_response.status_code == 202
         document_ids.append(UUID(create_response.json()["document_id"]))
         run_ids.append(UUID(create_response.json()["run_id"]))
-        processed_run_id = postgres_integration_harness.process_next_run(StubParser(parsed_document))
+        processed_run_id = postgres_integration_harness.process_next_run(
+            StubParser(parsed_document)
+        )
         assert processed_run_id == run_ids[-1]
 
     for document_id in document_ids:
@@ -322,7 +357,11 @@ def test_semantic_graph_roundtrip(
         build_task_row = session.get(AgentTask, build_task_id)
         assert build_task_row is not None
         build_payload = build_task_row.result_json["payload"]
-        assert build_payload["shadow_graph"]["edge_count"] == 1
+        assert build_payload["shadow_graph"]["edge_count"] == 2
+        assert build_payload["shadow_graph"]["summary"]["relation_key_counts"] == {
+            "concept_depends_on_concept": 1,
+            "concept_related_to_concept": 1,
+        }
         assert any(
             metric["metric_key"] == "memory_compaction" and metric["passed"]
             for metric in build_payload["shadow_graph"]["success_metrics"]
@@ -377,7 +416,7 @@ def test_semantic_graph_roundtrip(
         triage_task_row = session.get(AgentTask, triage_task_id)
         assert triage_task_row is not None
         triage_payload = triage_task_row.result_json["payload"]
-        assert triage_payload["disagreement_report"]["issue_count"] == 1
+        assert triage_payload["disagreement_report"]["issue_count"] == 2
         assert triage_payload["recommendation"]["next_action"] == "draft_graph_promotions"
 
         draft_task = create_agent_task(
@@ -400,7 +439,11 @@ def test_semantic_graph_roundtrip(
         draft_task_row = session.get(AgentTask, draft_task_id)
         assert draft_task_row is not None
         draft_payload = draft_task_row.result_json["payload"]["draft"]
-        assert len(draft_payload["promoted_edges"]) == 1
+        assert len(draft_payload["promoted_edges"]) == 2
+        assert {edge["relation_key"] for edge in draft_payload["promoted_edges"]} == {
+            "concept_related_to_concept",
+            "concept_depends_on_concept",
+        }
         assert any(
             metric["metric_key"] == "semantic_integrity" and metric["passed"]
             for metric in draft_payload["success_metrics"]
@@ -428,7 +471,7 @@ def test_semantic_graph_roundtrip(
         assert verify_task_row is not None
         verify_payload = verify_task_row.result_json["payload"]
         assert verify_payload["verification"]["outcome"] == "passed"
-        assert verify_payload["summary"]["supported_edge_count"] == 1
+        assert verify_payload["summary"]["supported_edge_count"] == 2
         assert any(
             metric["metric_key"] == "semantic_integrity" and metric["passed"]
             for metric in verify_payload["success_metrics"]
@@ -467,11 +510,11 @@ def test_semantic_graph_roundtrip(
         apply_task_row = session.get(AgentTask, apply_task_id)
         assert apply_task_row is not None
         apply_payload = apply_task_row.result_json["payload"]
-        assert apply_payload["applied_edge_count"] == 1
+        assert apply_payload["applied_edge_count"] == 2
         active_graph = get_active_semantic_graph_snapshot(session)
         assert active_graph is not None
         assert active_graph.graph_version == apply_payload["applied_graph_version"]
-        assert len((active_graph.payload_json or {}).get("edges") or []) == 1
+        assert len((active_graph.payload_json or {}).get("edges") or []) == 2
 
         brief_task = create_agent_task(
             session,
@@ -497,7 +540,7 @@ def test_semantic_graph_roundtrip(
         brief_task_row = session.get(AgentTask, brief_task_id)
         assert brief_task_row is not None
         brief_payload = brief_task_row.result_json["payload"]["brief"]
-        assert brief_payload["graph_summary"]["edge_count"] == 1
+        assert brief_payload["graph_summary"]["edge_count"] == 2
         assert set(brief_payload["selected_concept_keys"]) == {
             "integration_owner",
             "integration_threshold",
@@ -508,13 +551,18 @@ def test_semantic_graph_roundtrip(
         )
         assert any(claim["graph_edge_ids"] for claim in brief_payload["claim_candidates"])
         assert any(
+            "depends on concept" in claim["summary"].lower()
+            for claim in brief_payload["claim_candidates"]
+            if claim["graph_edge_ids"]
+        )
+        assert any(
             metric["metric_key"] == "semantic_integrity" and metric["passed"]
             for metric in brief_payload["success_metrics"]
         )
 
     build_context = client.get(f"/agent-tasks/{build_task_id}/context")
     assert build_context.status_code == 200
-    assert build_context.json()["summary"]["metrics"]["edge_count"] == 1
+    assert build_context.json()["summary"]["metrics"]["edge_count"] == 2
 
     apply_context = client.get(f"/agent-tasks/{apply_task_id}/context")
     assert apply_context.status_code == 200

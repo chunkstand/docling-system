@@ -24,6 +24,11 @@ from app.db.models import (
 
 NORMALIZE_PATTERN = re.compile(r"[^a-z0-9]+")
 WORKSPACE_SEMANTIC_STATE_KEY = "default"
+DEFAULT_ENTITY_TYPE_DEFINITIONS = (
+    ("document", "Document"),
+    ("concept", "Concept"),
+    ("literal", "Literal"),
+)
 
 
 def normalize_semantic_text(value: str | None) -> str:
@@ -57,10 +62,24 @@ class SemanticRegistryCategoryDefinition:
 
 
 @dataclass(frozen=True)
+class SemanticRegistryEntityTypeDefinition:
+    entity_type: str
+    preferred_label: str
+    scope_note: str | None
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class SemanticRegistryRelationDefinition:
     relation_key: str
     preferred_label: str
     scope_note: str | None
+    domain_entity_types: tuple[str, ...]
+    range_entity_types: tuple[str, ...]
+    symmetric: bool
+    allow_literal_object: bool
+    cardinality_hint: str | None
+    inverse_relation_key: str | None
     metadata: dict[str, Any]
 
 
@@ -71,6 +90,7 @@ class SemanticRegistry:
     sha256: str
     categories: tuple[SemanticRegistryCategoryDefinition, ...]
     concepts: tuple[SemanticRegistryConceptDefinition, ...]
+    entity_types: tuple[SemanticRegistryEntityTypeDefinition, ...] = ()
     relations: tuple[SemanticRegistryRelationDefinition, ...] = ()
     snapshot_id: UUID | None = None
     upper_ontology_version: str | None = None
@@ -93,9 +113,10 @@ def _concept_terms(concept_payload: dict[str, Any]) -> tuple[SemanticRegistryTer
 
     terms: list[SemanticRegistryTermDefinition] = []
     seen: set[str] = set()
-    for term_text, term_kind in [(preferred_label, "preferred_label"), *[
-        (collapse_whitespace(str(item or "")), "alias") for item in raw_aliases
-    ]]:
+    for term_text, term_kind in [
+        (preferred_label, "preferred_label"),
+        *[(collapse_whitespace(str(item or "")), "alias") for item in raw_aliases],
+    ]:
         if not term_text:
             continue
         normalized = normalize_semantic_text(term_text)
@@ -149,6 +170,45 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                     key: value
                     for key, value in raw_category.items()
                     if key not in {"category_key", "preferred_label", "scope_note"}
+                },
+            )
+        )
+
+    raw_entity_types = payload.get("entity_types")
+    if raw_entity_types is None:
+        raw_entity_types = [
+            {
+                "entity_type": entity_type,
+                "preferred_label": preferred_label,
+            }
+            for entity_type, preferred_label in DEFAULT_ENTITY_TYPE_DEFINITIONS
+        ]
+    if not isinstance(raw_entity_types, list):
+        raise ValueError("Semantic registry entity_types must be a list when provided.")
+    entity_types: list[SemanticRegistryEntityTypeDefinition] = []
+    seen_entity_types: set[str] = set()
+    for raw_entity_type in raw_entity_types:
+        if not isinstance(raw_entity_type, dict):
+            raise ValueError("Each semantic entity type must be a mapping.")
+        entity_type = collapse_whitespace(str(raw_entity_type.get("entity_type") or ""))
+        if not entity_type:
+            raise ValueError("Semantic entity types require entity_type.")
+        if entity_type in seen_entity_types:
+            raise ValueError(f"Duplicate semantic entity type: {entity_type}")
+        seen_entity_types.add(entity_type)
+        preferred_label = collapse_whitespace(str(raw_entity_type.get("preferred_label") or ""))
+        if not preferred_label:
+            raise ValueError("Semantic entity types require a non-empty preferred_label.")
+        entity_types.append(
+            SemanticRegistryEntityTypeDefinition(
+                entity_type=entity_type,
+                preferred_label=preferred_label,
+                scope_note=collapse_whitespace(str(raw_entity_type.get("scope_note") or ""))
+                or None,
+                metadata={
+                    key: value
+                    for key, value in raw_entity_type.items()
+                    if key not in {"entity_type", "preferred_label", "scope_note"}
                 },
             )
         )
@@ -223,18 +283,102 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
         preferred_label = collapse_whitespace(str(raw_relation.get("preferred_label") or ""))
         if not preferred_label:
             raise ValueError("Semantic relations require a non-empty preferred_label.")
+        raw_domain_entity_types = raw_relation.get("domain_entity_types")
+        if raw_domain_entity_types is None:
+            raw_domain_entity_types = (
+                ["document"] if relation_key == "document_mentions_concept" else ["concept"]
+            )
+        if not isinstance(raw_domain_entity_types, list):
+            raise ValueError("Semantic relation domain_entity_types must be a list.")
+        domain_entity_types = tuple(
+            sorted(
+                collapse_whitespace(str(value or ""))
+                for value in raw_domain_entity_types
+                if collapse_whitespace(str(value or ""))
+            )
+        )
+        if not domain_entity_types:
+            raise ValueError("Semantic relations require at least one domain_entity_type.")
+        raw_range_entity_types = raw_relation.get("range_entity_types")
+        if raw_range_entity_types is None:
+            raw_range_entity_types = ["concept"]
+        if not isinstance(raw_range_entity_types, list):
+            raise ValueError("Semantic relation range_entity_types must be a list.")
+        range_entity_types = tuple(
+            sorted(
+                collapse_whitespace(str(value or ""))
+                for value in raw_range_entity_types
+                if collapse_whitespace(str(value or ""))
+            )
+        )
+        if not range_entity_types:
+            raise ValueError("Semantic relations require at least one range_entity_type.")
+        for entity_type in (*domain_entity_types, *range_entity_types):
+            if entity_type not in seen_entity_types:
+                raise ValueError(f"Semantic relation references unknown entity_type: {entity_type}")
+        symmetric = bool(raw_relation.get("symmetric", False))
+        allow_literal_object = bool(raw_relation.get("allow_literal_object", False))
+        if allow_literal_object and "literal" not in seen_entity_types:
+            raise ValueError(
+                "Semantic relations that allow literal objects require the literal entity type."
+            )
+        cardinality_hint = (
+            collapse_whitespace(str(raw_relation.get("cardinality_hint") or "")) or None
+        )
+        inverse_relation_key = (
+            collapse_whitespace(str(raw_relation.get("inverse_relation_key") or "")) or None
+        )
         relations.append(
             SemanticRegistryRelationDefinition(
                 relation_key=relation_key,
                 preferred_label=preferred_label,
                 scope_note=collapse_whitespace(str(raw_relation.get("scope_note") or "")) or None,
+                domain_entity_types=domain_entity_types,
+                range_entity_types=range_entity_types,
+                symmetric=symmetric,
+                allow_literal_object=allow_literal_object,
+                cardinality_hint=cardinality_hint,
+                inverse_relation_key=inverse_relation_key,
                 metadata={
                     key: value
                     for key, value in raw_relation.items()
-                    if key not in {"relation_key", "preferred_label", "scope_note"}
+                    if key
+                    not in {
+                        "relation_key",
+                        "preferred_label",
+                        "scope_note",
+                        "domain_entity_types",
+                        "range_entity_types",
+                        "symmetric",
+                        "allow_literal_object",
+                        "cardinality_hint",
+                        "inverse_relation_key",
+                    }
                 },
             )
         )
+    relations_by_key = {relation.relation_key: relation for relation in relations}
+    for relation in relations:
+        if relation.inverse_relation_key is None:
+            continue
+        inverse = relations_by_key.get(relation.inverse_relation_key)
+        if inverse is None:
+            raise ValueError(
+                f"Semantic relation {relation.relation_key} references "
+                "unknown inverse_relation_key "
+                f"{relation.inverse_relation_key}."
+            )
+        if inverse.inverse_relation_key not in {None, relation.relation_key}:
+            raise ValueError(
+                f"Semantic relation inverse mismatch: {relation.relation_key} -> "
+                f"{relation.inverse_relation_key}, but inverse points to "
+                f"{inverse.inverse_relation_key}."
+            )
+        if relation.symmetric and relation.inverse_relation_key != relation.relation_key:
+            raise ValueError(
+                f"Symmetric semantic relation {relation.relation_key} must point its inverse "
+                "to itself when inverse_relation_key is set."
+            )
 
     return SemanticRegistry(
         registry_name=registry_name,
@@ -242,6 +386,7 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
         sha256=hashlib.sha256(raw_bytes).hexdigest(),
         categories=tuple(categories),
         concepts=tuple(concepts),
+        entity_types=tuple(entity_types),
         relations=tuple(relations),
         upper_ontology_version=upper_ontology_version,
     )
@@ -341,10 +486,114 @@ def _snapshot_to_registry(snapshot: SemanticOntologySnapshot) -> SemanticRegistr
         sha256=snapshot.sha256,
         categories=registry.categories,
         concepts=registry.concepts,
+        entity_types=registry.entity_types,
         relations=registry.relations,
         snapshot_id=snapshot.id,
         upper_ontology_version=snapshot.upper_ontology_version,
     )
+
+
+def semantic_entity_types_by_name(
+    registry: SemanticRegistry,
+) -> dict[str, SemanticRegistryEntityTypeDefinition]:
+    return {entity_type.entity_type: entity_type for entity_type in registry.entity_types}
+
+
+def semantic_relations_by_key(
+    registry: SemanticRegistry,
+) -> dict[str, SemanticRegistryRelationDefinition]:
+    return {relation.relation_key: relation for relation in registry.relations}
+
+
+def get_semantic_relation_definition(
+    registry: SemanticRegistry,
+    relation_key: str,
+) -> SemanticRegistryRelationDefinition | None:
+    normalized_key = collapse_whitespace(relation_key)
+    if not normalized_key:
+        return None
+    return semantic_relations_by_key(registry).get(normalized_key)
+
+
+def infer_semantic_entity_type(
+    registry: SemanticRegistry,
+    entity_key: str | None,
+    *,
+    object_value_text: str | None = None,
+) -> str | None:
+    known_entity_types = set(semantic_entity_types_by_name(registry))
+    normalized_key = collapse_whitespace(entity_key or "")
+    if normalized_key and ":" in normalized_key:
+        entity_type = normalized_key.split(":", 1)[0]
+        if entity_type in known_entity_types:
+            return entity_type
+    if object_value_text is not None and "literal" in known_entity_types:
+        return "literal"
+    return None
+
+
+def canonicalize_semantic_relation_endpoints(
+    registry: SemanticRegistry,
+    *,
+    relation_key: str,
+    subject_entity_key: str,
+    subject_label: str,
+    object_entity_key: str | None,
+    object_label: str | None,
+) -> tuple[str, str, str | None, str | None]:
+    relation = get_semantic_relation_definition(registry, relation_key)
+    if relation is None or not relation.symmetric or object_entity_key is None:
+        return subject_entity_key, subject_label, object_entity_key, object_label
+    if subject_entity_key <= object_entity_key:
+        return subject_entity_key, subject_label, object_entity_key, object_label
+    return object_entity_key, object_label or object_entity_key, subject_entity_key, subject_label
+
+
+def validate_semantic_relation_instance(
+    registry: SemanticRegistry,
+    *,
+    relation_key: str,
+    subject_entity_key: str,
+    object_entity_key: str | None,
+    object_value_text: str | None = None,
+) -> list[str]:
+    reasons: list[str] = []
+    relation = get_semantic_relation_definition(registry, relation_key)
+    if relation is None:
+        return [f"Unknown semantic relation: {relation_key}"]
+
+    subject_entity_type = infer_semantic_entity_type(registry, subject_entity_key)
+    if subject_entity_type is None:
+        reasons.append(f"Unable to infer subject entity type for {subject_entity_key}.")
+    elif subject_entity_type not in relation.domain_entity_types:
+        reasons.append(
+            f"Relation {relation_key} does not allow subject entity type {subject_entity_type}."
+        )
+
+    object_entity_type = infer_semantic_entity_type(
+        registry,
+        object_entity_key,
+        object_value_text=object_value_text,
+    )
+    if object_value_text is not None:
+        if not relation.allow_literal_object:
+            reasons.append(f"Relation {relation_key} does not allow literal object values.")
+        elif object_entity_type != "literal":
+            reasons.append(
+                f"Relation {relation_key} expected a literal object type, "
+                f"received {object_entity_type!r}."
+            )
+    else:
+        if object_entity_key is None:
+            reasons.append(f"Relation {relation_key} requires an object entity key.")
+        elif object_entity_type is None:
+            reasons.append(f"Unable to infer object entity type for {object_entity_key}.")
+        elif object_entity_type not in relation.range_entity_types:
+            reasons.append(
+                f"Relation {relation_key} does not allow object entity type {object_entity_type}."
+            )
+
+    return reasons
 
 
 def persist_semantic_ontology_snapshot(

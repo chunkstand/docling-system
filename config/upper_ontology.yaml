@@ -7,9 +7,46 @@ relations:
   - relation_key: document_mentions_concept
     preferred_label: Document Mentions Concept
     scope_note: Generic relation connecting a document subject to a governed concept supported by evidence.
+    domain_entity_types:
+      - document
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
   - relation_key: concept_related_to_concept
     preferred_label: Concept Related To Concept
     scope_note: Generic cross-document relation connecting governed concepts that repeatedly co-occur in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: true
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_related_to_concept
+  - relation_key: concept_depends_on_concept
+    preferred_label: Concept Depends On Concept
+    scope_note: Generic directional relation indicating one governed concept depends on another concept in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_enables_concept
+  - relation_key: concept_enables_concept
+    preferred_label: Concept Enables Concept
+    scope_note: Generic inverse relation indicating one concept enables or unlocks another concept in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_depends_on_concept
 entity_types:
   - entity_type: document
     preferred_label: Document

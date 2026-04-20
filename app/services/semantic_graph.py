@@ -10,6 +10,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.text import collapse_whitespace
 from app.core.time import utcnow
 from app.db.models import (
     SemanticGraphSnapshot,
@@ -19,7 +20,14 @@ from app.db.models import (
     WorkspaceSemanticGraphState,
 )
 from app.services.semantic_candidates import _cosine_similarity, _embedding_vector, _tokenize
-from app.services.semantic_registry import get_active_semantic_ontology_snapshot
+from app.services.semantic_registry import (
+    canonicalize_semantic_relation_endpoints,
+    get_active_semantic_ontology_snapshot,
+    get_semantic_relation_definition,
+    normalize_semantic_text,
+    semantic_registry_from_payload,
+    validate_semantic_relation_instance,
+)
 from app.services.semantics import get_active_semantic_pass_detail
 
 WORKSPACE_SEMANTIC_GRAPH_STATE_KEY = "default"
@@ -28,7 +36,21 @@ DEFAULT_GRAPH_BASELINE_EXTRACTOR = "cooccurrence_v1"
 DEFAULT_GRAPH_CANDIDATE_EXTRACTOR = "relation_ranker_v1"
 DEFAULT_GRAPH_RELATION_KEY = "concept_related_to_concept"
 DEFAULT_GRAPH_RELATION_LABEL = "Concept Related To Concept"
+DEPENDENCY_GRAPH_RELATION_KEY = "concept_depends_on_concept"
+DEPENDENCY_GRAPH_RELATION_LABEL = "Concept Depends On Concept"
 GRAPH_VERSION_PATTERN = re.compile(r"^(?P<prefix>.+?)\\.graph\\.(?P<version>\\d+)$")
+DEPENDENCY_CUE_PHRASES = (
+    "depends on",
+    "dependent on",
+    "requires",
+    "required for",
+    "needs",
+    "needed for",
+    "gated by",
+    "blocked by",
+    "conditioned on",
+    "contingent on",
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +76,7 @@ class _ConceptNodeBucket:
 
 @dataclass
 class _EdgeBucket:
+    relation_key: str
     subject_concept_key: str
     object_concept_key: str
     supporting_document_ids: set[UUID]
@@ -61,6 +84,7 @@ class _EdgeBucket:
     source_types: set[str]
     shared_category_keys: set[str]
     approved_document_count: int = 0
+    cue_match_count: int = 0
 
 
 def _graph_payload_sha256(payload: dict[str, Any]) -> str:
@@ -87,14 +111,15 @@ def get_active_semantic_graph_payload(session: Session) -> dict[str, Any] | None
     return dict(snapshot.payload_json or {})
 
 
-def _relation_label_from_ontology(snapshot: SemanticOntologySnapshot | None) -> str:
-    payload = snapshot.payload_json if snapshot is not None else {}
-    for relation in payload.get("relations") or []:
-        if str(relation.get("relation_key") or "") == DEFAULT_GRAPH_RELATION_KEY:
-            label = str(relation.get("preferred_label") or "").strip()
-            if label:
-                return label
-    return DEFAULT_GRAPH_RELATION_LABEL
+def _relation_label_from_registry(registry, relation_key: str) -> str:
+    relation = get_semantic_relation_definition(registry, relation_key)
+    if relation is None or not relation.preferred_label:
+        if relation_key == DEFAULT_GRAPH_RELATION_KEY:
+            return DEFAULT_GRAPH_RELATION_LABEL
+        if relation_key == DEPENDENCY_GRAPH_RELATION_KEY:
+            return DEPENDENCY_GRAPH_RELATION_LABEL
+        return relation_key.replace("_", " ").title()
+    return relation.preferred_label
 
 
 def _extractor_descriptor(extractor_name: str) -> GraphExtractorDescriptor:
@@ -137,9 +162,109 @@ def _ordered_edge_key(subject_concept_key: str, object_concept_key: str) -> tupl
     return object_concept_key, subject_concept_key
 
 
-def _edge_id(subject_concept_key: str, object_concept_key: str) -> str:
-    left, right = _ordered_edge_key(subject_concept_key, object_concept_key)
-    return f"graph_edge:{DEFAULT_GRAPH_RELATION_KEY}:concept:{left}:concept:{right}"
+def _canonical_edge_key(
+    registry,
+    *,
+    relation_key: str,
+    subject_concept_key: str,
+    object_concept_key: str,
+) -> tuple[str, str]:
+    subject_entity_key, _subject_label, object_entity_key, _object_label = (
+        canonicalize_semantic_relation_endpoints(
+            registry,
+            relation_key=relation_key,
+            subject_entity_key=f"concept:{subject_concept_key}",
+            subject_label=subject_concept_key,
+            object_entity_key=f"concept:{object_concept_key}",
+            object_label=object_concept_key,
+        )
+    )
+    return (
+        str(subject_entity_key).split("concept:", 1)[-1],
+        str(object_entity_key).split("concept:", 1)[-1],
+    )
+
+
+def _edge_id(
+    registry,
+    *,
+    relation_key: str,
+    subject_concept_key: str,
+    object_concept_key: str,
+) -> str:
+    left, right = _canonical_edge_key(
+        registry,
+        relation_key=relation_key,
+        subject_concept_key=subject_concept_key,
+        object_concept_key=object_concept_key,
+    )
+    return f"graph_edge:{relation_key}:concept:{left}:concept:{right}"
+
+
+def _normalized_terms(preferred_label: str, matched_terms: set[str]) -> list[str]:
+    return sorted(
+        {
+            normalize_semantic_text(preferred_label),
+            *[normalize_semantic_text(term) for term in matched_terms],
+        }
+        - {""}
+    )
+
+
+def _excerpt_matches_dependency(
+    excerpt: str,
+    *,
+    left_terms: list[str],
+    right_terms: list[str],
+) -> bool:
+    normalized_excerpt = normalize_semantic_text(excerpt)
+    if not normalized_excerpt:
+        return False
+    cue_pattern = "|".join(re.escape(cue) for cue in DEPENDENCY_CUE_PHRASES)
+    for left in left_terms:
+        for right in right_terms:
+            if not left or not right or left == right:
+                continue
+            pattern = (
+                rf"\b{re.escape(left)}\b(?:\s+\w+){{0,6}}\s+(?:{cue_pattern})"
+                rf"(?:\s+\w+){{0,6}}\s+\b{re.escape(right)}\b"
+            )
+            if re.search(pattern, normalized_excerpt):
+                return True
+    return False
+
+
+def _dependency_relation_pairs(
+    *,
+    subject_concept_key: str,
+    object_concept_key: str,
+    subject_label: str,
+    object_label: str,
+    subject_terms: set[str],
+    object_terms: set[str],
+    evidence_texts: list[str],
+) -> list[tuple[str, str]]:
+    normalized_subject_terms = _normalized_terms(subject_label, subject_terms)
+    normalized_object_terms = _normalized_terms(object_label, object_terms)
+    if any(
+        _excerpt_matches_dependency(
+            excerpt,
+            left_terms=normalized_subject_terms,
+            right_terms=normalized_object_terms,
+        )
+        for excerpt in evidence_texts
+    ):
+        return [(subject_concept_key, object_concept_key)]
+    if any(
+        _excerpt_matches_dependency(
+            excerpt,
+            left_terms=normalized_object_terms,
+            right_terms=normalized_subject_terms,
+        )
+        for excerpt in evidence_texts
+    ):
+        return [(object_concept_key, subject_concept_key)]
+    return []
 
 
 def _token_jaccard(left: str, right: str) -> float:
@@ -165,6 +290,7 @@ def _relation_score(
     )
     category_overlap = 1.0 if edge_bucket.shared_category_keys else 0.0
     source_type_diversity = min(len(edge_bucket.source_types) / 3, 1.0)
+    cue_strength = 1.0 if edge_bucket.cue_match_count > 0 else 0.0
     subject = nodes_by_key[edge_bucket.subject_concept_key]
     object_ = nodes_by_key[edge_bucket.object_concept_key]
     label_similarity = max(
@@ -175,11 +301,12 @@ def _relation_score(
         ),
     )
     return round(
-        0.45 * shared_document_ratio
+        0.35 * shared_document_ratio
         + 0.2 * approved_support_ratio
-        + 0.15 * category_overlap
+        + 0.1 * category_overlap
         + 0.1 * label_similarity
-        + 0.1 * source_type_diversity,
+        + 0.1 * source_type_diversity
+        + 0.15 * cue_strength,
         4,
     )
 
@@ -195,12 +322,17 @@ def _support_level(edge_bucket: _EdgeBucket) -> str:
 def _collect_graph_support(
     session: Session,
     *,
+    registry,
     document_ids: list[UUID],
     minimum_review_status: str,
-) -> tuple[dict[str, _ConceptNodeBucket], dict[tuple[str, str], _EdgeBucket], list[dict[str, Any]]]:
+) -> tuple[
+    dict[str, _ConceptNodeBucket],
+    dict[tuple[str, str, str], _EdgeBucket],
+    list[dict[str, Any]],
+]:
     minimum_rank = _minimum_review_rank(minimum_review_status)
     nodes_by_key: dict[str, _ConceptNodeBucket] = {}
-    edges_by_pair: dict[tuple[str, str], _EdgeBucket] = {}
+    edges_by_pair: dict[tuple[str, str, str], _EdgeBucket] = {}
     document_refs: list[dict[str, Any]] = []
 
     for document_id in document_ids:
@@ -220,7 +352,9 @@ def _collect_graph_support(
         for binding in semantic_pass.concept_category_bindings:
             if _review_rank(binding.review_status) < minimum_rank:
                 continue
-            category_labels_by_concept.setdefault(binding.concept_key, set()).add(binding.category_key)
+            category_labels_by_concept.setdefault(binding.concept_key, set()).add(
+                binding.category_key
+            )
 
         for assertion in semantic_pass.assertions:
             if _review_rank(assertion.review_status) < minimum_rank:
@@ -238,6 +372,12 @@ def _collect_graph_support(
                 "assertion_id": assertion.assertion_id,
                 "evidence_ids": evidence_ids,
                 "source_types": source_types,
+                "matched_terms": set(assertion.matched_terms),
+                "evidence_texts": [
+                    evidence.excerpt
+                    for evidence in assertion.evidence
+                    if collapse_whitespace(evidence.excerpt or "")
+                ],
             }
             node = nodes_by_key.setdefault(
                 assertion.concept_key,
@@ -265,12 +405,23 @@ def _collect_graph_support(
         for subject_key, object_key in combinations(sorted(document_concepts), 2):
             subject = document_concepts[subject_key]
             object_ = document_concepts[object_key]
-            pair_key = _ordered_edge_key(subject_key, object_key)
+            canonical_subject_key, canonical_object_key = _canonical_edge_key(
+                registry,
+                relation_key=DEFAULT_GRAPH_RELATION_KEY,
+                subject_concept_key=subject_key,
+                object_concept_key=object_key,
+            )
+            pair_key = (
+                DEFAULT_GRAPH_RELATION_KEY,
+                canonical_subject_key,
+                canonical_object_key,
+            )
             edge_bucket = edges_by_pair.setdefault(
                 pair_key,
                 _EdgeBucket(
-                    subject_concept_key=pair_key[0],
-                    object_concept_key=pair_key[1],
+                    relation_key=DEFAULT_GRAPH_RELATION_KEY,
+                    subject_concept_key=pair_key[1],
+                    object_concept_key=pair_key[2],
                     supporting_document_ids=set(),
                     support_refs=[],
                     source_types=set(),
@@ -290,18 +441,82 @@ def _collect_graph_support(
             edge_bucket.support_refs.append(
                 {
                     "support_ref_id": (
-                        f"graph_support:{pair_key[0]}:{pair_key[1]}:{document_id}"
+                        f"graph_support:{pair_key[0]}:{pair_key[1]}:{pair_key[2]}:{document_id}"
                     ),
                     "document_id": document_id,
                     "run_id": semantic_pass.run_id,
                     "semantic_pass_id": semantic_pass.semantic_pass_id,
-                    "assertion_ids": [subject["assertion_id"], object_["assertion_id"]],
+                    "assertion_ids": sorted(
+                        [subject["assertion_id"], object_["assertion_id"]],
+                        key=str,
+                    ),
                     "evidence_ids": sorted({*subject["evidence_ids"], *object_["evidence_ids"]}),
-                    "concept_keys": [pair_key[0], pair_key[1]],
+                    "concept_keys": [pair_key[1], pair_key[2]],
                     "source_types": sorted(subject["source_types"] | object_["source_types"]),
                     "shared_category_keys": sorted(shared_category_keys),
                 }
             )
+            dependency_pairs = _dependency_relation_pairs(
+                subject_concept_key=subject_key,
+                object_concept_key=object_key,
+                subject_label=subject["preferred_label"],
+                object_label=object_["preferred_label"],
+                subject_terms=set(subject["matched_terms"]),
+                object_terms=set(object_["matched_terms"]),
+                evidence_texts=[
+                    *subject["evidence_texts"],
+                    *object_["evidence_texts"],
+                ],
+            )
+            for dependency_subject_key, dependency_object_key in dependency_pairs:
+                dependency_key = (
+                    DEPENDENCY_GRAPH_RELATION_KEY,
+                    dependency_subject_key,
+                    dependency_object_key,
+                )
+                dependency_bucket = edges_by_pair.setdefault(
+                    dependency_key,
+                    _EdgeBucket(
+                        relation_key=DEPENDENCY_GRAPH_RELATION_KEY,
+                        subject_concept_key=dependency_subject_key,
+                        object_concept_key=dependency_object_key,
+                        supporting_document_ids=set(),
+                        support_refs=[],
+                        source_types=set(),
+                        shared_category_keys=set(),
+                    ),
+                )
+                dependency_bucket.supporting_document_ids.add(document_id)
+                dependency_bucket.source_types.update(subject["source_types"])
+                dependency_bucket.source_types.update(object_["source_types"])
+                dependency_bucket.shared_category_keys.update(shared_category_keys)
+                if (
+                    subject["review_status"] == SemanticReviewStatus.APPROVED.value
+                    and object_["review_status"] == SemanticReviewStatus.APPROVED.value
+                ):
+                    dependency_bucket.approved_document_count += 1
+                dependency_bucket.cue_match_count += 1
+                dependency_bucket.support_refs.append(
+                    {
+                        "support_ref_id": (
+                            "graph_support:"
+                            f"{dependency_key[0]}:{dependency_key[1]}:{dependency_key[2]}:{document_id}"
+                        ),
+                        "document_id": document_id,
+                        "run_id": semantic_pass.run_id,
+                        "semantic_pass_id": semantic_pass.semantic_pass_id,
+                        "assertion_ids": sorted(
+                            [subject["assertion_id"], object_["assertion_id"]],
+                            key=str,
+                        ),
+                        "evidence_ids": sorted(
+                            {*subject["evidence_ids"], *object_["evidence_ids"]}
+                        ),
+                        "concept_keys": [dependency_key[1], dependency_key[2]],
+                        "source_types": sorted(subject["source_types"] | object_["source_types"]),
+                        "shared_category_keys": sorted(shared_category_keys),
+                    }
+                )
     return nodes_by_key, edges_by_pair, document_refs
 
 
@@ -328,20 +543,26 @@ def _build_graph_nodes(nodes_by_key: dict[str, _ConceptNodeBucket]) -> list[dict
 
 def _build_graph_edges(
     *,
+    registry,
     nodes_by_key: dict[str, _ConceptNodeBucket],
-    edges_by_pair: dict[tuple[str, str], _EdgeBucket],
-    ontology_snapshot: SemanticOntologySnapshot,
+    edges_by_pair: dict[tuple[str, str, str], _EdgeBucket],
     extractor_name: str,
     min_shared_documents: int,
     score_threshold: float,
     shadow_mode: bool,
     review_status: str,
 ) -> list[dict[str, Any]]:
-    relation_label = _relation_label_from_ontology(ontology_snapshot)
-    total_document_count = max(len({doc_id for node in nodes_by_key.values() for doc_id in node.document_ids}), 1)
+    total_document_count = max(
+        len({doc_id for node in nodes_by_key.values() for doc_id in node.document_ids}), 1
+    )
     edges: list[dict[str, Any]] = []
     for pair_key in sorted(edges_by_pair):
         edge_bucket = edges_by_pair[pair_key]
+        if (
+            extractor_name == DEFAULT_GRAPH_BASELINE_EXTRACTOR
+            and edge_bucket.relation_key != DEFAULT_GRAPH_RELATION_KEY
+        ):
+            continue
         score = _relation_score(
             edge_bucket,
             nodes_by_key=nodes_by_key,
@@ -352,6 +573,14 @@ def _build_graph_edges(
                 continue
         elif score < score_threshold:
             continue
+        relation_validation_errors = validate_semantic_relation_instance(
+            registry,
+            relation_key=edge_bucket.relation_key,
+            subject_entity_key=f"concept:{edge_bucket.subject_concept_key}",
+            object_entity_key=f"concept:{edge_bucket.object_concept_key}",
+        )
+        if relation_validation_errors:
+            continue
         support_refs = [
             {
                 **row,
@@ -359,15 +588,21 @@ def _build_graph_edges(
             }
             for row in edge_bucket.support_refs
         ]
+        relation_label = _relation_label_from_registry(registry, edge_bucket.relation_key)
         edges.append(
             {
-                "edge_id": _edge_id(*pair_key),
-                "relation_key": DEFAULT_GRAPH_RELATION_KEY,
+                "edge_id": _edge_id(
+                    registry,
+                    relation_key=edge_bucket.relation_key,
+                    subject_concept_key=edge_bucket.subject_concept_key,
+                    object_concept_key=edge_bucket.object_concept_key,
+                ),
+                "relation_key": edge_bucket.relation_key,
                 "relation_label": relation_label,
-                "subject_entity_key": f"concept:{pair_key[0]}",
-                "subject_label": nodes_by_key[pair_key[0]].preferred_label,
-                "object_entity_key": f"concept:{pair_key[1]}",
-                "object_label": nodes_by_key[pair_key[1]].preferred_label,
+                "subject_entity_key": f"concept:{edge_bucket.subject_concept_key}",
+                "subject_label": nodes_by_key[edge_bucket.subject_concept_key].preferred_label,
+                "object_entity_key": f"concept:{edge_bucket.object_concept_key}",
+                "object_label": nodes_by_key[edge_bucket.object_concept_key].preferred_label,
                 "epistemic_status": "shadow_candidate" if shadow_mode else "approved_graph",
                 "review_status": review_status,
                 "support_level": _support_level(edge_bucket),
@@ -375,7 +610,9 @@ def _build_graph_edges(
                 "extractor_score": score,
                 "supporting_document_ids": sorted(edge_bucket.supporting_document_ids, key=str),
                 "supporting_document_count": len(edge_bucket.supporting_document_ids),
-                "supporting_assertion_count": sum(len(ref["assertion_ids"]) for ref in support_refs),
+                "supporting_assertion_count": sum(
+                    len(ref["assertion_ids"]) for ref in support_refs
+                ),
                 "supporting_evidence_count": sum(len(ref["evidence_ids"]) for ref in support_refs),
                 "shared_category_keys": sorted(edge_bucket.shared_category_keys),
                 "source_types": sorted(edge_bucket.source_types),
@@ -384,6 +621,7 @@ def _build_graph_edges(
                     "approved_document_count": edge_bucket.approved_document_count,
                     "min_shared_documents_threshold": min_shared_documents,
                     "score_threshold": score_threshold,
+                    "cue_match_count": edge_bucket.cue_match_count,
                 },
             }
         )
@@ -396,15 +634,27 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
     traceable_edge_ratio = (
         sum(1 for edge in edges if edge.get("support_refs")) / len(edges) if edges else 1.0
     )
+    constraint_valid_relation_ratio = (
+        sum(
+            1
+            for edge in edges
+            if not (edge.get("details") or {}).get("constraint_validation_errors")
+        )
+        / len(edges)
+        if edges
+        else 1.0
+    )
     return [
         {
             "metric_key": "semantic_integrity",
             "stakeholder": "Figay",
             "passed": traceable_edge_ratio == 1.0
-            and all(edge.get("epistemic_status") for edge in edges),
+            and all(edge.get("epistemic_status") for edge in edges)
+            and constraint_valid_relation_ratio == 1.0,
             "summary": "Every graph edge stays evidence-backed and explicitly status-stamped.",
             "details": {
                 "traceable_edge_ratio": traceable_edge_ratio,
+                "constraint_valid_relation_ratio": constraint_valid_relation_ratio,
                 "edge_count": len(edges),
             },
         },
@@ -422,7 +672,10 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "metric_key": "owned_context",
             "stakeholder": "Jones",
             "passed": bool(payload.get("document_ids")) and payload.get("edge_count", 0) >= 0,
-            "summary": "Cross-document semantic context is externalized as a durable graph artifact.",
+            "summary": (
+                "Cross-document semantic context is externalized as a durable "
+                "graph artifact."
+            ),
             "details": {
                 "document_count": payload.get("document_count"),
                 "edge_count": payload.get("edge_count"),
@@ -432,7 +685,10 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "metric_key": "memory_compaction",
             "stakeholder": "Yegge",
             "passed": len(edges) <= max(total_support_ref_count, 1),
-            "summary": "The graph compacts many supporting traces into a smaller edge memory surface.",
+            "summary": (
+                "The graph compacts many supporting traces into a smaller "
+                "edge memory surface."
+            ),
             "details": {
                 "edge_count": len(edges),
                 "support_ref_count": total_support_ref_count,
@@ -443,7 +699,10 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "stakeholder": "Sutton",
             "passed": payload.get("extractor", {}).get("extractor_name")
             in {DEFAULT_GRAPH_BASELINE_EXTRACTOR, DEFAULT_GRAPH_CANDIDATE_EXTRACTOR},
-            "summary": "The graph builder stays extractor-swappable and free of domain-specific rules.",
+            "summary": (
+                "The graph builder stays extractor-swappable and free of "
+                "domain-specific rules."
+            ),
             "details": {
                 "extractor_name": payload.get("extractor", {}).get("extractor_name"),
                 "document_count": payload.get("document_count"),
@@ -465,17 +724,19 @@ def build_shadow_semantic_graph(
         raise ValueError("Shadow semantic graph build requires at least one document.")
     descriptor = _extractor_descriptor(relation_extractor_name)
     ontology_snapshot = get_active_semantic_ontology_snapshot(session)
+    registry = semantic_registry_from_payload(ontology_snapshot.payload_json or {})
     unique_document_ids = list(dict.fromkeys(document_ids))
     nodes_by_key, edges_by_pair, document_refs = _collect_graph_support(
         session,
+        registry=registry,
         document_ids=unique_document_ids,
         minimum_review_status=minimum_review_status,
     )
     nodes = _build_graph_nodes(nodes_by_key)
     edges = _build_graph_edges(
+        registry=registry,
         nodes_by_key=nodes_by_key,
         edges_by_pair=edges_by_pair,
-        ontology_snapshot=ontology_snapshot,
         extractor_name=relation_extractor_name,
         min_shared_documents=min_shared_documents,
         score_threshold=score_threshold,
@@ -509,7 +770,14 @@ def build_shadow_semantic_graph(
         "edges": edges,
         "summary": {
             "relation_key_counts": {
-                DEFAULT_GRAPH_RELATION_KEY: len(edges),
+                relation_key: sum(1 for edge in edges if edge.get("relation_key") == relation_key)
+                for relation_key in sorted(
+                    {
+                        str(edge.get("relation_key") or "")
+                        for edge in edges
+                        if str(edge.get("relation_key") or "")
+                    }
+                )
             },
             "traceable_edge_count": sum(1 for edge in edges if edge.get("support_refs")),
             "support_ref_count": sum(len(edge.get("support_refs") or []) for edge in edges),
@@ -521,16 +789,41 @@ def build_shadow_semantic_graph(
 
 def _expected_edge_keys(
     *,
-    edges_by_pair: dict[tuple[str, str], _EdgeBucket],
+    registry,
+    edges_by_pair: dict[tuple[str, str, str], _EdgeBucket],
     min_shared_documents: int,
 ) -> set[str]:
     expected: set[str] = set()
-    for pair_key, edge_bucket in edges_by_pair.items():
+    for _pair_key, edge_bucket in edges_by_pair.items():
         if len(edge_bucket.supporting_document_ids) >= min_shared_documents:
-            expected.add(_edge_id(*pair_key))
+            expected.add(
+                _edge_id(
+                    registry,
+                    relation_key=edge_bucket.relation_key,
+                    subject_concept_key=edge_bucket.subject_concept_key,
+                    object_concept_key=edge_bucket.object_concept_key,
+                )
+            )
             continue
-        if edge_bucket.approved_document_count >= 1 and edge_bucket.shared_category_keys:
-            expected.add(_edge_id(*pair_key))
+        if edge_bucket.relation_key == DEFAULT_GRAPH_RELATION_KEY:
+            if edge_bucket.approved_document_count >= 1 and edge_bucket.shared_category_keys:
+                expected.add(
+                    _edge_id(
+                        registry,
+                        relation_key=edge_bucket.relation_key,
+                        subject_concept_key=edge_bucket.subject_concept_key,
+                        object_concept_key=edge_bucket.object_concept_key,
+                    )
+                )
+        elif edge_bucket.cue_match_count >= 1 and edge_bucket.approved_document_count >= 1:
+            expected.add(
+                _edge_id(
+                    registry,
+                    relation_key=edge_bucket.relation_key,
+                    subject_concept_key=edge_bucket.subject_concept_key,
+                    object_concept_key=edge_bucket.object_concept_key,
+                )
+            )
     return expected
 
 
@@ -561,7 +854,10 @@ def _evaluation_success_metrics(summary: dict[str, Any]) -> list[dict[str, Any]]
             "stakeholder": "Sutton",
             "passed": summary["candidate_expected_recall"] >= summary["baseline_expected_recall"]
             and summary["document_specific_rule_count_delta"] == 0,
-            "summary": "The candidate extractor improves or matches recall without adding corpus-specific rules.",
+            "summary": (
+                "The candidate extractor improves or matches recall without "
+                "adding corpus-specific rules."
+            ),
             "details": {
                 "baseline_expected_recall": summary["baseline_expected_recall"],
                 "candidate_expected_recall": summary["candidate_expected_recall"],
@@ -571,7 +867,10 @@ def _evaluation_success_metrics(summary: dict[str, Any]) -> list[dict[str, Any]]
             "metric_key": "agent_legibility",
             "stakeholder": "Lopopolo",
             "passed": bool(summary.get("document_count")),
-            "summary": "Extractor evaluation persists typed edge comparisons and aggregate metrics.",
+            "summary": (
+                "Extractor evaluation persists typed edge comparisons and "
+                "aggregate metrics."
+            ),
             "details": {
                 "document_count": summary["document_count"],
                 "expected_edge_count": summary["expected_edge_count"],
@@ -595,15 +894,17 @@ def evaluate_semantic_relation_extractor(
     if not unique_document_ids:
         raise ValueError("Semantic relation extractor evaluation requires at least one document.")
     ontology_snapshot = get_active_semantic_ontology_snapshot(session)
+    registry = semantic_registry_from_payload(ontology_snapshot.payload_json or {})
     nodes_by_key, edges_by_pair, document_refs = _collect_graph_support(
         session,
+        registry=registry,
         document_ids=unique_document_ids,
         minimum_review_status=minimum_review_status,
     )
     baseline_edges = _build_graph_edges(
+        registry=registry,
         nodes_by_key=nodes_by_key,
         edges_by_pair=edges_by_pair,
-        ontology_snapshot=ontology_snapshot,
         extractor_name=baseline_extractor_name,
         min_shared_documents=baseline_min_shared_documents,
         score_threshold=candidate_score_threshold,
@@ -611,9 +912,9 @@ def evaluate_semantic_relation_extractor(
         review_status=SemanticReviewStatus.CANDIDATE.value,
     )
     candidate_edges = _build_graph_edges(
+        registry=registry,
         nodes_by_key=nodes_by_key,
         edges_by_pair=edges_by_pair,
-        ontology_snapshot=ontology_snapshot,
         extractor_name=candidate_extractor_name,
         min_shared_documents=baseline_min_shared_documents,
         score_threshold=candidate_score_threshold,
@@ -621,6 +922,7 @@ def evaluate_semantic_relation_extractor(
         review_status=SemanticReviewStatus.CANDIDATE.value,
     )
     expected_edge_keys = _expected_edge_keys(
+        registry=registry,
         edges_by_pair=edges_by_pair,
         min_shared_documents=expected_min_shared_documents,
     )
@@ -660,7 +962,9 @@ def evaluate_semantic_relation_extractor(
                     else baseline_edge["supporting_document_ids"]
                 ),
                 "support_refs": (
-                    candidate_edge["support_refs"] if candidate_edge is not None else baseline_edge["support_refs"]
+                    candidate_edge["support_refs"]
+                    if candidate_edge is not None
+                    else baseline_edge["support_refs"]
                 ),
             }
         )
@@ -680,14 +984,10 @@ def evaluate_semantic_relation_extractor(
         "expected_edge_count": len(expected_edge_keys),
         "baseline_edge_count": len(baseline_edges),
         "candidate_edge_count": len(candidate_edges),
-        "baseline_expected_recall": round(
-            baseline_hit_count / len(expected_edge_keys), 4
-        )
+        "baseline_expected_recall": round(baseline_hit_count / len(expected_edge_keys), 4)
         if expected_edge_keys
         else 1.0,
-        "candidate_expected_recall": round(
-            candidate_hit_count / len(expected_edge_keys), 4
-        )
+        "candidate_expected_recall": round(candidate_hit_count / len(expected_edge_keys), 4)
         if expected_edge_keys
         else 1.0,
         "candidate_only_edge_count": sum(
@@ -739,7 +1039,11 @@ def triage_semantic_graph_disagreements(
         candidate_score = float(edge.get("candidate_score") or 0.0)
         if candidate_score < min_score:
             continue
-        if edge.get("candidate_found") and not edge.get("in_live_graph") and edge.get("expected_edge"):
+        if (
+            edge.get("candidate_found")
+            and not edge.get("in_live_graph")
+            and edge.get("expected_edge")
+        ):
             issue_id = f"graph_issue:{edge['edge_id']}"
             issues.append(
                 {
@@ -890,7 +1194,9 @@ def _merged_graph_payload(
             entity_key,
             {
                 "entity_key": entity_key,
-                "concept_key": entity_key.split("concept:", 1)[1] if "concept:" in entity_key else entity_key,
+                "concept_key": entity_key.split("concept:", 1)[1]
+                if "concept:" in entity_key
+                else entity_key,
                 "preferred_label": str(support["preferred_label"]),
                 "category_keys": [],
                 "document_ids": [],
@@ -902,9 +1208,13 @@ def _merged_graph_payload(
             },
         )
         node["preferred_label"] = str(support["preferred_label"])
-        node["document_ids"] = sorted(set(node.get("document_ids") or []) | set(support["document_ids"]), key=str)
+        node["document_ids"] = sorted(
+            set(node.get("document_ids") or []) | set(support["document_ids"]), key=str
+        )
         node["document_count"] = len(node["document_ids"])
-        node["source_types"] = sorted(set(node.get("source_types") or []) | set(support["source_types"]))
+        node["source_types"] = sorted(
+            set(node.get("source_types") or []) | set(support["source_types"])
+        )
         node["assertion_count"] = max(
             int(node.get("assertion_count") or 0),
             len(set(support["assertion_ids"])),
@@ -953,7 +1263,14 @@ def _merged_graph_payload(
         "edges": edges,
         "summary": {
             "relation_key_counts": {
-                DEFAULT_GRAPH_RELATION_KEY: len(edges),
+                relation_key: sum(1 for edge in edges if edge.get("relation_key") == relation_key)
+                for relation_key in sorted(
+                    {
+                        str(edge.get("relation_key") or "")
+                        for edge in edges
+                        if str(edge.get("relation_key") or "")
+                    }
+                )
             },
             "traceable_edge_count": sum(1 for edge in edges if edge.get("support_refs")),
             "support_ref_count": sum(len(edge.get("support_refs") or []) for edge in edges),
@@ -975,61 +1292,109 @@ def draft_graph_promotions(
     min_score: float,
 ) -> dict[str, Any]:
     ontology_snapshot = get_active_semantic_ontology_snapshot(session)
+    registry = semantic_registry_from_payload(ontology_snapshot.payload_json or {})
     active_snapshot = get_active_semantic_graph_snapshot(session)
     base_payload = dict(active_snapshot.payload_json or {}) if active_snapshot is not None else None
-    relation_label = _relation_label_from_ontology(ontology_snapshot)
+
+    def _canonicalized_edge_payload(edge: dict[str, Any]) -> dict[str, Any]:
+        relation_key = str(edge.get("relation_key") or "")
+        relation_label = _relation_label_from_registry(registry, relation_key)
+        subject_entity_key, subject_label, object_entity_key, object_label = (
+            canonicalize_semantic_relation_endpoints(
+                registry,
+                relation_key=relation_key,
+                subject_entity_key=str(edge.get("subject_entity_key") or ""),
+                subject_label=str(edge.get("subject_label") or ""),
+                object_entity_key=str(edge.get("object_entity_key") or ""),
+                object_label=str(edge.get("object_label") or ""),
+            )
+        )
+        canonical_subject_concept_key = str(subject_entity_key).split("concept:", 1)[-1]
+        canonical_object_concept_key = str(object_entity_key).split("concept:", 1)[-1]
+        details = dict(edge.get("details") or {})
+        details["constraint_validation_errors"] = validate_semantic_relation_instance(
+            registry,
+            relation_key=relation_key,
+            subject_entity_key=subject_entity_key,
+            object_entity_key=object_entity_key,
+        )
+        return {
+            **edge,
+            "edge_id": _edge_id(
+                registry,
+                relation_key=relation_key,
+                subject_concept_key=canonical_subject_concept_key,
+                object_concept_key=canonical_object_concept_key,
+            ),
+            "relation_label": relation_label,
+            "subject_entity_key": subject_entity_key,
+            "subject_label": subject_label,
+            "object_entity_key": object_entity_key,
+            "object_label": object_label,
+            "details": details,
+        }
+
     if source_task_type == "triage_semantic_graph_disagreements":
         source_edges = [
-            {
-                "edge_id": issue["edge_id"],
-                "relation_key": issue["relation_key"],
-                "relation_label": relation_label,
-                "subject_entity_key": issue["subject_entity_key"],
-                "subject_label": issue["subject_label"],
-                "object_entity_key": issue["object_entity_key"],
-                "object_label": issue["object_label"],
-                "epistemic_status": "approved_graph",
-                "review_status": SemanticReviewStatus.APPROVED.value,
-                "support_level": "supported",
-                "extractor_name": DEFAULT_GRAPH_CANDIDATE_EXTRACTOR,
-                "extractor_score": issue["candidate_score"],
-                "supporting_document_ids": issue["supporting_document_ids"],
-                "supporting_document_count": len(issue["supporting_document_ids"]),
-                "supporting_assertion_count": sum(
-                    len(ref.get("assertion_ids") or []) for ref in issue.get("support_refs") or []
-                ),
-                "supporting_evidence_count": sum(
-                    len(ref.get("evidence_ids") or []) for ref in issue.get("support_refs") or []
-                ),
-                "shared_category_keys": sorted(
-                    {
-                        category_key
+            _canonicalized_edge_payload(
+                {
+                    "edge_id": issue["edge_id"],
+                    "relation_key": issue["relation_key"],
+                    "relation_label": _relation_label_from_registry(
+                        registry,
+                        str(issue.get("relation_key") or ""),
+                    ),
+                    "subject_entity_key": issue["subject_entity_key"],
+                    "subject_label": issue["subject_label"],
+                    "object_entity_key": issue["object_entity_key"],
+                    "object_label": issue["object_label"],
+                    "epistemic_status": "approved_graph",
+                    "review_status": SemanticReviewStatus.APPROVED.value,
+                    "support_level": "supported",
+                    "extractor_name": DEFAULT_GRAPH_CANDIDATE_EXTRACTOR,
+                    "extractor_score": issue["candidate_score"],
+                    "supporting_document_ids": issue["supporting_document_ids"],
+                    "supporting_document_count": len(issue["supporting_document_ids"]),
+                    "supporting_assertion_count": sum(
+                        len(ref.get("assertion_ids") or [])
                         for ref in issue.get("support_refs") or []
-                        for category_key in ref.get("shared_category_keys") or []
-                    }
-                ),
-                "source_types": sorted(
-                    {
-                        source_type
+                    ),
+                    "supporting_evidence_count": sum(
+                        len(ref.get("evidence_ids") or [])
                         for ref in issue.get("support_refs") or []
-                        for source_type in ref.get("source_types") or []
-                    }
-                ),
-                "support_refs": issue.get("support_refs") or [],
-                "details": {
-                    "promoted_from": "graph_disagreement_triage",
-                },
-            }
+                    ),
+                    "shared_category_keys": sorted(
+                        {
+                            category_key
+                            for ref in issue.get("support_refs") or []
+                            for category_key in ref.get("shared_category_keys") or []
+                        }
+                    ),
+                    "source_types": sorted(
+                        {
+                            source_type
+                            for ref in issue.get("support_refs") or []
+                            for source_type in ref.get("source_types") or []
+                        }
+                    ),
+                    "support_refs": issue.get("support_refs") or [],
+                    "details": {
+                        "promoted_from": "graph_disagreement_triage",
+                    },
+                }
+            )
             for issue in source_payload.get("issues") or []
             if not edge_ids or issue["edge_id"] in set(edge_ids)
         ]
     else:
         source_edges = [
-            {
-                **edge,
-                "epistemic_status": "approved_graph",
-                "review_status": SemanticReviewStatus.APPROVED.value,
-            }
+            _canonicalized_edge_payload(
+                {
+                    **edge,
+                    "epistemic_status": "approved_graph",
+                    "review_status": SemanticReviewStatus.APPROVED.value,
+                }
+            )
             for edge in source_payload.get("edges") or []
             if (not edge_ids or edge["edge_id"] in set(edge_ids))
             and float(edge.get("extractor_score") or 0.0) >= min_score
@@ -1048,7 +1413,9 @@ def draft_graph_promotions(
     )
     return {
         "base_snapshot_id": active_snapshot.id if active_snapshot is not None else None,
-        "base_graph_version": active_snapshot.graph_version if active_snapshot is not None else None,
+        "base_graph_version": active_snapshot.graph_version
+        if active_snapshot is not None
+        else None,
         "proposed_graph_version": graph_version,
         "ontology_snapshot_id": ontology_snapshot.id,
         "ontology_version": ontology_snapshot.ontology_version,
@@ -1062,15 +1429,29 @@ def draft_graph_promotions(
             {
                 "metric_key": "semantic_integrity",
                 "stakeholder": "Figay",
-                "passed": all(edge.get("support_refs") for edge in source_edges),
+                "passed": all(edge.get("support_refs") for edge in source_edges)
+                and all(
+                    not (edge.get("details") or {}).get("constraint_validation_errors")
+                    for edge in source_edges
+                ),
                 "summary": "Draft promotions only contain traceable graph edges.",
-                "details": {"promoted_edge_count": len(source_edges)},
+                "details": {
+                    "promoted_edge_count": len(source_edges),
+                    "constraint_validation_failures": sum(
+                        1
+                        for edge in source_edges
+                        if (edge.get("details") or {}).get("constraint_validation_errors")
+                    ),
+                },
             },
             {
                 "metric_key": "explicit_control_surface",
                 "stakeholder": "Ronacher",
                 "passed": True,
-                "summary": "Graph promotion remains a draft artifact until verification and approval.",
+                "summary": (
+                    "Graph promotion remains a draft artifact until "
+                    "verification and approval."
+                ),
                 "details": {"promoted_edge_count": len(source_edges)},
             },
         ],
@@ -1086,28 +1467,36 @@ def verify_draft_graph_promotions(
     require_current_ontology_snapshot: bool,
 ) -> tuple[dict[str, Any], dict[str, Any], list[str], str, list[dict[str, Any]]]:
     current_ontology = get_active_semantic_ontology_snapshot(session)
-    current_relation_keys = {
-        str(relation.get("relation_key") or "")
-        for relation in (current_ontology.payload_json or {}).get("relations") or []
-        if str(relation.get("relation_key") or "")
-    }
+    registry = semantic_registry_from_payload(current_ontology.payload_json or {})
     reasons: list[str] = []
     promoted_edges = list(draft.get("promoted_edges") or [])
     stale_edge_count = 0
     unsupported_edge_count = 0
     conflict_count = 0
     ontology_mismatch_count = 0
+    constraint_violation_count = 0
     supported_edge_count = 0
-    seen_pairs: dict[tuple[str, str], str] = {}
+    seen_pairs: dict[tuple[str, str, str], str] = {}
     for edge in promoted_edges:
-        if require_current_ontology_snapshot and UUID(str(draft["ontology_snapshot_id"])) != current_ontology.id:
+        if (
+            require_current_ontology_snapshot
+            and UUID(str(draft["ontology_snapshot_id"])) != current_ontology.id
+        ):
             stale_edge_count += 1
             continue
-        if edge.get("relation_key") != DEFAULT_GRAPH_RELATION_KEY:
-            unsupported_edge_count += 1
-            continue
-        if DEFAULT_GRAPH_RELATION_KEY not in current_relation_keys:
+        relation_key = str(edge.get("relation_key") or "")
+        relation = get_semantic_relation_definition(registry, relation_key)
+        if relation is None:
             ontology_mismatch_count += 1
+            continue
+        validation_errors = validate_semantic_relation_instance(
+            registry,
+            relation_key=relation_key,
+            subject_entity_key=str(edge.get("subject_entity_key") or ""),
+            object_entity_key=str(edge.get("object_entity_key") or ""),
+        )
+        if validation_errors:
+            constraint_violation_count += 1
             continue
         support_refs = list(edge.get("support_refs") or [])
         if len(edge.get("supporting_document_ids") or []) < min_supporting_document_count:
@@ -1116,13 +1505,40 @@ def verify_draft_graph_promotions(
         if not support_refs:
             unsupported_edge_count += 1
             continue
+        canonical_subject_entity_key, _subject_label, canonical_object_entity_key, _object_label = (
+            canonicalize_semantic_relation_endpoints(
+                registry,
+                relation_key=relation_key,
+                subject_entity_key=str(edge.get("subject_entity_key") or ""),
+                subject_label=str(edge.get("subject_label") or ""),
+                object_entity_key=str(edge.get("object_entity_key") or ""),
+                object_label=str(edge.get("object_label") or ""),
+            )
+        )
+        if (
+            canonical_subject_entity_key != str(edge.get("subject_entity_key") or "")
+            or canonical_object_entity_key != str(edge.get("object_entity_key") or "")
+        ) and relation.symmetric:
+            conflict_count += 1
+            continue
         pair_key = (
-            str(edge.get("subject_entity_key") or ""),
-            str(edge.get("object_entity_key") or ""),
+            relation_key,
+            canonical_subject_entity_key,
+            canonical_object_entity_key,
         )
         if pair_key in seen_pairs:
             conflict_count += 1
             continue
+        inverse_relation_key = relation.inverse_relation_key
+        if inverse_relation_key:
+            inverse_key = (
+                inverse_relation_key,
+                canonical_object_entity_key,
+                canonical_subject_entity_key,
+            )
+            if inverse_key in seen_pairs:
+                conflict_count += 1
+                continue
         seen_pairs[pair_key] = str(edge.get("edge_id") or "")
         supported_edge_count += 1
 
@@ -1132,6 +1548,8 @@ def verify_draft_graph_promotions(
         reasons.append("Draft graph promotions include unsupported or weakly-backed edges.")
     if ontology_mismatch_count:
         reasons.append("Draft graph promotions target a relation missing from the active ontology.")
+    if constraint_violation_count:
+        reasons.append("Draft graph promotions violate active ontology relation constraints.")
     if conflict_count > max_conflict_count:
         reasons.append("Draft graph promotions introduce conflicting graph edges.")
     if supported_edge_count == 0:
@@ -1143,6 +1561,7 @@ def verify_draft_graph_promotions(
         "stale_edge_count": stale_edge_count,
         "unsupported_edge_count": unsupported_edge_count,
         "ontology_mismatch_count": ontology_mismatch_count,
+        "constraint_violation_count": constraint_violation_count,
         "conflict_count": conflict_count,
         "traceable_edge_ratio": round(
             sum(1 for edge in promoted_edges if edge.get("support_refs")) / len(promoted_edges),
@@ -1157,6 +1576,7 @@ def verify_draft_graph_promotions(
         "stale_edge_count": stale_edge_count,
         "unsupported_edge_count": unsupported_edge_count,
         "ontology_mismatch_count": ontology_mismatch_count,
+        "constraint_violation_count": constraint_violation_count,
         "conflict_count": conflict_count,
     }
     success_metrics = [
@@ -1165,12 +1585,14 @@ def verify_draft_graph_promotions(
             "stakeholder": "Figay",
             "passed": summary["traceable_edge_ratio"] == 1.0
             and unsupported_edge_count == 0
-            and ontology_mismatch_count == 0,
+            and ontology_mismatch_count == 0
+            and constraint_violation_count == 0,
             "summary": "Only fully traceable, supported graph edges pass verification.",
             "details": {
                 "traceable_edge_ratio": summary["traceable_edge_ratio"],
                 "unsupported_edge_count": unsupported_edge_count,
                 "ontology_mismatch_count": ontology_mismatch_count,
+                "constraint_violation_count": constraint_violation_count,
             },
         },
         {
@@ -1178,12 +1600,14 @@ def verify_draft_graph_promotions(
             "stakeholder": "Ronacher",
             "passed": stale_edge_count == 0
             and conflict_count <= max_conflict_count
-            and ontology_mismatch_count == 0,
+            and ontology_mismatch_count == 0
+            and constraint_violation_count == 0,
             "summary": "Verification blocks stale graph state and conflicting promotions.",
             "details": {
                 "stale_edge_count": stale_edge_count,
                 "conflict_count": conflict_count,
                 "ontology_mismatch_count": ontology_mismatch_count,
+                "constraint_violation_count": constraint_violation_count,
             },
         },
     ]
@@ -1206,7 +1630,9 @@ def persist_semantic_graph_snapshot(
     if not graph_version:
         raise ValueError("Semantic graph payload requires graph_version.")
     incoming_sha256 = _graph_payload_sha256(payload)
-    snapshot = session.query(SemanticGraphSnapshot).filter_by(graph_version=graph_version).one_or_none()
+    snapshot = (
+        session.query(SemanticGraphSnapshot).filter_by(graph_version=graph_version).one_or_none()
+    )
     if snapshot is None:
         snapshot = SemanticGraphSnapshot(
             graph_name=graph_name,
@@ -1288,7 +1714,9 @@ def apply_graph_promotions(
                 "stakeholder": "Yegge",
                 "passed": bool((snapshot.payload_json or {}).get("edges") is not None),
                 "summary": "Approved graph edges are now reusable by downstream agents.",
-                "details": {"applied_edge_count": len((snapshot.payload_json or {}).get("edges") or [])},
+                "details": {
+                    "applied_edge_count": len((snapshot.payload_json or {}).get("edges") or [])
+                },
             },
         ],
     }
@@ -1312,12 +1740,17 @@ def graph_memory_for_brief(
     for edge in payload.get("edges") or []:
         if edge.get("review_status") != SemanticReviewStatus.APPROVED.value:
             continue
-        support_document_ids = {UUID(str(value)) for value in edge.get("supporting_document_ids") or []}
+        support_document_ids = {
+            UUID(str(value)) for value in edge.get("supporting_document_ids") or []
+        }
         if not support_document_ids.intersection(document_id_set):
             continue
         subject_concept_key = str(edge.get("subject_entity_key") or "").split("concept:", 1)[-1]
         object_concept_key = str(edge.get("object_entity_key") or "").split("concept:", 1)[-1]
-        if subject_concept_key not in available_concept_keys or object_concept_key not in available_concept_keys:
+        if (
+            subject_concept_key not in available_concept_keys
+            or object_concept_key not in available_concept_keys
+        ):
             continue
         if requested_concept_keys and not {
             subject_concept_key,

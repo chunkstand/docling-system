@@ -25,6 +25,23 @@ TARGET_LENGTH_EVIDENCE_LIMIT = {
 }
 
 
+def _graph_claim_summary(graph_edge: dict[str, Any]) -> str:
+    relation_label = collapse_whitespace(str(graph_edge.get("relation_label") or ""))
+    subject_label = str(graph_edge.get("subject_label") or "")
+    object_label = str(graph_edge.get("object_label") or "")
+    document_count = len(graph_edge.get("supporting_document_ids") or [])
+    document_phrase = f"{document_count} document{'' if document_count == 1 else 's'}"
+    if relation_label and relation_label != "Concept Related To Concept":
+        return (
+            f"{subject_label} is connected to {object_label} through the approved "
+            f"{relation_label.lower()} relation across {document_phrase}."
+        )
+    return (
+        f"{subject_label} is linked to {object_label} through approved "
+        f"cross-document graph memory across {document_phrase}."
+    )
+
+
 @dataclass(frozen=True)
 class SemanticGroundedDocumentVerificationOutcome:
     summary: dict[str, Any]
@@ -503,9 +520,7 @@ def prepare_semantic_generation_brief(
             row
             for row in bucket["facts"]
             if row["review_status"] != "rejected"
-            and (
-                review_policy != "approved_only" or row["review_status"] == "approved"
-            )
+            and (review_policy != "approved_only" or row["review_status"] == "approved")
         ]
 
         assertion_refs: list[dict[str, Any]] = []
@@ -580,12 +595,14 @@ def prepare_semantic_generation_brief(
     graph_summary: dict[str, Any] = {}
     graph_related_concept_keys: set[str] = set()
     if requested_concept_keys or requested_category_keys:
-        related_concept_keys, graph_edge_refs, graph_summary, graph_warnings = graph_memory_for_brief(
-            session,
-            document_ids=unique_document_ids,
-            requested_concept_keys=requested_concept_keys
-            or {entry["concept_key"] for entry in base_concept_entries},
-            available_concept_keys={entry["concept_key"] for entry in raw_concept_entries},
+        related_concept_keys, graph_edge_refs, graph_summary, graph_warnings = (
+            graph_memory_for_brief(
+                session,
+                document_ids=unique_document_ids,
+                requested_concept_keys=requested_concept_keys
+                or {entry["concept_key"] for entry in base_concept_entries},
+                available_concept_keys={entry["concept_key"] for entry in raw_concept_entries},
+            )
         )
         graph_index = graph_edge_refs
         graph_related_concept_keys = set(related_concept_keys)
@@ -720,12 +737,7 @@ def prepare_semantic_generation_brief(
                 {
                     "claim_id": claim_id,
                     "section_id": "section:cross_document_relationships",
-                    "summary": (
-                        f"{graph_edge['subject_label']} is linked to {graph_edge['object_label']} "
-                        f"through approved cross-document graph memory across "
-                        f"{len(graph_edge['supporting_document_ids'])} document"
-                        f"{'' if len(graph_edge['supporting_document_ids']) == 1 else 's'}."
-                    ),
+                    "summary": _graph_claim_summary(graph_edge),
                     "concept_keys": [
                         str(graph_edge["subject_entity_key"]).split("concept:", 1)[-1],
                         str(graph_edge["object_entity_key"]).split("concept:", 1)[-1],
@@ -852,7 +864,8 @@ def _draft_success_metrics(draft: dict[str, Any]) -> list[dict[str, Any]]:
             and bool(claims)
             and bool(graph_index or assertion_index or fact_index),
             "summary": (
-                "The draft exposes sections, claims, fact or assertion refs, and an evidence appendix."
+                "The draft exposes sections, claims, fact or assertion refs, "
+                "and an evidence appendix."
             ),
             "details": {
                 "section_count": len(sections),
@@ -1032,10 +1045,8 @@ def _verification_success_metrics(summary: dict[str, Any]) -> list[dict[str, Any
             "stakeholder": "Lopopolo",
             "passed": (
                 summary["graph_ref_coverage_ratio"] == 1.0
-                and
-                summary["fact_ref_coverage_ratio"] == 1.0
-                and
-                summary["assertion_ref_coverage_ratio"] == 1.0
+                and summary["fact_ref_coverage_ratio"] == 1.0
+                and summary["assertion_ref_coverage_ratio"] == 1.0
                 and summary["evidence_ref_coverage_ratio"] == 1.0
             ),
             "summary": (
@@ -1127,7 +1138,9 @@ def verify_semantic_grounded_document(
         resolved_graph_edges = [
             graph_index[edge_id] for edge_id in claim.graph_edge_ids if edge_id in graph_index
         ]
-        resolved_facts = [fact_index[fact_id] for fact_id in claim.fact_ids if fact_id in fact_index]
+        resolved_facts = [
+            fact_index[fact_id] for fact_id in claim.fact_ids if fact_id in fact_index
+        ]
         resolved_assertions = [
             assertion_index[assertion_id]
             for assertion_id in claim.assertion_ids
@@ -1167,9 +1180,13 @@ def verify_semantic_grounded_document(
                 )
         if resolved_facts and all(row.review_status == "approved" for row in resolved_facts):
             approved_supported_claim_count += 1
-        elif resolved_graph_edges and all(row.review_status == "approved" for row in resolved_graph_edges):
+        elif resolved_graph_edges and all(
+            row.review_status == "approved" for row in resolved_graph_edges
+        ):
             approved_supported_claim_count += 1
-        elif resolved_assertions and all(row.review_status == "approved" for row in resolved_assertions):
+        elif resolved_assertions and all(
+            row.review_status == "approved" for row in resolved_assertions
+        ):
             approved_supported_claim_count += 1
 
     claim_count = len(draft.claims)
@@ -1183,9 +1200,7 @@ def verify_semantic_grounded_document(
     graph_ref_coverage_ratio = (
         resolved_graph_edge_count / graph_claim_count if graph_claim_count else 1.0
     )
-    fact_ref_coverage_ratio = (
-        resolved_fact_count / fact_claim_count if fact_claim_count else 1.0
-    )
+    fact_ref_coverage_ratio = resolved_fact_count / fact_claim_count if fact_claim_count else 1.0
     assertion_ref_coverage_ratio = (
         resolved_assertion_count / assertion_claim_count if assertion_claim_count else 1.0
     )
@@ -1203,7 +1218,9 @@ def verify_semantic_grounded_document(
             f"of {max_unsupported_claim_count}."
         )
     if require_full_claim_traceability and traceable_claim_ratio < 1.0:
-        reasons.append("Not every draft claim resolves to graph, fact, or assertion-plus-evidence support.")
+        reasons.append(
+            "Not every draft claim resolves to graph, fact, or assertion-plus-evidence support."
+        )
     if require_full_concept_coverage and required_concept_coverage_ratio < 1.0:
         reasons.append("The draft does not cover every required concept from the generation brief.")
 

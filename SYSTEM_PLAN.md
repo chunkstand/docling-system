@@ -565,7 +565,7 @@ Current workflow-heavy paths include:
 - `evaluate_semantic_relation_extractor`, which compares a shadow relation extractor against a deterministic baseline and fixed expected graph edges
 - `triage_semantic_graph_disagreements`, which consumes that evaluation through its `target_task` context ref and turns candidate-only graph gaps into typed issues plus bounded promotion follow-ups
 - `draft_graph_promotions`, which prepares a reviewable graph-memory snapshot update without changing the live graph
-- `verify_draft_graph_promotions`, which verifies those promotions against ontology compatibility, traceability, and conflict constraints
+- `verify_draft_graph_promotions`, which verifies those promotions against ontology compatibility, domain/range relation constraints, traceability, inverse/symmetry conflicts, and stale-snapshot checks
 - `apply_graph_promotions`, which is approval-gated and publishes the verified graph snapshot as the new active workspace graph memory
 - `prepare_semantic_generation_brief`, which builds a typed semantic dossier, section plan, claim set, and evidence pack for one bounded `knowledge_brief`
 - `prepare_semantic_generation_brief` can also consume approved graph memory so grounded briefs can pull in cross-document concept relations without reparsing raw evidence every time
@@ -577,7 +577,7 @@ Current workflow-heavy paths include:
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`
 - `enqueue_document_reprocess`, which is approval-gated and queues document reprocessing without changing the current active run until the normal ingest path completes successfully
 
-The portable ontology workflow keeps the repo domain agnostic: `config/upper_ontology.yaml` is the only shipped semantic seed, while corpus-derived ontology snapshots, approved facts, and workspace review state live in the database and can be rebuilt from arbitrary user data.
+The portable ontology workflow keeps the repo domain agnostic: `config/upper_ontology.yaml` is the only shipped semantic seed, while corpus-derived ontology snapshots, approved facts, approved graph relations, and workspace review state live in the database and can be rebuilt from arbitrary user data.
 
 ### Analytics and exports
 

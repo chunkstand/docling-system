@@ -30,11 +30,21 @@ class FakeSession:
         if model.__name__ == "WorkspaceSemanticGraphState":
             return self.graph_state if key == "default" else None
         if model.__name__ == "SemanticGraphSnapshot":
-            return self.graph_snapshot if self.graph_snapshot and self.graph_snapshot.id == key else None
+            return (
+                self.graph_snapshot
+                if self.graph_snapshot and self.graph_snapshot.id == key
+                else None
+            )
         return None
 
 
-def _semantic_pass(*, document_id, run_id, concepts: list[tuple[str, str]]) -> DocumentSemanticPassResponse:
+def _semantic_pass(
+    *,
+    document_id,
+    run_id,
+    concepts: list[tuple[str, str]],
+    shared_excerpt: str | None = None,
+) -> DocumentSemanticPassResponse:
     now = datetime.now(UTC)
     concept_bindings = []
     assertions = []
@@ -90,7 +100,8 @@ def _semantic_pass(*, document_id, run_id, concepts: list[tuple[str, str]]) -> D
                         page_from=1,
                         page_to=1,
                         matched_terms=[preferred_label.lower()],
-                        excerpt=f"{preferred_label} remains active in the current policy set.",
+                        excerpt=shared_excerpt
+                        or f"{preferred_label} remains active in the current policy set.",
                         source_label="Section 1",
                         source_artifact_api_path=f"/documents/{document_id}/chunks/{index + 1}",
                         source_artifact_sha256=f"sha-{concept_key}",
@@ -140,12 +151,48 @@ def _ontology_snapshot():
         sha256="ontology-sha",
         upper_ontology_version="portable-upper-ontology-v1",
         payload_json={
+            "registry_name": "portable_upper_ontology",
+            "registry_version": "portable-upper-ontology-v1",
+            "upper_ontology_version": "portable-upper-ontology-v1",
+            "categories": [],
+            "concepts": [],
             "relations": [
+                {
+                    "relation_key": "document_mentions_concept",
+                    "preferred_label": "Document Mentions Concept",
+                    "domain_entity_types": ["document"],
+                    "range_entity_types": ["concept"],
+                    "symmetric": False,
+                    "allow_literal_object": False,
+                },
                 {
                     "relation_key": "concept_related_to_concept",
                     "preferred_label": "Concept Related To Concept",
-                }
-            ]
+                    "domain_entity_types": ["concept"],
+                    "range_entity_types": ["concept"],
+                    "symmetric": True,
+                    "allow_literal_object": False,
+                    "inverse_relation_key": "concept_related_to_concept",
+                },
+                {
+                    "relation_key": "concept_depends_on_concept",
+                    "preferred_label": "Concept Depends On Concept",
+                    "domain_entity_types": ["concept"],
+                    "range_entity_types": ["concept"],
+                    "symmetric": False,
+                    "allow_literal_object": False,
+                    "inverse_relation_key": "concept_enables_concept",
+                },
+                {
+                    "relation_key": "concept_enables_concept",
+                    "preferred_label": "Concept Enables Concept",
+                    "domain_entity_types": ["concept"],
+                    "range_entity_types": ["concept"],
+                    "symmetric": False,
+                    "allow_literal_object": False,
+                    "inverse_relation_key": "concept_depends_on_concept",
+                },
+            ],
         },
     )
 
@@ -249,6 +296,51 @@ def test_evaluate_semantic_relation_extractor_improves_expected_recall(monkeypat
     )
 
 
+def test_build_shadow_semantic_graph_emits_typed_dependency_edges(monkeypatch) -> None:
+    session = FakeSession()
+    document_id = uuid4()
+    semantic_passes = {
+        document_id: _semantic_pass(
+            document_id=document_id,
+            run_id=uuid4(),
+            concepts=[
+                ("integration_owner", "Integration Owner"),
+                ("integration_threshold", "Integration Threshold"),
+            ],
+            shared_excerpt=(
+                "Integration Owner depends on Integration Threshold for every rollout."
+            ),
+        ),
+    }
+    monkeypatch.setattr(
+        "app.services.semantic_graph.get_active_semantic_pass_detail",
+        lambda _session, current_document_id: semantic_passes[current_document_id],
+    )
+    monkeypatch.setattr(
+        "app.services.semantic_graph.get_active_semantic_ontology_snapshot",
+        lambda _session: _ontology_snapshot(),
+    )
+
+    shadow_graph = build_shadow_semantic_graph(
+        session,
+        document_ids=[document_id],
+        relation_extractor_name="relation_ranker_v1",
+        minimum_review_status="approved",
+        min_shared_documents=2,
+        score_threshold=0.45,
+    )
+
+    dependency_edge = next(
+        edge
+        for edge in shadow_graph["edges"]
+        if edge["relation_key"] == "concept_depends_on_concept"
+    )
+    assert dependency_edge["subject_entity_key"] == "concept:integration_owner"
+    assert dependency_edge["object_entity_key"] == "concept:integration_threshold"
+    assert dependency_edge["relation_label"] == "Concept Depends On Concept"
+    assert dependency_edge["details"]["cue_match_count"] >= 1
+
+
 def test_triage_draft_and_verify_graph_promotions(monkeypatch) -> None:
     session = FakeSession()
     ontology_snapshot = _ontology_snapshot()
@@ -323,6 +415,42 @@ def test_triage_draft_and_verify_graph_promotions(monkeypatch) -> None:
     )
 
 
+def test_verify_draft_graph_promotions_rejects_constraint_violations(monkeypatch) -> None:
+    session = FakeSession()
+    ontology_snapshot = _ontology_snapshot()
+    monkeypatch.setattr(
+        "app.services.semantic_graph.get_active_semantic_ontology_snapshot",
+        lambda _session: ontology_snapshot,
+    )
+
+    summary, _metrics, reasons, outcome, _success_metrics = verify_draft_graph_promotions(
+        session,
+        {
+            "ontology_snapshot_id": ontology_snapshot.id,
+            "promoted_edges": [
+                {
+                    "edge_id": "graph_edge:concept_depends_on_concept:document:a:concept:b",
+                    "relation_key": "concept_depends_on_concept",
+                    "relation_label": "Concept Depends On Concept",
+                    "subject_entity_key": "document:123",
+                    "subject_label": "Bad Subject",
+                    "object_entity_key": "concept:integration_threshold",
+                    "object_label": "Integration Threshold",
+                    "support_refs": [{"support_ref_id": "support:1"}],
+                    "supporting_document_ids": [uuid4()],
+                }
+            ],
+        },
+        min_supporting_document_count=1,
+        max_conflict_count=0,
+        require_current_ontology_snapshot=True,
+    )
+
+    assert outcome == "failed"
+    assert summary["constraint_violation_count"] == 1
+    assert any("relation constraints" in reason for reason in reasons)
+
+
 def test_graph_memory_for_brief_returns_related_concepts_from_active_snapshot() -> None:
     session = FakeSession()
     graph_snapshot_id = uuid4()
@@ -336,7 +464,10 @@ def test_graph_memory_for_brief_returns_related_concepts_from_active_snapshot() 
         payload_json={
             "edges": [
                 {
-                    "edge_id": "graph_edge:concept_related_to_concept:concept:integration_threshold:concept:integration_guardrail",
+                    "edge_id": (
+                        "graph_edge:concept_related_to_concept:"
+                        "concept:integration_threshold:concept:integration_guardrail"
+                    ),
                     "relation_key": "concept_related_to_concept",
                     "relation_label": "Concept Related To Concept",
                     "subject_entity_key": "concept:integration_threshold",
@@ -407,7 +538,10 @@ def test_draft_graph_promotions_refreshes_existing_node_support_metadata(monkeyp
         source_payload={
             "edges": [
                 {
-                    "edge_id": "graph_edge:concept_related_to_concept:concept:integration_threshold:concept:integration_guardrail",
+                    "edge_id": (
+                        "graph_edge:concept_related_to_concept:"
+                        "concept:integration_threshold:concept:integration_guardrail"
+                    ),
                     "relation_key": "concept_related_to_concept",
                     "relation_label": "Concept Related To Concept",
                     "subject_entity_key": "concept:integration_threshold",

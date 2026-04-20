@@ -448,6 +448,8 @@ For domain-agnostic bootstrap on arbitrary user data, `discover_semantic_bootstr
 
 The ontology layer is now portable across workspaces. The repo ships only a generic `config/upper_ontology.yaml` seed, while the live ontology contract is stored as DB-backed `semantic_ontology_snapshots` with one active workspace pointer. `initialize_workspace_ontology` seeds an empty workspace from the upper ontology, `get_active_ontology_snapshot` exposes the current live snapshot, `draft_ontology_extension -> verify_draft_ontology_extension -> apply_ontology_extension` governs additive ontology changes without mutating repo defaults, and `build_document_fact_graph` compacts approved semantic assertions into a minimal reusable fact graph for grounded generation.
 
+The current upper ontology now carries lightweight relation semantics instead of bare labels. Relation definitions include domain/range entity types, symmetry, literal-object allowance, cardinality hints, and inverse keys. The shadow graph path can therefore emit both generic co-occurrence memory and typed directional relations like `concept_depends_on_concept`, while `verify_draft_graph_promotions` blocks edges that violate the active ontology constraints before they reach live graph memory.
+
 That split keeps the process portable: two different users can ingest different corpora, run the same workflow, and end up with different approved ontology snapshots and fact graphs without changing the repo code or shipping domain-specific defaults.
 
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
