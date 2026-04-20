@@ -6,9 +6,16 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 
-from app.db.models import AgentTask, AgentTaskArtifact, AgentTaskDependency, SearchReplayRun
+from app.db.models import (
+    AgentTask,
+    AgentTaskArtifact,
+    AgentTaskDependency,
+    AgentTaskVerification,
+    SearchReplayRun,
+)
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.agent_task_context import (
+    build_agent_task_context,
     refresh_task_context_freshness,
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
@@ -248,6 +255,198 @@ def test_refresh_task_context_freshness_marks_task_output_ref_fresh() -> None:
 
     assert refreshed.refs[0].freshness_status == ContextFreshnessStatus.FRESH
     assert refreshed.freshness_status == ContextFreshnessStatus.FRESH
+
+
+def test_build_agent_task_context_for_triage_semantic_pass_includes_target_and_artifact_refs(
+) -> None:
+    now = datetime.now(UTC)
+    target_task_id = uuid4()
+    triage_task_id = uuid4()
+    verification_id = uuid4()
+    artifact_id = uuid4()
+
+    target_output = {
+        "document_id": str(uuid4()),
+        "semantic_pass": {
+            "semantic_pass_id": str(uuid4()),
+            "document_id": str(uuid4()),
+            "run_id": str(uuid4()),
+            "status": "completed",
+            "registry_version": "semantics-layer-foundation-alpha.2",
+            "registry_sha256": "registry-sha",
+            "extractor_version": "semantics_sidecar_v2_1",
+            "artifact_schema_version": "2.1",
+            "baseline_run_id": None,
+            "baseline_semantic_pass_id": None,
+            "has_json_artifact": True,
+            "has_yaml_artifact": True,
+            "artifact_json_sha256": "json-sha",
+            "artifact_yaml_sha256": "yaml-sha",
+            "assertion_count": 0,
+            "evidence_count": 0,
+            "summary": {"concept_keys": []},
+            "evaluation_status": "completed",
+            "evaluation_fixture_name": "semantic_fixture",
+            "evaluation_version": 2,
+            "evaluation_summary": {"all_expectations_passed": False, "expectations": []},
+            "continuity_summary": {"reason": "no_prior_active_run", "change_count": 0},
+            "error_message": None,
+            "created_at": "2026-04-15T00:00:00Z",
+            "completed_at": "2026-04-15T00:00:00Z",
+            "concept_category_bindings": [],
+            "assertions": [],
+        },
+        "success_metrics": [],
+    }
+    target_context_payload = {
+        "schema_name": "agent_task_context",
+        "schema_version": "1.0",
+        "task_id": str(target_task_id),
+        "task_type": "get_latest_semantic_pass",
+        "task_status": "completed",
+        "workflow_version": "v1",
+        "generated_at": "2026-04-15T00:00:00Z",
+        "task_updated_at": "2026-04-15T00:00:00Z",
+        "output_schema_name": "get_latest_semantic_pass_output",
+        "output_schema_version": "1.0",
+        "freshness_status": "fresh",
+        "summary": {"headline": "semantic pass ready"},
+        "refs": [],
+        "output": target_output,
+    }
+
+    target_task = AgentTask(
+        id=target_task_id,
+        task_type="get_latest_semantic_pass",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    triage_task = AgentTask(
+        id=triage_task_id,
+        task_type="triage_semantic_pass",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={"target_task_id": str(target_task_id)},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    triage_dependency = AgentTaskDependency(
+        id=uuid4(),
+        task_id=triage_task_id,
+        depends_on_task_id=target_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
+    verification_row = type(
+        "VerificationRow",
+        (),
+        {
+            "id": verification_id,
+            "target_task_id": target_task_id,
+            "verification_task_id": triage_task_id,
+            "verifier_type": "semantic_gap_gate",
+            "outcome": "failed",
+            "metrics_json": {"issue_count": 1},
+            "reasons_json": ["missing concept"],
+            "details_json": {"issue_types": ["missing_expected_concept"]},
+            "created_at": now,
+            "completed_at": now,
+        },
+    )()
+    artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=triage_task_id,
+        attempt_id=None,
+        artifact_kind="semantic_gap_report",
+        storage_path="/tmp/semantic_gap_report.json",
+        payload_json={"issue_count": 1},
+        created_at=now,
+    )
+    target_context_artifact = _build_context_artifact(
+        task_id=target_task_id,
+        payload=target_context_payload,
+    )
+
+    result = {
+        "payload": {
+            "document_id": target_output["document_id"],
+            "run_id": target_output["semantic_pass"]["run_id"],
+            "semantic_pass_id": target_output["semantic_pass"]["semantic_pass_id"],
+            "registry_version": "semantics-layer-foundation-alpha.2",
+            "evaluation_fixture_name": "semantic_fixture",
+            "evaluation_status": "completed",
+            "gap_report": {
+                "document_id": target_output["semantic_pass"]["document_id"],
+                "run_id": target_output["semantic_pass"]["run_id"],
+                "semantic_pass_id": target_output["semantic_pass"]["semantic_pass_id"],
+                "registry_version": "semantics-layer-foundation-alpha.2",
+                "registry_sha256": "registry-sha",
+                "evaluation_status": "completed",
+                "evaluation_fixture_name": "semantic_fixture",
+                "evaluation_version": 2,
+                "continuity_summary": {"reason": "no_prior_active_run", "change_count": 0},
+                "issue_count": 1,
+                "issues": [],
+                "recommended_followups": [],
+                "success_metrics": [],
+            },
+            "verification": {
+                "verification_id": str(verification_id),
+                "target_task_id": str(target_task_id),
+                "verification_task_id": str(triage_task_id),
+                "verifier_type": "semantic_gap_gate",
+                "outcome": "failed",
+                "metrics": {"issue_count": 1},
+                "reasons": ["missing concept"],
+                "details": {"issue_types": ["missing_expected_concept"]},
+                "created_at": "2026-04-15T00:00:00Z",
+                "completed_at": "2026-04-15T00:00:00Z",
+            },
+            "recommendation": {
+                "next_action": "draft_registry_update",
+                "confidence": "high",
+                "summary": "draft registry update",
+            },
+            "artifact_id": str(artifact_id),
+            "artifact_kind": "semantic_gap_report",
+            "artifact_path": "/tmp/semantic_gap_report.json",
+        }
+    }
+
+    context = build_agent_task_context(
+        FakeSession(
+            tasks={target_task_id: target_task, triage_task_id: triage_task},
+            artifacts={target_context_artifact.id: target_context_artifact, artifact_id: artifact},
+            dependencies={triage_dependency.id: triage_dependency},
+            verifications={verification_id: verification_row},
+        ),
+        triage_task,
+        result,
+    )
+
+    assert context is not None
+    assert context.summary.next_action == "draft_registry_update"
+    assert {row.ref_key for row in context.refs} == {
+        "target_task_output",
+        "verification_record",
+        "semantic_gap_report_artifact",
+    }
+    assert context.freshness_status == ContextFreshnessStatus.FRESH
 
 
 def test_refresh_task_context_freshness_detects_stale_missing_and_schema_mismatch() -> None:
@@ -597,3 +796,414 @@ def test_refresh_task_context_freshness_marks_replay_run_refs_fresh() -> None:
 
     assert refreshed.refs[0].freshness_status == ContextFreshnessStatus.FRESH
     assert refreshed.freshness_status == ContextFreshnessStatus.FRESH
+
+
+def _prepare_generation_brief_output(*, task_id) -> dict:
+    document_id = uuid4()
+    return {
+        "brief": {
+            "document_kind": "knowledge_brief",
+            "title": "Integration Governance Brief",
+            "goal": "Summarize the knowledge base guidance on integration governance.",
+            "audience": "Operators",
+            "review_policy": "allow_candidate_with_disclosure",
+            "target_length": "medium",
+            "document_refs": [
+                {
+                    "document_id": str(document_id),
+                    "run_id": str(uuid4()),
+                    "semantic_pass_id": str(uuid4()),
+                    "source_filename": "integration-one.pdf",
+                    "title": "Integration One",
+                    "registry_version": "semantics-layer-foundation-alpha.3",
+                    "registry_sha256": "registry-sha",
+                    "evaluation_fixture_name": "integration_fixture",
+                    "evaluation_status": "completed",
+                    "assertion_count": 1,
+                    "evidence_count": 2,
+                    "all_expectations_passed": True,
+                }
+            ],
+            "selected_concept_keys": ["integration_threshold"],
+            "selected_category_keys": ["integration_governance"],
+            "semantic_dossier": [],
+            "sections": [
+                {
+                    "section_id": "section:integration_governance",
+                    "title": "Integration Governance",
+                    "summary": (
+                        "This section covers one semantic concept from the "
+                        "selected corpus scope."
+                    ),
+                    "focus_concept_keys": ["integration_threshold"],
+                    "focus_category_keys": ["integration_governance"],
+                    "claim_ids": ["claim:integration_threshold"],
+                }
+            ],
+            "claim_candidates": [
+                {
+                    "claim_id": "claim:integration_threshold",
+                    "section_id": "section:integration_governance",
+                    "summary": "Integration Threshold appears in Integration One.",
+                    "concept_keys": ["integration_threshold"],
+                    "assertion_ids": [str(uuid4())],
+                    "evidence_labels": ["E1"],
+                    "source_document_ids": [str(document_id)],
+                    "support_level": "supported",
+                    "review_policy_status": "candidate_disclosed",
+                    "disclosure_note": "Candidate-backed support requires review.",
+                }
+            ],
+            "evidence_pack": [],
+            "warnings": [],
+            "success_metrics": [
+                {
+                    "metric_key": "agent_legibility",
+                    "stakeholder": "Lopopolo",
+                    "passed": True,
+                    "summary": "Typed brief ready",
+                    "details": {},
+                }
+            ],
+        },
+        "artifact_id": str(uuid4()),
+        "artifact_kind": "semantic_generation_brief",
+        "artifact_path": "/tmp/semantic_generation_brief.json",
+    }
+
+
+def _draft_grounded_document_output(*, brief_task_id, artifact_id) -> dict:
+    return {
+        "draft": {
+            "document_kind": "knowledge_brief",
+            "title": "Integration Governance Brief",
+            "goal": "Summarize the knowledge base guidance on integration governance.",
+            "audience": "Operators",
+            "review_policy": "allow_candidate_with_disclosure",
+            "target_length": "medium",
+            "brief_task_id": str(brief_task_id),
+            "generator_name": "structured_fallback",
+            "generator_model": None,
+            "used_fallback": True,
+            "required_concept_keys": ["integration_threshold"],
+            "document_refs": [],
+            "assertion_index": [],
+            "sections": [
+                {
+                    "section_id": "section:integration_governance",
+                    "title": "Integration Governance",
+                    "body_markdown": "- Integration Threshold appears in Integration One.",
+                    "claim_ids": ["claim:integration_threshold"],
+                }
+            ],
+            "claims": [
+                {
+                    "claim_id": "claim:integration_threshold",
+                    "section_id": "section:integration_governance",
+                    "rendered_text": "Integration Threshold appears in Integration One.",
+                    "concept_keys": ["integration_threshold"],
+                    "assertion_ids": [str(uuid4())],
+                    "evidence_labels": ["E1"],
+                    "source_document_ids": [str(uuid4())],
+                    "support_level": "supported",
+                    "review_policy_status": "candidate_disclosed",
+                    "disclosure_note": "Candidate-backed support requires review.",
+                }
+            ],
+            "evidence_pack": [],
+            "markdown": "# Integration Governance Brief\n",
+            "markdown_path": "/tmp/semantic_grounded_document.md",
+            "warnings": [],
+            "success_metrics": [
+                {
+                    "metric_key": "agent_legibility",
+                    "stakeholder": "Lopopolo",
+                    "passed": True,
+                    "summary": "Typed draft ready",
+                    "details": {},
+                }
+            ],
+        },
+        "artifact_id": str(artifact_id),
+        "artifact_kind": "semantic_grounded_document_draft",
+        "artifact_path": "/tmp/semantic_grounded_document_draft.json",
+    }
+
+
+def test_build_agent_task_context_for_prepare_semantic_generation_brief_includes_artifact_ref(
+) -> None:
+    now = datetime.now(UTC)
+    task_id = uuid4()
+    artifact_id = uuid4()
+    task = AgentTask(
+        id=task_id,
+        task_type="prepare_semantic_generation_brief",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    output = _prepare_generation_brief_output(task_id=task_id)
+    output["artifact_id"] = str(artifact_id)
+    artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="semantic_generation_brief",
+        storage_path="/tmp/semantic_generation_brief.json",
+        payload_json=output["brief"],
+        created_at=now,
+    )
+
+    context = build_agent_task_context(
+        FakeSession(tasks={task_id: task}, artifacts={artifact_id: artifact}),
+        task,
+        {"payload": output},
+    )
+
+    assert context is not None
+    assert context.summary.next_action == (
+        "Create draft_semantic_grounded_document to render a grounded knowledge brief."
+    )
+    assert context.refs[0].artifact_kind == "semantic_generation_brief"
+
+
+def test_build_agent_task_context_for_draft_semantic_grounded_document_includes_target_ref(
+) -> None:
+    now = datetime.now(UTC)
+    brief_task_id = uuid4()
+    draft_task_id = uuid4()
+    artifact_id = uuid4()
+    brief_task = AgentTask(
+        id=brief_task_id,
+        task_type="prepare_semantic_generation_brief",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    draft_task = AgentTask(
+        id=draft_task_id,
+        task_type="draft_semantic_grounded_document",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    brief_output = _prepare_generation_brief_output(task_id=brief_task_id)
+    brief_context_artifact = _build_context_artifact(
+        task_id=brief_task_id,
+        payload={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(brief_task_id),
+            "task_type": "prepare_semantic_generation_brief",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": now.isoformat(),
+            "task_updated_at": now.isoformat(),
+            "output_schema_name": "prepare_semantic_generation_brief_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Brief ready"},
+            "refs": [],
+            "output": brief_output,
+        },
+    )
+    draft_artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=draft_task_id,
+        attempt_id=None,
+        artifact_kind="semantic_grounded_document_draft",
+        storage_path="/tmp/semantic_grounded_document_draft.json",
+        payload_json=_draft_grounded_document_output(
+            brief_task_id=brief_task_id,
+            artifact_id=artifact_id,
+        )["draft"],
+        created_at=now,
+    )
+    dependency = AgentTaskDependency(
+        task_id=draft_task_id,
+        depends_on_task_id=brief_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
+
+    context = build_agent_task_context(
+        FakeSession(
+            tasks={brief_task_id: brief_task, draft_task_id: draft_task},
+            artifacts={
+                brief_context_artifact.id: brief_context_artifact,
+                artifact_id: draft_artifact,
+            },
+            dependencies={uuid4(): dependency},
+        ),
+        draft_task,
+        {
+            "payload": _draft_grounded_document_output(
+                brief_task_id=brief_task_id,
+                artifact_id=artifact_id,
+            )
+        },
+    )
+
+    assert context is not None
+    assert context.summary.next_action == (
+        "Create verify_semantic_grounded_document to enforce traceability and coverage."
+    )
+    assert context.refs[0].ref_key == "brief_task_output"
+    assert context.refs[1].artifact_kind == "semantic_grounded_document_draft"
+
+
+def test_build_agent_task_context_for_verify_semantic_grounded_document_includes_verification_state(
+) -> None:
+    now = datetime.now(UTC)
+    draft_task_id = uuid4()
+    verify_task_id = uuid4()
+    verification_id = uuid4()
+    artifact_id = uuid4()
+    draft_task = AgentTask(
+        id=draft_task_id,
+        task_type="draft_semantic_grounded_document",
+        status="completed",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    verify_task = AgentTask(
+        id=verify_task_id,
+        task_type="verify_semantic_grounded_document",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    draft_context_artifact = _build_context_artifact(
+        task_id=draft_task_id,
+        payload={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(draft_task_id),
+            "task_type": "draft_semantic_grounded_document",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": now.isoformat(),
+            "task_updated_at": now.isoformat(),
+            "output_schema_name": "draft_semantic_grounded_document_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Draft ready"},
+            "refs": [],
+            "output": _draft_grounded_document_output(
+                brief_task_id=uuid4(),
+                artifact_id=uuid4(),
+            ),
+        },
+    )
+    verification_row = AgentTaskVerification(
+        id=verification_id,
+        target_task_id=draft_task_id,
+        verification_task_id=verify_task_id,
+        verifier_type="semantic_grounded_document_gate",
+        outcome="passed",
+        metrics_json={"claim_count": 1},
+        reasons_json=[],
+        details_json={},
+        created_at=now,
+        completed_at=now,
+    )
+    verify_artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=verify_task_id,
+        attempt_id=None,
+        artifact_kind="semantic_grounded_document_verification",
+        storage_path="/tmp/semantic_grounded_document_verification.json",
+        payload_json={"summary": {"claim_count": 1}},
+        created_at=now,
+    )
+    dependency = AgentTaskDependency(
+        task_id=verify_task_id,
+        depends_on_task_id=draft_task_id,
+        dependency_kind="target_task",
+        created_at=now,
+    )
+    verify_output = {
+        "draft": _draft_grounded_document_output(
+            brief_task_id=uuid4(),
+            artifact_id=uuid4(),
+        )["draft"],
+        "summary": {
+            "claim_count": 1,
+            "unsupported_claim_count": 0,
+            "required_concept_coverage_ratio": 1.0,
+        },
+        "success_metrics": [],
+        "verification": {
+            "verification_id": str(verification_id),
+            "target_task_id": str(draft_task_id),
+            "verification_task_id": str(verify_task_id),
+            "verifier_type": "semantic_grounded_document_gate",
+            "outcome": "passed",
+            "metrics": {"claim_count": 1},
+            "reasons": [],
+            "details": {},
+            "created_at": now.isoformat(),
+            "completed_at": now.isoformat(),
+        },
+        "artifact_id": str(artifact_id),
+        "artifact_kind": "semantic_grounded_document_verification",
+        "artifact_path": "/tmp/semantic_grounded_document_verification.json",
+    }
+
+    context = build_agent_task_context(
+        FakeSession(
+            tasks={draft_task_id: draft_task, verify_task_id: verify_task},
+            artifacts={
+                draft_context_artifact.id: draft_context_artifact,
+                artifact_id: verify_artifact,
+            },
+            dependencies={uuid4(): dependency},
+            verifications={verification_id: verification_row},
+        ),
+        verify_task,
+        {"payload": verify_output},
+    )
+
+    assert context is not None
+    assert context.summary.verification_state == "passed"
+    assert context.refs[0].ref_key == "draft_task_output"

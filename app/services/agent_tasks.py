@@ -572,9 +572,13 @@ def _bucket_start(value: datetime, bucket: str) -> datetime:
 
 RECOMMENDATION_FAMILY_TASK_TYPES = (
     "triage_replay_regression",
+    "triage_semantic_pass",
     "draft_harness_config_update",
+    "draft_semantic_registry_update",
     "verify_draft_harness_config",
+    "verify_draft_semantic_registry_update",
     "apply_harness_config_update",
+    "apply_semantic_registry_update",
 )
 
 
@@ -722,7 +726,7 @@ def _task_ids(tasks: list[AgentTask]) -> set[UUID]:
 
 
 def _is_recommendation_task(task: AgentTask) -> bool:
-    return task.task_type == "triage_replay_regression" or bool(
+    return task.task_type in {"triage_replay_regression", "triage_semantic_pass"} or bool(
         (task.result_json or {}).get("recommendation")
     )
 
@@ -748,20 +752,21 @@ def _recommendation_family_tasks(
     draft_tasks = [
         task
         for task in all_tasks
-        if task.task_type == "draft_harness_config_update"
+        if task.task_type in {"draft_harness_config_update", "draft_semantic_registry_update"}
         and _task_input_task_id(task, "source_task_id") in recommendation_ids
     ]
     draft_ids = _task_ids(draft_tasks)
     verification_tasks = [
         task
         for task in all_tasks
-        if task.task_type == "verify_draft_harness_config"
+        if task.task_type
+        in {"verify_draft_harness_config", "verify_draft_semantic_registry_update"}
         and _task_input_task_id(task, "target_task_id") in draft_ids
     ]
     apply_tasks = [
         task
         for task in all_tasks
-        if task.task_type == "apply_harness_config_update"
+        if task.task_type in {"apply_harness_config_update", "apply_semantic_registry_update"}
         and _task_input_task_id(task, "draft_task_id") in draft_ids
     ]
     family_ids = (
@@ -798,11 +803,20 @@ def _recommendation_summary_from_tasks(
         source_task_id = _task_input_task_id(task, "source_task_id")
         target_task_id = _task_input_task_id(task, "target_task_id")
         draft_task_id = _task_input_task_id(task, "draft_task_id")
-        if source_task_id is not None and task.task_type == "draft_harness_config_update":
+        if source_task_id is not None and task.task_type in {
+            "draft_harness_config_update",
+            "draft_semantic_registry_update",
+        }:
             drafts_by_source[source_task_id].append(task)
-        if target_task_id is not None and task.task_type == "verify_draft_harness_config":
+        if target_task_id is not None and task.task_type in {
+            "verify_draft_harness_config",
+            "verify_draft_semantic_registry_update",
+        }:
             verifications_by_draft[target_task_id].append(task)
-        if draft_task_id is not None and task.task_type == "apply_harness_config_update":
+        if draft_task_id is not None and task.task_type in {
+            "apply_harness_config_update",
+            "apply_semantic_registry_update",
+        }:
             applies_by_draft[draft_task_id].append(task)
 
     outcomes_by_task_id: dict[UUID, list[AgentTaskOutcome]] = defaultdict(list)

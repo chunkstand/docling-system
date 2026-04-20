@@ -60,6 +60,7 @@ from app.services.semantic_registry import (
     SemanticRegistryConceptDefinition,
     get_semantic_registry,
     normalize_semantic_text,
+    semantic_registry_from_payload,
 )
 from app.services.storage import StorageService
 
@@ -117,6 +118,7 @@ class SemanticEvaluationExpectation:
     minimum_evidence_count: int
     required_source_types: tuple[str, ...]
     expected_category_keys: tuple[str, ...] = ()
+    suggested_aliases: tuple[str, ...] = ()
     expected_epistemic_status: str | None = None
     expected_review_status: str | None = None
     expected_category_binding_review_status: str | None = None
@@ -347,6 +349,9 @@ def _latest_concept_review_overlays(
     document_id: UUID,
     registry_version: str,
 ) -> dict[str, SemanticReviewOverlay]:
+    del registry_version
+    # Reviews attach to stable concept keys at the document level. For additive
+    # registry version bumps, carry the latest decision forward by concept key.
     rows = session.execute(
         select(
             DocumentSemanticConceptReview,
@@ -358,7 +363,6 @@ def _latest_concept_review_overlays(
         )
         .where(
             DocumentSemanticConceptReview.document_id == document_id,
-            SemanticConcept.registry_version == registry_version,
         )
         .order_by(
             SemanticConcept.concept_key,
@@ -385,6 +389,9 @@ def _latest_category_review_overlays(
     document_id: UUID,
     registry_version: str,
 ) -> dict[tuple[str, str], SemanticReviewOverlay]:
+    del registry_version
+    # Category reviews follow the same additive carry-forward rule by
+    # (concept_key, category_key) across registry versions.
     rows = session.execute(
         select(
             DocumentSemanticCategoryReview,
@@ -401,8 +408,6 @@ def _latest_category_review_overlays(
         )
         .where(
             DocumentSemanticCategoryReview.document_id == document_id,
-            SemanticConcept.registry_version == registry_version,
-            SemanticCategory.registry_version == registry_version,
         )
         .order_by(
             SemanticConcept.concept_key,
@@ -897,6 +902,116 @@ def _semantic_summary(
     }
 
 
+def _preview_concept_category_bindings(
+    registry: SemanticRegistry,
+) -> list[dict[str, Any]]:
+    category_index = {category.category_key: category for category in registry.categories}
+    bindings: list[dict[str, Any]] = []
+    for concept in sorted(registry.concepts, key=lambda row: row.preferred_label.lower()):
+        for category_key in concept.category_keys:
+            category = category_index[category_key]
+            bindings.append(
+                {
+                    "binding_id": None,
+                    "concept_key": concept.concept_key,
+                    "category_key": category.category_key,
+                    "category_label": category.preferred_label,
+                    "binding_type": SemanticCategoryBindingType.CONCEPT_CATEGORY.value,
+                    "created_from": SemanticBindingOrigin.REGISTRY.value,
+                    "review_status": SemanticReviewStatus.APPROVED.value,
+                    "details": {},
+                }
+            )
+    return bindings
+
+
+def _preview_assertions(
+    materializations: list[SemanticAssertionMaterialization],
+    *,
+    concept_review_overlays: dict[str, SemanticReviewOverlay],
+    category_review_overlays: dict[tuple[str, str], SemanticReviewOverlay],
+    registry: SemanticRegistry,
+) -> list[dict[str, Any]]:
+    category_index = {category.category_key: category for category in registry.categories}
+    assertions: list[dict[str, Any]] = []
+    for materialization in materializations:
+        concept_key = materialization.concept_definition.concept_key
+        concept_overlay = concept_review_overlays.get(concept_key)
+        category_bindings = []
+        for category_key in materialization.concept_definition.category_keys:
+            category_overlay = category_review_overlays.get((concept_key, category_key))
+            category = category_index[category_key]
+            category_bindings.append(
+                {
+                    "binding_id": None,
+                    "category_key": category_key,
+                    "category_label": category.preferred_label,
+                    "binding_type": SemanticCategoryBindingType.ASSERTION_CATEGORY.value,
+                    "created_from": SemanticBindingOrigin.DERIVED.value,
+                    "review_status": (
+                        category_overlay.review_status
+                        if category_overlay is not None
+                        else SemanticReviewStatus.CANDIDATE.value
+                    ),
+                    "details": _details_with_review_overlay(
+                        {
+                            "preview_only": True,
+                            "match_strategy": SEMANTIC_MATCH_STRATEGY,
+                        },
+                        category_overlay,
+                    ),
+                }
+            )
+        assertions.append(
+            {
+                "assertion_id": None,
+                "concept_key": concept_key,
+                "preferred_label": materialization.concept_definition.preferred_label,
+                "scope_note": materialization.concept_definition.scope_note,
+                "assertion_kind": SemanticAssertionKind.CONCEPT_MENTION.value,
+                "epistemic_status": SemanticEpistemicStatus.OBSERVED.value,
+                "context_scope": SemanticContextScope.DOCUMENT_RUN.value,
+                "review_status": (
+                    concept_overlay.review_status
+                    if concept_overlay is not None
+                    else SemanticReviewStatus.CANDIDATE.value
+                ),
+                "matched_terms": sorted(materialization.matched_terms),
+                "source_types": sorted(materialization.source_types),
+                "evidence_count": len(materialization.evidence),
+                "confidence": min(1.0, 0.65 + (0.1 * len(materialization.source_types))),
+                "details": _details_with_review_overlay(
+                    {
+                        "scope_note": materialization.concept_definition.scope_note,
+                        "match_strategy": SEMANTIC_MATCH_STRATEGY,
+                        "preview_only": True,
+                    },
+                    concept_overlay,
+                ),
+                "category_bindings": category_bindings,
+                "evidence": [
+                    {
+                        "evidence_id": None,
+                        "source_type": evidence.source_item.source_type,
+                        "chunk_id": evidence.source_item.chunk_id,
+                        "table_id": evidence.source_item.table_id,
+                        "figure_id": evidence.source_item.figure_id,
+                        "page_from": evidence.source_item.page_from,
+                        "page_to": evidence.source_item.page_to,
+                        "matched_terms": list(evidence.matched_terms),
+                        "excerpt": evidence.source_item.excerpt,
+                        "source_label": evidence.source_item.source_label,
+                        "source_artifact_api_path": None,
+                        "source_artifact_sha256": evidence.source_item.source_artifact_sha256,
+                        "details": evidence.source_item.details,
+                    }
+                    for evidence in materialization.evidence
+                ],
+            }
+        )
+    return assertions
+
+
 def _semantic_pass_row_for_run(
     session: Session,
     document_id: UUID,
@@ -1083,6 +1198,13 @@ def _load_semantic_evaluation_fixtures(path_value: str) -> tuple[SemanticEvaluat
                             if collapse_whitespace(str(item or ""))
                         )
                     ),
+                    suggested_aliases=tuple(
+                        sorted(
+                            collapse_whitespace(str(item or ""))
+                            for item in (raw_expectation.get("suggested_aliases") or [])
+                            if collapse_whitespace(str(item or ""))
+                        )
+                    ),
                     expected_epistemic_status=collapse_whitespace(
                         str(raw_expectation.get("expected_epistemic_status") or "")
                     )
@@ -1234,6 +1356,7 @@ def _semantic_evaluation_result(
                 "observed_source_types": observed_source_types,
                 "missing_source_types": missing_source_types,
                 "expected_category_keys": list(expectation.expected_category_keys),
+                "suggested_aliases": list(expectation.suggested_aliases),
                 "observed_category_keys": observed_category_keys,
                 "missing_category_keys": missing_category_keys,
                 "expected_epistemic_status": expectation.expected_epistemic_status,
@@ -2008,3 +2131,106 @@ def get_active_semantic_continuity(
         baseline_semantic_pass_id=semantic_pass.baseline_semantic_pass_id,
         summary=semantic_pass.continuity_summary_json,
     )
+
+
+def preview_semantic_registry_update_for_document(
+    session: Session,
+    document_id: UUID,
+    registry_payload: dict[str, Any],
+) -> dict[str, Any]:
+    document = get_document_or_404(session, document_id)
+    if document.active_run_id is None:
+        raise api_error(
+            404,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    run = session.get(DocumentRun, document.active_run_id)
+    if run is None:
+        raise ValueError("Active document run disappeared before semantic preview.")
+
+    current_pass = get_active_semantic_pass_detail(session, document_id)
+    registry = semantic_registry_from_payload(registry_payload)
+    concept_review_overlays = _latest_concept_review_overlays(
+        session,
+        document_id,
+        registry.registry_version,
+    )
+    category_review_overlays = _latest_category_review_overlays(
+        session,
+        document_id,
+        registry.registry_version,
+    )
+    sources = _build_semantic_sources(session, run.id)
+    materializations = _materialize_semantic_assertions(registry, sources)
+    candidate_concept_category_bindings = _preview_concept_category_bindings(registry)
+    candidate_assertions = _preview_assertions(
+        materializations,
+        concept_review_overlays=concept_review_overlays,
+        category_review_overlays=category_review_overlays,
+        registry=registry,
+    )
+    candidate_summary = _semantic_summary(
+        candidate_assertions,
+        candidate_concept_category_bindings,
+    )
+    (
+        candidate_evaluation_status,
+        candidate_evaluation_fixture_name,
+        candidate_evaluation_summary,
+    ) = _semantic_evaluation_result(
+        document,
+        candidate_assertions,
+        candidate_concept_category_bindings,
+    )
+
+    current_concept_keys = {assertion.concept_key for assertion in current_pass.assertions}
+    candidate_concept_keys = {assertion["concept_key"] for assertion in candidate_assertions}
+    before_expectations = {
+        str(item.get("concept_key") or ""): bool(item.get("passed"))
+        for item in (current_pass.evaluation_summary.get("expectations") or [])
+        if str(item.get("concept_key") or "")
+    }
+    after_expectations = {
+        str(item.get("concept_key") or ""): bool(item.get("passed"))
+        for item in (candidate_evaluation_summary.get("expectations") or [])
+        if str(item.get("concept_key") or "")
+    }
+    introduced_expected_concepts = sorted(
+        concept_key
+        for concept_key, passed in after_expectations.items()
+        if passed and not before_expectations.get(concept_key, False)
+    )
+    regressed_expected_concepts = sorted(
+        concept_key
+        for concept_key, passed in after_expectations.items()
+        if not passed and before_expectations.get(concept_key, False)
+    )
+    return {
+        "document_id": document.id,
+        "run_id": run.id,
+        "evaluation_fixture_name": candidate_evaluation_fixture_name,
+        "before_all_expectations_passed": bool(
+            current_pass.evaluation_summary.get("all_expectations_passed")
+        ),
+        "after_all_expectations_passed": bool(
+            candidate_evaluation_summary.get("all_expectations_passed")
+        ),
+        "before_failed_expectations": int(
+            current_pass.evaluation_summary.get("failed_expectations") or 0
+        ),
+        "after_failed_expectations": int(
+            candidate_evaluation_summary.get("failed_expectations") or 0
+        ),
+        "before_assertion_count": current_pass.assertion_count,
+        "after_assertion_count": int(candidate_summary.get("assertion_count") or 0),
+        "added_concept_keys": sorted(candidate_concept_keys - current_concept_keys),
+        "removed_concept_keys": sorted(current_concept_keys - candidate_concept_keys),
+        "introduced_expected_concepts": introduced_expected_concepts,
+        "regressed_expected_concepts": regressed_expected_concepts,
+        "candidate_evaluation_status": candidate_evaluation_status,
+        "candidate_evaluation_summary": candidate_evaluation_summary,
+        "candidate_registry_version": registry.registry_version,
+        "candidate_registry_sha256": registry.sha256,
+    }

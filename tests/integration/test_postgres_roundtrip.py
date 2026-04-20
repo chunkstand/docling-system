@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from uuid import UUID
 
 import pytest
 
+from app.core.config import get_settings
 from app.services.docling_parser import (
     ParsedChunk,
     ParsedDocument,
@@ -13,6 +15,7 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
+from app.services.semantic_registry import clear_semantic_registry_cache
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 
 pytestmark = pytest.mark.skipif(
@@ -479,6 +482,151 @@ def test_semantic_reviews_persist_across_reruns_and_emit_continuity(
     assert continuity["baseline_run_id"] == str(original_run_id)
     assert continuity["summary"]["removed_concept_keys"] == ["system_diagram"]
     assert continuity["summary"]["change_count"] == 1
+
+
+def test_semantic_reviews_survive_additive_registry_version_bump(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "config" / "semantic_registry.yaml"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(
+        """registry_name: semantics_layer_foundation
+registry_version: semantics-layer-foundation-alpha.2
+categories:
+  - category_key: integration_governance
+    preferred_label: Integration Governance
+    scope_note: Controls, thresholds, and governance mechanisms for integration decisions.
+  - category_key: system_representation
+    preferred_label: System Representation
+    scope_note: Representations that communicate system structure, flow, or architecture.
+concepts:
+  - concept_key: integration_threshold
+    preferred_label: Integration Threshold
+    scope_note: Threshold guidance or threshold matrices used to govern integration decisions.
+    category_keys:
+      - integration_governance
+    aliases:
+      - integration threshold
+      - threshold guidance
+  - concept_key: system_diagram
+    preferred_label: System Diagram
+    scope_note: Figures or diagrams that communicate a system structure, flow, or arrangement.
+    category_keys:
+      - system_representation
+    aliases:
+      - system diagram
+      - architecture diagram
+"""
+    )
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    client = postgres_integration_harness.client
+    upload_files = {
+        "file": (
+            "integration-report.pdf",
+            valid_test_pdf_bytes(),
+            "application/pdf",
+        )
+    }
+
+    create_response = client.post("/documents", files=upload_files)
+    assert create_response.status_code == 202
+    document_id = create_response.json()["document_id"]
+    original_run_id = UUID(create_response.json()["run_id"])
+
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document()))
+
+    first_semantics = client.get(f"/documents/{document_id}/semantics/latest")
+    assert first_semantics.status_code == 200
+    first_payload = first_semantics.json()
+    threshold_assertion = next(
+        assertion
+        for assertion in first_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    threshold_binding = threshold_assertion["category_bindings"][0]
+
+    assertion_review_response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertions/{threshold_assertion['assertion_id']}/review",
+        json={
+            "review_status": "approved",
+            "review_note": "Carry this approval across additive registry versions.",
+            "reviewed_by": "semantic-operator",
+        },
+    )
+    assert assertion_review_response.status_code == 200
+
+    binding_review_response = client.post(
+        f"/documents/{document_id}/semantics/latest/assertion-category-bindings/{threshold_binding['binding_id']}/review",
+        json={
+            "review_status": "approved",
+            "review_note": "Carry this binding approval across additive registry versions.",
+            "reviewed_by": "semantic-operator",
+        },
+    )
+    assert binding_review_response.status_code == 200
+
+    registry_path.write_text(
+        """registry_name: semantics_layer_foundation
+registry_version: semantics-layer-foundation-alpha.3
+categories:
+  - category_key: integration_governance
+    preferred_label: Integration Governance
+    scope_note: Controls, thresholds, and governance mechanisms for integration decisions.
+  - category_key: system_representation
+    preferred_label: System Representation
+    scope_note: Representations that communicate system structure, flow, or architecture.
+concepts:
+  - concept_key: integration_threshold
+    preferred_label: Integration Threshold
+    scope_note: Threshold guidance or threshold matrices used to govern integration decisions.
+    category_keys:
+      - integration_governance
+    aliases:
+      - integration threshold
+      - threshold guidance
+      - integration control threshold
+  - concept_key: system_diagram
+    preferred_label: System Diagram
+    scope_note: Figures or diagrams that communicate a system structure, flow, or arrangement.
+    category_keys:
+      - system_representation
+    aliases:
+      - system diagram
+      - architecture diagram
+"""
+    )
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    reprocess_response = client.post(f"/documents/{document_id}/reprocess")
+    assert reprocess_response.status_code == 202
+    rerun_id = UUID(reprocess_response.json()["run_id"])
+    assert rerun_id != original_run_id
+
+    postgres_integration_harness.process_next_run(StubParser(_build_parsed_document()))
+
+    latest_semantics = client.get(f"/documents/{document_id}/semantics/latest")
+    assert latest_semantics.status_code == 200
+    latest_payload = latest_semantics.json()
+    assert latest_payload["registry_version"] == "semantics-layer-foundation-alpha.3"
+    latest_threshold_assertion = next(
+        assertion
+        for assertion in latest_payload["assertions"]
+        if assertion["concept_key"] == "integration_threshold"
+    )
+    assert latest_threshold_assertion["review_status"] == "approved"
+    assert latest_threshold_assertion["details"]["review_overlay"]["review_note"] == (
+        "Carry this approval across additive registry versions."
+    )
+    assert latest_threshold_assertion["category_bindings"][0]["review_status"] == "approved"
+    assert latest_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
+        "review_note"
+    ] == "Carry this binding approval across additive registry versions."
 
 
 def test_failed_reprocess_does_not_replace_active_run(postgres_integration_harness) -> None:

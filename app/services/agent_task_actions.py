@@ -12,13 +12,23 @@ from app.db.models import AgentTask, AgentTaskSideEffectLevel
 from app.schemas.agent_tasks import (
     ApplyHarnessConfigUpdateTaskInput,
     ApplyHarnessConfigUpdateTaskOutput,
+    ApplySemanticRegistryUpdateTaskInput,
+    ApplySemanticRegistryUpdateTaskOutput,
     DraftHarnessConfigUpdateTaskInput,
     DraftHarnessConfigUpdateTaskOutput,
+    DraftSemanticGroundedDocumentTaskInput,
+    DraftSemanticGroundedDocumentTaskOutput,
+    DraftSemanticRegistryUpdateTaskInput,
+    DraftSemanticRegistryUpdateTaskOutput,
     EnqueueDocumentReprocessTaskInput,
     EnqueueDocumentReprocessTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     LatestEvaluationTaskInput,
     LatestEvaluationTaskOutput,
+    LatestSemanticPassTaskInput,
+    LatestSemanticPassTaskOutput,
+    PrepareSemanticGenerationBriefTaskInput,
+    PrepareSemanticGenerationBriefTaskOutput,
     QualityEvalCandidatesTaskInput,
     QualityEvalCandidatesTaskOutput,
     ReplaySearchRequestTaskInput,
@@ -26,27 +36,43 @@ from app.schemas.agent_tasks import (
     RunSearchReplaySuiteTaskOutput,
     TriageReplayRegressionTaskInput,
     TriageReplayRegressionTaskOutput,
+    TriageSemanticPassTaskInput,
+    TriageSemanticPassTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifyDraftHarnessConfigTaskOutput,
+    VerifyDraftSemanticRegistryUpdateTaskInput,
+    VerifyDraftSemanticRegistryUpdateTaskOutput,
     VerifySearchHarnessEvaluationTaskInput,
     VerifySearchHarnessEvaluationTaskOutput,
+    VerifySemanticGroundedDocumentTaskInput,
+    VerifySemanticGroundedDocumentTaskOutput,
 )
 from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context import (
     _build_apply_harness_config_update_context,
+    _build_apply_semantic_registry_update_context,
     _build_draft_harness_config_context,
+    _build_draft_semantic_grounded_document_context,
+    _build_draft_semantic_registry_update_context,
     _build_evaluate_search_harness_context,
     _build_generic_task_context,
+    _build_latest_semantic_pass_context,
+    _build_prepare_semantic_generation_brief_context,
     _build_triage_replay_regression_context,
+    _build_triage_semantic_pass_context,
     _build_verify_draft_harness_config_context,
+    _build_verify_draft_semantic_registry_update_context,
     _build_verify_search_harness_evaluation_context,
+    _build_verify_semantic_grounded_document_context,
     resolve_required_dependency_task_output_context,
 )
 from app.services.agent_task_verifications import (
     create_agent_task_verification_record,
     verify_draft_harness_config_task,
+    verify_draft_semantic_registry_update_task,
     verify_search_harness_evaluation_task,
+    verify_semantic_grounded_document_task,
 )
 from app.services.documents import (
     get_latest_document_evaluation_detail,
@@ -59,6 +85,18 @@ from app.services.search_harness_overrides import upsert_applied_search_harness_
 from app.services.search_history import replay_search_request
 from app.services.search_release_gate import evaluate_search_harness_release_gate
 from app.services.search_replays import run_search_replay_suite
+from app.services.semantic_generation import (
+    draft_semantic_grounded_document,
+    prepare_semantic_generation_brief,
+)
+from app.services.semantic_orchestration import (
+    build_semantic_success_metrics,
+    draft_semantic_registry_update,
+    semantic_registry_apply_metrics,
+    triage_semantic_pass,
+)
+from app.services.semantic_registry import get_semantic_registry, write_semantic_registry_payload
+from app.services.semantics import get_active_semantic_pass_detail
 from app.services.storage import StorageService
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
@@ -103,6 +141,120 @@ def _quality_eval_candidates_executor(
         "include_resolved": payload.include_resolved,
         "candidate_count": len(response),
         "candidates": jsonable_encoder(response),
+    }
+
+
+def _latest_semantic_pass_executor(
+    session: Session, _task: AgentTask, payload: LatestSemanticPassTaskInput
+) -> dict:
+    response = get_active_semantic_pass_detail(session, payload.document_id)
+    return {
+        "document_id": str(payload.document_id),
+        "semantic_pass": jsonable_encoder(response),
+        "success_metrics": build_semantic_success_metrics(response),
+    }
+
+
+def _prepare_semantic_generation_brief_executor(
+    session: Session,
+    task: AgentTask,
+    payload: PrepareSemanticGenerationBriefTaskInput,
+) -> dict:
+    brief_payload = prepare_semantic_generation_brief(
+        session,
+        title=payload.title,
+        goal=payload.goal,
+        audience=payload.audience,
+        document_ids=list(payload.document_ids),
+        concept_keys=list(payload.concept_keys),
+        category_keys=list(payload.category_keys),
+        target_length=payload.target_length,
+        review_policy=payload.review_policy,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_generation_brief",
+        payload=brief_payload,
+        storage_service=StorageService(),
+        filename="semantic_generation_brief.json",
+    )
+    return {
+        "brief": brief_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _draft_semantic_grounded_document_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftSemanticGroundedDocumentTaskInput,
+) -> dict:
+    brief_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="prepare_semantic_generation_brief",
+        expected_schema_name="prepare_semantic_generation_brief_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Grounded document drafts must declare the requested brief task "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target semantic generation brief must be rerun after the context "
+            "migration before drafting."
+        ),
+    )
+    brief_output = PrepareSemanticGenerationBriefTaskOutput.model_validate(brief_context.output)
+    draft_payload = draft_semantic_grounded_document(
+        brief_output.brief.model_dump(mode="json"),
+        brief_task_id=payload.target_task_id,
+    )
+
+    storage_service = StorageService()
+    markdown_path = storage_service.get_agent_task_dir(task.id) / "semantic_grounded_document.md"
+    markdown_path.write_text(draft_payload["markdown"])
+    draft_payload["markdown_path"] = str(markdown_path)
+
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_grounded_document_draft",
+        payload=draft_payload,
+        storage_service=storage_service,
+        filename="semantic_grounded_document_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_semantic_grounded_document_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifySemanticGroundedDocumentTaskInput,
+) -> dict:
+    result = verify_semantic_grounded_document_task(session, task, payload)
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_grounded_document_verification",
+        payload=result,
+        storage_service=StorageService(),
+        filename="semantic_grounded_document_verification.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
     }
 
 
@@ -330,6 +482,217 @@ def _apply_harness_config_update_executor(
     }
 
 
+def _draft_semantic_registry_update_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftSemanticRegistryUpdateTaskInput,
+) -> dict:
+    source_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.source_task_id,
+        dependency_kind="source_task",
+        expected_task_type="triage_semantic_pass",
+        expected_schema_name="triage_semantic_pass_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic registry drafts must declare the requested triage task "
+            "as a source_task dependency."
+        ),
+        rerun_message=(
+            "Source semantic triage task must be rerun after the context migration before drafting."
+        ),
+    )
+    source_output = TriageSemanticPassTaskOutput.model_validate(source_context.output)
+    draft_payload = draft_semantic_registry_update(
+        source_output.gap_report.model_dump(mode="json"),
+        source_task_id=payload.source_task_id,
+        source_task_type=source_context.task_type,
+        proposed_registry_version=payload.proposed_registry_version,
+        rationale=payload.rationale,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_registry_draft",
+        payload=draft_payload,
+        storage_service=StorageService(),
+        filename="semantic_registry_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_draft_semantic_registry_update_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifyDraftSemanticRegistryUpdateTaskInput,
+) -> dict:
+    result = verify_draft_semantic_registry_update_task(session, task, payload)
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_registry_draft_verification",
+        payload=result,
+        storage_service=StorageService(),
+        filename="semantic_registry_draft_verification.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _apply_semantic_registry_update_executor(
+    session: Session,
+    task: AgentTask,
+    payload: ApplySemanticRegistryUpdateTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_semantic_registry_update",
+        expected_schema_name="draft_semantic_registry_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested semantic draft task as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Semantic draft task must be rerun after the context migration "
+            "before it can be applied."
+        ),
+    )
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_semantic_registry_update",
+        expected_schema_name="verify_draft_semantic_registry_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Apply task must declare the requested semantic draft "
+            "verification as a verification_task dependency."
+        ),
+        rerun_message=(
+            "Semantic draft verification must be rerun after the context "
+            "migration before it can be applied."
+        ),
+    )
+    draft_output = DraftSemanticRegistryUpdateTaskOutput.model_validate(draft_context.output)
+    verification_output = VerifyDraftSemanticRegistryUpdateTaskOutput.model_validate(
+        verification_context.output
+    )
+    verification = verification_output.verification
+    if verification.outcome != "passed":
+        raise ValueError("Only passed semantic registry verifications can be applied.")
+    if verification.target_task_id != payload.draft_task_id:
+        raise ValueError("Verification task does not target the requested semantic draft task.")
+
+    config_path = write_semantic_registry_payload(draft_output.draft.effective_registry)
+    applied_registry = get_semantic_registry()
+    apply_payload = {
+        "draft_task_id": str(payload.draft_task_id),
+        "verification_task_id": str(payload.verification_task_id),
+        "applied_registry_version": applied_registry.registry_version,
+        "applied_registry_sha256": applied_registry.sha256,
+        "reason": payload.reason,
+        "config_path": str(config_path),
+        "applied_operations": [
+            operation.model_dump(mode="json") for operation in draft_output.draft.operations
+        ],
+        "success_metrics": semantic_registry_apply_metrics(
+            applied_registry_version=applied_registry.registry_version,
+            applied_operations=[
+                operation.model_dump(mode="json") for operation in draft_output.draft.operations
+            ],
+            verification_outcome=verification.outcome,
+        ),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="applied_semantic_registry_update",
+        payload=apply_payload,
+        storage_service=StorageService(),
+        filename="applied_semantic_registry_update.json",
+    )
+    return {
+        **apply_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _triage_semantic_pass_executor(
+    session: Session,
+    task: AgentTask,
+    payload: TriageSemanticPassTaskInput,
+) -> dict:
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="get_latest_semantic_pass",
+        expected_schema_name="get_latest_semantic_pass_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic triage must declare the requested semantic-pass task "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target semantic-pass task must be rerun after the context migration before triage."
+        ),
+    )
+    semantic_output = LatestSemanticPassTaskOutput.model_validate(target_context.output)
+    triage_output = triage_semantic_pass(
+        semantic_output.semantic_pass,
+        low_evidence_threshold=payload.low_evidence_threshold,
+    )
+    verification_record = create_agent_task_verification_record(
+        session,
+        target_task_id=payload.target_task_id,
+        verification_task_id=task.id,
+        verifier_type="semantic_gap_gate",
+        outcome=triage_output.verification_outcome,
+        metrics=triage_output.verification_metrics,
+        reasons=triage_output.verification_reasons,
+        details=triage_output.verification_details,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="semantic_gap_report",
+        payload=triage_output.gap_report,
+        storage_service=StorageService(),
+        filename="semantic_gap_report.json",
+    )
+    return {
+        "document_id": str(semantic_output.document_id),
+        "run_id": str(semantic_output.semantic_pass.run_id),
+        "semantic_pass_id": str(semantic_output.semantic_pass.semantic_pass_id),
+        "registry_version": semantic_output.semantic_pass.registry_version,
+        "evaluation_fixture_name": semantic_output.semantic_pass.evaluation_fixture_name,
+        "evaluation_status": semantic_output.semantic_pass.evaluation_status,
+        "gap_report": triage_output.gap_report,
+        "verification": verification_record.model_dump(mode="json"),
+        "recommendation": triage_output.recommendation,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
 def _recommend_triage_next_action(
     *,
     total_shared_query_count: int,
@@ -461,6 +824,39 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
         context_builder=_build_generic_task_context,
     ),
+    "get_latest_semantic_pass": AgentTaskActionDefinition(
+        task_type="get_latest_semantic_pass",
+        definition_kind="action",
+        description="Fetch the latest active semantic pass for one document.",
+        payload_model=LatestSemanticPassTaskInput,
+        executor=_latest_semantic_pass_executor,
+        output_model=LatestSemanticPassTaskOutput,
+        output_schema_name="get_latest_semantic_pass_output",
+        output_schema_version="1.0",
+        input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_latest_semantic_pass_context,
+    ),
+    "prepare_semantic_generation_brief": AgentTaskActionDefinition(
+        task_type="prepare_semantic_generation_brief",
+        definition_kind="workflow",
+        description=(
+            "Build a typed semantic generation brief and dossier for knowledge-brief drafting."
+        ),
+        payload_model=PrepareSemanticGenerationBriefTaskInput,
+        executor=_prepare_semantic_generation_brief_executor,
+        output_model=PrepareSemanticGenerationBriefTaskOutput,
+        output_schema_name="prepare_semantic_generation_brief_output",
+        output_schema_version="1.0",
+        input_example={
+            "title": "Integration Governance Brief",
+            "goal": "Summarize the knowledge base guidance on integration governance.",
+            "audience": "Operators",
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "target_length": "medium",
+            "review_policy": "allow_candidate_with_disclosure",
+        },
+        context_builder=_build_prepare_semantic_generation_brief_context,
+    ),
     "list_quality_eval_candidates": AgentTaskActionDefinition(
         task_type="list_quality_eval_candidates",
         definition_kind="action",
@@ -560,6 +956,24 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         },
         context_builder=_build_draft_harness_config_context,
     ),
+    "draft_semantic_registry_update": AgentTaskActionDefinition(
+        task_type="draft_semantic_registry_update",
+        definition_kind="draft",
+        description=(
+            "Draft an additive semantic registry update from a typed semantic gap report."
+        ),
+        payload_model=DraftSemanticRegistryUpdateTaskInput,
+        executor=_draft_semantic_registry_update_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftSemanticRegistryUpdateTaskOutput,
+        output_schema_name="draft_semantic_registry_update_output",
+        output_schema_version="1.0",
+        input_example={
+            "source_task_id": "00000000-0000-0000-0000-000000000000",
+            "rationale": "Add the missing synonym surfaced by semantic triage.",
+        },
+        context_builder=_build_draft_semantic_registry_update_context,
+    ),
     "verify_draft_harness_config": AgentTaskActionDefinition(
         task_type="verify_draft_harness_config",
         definition_kind="verifier",
@@ -583,6 +997,61 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_total_shared_query_count": 1,
         },
         context_builder=_build_verify_draft_harness_config_context,
+    ),
+    "verify_draft_semantic_registry_update": AgentTaskActionDefinition(
+        task_type="verify_draft_semantic_registry_update",
+        definition_kind="verifier",
+        description=(
+            "Verify an additive semantic registry draft against active "
+            "documents without mutating live state."
+        ),
+        payload_model=VerifyDraftSemanticRegistryUpdateTaskInput,
+        executor=_verify_draft_semantic_registry_update_executor,
+        output_model=VerifyDraftSemanticRegistryUpdateTaskOutput,
+        output_schema_name="verify_draft_semantic_registry_update_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "max_regressed_document_count": 0,
+            "max_failed_expectation_increase": 0,
+            "min_improved_document_count": 1,
+        },
+        context_builder=_build_verify_draft_semantic_registry_update_context,
+    ),
+    "draft_semantic_grounded_document": AgentTaskActionDefinition(
+        task_type="draft_semantic_grounded_document",
+        definition_kind="draft",
+        description=(
+            "Draft a semantic-grounded knowledge brief from a typed semantic generation brief."
+        ),
+        payload_model=DraftSemanticGroundedDocumentTaskInput,
+        executor=_draft_semantic_grounded_document_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftSemanticGroundedDocumentTaskOutput,
+        output_schema_name="draft_semantic_grounded_document_output",
+        output_schema_version="1.0",
+        input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_draft_semantic_grounded_document_context,
+    ),
+    "verify_semantic_grounded_document": AgentTaskActionDefinition(
+        task_type="verify_semantic_grounded_document",
+        definition_kind="verifier",
+        description=(
+            "Verify that a semantic-grounded knowledge brief is fully "
+            "traceable to typed semantic support."
+        ),
+        payload_model=VerifySemanticGroundedDocumentTaskInput,
+        executor=_verify_semantic_grounded_document_executor,
+        output_model=VerifySemanticGroundedDocumentTaskOutput,
+        output_schema_name="verify_semantic_grounded_document_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "max_unsupported_claim_count": 0,
+            "require_full_claim_traceability": True,
+            "require_full_concept_coverage": True,
+        },
+        context_builder=_build_verify_semantic_grounded_document_context,
     ),
     "triage_replay_regression": AgentTaskActionDefinition(
         task_type="triage_replay_regression",
@@ -609,6 +1078,23 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_total_shared_query_count": 1,
         },
         context_builder=_build_triage_replay_regression_context,
+    ),
+    "triage_semantic_pass": AgentTaskActionDefinition(
+        task_type="triage_semantic_pass",
+        definition_kind="workflow",
+        description=(
+            "Summarize active semantic-pass gaps, continuity changes, and bounded next actions."
+        ),
+        payload_model=TriageSemanticPassTaskInput,
+        executor=_triage_semantic_pass_executor,
+        output_model=TriageSemanticPassTaskOutput,
+        output_schema_name="triage_semantic_pass_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "low_evidence_threshold": 2,
+        },
+        context_builder=_build_triage_semantic_pass_context,
     ),
     "enqueue_document_reprocess": AgentTaskActionDefinition(
         task_type="enqueue_document_reprocess",
@@ -649,6 +1135,24 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "reason": "Publish the verified review harness for operator use.",
         },
         context_builder=_build_apply_harness_config_update_context,
+    ),
+    "apply_semantic_registry_update": AgentTaskActionDefinition(
+        task_type="apply_semantic_registry_update",
+        definition_kind="promotion",
+        description=("Apply a verified semantic registry update after approval."),
+        payload_model=ApplySemanticRegistryUpdateTaskInput,
+        executor=_apply_semantic_registry_update_executor,
+        side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
+        requires_approval=True,
+        output_model=ApplySemanticRegistryUpdateTaskOutput,
+        output_schema_name="apply_semantic_registry_update_output",
+        output_schema_version="1.0",
+        input_example={
+            "draft_task_id": "00000000-0000-0000-0000-000000000000",
+            "verification_task_id": "00000000-0000-0000-0000-000000000000",
+            "reason": "Publish the verified registry update.",
+        },
+        context_builder=_build_apply_semantic_registry_update_context,
     ),
 }
 

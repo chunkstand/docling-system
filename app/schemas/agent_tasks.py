@@ -14,6 +14,7 @@ from app.schemas.search import (
     SearchReplayResponse,
     SearchReplayRunDetailResponse,
 )
+from app.schemas.semantics import DocumentSemanticPassResponse
 
 
 class AgentTaskCreateRequest(BaseModel):
@@ -419,6 +420,388 @@ class LatestEvaluationTaskInput(BaseModel):
 class LatestEvaluationTaskOutput(BaseModel):
     document_id: UUID
     evaluation: EvaluationDetailResponse
+
+
+class SemanticSuccessMetricCheck(BaseModel):
+    metric_key: str
+    stakeholder: str
+    passed: bool
+    summary: str
+    details: dict = Field(default_factory=dict)
+
+
+class LatestSemanticPassTaskInput(BaseModel):
+    document_id: UUID
+
+
+class LatestSemanticPassTaskOutput(BaseModel):
+    document_id: UUID
+    semantic_pass: DocumentSemanticPassResponse
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class SemanticRegistryUpdateHint(BaseModel):
+    update_type: str
+    concept_key: str
+    alias_text: str | None = None
+    category_key: str | None = None
+    reason: str
+
+
+class SemanticIssueEvidenceRef(BaseModel):
+    evidence_id: UUID | None = None
+    source_type: str | None = None
+    page_from: int | None = None
+    page_to: int | None = None
+    excerpt: str | None = None
+    source_artifact_api_path: str | None = None
+    matched_terms: list[str] = Field(default_factory=list)
+
+
+class SemanticGapIssue(BaseModel):
+    issue_id: str
+    issue_type: str
+    severity: str
+    concept_key: str | None = None
+    category_key: str | None = None
+    assertion_id: UUID | None = None
+    binding_id: UUID | None = None
+    summary: str
+    details: dict = Field(default_factory=dict)
+    evidence_refs: list[SemanticIssueEvidenceRef] = Field(default_factory=list)
+    registry_update_hints: list[SemanticRegistryUpdateHint] = Field(default_factory=list)
+
+
+class SemanticRecommendedFollowup(BaseModel):
+    followup_type: str
+    priority: str
+    summary: str
+    target_task_type: str | None = None
+    details: dict = Field(default_factory=dict)
+
+
+class SemanticGapReport(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    semantic_pass_id: UUID
+    registry_version: str
+    registry_sha256: str
+    evaluation_status: str
+    evaluation_fixture_name: str | None = None
+    evaluation_version: int
+    continuity_summary: dict = Field(default_factory=dict)
+    issue_count: int = 0
+    issues: list[SemanticGapIssue] = Field(default_factory=list)
+    recommended_followups: list[SemanticRecommendedFollowup] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class TriageSemanticPassTaskInput(BaseModel):
+    target_task_id: UUID
+    low_evidence_threshold: int = Field(default=2, ge=1, le=100)
+
+
+class TriageSemanticPassTaskOutput(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    semantic_pass_id: UUID
+    registry_version: str
+    evaluation_fixture_name: str | None = None
+    evaluation_status: str
+    gap_report: SemanticGapReport
+    verification: AgentTaskVerificationResponse
+    recommendation: TriageRecommendationPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class DraftSemanticRegistryUpdateTaskInput(BaseModel):
+    source_task_id: UUID
+    proposed_registry_version: str | None = Field(default=None, min_length=1)
+    rationale: str | None = None
+
+
+class SemanticRegistryUpdateOperation(BaseModel):
+    operation_id: str
+    operation_type: str
+    concept_key: str
+    alias_text: str | None = None
+    category_key: str | None = None
+    source_issue_ids: list[str] = Field(default_factory=list)
+    rationale: str | None = None
+
+
+class SemanticRegistryDraftPayload(BaseModel):
+    base_registry_version: str
+    proposed_registry_version: str
+    source_task_id: UUID
+    source_task_type: str | None = None
+    rationale: str | None = None
+    document_ids: list[UUID] = Field(default_factory=list)
+    operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
+    effective_registry: dict = Field(default_factory=dict)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class DraftSemanticRegistryUpdateTaskOutput(BaseModel):
+    draft: SemanticRegistryDraftPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class VerifyDraftSemanticRegistryUpdateTaskInput(BaseModel):
+    target_task_id: UUID
+    document_ids: list[UUID] = Field(default_factory=list)
+    max_regressed_document_count: int = Field(default=0, ge=0)
+    max_failed_expectation_increase: int = Field(default=0, ge=0)
+    min_improved_document_count: int = Field(default=1, ge=0)
+
+
+class SemanticRegistryDocumentDelta(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    evaluation_fixture_name: str | None = None
+    before_all_expectations_passed: bool
+    after_all_expectations_passed: bool
+    before_failed_expectations: int = 0
+    after_failed_expectations: int = 0
+    before_assertion_count: int = 0
+    after_assertion_count: int = 0
+    added_concept_keys: list[str] = Field(default_factory=list)
+    removed_concept_keys: list[str] = Field(default_factory=list)
+    introduced_expected_concepts: list[str] = Field(default_factory=list)
+    regressed_expected_concepts: list[str] = Field(default_factory=list)
+
+
+class VerifyDraftSemanticRegistryUpdateTaskOutput(BaseModel):
+    draft: SemanticRegistryDraftPayload
+    document_deltas: list[SemanticRegistryDocumentDelta] = Field(default_factory=list)
+    summary: dict = Field(default_factory=dict)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    verification: AgentTaskVerificationResponse
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class ApplySemanticRegistryUpdateTaskInput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    reason: str | None = None
+
+
+class ApplySemanticRegistryUpdateTaskOutput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    applied_registry_version: str
+    applied_registry_sha256: str
+    reason: str | None = None
+    config_path: str
+    applied_operations: list[SemanticRegistryUpdateOperation] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class SemanticGenerationDocumentRef(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    semantic_pass_id: UUID
+    source_filename: str
+    title: str | None = None
+    registry_version: str
+    registry_sha256: str
+    evaluation_fixture_name: str | None = None
+    evaluation_status: str
+    assertion_count: int = 0
+    evidence_count: int = 0
+    all_expectations_passed: bool = False
+
+
+class SemanticGenerationAssertionRef(BaseModel):
+    document_id: UUID
+    run_id: UUID
+    semantic_pass_id: UUID
+    assertion_id: UUID
+    concept_key: str
+    preferred_label: str
+    review_status: str
+    support_level: str
+    source_types: list[str] = Field(default_factory=list)
+    evidence_count: int = 0
+    category_keys: list[str] = Field(default_factory=list)
+    category_labels: list[str] = Field(default_factory=list)
+
+
+class SemanticGenerationEvidenceRef(BaseModel):
+    citation_label: str
+    document_id: UUID
+    run_id: UUID
+    semantic_pass_id: UUID
+    assertion_id: UUID
+    evidence_id: UUID
+    concept_key: str
+    preferred_label: str
+    review_status: str
+    source_filename: str
+    source_type: str
+    page_from: int | None = None
+    page_to: int | None = None
+    excerpt: str | None = None
+    source_artifact_api_path: str | None = None
+    matched_terms: list[str] = Field(default_factory=list)
+
+
+class SemanticDossierConceptEntry(BaseModel):
+    concept_key: str
+    preferred_label: str
+    category_keys: list[str] = Field(default_factory=list)
+    category_labels: dict[str, str] = Field(default_factory=dict)
+    document_ids: list[UUID] = Field(default_factory=list)
+    document_count: int = 0
+    evidence_count: int = 0
+    source_types: list[str] = Field(default_factory=list)
+    support_level: str
+    review_policy_status: str
+    disclosure_note: str | None = None
+    assertions: list[SemanticGenerationAssertionRef] = Field(default_factory=list)
+    evidence_refs: list[SemanticGenerationEvidenceRef] = Field(default_factory=list)
+
+
+class SemanticGenerationSectionPlan(BaseModel):
+    section_id: str
+    title: str
+    summary: str
+    focus_concept_keys: list[str] = Field(default_factory=list)
+    focus_category_keys: list[str] = Field(default_factory=list)
+    claim_ids: list[str] = Field(default_factory=list)
+
+
+class SemanticGenerationClaimCandidate(BaseModel):
+    claim_id: str
+    section_id: str
+    summary: str
+    concept_keys: list[str] = Field(default_factory=list)
+    assertion_ids: list[UUID] = Field(default_factory=list)
+    evidence_labels: list[str] = Field(default_factory=list)
+    source_document_ids: list[UUID] = Field(default_factory=list)
+    support_level: str
+    review_policy_status: str
+    disclosure_note: str | None = None
+
+
+class SemanticGenerationBriefPayload(BaseModel):
+    document_kind: str = "knowledge_brief"
+    title: str
+    goal: str
+    audience: str | None = None
+    review_policy: str
+    target_length: str
+    document_refs: list[SemanticGenerationDocumentRef] = Field(default_factory=list)
+    required_concept_keys: list[str] = Field(default_factory=list)
+    selected_concept_keys: list[str] = Field(default_factory=list)
+    selected_category_keys: list[str] = Field(default_factory=list)
+    semantic_dossier: list[SemanticDossierConceptEntry] = Field(default_factory=list)
+    sections: list[SemanticGenerationSectionPlan] = Field(default_factory=list)
+    claim_candidates: list[SemanticGenerationClaimCandidate] = Field(default_factory=list)
+    evidence_pack: list[SemanticGenerationEvidenceRef] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class PrepareSemanticGenerationBriefTaskInput(BaseModel):
+    title: str = Field(min_length=1)
+    goal: str = Field(min_length=1)
+    audience: str | None = None
+    document_ids: list[UUID] = Field(min_length=1, max_length=25)
+    concept_keys: list[str] = Field(default_factory=list, max_length=100)
+    category_keys: list[str] = Field(default_factory=list, max_length=100)
+    target_length: str = Field(default="medium", pattern="^(short|medium|long)$")
+    review_policy: str = Field(
+        default="allow_candidate_with_disclosure",
+        pattern="^(approved_only|allow_candidate_with_disclosure)$",
+    )
+
+
+class PrepareSemanticGenerationBriefTaskOutput(BaseModel):
+    brief: SemanticGenerationBriefPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class GroundedDocumentClaim(BaseModel):
+    claim_id: str
+    section_id: str
+    rendered_text: str
+    concept_keys: list[str] = Field(default_factory=list)
+    assertion_ids: list[UUID] = Field(default_factory=list)
+    evidence_labels: list[str] = Field(default_factory=list)
+    source_document_ids: list[UUID] = Field(default_factory=list)
+    support_level: str
+    review_policy_status: str
+    disclosure_note: str | None = None
+
+
+class GroundedDocumentSection(BaseModel):
+    section_id: str
+    title: str
+    body_markdown: str
+    claim_ids: list[str] = Field(default_factory=list)
+
+
+class GroundedDocumentDraftPayload(BaseModel):
+    document_kind: str = "knowledge_brief"
+    title: str
+    goal: str
+    audience: str | None = None
+    review_policy: str
+    target_length: str
+    brief_task_id: UUID
+    generator_name: str
+    generator_model: str | None = None
+    used_fallback: bool = True
+    required_concept_keys: list[str] = Field(default_factory=list)
+    document_refs: list[SemanticGenerationDocumentRef] = Field(default_factory=list)
+    assertion_index: list[SemanticGenerationAssertionRef] = Field(default_factory=list)
+    sections: list[GroundedDocumentSection] = Field(default_factory=list)
+    claims: list[GroundedDocumentClaim] = Field(default_factory=list)
+    evidence_pack: list[SemanticGenerationEvidenceRef] = Field(default_factory=list)
+    markdown: str
+    markdown_path: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class DraftSemanticGroundedDocumentTaskInput(BaseModel):
+    target_task_id: UUID
+
+
+class DraftSemanticGroundedDocumentTaskOutput(BaseModel):
+    draft: GroundedDocumentDraftPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class VerifySemanticGroundedDocumentTaskInput(BaseModel):
+    target_task_id: UUID
+    max_unsupported_claim_count: int = Field(default=0, ge=0)
+    require_full_claim_traceability: bool = True
+    require_full_concept_coverage: bool = True
+
+
+class VerifySemanticGroundedDocumentTaskOutput(BaseModel):
+    draft: GroundedDocumentDraftPayload
+    summary: dict = Field(default_factory=dict)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    verification: AgentTaskVerificationResponse
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
 
 
 class ReplaySearchRequestTaskInput(BaseModel):

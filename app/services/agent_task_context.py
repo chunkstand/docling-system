@@ -21,15 +21,23 @@ from app.db.models import (
 )
 from app.schemas.agent_tasks import (
     ApplyHarnessConfigUpdateTaskOutput,
+    ApplySemanticRegistryUpdateTaskOutput,
     ContextFreshnessStatus,
     ContextRef,
     DraftHarnessConfigUpdateTaskOutput,
+    DraftSemanticGroundedDocumentTaskOutput,
+    DraftSemanticRegistryUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
+    LatestSemanticPassTaskOutput,
+    PrepareSemanticGenerationBriefTaskOutput,
     TaskContextEnvelope,
     TaskContextSummary,
     TriageReplayRegressionTaskOutput,
+    TriageSemanticPassTaskOutput,
     VerifyDraftHarnessConfigTaskOutput,
+    VerifyDraftSemanticRegistryUpdateTaskOutput,
     VerifySearchHarnessEvaluationTaskOutput,
+    VerifySemanticGroundedDocumentTaskOutput,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
@@ -529,6 +537,96 @@ def _build_draft_harness_config_context(
     )
 
 
+def _build_draft_semantic_registry_update_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = DraftSemanticRegistryUpdateTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    source_task = session.get(AgentTask, output.draft.source_task_id)
+    if source_task is not None:
+        from app.services.agent_task_actions import get_agent_task_action
+
+        source_action = get_agent_task_action(source_task.task_type)
+        source_context_row = _get_context_artifact_row(session, source_task.id)
+        observed_payload = (
+            TaskContextEnvelope.model_validate(source_context_row.payload_json or {}).output
+            if source_context_row is not None
+            else source_task.result_json or {}
+        )
+        refs.append(
+            ContextRef(
+                ref_key="source_task",
+                ref_kind="task_output",
+                summary="Semantic triage task that motivated this registry draft.",
+                task_id=source_task.id,
+                schema_name=source_action.output_schema_name,
+                schema_version=source_action.output_schema_version,
+                observed_sha256=_payload_sha256(observed_payload),
+                source_updated_at=source_task.updated_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="draft_artifact",
+                ref_kind="artifact",
+                summary="Persisted semantic registry draft artifact for operator review.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Draft semantic registry {output.draft.proposed_registry_version} from "
+            f"{output.draft.base_registry_version}."
+        ),
+        goal="Draft additive registry updates without mutating the live semantic contract.",
+        decision="Draft created and ready for read-only verification.",
+        next_action="Run verify_draft_semantic_registry_update against active documents.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "document_count": len(output.draft.document_ids),
+            "operation_count": len(output.draft.operations),
+            "success_metric_pass_count": sum(
+                1 for item in output.draft.success_metrics if item.passed
+            ),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_evaluate_search_harness_context(
     session: Session,
     task: AgentTask,
@@ -594,6 +692,215 @@ def _build_evaluate_search_harness_context(
             "total_shared_query_count": output.evaluation.total_shared_query_count,
             "total_improved_count": output.evaluation.total_improved_count,
             "total_regressed_count": output.evaluation.total_regressed_count,
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_latest_semantic_pass_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    del session
+    output = LatestSemanticPassTaskOutput.model_validate(payload)
+    semantic_pass = output.semantic_pass
+    now = utcnow()
+    summary = TaskContextSummary(
+        headline=(
+            f"Loaded semantic pass {semantic_pass.semantic_pass_id} for document "
+            f"{semantic_pass.document_id}."
+        ),
+        goal="Expose the active semantic pass as typed context for downstream orchestration.",
+        decision=(
+            "The semantic pass is ready for bounded triage."
+            if semantic_pass.status == "completed"
+            else "The semantic pass needs attention before triage."
+        ),
+        next_action="Create triage_semantic_pass to convert semantic evidence into a gap report.",
+        approval_state="not_required",
+        verification_state=semantic_pass.evaluation_status,
+        metrics={
+            "assertion_count": semantic_pass.assertion_count,
+            "evidence_count": semantic_pass.evidence_count,
+            "all_expectations_passed": semantic_pass.evaluation_summary.get(
+                "all_expectations_passed"
+            ),
+            "success_metric_pass_count": sum(1 for item in output.success_metrics if item.passed),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=[],
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_prepare_semantic_generation_brief_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = PrepareSemanticGenerationBriefTaskOutput.model_validate(payload)
+    brief = output.brief
+    now = utcnow()
+    summary = TaskContextSummary(
+        headline=(
+            f"Prepared semantic generation brief {brief.title!r} across "
+            f"{len(brief.document_refs)} document(s)."
+        ),
+        goal="Compress semantic passes into a typed dossier for knowledge-brief drafting.",
+        decision="The brief is ready for draft_semantic_grounded_document.",
+        next_action="Create draft_semantic_grounded_document to render a grounded knowledge brief.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "document_count": len(brief.document_refs),
+            "concept_count": len(brief.semantic_dossier),
+            "claim_count": len(brief.claim_candidates),
+            "success_metric_pass_count": sum(1 for item in brief.success_metrics if item.passed),
+        },
+    )
+    refs: list[ContextRef] = []
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="brief_artifact",
+                ref_kind="artifact",
+                summary="Persisted semantic generation brief artifact for downstream drafting.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_draft_semantic_grounded_document_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = DraftSemanticGroundedDocumentTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    brief_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.draft.brief_task_id,
+        dependency_kind="target_task",
+        expected_task_type="prepare_semantic_generation_brief",
+        expected_schema_name="prepare_semantic_generation_brief_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Grounded document drafts must declare the requested brief as a target_task dependency."
+        ),
+        rerun_message=(
+            "Semantic generation brief must be rerun after the context migration before drafting."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="brief_task_output",
+            ref_kind="task_output",
+            summary="Typed semantic generation brief consumed by this grounded document draft.",
+            task_id=brief_context.task_id,
+            schema_name=brief_context.output_schema_name,
+            schema_version=brief_context.output_schema_version,
+            observed_sha256=_payload_sha256(brief_context.output),
+            source_updated_at=brief_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="draft_artifact",
+                ref_kind="artifact",
+                summary="Persisted semantic-grounded document draft artifact.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Drafted grounded document {output.draft.title!r} with "
+            f"{len(output.draft.claims)} claim(s)."
+        ),
+        goal="Render the typed semantic dossier into a reusable knowledge-brief draft.",
+        decision="Draft created and ready for semantic-grounding verification.",
+        next_action=(
+            "Create verify_semantic_grounded_document to enforce traceability and coverage."
+        ),
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "section_count": len(output.draft.sections),
+            "claim_count": len(output.draft.claims),
+            "evidence_count": len(output.draft.evidence_pack),
+            "success_metric_pass_count": sum(
+                1 for item in output.draft.success_metrics if item.passed
+            ),
         },
     )
     return TaskContextEnvelope(
@@ -728,6 +1035,120 @@ def _build_verify_draft_harness_config_context(
     )
 
 
+def _build_verify_draft_semantic_registry_update_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = VerifyDraftSemanticRegistryUpdateTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_semantic_registry_update",
+        expected_schema_name="draft_semantic_registry_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic draft verification must declare the requested draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Semantic draft task must be rerun after the context migration before verification."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="draft_task_output",
+            ref_kind="task_output",
+            summary="Migrated semantic registry draft output consumed by this verification.",
+            task_id=draft_context.task_id,
+            schema_name=draft_context.output_schema_name,
+            schema_version=draft_context.output_schema_version,
+            observed_sha256=_payload_sha256(draft_context.output),
+            source_updated_at=draft_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the semantic registry draft gate.",
+                task_id=output.verification.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_artifact",
+                ref_kind="artifact",
+                summary="Persisted verification artifact for the semantic registry draft.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(f"Verified semantic registry draft {output.draft.proposed_registry_version}."),
+        goal="Validate additive registry updates against active documents before publication.",
+        decision=(
+            "Verification passed; the draft can move to approval review."
+            if output.verification.outcome == "passed"
+            else "Verification failed; revise the draft before publishing."
+        ),
+        next_action=(
+            "Create apply_semantic_registry_update if the operator wants to publish the draft."
+            if output.verification.outcome == "passed"
+            else "Revise the draft registry update and rerun verification."
+        ),
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "document_count": len(output.document_deltas),
+            "improved_document_count": output.summary.get("improved_document_count"),
+            "regressed_document_count": output.summary.get("regressed_document_count"),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_verify_search_harness_evaluation_context(
     session: Session,
     task: AgentTask,
@@ -812,6 +1233,371 @@ def _build_verify_search_harness_evaluation_context(
             "max_total_regressed_count": thresholds.get("max_total_regressed_count"),
             "max_mrr_drop": thresholds.get("max_mrr_drop"),
             "min_total_shared_query_count": thresholds.get("min_total_shared_query_count"),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_verify_semantic_grounded_document_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = VerifySemanticGroundedDocumentTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_semantic_grounded_document",
+        expected_schema_name="draft_semantic_grounded_document_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Grounded-document verification must declare the requested draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Grounded-document draft must be rerun after the context migration before verification."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="draft_task_output",
+            ref_kind="task_output",
+            summary="Typed grounded-document draft consumed by this verification task.",
+            task_id=draft_context.task_id,
+            schema_name=draft_context.output_schema_name,
+            schema_version=draft_context.output_schema_version,
+            observed_sha256=_payload_sha256(draft_context.output),
+            source_updated_at=draft_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the semantic grounded-document gate.",
+                task_id=output.verification.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_artifact",
+                ref_kind="artifact",
+                summary="Persisted verification artifact for the grounded document draft.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Verified grounded document {output.draft.title!r} with "
+            f"{output.summary.get('claim_count', 0)} claim(s)."
+        ),
+        goal="Verify that the grounded document remains fully traceable to typed semantic support.",
+        decision=(
+            "Verification passed; the draft is ready for downstream use."
+            if output.verification.outcome == "passed"
+            else "Verification failed; revise the grounded draft before reuse."
+        ),
+        next_action=(
+            "Use the verified draft as input to downstream authoring or review workflows."
+            if output.verification.outcome == "passed"
+            else "Revise the grounded draft and rerun verification."
+        ),
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "claim_count": output.summary.get("claim_count"),
+            "unsupported_claim_count": output.summary.get("unsupported_claim_count"),
+            "required_concept_coverage_ratio": output.summary.get(
+                "required_concept_coverage_ratio"
+            ),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_triage_semantic_pass_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = TriageSemanticPassTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    target_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="get_latest_semantic_pass",
+        expected_schema_name="get_latest_semantic_pass_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic triage must declare the requested semantic-pass task "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target semantic-pass task must be rerun after the context migration before triage."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="target_task_output",
+            ref_kind="task_output",
+            summary="Typed semantic-pass output consumed by this gap report.",
+            task_id=target_context.task_id,
+            schema_name=target_context.output_schema_name,
+            schema_version=target_context.output_schema_version,
+            observed_sha256=_payload_sha256(target_context.output),
+            source_updated_at=target_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the semantic gap gate.",
+                task_id=output.verification.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="semantic_gap_report_artifact",
+                ref_kind="artifact",
+                summary=(
+                    "Persisted semantic gap report artifact for downstream review and draft work."
+                ),
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    summary = TaskContextSummary(
+        headline=(
+            f"Semantic triage recommends {output.recommendation.next_action} for "
+            f"document {output.document_id}."
+        ),
+        goal=(
+            "Compress semantic evidence, evaluation gaps, and continuity "
+            "changes into bounded actions."
+        ),
+        decision=output.recommendation.summary,
+        next_action=output.recommendation.next_action,
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "issue_count": output.gap_report.issue_count,
+            "success_metric_pass_count": sum(
+                1 for item in output.gap_report.success_metrics if item.passed
+            ),
+            "registry_update_hint_count": sum(
+                len(issue.registry_update_hints) for issue in output.gap_report.issues
+            ),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_apply_semantic_registry_update_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = ApplySemanticRegistryUpdateTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_semantic_registry_update",
+        expected_schema_name="draft_semantic_registry_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic registry apply must declare the requested draft as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Semantic registry draft must be rerun after the context migration before apply."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="draft_task_output",
+            ref_kind="task_output",
+            summary="Migrated semantic registry draft output applied to the live registry file.",
+            task_id=draft_context.task_id,
+            schema_name=draft_context.output_schema_name,
+            schema_version=draft_context.output_schema_version,
+            observed_sha256=_payload_sha256(draft_context.output),
+            source_updated_at=draft_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_draft_semantic_registry_update",
+        expected_schema_name="verify_draft_semantic_registry_update_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Semantic registry apply must declare the requested verification "
+            "as a verification_task dependency."
+        ),
+        rerun_message=(
+            "Semantic registry verification must be rerun after the context migration before apply."
+        ),
+    )
+    refs.append(
+        ContextRef(
+            ref_key="verification_task_output",
+            ref_kind="task_output",
+            summary=(
+                "Migrated semantic registry verification output authorizing the live apply step."
+            ),
+            task_id=verification_context.task_id,
+            schema_name=verification_context.output_schema_name,
+            schema_version=verification_context.output_schema_version,
+            observed_sha256=_payload_sha256(verification_context.output),
+            source_updated_at=verification_context.task_updated_at,
+            checked_at=now,
+            freshness_status=ContextFreshnessStatus.FRESH,
+        )
+    )
+
+    artifact_row = session.get(AgentTaskArtifact, output.artifact_id)
+    if artifact_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="applied_artifact",
+                ref_kind="artifact",
+                summary="Persisted apply artifact for the live semantic registry update.",
+                task_id=task.id,
+                artifact_id=artifact_row.id,
+                artifact_kind=artifact_row.artifact_kind,
+                schema_name=action.output_schema_name,
+                schema_version=action.output_schema_version,
+                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                source_updated_at=artifact_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+
+    verification_output = VerifyDraftSemanticRegistryUpdateTaskOutput.model_validate(
+        verification_context.output
+    )
+    summary = TaskContextSummary(
+        headline=f"Applied semantic registry {output.applied_registry_version}.",
+        goal="Publish a verified semantic registry update after approval.",
+        decision="Live semantic registry updated and ready for follow-on reprocessing.",
+        next_action=(
+            "Create enqueue_document_reprocess for affected documents if "
+            "refreshed semantics are needed."
+        ),
+        approval_state="approved" if task.approved_at is not None else "pending",
+        verification_state=verification_output.verification.outcome,
+        metrics={
+            "operation_count": len(output.applied_operations),
+            "improved_document_count": verification_output.summary.get("improved_document_count"),
+            "regressed_document_count": verification_output.summary.get("regressed_document_count"),
         },
     )
     return TaskContextEnvelope(

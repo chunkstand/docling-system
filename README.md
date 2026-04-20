@@ -374,16 +374,24 @@ The agent-task layer is a durable orchestration substrate, not a second prompt-o
 The current registry includes read-only, draft-change, and approval-gated promotable actions. Supported task types are:
 
 - `get_latest_evaluation`
+- `get_latest_semantic_pass`
+- `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
+- `draft_semantic_grounded_document`
 - `verify_draft_harness_config`
+- `verify_semantic_grounded_document`
 - `triage_replay_regression`
+- `triage_semantic_pass`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
+- `draft_semantic_registry_update`
+- `verify_draft_semantic_registry_update`
+- `apply_semantic_registry_update`
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`. Migrated task types also advertise `output_schema_name`, `output_schema_version`, and `output_schema` metadata alongside the existing input contract.
 
@@ -428,6 +436,8 @@ The first draft/apply flow is the harness review path. `draft_harness_config_upd
 Within that flow, `apply_harness_config_update` now consumes the migrated `draft_task` and `verification_task` dependency edges through typed task-context refs only. The apply context summary exposes approval state and verification state, while `GET /agent-tasks/{task_id}`, `GET /agent-tasks/traces/export`, `GET /agent-tasks/{task_id}/context`, and the apply artifact endpoint all surface the same applied harness name and live-override result without requiring operators to inspect raw nested payload blobs.
 
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
+
+The current semantic-generation path is deliberately narrow. `prepare_semantic_generation_brief` builds a typed cross-document semantic dossier and claim/evidence brief, `draft_semantic_grounded_document` renders a bounded `knowledge_brief` draft plus markdown sidecar from that brief, and `verify_semantic_grounded_document` enforces claim traceability, evidence coverage, and required-concept coverage before downstream use.
 
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
 
@@ -480,6 +490,9 @@ uv run docling-system-agent-task-create triage_replay_regression --input-json '{
 uv run docling-system-agent-task-create draft_harness_config_update --input-json '{"draft_harness_name":"wide_v2_review","base_harness_name":"wide_v2","source_task_id":"<triage_task_id>","rationale":"publish a review harness","reranker_overrides":{"result_type_priority_bonus":0.009}}'
 uv run docling-system-agent-task-create verify_draft_harness_config --input-json '{"target_task_id":"<draft_task_id>","baseline_harness_name":"wide_v2","source_types":["evaluation_queries"],"limit":12,"max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
 uv run docling-system-agent-task-create apply_harness_config_update --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish review harness"}'
+uv run docling-system-agent-task-create prepare_semantic_generation_brief --input-json '{"title":"Integration Governance Brief","goal":"Summarize the knowledge base guidance on integration governance.","audience":"Operators","document_ids":["<document_id>"],"target_length":"medium","review_policy":"allow_candidate_with_disclosure"}'
+uv run docling-system-agent-task-create draft_semantic_grounded_document --input-json '{"target_task_id":"<brief_task_id>"}'
+uv run docling-system-agent-task-create verify_semantic_grounded_document --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-analytics

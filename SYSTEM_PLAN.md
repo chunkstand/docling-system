@@ -475,16 +475,24 @@ It exists to:
 The current registry includes:
 
 - `get_latest_evaluation`
+- `get_latest_semantic_pass`
+- `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
+- `draft_semantic_grounded_document`
 - `verify_draft_harness_config`
+- `verify_semantic_grounded_document`
 - `triage_replay_regression`
+- `triage_semantic_pass`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
+- `draft_semantic_registry_update`
+- `verify_draft_semantic_registry_update`
+- `apply_semantic_registry_update`
 
 ### Current task guarantees
 
@@ -542,6 +550,9 @@ Current workflow-heavy paths include:
 - `evaluate_search_harness`, which produces typed evaluation output and context refs to replay evidence
 - `verify_search_harness_evaluation`, which verifies a target evaluation through its `target_task` context ref
 - `triage_replay_regression`, which mines unresolved quality candidates, runs comparative replay work, and produces a recommendation plus a deeper triage summary artifact
+- `prepare_semantic_generation_brief`, which builds a typed semantic dossier, section plan, claim set, and evidence pack for one bounded `knowledge_brief`
+- `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
+- `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`

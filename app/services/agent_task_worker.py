@@ -125,10 +125,34 @@ def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
         replay_query_count = _replay_query_count_from_evaluation(evaluation)
         evaluation_query_count = _evaluation_query_count_from_evaluation(evaluation)
         call_count = max(len(evaluation.get("sources") or []), 1)
-    elif task.task_type in {"verify_search_harness_evaluation", "verify_draft_harness_config"}:
+    elif task.task_type == "triage_semantic_pass":
         metrics = verification.get("metrics") or {}
-        evaluation_query_count = int(metrics.get("total_shared_query_count") or 0)
-        call_count = max(int(metrics.get("source_count") or 0), 1) if metrics else 0
+        evaluation_query_count = int(metrics.get("issue_count") or 0)
+        call_count = 1 if verification else 0
+    elif task.task_type == "prepare_semantic_generation_brief":
+        brief = payload.get("brief") or {}
+        evaluation_query_count = int(len(brief.get("claim_candidates") or []))
+        call_count = 1
+    elif task.task_type == "draft_semantic_grounded_document":
+        draft = payload.get("draft") or {}
+        evaluation_query_count = int(len(draft.get("claims") or []))
+        call_count = 1
+    elif task.task_type in {
+        "verify_search_harness_evaluation",
+        "verify_draft_harness_config",
+        "verify_draft_semantic_registry_update",
+        "verify_semantic_grounded_document",
+    }:
+        metrics = verification.get("metrics") or {}
+        if task.task_type == "verify_draft_semantic_registry_update":
+            evaluation_query_count = int(metrics.get("document_count") or 0)
+            call_count = max(int(metrics.get("document_count") or 0), 1) if metrics else 0
+        elif task.task_type == "verify_semantic_grounded_document":
+            evaluation_query_count = int(metrics.get("claim_count") or 0)
+            call_count = 1 if metrics else 0
+        else:
+            evaluation_query_count = int(metrics.get("total_shared_query_count") or 0)
+            call_count = max(int(metrics.get("source_count") or 0), 1) if metrics else 0
     elif task.task_type == "replay_search_request":
         replay_query_count = 1 if replay else 0
         call_count = 1 if replay else 0
@@ -158,7 +182,8 @@ def _derive_attempt_performance(
     end_to_end_latency_ms = _duration_ms(task.created_at, completed_at)
     verification_latency_ms = (
         execution_latency_ms
-        if task.task_type.startswith("verify_") or task.task_type == "triage_replay_regression"
+        if task.task_type.startswith("verify_")
+        or task.task_type in {"triage_replay_regression", "triage_semantic_pass"}
         else None
     )
     return {

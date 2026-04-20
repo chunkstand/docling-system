@@ -92,13 +92,7 @@ def _concept_terms(concept_payload: dict[str, Any]) -> tuple[SemanticRegistryTer
     return tuple(terms)
 
 
-def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
-    path = Path(registry_path).expanduser().resolve()
-    if not path.is_file():
-        raise ValueError(f"Semantic registry path does not exist: {path}")
-
-    raw_bytes = path.read_bytes()
-    payload = _validate_registry_payload(yaml.safe_load(raw_bytes) or {})
+def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -> SemanticRegistry:
     registry_name = collapse_whitespace(str(payload.get("registry_name") or "semantic_registry"))
     registry_version = collapse_whitespace(str(payload.get("registry_version") or ""))
     if not registry_version:
@@ -194,6 +188,64 @@ def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
         categories=tuple(categories),
         concepts=tuple(concepts),
     )
+
+
+def semantic_registry_from_payload(payload: dict[str, Any]) -> SemanticRegistry:
+    normalized_payload = _validate_registry_payload(payload)
+    raw_bytes = yaml.safe_dump(
+        normalized_payload,
+        sort_keys=False,
+        allow_unicode=True,
+    ).encode("utf-8")
+    return _semantic_registry_from_payload(raw_bytes, normalized_payload)
+
+
+def load_semantic_registry_payload(registry_path: str | Path | None = None) -> dict[str, Any]:
+    current_path = (
+        Path(registry_path).expanduser().resolve()
+        if registry_path is not None
+        else get_settings().semantic_registry_path.expanduser().resolve()
+    )
+    if not current_path.is_file():
+        raise ValueError(f"Semantic registry path does not exist: {current_path}")
+    return _validate_registry_payload(yaml.safe_load(current_path.read_bytes()) or {})
+
+
+def clear_semantic_registry_cache() -> None:
+    _load_semantic_registry_cached.cache_clear()
+
+
+def write_semantic_registry_payload(
+    payload: dict[str, Any],
+    registry_path: str | Path | None = None,
+) -> Path:
+    # Validate the full semantic registry contract before mutating the live file.
+    semantic_registry_from_payload(payload)
+    current_path = (
+        Path(registry_path).expanduser().resolve()
+        if registry_path is not None
+        else get_settings().semantic_registry_path.expanduser().resolve()
+    )
+    current_path.parent.mkdir(parents=True, exist_ok=True)
+    current_path.write_text(
+        yaml.safe_dump(
+            _validate_registry_payload(payload),
+            sort_keys=False,
+            allow_unicode=True,
+        )
+    )
+    clear_semantic_registry_cache()
+    return current_path
+
+
+def _load_semantic_registry(registry_path: str) -> SemanticRegistry:
+    path = Path(registry_path).expanduser().resolve()
+    if not path.is_file():
+        raise ValueError(f"Semantic registry path does not exist: {path}")
+
+    raw_bytes = path.read_bytes()
+    payload = _validate_registry_payload(yaml.safe_load(raw_bytes) or {})
+    return _semantic_registry_from_payload(raw_bytes, payload)
 
 
 @lru_cache(maxsize=4)
