@@ -1678,7 +1678,9 @@ def test_summarize_structural_checks_passes_expected_overlay_merge(tmp_path) -> 
     yaml_path.write_text("caption: ok\n")
 
     fixture = next(
-        fixture for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH) if fixture.name == "upc_ch5"
+        fixture
+        for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+        if fixture.name == "upc_ch5"
     )
     table = SimpleNamespace(
         title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",
@@ -1720,7 +1722,9 @@ def test_summarize_structural_checks_flags_missing_expected_merge(tmp_path) -> N
     yaml_path.write_text("caption: ok\n")
 
     fixture = next(
-        fixture for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH) if fixture.name == "upc_ch5"
+        fixture
+        for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+        if fixture.name == "upc_ch5"
     )
     table = SimpleNamespace(
         title="TABLE 510.1.2 ( 2 ) TYPE B DOUBLE -WALL GAS VENT [ NFPA 54 : TABLE 13.1(b)]*",

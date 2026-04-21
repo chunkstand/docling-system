@@ -465,7 +465,9 @@ def fixture_for_document(
     if allow_manual_filename_fallback:
         if len(filename_matches) == 1:
             return filename_matches[0]
-        manual_matches = [fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND]
+        manual_matches = [
+            fixture for fixture in filename_matches if fixture.kind != AUTO_FIXTURE_KIND
+        ]
         if len(manual_matches) == 1:
             return manual_matches[0]
     return None
