@@ -117,6 +117,7 @@ def test_semantics_page_exposes_backfill_observability() -> None:
     assert "Current graph-readiness state" in response.text
     assert "Run a bounded vertical slice" in response.text
     assert "Sample active documents still missing current semantic passes" in response.text
+    assert 'id="page-activity-feed"' in response.text
 
 
 def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
