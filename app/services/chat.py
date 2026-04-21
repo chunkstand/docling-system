@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from openai import OpenAI
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.text import collapse_whitespace
@@ -493,9 +494,11 @@ def _persist_chat_answer(
 
 
 def _answer_not_found(chat_answer_id) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"Chat answer not found: {chat_answer_id}",
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "chat_answer_not_found",
+        "Chat answer not found.",
+        chat_answer_id=str(chat_answer_id),
     )
 
 

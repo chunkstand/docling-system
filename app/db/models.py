@@ -80,6 +80,77 @@ class AgentTaskOutcomeLabel(StrEnum):
     INCORRECT = "incorrect"
 
 
+class SemanticPassStatus(StrEnum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class SemanticEvaluationStatus(StrEnum):
+    PENDING = "pending"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class SemanticTermKind(StrEnum):
+    PREFERRED_LABEL = "preferred_label"
+    ALIAS = "alias"
+
+
+class SemanticAssertionKind(StrEnum):
+    CONCEPT_MENTION = "concept_mention"
+
+
+class SemanticEvidenceSourceType(StrEnum):
+    CHUNK = "chunk"
+    TABLE = "table"
+    FIGURE = "figure"
+
+
+class SemanticReviewStatus(StrEnum):
+    CANDIDATE = "candidate"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
+class SemanticEpistemicStatus(StrEnum):
+    OBSERVED = "observed"
+    INFERRED = "inferred"
+    CURATED = "curated"
+
+
+class SemanticContextScope(StrEnum):
+    DOCUMENT_RUN = "document_run"
+    DOCUMENT = "document"
+    REGISTRY = "registry"
+
+
+class SemanticBindingOrigin(StrEnum):
+    REGISTRY = "registry"
+    DERIVED = "derived"
+
+
+class SemanticCategoryBindingType(StrEnum):
+    CONCEPT_CATEGORY = "concept_category"
+    ASSERTION_CATEGORY = "assertion_category"
+
+
+class SemanticOntologySourceKind(StrEnum):
+    UPPER_SEED = "upper_seed"
+    ONTOLOGY_EXTENSION_APPLY = "ontology_extension_apply"
+
+
+class SemanticGraphSourceKind(StrEnum):
+    GRAPH_PROMOTION_APPLY = "graph_promotion_apply"
+
+
+class SemanticEntityType(StrEnum):
+    DOCUMENT = "document"
+    CONCEPT = "concept"
+    LITERAL = "literal"
+
+
 class IngestBatch(Base):
     __tablename__ = "ingest_batches"
     __table_args__ = (
@@ -399,6 +470,828 @@ class DocumentRunEvaluationQuery(Base):
         nullable=False,
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticOntologySnapshot(Base):
+    __tablename__ = "semantic_ontology_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "source_kind IN ('upper_seed', 'ontology_extension_apply')",
+            name="ck_semantic_ontology_snapshots_source_kind",
+        ),
+        UniqueConstraint(
+            "ontology_version",
+            name="uq_semantic_ontology_snapshots_ontology_version",
+        ),
+        Index("ix_semantic_ontology_snapshots_created_at", "created_at"),
+        Index("ix_semantic_ontology_snapshots_upper_ontology_version", "upper_ontology_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ontology_name: Mapped[str] = mapped_column(Text, nullable=False)
+    ontology_version: Mapped[str] = mapped_column(Text, nullable=False)
+    upper_ontology_version: Mapped[str] = mapped_column(Text, nullable=False)
+    source_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    source_task_type: Mapped[str | None] = mapped_column(Text)
+    parent_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkspaceSemanticState(Base):
+    __tablename__ = "workspace_semantic_state"
+
+    workspace_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    active_ontology_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticGraphSnapshot(Base):
+    __tablename__ = "semantic_graph_snapshots"
+    __table_args__ = (
+        CheckConstraint(
+            "source_kind IN ('graph_promotion_apply')",
+            name="ck_semantic_graph_snapshots_source_kind",
+        ),
+        UniqueConstraint(
+            "graph_version",
+            name="uq_semantic_graph_snapshots_graph_version",
+        ),
+        Index("ix_semantic_graph_snapshots_created_at", "created_at"),
+        Index("ix_semantic_graph_snapshots_ontology_snapshot_id", "ontology_snapshot_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    graph_name: Mapped[str] = mapped_column(Text, nullable=False)
+    graph_version: Mapped[str] = mapped_column(Text, nullable=False)
+    ontology_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    source_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    source_task_type: Mapped[str | None] = mapped_column(Text)
+    parent_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_graph_snapshots.id", ondelete="SET NULL"),
+    )
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class WorkspaceSemanticGraphState(Base):
+    __tablename__ = "workspace_semantic_graph_state"
+
+    workspace_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    active_graph_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_graph_snapshots.id", ondelete="SET NULL"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticConcept(Base):
+    __tablename__ = "semantic_concepts"
+    __table_args__ = (
+        UniqueConstraint(
+            "concept_key",
+            "registry_version",
+            name="uq_semantic_concepts_key_registry_version",
+        ),
+        Index("ix_semantic_concepts_concept_key", "concept_key"),
+        Index("ix_semantic_concepts_registry_version", "registry_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_key: Mapped[str] = mapped_column(Text, nullable=False)
+    preferred_label: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_note: Mapped[str | None] = mapped_column(Text)
+    registry_version: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticCategory(Base):
+    __tablename__ = "semantic_categories"
+    __table_args__ = (
+        UniqueConstraint(
+            "category_key",
+            "registry_version",
+            name="uq_semantic_categories_key_registry_version",
+        ),
+        Index("ix_semantic_categories_category_key", "category_key"),
+        Index("ix_semantic_categories_registry_version", "registry_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category_key: Mapped[str] = mapped_column(Text, nullable=False)
+    preferred_label: Mapped[str] = mapped_column(Text, nullable=False)
+    scope_note: Mapped[str | None] = mapped_column(Text)
+    registry_version: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticTerm(Base):
+    __tablename__ = "semantic_terms"
+    __table_args__ = (
+        CheckConstraint(
+            "term_kind IN ('preferred_label', 'alias')",
+            name="ck_semantic_terms_term_kind",
+        ),
+        UniqueConstraint(
+            "registry_version",
+            "normalized_text",
+            name="uq_semantic_terms_registry_version_normalized_text",
+        ),
+        Index("ix_semantic_terms_registry_version", "registry_version"),
+        Index("ix_semantic_terms_normalized_text", "normalized_text"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    registry_version: Mapped[str] = mapped_column(Text, nullable=False)
+    term_text: Mapped[str] = mapped_column(Text, nullable=False)
+    normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
+    term_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticConceptTerm(Base):
+    __tablename__ = "semantic_concept_terms"
+    __table_args__ = (
+        CheckConstraint(
+            "mapping_kind IN ('preferred_label', 'alias')",
+            name="ck_semantic_concept_terms_mapping_kind",
+        ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_concept_terms_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_concept_terms_review_status",
+        ),
+        UniqueConstraint(
+            "concept_id",
+            "term_id",
+            name="uq_semantic_concept_terms_concept_term",
+        ),
+        Index("ix_semantic_concept_terms_concept_id", "concept_id"),
+        Index("ix_semantic_concept_terms_term_id", "term_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    term_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_terms.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    mapping_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.REGISTRY.value,
+        server_default=sql_text("'registry'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.APPROVED.value,
+        server_default=sql_text("'approved'"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticConceptCategoryBinding(Base):
+    __tablename__ = "semantic_concept_category_bindings"
+    __table_args__ = (
+        CheckConstraint(
+            "binding_type IN ('concept_category')",
+            name="ck_semantic_concept_category_bindings_binding_type",
+        ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_concept_category_bindings_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_concept_category_bindings_review_status",
+        ),
+        UniqueConstraint(
+            "concept_id",
+            "category_id",
+            name="uq_semantic_concept_category_bindings_concept_category",
+        ),
+        Index("ix_semantic_concept_category_bindings_concept_id", "concept_id"),
+        Index("ix_semantic_concept_category_bindings_category_id", "category_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    binding_type: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.REGISTRY.value,
+        server_default=sql_text("'registry'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.APPROVED.value,
+        server_default=sql_text("'approved'"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentSemanticConceptReview(Base):
+    __tablename__ = "document_semantic_concept_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_document_semantic_concept_reviews_review_status",
+        ),
+        Index("ix_document_semantic_concept_reviews_document_id", "document_id"),
+        Index("ix_document_semantic_concept_reviews_concept_id", "concept_id"),
+        Index(
+            "ix_doc_sem_concept_reviews_doc_concept_created_at",
+            "document_id",
+            "concept_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentSemanticCategoryReview(Base):
+    __tablename__ = "document_semantic_category_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_document_semantic_category_reviews_review_status",
+        ),
+        Index("ix_document_semantic_category_reviews_document_id", "document_id"),
+        Index("ix_document_semantic_category_reviews_concept_id", "concept_id"),
+        Index("ix_document_semantic_category_reviews_category_id", "category_id"),
+        Index(
+            "ix_doc_sem_category_reviews_doc_binding_created_at",
+            "document_id",
+            "concept_id",
+            "category_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentRunSemanticPass(Base):
+    __tablename__ = "document_run_semantic_passes"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'completed', 'failed')",
+            name="ck_document_run_semantic_passes_status",
+        ),
+        CheckConstraint(
+            "evaluation_status IN ('pending', 'completed', 'failed', 'skipped')",
+            name="ck_document_run_semantic_passes_evaluation_status",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "registry_version",
+            "extractor_version",
+            "artifact_schema_version",
+            name="uq_document_run_semantic_passes_run_version_tuple",
+        ),
+        Index("ix_document_run_semantic_passes_document_id", "document_id"),
+        Index("ix_document_run_semantic_passes_run_id", "run_id"),
+        Index("ix_document_run_semantic_passes_baseline_run_id", "baseline_run_id"),
+        Index("ix_document_run_semantic_passes_ontology_snapshot_id", "ontology_snapshot_id"),
+        Index("ix_document_run_semantic_passes_status", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    baseline_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_runs.id", ondelete="SET NULL"),
+    )
+    baseline_semantic_pass_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_semantic_passes.id", ondelete="SET NULL"),
+    )
+    ontology_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    upper_ontology_version: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text, nullable=False, default="pending", server_default=sql_text("'pending'")
+    )
+    registry_version: Mapped[str] = mapped_column(Text, nullable=False)
+    registry_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    extractor_version: Mapped[str] = mapped_column(Text, nullable=False)
+    artifact_schema_version: Mapped[str] = mapped_column(Text, nullable=False)
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    evaluation_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+        server_default=sql_text("'pending'"),
+    )
+    evaluation_fixture_name: Mapped[str | None] = mapped_column(Text)
+    evaluation_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=sql_text("1"),
+    )
+    evaluation_summary_json: Mapped[dict] = mapped_column(
+        "evaluation_summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    continuity_summary_json: Mapped[dict] = mapped_column(
+        "continuity_summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    artifact_json_path: Mapped[str | None] = mapped_column(Text)
+    artifact_yaml_path: Mapped[str | None] = mapped_column(Text)
+    artifact_json_sha256: Mapped[str | None] = mapped_column(Text)
+    artifact_yaml_sha256: Mapped[str | None] = mapped_column(Text)
+    assertion_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    evidence_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SemanticAssertion(Base):
+    __tablename__ = "semantic_assertions"
+    __table_args__ = (
+        CheckConstraint(
+            "assertion_kind IN ('concept_mention')",
+            name="ck_semantic_assertions_assertion_kind",
+        ),
+        CheckConstraint(
+            "epistemic_status IN ('observed', 'inferred', 'curated')",
+            name="ck_semantic_assertions_epistemic_status",
+        ),
+        CheckConstraint(
+            "context_scope IN ('document_run', 'document', 'registry')",
+            name="ck_semantic_assertions_context_scope",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_assertions_review_status",
+        ),
+        UniqueConstraint(
+            "semantic_pass_id",
+            "concept_id",
+            "assertion_kind",
+            name="uq_semantic_assertions_pass_concept_kind",
+        ),
+        Index("ix_semantic_assertions_semantic_pass_id", "semantic_pass_id"),
+        Index("ix_semantic_assertions_concept_id", "concept_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    semantic_pass_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_semantic_passes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    concept_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    assertion_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    epistemic_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticEpistemicStatus.OBSERVED.value,
+        server_default=sql_text("'observed'"),
+    )
+    context_scope: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticContextScope.DOCUMENT_RUN.value,
+        server_default=sql_text("'document_run'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.CANDIDATE.value,
+        server_default=sql_text("'candidate'"),
+    )
+    matched_terms_json: Mapped[list] = mapped_column(
+        "matched_terms",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_types_json: Mapped[list] = mapped_column(
+        "source_types",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    evidence_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    confidence: Mapped[float | None] = mapped_column(Float)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticAssertionCategoryBinding(Base):
+    __tablename__ = "semantic_assertion_category_bindings"
+    __table_args__ = (
+        CheckConstraint(
+            "binding_type IN ('assertion_category')",
+            name="ck_semantic_assertion_category_bindings_binding_type",
+        ),
+        CheckConstraint(
+            "created_from IN ('registry', 'derived')",
+            name="ck_semantic_assertion_category_bindings_created_from",
+        ),
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_assertion_category_bindings_review_status",
+        ),
+        UniqueConstraint(
+            "assertion_id",
+            "category_id",
+            name="uq_semantic_assertion_category_bindings_assertion_category",
+        ),
+        Index("ix_semantic_assertion_category_bindings_assertion_id", "assertion_id"),
+        Index("ix_semantic_assertion_category_bindings_category_id", "category_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    assertion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    category_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_categories.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    concept_category_binding_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concept_category_bindings.id", ondelete="SET NULL"),
+    )
+    binding_type: Mapped[str] = mapped_column(Text, nullable=False)
+    created_from: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticBindingOrigin.DERIVED.value,
+        server_default=sql_text("'derived'"),
+    )
+    review_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=SemanticReviewStatus.CANDIDATE.value,
+        server_default=sql_text("'candidate'"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticAssertionEvidence(Base):
+    __tablename__ = "semantic_assertion_evidence"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('chunk', 'table', 'figure')",
+            name="ck_semantic_assertion_evidence_source_type",
+        ),
+        UniqueConstraint(
+            "assertion_id",
+            "source_type",
+            "source_locator",
+            name="uq_semantic_assertion_evidence_assertion_source",
+        ),
+        Index("ix_semantic_assertion_evidence_assertion_id", "assertion_id"),
+        Index("ix_semantic_assertion_evidence_run_id", "run_id"),
+        Index("ix_semantic_assertion_evidence_source_type", "source_type"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    assertion_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_locator: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_chunks.id", ondelete="SET NULL"),
+    )
+    table_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_tables.id", ondelete="SET NULL"),
+    )
+    figure_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_figures.id", ondelete="SET NULL"),
+    )
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    matched_terms_json: Mapped[list] = mapped_column(
+        "matched_terms",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    excerpt: Mapped[str | None] = mapped_column(Text)
+    source_label: Mapped[str | None] = mapped_column(Text)
+    source_artifact_path: Mapped[str | None] = mapped_column(Text)
+    source_artifact_sha256: Mapped[str | None] = mapped_column(Text)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticEntity(Base):
+    __tablename__ = "semantic_entities"
+    __table_args__ = (
+        CheckConstraint(
+            "entity_type IN ('document', 'concept', 'literal')",
+            name="ck_semantic_entities_entity_type",
+        ),
+        UniqueConstraint("entity_key", name="uq_semantic_entities_entity_key"),
+        Index("ix_semantic_entities_document_id", "document_id"),
+        Index("ix_semantic_entities_concept_id", "concept_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_key: Mapped[str] = mapped_column(Text, nullable=False)
+    entity_type: Mapped[str] = mapped_column(Text, nullable=False)
+    preferred_label: Mapped[str] = mapped_column(Text, nullable=False)
+    ontology_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="CASCADE"),
+    )
+    concept_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_concepts.id", ondelete="SET NULL"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticFact(Base):
+    __tablename__ = "semantic_facts"
+    __table_args__ = (
+        CheckConstraint(
+            "review_status IN ('candidate', 'approved', 'rejected')",
+            name="ck_semantic_facts_review_status",
+        ),
+        Index("ix_semantic_facts_document_id", "document_id"),
+        Index("ix_semantic_facts_run_id", "run_id"),
+        Index("ix_semantic_facts_semantic_pass_id", "semantic_pass_id"),
+        Index("ix_semantic_facts_relation_key", "relation_key"),
+        Index("ix_semantic_facts_subject_entity_id", "subject_entity_id"),
+        Index("ix_semantic_facts_object_entity_id", "object_entity_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    semantic_pass_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_semantic_passes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    ontology_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_ontology_snapshots.id", ondelete="SET NULL"),
+    )
+    subject_entity_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_entities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    relation_key: Mapped[str] = mapped_column(Text, nullable=False)
+    relation_label: Mapped[str] = mapped_column(Text, nullable=False)
+    object_entity_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_entities.id", ondelete="SET NULL"),
+    )
+    object_value_text: Mapped[str | None] = mapped_column(Text)
+    source_assertion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertions.id", ondelete="SET NULL"),
+    )
+    review_status: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SemanticFactEvidence(Base):
+    __tablename__ = "semantic_fact_evidence"
+    __table_args__ = (
+        Index("ix_semantic_fact_evidence_fact_id", "fact_id"),
+        Index("ix_semantic_fact_evidence_assertion_id", "assertion_id"),
+        Index("ix_semantic_fact_evidence_evidence_id", "assertion_evidence_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_facts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    assertion_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertions.id", ondelete="SET NULL"),
+    )
+    assertion_evidence_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_assertion_evidence.id", ondelete="SET NULL"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -738,6 +1631,186 @@ class SearchReplayQuery(Base):
         nullable=False,
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SearchHarnessEvaluation(Base):
+    __tablename__ = "search_harness_evaluations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('completed', 'failed')",
+            name="ck_search_harness_evaluations_status",
+        ),
+        Index("ix_search_harness_evaluations_created_at", "created_at"),
+        Index(
+            "ix_search_harness_evaluations_candidate_created_at",
+            "candidate_harness_name",
+            "created_at",
+        ),
+        Index(
+            "ix_search_harness_evaluations_baseline_candidate",
+            "baseline_harness_name",
+            "candidate_harness_name",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    baseline_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_types_json: Mapped[list] = mapped_column(
+        "source_types",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    harness_overrides_json: Mapped[dict] = mapped_column(
+        "harness_overrides",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    total_shared_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_improved_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_regressed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_unchanged_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SearchHarnessEvaluationSource(Base):
+    __tablename__ = "search_harness_evaluation_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ("
+            "'evaluation_queries', "
+            "'live_search_gaps', "
+            "'feedback', "
+            "'cross_document_prose_regressions'"
+            ")",
+            name="ck_search_harness_evaluation_sources_source_type",
+        ),
+        UniqueConstraint(
+            "search_harness_evaluation_id",
+            "source_type",
+            name="uq_search_harness_evaluation_sources_eval_source",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_eval_id",
+            "search_harness_evaluation_id",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_baseline_replay",
+            "baseline_replay_run_id",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_candidate_replay",
+            "candidate_replay_run_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_harness_evaluation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_evaluations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    baseline_replay_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    candidate_replay_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    baseline_status: Mapped[str | None] = mapped_column(Text)
+    candidate_status: Mapped[str | None] = mapped_column(Text)
+    baseline_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_passed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_passed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_zero_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_zero_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_top_result_changes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_top_result_changes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_mrr: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default=sql_text("0")
+    )
+    candidate_mrr: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default=sql_text("0")
+    )
+    baseline_foreign_top_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_foreign_top_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    acceptance_checks_json: Mapped[dict] = mapped_column(
+        "acceptance_checks",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    shared_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    improved_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    regressed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    unchanged_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

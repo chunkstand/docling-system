@@ -45,6 +45,8 @@ from app.cli import (
     run_optimize_search_harness,
     run_replay_search,
     run_replay_suite,
+    run_search_harness_evaluation_list,
+    run_search_harness_evaluation_show,
 )
 
 
@@ -568,6 +570,85 @@ def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:
     assert output["candidate_harness_name"] == "wide_v2"
     assert output["baseline_harness_name"] == "default_v1"
     assert output["sources"][0]["source_type"] == "cross_document_prose_regressions"
+
+
+def test_search_harness_evaluation_list_cli_prints_durable_rows(monkeypatch, capsys) -> None:
+    evaluation_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-search-harness-evaluation-list",
+            "--limit",
+            "3",
+            "--candidate-harness-name",
+            "wide_v2",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.list_search_harness_evaluations",
+        lambda session, *, limit=20, candidate_harness_name=None: [
+            SimpleNamespace(
+                model_dump=lambda mode="json": {
+                    "evaluation_id": str(evaluation_id),
+                    "candidate_harness_name": candidate_harness_name,
+                    "limit": limit,
+                    "status": "completed",
+                }
+            )
+        ],
+    )
+
+    run_search_harness_evaluation_list()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output[0]["evaluation_id"] == str(evaluation_id)
+    assert output[0]["candidate_harness_name"] == "wide_v2"
+    assert output[0]["limit"] == 3
+
+
+def test_search_harness_evaluation_show_cli_prints_detail(monkeypatch, capsys) -> None:
+    evaluation_id = uuid4()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-search-harness-evaluation-show", str(evaluation_id)],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.get_search_harness_evaluation_detail",
+        lambda session, requested_id: SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "evaluation_id": str(requested_id),
+                "candidate_harness_name": "wide_v2",
+                "baseline_harness_name": "default_v1",
+                "sources": [{"source_type": "evaluation_queries"}],
+            }
+        ),
+    )
+
+    run_search_harness_evaluation_show()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["evaluation_id"] == str(evaluation_id)
+    assert output["sources"][0]["source_type"] == "evaluation_queries"
 
 
 def test_agent_task_actions_cli_prints_action_catalog(monkeypatch, capsys) -> None:

@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.errors import api_error
 from app.api.main import app
 
 
@@ -71,3 +72,28 @@ def test_chat_feedback_route_uses_chat_service(monkeypatch) -> None:
     body = response.json()
     assert body["chat_answer_id"] == str(answer_id)
     assert body["feedback_type"] == "helpful"
+
+
+def test_chat_feedback_route_returns_machine_readable_not_found(monkeypatch) -> None:
+    answer_id = uuid4()
+
+    def missing_answer(session, chat_answer_id, payload):
+        raise api_error(
+            404,
+            "chat_answer_not_found",
+            "Chat answer not found.",
+            chat_answer_id=str(chat_answer_id),
+        )
+
+    monkeypatch.setattr("app.api.main.record_chat_answer_feedback", missing_answer)
+
+    client = TestClient(app)
+    response = client.post(
+        f"/chat/answers/{answer_id}/feedback",
+        json={"feedback_type": "helpful"},
+    )
+
+    assert response.status_code == 404
+    body = response.json()
+    assert body["error_code"] == "chat_answer_not_found"
+    assert body["error_context"]["chat_answer_id"] == str(answer_id)

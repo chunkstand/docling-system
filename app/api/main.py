@@ -33,6 +33,7 @@ from app.core.config import (
     resolve_api_credentials,
     resolve_api_mode,
     resolve_remote_api_capabilities,
+    semantics_feature_enabled,
 )
 from app.db.models import DocumentFigure, DocumentRun, DocumentTable
 from app.db.session import get_db_session
@@ -88,8 +89,10 @@ from app.schemas.quality import (
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
+    SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
+    SearchHarnessEvaluationSummaryResponse,
     SearchHarnessResponse,
     SearchReplayComparisonResponse,
     SearchReplayResponse,
@@ -98,7 +101,14 @@ from app.schemas.search import (
     SearchReplayRunSummaryResponse,
     SearchRequest,
     SearchRequestDetailResponse,
+    SearchRequestExplanationResponse,
     SearchResult,
+)
+from app.schemas.semantics import (
+    DocumentSemanticPassResponse,
+    SemanticContinuityResponse,
+    SemanticReviewDecisionRequest,
+    SemanticReviewEventResponse,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
@@ -151,18 +161,31 @@ from app.services.runtime import get_runtime_status, register_runtime_process
 from app.services.search import execute_search
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,
+    get_search_harness_evaluation_detail,
     list_search_harness_definitions,
+    list_search_harness_evaluations,
 )
 from app.services.search_history import (
     get_search_request_detail,
     record_search_feedback,
     replay_search_request,
 )
+from app.services.search_legibility import (
+    get_search_harness_descriptor,
+    get_search_request_explanation,
+)
 from app.services.search_replays import (
     compare_search_replay_runs,
     get_search_replay_run_detail,
     list_search_replay_runs,
     run_search_replay_suite,
+)
+from app.services.semantics import (
+    get_active_semantic_continuity,
+    get_active_semantic_pass_detail,
+    get_active_semantic_pass_row,
+    review_active_semantic_assertion,
+    review_active_semantic_assertion_category_binding,
 )
 from app.services.storage import StorageService
 from app.services.tables import get_active_table_detail, get_active_tables
@@ -178,6 +201,7 @@ def _api_mode_metadata() -> dict[str, object]:
         "api_mode_explicit": settings.api_mode is not None,
         "api_host": settings.api_host,
         "api_port": settings.api_port,
+        "semantics_enabled": semantics_feature_enabled(settings),
     }
     if resolved_mode == "remote":
         payload["remote_api_auth_mode"] = (
@@ -192,6 +216,17 @@ def _api_mode_metadata() -> dict[str, object]:
         if not getattr(settings, "api_credentials_json", None):
             payload["remote_api_capabilities"] = sorted(resolve_remote_api_capabilities(settings))
     return payload
+
+
+def _ensure_semantics_enabled() -> None:
+    settings = get_settings()
+    if semantics_feature_enabled(settings):
+        return
+    raise api_error(
+        status.HTTP_409_CONFLICT,
+        "semantics_disabled",
+        "Semantic layer is disabled. Set DOCLING_SYSTEM_SEMANTICS_ENABLED=1 to enable it.",
+    )
 
 
 def _require_api_key_for_mutations(
@@ -986,6 +1021,84 @@ def read_latest_document_evaluation(
 
 
 @app.get(
+    "/documents/{document_id}/semantics/latest",
+    response_model=DocumentSemanticPassResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_document_semantics(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> DocumentSemanticPassResponse:
+    _ensure_semantics_enabled()
+    return get_active_semantic_pass_detail(session, document_id)
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/continuity",
+    response_model=SemanticContinuityResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_document_semantic_continuity(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SemanticContinuityResponse:
+    _ensure_semantics_enabled()
+    return get_active_semantic_continuity(session, document_id)
+
+
+@app.post(
+    "/documents/{document_id}/semantics/latest/assertions/{assertion_id}/review",
+    response_model=SemanticReviewEventResponse,
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:review")),
+    ],
+)
+def review_latest_document_semantic_assertion(
+    document_id: UUID,
+    assertion_id: UUID,
+    request: SemanticReviewDecisionRequest,
+    session: Session = Depends(get_db_session),
+) -> SemanticReviewEventResponse:
+    _ensure_semantics_enabled()
+    return review_active_semantic_assertion(
+        session,
+        document_id,
+        assertion_id,
+        review_status=request.review_status,
+        review_note=request.review_note,
+        reviewed_by=request.reviewed_by,
+        storage_service=get_storage_service(),
+    )
+
+
+@app.post(
+    "/documents/{document_id}/semantics/latest/assertion-category-bindings/{binding_id}/review",
+    response_model=SemanticReviewEventResponse,
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:review")),
+    ],
+)
+def review_latest_document_semantic_assertion_category_binding(
+    document_id: UUID,
+    binding_id: UUID,
+    request: SemanticReviewDecisionRequest,
+    session: Session = Depends(get_db_session),
+) -> SemanticReviewEventResponse:
+    _ensure_semantics_enabled()
+    return review_active_semantic_assertion_category_binding(
+        session,
+        document_id,
+        binding_id,
+        review_status=request.review_status,
+        review_note=request.review_note,
+        reviewed_by=request.reviewed_by,
+        storage_service=get_storage_service(),
+    )
+
+
+@app.get(
     "/documents/{document_id}/chunks",
     response_model=list[DocumentChunkResponse],
     dependencies=[Depends(_require_api_capability("documents:inspect"))],
@@ -1159,6 +1272,73 @@ def read_yaml_artifact(
         not_found_detail="Document YAML artifact not found.",
         not_found_error_code="document_artifact_not_found",
         not_found_context={"document_id": str(document_id), "artifact_format": "yaml"},
+    )
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/artifacts/json",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_semantic_json_artifact(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    _ensure_semantics_enabled()
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    return _storage_file_response(
+        get_storage_service().build_semantic_json_path(
+            document_id,
+            semantic_pass.run_id,
+            semantic_pass.artifact_schema_version,
+        ),
+        media_type="application/json",
+        not_found_detail="Semantic JSON artifact not found.",
+        not_found_error_code="semantic_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "run_id": str(semantic_pass.run_id),
+            "artifact_format": "json",
+        },
+    )
+
+
+@app.get(
+    "/documents/{document_id}/semantics/latest/artifacts/yaml",
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_latest_semantic_yaml_artifact(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+):
+    _ensure_semantics_enabled()
+    semantic_pass = get_active_semantic_pass_row(session, document_id)
+    if semantic_pass is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "semantic_pass_not_found",
+            "Semantic pass not found.",
+            document_id=str(document_id),
+        )
+    return _storage_file_response(
+        get_storage_service().build_semantic_yaml_path(
+            document_id,
+            semantic_pass.run_id,
+            semantic_pass.artifact_schema_version,
+        ),
+        not_found_detail="Semantic YAML artifact not found.",
+        not_found_error_code="semantic_artifact_not_found",
+        not_found_context={
+            "document_id": str(document_id),
+            "run_id": str(semantic_pass.run_id),
+            "artifact_format": "yaml",
+        },
     )
 
 
@@ -1357,6 +1537,18 @@ def read_search_request(
     return get_search_request_detail(session, search_request_id)
 
 
+@app.get(
+    "/search/requests/{search_request_id}/explain",
+    response_model=SearchRequestExplanationResponse,
+    dependencies=[Depends(_require_api_capability("search:history:read"))],
+)
+def explain_search_request(
+    search_request_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchRequestExplanationResponse:
+    return get_search_request_explanation(session, search_request_id)
+
+
 @app.post(
     "/search/requests/{search_request_id}/feedback",
     response_model=SearchFeedbackResponse,
@@ -1412,6 +1604,40 @@ def read_search_harnesses() -> list[SearchHarnessResponse]:
     return list_search_harness_definitions()
 
 
+@app.get(
+    "/search/harnesses/{harness_name}/descriptor",
+    response_model=SearchHarnessDescriptorResponse,
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptorResponse:
+    try:
+        return get_search_harness_descriptor(harness_name)
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "search_harness_not_found",
+            str(exc),
+            harness_name=harness_name,
+        ) from exc
+
+
+@app.get(
+    "/search/harness-evaluations",
+    response_model=list[SearchHarnessEvaluationSummaryResponse],
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_evaluations(
+    limit: int = Query(default=20, ge=1, le=200),
+    candidate_harness_name: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> list[SearchHarnessEvaluationSummaryResponse]:
+    return list_search_harness_evaluations(
+        session,
+        limit=limit,
+        candidate_harness_name=candidate_harness_name,
+    )
+
+
 @app.post(
     "/search/harness-evaluations",
     response_model=SearchHarnessEvaluationResponse,
@@ -1421,6 +1647,7 @@ def read_search_harnesses() -> list[SearchHarnessResponse]:
     ],
 )
 def create_search_harness_evaluation(
+    response: Response,
     payload: SearchHarnessEvaluationRequest,
     session: Session = Depends(get_db_session),
 ) -> SearchHarnessEvaluationResponse:
@@ -1433,7 +1660,22 @@ def create_search_harness_evaluation(
             str(exc),
         ) from exc
     session.commit()
+    evaluation_id = _response_field(evaluation, "evaluation_id")
+    if evaluation_id is not None:
+        response.headers["Location"] = f"/search/harness-evaluations/{evaluation_id}"
     return evaluation
+
+
+@app.get(
+    "/search/harness-evaluations/{evaluation_id}",
+    response_model=SearchHarnessEvaluationResponse,
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_evaluation(
+    evaluation_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchHarnessEvaluationResponse:
+    return get_search_harness_evaluation_detail(session, evaluation_id)
 
 
 @app.post(

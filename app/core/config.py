@@ -65,6 +65,12 @@ class Settings(BaseSettings):
     docling_document_timeout_seconds: float | None = 120.0
     docling_fallback_document_timeout_seconds: float | None = 30.0
     table_supplement_registry_path: Path = Field(default=Path("./config/table_supplements.yaml"))
+    semantics_enabled: bool = False
+    upper_ontology_path: Path = Field(default=Path("./config/upper_ontology.yaml"))
+    semantic_registry_path: Path | None = None
+    semantic_evaluation_corpus_path: Path = Field(
+        default=Path("./docs/semantic_evaluation_corpus.yaml")
+    )
 
 
 def default_local_ingest_roots() -> list[Path]:
@@ -150,6 +156,11 @@ def resolve_api_credentials(
             capabilities=frozenset(resolve_remote_api_capabilities(current_settings)),
         ),
     )
+
+
+def semantics_feature_enabled(settings: Settings | None = None) -> bool:
+    current_settings = settings or get_settings()
+    return bool(getattr(current_settings, "semantics_enabled", False))
 
 
 @lru_cache(maxsize=1)

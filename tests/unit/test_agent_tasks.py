@@ -277,6 +277,49 @@ def test_create_agent_task_rejects_missing_action_linked_dependency_ids() -> Non
         raise AssertionError("Expected missing linked task IDs to be rejected")
 
 
+def test_create_agent_task_rejects_existing_dependency_cycle() -> None:
+    dependency_a = uuid4()
+    dependency_b = uuid4()
+    session = FakeSession(
+        task_rows=[dependency_a],
+        dependency_rows=[
+            AgentTaskDependency(
+                task_id=dependency_a,
+                depends_on_task_id=dependency_b,
+                dependency_kind=AgentTaskDependencyKind.EXPLICIT.value,
+            ),
+            AgentTaskDependency(
+                task_id=dependency_b,
+                depends_on_task_id=dependency_a,
+                dependency_kind=AgentTaskDependencyKind.EXPLICIT.value,
+            ),
+        ],
+    )
+
+    try:
+        create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_search_harness",
+                side_effect_level="read_only",
+                requires_approval=False,
+                dependency_task_ids=[dependency_a],
+                input={"candidate_harness_name": "wide_v2"},
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 409
+        assert exc.detail["code"] == "agent_task_dependency_cycle"
+        assert exc.detail["context"]["dependency_task_ids"] == [str(dependency_a)]
+        assert exc.detail["context"]["cycle_task_ids"] == [
+            str(dependency_a),
+            str(dependency_b),
+            str(dependency_a),
+        ]
+    else:
+        raise AssertionError("Expected dependency cycles to be rejected")
+
+
 def test_approve_agent_task_moves_ready_task_to_queue(monkeypatch) -> None:
     now = datetime.now(UTC)
     task = AgentTask(

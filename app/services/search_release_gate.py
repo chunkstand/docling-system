@@ -56,6 +56,12 @@ def evaluate_search_harness_release_gate(
     max_observed_zero_result_increase = 0
     max_observed_foreign_top_result_increase = 0
 
+    if evaluation.status != "completed":
+        reasons.append(
+            f"search harness evaluation {evaluation.evaluation_id or 'unknown'} "
+            f"is {evaluation.status}."
+        )
+
     for source in evaluation.sources:
         baseline_run = _load_replay_run(
             session,
@@ -150,6 +156,8 @@ def evaluate_search_harness_release_gate(
         ),
     }
     details = {
+        "evaluation_id": str(evaluation.evaluation_id) if evaluation.evaluation_id else None,
+        "evaluation_status": evaluation.status,
         "candidate_harness_name": evaluation.candidate_harness_name,
         "baseline_harness_name": evaluation.baseline_harness_name,
         "per_source": per_source,

@@ -2,7 +2,11 @@
 
 This document supersedes the original rebuilt v1 system plan. It describes the system as it exists now: the live contracts, the architecture in the repository, the operator workflows, and the bounded orchestration layer that sits on top of ingestion, retrieval, evaluation, and search-harness management.
 
-The repository-level branching, release-tag, and promotion rules for the stable `v1` lane and the experimental `v2` lane live in [docs/versioning_policy.md](./docs/versioning_policy.md).
+The repository-level branching, release-tag, and promotion rules live in
+[docs/versioning_policy.md](./docs/versioning_policy.md). The semantics layer is defined separately
+from the future `v2` platform lane; additive semantics-layer work does not automatically imply a
+`v2` platform fork. Stable platform releases still ship from `main` under `v1.x.y`; semantics
+branch checkpoints, when needed, use separate experiment tags rather than platform release tags.
 
 ## Summary
 
@@ -377,6 +381,7 @@ Current replay surfaces include:
 - replay suites
 - named-harness comparisons
 - persisted replay-run detail and comparison endpoints
+- persisted harness-evaluation list and detail endpoints
 
 Current replay suites include:
 
@@ -384,6 +389,19 @@ Current replay suites include:
 - `feedback`
 - `live_search_gaps`
 - `cross_document_prose_regressions`
+
+Harness evaluations are first-class persisted resources. `POST /search/harness-evaluations`
+creates a durable evaluation row, stores one source row per replay source type, and
+links every source row to the baseline and candidate replay runs that produced the
+metrics. Operators and agents can inspect the resource through:
+
+- `GET /search/harness-evaluations`
+- `GET /search/harness-evaluations/{evaluation_id}`
+- `docling-system-search-harness-evaluation-list`
+- `docling-system-search-harness-evaluation-show <evaluation_id>`
+
+The evaluation UI also reads from the durable list/detail endpoints so recent
+harness comparisons remain inspectable after the original POST response is gone.
 
 ### Quality signals
 
@@ -471,16 +489,24 @@ It exists to:
 The current registry includes:
 
 - `get_latest_evaluation`
+- `get_latest_semantic_pass`
+- `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
+- `draft_semantic_grounded_document`
 - `verify_draft_harness_config`
+- `verify_semantic_grounded_document`
 - `triage_replay_regression`
+- `triage_semantic_pass`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
+- `draft_semantic_registry_update`
+- `verify_draft_semantic_registry_update`
+- `apply_semantic_registry_update`
 
 ### Current task guarantees
 
@@ -538,10 +564,34 @@ Current workflow-heavy paths include:
 - `evaluate_search_harness`, which produces typed evaluation output and context refs to replay evidence
 - `verify_search_harness_evaluation`, which verifies a target evaluation through its `target_task` context ref
 - `triage_replay_regression`, which mines unresolved quality candidates, runs comparative replay work, and produces a recommendation plus a deeper triage summary artifact
+- `export_semantic_supervision_corpus`, which exports reviewed semantic signals, semantic expectations, and grounded-document verification outcomes into durable supervision artifacts
+- `discover_semantic_bootstrap_candidates`, which mines provisional concept candidates directly from active document corpora so the semantic layer can bootstrap on arbitrary user data without assuming the current registry already matches the domain
+- `evaluate_semantic_candidate_extractor`, which compares a shadow semantic candidate extractor against the lexical baseline and fixed semantic expectations without mutating live semantics
+- `triage_semantic_candidate_disagreements`, which consumes that evaluation through its `target_task` context ref and turns candidate-only gaps into typed issues plus bounded follow-up recommendations
+- `draft_semantic_registry_update` can now consume either semantic triage output or bootstrap candidate discovery through its `source_task` context ref, while keeping publication on the existing verify/apply/reprocess path
+- `initialize_workspace_ontology`, which seeds an empty workspace from the generic upper ontology without assuming any sample-domain semantics already exist
+- `get_active_ontology_snapshot`, which exposes the DB-backed live ontology snapshot that semantic passes and generation now reference
+- `draft_ontology_extension`, which turns bootstrap or semantic-triage output into a reviewable additive ontology draft without mutating live state
+- `verify_draft_ontology_extension`, which checks that ontology draft against active documents before publication
+- `apply_ontology_extension`, which is approval-gated and publishes the verified ontology draft as the new active workspace snapshot
+- `build_document_fact_graph`, which compacts approved semantic assertions into a small reusable fact graph for grounded generation and later orchestration
+- `build_shadow_semantic_graph`, which compacts reviewed semantic assertions into a reusable cross-document shadow graph without mutating live state
+- `evaluate_semantic_relation_extractor`, which compares a shadow relation extractor against a deterministic baseline and fixed expected graph edges
+- `triage_semantic_graph_disagreements`, which consumes that evaluation through its `target_task` context ref and turns candidate-only graph gaps into typed issues plus bounded promotion follow-ups
+- `draft_graph_promotions`, which prepares a reviewable graph-memory snapshot update without changing the live graph
+- `verify_draft_graph_promotions`, which verifies those promotions against ontology compatibility, domain/range relation constraints, traceability, inverse/symmetry conflicts, and stale-snapshot checks
+- `apply_graph_promotions`, which is approval-gated and publishes the verified graph snapshot as the new active workspace graph memory
+- `prepare_semantic_generation_brief`, which builds a typed semantic dossier, section plan, claim set, and evidence pack for one bounded `knowledge_brief`
+- `prepare_semantic_generation_brief` can also consume approved graph memory so grounded briefs can pull in cross-document concept relations without reparsing raw evidence every time
+- `prepare_semantic_generation_brief` can also expose additive `shadow_candidates` and `shadow_candidate_summary` fields from the candidate layer while keeping grounded drafting tied only to the live dossier
+- `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
+- `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`
 - `enqueue_document_reprocess`, which is approval-gated and queues document reprocessing without changing the current active run until the normal ingest path completes successfully
+
+The portable ontology workflow keeps the repo domain agnostic: `config/upper_ontology.yaml` is the only shipped semantic seed, while corpus-derived ontology snapshots, approved facts, approved graph relations, and workspace review state live in the database and can be rebuilt from arbitrary user data.
 
 ### Analytics and exports
 

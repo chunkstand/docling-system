@@ -60,6 +60,18 @@ class StorageService:
             path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def _semantic_dir(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        *,
+        create: bool,
+    ) -> Path:
+        path = self._run_dir(document_id, run_id, create=create) / "semantics"
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def _agent_task_dir(self, task_id: uuid.UUID, *, create: bool) -> Path:
         path = self.storage_root / "agent_tasks" / str(task_id)
         if create:
@@ -208,6 +220,48 @@ class StorageService:
         self, document_id: uuid.UUID, run_id: uuid.UUID, figure_index: int
     ) -> Path:
         return self.build_figure_dir(document_id, run_id) / f"{figure_index}.yaml"
+
+    def get_semantic_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self._semantic_dir(document_id, run_id, create=True)
+
+    def build_semantic_dir(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
+        return self._semantic_dir(document_id, run_id, create=False)
+
+    def get_semantic_json_path(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        schema_version: str = "1.0",
+    ) -> Path:
+        major_version = schema_version.split(".", 1)[0] or "1"
+        return self.get_semantic_dir(document_id, run_id) / f"semantic-pass.v{major_version}.json"
+
+    def build_semantic_json_path(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        schema_version: str = "1.0",
+    ) -> Path:
+        major_version = schema_version.split(".", 1)[0] or "1"
+        return self.build_semantic_dir(document_id, run_id) / f"semantic-pass.v{major_version}.json"
+
+    def get_semantic_yaml_path(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        schema_version: str = "1.0",
+    ) -> Path:
+        major_version = schema_version.split(".", 1)[0] or "1"
+        return self.get_semantic_dir(document_id, run_id) / f"semantic-pass.v{major_version}.yaml"
+
+    def build_semantic_yaml_path(
+        self,
+        document_id: uuid.UUID,
+        run_id: uuid.UUID,
+        schema_version: str = "1.0",
+    ) -> Path:
+        major_version = schema_version.split(".", 1)[0] or "1"
+        return self.build_semantic_dir(document_id, run_id) / f"semantic-pass.v{major_version}.yaml"
 
     def get_failure_artifact_path(self, document_id: uuid.UUID, run_id: uuid.UUID) -> Path:
         return self.get_run_dir(document_id, run_id) / "failure.json"

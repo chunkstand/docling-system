@@ -133,10 +133,14 @@ def test_triage_replay_regression_executor_persists_artifact_and_recommendation(
     assert result["shadow_mode"] is True
     assert result["recommendation"]["next_action"] == "candidate_ready_for_review"
     assert result["verification"]["outcome"] == "passed"
+    assert result["repair_case"]["schema_name"] == "search_harness_repair_case"
+    assert result["repair_case"]["recommended_next_action"] == "candidate_ready_for_review"
+    assert result["repair_case_artifact_kind"] == "repair_case"
     assert result["artifact_path"] is not None
     artifact_path = result["artifact_path"]
     assert artifact_path.endswith("triage_summary.json")
     assert (tmp_path / "storage" / "agent_tasks" / str(task.id) / "triage_summary.json").exists()
+    assert (tmp_path / "storage" / "agent_tasks" / str(task.id) / "repair_case.json").exists()
     validated = validate_agent_task_output("triage_replay_regression", result)
     assert validated["recommendation"]["next_action"] == "candidate_ready_for_review"
     assert any(isinstance(row, AgentTaskArtifact) for row in session.added)

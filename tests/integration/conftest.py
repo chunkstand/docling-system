@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.main import app
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db_session
 from app.services.runs import claim_next_run, process_run
@@ -53,7 +54,9 @@ class PostgresIntegrationHarness:
 @pytest.fixture
 def postgres_integration_harness(monkeypatch, tmp_path) -> Generator[PostgresIntegrationHarness]:
     schema_name = f"test_{uuid4().hex}"
-    database_url = "postgresql+psycopg://docling:docling@localhost:5432/docling_system"
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTICS_ENABLED", "1")
+    get_settings.cache_clear()
+    database_url = get_settings().database_url
     admin_engine, engine = _create_schema_scoped_engine(database_url, schema_name)
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     storage_root = tmp_path / "storage"
@@ -99,3 +102,4 @@ def postgres_integration_harness(monkeypatch, tmp_path) -> Generator[PostgresInt
         with admin_engine.begin() as connection:
             connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
         admin_engine.dispose()
+        get_settings.cache_clear()

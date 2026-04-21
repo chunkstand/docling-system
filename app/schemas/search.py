@@ -103,6 +103,69 @@ class SearchRequestDetailResponse(BaseModel):
     results: list[SearchLoggedResultResponse] = Field(default_factory=list)
 
 
+class SearchRequestExplanationResult(BaseModel):
+    rank: int
+    result_type: str
+    score: float
+    source_filename: str
+    document_id: UUID
+    run_id: UUID
+    chunk_id: UUID | None = None
+    table_id: UUID | None = None
+    label: str | None = None
+    page_from: int | None = None
+    page_to: int | None = None
+    base_rank: int | None = None
+    rerank_features: dict = Field(default_factory=dict)
+
+
+class SearchRequestDiagnosis(BaseModel):
+    category: str
+    summary: str
+    contributing_factors: list[str] = Field(default_factory=list)
+    evidence: dict = Field(default_factory=dict)
+
+
+class SearchRequestExplanationResponse(BaseModel):
+    schema_name: str = "search_request_explanation"
+    schema_version: str = "1.0"
+    search_request_id: UUID
+    parent_search_request_id: UUID | None = None
+    evaluation_id: UUID | None = None
+    run_id: UUID | None = None
+    origin: str
+    query: str
+    mode: str
+    filters: dict = Field(default_factory=dict)
+    requested_mode: str
+    served_mode: str
+    limit: int
+    tabular_query: bool = False
+    harness_name: str = "default_v1"
+    reranker_name: str
+    reranker_version: str = "v1"
+    retrieval_profile_name: str = "default_v1"
+    harness_config: dict = Field(default_factory=dict)
+    embedding_status: str
+    embedding_error: str | None = None
+    fallback_reason: str | None = None
+    keyword_candidate_count: int = 0
+    keyword_strict_candidate_count: int = 0
+    semantic_candidate_count: int = 0
+    metadata_candidate_count: int = 0
+    context_expansion_count: int = 0
+    candidate_count: int = 0
+    result_count: int = 0
+    table_hit_count: int = 0
+    candidate_source_breakdown: dict = Field(default_factory=dict)
+    query_understanding: dict = Field(default_factory=dict)
+    top_result_snapshot: list[SearchRequestExplanationResult] = Field(default_factory=list)
+    diagnosis: SearchRequestDiagnosis
+    recommended_next_action: str
+    evidence_refs: list[dict] = Field(default_factory=list)
+    created_at: datetime
+
+
 class SearchReplayDiffResponse(BaseModel):
     overlap_count: int = 0
     added_count: int = 0
@@ -207,6 +270,25 @@ class SearchHarnessResponse(BaseModel):
     is_default: bool = False
 
 
+class SearchHarnessDescriptorResponse(BaseModel):
+    schema_name: str = "search_harness_descriptor"
+    schema_version: str = "1.0"
+    harness_name: str
+    base_harness_name: str | None = None
+    is_default: bool = False
+    config_fingerprint: str
+    reranker_name: str
+    reranker_version: str
+    retrieval_profile_name: str
+    retrieval_stages: list[str] = Field(default_factory=list)
+    tunable_knobs: dict = Field(default_factory=dict)
+    constraints: list[str] = Field(default_factory=list)
+    intended_query_families: list[str] = Field(default_factory=list)
+    known_tradeoffs: list[str] = Field(default_factory=list)
+    harness_config: dict = Field(default_factory=dict)
+    metadata: dict = Field(default_factory=dict)
+
+
 class SearchHarnessEvaluationRequest(BaseModel):
     candidate_harness_name: str
     baseline_harness_name: str = "default_v1"
@@ -225,6 +307,8 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
     source_type: str
     baseline_replay_run_id: UUID
     candidate_replay_run_id: UUID
+    baseline_status: str | None = None
+    candidate_status: str | None = None
     baseline_query_count: int = 0
     candidate_query_count: int = 0
     baseline_passed_count: int = 0
@@ -247,14 +331,37 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
 
 
 class SearchHarnessEvaluationResponse(BaseModel):
+    evaluation_id: UUID | None = None
+    status: str = "completed"
     baseline_harness_name: str
     candidate_harness_name: str
     limit: int
+    source_types: list[str] = Field(default_factory=list)
+    harness_overrides: dict = Field(default_factory=dict)
     total_shared_query_count: int = 0
     total_improved_count: int = 0
     total_regressed_count: int = 0
     total_unchanged_count: int = 0
+    error_message: str | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
     sources: list[SearchHarnessEvaluationSourceResponse] = Field(default_factory=list)
+
+
+class SearchHarnessEvaluationSummaryResponse(BaseModel):
+    evaluation_id: UUID
+    status: str
+    baseline_harness_name: str
+    candidate_harness_name: str
+    limit: int
+    source_types: list[str] = Field(default_factory=list)
+    total_shared_query_count: int = 0
+    total_improved_count: int = 0
+    total_regressed_count: int = 0
+    total_unchanged_count: int = 0
+    error_message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
 
 
 class SearchHarnessOptimizationRequest(BaseModel):

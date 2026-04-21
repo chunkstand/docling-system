@@ -74,6 +74,7 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Saved credential for current API calls" in eval_response.text
     assert "Harness evaluation" in eval_response.text
     assert "Compare baseline and candidate retrieval behavior" in eval_response.text
+    assert "Recent harness evaluations" in eval_response.text
     assert "Mined gaps and likely fixture additions" in eval_response.text
 
     assert agent_response.status_code == 200
@@ -86,3 +87,14 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Inspect a durable task record" in agent_response.text
     assert "Summary, lineage, context, and artifacts" in agent_response.text
     assert "What each harness is for" in agent_response.text
+
+
+def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
+    client = TestClient(app)
+
+    response = client.get("/ui/app.js")
+
+    assert response.status_code == 200
+    assert "/search/harness-evaluations?limit=8" in response.text
+    assert 'data-ui-action="load-harness-evaluation"' in response.text
+    assert "loadHarnessEvaluationDetail" in response.text

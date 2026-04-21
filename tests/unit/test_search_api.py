@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.errors import api_error
 from app.api.main import app
 
 
@@ -129,6 +130,85 @@ def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["search_request_id"] == str(request_id)
+
+
+def test_search_request_explain_route_uses_legibility_service(monkeypatch) -> None:
+    request_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.main.get_search_request_explanation",
+        lambda session, search_request_id: {
+            "schema_name": "search_request_explanation",
+            "schema_version": "1.0",
+            "search_request_id": str(search_request_id),
+            "parent_search_request_id": None,
+            "evaluation_id": None,
+            "run_id": None,
+            "origin": "api",
+            "query": "vent stack",
+            "mode": "hybrid",
+            "filters": {},
+            "requested_mode": "hybrid",
+            "served_mode": "hybrid",
+            "limit": 8,
+            "tabular_query": False,
+            "harness_name": "default_v1",
+            "reranker_name": "linear_feature_reranker",
+            "reranker_version": "v1",
+            "retrieval_profile_name": "default_v1",
+            "harness_config": {},
+            "embedding_status": "completed",
+            "embedding_error": None,
+            "fallback_reason": None,
+            "keyword_candidate_count": 4,
+            "keyword_strict_candidate_count": 2,
+            "semantic_candidate_count": 4,
+            "metadata_candidate_count": 0,
+            "context_expansion_count": 0,
+            "candidate_count": 8,
+            "result_count": 3,
+            "table_hit_count": 1,
+            "candidate_source_breakdown": {"keyword": 4, "semantic": 4},
+            "query_understanding": {"query_intent": "prose_lookup"},
+            "top_result_snapshot": [],
+            "diagnosis": {
+                "category": "healthy",
+                "summary": "healthy",
+                "contributing_factors": [],
+                "evidence": {},
+            },
+            "recommended_next_action": "No action.",
+            "evidence_refs": [],
+            "created_at": "2026-04-12T00:00:00Z",
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/requests/{request_id}/explain")
+
+    assert response.status_code == 200
+    assert response.json()["search_request_id"] == str(request_id)
+    assert response.json()["diagnosis"]["category"] == "healthy"
+
+
+def test_search_request_explain_route_returns_machine_readable_error(monkeypatch) -> None:
+    request_id = uuid4()
+
+    def raise_not_found(session, search_request_id):
+        raise api_error(
+            404,
+            "search_request_not_found",
+            "Search request not found.",
+            search_request_id=str(search_request_id),
+        )
+
+    monkeypatch.setattr("app.api.main.get_search_request_explanation", raise_not_found)
+
+    client = TestClient(app)
+    response = client.get(f"/search/requests/{request_id}/explain")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_request_not_found"
 
 
 def test_search_replay_list_route_requires_remote_replay_capability(monkeypatch) -> None:
@@ -401,6 +481,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
 
 
 def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
+    evaluation_id = uuid4()
     baseline_replay_run_id = uuid4()
     candidate_replay_run_id = uuid4()
 
@@ -420,13 +501,18 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.main.evaluate_search_harness",
         lambda session, payload: {
+            "evaluation_id": str(evaluation_id),
+            "status": "completed",
             "baseline_harness_name": payload.baseline_harness_name,
             "candidate_harness_name": payload.candidate_harness_name,
             "limit": payload.limit,
+            "source_types": payload.source_types,
             "total_shared_query_count": 3,
             "total_improved_count": 1,
             "total_regressed_count": 0,
             "total_unchanged_count": 2,
+            "created_at": "2026-04-21T00:00:00Z",
+            "completed_at": "2026-04-21T00:00:01Z",
             "sources": [
                 {
                     "source_type": "cross_document_prose_regressions",
@@ -450,12 +536,84 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
             ],
         },
     )
+    monkeypatch.setattr(
+        "app.api.main.list_search_harness_evaluations",
+        lambda session, limit=20, candidate_harness_name=None: [
+            {
+                "evaluation_id": str(evaluation_id),
+                "status": "completed",
+                "baseline_harness_name": "default_v1",
+                "candidate_harness_name": "wide_v2",
+                "limit": 5,
+                "source_types": ["cross_document_prose_regressions"],
+                "total_shared_query_count": 3,
+                "total_improved_count": 1,
+                "total_regressed_count": 0,
+                "total_unchanged_count": 2,
+                "created_at": "2026-04-21T00:00:00Z",
+                "completed_at": "2026-04-21T00:00:01Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_search_harness_evaluation_detail",
+        lambda session, lookup_evaluation_id: {
+            "evaluation_id": str(lookup_evaluation_id),
+            "status": "completed",
+            "baseline_harness_name": "default_v1",
+            "candidate_harness_name": "wide_v2",
+            "limit": 5,
+            "source_types": ["cross_document_prose_regressions"],
+            "total_shared_query_count": 3,
+            "total_improved_count": 1,
+            "total_regressed_count": 0,
+            "total_unchanged_count": 2,
+            "created_at": "2026-04-21T00:00:00Z",
+            "completed_at": "2026-04-21T00:00:01Z",
+            "sources": [
+                {
+                    "source_type": "cross_document_prose_regressions",
+                    "baseline_replay_run_id": str(baseline_replay_run_id),
+                    "candidate_replay_run_id": str(candidate_replay_run_id),
+                    "shared_query_count": 3,
+                    "improved_count": 1,
+                    "regressed_count": 0,
+                    "unchanged_count": 2,
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.main.get_search_harness_descriptor",
+        lambda harness_name: {
+            "schema_name": "search_harness_descriptor",
+            "schema_version": "1.0",
+            "harness_name": harness_name,
+            "base_harness_name": None,
+            "is_default": harness_name == "default_v1",
+            "config_fingerprint": "abc123",
+            "reranker_name": "linear_feature_reranker",
+            "reranker_version": "v1",
+            "retrieval_profile_name": harness_name,
+            "retrieval_stages": ["keyword_candidates"],
+            "tunable_knobs": {"retrieval_profile_overrides": []},
+            "constraints": [],
+            "intended_query_families": [],
+            "known_tradeoffs": [],
+            "harness_config": {},
+            "metadata": {},
+        },
+    )
 
     client = TestClient(app)
 
     list_response = client.get("/search/harnesses")
     assert list_response.status_code == 200
     assert list_response.json()[0]["harness_name"] == "default_v1"
+
+    descriptor_response = client.get("/search/harnesses/default_v1/descriptor")
+    assert descriptor_response.status_code == 200
+    assert descriptor_response.json()["schema_name"] == "search_harness_descriptor"
 
     eval_response = client.post(
         "/search/harness-evaluations",
@@ -467,5 +625,54 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
     )
     assert eval_response.status_code == 200
+    assert eval_response.headers["Location"] == f"/search/harness-evaluations/{evaluation_id}"
+    assert eval_response.json()["evaluation_id"] == str(evaluation_id)
     assert eval_response.json()["candidate_harness_name"] == "wide_v2"
     assert eval_response.json()["sources"][0]["source_type"] == "cross_document_prose_regressions"
+
+    evaluation_list_response = client.get("/search/harness-evaluations")
+    assert evaluation_list_response.status_code == 200
+    assert evaluation_list_response.json()[0]["evaluation_id"] == str(evaluation_id)
+
+    evaluation_detail_response = client.get(f"/search/harness-evaluations/{evaluation_id}")
+    assert evaluation_detail_response.status_code == 200
+    assert evaluation_detail_response.json()["sources"][0]["candidate_replay_run_id"] == str(
+        candidate_replay_run_id
+    )
+
+
+def test_search_harness_descriptor_route_returns_machine_readable_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.main.get_search_harness_descriptor",
+        lambda harness_name: (_ for _ in ()).throw(ValueError("Unknown search harness")),
+    )
+
+    client = TestClient(app)
+    response = client.get("/search/harnesses/missing_v1/descriptor")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_harness_not_found"
+
+
+def test_search_harness_evaluation_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    evaluation_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.main.get_search_harness_evaluation_detail",
+        lambda session, lookup_evaluation_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "search_harness_evaluation_not_found",
+                "Search harness evaluation not found.",
+                evaluation_id=str(lookup_evaluation_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/harness-evaluations/{evaluation_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_harness_evaluation_not_found"
+    assert response.json()["error_context"]["evaluation_id"] == str(evaluation_id)

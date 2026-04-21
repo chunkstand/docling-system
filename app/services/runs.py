@@ -16,7 +16,7 @@ import yaml
 from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import get_settings, semantics_feature_enabled
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.models import (
@@ -39,6 +39,7 @@ from app.services.runtime import (
     register_runtime_process,
     runtime_code_is_current,
 )
+from app.services.semantics import execute_semantic_pass
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run
@@ -409,7 +410,9 @@ def _replace_run_tables(
     for table in parsed.tables:
         table_id = uuid.uuid4()
         lineage = lineage_assignments.get(table.table_index, {})
-        table_metadata = {key: value for key, value in (table.metadata or {}).items() if key != "audit"}
+        table_metadata = {
+            key: value for key, value in (table.metadata or {}).items() if key != "audit"
+        }
         table.metadata = table_metadata
         try:
             json_path, yaml_path, json_sha, yaml_sha = _persist_table_artifacts(
@@ -728,6 +731,31 @@ def _evaluate_promoted_run(
     )
 
 
+def _run_post_promotion_semantics(
+    session: Session,
+    document: Document,
+    run: DocumentRun,
+    *,
+    baseline_run_id: UUID | None,
+    storage_service: StorageService,
+) -> None:
+    try:
+        execute_semantic_pass(
+            session,
+            document,
+            run,
+            baseline_run_id=baseline_run_id,
+            storage_service=storage_service,
+        )
+    except Exception:
+        session.rollback()
+        logger.exception(
+            "run_post_promotion_semantics_failed",
+            run_id=str(run.id),
+            document_id=str(document.id),
+        )
+
+
 class RunProcessingStage(StrEnum):
     PARSE = "parse"
     EMBEDDING = "embedding"
@@ -739,6 +767,7 @@ class RunProcessingStage(StrEnum):
     VALIDATION = "validation"
     PROMOTION = "promotion"
     POST_PROMOTION_EVALUATION = "post_promotion_evaluation"
+    POST_PROMOTION_SEMANTICS = "post_promotion_semantics"
 
 
 @dataclass
@@ -792,7 +821,8 @@ class RunProcessor:
                 )
 
     def _stages(self) -> tuple[RunProcessingStage, ...]:
-        return (
+        settings = get_settings()
+        stages = [
             RunProcessingStage.PARSE,
             RunProcessingStage.EMBEDDING,
             RunProcessingStage.ARTIFACT_WRITE,
@@ -803,7 +833,10 @@ class RunProcessor:
             RunProcessingStage.VALIDATION,
             RunProcessingStage.PROMOTION,
             RunProcessingStage.POST_PROMOTION_EVALUATION,
-        )
+        ]
+        if semantics_feature_enabled(settings):
+            stages.append(RunProcessingStage.POST_PROMOTION_SEMANTICS)
+        return tuple(stages)
 
     def _run_stage(self, stage: RunProcessingStage) -> None:
         if stage == RunProcessingStage.PARSE:
@@ -916,6 +949,16 @@ class RunProcessor:
                 self.document,
                 self.run,
                 baseline_run_id=resolve_baseline_run_id(self.run.id, self.prior_active_run_id),
+            )
+            return
+
+        if stage == RunProcessingStage.POST_PROMOTION_SEMANTICS:
+            _run_post_promotion_semantics(
+                self.session,
+                self.document,
+                self.run,
+                baseline_run_id=resolve_baseline_run_id(self.run.id, self.prior_active_run_id),
+                storage_service=self.storage_service,
             )
             return
 

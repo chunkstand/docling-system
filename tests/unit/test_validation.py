@@ -176,7 +176,9 @@ def _build_validation_fixture():
             "extractor_version": "docling",
             "profile_name": "standard_pdf",
             "fallback_used": False,
-            "source_segment_refs": [segment.source_table_ref for segment in parsed.tables[0].segments],
+            "source_segment_refs": [
+                segment.source_table_ref for segment in parsed.tables[0].segments
+            ],
             "page_from": parsed.tables[0].page_from,
             "page_to": parsed.tables[0].page_to,
             "json_artifact_sha256": _sha256_bytes(table_json_bytes),

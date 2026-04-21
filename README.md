@@ -16,9 +16,16 @@ The current experimental retrieval-accuracy track adds a non-default `prose_v3` 
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
+The semantics stack is now portable across arbitrary user corpora. The repo ships only a generic upper ontology seed plus workflow code; the active ontology, approved fact graph, and approved cross-document graph memory live in DB-backed snapshots that can be rebuilt from whatever documents a user ingests. Shadow semantic extractors and graph builders stay additive until they pass verification and an operator approves publication.
+
 The runtime now supports both loopback-local operator mode and authenticated remote mode. Loopback-local mode is still the smoothest path for the browser UI and ad hoc operator work. Remote mode supports either one legacy shared API key or actor-scoped credentials with per-principal capabilities for upload, inspection, quality, replay, chat, and agent-task surfaces.
 
-The repository versioning policy lives in [docs/versioning_policy.md](./docs/versioning_policy.md). `main` is the stable `v1` platform branch. `v2` is the experimental agentic branch for changes that are not yet stable enough to become part of the `v1` contract.
+The repository versioning policy lives in [docs/versioning_policy.md](./docs/versioning_policy.md).
+`main` is the stable `v1` platform branch. The semantics layer is a separate additive initiative
+within this repository and is not synonymous with `v2`. `v2` is reserved for a future agentic
+platform project rather than the default home for semantics-layer work. Stable platform releases
+continue to use `v1.x.y` tags from `main`; optional semantics experiment checkpoints should use
+clearly separate non-platform tags from the semantics branch.
 
 ## Current Contracts
 
@@ -50,41 +57,47 @@ The repository versioning policy lives in [docs/versioning_policy.md](./docs/ver
 - OpenAI embeddings with `text-embedding-3-small` and a pinned 1536-dimension contract
 - One polling worker with DB-backed leasing and retries
 - One additional agent-task worker with DB-backed leasing and retries
-- Local filesystem storage under `storage/`
+- Local filesystem storage under `DOCLING_SYSTEM_STORAGE_ROOT`
 - Docker Compose definitions for local Postgres, migrations, API, worker, and agent worker
 - Static operator UI served from `/` with assets mounted under `/ui`
+- Generic upper ontology seed plus DB-backed active ontology, fact-graph, and semantic-graph snapshots
 
 ## Local Setup
 
 The manual loopback-local flow is still the recommended development path. It keeps the API in local mode, avoids auth headers for the browser UI, and matches the operator-oriented workflow used by the tests and CLIs.
 
 1. Copy `.env.example` to `.env`.
-2. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings and OpenAI-backed grounded chat should be generated.
-3. Start Postgres:
+2. Keep this checkout isolated from the stable `main` checkout. The checked-in example values in this branch use:
+   - `localhost:5432/docling_system_semantics`
+   - `./storage-semantics`
+   - `127.0.0.1:8001`
+   - `DOCLING_SYSTEM_SEMANTICS_ENABLED=0`
+3. Set `DOCLING_SYSTEM_OPENAI_API_KEY` if semantic embeddings and OpenAI-backed grounded chat should be generated. The semantics sidecar still stays off until `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`.
+4. Ensure local Postgres is running and create the isolated semantics database if it does not already exist:
 
 ```bash
-docker compose up -d db
+docker exec docling-system-db psql -U docling -d postgres -c 'CREATE DATABASE docling_system_semantics'
 ```
 
-4. Install dependencies:
+5. Install dependencies:
 
 ```bash
 uv sync --extra dev
 ```
 
-5. Run migrations:
+6. Run migrations:
 
 ```bash
 uv run alembic upgrade head
 ```
 
-6. Start the API:
+7. Start the API:
 
 ```bash
 uv run docling-system-api
 ```
 
-7. Start the ingest/search worker in a second shell:
+8. Start the ingest/search worker in a second shell:
 
 ```bash
 uv run docling-system-worker
@@ -94,22 +107,22 @@ Workers now register a runtime code fingerprint under `storage/runtime/process_r
 If a newer code fingerprint takes over, older workers exit before claiming the next run instead
 of continuing to process documents on stale code.
 
-8. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
+9. Start the agent-task worker in a third shell if you want orchestration tasks to execute:
 
 ```bash
 uv run docling-system-agent-worker
 ```
 
-9. Open the UI:
+10. Open the UI:
 
 ```text
-http://localhost:8000/
+http://localhost:8001/
 ```
 
 You can inspect the current API runtime fingerprint with:
 
 ```bash
-curl http://localhost:8000/runtime/status
+curl http://localhost:8001/runtime/status
 ```
 
 ## Docker Compose Stack
@@ -130,8 +143,12 @@ That stack includes:
 
 Current compose behavior:
 
-- the API binds `0.0.0.0:8000` in `remote` mode
-- the compose file currently uses one legacy API key: `docling-local-secret`
+- the host DB port, host API port, DB name, bind mounts, compose project name, and container names all come from `.env`
+- the checked-in example values for this checkout use `localhost:5433`, `localhost:8001`, `docling_system_semantics`, and `./storage-semantics`
+- Postgres data is isolated through the semantics-specific Compose project and volume name
+- the API binds `0.0.0.0:8000` inside the container and is published on the host port from `DOCLING_SYSTEM_API_PORT`
+- the compose file uses `DOCLING_SYSTEM_API_KEY` when set and otherwise falls back to `docling-local-secret`
+- the semantics layer remains disabled unless `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`
 - `GET /health` remains public
 - most other remote endpoints require auth and, for many surfaces, explicit capabilities
 
@@ -160,6 +177,7 @@ Current capability families are:
 - `system:read`
 - `documents:upload`
 - `documents:inspect`
+- `documents:review`
 - `documents:reprocess`
 - `search:query`
 - `search:history:read`
@@ -175,7 +193,7 @@ Current capability families are:
 Important legacy-key behavior:
 
 - if you use only `DOCLING_SYSTEM_API_KEY` and leave `DOCLING_SYSTEM_REMOTE_API_CAPABILITIES` unset, the current default capability set is limited to `documents:upload`, `search:query`, `search:feedback`, `chat:query`, and `chat:feedback`
-- document inspection, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
+- document inspection, semantic review, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
 - `GET /runtime/status` reports the current auth mode, effective principals, and shared capabilities when the caller has `system:read`
 
 ## Ingesting PDFs
@@ -240,7 +258,9 @@ Batch CLI commands:
 - `POST /search/requests/{search_request_id}/feedback`
 - `POST /search/requests/{search_request_id}/replay`
 - `GET /search/harnesses`
+- `GET /search/harness-evaluations`
 - `POST /search/harness-evaluations`
+- `GET /search/harness-evaluations/{evaluation_id}`
 - `GET /search/replays`
 - `POST /search/replays`
 - `GET /search/replays/{replay_run_id}`
@@ -350,7 +370,14 @@ Durable search telemetry now records:
 Applied review harnesses are persisted in `config/search_harness_overrides.json`, while draft harnesses remain task artifacts until verified and approved.
 
 Use `GET /search/harnesses` to inspect the currently available harnesses.
-Use `POST /search/harness-evaluations` to compare two named harnesses across replay sources without leaving the operator surface.
+Use `POST /search/harness-evaluations` to compare two named harnesses across
+replay sources without leaving the operator surface. The POST creates a durable
+evaluation record; use `GET /search/harness-evaluations` and
+`GET /search/harness-evaluations/{evaluation_id}` to inspect historical results
+and the replay-run provenance behind each source.
+The equivalent local inspection commands are
+`docling-system-search-harness-evaluation-list` and
+`docling-system-search-harness-evaluation-show <evaluation_id>`.
 
 ## Agent Tasks
 
@@ -359,16 +386,24 @@ The agent-task layer is a durable orchestration substrate, not a second prompt-o
 The current registry includes read-only, draft-change, and approval-gated promotable actions. Supported task types are:
 
 - `get_latest_evaluation`
+- `get_latest_semantic_pass`
+- `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
+- `draft_semantic_grounded_document`
 - `verify_draft_harness_config`
+- `verify_semantic_grounded_document`
 - `triage_replay_regression`
+- `triage_semantic_pass`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
+- `draft_semantic_registry_update`
+- `verify_draft_semantic_registry_update`
+- `apply_semantic_registry_update`
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`. Migrated task types also advertise `output_schema_name`, `output_schema_version`, and `output_schema` metadata alongside the existing input contract.
 
@@ -404,15 +439,27 @@ The first workflow-style task is `triage_replay_regression`. It runs in shadow m
 
 The triage task is now also a migrated typed-context task. Its context summary is the primary operator-facing map: recommendation, confidence, quality-gap count, replay evidence counts, and next action. The deeper `triage_summary.json` artifact remains available by reference through the triage context refs and artifact endpoints.
 
-`evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point directly at the baseline and candidate replay runs that produced the evaluation.
+`evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point at the durable harness evaluation record and the baseline/candidate replay runs that produced it.
 
-`verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge instead of reading legacy nested payload blobs. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.
+`verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge and reloads the durable harness evaluation record when the target output carries an `evaluation_id`. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.
 
 The first draft/apply flow is the harness review path. `draft_harness_config_update` creates a review-harness artifact without changing live search behavior, `verify_draft_harness_config` evaluates that draft ephemerally against replay sources and writes a verifier record, and `apply_harness_config_update` publishes the verified review harness into `config/search_harness_overrides.json` only after approval.
 
 Within that flow, `apply_harness_config_update` now consumes the migrated `draft_task` and `verification_task` dependency edges through typed task-context refs only. The apply context summary exposes approval state and verification state, while `GET /agent-tasks/{task_id}`, `GET /agent-tasks/traces/export`, `GET /agent-tasks/{task_id}/context`, and the apply artifact endpoint all surface the same applied harness name and live-override result without requiring operators to inspect raw nested payload blobs.
 
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
+
+The current semantic-generation path is deliberately narrow. `prepare_semantic_generation_brief` builds a typed cross-document semantic dossier and claim/evidence brief, `draft_semantic_grounded_document` renders a bounded `knowledge_brief` draft plus markdown sidecar from that brief, and `verify_semantic_grounded_document` enforces claim traceability, evidence coverage, and required-concept coverage before downstream use.
+
+The current shadow semantic-learning path is also bounded. `export_semantic_supervision_corpus` exports reviewed semantic rows, semantic expectations, and grounded-document verification outcomes as durable JSON/JSONL supervision artifacts; `evaluate_semantic_candidate_extractor` compares a shadow candidate extractor against the lexical baseline on fixed documents and semantic expectations; `triage_semantic_candidate_disagreements` compacts the resulting candidate-only gaps into typed issues, verifier-style metrics, and bounded follow-up recommendations. `prepare_semantic_generation_brief` can also include shadow candidates in additive `shadow_candidates` fields without changing the live semantic dossier or grounded claims.
+
+For domain-agnostic bootstrap on arbitrary user data, `discover_semantic_bootstrap_candidates` now mines provisional concept candidates directly from active document corpora without assuming the current registry matches the domain. Those candidates remain explicitly provisional, but they can flow into the same governed `draft_semantic_registry_update -> verify_draft_semantic_registry_update -> apply_semantic_registry_update -> enqueue_document_reprocess` path as any other semantic contract change.
+
+The ontology layer is now portable across workspaces. The repo ships only a generic `config/upper_ontology.yaml` seed, while the live ontology contract is stored as DB-backed `semantic_ontology_snapshots` with one active workspace pointer. `initialize_workspace_ontology` seeds an empty workspace from the upper ontology, `get_active_ontology_snapshot` exposes the current live snapshot, `draft_ontology_extension -> verify_draft_ontology_extension -> apply_ontology_extension` governs additive ontology changes without mutating repo defaults, and `build_document_fact_graph` compacts approved semantic assertions into a minimal reusable fact graph for grounded generation.
+
+The current upper ontology now carries lightweight relation semantics instead of bare labels. Relation definitions include domain/range entity types, symmetry, literal-object allowance, cardinality hints, and inverse keys. The shadow graph path can therefore emit both generic co-occurrence memory and typed directional relations like `concept_depends_on_concept`, while `verify_draft_graph_promotions` blocks edges that violate the active ontology constraints before they reach live graph memory.
+
+That split keeps the process portable: two different users can ingest different corpora, run the same workflow, and end up with different approved ontology snapshots and fact graphs without changing the repo code or shipping domain-specific defaults.
 
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
 
@@ -456,6 +503,8 @@ uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 1
 uv run docling-system-run-replay-suite cross_document_prose_regressions --harness-name prose_v3 --limit 12
 uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 25
 uv run docling-system-eval-reranker prose_v3 --baseline-harness-name default_v1 --source-type cross_document_prose_regressions --limit 25
+uv run docling-system-search-harness-evaluation-list --limit 10
+uv run docling-system-search-harness-evaluation-show <evaluation_id>
 uv run docling-system-optimize-search-harness wide_v2 --baseline-harness-name default_v1 --source-type evaluation_queries --field keyword_candidate_multiplier --iterations 2
 uv run docling-system-export-ranking-dataset --limit 200
 uv run docling-system-agent-task-actions
@@ -465,6 +514,18 @@ uv run docling-system-agent-task-create triage_replay_regression --input-json '{
 uv run docling-system-agent-task-create draft_harness_config_update --input-json '{"draft_harness_name":"wide_v2_review","base_harness_name":"wide_v2","source_task_id":"<triage_task_id>","rationale":"publish a review harness","reranker_overrides":{"result_type_priority_bonus":0.009}}'
 uv run docling-system-agent-task-create verify_draft_harness_config --input-json '{"target_task_id":"<draft_task_id>","baseline_harness_name":"wide_v2","source_types":["evaluation_queries"],"limit":12,"max_total_regressed_count":0,"max_mrr_drop":0.0,"max_zero_result_count_increase":0,"max_foreign_top_result_count_increase":0,"min_total_shared_query_count":1}'
 uv run docling-system-agent-task-create apply_harness_config_update --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish review harness"}'
+uv run docling-system-agent-task-create export_semantic_supervision_corpus --input-json '{"document_ids":["<document_id>"],"reviewed_only":true,"include_generation_verifications":true}'
+uv run docling-system-agent-task-create evaluate_semantic_candidate_extractor --input-json '{"document_ids":["<document_id>"],"candidate_extractor_name":"concept_ranker_v1","baseline_extractor_name":"registry_lexical_v1","max_candidates_per_source":3,"score_threshold":0.34}'
+uv run docling-system-agent-task-create triage_semantic_candidate_disagreements --input-json '{"target_task_id":"<evaluation_task_id>","min_score":0.34,"include_expected_only":false}'
+uv run docling-system-agent-task-create initialize_workspace_ontology --input-json '{}'
+uv run docling-system-agent-task-create get_active_ontology_snapshot --input-json '{}'
+uv run docling-system-agent-task-create draft_ontology_extension --input-json '{"source_task_id":"<bootstrap_or_triage_task_id>","rationale":"publish corpus-derived ontology extensions"}'
+uv run docling-system-agent-task-create verify_draft_ontology_extension --input-json '{"target_task_id":"<draft_task_id>","max_regressed_document_count":0,"max_failed_expectation_increase":0,"min_improved_document_count":1}'
+uv run docling-system-agent-task-create apply_ontology_extension --input-json '{"draft_task_id":"<draft_task_id>","verification_task_id":"<verification_task_id>","reason":"publish verified ontology extension"}'
+uv run docling-system-agent-task-create build_document_fact_graph --input-json '{"document_id":"<document_id>","minimum_review_status":"approved"}'
+uv run docling-system-agent-task-create prepare_semantic_generation_brief --input-json '{"title":"Integration Governance Brief","goal":"Summarize the knowledge base guidance on integration governance.","audience":"Operators","document_ids":["<document_id>"],"target_length":"medium","review_policy":"allow_candidate_with_disclosure"}'
+uv run docling-system-agent-task-create draft_semantic_grounded_document --input-json '{"target_task_id":"<brief_task_id>"}'
+uv run docling-system-agent-task-create verify_semantic_grounded_document --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-analytics

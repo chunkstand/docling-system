@@ -291,8 +291,14 @@ def _table_validation_result(
             yaml_path,
             audit_metadata.get("yaml_artifact_sha256"),
         ),
-        "json_artifact_content_matches": _json_artifact_matches_expected(json_path, expected_payload),
-        "yaml_artifact_content_matches": _yaml_artifact_matches_expected(yaml_path, expected_payload),
+        "json_artifact_content_matches": _json_artifact_matches_expected(
+            json_path,
+            expected_payload,
+        ),
+        "yaml_artifact_content_matches": _yaml_artifact_matches_expected(
+            yaml_path,
+            expected_payload,
+        ),
         "continued_table_merge_sane": merge_sanity_passed,
         "repeated_header_row_removal_sane": header_removal_passed,
     }
@@ -337,8 +343,14 @@ def _figure_validation_result(
             yaml_path,
             audit_metadata.get("yaml_artifact_sha256"),
         ),
-        "json_artifact_content_matches": _json_artifact_matches_expected(json_path, expected_payload),
-        "yaml_artifact_content_matches": _yaml_artifact_matches_expected(yaml_path, expected_payload),
+        "json_artifact_content_matches": _json_artifact_matches_expected(
+            json_path,
+            expected_payload,
+        ),
+        "yaml_artifact_content_matches": _yaml_artifact_matches_expected(
+            yaml_path,
+            expected_payload,
+        ),
     }
 
 
