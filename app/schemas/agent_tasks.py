@@ -7,11 +7,18 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.schemas.documents import DocumentUploadResponse
+from app.schemas.eval_workbench import (
+    EvalFailureCaseInspectionResponse,
+    EvalFailureCaseRefreshResponse,
+    EvalFailureCaseResponse,
+    EvalFailureCaseTriageResponse,
+)
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.quality import QualityEvaluationCandidateResponse
 from app.schemas.search import (
     SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationResponse,
+    SearchHarnessOptimizationResponse,
     SearchReplayResponse,
     SearchReplayRunDetailResponse,
     SearchRequestExplanationResponse,
@@ -1518,6 +1525,78 @@ class QualityEvalCandidatesTaskOutput(BaseModel):
     include_resolved: bool
     candidate_count: int = 0
     candidates: list[QualityEvaluationCandidateResponse] = Field(default_factory=list)
+
+
+class RefreshEvalFailureCasesTaskInput(BaseModel):
+    limit: int = Field(default=50, ge=1, le=200)
+    include_resolved: bool = False
+
+
+class RefreshEvalFailureCasesTaskOutput(BaseModel):
+    refresh: EvalFailureCaseRefreshResponse
+
+
+class InspectEvalFailureCaseTaskInput(BaseModel):
+    case_id: UUID
+
+
+class InspectEvalFailureCaseTaskOutput(BaseModel):
+    inspection: EvalFailureCaseInspectionResponse
+
+
+class TriageEvalFailureCaseTaskInput(BaseModel):
+    case_id: UUID
+
+
+class TriageEvalFailureCaseTaskOutput(BaseModel):
+    triage: EvalFailureCaseTriageResponse
+
+
+class OptimizeSearchHarnessFromCaseTaskInput(BaseModel):
+    case_id: UUID
+    base_harness_name: str = Field(default="wide_v2", min_length=1)
+    baseline_harness_name: str = Field(default="wide_v2", min_length=1)
+    candidate_harness_name: str | None = Field(default=None, min_length=1)
+    source_types: list[str] = Field(
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
+    )
+    limit: int = Field(default=25, ge=1, le=200)
+    iterations: int = Field(default=2, ge=1, le=20)
+    tune_fields: list[str] = Field(default_factory=list)
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=1)
+
+
+class OptimizeSearchHarnessFromCaseTaskOutput(BaseModel):
+    case: EvalFailureCaseResponse
+    optimization: SearchHarnessOptimizationResponse
+    recommendation: dict = Field(default_factory=dict)
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class DraftHarnessConfigFromOptimizationTaskInput(BaseModel):
+    source_task_id: UUID
+    draft_harness_name: str = Field(min_length=1)
+    rationale: str | None = None
+
+
+class DraftHarnessConfigFromOptimizationTaskOutput(BaseModel):
+    draft: DraftHarnessConfigPayload
+    source_case: EvalFailureCaseResponse | None = None
+    optimization_summary: dict = Field(default_factory=dict)
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
 
 
 class VerifySearchHarnessEvaluationTaskInput(BaseModel):

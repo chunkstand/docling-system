@@ -80,6 +80,13 @@ from app.schemas.documents import (
     DocumentSummaryResponse,
     DocumentUploadResponse,
 )
+from app.schemas.eval_workbench import (
+    EvalFailureCaseInspectionResponse,
+    EvalFailureCaseRefreshResponse,
+    EvalFailureCaseResponse,
+    EvalObservationResponse,
+    EvalWorkbenchResponse,
+)
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.quality import (
@@ -151,6 +158,17 @@ from app.services.documents import (
     list_document_runs,
     list_documents,
     reprocess_document,
+)
+from app.services.eval_workbench import (
+    explain_latest_document_evaluation,
+    explain_search_harness_evaluation,
+    explain_search_replay_run,
+    get_eval_failure_case,
+    get_eval_workbench,
+    inspect_eval_failure_case,
+    list_eval_failure_cases,
+    list_eval_observations,
+    refresh_eval_failure_cases,
 )
 from app.services.figures import get_active_figure_detail, get_active_figures
 from app.services.quality import (
@@ -528,6 +546,109 @@ def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTr
     return get_quality_trends(session)
 
 
+@app.post(
+    "/eval/failure-cases/refresh",
+    response_model=EvalFailureCaseRefreshResponse,
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("agent_tasks:write")),
+    ],
+)
+def refresh_eval_failure_cases_route(
+    limit: int = Query(default=50, ge=1, le=200),
+    include_resolved: bool = False,
+    session: Session = Depends(get_db_session),
+) -> EvalFailureCaseRefreshResponse:
+    response = refresh_eval_failure_cases(
+        session,
+        limit=limit,
+        include_resolved=include_resolved,
+    )
+    session.commit()
+    return response
+
+
+@app.get(
+    "/eval/workbench",
+    response_model=EvalWorkbenchResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
+def read_eval_workbench(
+    limit: int = Query(default=25, ge=1, le=100),
+    session: Session = Depends(get_db_session),
+) -> EvalWorkbenchResponse:
+    return get_eval_workbench(session, limit=limit)
+
+
+@app.get(
+    "/eval/observations",
+    response_model=list[EvalObservationResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
+def read_eval_observations(
+    limit: int = Query(default=50, ge=1, le=200),
+    session: Session = Depends(get_db_session),
+) -> list[EvalObservationResponse]:
+    return list_eval_observations(session, limit=limit)
+
+
+@app.get(
+    "/eval/failure-cases",
+    response_model=list[EvalFailureCaseResponse],
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
+def read_eval_failure_cases(
+    case_status: list[str] | None = Query(default=None, alias="status"),
+    include_resolved: bool = False,
+    limit: int = Query(default=50, ge=1, le=200),
+    session: Session = Depends(get_db_session),
+) -> list[EvalFailureCaseResponse]:
+    return list_eval_failure_cases(
+        session,
+        status_filter=case_status,
+        include_resolved=include_resolved,
+        limit=limit,
+    )
+
+
+@app.get(
+    "/eval/failure-cases/{case_id}",
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
+def read_eval_failure_case(
+    case_id: UUID,
+    format: str = "json",
+    session: Session = Depends(get_db_session),
+):
+    case = get_eval_failure_case(session, case_id)
+    case_payload = case.model_dump(mode="json") if hasattr(case, "model_dump") else case
+    if format == "json":
+        return case
+    if format == "yaml":
+        return Response(
+            content=yaml.safe_dump(case_payload, sort_keys=False),
+            media_type="application/yaml",
+        )
+    raise api_error(
+        status.HTTP_400_BAD_REQUEST,
+        "invalid_eval_failure_case_format",
+        "Unsupported eval failure case format. Use 'json' or 'yaml'.",
+        requested_format=format,
+    )
+
+
+@app.get(
+    "/eval/failure-cases/{case_id}/inspect",
+    response_model=EvalFailureCaseInspectionResponse,
+    dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
+)
+def inspect_eval_failure_case_route(
+    case_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> EvalFailureCaseInspectionResponse:
+    return inspect_eval_failure_case(session, case_id)
+
+
 @app.get(
     "/agent-tasks/actions",
     response_model=list[AgentTaskActionDefinitionResponse],
@@ -543,11 +664,11 @@ def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
     dependencies=[Depends(_require_api_capability("agent_tasks:read"))],
 )
 def read_agent_tasks(
-    status: list[str] | None = None,
+    task_status: list[str] | None = Query(default=None, alias="status"),
     limit: int = 50,
     session: Session = Depends(get_db_session),
 ) -> list[AgentTaskSummaryResponse]:
-    return list_agent_tasks(session, statuses=status, limit=limit)
+    return list_agent_tasks(session, statuses=task_status, limit=limit)
 
 
 @app.post(
@@ -1051,6 +1172,17 @@ def read_latest_document_evaluation(
     session: Session = Depends(get_db_session),
 ) -> EvaluationDetailResponse:
     return get_latest_document_evaluation_detail(session, document_id)
+
+
+@app.get(
+    "/documents/{document_id}/evaluations/latest/explain",
+    dependencies=[Depends(_require_api_capability("quality:read"))],
+)
+def explain_latest_document_evaluation_route(
+    document_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    return explain_latest_document_evaluation(session, document_id)
 
 
 @app.get(
@@ -1559,6 +1691,44 @@ def search_corpus(
     return execution.results
 
 
+@app.post(
+    "/search/executions",
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("search:query")),
+        Depends(_enforce_search_rate_limit),
+    ],
+)
+def execute_search_with_explanation_ref(
+    request: SearchRequest,
+    response: Response,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    try:
+        execution = execute_search(session, request, origin="api")
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_search_request",
+            str(exc),
+        ) from exc
+    session.commit()
+    search_request_id = str(execution.request_id) if execution.request_id is not None else None
+    if search_request_id is not None:
+        response.headers["X-Search-Request-Id"] = search_request_id
+    return {
+        "schema_name": "search_execution",
+        "schema_version": "1.0",
+        "search_request_id": search_request_id,
+        "explanation_api_path": (
+            f"/search/requests/{search_request_id}/explain"
+            if search_request_id is not None
+            else None
+        ),
+        "results": [row.model_dump(mode="json") for row in execution.results],
+    }
+
+
 @app.get(
     "/search/requests/{search_request_id}",
     response_model=SearchRequestDetailResponse,
@@ -1712,6 +1882,17 @@ def read_search_harness_evaluation(
     return get_search_harness_evaluation_detail(session, evaluation_id)
 
 
+@app.get(
+    "/search/harness-evaluations/{evaluation_id}/explain",
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def explain_search_harness_evaluation_route(
+    evaluation_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    return explain_search_harness_evaluation(session, evaluation_id)
+
+
 @app.post(
     "/search/replays",
     response_model=SearchReplayRunDetailResponse,
@@ -1767,6 +1948,17 @@ def read_search_replay_run(
     session: Session = Depends(get_db_session),
 ) -> SearchReplayRunDetailResponse:
     return get_search_replay_run_detail(session, replay_run_id)
+
+
+@app.get(
+    "/search/replays/{replay_run_id}/explain",
+    dependencies=[Depends(_require_api_capability("search:replay"))],
+)
+def explain_search_replay_run_route(
+    replay_run_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    return explain_search_replay_run(session, replay_run_id)
 
 
 @app.post(

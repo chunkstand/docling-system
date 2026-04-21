@@ -51,6 +51,46 @@ def test_search_route_uses_search_service(monkeypatch) -> None:
     assert body[0]["scores"]["hybrid_score"] == 0.9
 
 
+def test_search_execution_route_returns_agent_legible_envelope(monkeypatch) -> None:
+    request_id = uuid4()
+    chunk_id = uuid4()
+    document_id = uuid4()
+    run_id = uuid4()
+
+    class ResultStub:
+        def model_dump(self, *, mode="json"):
+            return {
+                "result_type": "chunk",
+                "chunk_id": str(chunk_id),
+                "document_id": str(document_id),
+                "run_id": str(run_id),
+                "score": 0.9,
+                "chunk_text": "hello",
+            }
+
+    monkeypatch.setattr(
+        "app.api.main.execute_search",
+        lambda session, request, origin="api": SimpleNamespace(
+            request_id=request_id,
+            results=[ResultStub()],
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/search/executions",
+        json={"query": "hello", "mode": "keyword", "limit": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-Search-Request-Id"] == str(request_id)
+    body = response.json()
+    assert body["schema_name"] == "search_execution"
+    assert body["schema_version"] == "1.0"
+    assert body["explanation_api_path"] == f"/search/requests/{request_id}/explain"
+    assert body["results"][0]["chunk_id"] == str(chunk_id)
+
+
 def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.main.get_settings",

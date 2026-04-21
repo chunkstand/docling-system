@@ -20,6 +20,7 @@ from app.schemas.agent_tasks import (
     BuildShadowSemanticGraphTaskInput,
     DiscoverSemanticBootstrapCandidatesTaskInput,
     DraftGraphPromotionsTaskInput,
+    DraftHarnessConfigFromOptimizationTaskInput,
     DraftHarnessConfigUpdateTaskInput,
     DraftOntologyExtensionTaskInput,
     DraftSemanticGroundedDocumentTaskInput,
@@ -31,6 +32,7 @@ from app.schemas.agent_tasks import (
     GetActiveOntologySnapshotTaskInput,
     InitializeWorkspaceOntologyTaskInput,
     LatestSemanticPassTaskInput,
+    OptimizeSearchHarnessFromCaseTaskInput,
     PrepareSemanticGenerationBriefTaskInput,
     TriageSemanticCandidateDisagreementsTaskInput,
     TriageSemanticGraphDisagreementsTaskInput,
@@ -52,6 +54,7 @@ from app.services.agent_task_actions import (
     _build_shadow_semantic_graph_executor,
     _discover_semantic_bootstrap_candidates_executor,
     _draft_graph_promotions_executor,
+    _draft_harness_config_from_optimization_executor,
     _draft_harness_config_update_executor,
     _draft_ontology_extension_executor,
     _draft_semantic_grounded_document_executor,
@@ -63,6 +66,7 @@ from app.services.agent_task_actions import (
     _get_active_ontology_snapshot_executor,
     _initialize_workspace_ontology_executor,
     _latest_semantic_pass_executor,
+    _optimize_search_harness_from_case_executor,
     _prepare_semantic_generation_brief_executor,
     _triage_semantic_candidate_disagreements_executor,
     _triage_semantic_graph_disagreements_executor,
@@ -137,6 +141,17 @@ def _verification_output_payload(
         "artifact_kind": "harness_config_draft_verification",
         "artifact_path": "/tmp/harness_config_draft_verification.json",
     }
+
+
+def _resolve_payload_by_expected_type(
+    resolver_payloads: dict[str, SimpleNamespace],
+    expected_task_type: str | tuple[str, ...],
+) -> SimpleNamespace:
+    if isinstance(expected_task_type, tuple):
+        for task_type in expected_task_type:
+            if task_type in resolver_payloads:
+                return resolver_payloads[task_type]
+    return resolver_payloads[expected_task_type]
 
 
 def _semantic_pass_response() -> DocumentSemanticPassResponse:
@@ -2421,6 +2436,239 @@ def test_get_agent_task_action_exposes_triage_output_schema_metadata() -> None:
     assert action.output_model is not None
 
 
+def test_optimize_search_harness_from_case_does_not_recommend_noop_draft(
+    monkeypatch,
+) -> None:
+    case_id = uuid4()
+    task = AgentTask(
+        id=uuid4(),
+        task_type="optimize_search_harness_from_case",
+        status="processing",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    optimization = SimpleNamespace(
+        best_gate={"outcome": "passed"},
+        best_override_spec={
+            "base_harness_name": "wide_v2",
+            "retrieval_profile_overrides": {},
+            "reranker_overrides": {},
+        },
+        best_score={"sort_key": [1, 0, 0]},
+    )
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.get_eval_failure_case",
+        lambda session, requested_case_id: {"case_id": str(requested_case_id)},
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.run_search_harness_optimization_loop",
+        lambda session, request: optimization,
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.create_agent_task_artifact",
+        lambda session, **kwargs: SimpleNamespace(
+            id=uuid4(),
+            artifact_kind=kwargs["artifact_kind"],
+            storage_path="/tmp/search_harness_optimization.json",
+        ),
+    )
+
+    result = _optimize_search_harness_from_case_executor(
+        session=object(),
+        task=task,
+        payload=OptimizeSearchHarnessFromCaseTaskInput(
+            case_id=case_id,
+            limit=1,
+            iterations=1,
+        ),
+    )
+
+    assert result["recommendation"]["next_action"] == "inspect_optimizer_attempts"
+    assert "did not change the harness" in result["recommendation"]["summary"]
+
+
+def test_draft_harness_from_optimization_uses_augmented_override_for_snapshot(
+    monkeypatch,
+) -> None:
+    source_task_id = uuid4()
+    task = AgentTask(
+        id=uuid4(),
+        task_type="draft_harness_config_update_from_optimization",
+        status="processing",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    source_output = SimpleNamespace(
+        case={"case_id": str(uuid4())},
+        optimization=SimpleNamespace(
+            base_harness_name="wide_v2",
+            best_override_spec={
+                "base_harness_name": "wide_v2",
+                "retrieval_profile_overrides": {"keyword_candidate_multiplier": 9},
+                "reranker_overrides": {},
+            },
+            stopped_reason="iteration_limit_reached",
+            iterations_completed=1,
+            best_score={"sort_key": [1, 0, 1]},
+            best_gate={"outcome": "passed"},
+        ),
+    )
+    captured: dict = {}
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        lambda *args, **kwargs: SimpleNamespace(
+            output={},
+            task_type="optimize_search_harness_from_case",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
+        lambda output: source_output,
+    )
+
+    def fake_get_search_harness(name, harness_overrides=None):
+        override_spec = dict((harness_overrides or {})[name])
+        captured["override_spec"] = override_spec
+        return SimpleNamespace(
+            config_snapshot={
+                "harness_name": name,
+                "base_harness_name": override_spec["base_harness_name"],
+                "metadata": {
+                    "draft_task_id": override_spec.get("draft_task_id"),
+                    "source_task_id": override_spec.get("source_task_id"),
+                    "rationale": override_spec.get("rationale"),
+                },
+            }
+        )
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.get_search_harness",
+        fake_get_search_harness,
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.create_agent_task_artifact",
+        lambda session, **kwargs: SimpleNamespace(
+            id=uuid4(),
+            artifact_kind=kwargs["artifact_kind"],
+            storage_path="/tmp/harness_config_draft.json",
+        ),
+    )
+
+    result = _draft_harness_config_from_optimization_executor(
+        session=object(),
+        task=task,
+        payload=DraftHarnessConfigFromOptimizationTaskInput(
+            source_task_id=source_task_id,
+            draft_harness_name="case_review",
+            rationale="Use wider candidate generation.",
+        ),
+    )
+
+    assert captured["override_spec"]["draft_task_id"] == str(task.id)
+    assert captured["override_spec"]["source_task_id"] == str(source_task_id)
+    assert result["draft"]["effective_harness_config"]["metadata"] == {
+        "draft_task_id": str(task.id),
+        "source_task_id": str(source_task_id),
+        "rationale": "Use wider candidate generation.",
+    }
+
+
+def test_draft_harness_from_optimization_rejects_noop_best_override(monkeypatch) -> None:
+    source_task_id = uuid4()
+    task = AgentTask(
+        id=uuid4(),
+        task_type="draft_harness_config_update_from_optimization",
+        status="processing",
+        priority=100,
+        side_effect_level="draft_change",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    source_output = SimpleNamespace(
+        case={"case_id": str(uuid4())},
+        optimization=SimpleNamespace(
+            base_harness_name="wide_v2",
+            best_override_spec={
+                "base_harness_name": "wide_v2",
+                "retrieval_profile_overrides": {},
+                "reranker_overrides": {},
+            },
+            stopped_reason="no_improving_candidates",
+            iterations_completed=0,
+            best_score={"sort_key": [1, 0, 0]},
+            best_gate={"outcome": "passed"},
+        ),
+    )
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        lambda *args, **kwargs: SimpleNamespace(
+            output={},
+            task_type="optimize_search_harness_from_case",
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
+        lambda output: source_output,
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.get_search_harness",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("no-op optimization should not build an effective harness")
+        ),
+    )
+
+    try:
+        _draft_harness_config_from_optimization_executor(
+            session=object(),
+            task=task,
+            payload=DraftHarnessConfigFromOptimizationTaskInput(
+                source_task_id=source_task_id,
+                draft_harness_name="case_review",
+            ),
+        )
+    except ValueError as exc:
+        assert "no-op config update" in str(exc)
+    else:
+        raise AssertionError("Expected no-op optimization draft to be rejected")
+
+
+def test_get_agent_task_action_exposes_eval_control_plane_actions() -> None:
+    refresh_action = get_agent_task_action("refresh_eval_failure_cases")
+    inspect_action = get_agent_task_action("inspect_eval_failure_case")
+    triage_action = get_agent_task_action("triage_eval_failure_case")
+    optimize_action = get_agent_task_action("optimize_search_harness_from_case")
+    draft_action = get_agent_task_action("draft_harness_config_update_from_optimization")
+
+    assert refresh_action.output_schema_name == "refresh_eval_failure_cases_output"
+    assert inspect_action.output_schema_name == "inspect_eval_failure_case_output"
+    assert triage_action.output_schema_name == "triage_eval_failure_case_output"
+    assert optimize_action.output_schema_name == "optimize_search_harness_from_case_output"
+    assert draft_action.output_schema_name == "draft_harness_config_update_output"
+    assert draft_action.side_effect_level == "draft_change"
+
+
 def test_verify_draft_harness_config_executor_writes_verification_artifact(monkeypatch) -> None:
     task = AgentTask(
         id=uuid4(),
@@ -2535,7 +2783,10 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         expected_task_type,
         **_kwargs,
     ):
-        return resolver_payloads[expected_task_type]
+        return _resolve_payload_by_expected_type(
+            resolver_payloads,
+            expected_task_type,
+        )
 
     monkeypatch.setattr(
         "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
@@ -2634,7 +2885,9 @@ def test_apply_harness_config_update_executor_attaches_follow_up_evidence(
     }
     monkeypatch.setattr(
         "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
-        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
+        lambda session, *, expected_task_type, **_kwargs: (
+            _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
+        ),
     )
     monkeypatch.setattr(
         "app.services.agent_task_actions.evaluate_search_harness",
@@ -2703,7 +2956,9 @@ def test_apply_harness_config_update_executor_rejects_mismatched_verification_ta
     }
     monkeypatch.setattr(
         "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
-        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
+        lambda session, *, expected_task_type, **_kwargs: (
+            _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
+        ),
     )
 
     try:
@@ -2755,7 +3010,9 @@ def test_apply_harness_config_update_executor_rejects_failed_verification(monkey
     }
     monkeypatch.setattr(
         "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
-        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
+        lambda session, *, expected_task_type, **_kwargs: (
+            _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
+        ),
     )
 
     try:

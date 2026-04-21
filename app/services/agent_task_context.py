@@ -429,18 +429,26 @@ def resolve_required_task_output_context(
     session: Session,
     *,
     task_id: UUID,
-    expected_task_type: str,
-    expected_schema_name: str,
+    expected_task_type: str | tuple[str, ...],
+    expected_schema_name: str | tuple[str, ...],
     expected_schema_version: str,
     rerun_message: str,
 ) -> TaskContextEnvelope:
     task = session.get(AgentTask, task_id)
     if task is None:
         raise _target_task_not_found(task_id)
-    if task.task_type != expected_task_type:
+    expected_task_types = (
+        (expected_task_type,) if isinstance(expected_task_type, str) else expected_task_type
+    )
+    expected_schema_names = (
+        (expected_schema_name,)
+        if isinstance(expected_schema_name, str)
+        else expected_schema_name
+    )
+    if task.task_type not in expected_task_types:
         raise _target_task_type_mismatch(
             task_id,
-            expected_task_type=expected_task_type,
+            expected_task_type=", ".join(expected_task_types),
             actual_task_type=task.task_type,
         )
     if task.status != "completed":
@@ -451,19 +459,19 @@ def resolve_required_task_output_context(
             "agent_task_context_output_missing",
             task_id=task.id,
             message=rerun_message,
-            expected_schema_name=expected_schema_name,
+            expected_schema_name=", ".join(expected_schema_names),
             expected_schema_version=expected_schema_version,
         )
     context = refresh_task_context_freshness(
         session,
         TaskContextEnvelope.model_validate(context_row.payload_json or {}),
     )
-    if context.output_schema_name != expected_schema_name:
+    if context.output_schema_name not in expected_schema_names:
         raise _rerun_required(
             "agent_task_context_output_schema_mismatch",
             task_id=task.id,
             message=rerun_message,
-            expected_schema_name=expected_schema_name,
+            expected_schema_name=", ".join(expected_schema_names),
             expected_schema_version=expected_schema_version,
             actual_schema_name=context.output_schema_name,
             actual_schema_version=context.output_schema_version,
@@ -473,7 +481,7 @@ def resolve_required_task_output_context(
             "agent_task_context_output_schema_version_mismatch",
             task_id=task.id,
             message=rerun_message,
-            expected_schema_name=expected_schema_name,
+            expected_schema_name=", ".join(expected_schema_names),
             expected_schema_version=expected_schema_version,
             actual_schema_name=context.output_schema_name,
             actual_schema_version=context.output_schema_version,
@@ -487,8 +495,8 @@ def resolve_required_dependency_task_output_context(
     task_id: UUID,
     depends_on_task_id: UUID,
     dependency_kind: str,
-    expected_task_type: str,
-    expected_schema_name: str,
+    expected_task_type: str | tuple[str, ...],
+    expected_schema_name: str | tuple[str, ...],
     expected_schema_version: str,
     dependency_error_message: str,
     rerun_message: str,
@@ -2422,7 +2430,10 @@ def _build_verify_draft_harness_config_context(
     draft_context = resolve_required_task_output_context(
         session,
         task_id=output.verification.target_task_id,
-        expected_task_type="draft_harness_config_update",
+        expected_task_type=(
+            "draft_harness_config_update",
+            "draft_harness_config_update_from_optimization",
+        ),
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         rerun_message=(
@@ -3435,7 +3446,10 @@ def _build_apply_harness_config_update_context(
         task_id=task.id,
         depends_on_task_id=output.draft_task_id,
         dependency_kind="draft_task",
-        expected_task_type="draft_harness_config_update",
+        expected_task_type=(
+            "draft_harness_config_update",
+            "draft_harness_config_update_from_optimization",
+        ),
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         dependency_error_message=(

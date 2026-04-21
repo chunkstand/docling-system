@@ -278,9 +278,11 @@ def _score_evaluation(evaluation, gate_outcome, override_spec: dict) -> dict:
     )
     reason_count = len(gate_outcome.reasons)
     modified_field_count = _modified_field_count(override_spec)
+    changed_override = 1 if modified_field_count > 0 else 0
     sort_key = (
         1 if gate_outcome.outcome == "passed" else 0,
         -reason_count,
+        changed_override,
         evaluation.total_improved_count - evaluation.total_regressed_count,
         total_passed_gain,
         total_mrr_gain,

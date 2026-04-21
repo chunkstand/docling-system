@@ -1000,6 +1000,24 @@ def test_agent_task_artifact_route_does_not_serve_paths_outside_storage_root(
     assert response.json() == {"fallback": True}
 
 
+def test_agent_task_list_route_accepts_repeated_status_query(monkeypatch) -> None:
+    captured: dict = {}
+
+    def fake_list_tasks(session, statuses=None, limit=50):
+        captured["statuses"] = statuses
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr("app.api.main.list_agent_tasks", fake_list_tasks)
+
+    client = TestClient(app)
+    response = client.get("/agent-tasks?status=queued&status=failed&limit=7")
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert captured == {"statuses": ["queued", "failed"], "limit": 7}
+
+
 def test_create_agent_task_route_returns_bad_request_on_unknown_task_type(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.main.create_agent_task",

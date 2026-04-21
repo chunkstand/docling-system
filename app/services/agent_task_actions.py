@@ -26,6 +26,7 @@ from app.schemas.agent_tasks import (
     DiscoverSemanticBootstrapCandidatesTaskOutput,
     DraftGraphPromotionsTaskInput,
     DraftGraphPromotionsTaskOutput,
+    DraftHarnessConfigFromOptimizationTaskInput,
     DraftHarnessConfigUpdateTaskInput,
     DraftHarnessConfigUpdateTaskOutput,
     DraftOntologyExtensionTaskInput,
@@ -47,17 +48,25 @@ from app.schemas.agent_tasks import (
     GetActiveOntologySnapshotTaskOutput,
     InitializeWorkspaceOntologyTaskInput,
     InitializeWorkspaceOntologyTaskOutput,
+    InspectEvalFailureCaseTaskInput,
+    InspectEvalFailureCaseTaskOutput,
     LatestEvaluationTaskInput,
     LatestEvaluationTaskOutput,
     LatestSemanticPassTaskInput,
     LatestSemanticPassTaskOutput,
+    OptimizeSearchHarnessFromCaseTaskInput,
+    OptimizeSearchHarnessFromCaseTaskOutput,
     PrepareSemanticGenerationBriefTaskInput,
     PrepareSemanticGenerationBriefTaskOutput,
     QualityEvalCandidatesTaskInput,
     QualityEvalCandidatesTaskOutput,
+    RefreshEvalFailureCasesTaskInput,
+    RefreshEvalFailureCasesTaskOutput,
     ReplaySearchRequestTaskInput,
     ReplaySearchRequestTaskOutput,
     RunSearchReplaySuiteTaskOutput,
+    TriageEvalFailureCaseTaskInput,
+    TriageEvalFailureCaseTaskOutput,
     TriageReplayRegressionTaskInput,
     TriageReplayRegressionTaskOutput,
     TriageSemanticCandidateDisagreementsTaskInput,
@@ -79,7 +88,11 @@ from app.schemas.agent_tasks import (
     VerifySemanticGroundedDocumentTaskInput,
     VerifySemanticGroundedDocumentTaskOutput,
 )
-from app.schemas.search import SearchHarnessEvaluationRequest, SearchReplayRunRequest
+from app.schemas.search import (
+    SearchHarnessEvaluationRequest,
+    SearchHarnessOptimizationRequest,
+    SearchReplayRunRequest,
+)
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context import (
     _build_apply_graph_promotions_context,
@@ -127,9 +140,16 @@ from app.services.documents import (
     get_latest_document_evaluation_detail,
     reprocess_document,
 )
+from app.services.eval_workbench import (
+    get_eval_failure_case,
+    inspect_eval_failure_case,
+    refresh_eval_failure_cases,
+    triage_eval_failure_case,
+)
 from app.services.quality import list_quality_eval_candidates
 from app.services.search import get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_harness_optimization import run_search_harness_optimization_loop
 from app.services.search_harness_overrides import upsert_applied_search_harness_override
 from app.services.search_history import replay_search_request
 from app.services.search_legibility import get_search_request_explanation
@@ -219,6 +239,202 @@ def _quality_eval_candidates_executor(
         "include_resolved": payload.include_resolved,
         "candidate_count": len(response),
         "candidates": jsonable_encoder(response),
+    }
+
+
+def _refresh_eval_failure_cases_executor(
+    session: Session,
+    _task: AgentTask,
+    payload: RefreshEvalFailureCasesTaskInput,
+) -> dict:
+    response = refresh_eval_failure_cases(
+        session,
+        limit=payload.limit,
+        include_resolved=payload.include_resolved,
+    )
+    return {"refresh": jsonable_encoder(response)}
+
+
+def _inspect_eval_failure_case_executor(
+    session: Session,
+    _task: AgentTask,
+    payload: InspectEvalFailureCaseTaskInput,
+) -> dict:
+    response = inspect_eval_failure_case(session, payload.case_id)
+    return {"inspection": jsonable_encoder(response)}
+
+
+def _triage_eval_failure_case_executor(
+    session: Session,
+    task: AgentTask,
+    payload: TriageEvalFailureCaseTaskInput,
+) -> dict:
+    response = triage_eval_failure_case(
+        session,
+        payload.case_id,
+        agent_task_id=task.id,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="eval_failure_case_triage",
+        payload=jsonable_encoder(response),
+        storage_service=StorageService(),
+        filename="eval_failure_case_triage.json",
+    )
+    return {
+        "triage": jsonable_encoder(response),
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _harness_override_has_changes(override_spec: dict) -> bool:
+    return bool(
+        override_spec.get("retrieval_profile_overrides") or override_spec.get("reranker_overrides")
+    )
+
+
+def _optimize_search_harness_from_case_executor(
+    session: Session,
+    task: AgentTask,
+    payload: OptimizeSearchHarnessFromCaseTaskInput,
+) -> dict:
+    case = get_eval_failure_case(session, payload.case_id)
+    candidate_harness_name = (
+        payload.candidate_harness_name
+        or f"case_{str(payload.case_id).replace('-', '_')[:18]}_candidate"
+    )
+    optimization = run_search_harness_optimization_loop(
+        session,
+        SearchHarnessOptimizationRequest(
+            base_harness_name=payload.base_harness_name,
+            baseline_harness_name=payload.baseline_harness_name,
+            candidate_harness_name=candidate_harness_name,
+            source_types=payload.source_types,
+            limit=payload.limit,
+            iterations=payload.iterations,
+            tune_fields=payload.tune_fields,
+            max_total_regressed_count=payload.max_total_regressed_count,
+            max_mrr_drop=payload.max_mrr_drop,
+            max_zero_result_count_increase=payload.max_zero_result_count_increase,
+            max_foreign_top_result_count_increase=payload.max_foreign_top_result_count_increase,
+            min_total_shared_query_count=payload.min_total_shared_query_count,
+        ),
+    )
+    best_gate_passed = optimization.best_gate.get("outcome") == "passed"
+    best_override_changed = _harness_override_has_changes(optimization.best_override_spec)
+    can_draft = best_gate_passed and best_override_changed
+    recommendation = {
+        "next_action": "draft_harness_config_update_from_optimization"
+        if can_draft
+        else "inspect_optimizer_attempts",
+        "confidence": "medium" if can_draft else "low",
+        "summary": (
+            "Best override is a changed passing candidate."
+            if can_draft
+            else (
+                "Best gate passed but did not change the harness; inspect optimizer attempts."
+                if best_gate_passed
+                else (
+                    f"Best override has score {optimization.best_score} and gate "
+                    f"{optimization.best_gate.get('outcome')}."
+                )
+            )
+        ),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="search_harness_optimization",
+        payload=jsonable_encoder(optimization),
+        storage_service=StorageService(),
+        filename="search_harness_optimization.json",
+    )
+    return {
+        "case": jsonable_encoder(case),
+        "optimization": jsonable_encoder(optimization),
+        "recommendation": recommendation,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _draft_harness_config_from_optimization_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftHarnessConfigFromOptimizationTaskInput,
+) -> dict:
+    source_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.source_task_id,
+        dependency_kind="source_task",
+        expected_task_type="optimize_search_harness_from_case",
+        expected_schema_name="optimize_search_harness_from_case_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Harness drafts from optimization must declare the optimizer task "
+            "as a source_task dependency."
+        ),
+        rerun_message=(
+            "Optimizer task must be rerun after the context migration before drafting."
+        ),
+    )
+    source_output = OptimizeSearchHarnessFromCaseTaskOutput.model_validate(source_context.output)
+    optimization = source_output.optimization
+    best_override_spec = dict(optimization.best_override_spec or {})
+    if not _harness_override_has_changes(best_override_spec):
+        raise ValueError(
+            "Optimization did not produce a changed harness override; "
+            "refusing to draft a no-op config update."
+        )
+    rationale = payload.rationale or (
+        "Agent-proposed bounded harness repair from eval failure case optimization."
+    )
+    best_override_spec = {
+        **best_override_spec,
+        "override_type": "draft_harness_config_update",
+        "override_source": "task_draft",
+        "draft_task_id": str(task.id),
+        "source_task_id": str(payload.source_task_id),
+        "rationale": rationale,
+    }
+    effective_harness = get_search_harness(
+        payload.draft_harness_name,
+        {payload.draft_harness_name: best_override_spec},
+    )
+    draft_payload = {
+        "draft_harness_name": payload.draft_harness_name,
+        "base_harness_name": optimization.base_harness_name,
+        "source_task_id": str(payload.source_task_id),
+        "source_task_type": source_context.task_type,
+        "rationale": rationale,
+        "override_spec": best_override_spec,
+        "effective_harness_config": effective_harness.config_snapshot,
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="harness_config_draft",
+        payload=draft_payload,
+        storage_service=StorageService(),
+        filename="harness_config_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "source_case": jsonable_encoder(source_output.case),
+        "optimization_summary": {
+            "stopped_reason": optimization.stopped_reason,
+            "iterations_completed": optimization.iterations_completed,
+            "best_score": optimization.best_score,
+            "best_gate": optimization.best_gate,
+        },
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
     }
 
 
@@ -631,7 +847,10 @@ def _apply_harness_config_update_executor(
         task_id=task.id,
         depends_on_task_id=payload.draft_task_id,
         dependency_kind="draft_task",
-        expected_task_type="draft_harness_config_update",
+        expected_task_type=(
+            "draft_harness_config_update",
+            "draft_harness_config_update_from_optimization",
+        ),
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         dependency_error_message=(
@@ -2275,6 +2494,82 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         input_example={"limit": 12, "include_resolved": False},
         context_builder=_build_generic_task_context,
     ),
+    "refresh_eval_failure_cases": AgentTaskActionDefinition(
+        task_type="refresh_eval_failure_cases",
+        definition_kind="action",
+        description="Upsert durable eval observations and failure cases from quality signals.",
+        payload_model=RefreshEvalFailureCasesTaskInput,
+        executor=_refresh_eval_failure_cases_executor,
+        output_model=RefreshEvalFailureCasesTaskOutput,
+        output_schema_name="refresh_eval_failure_cases_output",
+        output_schema_version="1.0",
+        input_example={"limit": 50, "include_resolved": False},
+        context_builder=_build_generic_task_context,
+    ),
+    "inspect_eval_failure_case": AgentTaskActionDefinition(
+        task_type="inspect_eval_failure_case",
+        definition_kind="action",
+        description="Load one eval failure case with linked agent-legible evidence.",
+        payload_model=InspectEvalFailureCaseTaskInput,
+        executor=_inspect_eval_failure_case_executor,
+        output_model=InspectEvalFailureCaseTaskOutput,
+        output_schema_name="inspect_eval_failure_case_output",
+        output_schema_version="1.0",
+        input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_generic_task_context,
+    ),
+    "triage_eval_failure_case": AgentTaskActionDefinition(
+        task_type="triage_eval_failure_case",
+        definition_kind="workflow",
+        description="Classify one eval failure case and produce bounded repair next steps.",
+        payload_model=TriageEvalFailureCaseTaskInput,
+        executor=_triage_eval_failure_case_executor,
+        output_model=TriageEvalFailureCaseTaskOutput,
+        output_schema_name="triage_eval_failure_case_output",
+        output_schema_version="1.0",
+        input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_generic_task_context,
+    ),
+    "optimize_search_harness_from_case": AgentTaskActionDefinition(
+        task_type="optimize_search_harness_from_case",
+        definition_kind="workflow",
+        description=(
+            "Run a bounded transient search-harness optimization loop from one "
+            "eval failure case."
+        ),
+        payload_model=OptimizeSearchHarnessFromCaseTaskInput,
+        executor=_optimize_search_harness_from_case_executor,
+        output_model=OptimizeSearchHarnessFromCaseTaskOutput,
+        output_schema_name="optimize_search_harness_from_case_output",
+        output_schema_version="1.0",
+        input_example={
+            "case_id": "00000000-0000-0000-0000-000000000000",
+            "base_harness_name": "wide_v2",
+            "baseline_harness_name": "wide_v2",
+            "limit": 25,
+            "iterations": 2,
+        },
+        context_builder=_build_generic_task_context,
+    ),
+    "draft_harness_config_update_from_optimization": AgentTaskActionDefinition(
+        task_type="draft_harness_config_update_from_optimization",
+        definition_kind="draft",
+        description=(
+            "Convert a completed harness optimization task into a review harness "
+            "draft without changing live search behavior."
+        ),
+        payload_model=DraftHarnessConfigFromOptimizationTaskInput,
+        executor=_draft_harness_config_from_optimization_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftHarnessConfigUpdateTaskOutput,
+        output_schema_name="draft_harness_config_update_output",
+        output_schema_version="1.0",
+        input_example={
+            "source_task_id": "00000000-0000-0000-0000-000000000000",
+            "draft_harness_name": "case_repair_review",
+        },
+        context_builder=_build_draft_harness_config_context,
+    ),
     "replay_search_request": AgentTaskActionDefinition(
         task_type="replay_search_request",
         definition_kind="action",
@@ -2432,7 +2727,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_version="1.0",
         input_example={
             "target_task_id": "00000000-0000-0000-0000-000000000000",
-            "baseline_harness_name": "default_v1",
+            "baseline_harness_name": "wide_v2",
             "source_types": ["evaluation_queries", "feedback"],
             "limit": 12,
             "max_total_regressed_count": 0,

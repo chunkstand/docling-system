@@ -19,6 +19,8 @@ from app.schemas.agent_tasks import (
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
+    OptimizeSearchHarnessFromCaseTaskOutput,
+    RepairCasePayload,
     TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
@@ -227,27 +229,71 @@ def _changed_override_scopes(override_spec: dict) -> list[str]:
     return changed
 
 
+def _repair_case_from_optimization_output(
+    output: OptimizeSearchHarnessFromCaseTaskOutput,
+) -> RepairCasePayload:
+    case = output.case
+    optimization = output.optimization
+    return RepairCasePayload(
+        candidate_harness_name=optimization.candidate_harness_name,
+        baseline_harness_name=optimization.baseline_harness_name,
+        failure_classification=case.failure_classification,
+        problem_statement=case.problem_statement,
+        observed_metric_delta=optimization.best_score,
+        affected_result_types=(
+            ["table"]
+            if case.failure_classification == "table_recall_gap"
+            else ["chunk", "table"]
+        ),
+        likely_root_cause=case.diagnosis,
+        allowed_repair_surface=case.allowed_repair_surfaces,
+        blocked_repair_surfaces=case.blocked_repair_surfaces,
+        recommended_next_action="draft_harness_config_update_from_optimization",
+        diagnostic_examples=[],
+        evidence_refs=[ref.model_dump(mode="json") for ref in case.evidence_refs],
+    )
+
+
 def _load_source_repair_case(session: Session, source_task_id: UUID | None):
     if source_task_id is None:
-        return None, ["Draft must reference a source triage task with a repair case."]
+        return None, ["Draft must reference a source task with a repair case."]
     try:
         source_context = resolve_required_task_output_context(
             session,
             task_id=source_task_id,
-            expected_task_type="triage_replay_regression",
-            expected_schema_name="triage_replay_regression_output",
+            expected_task_type=(
+                "triage_replay_regression",
+                "optimize_search_harness_from_case",
+            ),
+            expected_schema_name=(
+                "triage_replay_regression_output",
+                "optimize_search_harness_from_case_output",
+            ),
             expected_schema_version="1.0",
             rerun_message=(
-                "Source triage task must be rerun after the context migration before "
+                "Source task must be rerun after the context migration before "
                 "draft verification."
             ),
         )
-        source_output = TriageReplayRegressionTaskOutput.model_validate(source_context.output)
     except Exception as exc:
         return None, [f"Unable to load source repair case: {exc}"]
-    if source_output.repair_case is None:
-        return None, ["Source triage output does not include a repair case."]
-    return source_output.repair_case, []
+    if source_context.task_type == "triage_replay_regression":
+        try:
+            source_output = TriageReplayRegressionTaskOutput.model_validate(
+                source_context.output
+            )
+        except Exception as exc:
+            return None, [f"Unable to load source repair case: {exc}"]
+        if source_output.repair_case is None:
+            return None, ["Source triage output does not include a repair case."]
+        return source_output.repair_case, []
+    try:
+        optimization_output = OptimizeSearchHarnessFromCaseTaskOutput.model_validate(
+            source_context.output
+        )
+    except Exception as exc:
+        return None, [f"Unable to load source repair case: {exc}"]
+    return _repair_case_from_optimization_output(optimization_output), []
 
 
 def _build_harness_comprehension_gate(
@@ -342,7 +388,10 @@ def verify_draft_harness_config_task(
     draft_context = resolve_required_task_output_context(
         session,
         task_id=payload.target_task_id,
-        expected_task_type="draft_harness_config_update",
+        expected_task_type=(
+            "draft_harness_config_update",
+            "draft_harness_config_update_from_optimization",
+        ),
         expected_schema_name="draft_harness_config_update_output",
         expected_schema_version="1.0",
         rerun_message=(
