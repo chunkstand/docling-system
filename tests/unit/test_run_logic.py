@@ -1,14 +1,22 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
 from sqlalchemy.dialects import postgresql
 
-from app.db.models import Document, DocumentRun
-from app.services.runs import claim_next_run, finalize_run_failure, is_retryable_error, process_run
+from app.core.time import utcnow
+from app.db.models import Document, DocumentRun, RunStatus
+from app.services.runs import (
+    claim_next_run,
+    finalize_run_failure,
+    is_retryable_error,
+    process_run,
+    requeue_stale_runs,
+)
 from app.services.storage import StorageService
 from app.services.validation import ValidationReport
 
@@ -601,6 +609,101 @@ def test_finalize_run_failure_writes_replayable_failure_artifact(tmp_path: Path)
     artifact = artifact_path.read_text()
     assert "boom" in artifact
     assert "parse" in artifact
+
+
+def test_finalize_run_failure_marks_terminal_parse_failure_as_validation_failed() -> None:
+    run = SimpleNamespace(
+        id=uuid4(),
+        document_id=uuid4(),
+        attempts=3,
+        status="processing",
+        validation_status="pending",
+        validation_results_json={},
+        failure_artifact_path=None,
+        failure_stage=None,
+        completed_at=None,
+    )
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.committed = False
+
+        def commit(self) -> None:
+            self.committed = True
+
+        def query(self, *_args, **_kwargs):
+            class FakeQuery:
+                def filter(self, *_args, **_kwargs):
+                    return self
+
+                def update(self, *_args, **_kwargs):
+                    return 0
+
+            return FakeQuery()
+
+    session = FakeSession()
+    finalize_run_failure(
+        session,
+        run,
+        ValueError("parse exploded"),
+        failure_stage="parse",
+        storage_service=None,
+        document=None,
+    )
+
+    assert session.committed is True
+    assert run.status == RunStatus.FAILED.value
+    assert run.validation_status == "failed"
+    assert run.failure_stage == "parse"
+
+
+def test_requeue_stale_runs_marks_terminal_stale_failure_as_validation_failed(monkeypatch) -> None:
+    run = SimpleNamespace(
+        id=uuid4(),
+        document_id=uuid4(),
+        status=RunStatus.PROCESSING.value,
+        attempts=3,
+        validation_status="pending",
+        error_message=None,
+        failure_stage=None,
+        failure_artifact_path=None,
+        completed_at=None,
+        locked_at=utcnow(),
+        locked_by="worker-1",
+        last_heartbeat_at=utcnow() - timedelta(seconds=600),
+        next_attempt_at=None,
+    )
+
+    class FakeExecuteResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def scalars(self):
+            return self._rows
+
+    class FakeSession:
+        def __init__(self) -> None:
+            self.committed = False
+
+        def execute(self, _statement):
+            return FakeExecuteResult([run])
+
+        def commit(self) -> None:
+            self.committed = True
+
+    monkeypatch.setattr(
+        "app.services.runs.get_settings",
+        lambda: SimpleNamespace(worker_lease_timeout_seconds=300, worker_max_attempts=3),
+    )
+
+    session = FakeSession()
+    updated = requeue_stale_runs(session, storage_service=None)
+
+    assert updated == 1
+    assert session.committed is True
+    assert run.status == RunStatus.FAILED.value
+    assert run.validation_status == "failed"
+    assert run.failure_stage == "stale_lease"
 
 
 def test_claim_next_run_limits_worker_lease_query_to_one_row() -> None:

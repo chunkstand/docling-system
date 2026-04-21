@@ -77,7 +77,7 @@ def requeue_stale_runs(session: Session, storage_service: StorageService | None 
         if run.attempts >= settings.worker_max_attempts:
             run.status = RunStatus.FAILED.value
             run.completed_at = utcnow()
-            run.validation_status = run.validation_status or "failed"
+            run.validation_status = "failed"
             run.error_message = run.error_message or "Run exceeded max attempts after stale lease."
             run.failure_stage = run.failure_stage or "stale_lease"
             failure_path = _write_failure_artifact(
@@ -267,24 +267,12 @@ def _persist_table_artifacts(
     logical_table_key: str | None,
     created_at: datetime,
 ) -> tuple[Path, Path, str, str]:
-    base_payload = table.artifact_payload(
-        document_id=str(document.id),
-        run_id=str(run.id),
-        table_id=str(table_id),
-        logical_table_key=logical_table_key,
-        created_at=created_at.isoformat(),
-        artifact_sha256="",
-    )
-    artifact_seed = hashlib.sha256(
-        json.dumps(base_payload, sort_keys=True).encode("utf-8")
-    ).hexdigest()
     table_payload = table.artifact_payload(
         document_id=str(document.id),
         run_id=str(run.id),
         table_id=str(table_id),
         logical_table_key=logical_table_key,
         created_at=created_at.isoformat(),
-        artifact_sha256=artifact_seed,
     )
     json_path = storage_service.get_table_json_path(document.id, run.id, table.table_index)
     yaml_path = storage_service.get_table_yaml_path(document.id, run.id, table.table_index)
@@ -309,22 +297,11 @@ def _persist_figure_artifacts(
     figure_id: UUID,
     created_at: datetime,
 ) -> tuple[Path, Path, str, str]:
-    base_payload = figure.artifact_payload(
-        document_id=str(document.id),
-        run_id=str(run.id),
-        figure_id=str(figure_id),
-        created_at=created_at.isoformat(),
-        artifact_sha256="",
-    )
-    artifact_seed = hashlib.sha256(
-        json.dumps(base_payload, sort_keys=True).encode("utf-8")
-    ).hexdigest()
     figure_payload = figure.artifact_payload(
         document_id=str(document.id),
         run_id=str(run.id),
         figure_id=str(figure_id),
         created_at=created_at.isoformat(),
-        artifact_sha256=artifact_seed,
     )
     json_path = storage_service.get_figure_json_path(document.id, run.id, figure.figure_index)
     yaml_path = storage_service.get_figure_yaml_path(document.id, run.id, figure.figure_index)
@@ -433,6 +410,10 @@ def _replace_run_tables(
     for table in parsed.tables:
         table_id = uuid.uuid4()
         lineage = lineage_assignments.get(table.table_index, {})
+        table_metadata = {
+            key: value for key, value in (table.metadata or {}).items() if key != "audit"
+        }
+        table.metadata = table_metadata
         try:
             json_path, yaml_path, json_sha, yaml_sha = _persist_table_artifacts(
                 storage_service,
@@ -461,7 +442,7 @@ def _replace_run_tables(
             json.dumps(table.metadata, sort_keys=True).encode("utf-8")
         ).hexdigest()
         audit["merge_metadata_sha256"] = merge_metadata_sha
-        table.metadata.setdefault("audit", audit)
+        table.metadata = {**table.metadata, "audit": audit}
         table_row = DocumentTable(
             id=table_id,
             document_id=document.id,
@@ -526,6 +507,9 @@ def _replace_run_figures(
 
     for figure in parsed.figures:
         figure_id = uuid.uuid4()
+        figure.metadata = {
+            key: value for key, value in (figure.metadata or {}).items() if key != "audit"
+        }
         json_path, yaml_path, json_sha, yaml_sha = _persist_figure_artifacts(
             storage_service,
             document,
@@ -543,7 +527,7 @@ def _replace_run_figures(
             "json_artifact_sha256": json_sha,
             "yaml_artifact_sha256": yaml_sha,
         }
-        figure.metadata.setdefault("audit", audit)
+        figure.metadata = {**figure.metadata, "audit": audit}
         session.add(
             DocumentFigure(
                 id=figure_id,
@@ -700,6 +684,7 @@ def finalize_run_failure(
         run.next_attempt_at = now + timedelta(seconds=backoff_seconds)
     else:
         run.status = RunStatus.FAILED.value
+        run.validation_status = "failed"
         run.completed_at = now
 
     failure_path = _write_failure_artifact(

@@ -79,8 +79,10 @@ class ParsedTable:
         table_id: str,
         logical_table_key: str | None,
         created_at: str,
-        artifact_sha256: str,
     ) -> dict[str, Any]:
+        artifact_metadata = {
+            key: value for key, value in (self.metadata or {}).items() if key != "audit"
+        }
         return {
             "schema_version": TABLE_ARTIFACT_SCHEMA_VERSION,
             "document_id": document_id,
@@ -94,11 +96,10 @@ class ParsedTable:
             "page_to": self.page_to,
             "row_count": self.row_count,
             "col_count": self.col_count,
-            "artifact_sha256": artifact_sha256,
             "created_at": created_at,
             "search_text": self.search_text,
             "preview_text": self.preview_text,
-            "metadata": self.metadata,
+            "metadata": artifact_metadata,
             "rows": self.rows,
             "segments": [
                 {
@@ -136,8 +137,10 @@ class ParsedFigure:
         run_id: str,
         figure_id: str,
         created_at: str,
-        artifact_sha256: str,
     ) -> dict[str, Any]:
+        artifact_metadata = {
+            key: value for key, value in (self.metadata or {}).items() if key != "audit"
+        }
         return {
             "schema_version": FIGURE_ARTIFACT_SCHEMA_VERSION,
             "document_id": document_id,
@@ -146,13 +149,12 @@ class ParsedFigure:
             "figure_index": self.figure_index,
             "page_from": self.page_from,
             "page_to": self.page_to,
-            "artifact_sha256": artifact_sha256,
             "created_at": created_at,
             "source_figure_ref": self.source_figure_ref,
             "caption": self.caption,
             "heading": self.heading,
             "confidence": self.confidence,
-            "metadata": self.metadata,
+            "metadata": artifact_metadata,
         }
 
 
