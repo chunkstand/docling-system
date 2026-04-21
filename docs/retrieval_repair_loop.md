@@ -43,6 +43,9 @@ Inspection surfaces:
 
 - `GET /search/harness-evaluations`
 - `GET /search/harness-evaluations/{evaluation_id}`
+- `docling-system-search-harness-evaluation-list`
+- `docling-system-search-harness-evaluation-show <evaluation_id>`
+- the evaluation UI's recent durable harness-evaluation history panel
 
 Agent tasks should carry the `evaluation_id` forward in task output and context refs.
 Verification gates reload the durable evaluation when present so the DB record, replay

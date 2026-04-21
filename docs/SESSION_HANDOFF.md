@@ -197,6 +197,7 @@ What is now true:
 - direct application `HTTPException` construction is centralized through `api_error(...)`
 - agent-task creation rejects dependency graphs that already contain cycles
 - search harness evaluations are first-class persisted resources with source replay provenance
+- durable harness evaluation history is inspectable from API, CLI, and the eval UI
 - the current full unit/integration test suite is green in local verification
 
 ## Residual Risks And Next Steps

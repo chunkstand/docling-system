@@ -60,7 +60,11 @@ from app.services.ingest_batches import (
     queue_local_ingest_directory,
 )
 from app.services.quality import list_quality_eval_candidates
-from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_harness_evaluations import (
+    evaluate_search_harness,
+    get_search_harness_evaluation_detail,
+    list_search_harness_evaluations,
+)
 from app.services.search_harness_optimization import run_search_harness_optimization_loop
 from app.services.search_history import replay_search_request
 from app.services.search_release_gate import evaluate_search_harness_release_gate
@@ -282,6 +286,8 @@ def run_eval_candidates() -> None:
         help="Include candidates that later evidence has already resolved.",
     )
     args = parser.parse_args()
+    if args.limit < 1 or args.limit > 100:
+        parser.error("--limit must be between 1 and 100.")
 
     session_factory = get_session_factory()
     with session_factory() as session:
@@ -385,6 +391,38 @@ def run_eval_reranker() -> None:
             ),
         )
         session.commit()
+    print(json.dumps(payload.model_dump(mode="json")))
+
+
+def run_search_harness_evaluation_list() -> None:
+    parser = argparse.ArgumentParser(description="List persisted search harness evaluations.")
+    parser.add_argument("--limit", type=int, default=20, help="Maximum evaluations to return.")
+    parser.add_argument(
+        "--candidate-harness-name",
+        help="Optional candidate harness name filter.",
+    )
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = list_search_harness_evaluations(
+            session,
+            limit=args.limit,
+            candidate_harness_name=args.candidate_harness_name,
+        )
+    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_search_harness_evaluation_show() -> None:
+    parser = argparse.ArgumentParser(
+        description="Show one persisted search harness evaluation with source replay provenance."
+    )
+    parser.add_argument("evaluation_id", type=UUID, help="Search harness evaluation UUID.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_search_harness_evaluation_detail(session, args.evaluation_id)
     print(json.dumps(payload.model_dump(mode="json")))
 
 

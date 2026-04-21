@@ -49,6 +49,9 @@ const uiState = {
     selectedReplayRunId: queryParams.get("replay_run_id"),
     replayRuns: [],
   },
+  evals: {
+    selectedHarnessEvaluationId: queryParams.get("harness_evaluation_id"),
+  },
   agents: {
     selectedTaskId: queryParams.get("task_id"),
     activeTasks: [],
@@ -1681,9 +1684,15 @@ function renderHarnessEvaluation(payloadState) {
       <article class="result-card">
         <header>
           <strong>${escapeHtml(payload.candidate_harness_name)} vs ${escapeHtml(payload.baseline_harness_name)}</strong>
-          <span class="meta-pill">${formatInteger(payload.total_shared_query_count)} shared queries</span>
+          <span class="status-pill ${escapeHtml(payload.status)}">${escapeHtml(formatStatusLabel(payload.status))}</span>
         </header>
+        <div class="status-meta">
+          <span>${formatInteger(payload.total_shared_query_count)} shared queries</span>
+          <span>${payload.evaluation_id ? `eval ${escapeHtml(String(payload.evaluation_id).slice(0, 8))}` : "transient eval"}</span>
+          <span>${escapeHtml(formatDateTime(payload.completed_at || payload.created_at))}</span>
+        </div>
         <p>${formatInteger(payload.total_improved_count)} improved · ${formatInteger(payload.total_regressed_count)} regressed · ${formatInteger(payload.total_unchanged_count)} unchanged.</p>
+        ${payload.error_message ? `<p>${escapeHtml(payload.error_message)}</p>` : ""}
       </article>
     `,
     ...(payload.sources || []).map(
@@ -1702,8 +1711,72 @@ function renderHarnessEvaluation(payloadState) {
   renderResultCards(container, cards);
 }
 
+function renderHarnessEvaluationHistory(historyState) {
+  const container = byId("harness-eval-history");
+  if (!container) {
+    return;
+  }
+  if (historyState.error) {
+    renderEmpty(
+      container,
+      formatApiError(historyState.error, "Unable to load harness evaluation history."),
+    );
+    return;
+  }
+  const evaluations = historyState.data || [];
+  if (!evaluations.length) {
+    renderEmpty(container, "No harness evaluations have been persisted yet.");
+    return;
+  }
+
+  renderStackCards(
+    container,
+    evaluations.map(
+      (evaluation) => `
+        <button
+          type="button"
+          class="status-card selectable-card ${uiState.evals.selectedHarnessEvaluationId === String(evaluation.evaluation_id) ? "is-selected" : ""}"
+          data-ui-action="load-harness-evaluation"
+          data-harness-evaluation-id="${escapeHtml(evaluation.evaluation_id)}"
+        >
+          <header>
+            <strong>${escapeHtml(evaluation.candidate_harness_name)} vs ${escapeHtml(evaluation.baseline_harness_name)}</strong>
+            <span class="status-pill ${escapeHtml(evaluation.status)}">${escapeHtml(formatStatusLabel(evaluation.status))}</span>
+          </header>
+          <div class="status-meta">
+            <span>${formatInteger(evaluation.total_shared_query_count)} shared</span>
+            <span>${formatInteger(evaluation.total_improved_count)} improved</span>
+            <span>${formatInteger(evaluation.total_regressed_count)} regressed</span>
+          </div>
+          <p>${escapeHtml(formatDateTime(evaluation.completed_at || evaluation.created_at))}${evaluation.error_message ? ` · ${escapeHtml(evaluation.error_message)}` : ""}</p>
+        </button>
+      `,
+    ),
+  );
+}
+
+async function loadHarnessEvaluationDetail(evaluationId) {
+  if (!evaluationId) {
+    renderHarnessEvaluation({ data: null });
+    return;
+  }
+  uiState.evals.selectedHarnessEvaluationId = String(evaluationId);
+  const detailState = await fetchState(`/search/harness-evaluations/${evaluationId}`);
+  renderHarnessEvaluation(detailState);
+  const historyState = await fetchState("/search/harness-evaluations?limit=8");
+  renderHarnessEvaluationHistory(historyState);
+}
+
 async function loadEvalsPage(context) {
-  const [qualityFailuresState, qualityCandidatesState, qualityTrendsState, verificationTrendsState, decisionSignalsState, harnessState] =
+  const [
+    qualityFailuresState,
+    qualityCandidatesState,
+    qualityTrendsState,
+    verificationTrendsState,
+    decisionSignalsState,
+    harnessState,
+    harnessEvaluationHistoryState,
+  ] =
     await Promise.all([
       fetchState("/quality/failures"),
       fetchState("/quality/eval-candidates"),
@@ -1711,6 +1784,7 @@ async function loadEvalsPage(context) {
       fetchState("/agent-tasks/analytics/verifications"),
       fetchState("/agent-tasks/analytics/decision-signals"),
       getHarnessCatalogState(),
+      fetchState("/search/harness-evaluations?limit=8"),
     ]);
   const harnesses = harnessState.data || [];
 
@@ -1735,6 +1809,10 @@ async function loadEvalsPage(context) {
   renderQualityTrends(qualityTrendsState);
   renderVerificationTrends(verificationTrendsState);
   renderDecisionSignals(byId("eval-decision-signals"), decisionSignalsState.data || []);
+  renderHarnessEvaluationHistory(harnessEvaluationHistoryState);
+  if (uiState.evals.selectedHarnessEvaluationId) {
+    await loadHarnessEvaluationDetail(uiState.evals.selectedHarnessEvaluationId);
+  }
 
   populateHarnessSelect("harness-eval-baseline", harnesses);
   populateHarnessSelect("harness-eval-candidate", harnesses);
@@ -1766,6 +1844,10 @@ async function loadEvalsPage(context) {
       }),
     });
     renderHarnessEvaluation(payloadState);
+    if (!payloadState.error && payloadState.data?.evaluation_id) {
+      uiState.evals.selectedHarnessEvaluationId = String(payloadState.data.evaluation_id);
+    }
+    renderHarnessEvaluationHistory(await fetchState("/search/harness-evaluations?limit=8"));
   });
 }
 
@@ -2258,6 +2340,12 @@ function bindGlobalActionDelegation() {
     if (action === "load-replay-run") {
       event.preventDefault();
       await loadReplayRunDetail(trigger.dataset.replayRunId);
+      return;
+    }
+
+    if (action === "load-harness-evaluation") {
+      event.preventDefault();
+      await loadHarnessEvaluationDetail(trigger.dataset.harnessEvaluationId);
       return;
     }
 

@@ -397,6 +397,11 @@ metrics. Operators and agents can inspect the resource through:
 
 - `GET /search/harness-evaluations`
 - `GET /search/harness-evaluations/{evaluation_id}`
+- `docling-system-search-harness-evaluation-list`
+- `docling-system-search-harness-evaluation-show <evaluation_id>`
+
+The evaluation UI also reads from the durable list/detail endpoints so recent
+harness comparisons remain inspectable after the original POST response is gone.
 
 ### Quality signals
 

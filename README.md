@@ -375,6 +375,9 @@ replay sources without leaving the operator surface. The POST creates a durable
 evaluation record; use `GET /search/harness-evaluations` and
 `GET /search/harness-evaluations/{evaluation_id}` to inspect historical results
 and the replay-run provenance behind each source.
+The equivalent local inspection commands are
+`docling-system-search-harness-evaluation-list` and
+`docling-system-search-harness-evaluation-show <evaluation_id>`.
 
 ## Agent Tasks
 
@@ -500,6 +503,8 @@ uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 1
 uv run docling-system-run-replay-suite cross_document_prose_regressions --harness-name prose_v3 --limit 12
 uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 25
 uv run docling-system-eval-reranker prose_v3 --baseline-harness-name default_v1 --source-type cross_document_prose_regressions --limit 25
+uv run docling-system-search-harness-evaluation-list --limit 10
+uv run docling-system-search-harness-evaluation-show <evaluation_id>
 uv run docling-system-optimize-search-harness wide_v2 --baseline-harness-name default_v1 --source-type evaluation_queries --field keyword_candidate_multiplier --iterations 2
 uv run docling-system-export-ranking-dataset --limit 200
 uv run docling-system-agent-task-actions
