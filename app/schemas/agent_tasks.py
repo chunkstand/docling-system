@@ -1004,6 +1004,245 @@ class VerifySemanticGroundedDocumentTaskOutput(BaseModel):
     artifact_path: str | None = None
 
 
+class TechnicalReportSectionPlan(BaseModel):
+    section_id: str
+    title: str
+    purpose: str
+    focus_concept_keys: list[str] = Field(default_factory=list)
+    focus_category_keys: list[str] = Field(default_factory=list)
+    expected_claim_ids: list[str] = Field(default_factory=list)
+    retrieval_queries: list[str] = Field(default_factory=list)
+    required_graph_edge_ids: list[str] = Field(default_factory=list)
+
+
+class TechnicalReportPlanPayload(BaseModel):
+    document_kind: str = "technical_report_plan"
+    report_type: str = "technical_report"
+    title: str
+    goal: str
+    audience: str | None = None
+    review_policy: str
+    target_length: str
+    document_refs: list[SemanticGenerationDocumentRef] = Field(default_factory=list)
+    required_concept_keys: list[str] = Field(default_factory=list)
+    selected_concept_keys: list[str] = Field(default_factory=list)
+    selected_category_keys: list[str] = Field(default_factory=list)
+    sections: list[TechnicalReportSectionPlan] = Field(default_factory=list)
+    expected_claims: list[SemanticGenerationClaimCandidate] = Field(default_factory=list)
+    expected_graph_edge_ids: list[str] = Field(default_factory=list)
+    retrieval_plan: list[dict] = Field(default_factory=list)
+    semantic_brief: SemanticGenerationBriefPayload
+    warnings: list[str] = Field(default_factory=list)
+    expert_alignment: list[dict] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class PlanTechnicalReportTaskInput(BaseModel):
+    title: str = Field(min_length=1)
+    goal: str = Field(min_length=1)
+    audience: str | None = None
+    document_ids: list[UUID] = Field(min_length=1, max_length=25)
+    concept_keys: list[str] = Field(default_factory=list, max_length=100)
+    category_keys: list[str] = Field(default_factory=list, max_length=100)
+    target_length: str = Field(default="medium", pattern="^(short|medium|long)$")
+    review_policy: str = Field(
+        default="allow_candidate_with_disclosure",
+        pattern="^(approved_only|allow_candidate_with_disclosure)$",
+    )
+    include_shadow_candidates: bool = False
+    candidate_extractor_name: str = Field(
+        default="concept_ranker_v1",
+        pattern="^(registry_lexical_v1|concept_ranker_v1)$",
+    )
+    candidate_score_threshold: float = Field(default=0.34, ge=0.0, le=1.0)
+    max_shadow_candidates: int = Field(default=8, ge=1, le=50)
+
+
+class PlanTechnicalReportTaskOutput(BaseModel):
+    plan: TechnicalReportPlanPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class TechnicalReportEvidenceCard(BaseModel):
+    evidence_card_id: str
+    evidence_kind: str
+    source_type: str | None = None
+    citation_label: str | None = None
+    document_id: UUID | None = None
+    run_id: UUID | None = None
+    semantic_pass_id: UUID | None = None
+    source_document_ids: list[UUID] = Field(default_factory=list)
+    source_filename: str | None = None
+    page_from: int | None = None
+    page_to: int | None = None
+    excerpt: str | None = None
+    source_artifact_api_path: str | None = None
+    evidence_ids: list[UUID] = Field(default_factory=list)
+    fact_ids: list[UUID] = Field(default_factory=list)
+    assertion_ids: list[UUID] = Field(default_factory=list)
+    graph_edge_ids: list[str] = Field(default_factory=list)
+    concept_keys: list[str] = Field(default_factory=list)
+    support_level: str | None = None
+    review_status: str | None = None
+    relation_key: str | None = None
+    metadata: dict = Field(default_factory=dict)
+
+
+class TechnicalReportEvidenceBundlePayload(BaseModel):
+    document_kind: str = "technical_report_evidence_cards"
+    plan_task_id: UUID
+    plan: TechnicalReportPlanPayload
+    evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    claim_evidence_map: list[dict] = Field(default_factory=list)
+    retrieval_index: list[dict] = Field(default_factory=list)
+    graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    expert_alignment: list[dict] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class BuildReportEvidenceCardsTaskInput(BaseModel):
+    target_task_id: UUID
+
+
+class BuildReportEvidenceCardsTaskOutput(BaseModel):
+    evidence_bundle: TechnicalReportEvidenceBundlePayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class TechnicalReportToolContract(BaseModel):
+    tool_name: str
+    purpose: str
+    access_pattern: str
+    input_contract: dict = Field(default_factory=dict)
+    output_contract: dict = Field(default_factory=dict)
+    required_capability: str | None = None
+
+
+class TechnicalReportSkillContract(BaseModel):
+    skill_name: str
+    purpose: str
+    instructions: list[str] = Field(default_factory=list)
+
+
+class ReportAgentHarnessPayload(BaseModel):
+    schema_name: str = "report_agent_harness"
+    schema_version: str = "1.0"
+    report_request: dict = Field(default_factory=dict)
+    workflow_state: dict = Field(default_factory=dict)
+    context_refs: list[ContextRef] = Field(default_factory=list)
+    allowed_tools: list[TechnicalReportToolContract] = Field(default_factory=list)
+    required_skills: list[TechnicalReportSkillContract] = Field(default_factory=list)
+    retrieval_plan: list[dict] = Field(default_factory=list)
+    evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
+    claim_contract: list[dict] = Field(default_factory=list)
+    failure_policy: dict = Field(default_factory=dict)
+    verification_gate: dict = Field(default_factory=dict)
+    llm_adapter_contract: dict = Field(default_factory=dict)
+    source_plan: TechnicalReportPlanPayload
+    warnings: list[str] = Field(default_factory=list)
+    expert_alignment: list[dict] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class PrepareReportAgentHarnessTaskInput(BaseModel):
+    target_task_id: UUID
+
+
+class PrepareReportAgentHarnessTaskOutput(BaseModel):
+    harness: ReportAgentHarnessPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class TechnicalReportDraftSection(BaseModel):
+    section_id: str
+    title: str
+    body_markdown: str
+    claim_ids: list[str] = Field(default_factory=list)
+
+
+class TechnicalReportClaim(BaseModel):
+    claim_id: str
+    section_id: str
+    rendered_text: str
+    concept_keys: list[str] = Field(default_factory=list)
+    evidence_card_ids: list[str] = Field(default_factory=list)
+    graph_edge_ids: list[str] = Field(default_factory=list)
+    fact_ids: list[UUID] = Field(default_factory=list)
+    assertion_ids: list[UUID] = Field(default_factory=list)
+    source_document_ids: list[UUID] = Field(default_factory=list)
+    support_level: str | None = None
+    review_policy_status: str | None = None
+    disclosure_note: str | None = None
+
+
+class TechnicalReportDraftPayload(BaseModel):
+    document_kind: str = "technical_report"
+    title: str
+    goal: str
+    audience: str | None = None
+    target_length: str
+    harness_task_id: UUID
+    generator_mode: str
+    generator_model: str | None = None
+    used_fallback: bool = True
+    llm_adapter_contract: dict = Field(default_factory=dict)
+    document_refs: list[SemanticGenerationDocumentRef] = Field(default_factory=list)
+    required_concept_keys: list[str] = Field(default_factory=list)
+    sections: list[TechnicalReportDraftSection] = Field(default_factory=list)
+    claims: list[TechnicalReportClaim] = Field(default_factory=list)
+    blocked_claims: list[dict] = Field(default_factory=list)
+    evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
+    markdown: str
+    markdown_path: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
+class DraftTechnicalReportTaskInput(BaseModel):
+    target_task_id: UUID
+    generator_mode: str = Field(
+        default="structured_fallback",
+        pattern="^(structured_fallback|llm_adapter)$",
+    )
+    generator_model: str | None = None
+    llm_draft_markdown: str | None = None
+
+
+class DraftTechnicalReportTaskOutput(BaseModel):
+    draft: TechnicalReportDraftPayload
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class VerifyTechnicalReportTaskInput(BaseModel):
+    target_task_id: UUID
+    max_unsupported_claim_count: int = Field(default=0, ge=0)
+    require_full_claim_traceability: bool = True
+    require_full_concept_coverage: bool = True
+    require_graph_edges_approved: bool = True
+    block_stale_context: bool = False
+
+
+class VerifyTechnicalReportTaskOutput(BaseModel):
+    draft: TechnicalReportDraftPayload
+    summary: dict = Field(default_factory=dict)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    verification: AgentTaskVerificationResponse
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
 class SemanticSupervisionCorpusRow(BaseModel):
     row_id: str
     row_type: str

@@ -387,23 +387,49 @@ The current registry includes read-only, draft-change, and approval-gated promot
 
 - `get_latest_evaluation`
 - `get_latest_semantic_pass`
+- `initialize_workspace_ontology`
+- `get_active_ontology_snapshot`
+- `discover_semantic_bootstrap_candidates`
+- `export_semantic_supervision_corpus`
+- `evaluate_semantic_candidate_extractor`
+- `build_shadow_semantic_graph`
+- `evaluate_semantic_relation_extractor`
+- `plan_technical_report`
+- `build_report_evidence_cards`
+- `prepare_report_agent_harness`
+- `draft_technical_report`
+- `verify_technical_report`
 - `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
+- `refresh_eval_failure_cases`
+- `inspect_eval_failure_case`
+- `triage_eval_failure_case`
+- `optimize_search_harness_from_case`
+- `draft_harness_config_update_from_optimization`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
-- `draft_semantic_grounded_document`
+- `draft_semantic_registry_update`
+- `draft_ontology_extension`
+- `draft_graph_promotions`
 - `verify_draft_harness_config`
+- `verify_draft_semantic_registry_update`
+- `verify_draft_ontology_extension`
+- `verify_draft_graph_promotions`
+- `draft_semantic_grounded_document`
 - `verify_semantic_grounded_document`
 - `triage_replay_regression`
 - `triage_semantic_pass`
+- `triage_semantic_candidate_disagreements`
+- `triage_semantic_graph_disagreements`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
-- `draft_semantic_registry_update`
-- `verify_draft_semantic_registry_update`
 - `apply_semantic_registry_update`
+- `apply_ontology_extension`
+- `apply_graph_promotions`
+- `build_document_fact_graph`
 
 Operators can inspect the live task catalog through `GET /agent-tasks/actions` or `uv run docling-system-agent-task-actions`. Migrated task types also advertise `output_schema_name`, `output_schema_version`, and `output_schema` metadata alongside the existing input contract.
 
@@ -450,6 +476,8 @@ Within that flow, `apply_harness_config_update` now consumes the migrated `draft
 The first promotable task is `enqueue_document_reprocess`. It is approval-gated, queues a fresh run for an existing document only after approval, and leaves the current active run unchanged until the new run completes validation and promotion through the normal document lifecycle.
 
 The current semantic-generation path is deliberately narrow. `prepare_semantic_generation_brief` builds a typed cross-document semantic dossier and claim/evidence brief, `draft_semantic_grounded_document` renders a bounded `knowledge_brief` draft plus markdown sidecar from that brief, and `verify_semantic_grounded_document` enforces claim traceability, evidence coverage, and required-concept coverage before downstream use.
+
+The technical-report harness extends that path into an LLM-ready report workflow. `plan_technical_report` turns semantic evidence and graph memory into a section, claim, and retrieval plan; `build_report_evidence_cards` converts source evidence, tables, facts, and approved graph edges into stable evidence cards; `prepare_report_agent_harness` writes `report_agent_harness.json`, a wake-up packet containing the report request, context refs, allowed tools, required skills, retrieval plan, evidence cards, graph context, claim contract, failure policy, LLM adapter contract, and verification gate; `draft_technical_report` consumes that harness through a typed `target_task` context ref; and `verify_technical_report` verifies claim traceability, graph approval, concept coverage, and refreshed wake-up context before downstream review.
 
 The current shadow semantic-learning path is also bounded. `export_semantic_supervision_corpus` exports reviewed semantic rows, semantic expectations, and grounded-document verification outcomes as durable JSON/JSONL supervision artifacts; `evaluate_semantic_candidate_extractor` compares a shadow candidate extractor against the lexical baseline on fixed documents and semantic expectations; `triage_semantic_candidate_disagreements` compacts the resulting candidate-only gaps into typed issues, verifier-style metrics, and bounded follow-up recommendations. `prepare_semantic_generation_brief` can also include shadow candidates in additive `shadow_candidates` fields without changing the live semantic dossier or grounded claims.
 
@@ -526,6 +554,11 @@ uv run docling-system-agent-task-create build_document_fact_graph --input-json '
 uv run docling-system-agent-task-create prepare_semantic_generation_brief --input-json '{"title":"Integration Governance Brief","goal":"Summarize the knowledge base guidance on integration governance.","audience":"Operators","document_ids":["<document_id>"],"target_length":"medium","review_policy":"allow_candidate_with_disclosure"}'
 uv run docling-system-agent-task-create draft_semantic_grounded_document --input-json '{"target_task_id":"<brief_task_id>"}'
 uv run docling-system-agent-task-create verify_semantic_grounded_document --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true}'
+uv run docling-system-agent-task-create plan_technical_report --input-json '{"title":"Integration Governance Technical Report","goal":"Write a technical report from the ingested integration evidence.","audience":"Operators","document_ids":["<document_id>"],"target_length":"medium","review_policy":"allow_candidate_with_disclosure"}'
+uv run docling-system-agent-task-create build_report_evidence_cards --input-json '{"target_task_id":"<plan_task_id>"}'
+uv run docling-system-agent-task-create prepare_report_agent_harness --input-json '{"target_task_id":"<evidence_task_id>"}'
+uv run docling-system-agent-task-create draft_technical_report --input-json '{"target_task_id":"<harness_task_id>","generator_mode":"structured_fallback"}'
+uv run docling-system-agent-task-create verify_technical_report --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true,"require_graph_edges_approved":true}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-analytics

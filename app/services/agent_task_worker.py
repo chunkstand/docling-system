@@ -159,6 +159,18 @@ def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
         brief = payload.get("brief") or {}
         evaluation_query_count = int(len(brief.get("claim_candidates") or []))
         call_count = 1
+    elif task.task_type == "plan_technical_report":
+        plan = payload.get("plan") or {}
+        evaluation_query_count = int(len(plan.get("expected_claims") or []))
+        call_count = 1
+    elif task.task_type == "build_report_evidence_cards":
+        evidence_bundle = payload.get("evidence_bundle") or {}
+        evaluation_query_count = int(len(evidence_bundle.get("evidence_cards") or []))
+        call_count = 1
+    elif task.task_type == "prepare_report_agent_harness":
+        harness = payload.get("harness") or {}
+        evaluation_query_count = int(len(harness.get("claim_contract") or []))
+        call_count = 1
     elif task.task_type == "initialize_workspace_ontology":
         snapshot = payload.get("snapshot") or {}
         evaluation_query_count = int(snapshot.get("concept_count") or 0)
@@ -199,17 +211,25 @@ def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
         draft = payload.get("draft") or {}
         evaluation_query_count = int(len(draft.get("claims") or []))
         call_count = 1
+    elif task.task_type == "draft_technical_report":
+        draft = payload.get("draft") or {}
+        evaluation_query_count = int(len(draft.get("claims") or []))
+        call_count = 1
     elif task.task_type in {
         "verify_search_harness_evaluation",
         "verify_draft_harness_config",
         "verify_draft_semantic_registry_update",
         "verify_semantic_grounded_document",
+        "verify_technical_report",
     }:
         metrics = verification.get("metrics") or {}
         if task.task_type == "verify_draft_semantic_registry_update":
             evaluation_query_count = int(metrics.get("document_count") or 0)
             call_count = max(int(metrics.get("document_count") or 0), 1) if metrics else 0
         elif task.task_type == "verify_semantic_grounded_document":
+            evaluation_query_count = int(metrics.get("claim_count") or 0)
+            call_count = 1 if metrics else 0
+        elif task.task_type == "verify_technical_report":
             evaluation_query_count = int(metrics.get("claim_count") or 0)
             call_count = 1 if metrics else 0
         else:

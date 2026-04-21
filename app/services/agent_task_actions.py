@@ -20,6 +20,8 @@ from app.schemas.agent_tasks import (
     ApplySemanticRegistryUpdateTaskOutput,
     BuildDocumentFactGraphTaskInput,
     BuildDocumentFactGraphTaskOutput,
+    BuildReportEvidenceCardsTaskInput,
+    BuildReportEvidenceCardsTaskOutput,
     BuildShadowSemanticGraphTaskInput,
     BuildShadowSemanticGraphTaskOutput,
     DiscoverSemanticBootstrapCandidatesTaskInput,
@@ -35,6 +37,8 @@ from app.schemas.agent_tasks import (
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskInput,
     DraftSemanticRegistryUpdateTaskOutput,
+    DraftTechnicalReportTaskInput,
+    DraftTechnicalReportTaskOutput,
     EnqueueDocumentReprocessTaskInput,
     EnqueueDocumentReprocessTaskOutput,
     EvaluateSearchHarnessTaskOutput,
@@ -56,6 +60,10 @@ from app.schemas.agent_tasks import (
     LatestSemanticPassTaskOutput,
     OptimizeSearchHarnessFromCaseTaskInput,
     OptimizeSearchHarnessFromCaseTaskOutput,
+    PlanTechnicalReportTaskInput,
+    PlanTechnicalReportTaskOutput,
+    PrepareReportAgentHarnessTaskInput,
+    PrepareReportAgentHarnessTaskOutput,
     PrepareSemanticGenerationBriefTaskInput,
     PrepareSemanticGenerationBriefTaskOutput,
     QualityEvalCandidatesTaskInput,
@@ -87,6 +95,8 @@ from app.schemas.agent_tasks import (
     VerifySearchHarnessEvaluationTaskOutput,
     VerifySemanticGroundedDocumentTaskInput,
     VerifySemanticGroundedDocumentTaskOutput,
+    VerifyTechnicalReportTaskInput,
+    VerifyTechnicalReportTaskOutput,
 )
 from app.schemas.search import (
     SearchHarnessEvaluationRequest,
@@ -100,6 +110,7 @@ from app.services.agent_task_context import (
     _build_apply_ontology_extension_context,
     _build_apply_semantic_registry_update_context,
     _build_build_document_fact_graph_context,
+    _build_build_report_evidence_cards_context,
     _build_build_shadow_semantic_graph_context,
     _build_discover_semantic_bootstrap_candidates_context,
     _build_draft_graph_promotions_context,
@@ -107,6 +118,7 @@ from app.services.agent_task_context import (
     _build_draft_ontology_extension_context,
     _build_draft_semantic_grounded_document_context,
     _build_draft_semantic_registry_update_context,
+    _build_draft_technical_report_context,
     _build_evaluate_search_harness_context,
     _build_evaluate_semantic_candidate_extractor_context,
     _build_evaluate_semantic_relation_extractor_context,
@@ -115,6 +127,8 @@ from app.services.agent_task_context import (
     _build_get_active_ontology_snapshot_context,
     _build_initialize_workspace_ontology_context,
     _build_latest_semantic_pass_context,
+    _build_plan_technical_report_context,
+    _build_prepare_report_agent_harness_context,
     _build_prepare_semantic_generation_brief_context,
     _build_triage_replay_regression_context,
     _build_triage_semantic_candidate_disagreements_context,
@@ -126,6 +140,7 @@ from app.services.agent_task_context import (
     _build_verify_draft_semantic_registry_update_context,
     _build_verify_search_harness_evaluation_context,
     _build_verify_semantic_grounded_document_context,
+    _build_verify_technical_report_context,
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
 )
@@ -196,6 +211,14 @@ from app.services.semantic_orchestration import (
 from app.services.semantic_registry import get_semantic_registry, persist_semantic_ontology_snapshot
 from app.services.semantics import get_active_semantic_pass_detail
 from app.services.storage import StorageService
+from app.services.technical_reports import (
+    build_report_evidence_cards,
+    draft_technical_report,
+    plan_technical_report,
+    prepare_report_agent_harness,
+    task_output_context_ref,
+    verify_technical_report,
+)
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
@@ -559,6 +582,263 @@ def _evaluate_semantic_candidate_extractor_executor(
     )
     return {
         **evaluation_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _plan_technical_report_executor(
+    session: Session,
+    task: AgentTask,
+    payload: PlanTechnicalReportTaskInput,
+) -> dict:
+    plan_payload = plan_technical_report(
+        session,
+        title=payload.title,
+        goal=payload.goal,
+        audience=payload.audience,
+        document_ids=list(payload.document_ids),
+        concept_keys=list(payload.concept_keys),
+        category_keys=list(payload.category_keys),
+        target_length=payload.target_length,
+        review_policy=payload.review_policy,
+        include_shadow_candidates=payload.include_shadow_candidates,
+        candidate_extractor_name=payload.candidate_extractor_name,
+        candidate_score_threshold=payload.candidate_score_threshold,
+        max_shadow_candidates=payload.max_shadow_candidates,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="technical_report_plan",
+        payload=plan_payload,
+        storage_service=StorageService(),
+        filename="technical_report_plan.json",
+    )
+    return {
+        "plan": plan_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _build_report_evidence_cards_executor(
+    session: Session,
+    task: AgentTask,
+    payload: BuildReportEvidenceCardsTaskInput,
+) -> dict:
+    plan_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="plan_technical_report",
+        expected_schema_name="plan_technical_report_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Evidence-card construction must declare the report plan as a target_task dependency."
+        ),
+        rerun_message=(
+            "Technical report plan must be rerun after the context migration "
+            "before evidence cards can be built."
+        ),
+    )
+    plan_output = PlanTechnicalReportTaskOutput.model_validate(plan_context.output)
+    evidence_bundle = build_report_evidence_cards(
+        plan_output.plan.model_dump(mode="json"),
+        plan_task_id=payload.target_task_id,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="technical_report_evidence_cards",
+        payload=evidence_bundle,
+        storage_service=StorageService(),
+        filename="technical_report_evidence_cards.json",
+    )
+    return {
+        "evidence_bundle": evidence_bundle,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _prepare_report_agent_harness_executor(
+    session: Session,
+    task: AgentTask,
+    payload: PrepareReportAgentHarnessTaskInput,
+) -> dict:
+    evidence_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="build_report_evidence_cards",
+        expected_schema_name="build_report_evidence_cards_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Report harness packaging must declare the evidence-card task "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Report evidence cards must be rerun after the context migration "
+            "before harness packaging."
+        ),
+    )
+    evidence_output = BuildReportEvidenceCardsTaskOutput.model_validate(evidence_context.output)
+    upstream_context_refs = [
+        task_output_context_ref(
+            ref_key="evidence_cards_task_output",
+            summary="Typed evidence-card bundle consumed by this report harness.",
+            task_id=evidence_context.task_id,
+            schema_name=evidence_context.output_schema_name,
+            schema_version=evidence_context.output_schema_version,
+            output=evidence_context.output,
+            source_updated_at=evidence_context.task_updated_at,
+            freshness_status=evidence_context.freshness_status,
+        ),
+        *evidence_context.refs,
+    ]
+    harness_payload = prepare_report_agent_harness(
+        evidence_output.evidence_bundle.model_dump(mode="json"),
+        harness_task_id=task.id,
+        evidence_task_id=payload.target_task_id,
+        upstream_context_refs=upstream_context_refs,
+    )
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="report_agent_harness",
+        payload=harness_payload,
+        storage_service=StorageService(),
+        filename="report_agent_harness.json",
+    )
+    return {
+        "harness": harness_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _draft_technical_report_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftTechnicalReportTaskInput,
+) -> dict:
+    harness_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="prepare_report_agent_harness",
+        expected_schema_name="prepare_report_agent_harness_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Technical report drafting must declare the report harness "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Report agent harness must be rerun after the context migration before drafting."
+        ),
+    )
+    harness_output = PrepareReportAgentHarnessTaskOutput.model_validate(harness_context.output)
+    draft_payload = draft_technical_report(
+        harness_output.harness.model_dump(mode="json"),
+        harness_task_id=payload.target_task_id,
+        generator_mode=payload.generator_mode,
+        generator_model=payload.generator_model,
+        llm_draft_markdown=payload.llm_draft_markdown,
+    )
+    storage_service = StorageService()
+    markdown_path = storage_service.get_agent_task_dir(task.id) / "technical_report_draft.md"
+    markdown_path.write_text(draft_payload["markdown"])
+    draft_payload["markdown_path"] = str(markdown_path)
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="technical_report_draft",
+        payload=draft_payload,
+        storage_service=storage_service,
+        filename="technical_report_draft.json",
+    )
+    return {
+        "draft": draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_technical_report_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifyTechnicalReportTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_technical_report",
+        expected_schema_name="draft_technical_report_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Technical report verification must declare the report draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Technical report draft must be rerun after the context migration before verification."
+        ),
+    )
+    draft_output = DraftTechnicalReportTaskOutput.model_validate(draft_context.output)
+    draft_payload = draft_output.draft.model_dump(mode="json")
+    draft_payload["llm_adapter_contract"] = {
+        **(draft_payload.get("llm_adapter_contract") or {}),
+        "harness_context_refs": [ref.model_dump(mode="json") for ref in draft_context.refs],
+    }
+    outcome = verify_technical_report(
+        draft_payload,
+        max_unsupported_claim_count=payload.max_unsupported_claim_count,
+        require_full_claim_traceability=payload.require_full_claim_traceability,
+        require_full_concept_coverage=payload.require_full_concept_coverage,
+        require_graph_edges_approved=payload.require_graph_edges_approved,
+        block_stale_context=payload.block_stale_context,
+    )
+    details = {
+        **outcome.verification_details,
+        "target_task_id": str(draft_context.task_id),
+        "target_task_type": draft_context.task_type,
+    }
+    record = create_agent_task_verification_record(
+        session,
+        target_task_id=draft_context.task_id,
+        verification_task_id=task.id,
+        verifier_type="technical_report_gate",
+        outcome=outcome.verification_outcome,
+        metrics=outcome.verification_metrics,
+        reasons=outcome.verification_reasons,
+        details=details,
+    )
+    result = {
+        "draft": draft_payload,
+        "summary": outcome.summary,
+        "success_metrics": outcome.success_metrics,
+        "verification": record.model_dump(mode="json"),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="technical_report_verification",
+        payload=result,
+        storage_service=StorageService(),
+        filename="technical_report_verification.json",
+    )
+    return {
+        **result,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
@@ -2456,6 +2736,93 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "expected_min_shared_documents": 1,
         },
         context_builder=_build_evaluate_semantic_relation_extractor_context,
+    ),
+    "plan_technical_report": AgentTaskActionDefinition(
+        task_type="plan_technical_report",
+        definition_kind="workflow",
+        description=(
+            "Plan a technical report from semantic evidence, graph memory, "
+            "and retrieval requirements."
+        ),
+        payload_model=PlanTechnicalReportTaskInput,
+        executor=_plan_technical_report_executor,
+        output_model=PlanTechnicalReportTaskOutput,
+        output_schema_name="plan_technical_report_output",
+        output_schema_version="1.0",
+        input_example={
+            "title": "Integration Governance Technical Report",
+            "goal": "Write a technical report grounded in ingested integration evidence.",
+            "audience": "Operators",
+            "document_ids": ["00000000-0000-0000-0000-000000000000"],
+            "target_length": "medium",
+            "review_policy": "allow_candidate_with_disclosure",
+        },
+        context_builder=_build_plan_technical_report_context,
+    ),
+    "build_report_evidence_cards": AgentTaskActionDefinition(
+        task_type="build_report_evidence_cards",
+        definition_kind="workflow",
+        description="Bind a technical report plan to typed evidence cards and graph refs.",
+        payload_model=BuildReportEvidenceCardsTaskInput,
+        executor=_build_report_evidence_cards_executor,
+        output_model=BuildReportEvidenceCardsTaskOutput,
+        output_schema_name="build_report_evidence_cards_output",
+        output_schema_version="1.0",
+        input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_build_report_evidence_cards_context,
+    ),
+    "prepare_report_agent_harness": AgentTaskActionDefinition(
+        task_type="prepare_report_agent_harness",
+        definition_kind="workflow",
+        description=(
+            "Package the LLM wake-up context with tools, skills, evidence cards, "
+            "graph memory, and verifier gates."
+        ),
+        payload_model=PrepareReportAgentHarnessTaskInput,
+        executor=_prepare_report_agent_harness_executor,
+        output_model=PrepareReportAgentHarnessTaskOutput,
+        output_schema_name="prepare_report_agent_harness_output",
+        output_schema_version="1.0",
+        input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
+        context_builder=_build_prepare_report_agent_harness_context,
+    ),
+    "draft_technical_report": AgentTaskActionDefinition(
+        task_type="draft_technical_report",
+        definition_kind="draft",
+        description="Draft a verification-ready technical report from a report agent harness.",
+        payload_model=DraftTechnicalReportTaskInput,
+        executor=_draft_technical_report_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftTechnicalReportTaskOutput,
+        output_schema_name="draft_technical_report_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "generator_mode": "structured_fallback",
+        },
+        context_builder=_build_draft_technical_report_context,
+    ),
+    "verify_technical_report": AgentTaskActionDefinition(
+        task_type="verify_technical_report",
+        definition_kind="verifier",
+        description=(
+            "Verify technical report claim traceability, graph approval, citations, "
+            "and wake-up context."
+        ),
+        payload_model=VerifyTechnicalReportTaskInput,
+        executor=_verify_technical_report_executor,
+        output_model=VerifyTechnicalReportTaskOutput,
+        output_schema_name="verify_technical_report_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "max_unsupported_claim_count": 0,
+            "require_full_claim_traceability": True,
+            "require_full_concept_coverage": True,
+            "require_graph_edges_approved": True,
+            "block_stale_context": False,
+        },
+        context_builder=_build_verify_technical_report_context,
     ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",

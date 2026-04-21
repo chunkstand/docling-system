@@ -26,6 +26,7 @@ from app.schemas.agent_tasks import (
     ApplyOntologyExtensionTaskOutput,
     ApplySemanticRegistryUpdateTaskOutput,
     BuildDocumentFactGraphTaskOutput,
+    BuildReportEvidenceCardsTaskOutput,
     BuildShadowSemanticGraphTaskOutput,
     ContextFreshnessStatus,
     ContextRef,
@@ -35,6 +36,7 @@ from app.schemas.agent_tasks import (
     DraftOntologyExtensionTaskOutput,
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskOutput,
+    DraftTechnicalReportTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     EvaluateSemanticCandidateExtractorTaskOutput,
     EvaluateSemanticRelationExtractorTaskOutput,
@@ -42,6 +44,8 @@ from app.schemas.agent_tasks import (
     GetActiveOntologySnapshotTaskOutput,
     InitializeWorkspaceOntologyTaskOutput,
     LatestSemanticPassTaskOutput,
+    PlanTechnicalReportTaskOutput,
+    PrepareReportAgentHarnessTaskOutput,
     PrepareSemanticGenerationBriefTaskOutput,
     TaskContextEnvelope,
     TaskContextSummary,
@@ -55,6 +59,7 @@ from app.schemas.agent_tasks import (
     VerifyDraftSemanticRegistryUpdateTaskOutput,
     VerifySearchHarnessEvaluationTaskOutput,
     VerifySemanticGroundedDocumentTaskOutput,
+    VerifyTechnicalReportTaskOutput,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.storage import StorageService
@@ -68,6 +73,56 @@ def _payload_sha256(payload: dict) -> str:
         default=str,
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _artifact_context_ref(
+    session: Session,
+    *,
+    task: AgentTask,
+    artifact_id: UUID,
+    action,
+    ref_key: str,
+    summary: str,
+    now,
+) -> ContextRef | None:
+    artifact_row = session.get(AgentTaskArtifact, artifact_id)
+    if artifact_row is None:
+        return None
+    return ContextRef(
+        ref_key=ref_key,
+        ref_kind="artifact",
+        summary=summary,
+        task_id=task.id,
+        artifact_id=artifact_row.id,
+        artifact_kind=artifact_row.artifact_kind,
+        schema_name=action.output_schema_name,
+        schema_version=action.output_schema_version,
+        observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+        source_updated_at=artifact_row.created_at,
+        checked_at=now,
+        freshness_status=ContextFreshnessStatus.FRESH,
+    )
+
+
+def _task_output_context_ref(
+    *,
+    ref_key: str,
+    summary: str,
+    context: TaskContextEnvelope,
+    now,
+) -> ContextRef:
+    return ContextRef(
+        ref_key=ref_key,
+        ref_kind="task_output",
+        summary=summary,
+        task_id=context.task_id,
+        schema_name=context.output_schema_name,
+        schema_version=context.output_schema_version,
+        observed_sha256=_payload_sha256(context.output),
+        source_updated_at=context.task_updated_at,
+        checked_at=now,
+        freshness_status=context.freshness_status or ContextFreshnessStatus.FRESH,
+    )
 
 
 def _derive_freshness_status(refs: list[ContextRef]) -> ContextFreshnessStatus | None:
@@ -2893,6 +2948,393 @@ def _build_verify_semantic_grounded_document_context(
             "required_concept_coverage_ratio": output.summary.get(
                 "required_concept_coverage_ratio"
             ),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_plan_technical_report_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = PlanTechnicalReportTaskOutput.model_validate(payload)
+    now = utcnow()
+    refs: list[ContextRef] = []
+    artifact_ref = _artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="technical_report_plan_artifact",
+        summary="Persisted technical report plan and semantic source brief.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+    summary = TaskContextSummary(
+        headline=(
+            f"Planned technical report {output.plan.title!r} with "
+            f"{len(output.plan.sections)} section(s)."
+        ),
+        goal="Turn the semantic dossier into a section, claim, graph, and retrieval plan.",
+        decision="The report plan is ready for evidence-card construction.",
+        next_action="Create build_report_evidence_cards to bind planned claims to evidence cards.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "section_count": len(output.plan.sections),
+            "expected_claim_count": len(output.plan.expected_claims),
+            "expected_graph_edge_count": len(output.plan.expected_graph_edge_ids),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_build_report_evidence_cards_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = BuildReportEvidenceCardsTaskOutput.model_validate(payload)
+    now = utcnow()
+    plan_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.evidence_bundle.plan_task_id,
+        dependency_kind="target_task",
+        expected_task_type="plan_technical_report",
+        expected_schema_name="plan_technical_report_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Evidence-card construction must declare the report plan as a target_task dependency."
+        ),
+        rerun_message=(
+            "Technical report plan must be rerun after the context migration "
+            "before evidence cards can be built."
+        ),
+    )
+    refs: list[ContextRef] = [
+        _task_output_context_ref(
+            ref_key="plan_task_output",
+            summary="Typed technical report plan consumed by this evidence-card task.",
+            context=plan_context,
+            now=now,
+        )
+    ]
+    artifact_ref = _artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="evidence_cards_artifact",
+        summary="Persisted technical report evidence-card bundle.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+    summary = TaskContextSummary(
+        headline=(
+            f"Built {len(output.evidence_bundle.evidence_cards)} evidence card(s) "
+            f"for {output.evidence_bundle.plan.title!r}."
+        ),
+        goal="Bind report claims to typed source evidence, facts, tables, and graph edges.",
+        decision="Evidence cards are ready for wake-up harness packaging.",
+        next_action="Create prepare_report_agent_harness to package the LLM wake-up context.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "evidence_card_count": len(output.evidence_bundle.evidence_cards),
+            "claim_contract_count": len(output.evidence_bundle.claim_evidence_map),
+            "graph_edge_count": len(output.evidence_bundle.graph_context),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_prepare_report_agent_harness_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = PrepareReportAgentHarnessTaskOutput.model_validate(payload)
+    now = utcnow()
+    evidence_task_id = UUID(str(output.harness.workflow_state["evidence_task_id"]))
+    evidence_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=evidence_task_id,
+        dependency_kind="target_task",
+        expected_task_type="build_report_evidence_cards",
+        expected_schema_name="build_report_evidence_cards_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Report harness packaging must declare the evidence-card task "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Report evidence cards must be rerun after the context migration "
+            "before harness packaging."
+        ),
+    )
+    refs: list[ContextRef] = [
+        _task_output_context_ref(
+            ref_key="evidence_cards_task_output",
+            summary="Typed evidence-card bundle consumed by this report harness.",
+            context=evidence_context,
+            now=now,
+        )
+    ]
+    artifact_ref = _artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="report_agent_harness_artifact",
+        summary="LLM wake-up harness with tools, skills, evidence cards, and checks.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+    summary = TaskContextSummary(
+        headline=(
+            f"Prepared report wake-up harness for {output.harness.report_request['title']!r}."
+        ),
+        goal=(
+            "Package the correct context, tools, skills, evidence, "
+            "graph memory, and verifier gate."
+        ),
+        decision="The harness is ready for draft_technical_report.",
+        next_action="Create draft_technical_report to render a verification-ready report draft.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "tool_count": len(output.harness.allowed_tools),
+            "skill_count": len(output.harness.required_skills),
+            "evidence_card_count": len(output.harness.evidence_cards),
+            "claim_contract_count": len(output.harness.claim_contract),
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_draft_technical_report_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = DraftTechnicalReportTaskOutput.model_validate(payload)
+    now = utcnow()
+    harness_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.draft.harness_task_id,
+        dependency_kind="target_task",
+        expected_task_type="prepare_report_agent_harness",
+        expected_schema_name="prepare_report_agent_harness_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Technical report drafting must declare the report harness "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Report agent harness must be rerun after the context migration before drafting."
+        ),
+    )
+    refs: list[ContextRef] = [
+        _task_output_context_ref(
+            ref_key="report_agent_harness_task_output",
+            summary="Typed report wake-up harness consumed by this draft task.",
+            context=harness_context,
+            now=now,
+        )
+    ]
+    artifact_ref = _artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="technical_report_draft_artifact",
+        summary="Persisted technical report draft and markdown sidecar.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+    summary = TaskContextSummary(
+        headline=(
+            f"Drafted technical report {output.draft.title!r} with "
+            f"{len(output.draft.claims)} claim(s)."
+        ),
+        goal="Render the report harness into a verification-ready technical report.",
+        decision="Draft created and ready for technical report verification.",
+        next_action="Create verify_technical_report to enforce evidence, graph, and context gates.",
+        approval_state="not_required",
+        verification_state="pending",
+        metrics={
+            "section_count": len(output.draft.sections),
+            "claim_count": len(output.draft.claims),
+            "blocked_claim_count": len(output.draft.blocked_claims),
+            "generator_mode": output.draft.generator_mode,
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
+def _build_verify_technical_report_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = VerifyTechnicalReportTaskOutput.model_validate(payload)
+    now = utcnow()
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.verification.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_technical_report",
+        expected_schema_name="draft_technical_report_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Technical report verification must declare the report draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Technical report draft must be rerun after the context migration before verification."
+        ),
+    )
+    refs: list[ContextRef] = [
+        _task_output_context_ref(
+            ref_key="technical_report_draft_task_output",
+            summary="Typed technical report draft consumed by this verification task.",
+            context=draft_context,
+            now=now,
+        )
+    ]
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the technical report gate.",
+                task_id=output.verification.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+    artifact_ref = _artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="technical_report_verification_artifact",
+        summary="Persisted technical report verification artifact.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+    summary = TaskContextSummary(
+        headline=(
+            f"Verified technical report {output.draft.title!r} with "
+            f"{output.summary.get('claim_count', 0)} claim(s)."
+        ),
+        goal="Verify report claim traceability, graph approval, citations, and wake-up context.",
+        decision=(
+            "Verification passed; the technical report is ready for review."
+            if output.verification.outcome == "passed"
+            else "Verification failed; revise the technical report before review."
+        ),
+        next_action=(
+            "Record an operator outcome or use the verified report downstream."
+            if output.verification.outcome == "passed"
+            else "Revise the draft or evidence harness and rerun verification."
+        ),
+        approval_state="not_required",
+        verification_state=output.verification.outcome,
+        metrics={
+            "claim_count": output.summary.get("claim_count"),
+            "unsupported_claim_count": output.summary.get("unsupported_claim_count"),
+            "traceable_claim_ratio": output.summary.get("traceable_claim_ratio"),
+            "context_blocker_count": output.summary.get("context_blocker_count"),
         },
     )
     return TaskContextEnvelope(

@@ -490,23 +490,49 @@ The current registry includes:
 
 - `get_latest_evaluation`
 - `get_latest_semantic_pass`
+- `initialize_workspace_ontology`
+- `get_active_ontology_snapshot`
+- `discover_semantic_bootstrap_candidates`
+- `export_semantic_supervision_corpus`
+- `evaluate_semantic_candidate_extractor`
+- `build_shadow_semantic_graph`
+- `evaluate_semantic_relation_extractor`
+- `plan_technical_report`
+- `build_report_evidence_cards`
+- `prepare_report_agent_harness`
+- `draft_technical_report`
+- `verify_technical_report`
 - `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
+- `refresh_eval_failure_cases`
+- `inspect_eval_failure_case`
+- `triage_eval_failure_case`
+- `optimize_search_harness_from_case`
+- `draft_harness_config_update_from_optimization`
 - `replay_search_request`
 - `run_search_replay_suite`
 - `evaluate_search_harness`
 - `verify_search_harness_evaluation`
 - `draft_harness_config_update`
-- `draft_semantic_grounded_document`
+- `draft_semantic_registry_update`
+- `draft_ontology_extension`
+- `draft_graph_promotions`
 - `verify_draft_harness_config`
+- `verify_draft_semantic_registry_update`
+- `verify_draft_ontology_extension`
+- `verify_draft_graph_promotions`
+- `draft_semantic_grounded_document`
 - `verify_semantic_grounded_document`
 - `triage_replay_regression`
 - `triage_semantic_pass`
+- `triage_semantic_candidate_disagreements`
+- `triage_semantic_graph_disagreements`
 - `enqueue_document_reprocess`
 - `apply_harness_config_update`
-- `draft_semantic_registry_update`
-- `verify_draft_semantic_registry_update`
 - `apply_semantic_registry_update`
+- `apply_ontology_extension`
+- `apply_graph_promotions`
+- `build_document_fact_graph`
 
 ### Current task guarantees
 
@@ -586,6 +612,7 @@ Current workflow-heavy paths include:
 - `prepare_semantic_generation_brief` can also expose additive `shadow_candidates` and `shadow_candidate_summary` fields from the candidate layer while keeping grounded drafting tied only to the live dossier
 - `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
 - `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
+- `plan_technical_report -> build_report_evidence_cards -> prepare_report_agent_harness -> draft_technical_report -> verify_technical_report`, which turns the semantic dossier and approved graph memory into a report plan, typed evidence cards, an LLM wake-up packet with allowed tools and required skills, a verification-ready report draft, and a verifier gate that checks refreshed context, claim traceability, graph approval, and concept coverage
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`
