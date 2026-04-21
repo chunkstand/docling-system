@@ -176,7 +176,9 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         return task.id
 
 
-def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypatch, tmp_path) -> None:
+def test_semantic_orchestration_roundtrip(
+    postgres_integration_harness, monkeypatch, tmp_path
+) -> None:
     registry_path = tmp_path / "config" / "semantic_registry.yaml"
     eval_corpus_path = tmp_path / "docs" / "semantic_evaluation_corpus.yaml"
     _write_registry(registry_path)
@@ -200,7 +202,9 @@ def test_semantic_orchestration_roundtrip(postgres_integration_harness, monkeypa
     document_id = UUID(create_response.json()["document_id"])
     original_run_id = UUID(create_response.json()["run_id"])
 
-    processed_run_id = postgres_integration_harness.process_next_run(StubParser(_build_parsed_document()))
+    processed_run_id = postgres_integration_harness.process_next_run(
+        StubParser(_build_parsed_document())
+    )
     assert processed_run_id == original_run_id
 
     semantics_response = client.get(f"/documents/{document_id}/semantics/latest")

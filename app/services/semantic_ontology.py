@@ -84,7 +84,9 @@ def _ontology_snapshot_success_metrics(snapshot_payload: dict[str, Any]) -> list
             "metric_key": "owned_context",
             "stakeholder": "Jones",
             "passed": bool(snapshot_payload.get("snapshot_id")),
-            "summary": "Ontology state is stored in the workspace database, not in repo-local folklore.",
+            "summary": (
+                "Ontology state is stored in the workspace database, not in repo-local folklore."
+            ),
             "details": {
                 "snapshot_id": str(snapshot_payload.get("snapshot_id") or ""),
             },
@@ -92,7 +94,8 @@ def _ontology_snapshot_success_metrics(snapshot_payload: dict[str, Any]) -> list
         {
             "metric_key": "explicit_control_surface",
             "stakeholder": "Ronacher",
-            "passed": snapshot_payload.get("source_kind") in {
+            "passed": snapshot_payload.get("source_kind")
+            in {
                 SemanticOntologySourceKind.UPPER_SEED.value,
                 SemanticOntologySourceKind.ONTOLOGY_EXTENSION_APPLY.value,
             },
@@ -201,7 +204,9 @@ def verify_draft_ontology_extension(
     max_regressed_document_count: int,
     max_failed_expectation_increase: int,
     min_improved_document_count: int,
-) -> tuple[list[dict[str, Any]], dict[str, Any], dict[str, Any], list[str], str, list[dict[str, Any]]]:
+) -> tuple[
+    list[dict[str, Any]], dict[str, Any], dict[str, Any], list[str], str, list[dict[str, Any]]
+]:
     resolved_document_ids = document_ids or list(draft.get("document_ids") or [])
     if not resolved_document_ids:
         raise ValueError("Ontology extension verification requires at least one document.")

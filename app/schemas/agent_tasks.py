@@ -10,9 +10,11 @@ from app.schemas.documents import DocumentUploadResponse
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.quality import QualityEvaluationCandidateResponse
 from app.schemas.search import (
+    SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationResponse,
     SearchReplayResponse,
     SearchReplayRunDetailResponse,
+    SearchRequestExplanationResponse,
 )
 from app.schemas.semantics import DocumentSemanticPassResponse
 
@@ -150,6 +152,11 @@ class TaskContextSummary(BaseModel):
     next_action: str | None = None
     approval_state: str | None = None
     verification_state: str | None = None
+    problem: str | None = None
+    evidence: str | None = None
+    proposed_change: str | None = None
+    predicted_risk: str | None = None
+    follow_up_status: str | None = None
     metrics: dict = Field(default_factory=dict)
 
 
@@ -1615,6 +1622,38 @@ class TriageRecommendationPayload(BaseModel):
     summary: str
 
 
+class RepairCaseExamplePayload(BaseModel):
+    source_type: str
+    query_text: str
+    mode: str
+    filters: dict = Field(default_factory=dict)
+    baseline_passed: bool | None = None
+    candidate_passed: bool | None = None
+    baseline_result_count: int | None = None
+    candidate_result_count: int | None = None
+    baseline_search_request_id: UUID | None = None
+    candidate_search_request_id: UUID | None = None
+    baseline_explanation: SearchRequestExplanationResponse | None = None
+    candidate_explanation: SearchRequestExplanationResponse | None = None
+
+
+class RepairCasePayload(BaseModel):
+    schema_name: str = "search_harness_repair_case"
+    schema_version: str = "1.0"
+    candidate_harness_name: str
+    baseline_harness_name: str
+    failure_classification: str
+    problem_statement: str
+    observed_metric_delta: dict = Field(default_factory=dict)
+    affected_result_types: list[str] = Field(default_factory=list)
+    likely_root_cause: str | None = None
+    allowed_repair_surface: list[str] = Field(default_factory=list)
+    blocked_repair_surfaces: list[str] = Field(default_factory=list)
+    recommended_next_action: str
+    diagnostic_examples: list[RepairCaseExamplePayload] = Field(default_factory=list)
+    evidence_refs: list[dict] = Field(default_factory=list)
+
+
 class TriageReplayRegressionTaskOutput(BaseModel):
     shadow_mode: bool = True
     triage_kind: str
@@ -1625,14 +1664,32 @@ class TriageReplayRegressionTaskOutput(BaseModel):
     evaluation: SearchHarnessEvaluationResponse
     verification: AgentTaskVerificationResponse
     recommendation: TriageRecommendationPayload
+    repair_case: RepairCasePayload | None = None
+    repair_case_artifact_id: UUID | None = None
+    repair_case_artifact_kind: str | None = None
+    repair_case_artifact_path: str | None = None
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
 
 
+class HarnessComprehensionGatePayload(BaseModel):
+    comprehension_passed: bool
+    claim_evidence_alignment: str
+    change_justification: str
+    predicted_blast_radius: dict = Field(default_factory=dict)
+    rollback_condition: str
+    follow_up_plan: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    harness_descriptor: SearchHarnessDescriptorResponse | None = None
+    repair_case: RepairCasePayload | None = None
+
+
 class VerifyDraftHarnessConfigTaskOutput(BaseModel):
     draft: DraftHarnessConfigPayload
     evaluation: dict = Field(default_factory=dict)
+    comprehension_gate: HarnessComprehensionGatePayload | None = None
+    follow_up_plan: dict = Field(default_factory=dict)
     verification: AgentTaskVerificationResponse
     artifact_id: UUID
     artifact_kind: str
@@ -1647,6 +1704,12 @@ class ApplyHarnessConfigUpdateTaskOutput(BaseModel):
     config_path: str
     applied_override: dict = Field(default_factory=dict)
     effective_harness_config: dict = Field(default_factory=dict)
+    follow_up_plan: dict = Field(default_factory=dict)
+    follow_up_evaluation: dict = Field(default_factory=dict)
+    follow_up_summary: dict = Field(default_factory=dict)
+    follow_up_artifact_id: UUID | None = None
+    follow_up_artifact_kind: str | None = None
+    follow_up_artifact_path: str | None = None
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None

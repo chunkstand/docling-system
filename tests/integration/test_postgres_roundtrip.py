@@ -8,6 +8,7 @@ from uuid import UUID
 import pytest
 
 from app.core.config import get_settings
+from app.db.models import SemanticGraphSourceKind, SemanticOntologySourceKind
 from app.services.docling_parser import (
     ParsedChunk,
     ParsedDocument,
@@ -15,7 +16,6 @@ from app.services.docling_parser import (
     ParsedTable,
     ParsedTableSegment,
 )
-from app.db.models import SemanticGraphSourceKind, SemanticOntologySourceKind
 from app.services.semantic_graph import persist_semantic_graph_snapshot
 from app.services.semantic_registry import (
     clear_semantic_registry_cache,
@@ -277,18 +277,24 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert assertions_by_concept["integration_threshold"]["review_status"] == "candidate"
     assert assertions_by_concept["integration_threshold"]["category_bindings"] == [
         {
-            "binding_id": assertions_by_concept["integration_threshold"]["category_bindings"][0]["binding_id"],
+            "binding_id": assertions_by_concept["integration_threshold"]["category_bindings"][0][
+                "binding_id"
+            ],
             "category_key": "integration_governance",
             "category_label": "Integration Governance",
             "binding_type": "assertion_category",
             "created_from": "derived",
             "review_status": "candidate",
-            "details": assertions_by_concept["integration_threshold"]["category_bindings"][0]["details"],
+            "details": assertions_by_concept["integration_threshold"]["category_bindings"][0][
+                "details"
+            ],
         }
     ]
     assert assertions_by_concept["system_diagram"]["category_bindings"] == [
         {
-            "binding_id": assertions_by_concept["system_diagram"]["category_bindings"][0]["binding_id"],
+            "binding_id": assertions_by_concept["system_diagram"]["category_bindings"][0][
+                "binding_id"
+            ],
             "category_key": "system_representation",
             "category_label": "System Representation",
             "binding_type": "assertion_category",
@@ -330,7 +336,9 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         client.get(f"/documents/{document_id}/figures/{figure_id}/artifacts/yaml").status_code
         == 200
     )
-    semantic_artifact_response = client.get(f"/documents/{document_id}/semantics/latest/artifacts/json")
+    semantic_artifact_response = client.get(
+        f"/documents/{document_id}/semantics/latest/artifacts/json"
+    )
     assert semantic_artifact_response.status_code == 200
     semantic_artifact = semantic_artifact_response.json()
     assert semantic_artifact["schema_name"] == "docling.semantic_pass"
@@ -360,7 +368,10 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
     assert artifact_threshold_assertion["epistemic_status"] == "observed"
     assert artifact_threshold_assertion["context_scope"] == "document_run"
     assert artifact_threshold_assertion["review_status"] == "candidate"
-    assert artifact_threshold_assertion["category_bindings"][0]["category_key"] == "integration_governance"
+    assert (
+        artifact_threshold_assertion["category_bindings"][0]["category_key"]
+        == "integration_governance"
+    )
     assert artifact_threshold_assertion["category_bindings"][0]["review_status"] == "candidate"
     assert "source_artifact_path" not in artifact_threshold_table_evidence
     assert "yaml_artifact_path" not in artifact_threshold_table_evidence["details"]
@@ -456,9 +467,12 @@ def test_semantic_reviews_persist_across_reruns_and_emit_continuity(
         "Confirmed governance concept for this document."
     )
     assert reviewed_threshold_assertion["category_bindings"][0]["review_status"] == "approved"
-    assert reviewed_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
-        "review_note"
-    ] == "Confirmed category binding for governance."
+    assert (
+        reviewed_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
+            "review_note"
+        ]
+        == "Confirmed category binding for governance."
+    )
 
     reviewed_artifact = client.get(f"/documents/{document_id}/semantics/latest/artifacts/json")
     assert reviewed_artifact.status_code == 200
@@ -698,7 +712,11 @@ relations:
                     "nodes": [],
                     "edges": [
                         {
-                            "edge_id": "graph_edge:concept_related_to_concept:concept:incident_response_latency:concept:vendor_escalation_owner",
+                            "edge_id": (
+                                "graph_edge:concept_related_to_concept:"
+                                "concept:incident_response_latency:"
+                                "concept:vendor_escalation_owner"
+                            ),
                             "relation_key": "concept_related_to_concept",
                         }
                     ],
@@ -848,9 +866,12 @@ concepts:
         "Carry this approval across additive registry versions."
     )
     assert latest_threshold_assertion["category_bindings"][0]["review_status"] == "approved"
-    assert latest_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
-        "review_note"
-    ] == "Carry this binding approval across additive registry versions."
+    assert (
+        latest_threshold_assertion["category_bindings"][0]["details"]["review_overlay"][
+            "review_note"
+        ]
+        == "Carry this binding approval across additive registry versions."
+    )
 
 
 def test_failed_reprocess_does_not_replace_active_run(postgres_integration_harness) -> None:

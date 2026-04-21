@@ -333,8 +333,7 @@ def _evaluate_override_candidate(
 def _artifact_path(candidate_harness_name: str) -> Path:
     timestamp = utcnow().strftime("%Y%m%dT%H%M%SZ")
     safe_name = "".join(
-        char if char.isalnum() or char in {"-", "_"} else "_"
-        for char in candidate_harness_name
+        char if char.isalnum() or char in {"-", "_"} else "_" for char in candidate_harness_name
     )
     return (
         get_settings().storage_root.resolve()
@@ -351,9 +350,7 @@ def run_search_harness_optimization_loop(
         raise ValueError("candidate_harness_name must differ from baseline_harness_name.")
 
     base_harness = get_search_harness(request.base_harness_name)
-    tuned_fields = _validate_tuning_fields(
-        request.tune_fields or list(DEFAULT_TUNING_FIELDS)
-    )
+    tuned_fields = _validate_tuning_fields(request.tune_fields or list(DEFAULT_TUNING_FIELDS))
 
     best_override_spec = _base_override_spec(request)
     best_evaluation, best_gate_outcome, best_score = _evaluate_override_candidate(

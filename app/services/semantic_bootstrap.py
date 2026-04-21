@@ -226,8 +226,7 @@ def _bootstrap_success_metrics(report: dict) -> list[dict]:
             "stakeholder": "Jones",
             "passed": bool(candidates) and bool(report.get("document_count")),
             "summary": (
-                "The system exports owned semantic bootstrap context for "
-                "arbitrary user data."
+                "The system exports owned semantic bootstrap context for arbitrary user data."
             ),
             "details": {
                 "document_count": report.get("document_count"),
@@ -238,8 +237,7 @@ def _bootstrap_success_metrics(report: dict) -> list[dict]:
             "stakeholder": "Yegge",
             "passed": len(candidates) <= max(report.get("total_source_count") or 1, 1),
             "summary": (
-                "Bootstrap discovery compacts many raw sources into a smaller "
-                "candidate set."
+                "Bootstrap discovery compacts many raw sources into a smaller candidate set."
             ),
             "details": {
                 "candidate_count": len(candidates),

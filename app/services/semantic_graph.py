@@ -673,8 +673,7 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "stakeholder": "Jones",
             "passed": bool(payload.get("document_ids")) and payload.get("edge_count", 0) >= 0,
             "summary": (
-                "Cross-document semantic context is externalized as a durable "
-                "graph artifact."
+                "Cross-document semantic context is externalized as a durable graph artifact."
             ),
             "details": {
                 "document_count": payload.get("document_count"),
@@ -686,8 +685,7 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "stakeholder": "Yegge",
             "passed": len(edges) <= max(total_support_ref_count, 1),
             "summary": (
-                "The graph compacts many supporting traces into a smaller "
-                "edge memory surface."
+                "The graph compacts many supporting traces into a smaller edge memory surface."
             ),
             "details": {
                 "edge_count": len(edges),
@@ -700,8 +698,7 @@ def _graph_success_metrics(payload: dict[str, Any]) -> list[dict[str, Any]]:
             "passed": payload.get("extractor", {}).get("extractor_name")
             in {DEFAULT_GRAPH_BASELINE_EXTRACTOR, DEFAULT_GRAPH_CANDIDATE_EXTRACTOR},
             "summary": (
-                "The graph builder stays extractor-swappable and free of "
-                "domain-specific rules."
+                "The graph builder stays extractor-swappable and free of domain-specific rules."
             ),
             "details": {
                 "extractor_name": payload.get("extractor", {}).get("extractor_name"),
@@ -868,8 +865,7 @@ def _evaluation_success_metrics(summary: dict[str, Any]) -> list[dict[str, Any]]
             "stakeholder": "Lopopolo",
             "passed": bool(summary.get("document_count")),
             "summary": (
-                "Extractor evaluation persists typed edge comparisons and "
-                "aggregate metrics."
+                "Extractor evaluation persists typed edge comparisons and aggregate metrics."
             ),
             "details": {
                 "document_count": summary["document_count"],
@@ -1466,8 +1462,7 @@ def draft_graph_promotions(
                 "stakeholder": "Ronacher",
                 "passed": True,
                 "summary": (
-                    "Graph promotion remains a draft artifact until "
-                    "verification and approval."
+                    "Graph promotion remains a draft artifact until verification and approval."
                 ),
                 "details": {"promoted_edge_count": len(source_edges)},
             },

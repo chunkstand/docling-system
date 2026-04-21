@@ -194,6 +194,8 @@ What is now true:
 - document ingest admission is more consistent across entry paths
 - remote ingest can shed load when inflight document runs are already at capacity
 - durable run resources are first-class and directly readable
+- direct application `HTTPException` construction is centralized through `api_error(...)`
+- agent-task creation rejects dependency graphs that already contain cycles
 - the current full unit/integration test suite is green in local verification
 
 ## Residual Risks And Next Steps
@@ -201,12 +203,9 @@ What is now true:
 The highest-signal residuals after this session are:
 
 - capability enforcement is still deployment-wide rather than actor-aware authorization
-- some non-search and non-entrypoint service paths still raise plain `HTTPException` strings instead of structured `error_code`s
-- agent-task dependency cycle prevention was identified as a real gap and is still not fixed
 - search harness evaluations still return immediate evaluation payloads rather than a separate durable persisted evaluation resource
 
 Recommended next step:
 
-1. Fix agent-task dependency cycle detection and rejection.
-2. Continue structured-error normalization across the remaining externally reachable service surfaces.
-3. Only add actor-aware authz if the deployment model becomes genuinely multi-user or hosted.
+1. Promote search harness evaluations into separate durable resources if evaluation history needs independent lifecycle management.
+2. Only add actor-aware authz if the deployment model becomes genuinely multi-user or hosted.

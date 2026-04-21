@@ -19,6 +19,7 @@ from app.schemas.agent_tasks import (
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskOutput,
     EvaluateSearchHarnessTaskOutput,
+    TriageReplayRegressionTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskOutput,
@@ -33,6 +34,7 @@ from app.services.agent_task_context import (
     resolve_required_task_output_context,
 )
 from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_legibility import get_search_harness_descriptor
 from app.services.search_release_gate import (
     SearchHarnessReleaseGateOutcome,
     evaluate_search_harness_release_gate,
@@ -212,6 +214,121 @@ def verify_search_harness_evaluation_task(
     return verified_output.model_dump(mode="json")
 
 
+def _changed_override_scopes(override_spec: dict) -> list[str]:
+    changed: list[str] = []
+    for scope in ("retrieval_profile_overrides", "reranker_overrides"):
+        if override_spec.get(scope):
+            changed.append(scope)
+    return changed
+
+
+def _load_source_repair_case(session: Session, source_task_id: UUID | None):
+    if source_task_id is None:
+        return None, ["Draft must reference a source triage task with a repair case."]
+    try:
+        source_context = resolve_required_task_output_context(
+            session,
+            task_id=source_task_id,
+            expected_task_type="triage_replay_regression",
+            expected_schema_name="triage_replay_regression_output",
+            expected_schema_version="1.0",
+            rerun_message=(
+                "Source triage task must be rerun after the context migration before "
+                "draft verification."
+            ),
+        )
+        source_output = TriageReplayRegressionTaskOutput.model_validate(source_context.output)
+    except Exception as exc:
+        return None, [f"Unable to load source repair case: {exc}"]
+    if source_output.repair_case is None:
+        return None, ["Source triage output does not include a repair case."]
+    return source_output.repair_case, []
+
+
+def _build_harness_comprehension_gate(
+    session: Session,
+    *,
+    draft_output: DraftHarnessConfigUpdateTaskOutput,
+    override_spec: dict,
+    evaluation: SearchHarnessEvaluationResponse,
+    verification_payload: VerifyDraftHarnessConfigTaskInput,
+) -> dict:
+    reasons: list[str] = []
+    repair_case, repair_case_reasons = _load_source_repair_case(
+        session,
+        draft_output.draft.source_task_id,
+    )
+    reasons.extend(repair_case_reasons)
+
+    changed_scopes = _changed_override_scopes(override_spec)
+    if not changed_scopes:
+        reasons.append("Draft does not change any retrieval or reranker knob.")
+
+    if not (draft_output.draft.rationale or "").strip():
+        reasons.append("Draft rationale is required for comprehension verification.")
+
+    if repair_case is not None:
+        allowed_scopes = set(repair_case.allowed_repair_surface)
+        disallowed_scopes = [scope for scope in changed_scopes if scope not in allowed_scopes]
+        if disallowed_scopes:
+            reasons.append(
+                "Draft changes scopes outside the repair case: "
+                + ", ".join(sorted(disallowed_scopes))
+            )
+        if not repair_case.evidence_refs:
+            reasons.append("Repair case has no evidence refs.")
+
+    descriptor = None
+    try:
+        descriptor = get_search_harness_descriptor(
+            draft_output.draft.draft_harness_name,
+            harness_overrides={draft_output.draft.draft_harness_name: override_spec},
+        )
+    except Exception as exc:
+        reasons.append(f"Unable to build draft harness descriptor: {exc}")
+
+    follow_up_plan = {
+        "baseline_harness_name": evaluation.baseline_harness_name,
+        "candidate_harness_name": evaluation.candidate_harness_name,
+        "source_types": list(verification_payload.source_types),
+        "limit": verification_payload.limit,
+        "success_condition": "No replay regressions and no release-gate threshold violations.",
+    }
+    predicted_blast_radius = {
+        "changed_scopes": changed_scopes,
+        "retrieval_override_keys": sorted(
+            (override_spec.get("retrieval_profile_overrides") or {}).keys()
+        ),
+        "reranker_override_keys": sorted((override_spec.get("reranker_overrides") or {}).keys()),
+        "source_types": list(verification_payload.source_types),
+        "limit": verification_payload.limit,
+    }
+    comprehension_passed = not reasons
+    repair_case_payload = repair_case.model_dump(mode="json") if repair_case is not None else None
+    descriptor_payload = descriptor.model_dump(mode="json") if descriptor is not None else None
+    return {
+        "comprehension_passed": comprehension_passed,
+        "claim_evidence_alignment": (
+            "Draft cites a source repair case and stays within its allowed repair surface."
+            if comprehension_passed
+            else "Draft does not fully align claims, evidence, and allowed repair scope."
+        ),
+        "change_justification": (
+            draft_output.draft.rationale
+            or "No operator rationale supplied for the proposed harness change."
+        ),
+        "predicted_blast_radius": predicted_blast_radius,
+        "rollback_condition": (
+            "Rollback if follow-up evaluation introduces replay regressions, increases zero-result "
+            "count beyond the configured threshold, or violates the release gate."
+        ),
+        "follow_up_plan": follow_up_plan,
+        "reasons": reasons,
+        "harness_descriptor": descriptor_payload,
+        "repair_case": repair_case_payload,
+    }
+
+
 def verify_draft_harness_config_task(
     session: Session,
     verification_task: AgentTask,
@@ -232,15 +349,17 @@ def verify_draft_harness_config_task(
     draft_harness_name = output.draft.draft_harness_name
     base_harness_name = output.draft.base_harness_name
 
-    evaluation = evaluate_search_harness(
-        session,
-        SearchHarnessEvaluationRequest(
-            candidate_harness_name=draft_harness_name,
-            baseline_harness_name=payload.baseline_harness_name or base_harness_name,
-            source_types=payload.source_types,
-            limit=payload.limit,
-        ),
-        harness_overrides={draft_harness_name: override_spec},
+    evaluation = SearchHarnessEvaluationResponse.model_validate(
+        evaluate_search_harness(
+            session,
+            SearchHarnessEvaluationRequest(
+                candidate_harness_name=draft_harness_name,
+                baseline_harness_name=payload.baseline_harness_name or base_harness_name,
+                source_types=payload.source_types,
+                limit=payload.limit,
+            ),
+            harness_overrides={draft_harness_name: override_spec},
+        )
     )
     outcome = evaluate_search_harness_verification(
         session,
@@ -254,26 +373,52 @@ def verify_draft_harness_config_task(
             min_total_shared_query_count=payload.min_total_shared_query_count,
         ),
     )
+    comprehension_gate = _build_harness_comprehension_gate(
+        session,
+        draft_output=output,
+        override_spec=override_spec,
+        evaluation=evaluation,
+        verification_payload=payload,
+    )
+    gate_reasons = [
+        f"Comprehension gate failed: {reason}" for reason in comprehension_gate.get("reasons", [])
+    ]
+    final_reasons = [*outcome.reasons, *gate_reasons]
+    final_outcome = (
+        "passed"
+        if outcome.outcome == "passed" and comprehension_gate["comprehension_passed"]
+        else "failed"
+    )
+    final_metrics = {
+        **outcome.metrics,
+        "comprehension_passed": comprehension_gate["comprehension_passed"],
+        "changed_scope_count": len(
+            comprehension_gate["predicted_blast_radius"].get("changed_scopes") or []
+        ),
+    }
     details = {
         **outcome.details,
         "target_task_id": str(draft_context.task_id),
         "target_task_type": draft_context.task_type,
         "draft_harness_name": draft_harness_name,
         "base_harness_name": base_harness_name,
+        "comprehension_gate": comprehension_gate,
     }
     record = create_agent_task_verification_record(
         session,
         target_task_id=draft_context.task_id,
         verification_task_id=verification_task.id,
         verifier_type="draft_harness_config_gate",
-        outcome=outcome.outcome,
-        metrics=outcome.metrics,
-        reasons=outcome.reasons,
+        outcome=final_outcome,
+        metrics=final_metrics,
+        reasons=final_reasons,
         details=details,
     )
     return {
         "draft": output.draft.model_dump(mode="json"),
         "evaluation": jsonable_encoder(evaluation),
+        "comprehension_gate": comprehension_gate,
+        "follow_up_plan": comprehension_gate["follow_up_plan"],
         "verification": record.model_dump(mode="json"),
     }
 

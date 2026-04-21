@@ -250,7 +250,10 @@ def _shadow_graph_output_payload(*, document_ids, artifact_id=None) -> dict:
             ],
             "edges": [
                 {
-                    "edge_id": "graph_edge:concept_related_to_concept:concept:integration_owner:concept:integration_threshold",
+                    "edge_id": (
+                        "graph_edge:concept_related_to_concept:"
+                        "concept:integration_owner:concept:integration_threshold"
+                    ),
                     "relation_key": "concept_related_to_concept",
                     "relation_label": "Concept Related To Concept",
                     "subject_entity_key": "concept:integration_owner",
@@ -282,7 +285,9 @@ def _shadow_graph_output_payload(*, document_ids, artifact_id=None) -> dict:
                     "metric_key": "semantic_integrity",
                     "stakeholder": "Figay",
                     "passed": True,
-                    "summary": "Every graph edge stays evidence-backed and explicitly status-stamped.",
+                    "summary": (
+                        "Every graph edge stays evidence-backed and explicitly status-stamped."
+                    ),
                     "details": {"traceable_edge_ratio": 1.0, "edge_count": 1},
                 }
             ],
@@ -360,7 +365,10 @@ def _semantic_relation_evaluation_output_payload(*, document_ids, artifact_id=No
                 "metric_key": "bitter_lesson_alignment",
                 "stakeholder": "Sutton",
                 "passed": True,
-                "summary": "The candidate extractor improves or matches recall without adding corpus-specific rules.",
+                "summary": (
+                    "The candidate extractor improves or matches recall without "
+                    "adding corpus-specific rules."
+                ),
                 "details": {"baseline_expected_recall": 0.0, "candidate_expected_recall": 1.0},
             }
         ],
@@ -370,7 +378,9 @@ def _semantic_relation_evaluation_output_payload(*, document_ids, artifact_id=No
     }
 
 
-def _graph_triage_output_payload(*, evaluation_task_id, verification_task_id, artifact_id=None) -> dict:
+def _graph_triage_output_payload(
+    *, evaluation_task_id, verification_task_id, artifact_id=None
+) -> dict:
     document_ids = [uuid4(), uuid4()]
     evaluation = _semantic_relation_evaluation_output_payload(document_ids=document_ids)
     edge = evaluation["edge_reports"][0]
@@ -395,7 +405,10 @@ def _graph_triage_output_payload(*, evaluation_task_id, verification_task_id, ar
                     "candidate_score": 0.72,
                     "supporting_document_ids": edge["supporting_document_ids"],
                     "support_refs": edge["support_refs"],
-                    "summary": "Integration Owner and Integration Threshold should be promoted into graph memory.",
+                    "summary": (
+                        "Integration Owner and Integration Threshold should be promoted "
+                        "into graph memory."
+                    ),
                     "details": {"baseline_score": 0.0},
                 }
             ],
@@ -411,7 +424,9 @@ def _graph_triage_output_payload(*, evaluation_task_id, verification_task_id, ar
                     "metric_key": "agent_legibility",
                     "stakeholder": "Lopopolo",
                     "passed": True,
-                    "summary": "Graph disagreement triage emits typed issues and bounded next actions.",
+                    "summary": (
+                        "Graph disagreement triage emits typed issues and bounded next actions."
+                    ),
                     "details": {"issue_count": 1},
                 }
             ],
@@ -1536,7 +1551,9 @@ def test_draft_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
             storage_path="/tmp/ontology_extension_draft.json",
         ),
     )
-    session = SimpleNamespace(get=lambda model, key: SimpleNamespace(task_type="discover_semantic_bootstrap_candidates"))
+    session = SimpleNamespace(
+        get=lambda model, key: SimpleNamespace(task_type="discover_semantic_bootstrap_candidates")
+    )
 
     result = _draft_ontology_extension_executor(
         session=session,
@@ -1844,7 +1861,9 @@ def test_build_shadow_semantic_graph_executor_writes_artifact(monkeypatch) -> No
     document_ids = [uuid4(), uuid4()]
     monkeypatch.setattr(
         "app.services.agent_task_actions.build_shadow_semantic_graph",
-        lambda session, **kwargs: _shadow_graph_output_payload(document_ids=document_ids)["shadow_graph"],
+        lambda session, **kwargs: _shadow_graph_output_payload(document_ids=document_ids)[
+            "shadow_graph"
+        ],
     )
     monkeypatch.setattr(
         "app.services.agent_task_actions.create_agent_task_artifact",
@@ -2539,6 +2558,114 @@ def test_apply_harness_config_update_executor_persists_review_harness(
     assert Path(result["config_path"]).exists()
     payload = json.loads(Path(result["config_path"]).read_text())
     assert payload["harnesses"]["wide_v2_review"]["base_harness_name"] == "wide_v2"
+
+
+def test_apply_harness_config_update_executor_attaches_follow_up_evidence(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    draft_task_id = uuid4()
+    verification_task_id = uuid4()
+    apply_task = AgentTask(
+        id=uuid4(),
+        task_type="apply_harness_config_update",
+        status="processing",
+        priority=100,
+        side_effect_level="promotable",
+        requires_approval=True,
+        approved_at=datetime.now(UTC),
+        approved_by="operator@example.com",
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    monkeypatch.setattr(
+        "app.services.search_harness_overrides.get_search_harness_override_path",
+        lambda: tmp_path / "config" / "search_harness_overrides.json",
+    )
+    created_artifacts = []
+
+    def fake_create_artifact(session, **kwargs):
+        artifact = type(
+            "ArtifactRow",
+            (),
+            {
+                "id": uuid4(),
+                "artifact_kind": kwargs["artifact_kind"],
+                "storage_path": f"/tmp/{kwargs['filename']}",
+            },
+        )()
+        created_artifacts.append((kwargs["artifact_kind"], kwargs["payload"]))
+        return artifact
+
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.create_agent_task_artifact",
+        fake_create_artifact,
+    )
+    verification_output = _verification_output_payload(
+        verification_task_id=verification_task_id,
+        draft_task_id=draft_task_id,
+    )
+    verification_output["comprehension_gate"] = {
+        "comprehension_passed": True,
+        "claim_evidence_alignment": "aligned",
+        "change_justification": "publish review harness",
+        "predicted_blast_radius": {"changed_scopes": ["reranker_overrides"]},
+        "rollback_condition": "rollback on regression",
+        "follow_up_plan": {
+            "baseline_harness_name": "wide_v2",
+            "candidate_harness_name": "wide_v2_review",
+            "source_types": ["evaluation_queries"],
+            "limit": 10,
+        },
+        "reasons": [],
+    }
+    verification_output["follow_up_plan"] = verification_output["comprehension_gate"][
+        "follow_up_plan"
+    ]
+    resolver_payloads = {
+        "draft_harness_config_update": SimpleNamespace(
+            output=_draft_output_payload(draft_task_id=draft_task_id)
+        ),
+        "verify_draft_harness_config": SimpleNamespace(output=verification_output),
+    }
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        lambda session, *, expected_task_type, **_kwargs: resolver_payloads[expected_task_type],
+    )
+    monkeypatch.setattr(
+        "app.services.agent_task_actions.evaluate_search_harness",
+        lambda session, request: {
+            "baseline_harness_name": request.baseline_harness_name,
+            "candidate_harness_name": request.candidate_harness_name,
+            "limit": request.limit,
+            "total_shared_query_count": 10,
+            "total_improved_count": 1,
+            "total_regressed_count": 0,
+            "total_unchanged_count": 9,
+            "sources": [],
+        },
+    )
+
+    result = _apply_harness_config_update_executor(
+        session=object(),
+        task=apply_task,
+        payload=ApplyHarnessConfigUpdateTaskInput(
+            draft_task_id=draft_task_id,
+            verification_task_id=verification_task_id,
+            reason="publish review harness",
+        ),
+    )
+
+    assert result["follow_up_summary"]["recommendation"] == "keep_override"
+    assert result["follow_up_artifact_kind"] == "follow_up_evaluation_summary"
+    assert [kind for kind, _payload in created_artifacts] == [
+        "follow_up_evaluation_summary",
+        "applied_harness_config_update",
+    ]
 
 
 def test_apply_harness_config_update_executor_rejects_mismatched_verification_target(

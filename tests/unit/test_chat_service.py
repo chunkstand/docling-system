@@ -3,9 +3,16 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.schemas.chat import ChatRequest
+from fastapi import HTTPException
+
+from app.schemas.chat import ChatAnswerFeedbackCreateRequest, ChatRequest
 from app.schemas.search import SearchResult, SearchScores
-from app.services.chat import AnswerGenerator, OpenAIAnswerGenerator, answer_question
+from app.services.chat import (
+    AnswerGenerator,
+    OpenAIAnswerGenerator,
+    answer_question,
+    record_chat_answer_feedback,
+)
 
 
 class FakeSession:
@@ -16,6 +23,9 @@ class FakeSession:
         self.added.append(value)
 
     def flush(self) -> None:
+        return None
+
+    def get(self, model, row_id):
         return None
 
 
@@ -33,6 +43,23 @@ def _chunk_result() -> SearchResult:
         source_filename="UPC_CH_5.pdf",
         scores=SearchScores(keyword_score=0.4, semantic_score=0.8, hybrid_score=0.88),
     )
+
+
+def test_record_chat_answer_feedback_returns_structured_not_found() -> None:
+    answer_id = uuid4()
+
+    try:
+        record_chat_answer_feedback(
+            FakeSession(),
+            answer_id,
+            ChatAnswerFeedbackCreateRequest(feedback_type="helpful"),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail["code"] == "chat_answer_not_found"
+        assert exc.detail["context"]["chat_answer_id"] == str(answer_id)
+    else:
+        raise AssertionError("Expected missing chat answer to be rejected")
 
 
 def _memo_date_result() -> SearchResult:

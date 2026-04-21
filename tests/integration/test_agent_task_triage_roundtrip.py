@@ -259,6 +259,8 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert result_payload["verification"]["outcome"] in {"passed", "failed"}
         assert result_payload["recommendation"]["next_action"]
         assert result_payload["artifact_kind"] == "triage_summary"
+        assert result_payload["repair_case"]["schema_name"] == "search_harness_repair_case"
+        assert result_payload["repair_case_artifact_kind"] == "repair_case"
         context_path = (
             postgres_integration_harness.storage_service.get_agent_task_context_json_path(task_id)
         )
@@ -275,6 +277,7 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
         assert {row["ref_key"] for row in context_payload["refs"]} >= {
             "triage_summary_artifact",
             "verification_record",
+            "repair_case_artifact",
         }
 
         verification_rows = (
@@ -295,7 +298,11 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
             .scalars()
             .all()
         )
-        assert {row.artifact_kind for row in artifact_rows} == {"triage_summary", "context"}
+        assert {row.artifact_kind for row in artifact_rows} == {
+            "triage_summary",
+            "repair_case",
+            "context",
+        }
         artifact = next(row for row in artifact_rows if row.artifact_kind == "triage_summary")
         assert artifact.artifact_kind == "triage_summary"
         assert artifact.storage_path is not None
@@ -321,6 +328,7 @@ def test_triage_replay_regression_roundtrip(postgres_integration_harness) -> Non
     assert artifact_list_response.status_code == 200
     assert {row["artifact_kind"] for row in artifact_list_response.json()} == {
         "triage_summary",
+        "repair_case",
         "context",
     }
     artifact_id = next(
@@ -1029,6 +1037,10 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
         apply_payload = apply_task_row.result_json["payload"]
         assert apply_payload["draft_harness_name"] == "wide_v2_review_integration"
         assert Path(apply_payload["config_path"]).exists()
+        assert apply_payload["follow_up_summary"]["schema_name"] == (
+            "search_harness_follow_up_evidence"
+        )
+        assert apply_payload["follow_up_artifact_kind"] == "follow_up_evaluation_summary"
         apply_context_path = (
             postgres_integration_harness.storage_service.get_agent_task_context_json_path(
                 apply_task_id
@@ -1070,6 +1082,7 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
             "draft_task_output",
             "verification_task_output",
             "applied_artifact",
+            "follow_up_evaluation_artifact",
         }
         apply_attempt = (
             session.execute(
@@ -1111,6 +1124,7 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     apply_context = apply_context_response.json()
     assert apply_context["summary"]["approval_state"] == "approved"
     assert apply_context["summary"]["verification_state"] == "passed"
+    assert apply_context["summary"]["follow_up_status"] == "completed"
     apply_detail_response = client.get(f"/agent-tasks/{apply_task_id}")
     assert apply_detail_response.status_code == 200
     assert apply_detail_response.json()["context_summary"]["approval_state"] == "approved"
@@ -1161,6 +1175,29 @@ def test_harness_draft_review_flow_roundtrip(postgres_integration_harness) -> No
     detail = detail_response.json()
     assert detail["harness_name"] == "wide_v2_review_integration"
     assert detail["harness_config"]["base_harness_name"] == "wide_v2"
+
+    explanation_response = client.get(f"/search/requests/{request_id}/explain")
+    assert explanation_response.status_code == 200
+    explanation = explanation_response.json()
+    assert explanation["schema_name"] == "search_request_explanation"
+    assert explanation["harness_name"] == "wide_v2_review_integration"
+    assert explanation["diagnosis"]["category"] in {
+        "healthy",
+        "low_recall",
+        "bad_ranking",
+        "fallback_only",
+        "filter_overconstraint",
+        "table_recall_gap",
+        "metadata_bias",
+        "unknown",
+    }
+
+    descriptor_response = client.get("/search/harnesses/wide_v2_review_integration/descriptor")
+    assert descriptor_response.status_code == 200
+    descriptor = descriptor_response.json()
+    assert descriptor["schema_name"] == "search_harness_descriptor"
+    assert descriptor["harness_name"] == "wide_v2_review_integration"
+    assert descriptor["base_harness_name"] == "wide_v2"
 
     recommendation_summary_response = client.get(
         "/agent-tasks/analytics/recommendations?workflow_version=milestone8_integration"

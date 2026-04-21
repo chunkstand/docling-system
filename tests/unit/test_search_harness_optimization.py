@@ -150,12 +150,9 @@ def test_run_search_harness_optimization_loop_accepts_better_candidate(
 
     def fake_evaluate_search_harness(session, payload, *, harness_overrides=None):
         override_spec = (harness_overrides or {}).get(payload.candidate_harness_name) or {}
-        multiplier = (
-            (override_spec.get("retrieval_profile_overrides") or {}).get(
-                "keyword_candidate_multiplier"
-            )
-            or 5
-        )
+        multiplier = (override_spec.get("retrieval_profile_overrides") or {}).get(
+            "keyword_candidate_multiplier"
+        ) or 5
         return _evaluation_for_multiplier(multiplier)
 
     def fake_release_gate(session, evaluation, payload):

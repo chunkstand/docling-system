@@ -12,6 +12,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import Document, DocumentRun, IngestBatch, IngestBatchItem, RunStatus
 from app.schemas.ingest_batches import (
@@ -53,20 +54,26 @@ def _file_sha256(file_path: Path) -> str | None:
 def _validate_local_ingest_directory(directory_path: Path) -> Path:
     raw_path = directory_path.expanduser()
     if raw_path.is_symlink():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Symlink ingest directories are not allowed.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_ingest_directory",
+            "Symlink ingest directories are not allowed.",
+            directory_path=str(raw_path),
         )
     resolved_path = raw_path.resolve()
     if not resolved_path.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Directory not found: {resolved_path}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "ingest_directory_not_found",
+            "Directory not found.",
+            directory_path=str(resolved_path),
         )
     if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Directory is outside allowed local ingest roots.",
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_ingest_directory",
+            "Directory is outside allowed local ingest roots.",
+            directory_path=str(resolved_path),
         )
     return resolved_path
 
@@ -481,9 +488,11 @@ def _to_batch_item_response(
 def get_ingest_batch_detail(session: Session, batch_id: UUID) -> IngestBatchDetailResponse:
     batch = session.get(IngestBatch, batch_id)
     if batch is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ingest batch not found: {batch_id}",
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "ingest_batch_not_found",
+            "Ingest batch not found.",
+            batch_id=str(batch_id),
         )
 
     rows = _load_batch_rows(session, batch.id)

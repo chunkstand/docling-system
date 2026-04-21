@@ -6,6 +6,7 @@ from math import ceil
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -247,6 +248,79 @@ def _validate_dependency_ids(session: Session, dependency_task_ids: list[UUID]) 
         )
 
 
+def _dependency_row_task_id(row) -> UUID:
+    if hasattr(row, "task_id"):
+        return row.task_id
+    return row[0]
+
+
+def _dependency_row_depends_on_task_id(row) -> UUID:
+    if hasattr(row, "depends_on_task_id"):
+        return row.depends_on_task_id
+    return row[1]
+
+
+def _validate_dependency_graph_is_acyclic(
+    session: Session,
+    dependency_task_ids: list[UUID],
+) -> None:
+    if not dependency_task_ids:
+        return
+
+    adjacency: dict[UUID, list[UUID]] = defaultdict(list)
+    visited_for_load: set[UUID] = set()
+    pending = list(dict.fromkeys(dependency_task_ids))
+
+    while pending:
+        current_batch = [task_id for task_id in pending if task_id not in visited_for_load]
+        pending = []
+        if not current_batch:
+            continue
+        visited_for_load.update(current_batch)
+        rows = session.execute(
+            select(AgentTaskDependency.task_id, AgentTaskDependency.depends_on_task_id).where(
+                AgentTaskDependency.task_id.in_(current_batch)
+            )
+        ).all()
+        for row in rows:
+            task_id = _dependency_row_task_id(row)
+            depends_on_task_id = _dependency_row_depends_on_task_id(row)
+            adjacency[task_id].append(depends_on_task_id)
+            if depends_on_task_id not in visited_for_load:
+                pending.append(depends_on_task_id)
+
+    visiting: set[UUID] = set()
+    visited: set[UUID] = set()
+
+    def visit(task_id: UUID, path: list[UUID]) -> list[UUID] | None:
+        if task_id in visiting:
+            cycle_start = path.index(task_id)
+            return path[cycle_start:] + [task_id]
+        if task_id in visited:
+            return None
+        visiting.add(task_id)
+        path.append(task_id)
+        for child_id in adjacency.get(task_id, []):
+            cycle = visit(child_id, path)
+            if cycle is not None:
+                return cycle
+        path.pop()
+        visiting.remove(task_id)
+        visited.add(task_id)
+        return None
+
+    for dependency_task_id in dependency_task_ids:
+        cycle = visit(dependency_task_id, [])
+        if cycle is not None:
+            raise api_error(
+                status.HTTP_409_CONFLICT,
+                "agent_task_dependency_cycle",
+                "Agent task dependency graph contains a cycle.",
+                dependency_task_ids=[str(task_id) for task_id in dependency_task_ids],
+                cycle_task_ids=[str(task_id) for task_id in cycle],
+            )
+
+
 def _validate_parent_task_id(session: Session, parent_task_id: UUID | None) -> None:
     if parent_task_id is None:
         return
@@ -324,9 +398,12 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
     try:
         validated_input = validate_agent_task_input(payload.task_type, payload.input)
     except ValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=exc.errors(),
+        raise api_error(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "invalid_agent_task_input",
+            "Agent task input did not match the task schema.",
+            task_type=payload.task_type,
+            validation_errors=jsonable_encoder(exc.errors()),
         ) from exc
     dependency_specs = _augment_dependency_kinds_for_action(
         validated_input=validated_input,
@@ -370,12 +447,9 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
 
     _validate_parent_task_id(session, payload.parent_task_id)
     _validate_dependency_ids(session, dependency_task_ids)
+    _validate_dependency_graph_is_acyclic(session, dependency_task_ids)
     has_incomplete_dependencies = _incomplete_dependency_count(session, dependency_task_ids) > 0
 
-    # Dependencies are only attached during task creation and must reference
-    # already-existing tasks. Because the system does not expose dependency
-    # mutation for existing tasks, dependency edges remain append-only from new
-    # tasks to older tasks, which keeps the supported task graph acyclic.
     task = AgentTask(
         task_type=payload.task_type,
         status=_initial_task_status(
@@ -731,9 +805,7 @@ def _is_recommendation_task(task: AgentTask) -> bool:
         "triage_replay_regression",
         "triage_semantic_pass",
         "triage_semantic_candidate_disagreements",
-    } or bool(
-        (task.result_json or {}).get("recommendation")
-    )
+    } or bool((task.result_json or {}).get("recommendation"))
 
 
 def _task_input_task_id(task: AgentTask, key: str) -> UUID | None:

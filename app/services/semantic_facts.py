@@ -90,8 +90,7 @@ def _fact_graph_success_metrics(
             "passed": fact_count > 0
             or minimum_review_status == SemanticReviewStatus.APPROVED.value,
             "summary": (
-                "The workspace stores reusable fact context instead of "
-                "recomputing it ad hoc."
+                "The workspace stores reusable fact context instead of recomputing it ad hoc."
             ),
             "details": {"fact_count": fact_count},
         },

@@ -136,7 +136,17 @@ class FakeSession:
     def execute(self, statement):
         rendered = str(statement)
         if "agent_task_artifacts" in rendered:
-            return FakeExecuteResult(self.artifacts.values())
+            params = getattr(statement.compile(), "params", {})
+            task_id = next(
+                (value for key, value in params.items() if "task_id" in key and value is not None),
+                None,
+            )
+            artifacts = [
+                artifact
+                for artifact in self.artifacts.values()
+                if task_id is None or artifact.task_id == task_id
+            ]
+            return FakeExecuteResult(artifacts)
         if "agent_task_dependencies" in rendered:
             return FakeExecuteResult(self.dependencies.values())
         raise AssertionError(f"Unexpected statement: {rendered}")
@@ -214,6 +224,124 @@ def _build_evaluation_context_artifact(
                         }
                     ],
                 },
+            },
+        },
+        created_at=now,
+    )
+
+
+def _build_triage_context_artifact(*, task_id) -> AgentTaskArtifact:
+    now = datetime.now(UTC)
+    baseline_replay_run_id = uuid4()
+    candidate_replay_run_id = uuid4()
+    return AgentTaskArtifact(
+        id=uuid4(),
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="context",
+        storage_path=None,
+        payload_json={
+            "schema_name": "agent_task_context",
+            "schema_version": "1.0",
+            "task_id": str(task_id),
+            "task_type": "triage_replay_regression",
+            "task_status": "completed",
+            "workflow_version": "v1",
+            "generated_at": now.isoformat(),
+            "task_updated_at": now.isoformat(),
+            "output_schema_name": "triage_replay_regression_output",
+            "output_schema_version": "1.0",
+            "freshness_status": "fresh",
+            "summary": {"headline": "Repair case ready"},
+            "refs": [],
+            "output": {
+                "shadow_mode": True,
+                "triage_kind": "replay_regression",
+                "candidate_harness_name": "wide_v2",
+                "baseline_harness_name": "default_v1",
+                "quality_candidate_count": 0,
+                "top_quality_candidates": [],
+                "evaluation": {
+                    "baseline_harness_name": "default_v1",
+                    "candidate_harness_name": "wide_v2",
+                    "limit": 12,
+                    "total_shared_query_count": 4,
+                    "total_improved_count": 1,
+                    "total_regressed_count": 0,
+                    "total_unchanged_count": 3,
+                    "sources": [
+                        {
+                            "source_type": "feedback",
+                            "baseline_replay_run_id": str(baseline_replay_run_id),
+                            "candidate_replay_run_id": str(candidate_replay_run_id),
+                            "baseline_query_count": 4,
+                            "candidate_query_count": 4,
+                            "baseline_passed_count": 4,
+                            "candidate_passed_count": 4,
+                            "baseline_zero_result_count": 0,
+                            "candidate_zero_result_count": 0,
+                            "baseline_table_hit_count": 1,
+                            "candidate_table_hit_count": 1,
+                            "baseline_top_result_changes": 0,
+                            "candidate_top_result_changes": 0,
+                            "baseline_mrr": 1.0,
+                            "candidate_mrr": 1.0,
+                            "baseline_foreign_top_result_count": 0,
+                            "candidate_foreign_top_result_count": 0,
+                            "acceptance_checks": {},
+                            "shared_query_count": 4,
+                            "improved_count": 1,
+                            "regressed_count": 0,
+                            "unchanged_count": 3,
+                        }
+                    ],
+                },
+                "verification": {
+                    "verification_id": str(uuid4()),
+                    "target_task_id": str(task_id),
+                    "verification_task_id": str(task_id),
+                    "verifier_type": "shadow_mode_triage_gate",
+                    "outcome": "passed",
+                    "metrics": {},
+                    "reasons": [],
+                    "details": {},
+                    "created_at": now.isoformat(),
+                    "completed_at": now.isoformat(),
+                },
+                "recommendation": {
+                    "next_action": "candidate_ready_for_review",
+                    "confidence": "medium",
+                    "summary": "wide_v2 vs default_v1 across feedback.",
+                },
+                "repair_case": {
+                    "schema_name": "search_harness_repair_case",
+                    "schema_version": "1.0",
+                    "candidate_harness_name": "wide_v2",
+                    "baseline_harness_name": "default_v1",
+                    "failure_classification": "candidate_improvement",
+                    "problem_statement": "wide_v2 improves one replay query.",
+                    "observed_metric_delta": {
+                        "total_shared_query_count": 4,
+                        "total_improved_count": 1,
+                        "total_regressed_count": 0,
+                    },
+                    "affected_result_types": ["table"],
+                    "likely_root_cause": "Candidate harness improves replay outcomes.",
+                    "allowed_repair_surface": [
+                        "retrieval_profile_overrides",
+                        "reranker_overrides",
+                    ],
+                    "blocked_repair_surfaces": ["evaluation_corpus_weakening"],
+                    "recommended_next_action": "candidate_ready_for_review",
+                    "diagnostic_examples": [],
+                    "evidence_refs": [{"ref_kind": "harness_evaluation"}],
+                },
+                "repair_case_artifact_id": str(uuid4()),
+                "repair_case_artifact_kind": "repair_case",
+                "repair_case_artifact_path": "/tmp/repair_case.json",
+                "artifact_id": str(uuid4()),
+                "artifact_kind": "triage_summary",
+                "artifact_path": "/tmp/triage_summary.json",
             },
         },
         created_at=now,
@@ -525,9 +653,25 @@ def test_verify_search_harness_evaluation_task_rejects_pre_context_evaluations()
 
 
 def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypatch) -> None:
+    source_task_id = uuid4()
     target_task_id = uuid4()
     verification_task_id = uuid4()
     now = datetime.now(UTC)
+    source_task = AgentTask(
+        id=source_task_id,
+        task_type="triage_replay_regression",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
     target_task = AgentTask(
         id=target_task_id,
         task_type="draft_harness_config_update",
@@ -581,8 +725,8 @@ def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypat
                 "draft": {
                     "draft_harness_name": "wide_v2_review",
                     "base_harness_name": "wide_v2",
-                    "source_task_id": None,
-                    "source_task_type": None,
+                    "source_task_id": str(source_task_id),
+                    "source_task_type": "triage_replay_regression",
                     "rationale": "publish review harness",
                     "override_spec": {
                         "base_harness_name": "wide_v2",
@@ -591,7 +735,7 @@ def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypat
                         "override_type": "draft_harness_config_update",
                         "override_source": "task_draft",
                         "draft_task_id": str(target_task_id),
-                        "source_task_id": None,
+                        "source_task_id": str(source_task_id),
                         "rationale": "publish review harness",
                     },
                     "effective_harness_config": {"base_harness_name": "wide_v2"},
@@ -603,10 +747,15 @@ def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypat
         },
         created_at=now,
     )
+    triage_artifact = _build_triage_context_artifact(task_id=source_task_id)
     session = FakeSession(
-        tasks={target_task_id: target_task, verification_task_id: verification_task},
+        tasks={
+            source_task_id: source_task,
+            target_task_id: target_task,
+            verification_task_id: verification_task,
+        },
         replay_runs={},
-        artifacts={artifact.id: artifact},
+        artifacts={artifact.id: artifact, triage_artifact.id: triage_artifact},
     )
 
     monkeypatch.setattr(
@@ -614,9 +763,11 @@ def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypat
         lambda session, request, harness_overrides=None: {
             "candidate_harness_name": request.candidate_harness_name,
             "baseline_harness_name": request.baseline_harness_name,
+            "limit": request.limit,
             "total_shared_query_count": 4,
             "total_improved_count": 1,
             "total_regressed_count": 0,
+            "total_unchanged_count": 3,
             "sources": [],
         },
     )
@@ -642,6 +793,8 @@ def test_verify_draft_harness_config_task_uses_migrated_context_output(monkeypat
 
     assert result["draft"]["draft_harness_name"] == "wide_v2_review"
     assert result["verification"]["outcome"] == "passed"
+    assert result["comprehension_gate"]["comprehension_passed"] is True
+    assert result["follow_up_plan"]["candidate_harness_name"] == "wide_v2_review"
 
 
 def test_verify_draft_harness_config_task_rejects_pre_context_drafts() -> None:

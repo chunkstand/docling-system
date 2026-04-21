@@ -288,9 +288,7 @@ def downgrade() -> None:
     op.drop_table("semantic_assertion_category_bindings")
 
     op.drop_constraint("ck_semantic_assertions_review_status", "semantic_assertions", type_="check")
-    op.drop_constraint(
-        "ck_semantic_assertions_context_scope", "semantic_assertions", type_="check"
-    )
+    op.drop_constraint("ck_semantic_assertions_context_scope", "semantic_assertions", type_="check")
     op.drop_constraint(
         "ck_semantic_assertions_epistemic_status", "semantic_assertions", type_="check"
     )

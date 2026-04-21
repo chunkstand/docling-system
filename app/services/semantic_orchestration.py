@@ -83,8 +83,7 @@ def build_semantic_success_metrics(
             "stakeholder": "Jones",
             "passed": bool(semantic_pass.summary) and bool(semantic_pass.registry_sha256),
             "summary": (
-                "The system owns durable semantic context instead of "
-                "reconstructing it ad hoc."
+                "The system owns durable semantic context instead of reconstructing it ad hoc."
             ),
             "details": {
                 "concept_keys": list(semantic_pass.summary.get("concept_keys") or []),
@@ -197,8 +196,7 @@ def triage_semantic_pass(
                     "assertion_id": None,
                     "binding_id": None,
                     "summary": (
-                        f"Expected concept {concept_key} is missing from the "
-                        "active semantic pass."
+                        f"Expected concept {concept_key} is missing from the active semantic pass."
                     ),
                     "details": {
                         "minimum_evidence_count": raw_expectation.get("minimum_evidence_count"),
@@ -316,8 +314,7 @@ def triage_semantic_pass(
                             "alias_text": None,
                             "category_key": category_key,
                             "reason": (
-                                "The evaluation corpus expects this "
-                                "concept-category binding."
+                                "The evaluation corpus expects this concept-category binding."
                             ),
                         }
                         for category_key in missing_category_keys
@@ -340,8 +337,7 @@ def triage_semantic_pass(
                 ),
                 "binding_id": None,
                 "summary": (
-                    f"Concept {concept_key} was added relative to the baseline "
-                    "semantic pass."
+                    f"Concept {concept_key} was added relative to the baseline semantic pass."
                 ),
                 "details": {"continuity_reason": continuity_summary.get("reason")},
                 "evidence_refs": (
@@ -364,8 +360,7 @@ def triage_semantic_pass(
                 "assertion_id": None,
                 "binding_id": None,
                 "summary": (
-                    f"Concept {concept_key} disappeared relative to the baseline "
-                    "semantic pass."
+                    f"Concept {concept_key} disappeared relative to the baseline semantic pass."
                 ),
                 "details": {"continuity_reason": continuity_summary.get("reason")},
                 "evidence_refs": [],
@@ -459,8 +454,7 @@ def triage_semantic_pass(
                 "followup_type": "draft_registry_update",
                 "priority": "high",
                 "summary": (
-                    "Draft an additive semantic registry update from the "
-                    "triaged gap report."
+                    "Draft an additive semantic registry update from the triaged gap report."
                 ),
                 "target_task_type": "draft_semantic_registry_update",
                 "details": {"issue_count": issue_count},
@@ -471,8 +465,7 @@ def triage_semantic_pass(
             "next_action": "review_semantic_regressions",
             "confidence": "medium",
             "summary": (
-                "Review-status regressions need operator attention before "
-                "changing the registry."
+                "Review-status regressions need operator attention before changing the registry."
             ),
         }
         followups = [
@@ -480,8 +473,7 @@ def triage_semantic_pass(
                 "followup_type": "review_assertion",
                 "priority": "high",
                 "summary": (
-                    "Inspect semantic review regressions and confirm whether "
-                    "they are intentional."
+                    "Inspect semantic review regressions and confirm whether they are intentional."
                 ),
                 "target_task_type": None,
                 "details": {"issue_count": issue_count},
@@ -492,8 +484,7 @@ def triage_semantic_pass(
             "next_action": "no_action",
             "confidence": "high",
             "summary": (
-                "The active semantic pass is stable and meets the current "
-                "semantic expectations."
+                "The active semantic pass is stable and meets the current semantic expectations."
             ),
         }
         followups = [
@@ -510,8 +501,7 @@ def triage_semantic_pass(
             "next_action": "review_semantic_evidence",
             "confidence": "medium",
             "summary": (
-                "The semantic pass needs operator review before any registry "
-                "change is proposed."
+                "The semantic pass needs operator review before any registry change is proposed."
             ),
         }
         followups = [
@@ -1020,8 +1010,7 @@ def semantic_registry_verification_metrics(
             "stakeholder": "Lopopolo",
             "passed": bool(document_deltas) and bool(draft.get("operations")),
             "summary": (
-                "Verification emits per-document typed deltas tied to typed "
-                "registry operations."
+                "Verification emits per-document typed deltas tied to typed registry operations."
             ),
             "details": {"document_count": len(document_deltas)},
         },
@@ -1073,8 +1062,7 @@ def semantic_registry_apply_metrics(
             "stakeholder": "Lopopolo",
             "passed": bool(applied_operations),
             "summary": (
-                "The live apply step publishes typed operations rather than "
-                "an opaque file diff."
+                "The live apply step publishes typed operations rather than an opaque file diff."
             ),
             "details": {"operation_count": len(applied_operations)},
         },
@@ -1090,8 +1078,7 @@ def semantic_registry_apply_metrics(
             "stakeholder": "Jones",
             "passed": bool(applied_registry_version) and bool(applied_operations),
             "summary": (
-                "The published registry state remains attributable to specific "
-                "typed operations."
+                "The published registry state remains attributable to specific typed operations."
             ),
             "details": {},
         },

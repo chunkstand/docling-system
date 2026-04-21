@@ -1025,7 +1025,9 @@ def test_create_agent_task_route_returns_422_on_invalid_inner_payload() -> None:
     )
 
     assert response.status_code == 422
-    assert response.json()["detail"][0]["loc"] == ["source_type"]
+    body = response.json()
+    assert body["error_code"] == "invalid_agent_task_input"
+    assert body["error_context"]["validation_errors"][0]["loc"] == ["source_type"]
 
 
 def test_create_agent_task_route_requires_remote_capability(monkeypatch) -> None:

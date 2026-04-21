@@ -422,7 +422,9 @@ def test_process_run_skips_semantic_stage_when_feature_disabled(
     def fake_run_lease_heartbeat(run_id, *, worker_id):
         yield
 
-    monkeypatch.setattr("app.services.runs.get_settings", lambda: SimpleNamespace(semantics_enabled=False))
+    monkeypatch.setattr(
+        "app.services.runs.get_settings", lambda: SimpleNamespace(semantics_enabled=False)
+    )
     monkeypatch.setattr("app.services.runs.run_lease_heartbeat", fake_run_lease_heartbeat)
     monkeypatch.setattr("app.services.runs.heartbeat_run", lambda session, run: None)
     monkeypatch.setattr("app.services.runs.increment", lambda *args, **kwargs: None)

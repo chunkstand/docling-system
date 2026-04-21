@@ -222,7 +222,9 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_semantic_facts_document_id", "semantic_facts", ["document_id"], unique=False)
+    op.create_index(
+        "ix_semantic_facts_document_id", "semantic_facts", ["document_id"], unique=False
+    )
     op.create_index("ix_semantic_facts_run_id", "semantic_facts", ["run_id"], unique=False)
     op.create_index(
         "ix_semantic_facts_semantic_pass_id",

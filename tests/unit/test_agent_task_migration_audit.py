@@ -312,7 +312,9 @@ def test_remaining_backfill_tasks_validate_output_and_build_context() -> None:
 
     for task_type, sample in samples.items():
         validated = validate_agent_task_output(task_type, sample)
-        context = build_agent_task_context(_AuditSession(), _task(task_type), {"payload": validated})
+        context = build_agent_task_context(
+            _AuditSession(), _task(task_type), {"payload": validated}
+        )
         assert context is not None
         action = get_agent_task_action(task_type)
         assert context.output_schema_name == action.output_schema_name

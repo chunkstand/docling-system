@@ -565,7 +565,9 @@ def _graph_support_ref_payload(*, document_id=None) -> dict:
 
 def _shadow_graph_output_payload(*, artifact_id=None) -> dict:
     document_ids = [uuid4(), uuid4()]
-    support_refs = [_graph_support_ref_payload(document_id=document_id) for document_id in document_ids]
+    support_refs = [
+        _graph_support_ref_payload(document_id=document_id) for document_id in document_ids
+    ]
     return {
         "shadow_graph": {
             "graph_name": "workspace_semantic_graph",
@@ -602,7 +604,10 @@ def _shadow_graph_output_payload(*, artifact_id=None) -> dict:
             ],
             "edges": [
                 {
-                    "edge_id": "graph_edge:concept_related_to_concept:concept:integration_owner:concept:integration_threshold",
+                    "edge_id": (
+                        "graph_edge:concept_related_to_concept:"
+                        "concept:integration_owner:concept:integration_threshold"
+                    ),
                     "relation_key": "concept_related_to_concept",
                     "relation_label": "Concept Related To Concept",
                     "subject_entity_key": "concept:integration_owner",
@@ -908,8 +913,9 @@ def test_refresh_task_context_freshness_marks_task_output_ref_fresh() -> None:
     assert refreshed.freshness_status == ContextFreshnessStatus.FRESH
 
 
-def test_build_agent_task_context_for_triage_semantic_pass_includes_target_and_artifact_refs(
-) -> None:
+def test_build_agent_task_context_for_triage_semantic_pass_includes_target_and_artifact_refs() -> (
+    None
+):
     now = datetime.now(UTC)
     target_task_id = uuid4()
     triage_task_id = uuid4()
@@ -1483,8 +1489,7 @@ def _prepare_generation_brief_output(*, task_id) -> dict:
                     "section_id": "section:integration_governance",
                     "title": "Integration Governance",
                     "summary": (
-                        "This section covers one semantic concept from the "
-                        "selected corpus scope."
+                        "This section covers one semantic concept from the selected corpus scope."
                     ),
                     "focus_concept_keys": ["integration_threshold"],
                     "focus_category_keys": ["integration_governance"],
@@ -1581,8 +1586,9 @@ def _draft_grounded_document_output(*, brief_task_id, artifact_id) -> dict:
     }
 
 
-def test_build_agent_task_context_for_prepare_semantic_generation_brief_includes_artifact_ref(
-) -> None:
+def test_build_agent_task_context_for_prepare_semantic_generation_brief_includes_artifact_ref() -> (
+    None
+):
     now = datetime.now(UTC)
     task_id = uuid4()
     artifact_id = uuid4()
@@ -1626,8 +1632,7 @@ def test_build_agent_task_context_for_prepare_semantic_generation_brief_includes
     assert context.refs[0].artifact_kind == "semantic_generation_brief"
 
 
-def test_build_agent_task_context_for_evaluate_semantic_candidate_extractor_includes_artifact_ref(
-) -> None:
+def test_build_agent_task_context_for_evaluate_semantic_candidate_extractor_artifact_ref() -> None:
     now = datetime.now(UTC)
     task_id = uuid4()
     document_id = uuid4()
@@ -1715,8 +1720,7 @@ def test_build_agent_task_context_for_bootstrap_discovery_includes_artifact_ref(
     assert context.refs[0].artifact_kind == "semantic_bootstrap_candidate_report"
 
 
-def test_build_agent_task_context_for_initialize_workspace_ontology_includes_snapshot_artifact(
-) -> None:
+def test_build_agent_task_context_for_initialize_workspace_ontology_snapshot_artifact() -> None:
     now = datetime.now(UTC)
     task_id = uuid4()
     artifact_id = uuid4()
@@ -2107,8 +2111,9 @@ def test_build_agent_task_context_for_graph_relation_evaluation_includes_artifac
     assert context.refs[0].artifact_kind == "semantic_relation_evaluation"
 
 
-def test_build_agent_task_context_for_draft_semantic_grounded_document_includes_target_ref(
-) -> None:
+def test_build_agent_task_context_for_draft_semantic_grounded_document_includes_target_ref() -> (
+    None
+):
     now = datetime.now(UTC)
     brief_task_id = uuid4()
     draft_task_id = uuid4()
@@ -2208,8 +2213,7 @@ def test_build_agent_task_context_for_draft_semantic_grounded_document_includes_
     assert context.refs[1].artifact_kind == "semantic_grounded_document_draft"
 
 
-def test_build_agent_task_context_for_verify_semantic_grounded_document_includes_verification_state(
-) -> None:
+def test_build_agent_task_context_for_verify_semantic_grounded_document_state() -> None:
     now = datetime.now(UTC)
     draft_task_id = uuid4()
     verify_task_id = uuid4()
@@ -2659,8 +2663,7 @@ def test_build_agent_task_context_for_apply_graph_promotions_includes_dependenci
     assert [ref.ref_kind for ref in context.refs[:2]] == ["task_output", "task_output"]
 
 
-def test_build_agent_task_context_for_triage_semantic_candidate_disagreements_tracks_refs(
-) -> None:
+def test_build_agent_task_context_for_triage_semantic_candidate_disagreements_tracks_refs() -> None:
     now = datetime.now(UTC)
     evaluation_task_id = uuid4()
     triage_task_id = uuid4()

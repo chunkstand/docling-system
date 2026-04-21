@@ -306,8 +306,7 @@ def test_prepare_semantic_generation_brief_keeps_shadow_candidates_additive(monk
     assert brief["selected_concept_keys"] == ["integration_threshold"]
     assert [row["concept_key"] for row in brief["shadow_candidates"]] == ["integration_owner"]
     assert any(
-        metric["metric_key"] == "explicit_shadow_boundary"
-        for metric in brief["success_metrics"]
+        metric["metric_key"] == "explicit_shadow_boundary" for metric in brief["success_metrics"]
     )
 
 

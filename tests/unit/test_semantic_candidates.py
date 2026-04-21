@@ -317,10 +317,14 @@ def test_evaluate_semantic_candidate_extractor_improves_expected_recall(monkeypa
             },
             {"concept_key": "integration_owner", "passed": "integration_owner" in concept_keys},
         ]
-        return "completed", "integration-shadow-fixture", {
-            "all_expectations_passed": all(item["passed"] for item in expectations),
-            "expectations": expectations,
-        }
+        return (
+            "completed",
+            "integration-shadow-fixture",
+            {
+                "all_expectations_passed": all(item["passed"] for item in expectations),
+                "expectations": expectations,
+            },
+        )
 
     monkeypatch.setattr(
         "app.services.semantic_candidates._semantic_evaluation_result",
@@ -343,9 +347,7 @@ def test_evaluate_semantic_candidate_extractor_improves_expected_recall(monkeypa
     report = payload["document_reports"][0]
     assert report["improved_expected_concept_keys"] == ["integration_owner"]
     assert report["candidate_only_concept_keys"] == ["integration_owner"]
-    assert any(
-        row["concept_key"] == "integration_owner" for row in report["shadow_candidates"]
-    )
+    assert any(row["concept_key"] == "integration_owner" for row in report["shadow_candidates"])
 
 
 def test_export_semantic_supervision_corpus_includes_reviews_and_generation_verifications(
@@ -552,9 +554,7 @@ def test_export_semantic_supervision_corpus_dedupes_document_ids_and_ignores_sta
     assert payload["document_count"] == 1
     assert payload["row_type_counts"]["grounded_document_verification"] == 1
     grounded_rows = [
-        row
-        for row in payload["rows"]
-        if row["row_type"] == "grounded_document_verification"
+        row for row in payload["rows"] if row["row_type"] == "grounded_document_verification"
     ]
     assert grounded_rows == [
         {

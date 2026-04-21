@@ -16,8 +16,7 @@ import yaml
 from sqlalchemy import Select, and_, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.config import semantics_feature_enabled
+from app.core.config import get_settings, semantics_feature_enabled
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.models import (
@@ -35,12 +34,12 @@ from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
-from app.services.semantics import execute_semantic_pass
 from app.services.runtime import (
     get_process_identity,
     register_runtime_process,
     runtime_code_is_current,
 )
+from app.services.semantics import execute_semantic_pass
 from app.services.storage import StorageService
 from app.services.telemetry import increment
 from app.services.validation import ValidationReport, validate_persisted_run

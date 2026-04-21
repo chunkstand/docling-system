@@ -531,6 +531,23 @@ def _build_draft_harness_config_context(
         next_action="Run verify_draft_harness_config against replay evidence.",
         approval_state="not_required",
         verification_state="pending",
+        problem=(
+            "Draft is evidence-backed by a source task."
+            if output.draft.source_task_id is not None
+            else "Draft has no source repair task."
+        ),
+        evidence=(
+            "Source task context is attached as a freshness-checked ref."
+            if output.draft.source_task_id is not None
+            else None
+        ),
+        proposed_change=(
+            "retrieval overrides="
+            f"{sorted(output.draft.override_spec.retrieval_profile_overrides)}, "
+            f"reranker overrides={sorted(output.draft.override_spec.reranker_overrides)}"
+        ),
+        predicted_risk="Verification must pass replay and comprehension gates before apply.",
+        follow_up_status="not_started",
         metrics={
             "has_source_task": output.draft.source_task_id is not None,
             "retrieval_override_count": len(output.draft.override_spec.retrieval_profile_overrides),
@@ -1353,7 +1370,9 @@ def _build_build_shadow_semantic_graph_context(
             ContextRef(
                 ref_key="shadow_semantic_graph_artifact",
                 ref_kind="artifact",
-                summary="Persisted shadow semantic graph artifact for cross-document memory review.",
+                summary=(
+                    "Persisted shadow semantic graph artifact for cross-document memory review."
+                ),
                 task_id=task.id,
                 artifact_id=artifact_row.id,
                 artifact_kind=artifact_row.artifact_kind,
@@ -1373,7 +1392,9 @@ def _build_build_shadow_semantic_graph_context(
             f"cross-document edge(s)."
         ),
         goal="Compact semantic evidence into a typed, reviewable shadow graph memory layer.",
-        decision="The shadow graph is ready for extractor evaluation or bounded promotion drafting.",
+        decision=(
+            "The shadow graph is ready for extractor evaluation or bounded promotion drafting."
+        ),
         next_action=(
             "Create evaluate_semantic_relation_extractor or draft_graph_promotions "
             "to compare and promote graph memory."
@@ -1439,7 +1460,10 @@ def _build_evaluate_semantic_relation_extractor_context(
             f"Evaluated graph extractors on {summary_payload.get('document_count', 0)} "
             f"document(s) with {summary_payload.get('expected_edge_count', 0)} expected edge(s)."
         ),
-        goal="Measure shadow relation extraction against a deterministic baseline and fixed expectations.",
+        goal=(
+            "Measure shadow relation extraction against a deterministic baseline "
+            "and fixed expectations."
+        ),
         decision=(
             "The candidate extractor is ready for disagreement triage."
             if summary_payload.get("candidate_expected_recall", 0.0)
@@ -1707,7 +1731,8 @@ def _build_verify_draft_graph_promotions_context(
         expected_schema_name="draft_graph_promotions_output",
         expected_schema_version="1.0",
         dependency_error_message=(
-            "Graph promotion verification must declare the requested graph draft as a target_task dependency."
+            "Graph promotion verification must declare the requested graph draft "
+            "as a target_task dependency."
         ),
         rerun_message=(
             "Graph promotion draft must be rerun after the context migration before verification."
@@ -1768,7 +1793,10 @@ def _build_verify_draft_graph_promotions_context(
             f"Graph promotion verification {output.verification.outcome} for "
             f"{output.draft.proposed_graph_version}."
         ),
-        goal="Verify graph-memory promotions against ontology, traceability, and conflict constraints.",
+        goal=(
+            "Verify graph-memory promotions against ontology, traceability, and "
+            "conflict constraints."
+        ),
         decision=(
             "The graph promotion draft is ready for approval and apply."
             if output.verification.outcome == "passed"
@@ -1823,7 +1851,8 @@ def _build_apply_graph_promotions_context(
         expected_schema_name="draft_graph_promotions_output",
         expected_schema_version="1.0",
         dependency_error_message=(
-            "Apply graph promotions must declare the requested graph draft as a draft_task dependency."
+            "Apply graph promotions must declare the requested graph draft as "
+            "a draft_task dependency."
         ),
         rerun_message=(
             "Graph promotion draft task must be rerun after the context migration before apply."
@@ -1853,10 +1882,12 @@ def _build_apply_graph_promotions_context(
         expected_schema_name="verify_draft_graph_promotions_output",
         expected_schema_version="1.0",
         dependency_error_message=(
-            "Apply graph promotions must declare the requested graph verification as a verification_task dependency."
+            "Apply graph promotions must declare the requested graph verification "
+            "as a verification_task dependency."
         ),
         rerun_message=(
-            "Graph promotion verification task must be rerun after the context migration before apply."
+            "Graph promotion verification task must be rerun after the context "
+            "migration before apply."
         ),
     )
     refs.append(
@@ -1899,9 +1930,13 @@ def _build_apply_graph_promotions_context(
     summary = TaskContextSummary(
         headline=f"Applied semantic graph snapshot {output.applied_graph_version}.",
         goal="Publish verified graph-memory promotions after explicit approval.",
-        decision="The active graph snapshot is updated and ready for downstream generation and orchestration.",
+        decision=(
+            "The active graph snapshot is updated and ready for downstream "
+            "generation and orchestration."
+        ),
         next_action=(
-            "Refresh semantic generation briefs or build new graph-aware tasks against the active snapshot."
+            "Refresh semantic generation briefs or build new graph-aware tasks "
+            "against the active snapshot."
         ),
         approval_state="approved" if task.approved_at is not None else "pending",
         verification_state=verification_output.verification.outcome,
@@ -2376,6 +2411,12 @@ def _build_verify_draft_harness_config_context(
         )
 
     verification_outcome = output.verification.outcome
+    comprehension_gate = output.comprehension_gate
+    changed_scopes = (
+        comprehension_gate.predicted_blast_radius.get("changed_scopes") or []
+        if comprehension_gate is not None
+        else []
+    )
     summary = TaskContextSummary(
         headline=(
             f"Verified draft harness {output.draft.draft_harness_name} against "
@@ -2394,12 +2435,32 @@ def _build_verify_draft_harness_config_context(
         ),
         approval_state="not_required",
         verification_state=verification_outcome,
+        problem=(
+            comprehension_gate.repair_case.problem_statement
+            if comprehension_gate is not None and comprehension_gate.repair_case is not None
+            else None
+        ),
+        evidence=(
+            comprehension_gate.claim_evidence_alignment if comprehension_gate is not None else None
+        ),
+        proposed_change=(
+            comprehension_gate.change_justification if comprehension_gate is not None else None
+        ),
+        predicted_risk=(
+            f"Changed scopes: {', '.join(changed_scopes)}"
+            if comprehension_gate is not None
+            else None
+        ),
+        follow_up_status="planned" if output.follow_up_plan else "not_started",
         metrics={
             "total_shared_query_count": (output.verification.metrics or {}).get(
                 "total_shared_query_count"
             ),
             "regressed_count": output.evaluation.get("total_regressed_count"),
             "improved_count": output.evaluation.get("total_improved_count"),
+            "comprehension_passed": (
+                comprehension_gate.comprehension_passed if comprehension_gate is not None else None
+            ),
         },
     )
     return TaskContextEnvelope(
@@ -3191,6 +3252,29 @@ def _build_triage_replay_regression_context(
             )
         )
 
+    if output.repair_case_artifact_id is not None:
+        repair_case_artifact_row = session.get(AgentTaskArtifact, output.repair_case_artifact_id)
+        if repair_case_artifact_row is not None:
+            refs.append(
+                ContextRef(
+                    ref_key="repair_case_artifact",
+                    ref_kind="artifact",
+                    summary=(
+                        "Canonical repair case linking replay evidence to a bounded harness action."
+                    ),
+                    task_id=task.id,
+                    artifact_id=repair_case_artifact_row.id,
+                    artifact_kind=repair_case_artifact_row.artifact_kind,
+                    schema_name="search_harness_repair_case",
+                    schema_version="1.0",
+                    observed_sha256=_payload_sha256(repair_case_artifact_row.payload_json or {}),
+                    source_updated_at=repair_case_artifact_row.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+
+    repair_case = output.repair_case
     summary = TaskContextSummary(
         headline=(
             f"Triage recommends {output.recommendation.next_action} for "
@@ -3201,6 +3285,21 @@ def _build_triage_replay_regression_context(
         next_action=output.recommendation.next_action,
         approval_state="not_required",
         verification_state=output.verification.outcome,
+        problem=repair_case.problem_statement if repair_case is not None else None,
+        evidence=(
+            f"{len(repair_case.evidence_refs)} evidence ref(s) captured in repair_case."
+            if repair_case is not None
+            else None
+        ),
+        proposed_change=(
+            "No live change proposed; create a bounded draft harness if review proceeds."
+        ),
+        predicted_risk=(
+            "Drafts are limited to retrieval-profile and reranker override surfaces."
+            if repair_case is not None
+            else None
+        ),
+        follow_up_status="not_started",
         metrics={
             "confidence": output.recommendation.confidence,
             "quality_candidate_count": output.quality_candidate_count,
@@ -3317,24 +3416,78 @@ def _build_apply_harness_config_update_context(
             )
         )
 
+    if output.follow_up_artifact_id is not None:
+        follow_up_artifact_row = session.get(AgentTaskArtifact, output.follow_up_artifact_id)
+        if follow_up_artifact_row is not None:
+            refs.append(
+                ContextRef(
+                    ref_key="follow_up_evaluation_artifact",
+                    ref_kind="artifact",
+                    summary="Post-apply replay/evaluation evidence for the published harness.",
+                    task_id=task.id,
+                    artifact_id=follow_up_artifact_row.id,
+                    artifact_kind=follow_up_artifact_row.artifact_kind,
+                    schema_name="search_harness_follow_up_evidence",
+                    schema_version="1.0",
+                    observed_sha256=_payload_sha256(follow_up_artifact_row.payload_json or {}),
+                    source_updated_at=follow_up_artifact_row.created_at,
+                    checked_at=now,
+                    freshness_status=ContextFreshnessStatus.FRESH,
+                )
+            )
+
     verification_output = VerifyDraftHarnessConfigTaskOutput.model_validate(
         verification_context.output
     )
+    follow_up_summary = output.follow_up_summary or {}
     summary = TaskContextSummary(
         headline=f"Applied verified harness {output.draft_harness_name} to live search.",
         goal="Publish a verified draft harness after approval without changing the workflow model.",
-        decision="Live override written and ready for post-apply monitoring.",
+        decision=(
+            follow_up_summary.get("summary")
+            or "Live override written and ready for post-apply monitoring."
+        ),
         next_action=(
-            f"Monitor search traffic and run follow-up evaluation for {output.draft_harness_name}."
+            "Review follow-up evidence and keep the override."
+            if follow_up_summary.get("recommendation") == "keep_override"
+            else (
+                "Monitor search traffic and run follow-up evaluation for "
+                f"{output.draft_harness_name}."
+            )
         ),
         approval_state="approved" if task.approved_at is not None else "pending",
         verification_state=verification_output.verification.outcome,
+        problem=(
+            verification_output.comprehension_gate.repair_case.problem_statement
+            if verification_output.comprehension_gate is not None
+            and verification_output.comprehension_gate.repair_case is not None
+            else None
+        ),
+        evidence=(
+            "Before/after evidence attached with recommendation: "
+            f"{follow_up_summary.get('recommendation')}"
+            if follow_up_summary
+            else "Verification evidence attached; follow-up not run."
+        ),
+        proposed_change="Published "
+        f"{output.draft_harness_name} derived from "
+        f"{draft_context.output.get('draft', {}).get('base_harness_name')}.",
+        predicted_risk=(
+            verification_output.comprehension_gate.rollback_condition
+            if verification_output.comprehension_gate is not None
+            else None
+        ),
+        follow_up_status="completed" if follow_up_summary else "not_started",
         metrics={
             "total_shared_query_count": (verification_output.verification.metrics or {}).get(
                 "total_shared_query_count"
             ),
             "regressed_count": verification_output.evaluation.get("total_regressed_count"),
             "improved_count": verification_output.evaluation.get("total_improved_count"),
+            "follow_up_regressed_count": (
+                (follow_up_summary.get("after") or {}).get("total_regressed_count")
+            ),
+            "follow_up_recommendation": follow_up_summary.get("recommendation"),
         },
     )
     return TaskContextEnvelope(

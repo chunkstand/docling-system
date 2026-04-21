@@ -567,8 +567,7 @@ def _export_success_metrics(corpus: dict) -> list[dict]:
             "passed": bool(row_type_counts.get("semantic_evaluation_expectation"))
             and bool(row_type_counts.get("grounded_document_verification")),
             "summary": (
-                "The supervision corpus captures reusable evaluation and "
-                "verification signals."
+                "The supervision corpus captures reusable evaluation and verification signals."
             ),
             "details": {
                 "row_type_counts": row_type_counts,
@@ -592,8 +591,7 @@ def _export_success_metrics(corpus: dict) -> list[dict]:
             "passed": bool(rows)
             and all(row.get("row_id") and row.get("source_ref") for row in rows),
             "summary": (
-                "The supervision corpus is durable, typed, and replayable "
-                "from canonical rows."
+                "The supervision corpus is durable, typed, and replayable from canonical rows."
             ),
             "details": {
                 "row_count": len(rows),
@@ -604,8 +602,7 @@ def _export_success_metrics(corpus: dict) -> list[dict]:
             "stakeholder": "Jones",
             "passed": bool(corpus.get("jsonl_path")) and bool(rows),
             "summary": (
-                "The system exports a reusable supervision asset instead of "
-                "ephemeral review state."
+                "The system exports a reusable supervision asset instead of ephemeral review state."
             ),
             "details": {
                 "jsonl_path": corpus.get("jsonl_path"),
@@ -915,14 +912,10 @@ def _evaluate_document_candidate_extractors(
     baseline_expected_hit_count = sum(1 for value in baseline_expected_pass.values() if value)
     candidate_expected_hit_count = sum(1 for value in candidate_expected_pass.values() if value)
     baseline_expected_recall = (
-        baseline_expected_hit_count / expected_concept_count
-        if expected_concept_count
-        else 1.0
+        baseline_expected_hit_count / expected_concept_count if expected_concept_count else 1.0
     )
     candidate_expected_recall = (
-        candidate_expected_hit_count / expected_concept_count
-        if expected_concept_count
-        else 1.0
+        candidate_expected_hit_count / expected_concept_count if expected_concept_count else 1.0
     )
     return {
         "document_id": document.id,
@@ -1020,8 +1013,7 @@ def _candidate_eval_success_metrics(payload: dict) -> list[dict]:
             "stakeholder": "Ronacher",
             "passed": summary.get("live_mutation_performed") is False,
             "summary": (
-                "Shadow evaluation is read-only and does not mutate the "
-                "active semantic contract."
+                "Shadow evaluation is read-only and does not mutate the active semantic contract."
             ),
             "details": {
                 "live_mutation_performed": summary.get("live_mutation_performed"),
@@ -1142,8 +1134,7 @@ def _triage_success_metrics(report: dict, *, evaluation_summary: dict) -> list[d
             "passed": int(evaluation_summary.get("improved_expected_concept_count") or 0)
             >= int(evaluation_summary.get("regressed_expected_concept_count") or 0),
             "summary": (
-                "The disagreement report highlights recall gains without "
-                "hiding regressions."
+                "The disagreement report highlights recall gains without hiding regressions."
             ),
             "details": {
                 "improved_expected_concept_count": evaluation_summary.get(

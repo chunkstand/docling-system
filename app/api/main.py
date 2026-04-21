@@ -86,15 +86,10 @@ from app.schemas.quality import (
     QualitySummaryResponse,
     QualityTrendsResponse,
 )
-from app.schemas.semantics import (
-    DocumentSemanticPassResponse,
-    SemanticContinuityResponse,
-    SemanticReviewDecisionRequest,
-    SemanticReviewEventResponse,
-)
 from app.schemas.search import (
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
+    SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessResponse,
@@ -105,7 +100,14 @@ from app.schemas.search import (
     SearchReplayRunSummaryResponse,
     SearchRequest,
     SearchRequestDetailResponse,
+    SearchRequestExplanationResponse,
     SearchResult,
+)
+from app.schemas.semantics import (
+    DocumentSemanticPassResponse,
+    SemanticContinuityResponse,
+    SemanticReviewDecisionRequest,
+    SemanticReviewEventResponse,
 )
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
@@ -164,6 +166,10 @@ from app.services.search_history import (
     get_search_request_detail,
     record_search_feedback,
     replay_search_request,
+)
+from app.services.search_legibility import (
+    get_search_harness_descriptor,
+    get_search_request_explanation,
 )
 from app.services.search_replays import (
     compare_search_replay_runs,
@@ -1528,6 +1534,18 @@ def read_search_request(
     return get_search_request_detail(session, search_request_id)
 
 
+@app.get(
+    "/search/requests/{search_request_id}/explain",
+    response_model=SearchRequestExplanationResponse,
+    dependencies=[Depends(_require_api_capability("search:history:read"))],
+)
+def explain_search_request(
+    search_request_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchRequestExplanationResponse:
+    return get_search_request_explanation(session, search_request_id)
+
+
 @app.post(
     "/search/requests/{search_request_id}/feedback",
     response_model=SearchFeedbackResponse,
@@ -1581,6 +1599,23 @@ def read_search_replays(
 )
 def read_search_harnesses() -> list[SearchHarnessResponse]:
     return list_search_harness_definitions()
+
+
+@app.get(
+    "/search/harnesses/{harness_name}/descriptor",
+    response_model=SearchHarnessDescriptorResponse,
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptorResponse:
+    try:
+        return get_search_harness_descriptor(harness_name)
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "search_harness_not_found",
+            str(exc),
+            harness_name=harness_name,
+        ) from exc
 
 
 @app.post(

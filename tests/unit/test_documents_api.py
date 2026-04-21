@@ -790,7 +790,9 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
 def test_semantic_read_routes_return_conflict_when_feature_disabled(monkeypatch) -> None:
     document_id = uuid4()
 
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False))
+    monkeypatch.setattr(
+        "app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False)
+    )
     monkeypatch.setattr(
         "app.api.main.get_active_semantic_pass_detail",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
@@ -910,7 +912,9 @@ def test_semantic_assertion_review_route_returns_machine_readable_error_when_tar
 
     monkeypatch.setattr(
         "app.api.main.review_active_semantic_assertion",
-        lambda session, requested_document_id, requested_assertion_id, **kwargs: (_ for _ in ()).throw(
+        lambda session, requested_document_id, requested_assertion_id, **kwargs: (
+            _ for _ in ()
+        ).throw(
             api_error(
                 404,
                 "semantic_assertion_not_found",
@@ -957,7 +961,7 @@ def test_semantic_assertion_review_route_requires_remote_review_capability(monke
     assert response.json()["error_code"] == "capability_not_allowed"
 
 
-def test_semantic_assertion_category_binding_review_route_returns_machine_readable_error_when_target_missing(
+def test_semantic_category_binding_review_route_errors_when_target_missing(
     monkeypatch,
 ) -> None:
     document_id = uuid4()
@@ -966,7 +970,9 @@ def test_semantic_assertion_category_binding_review_route_returns_machine_readab
 
     monkeypatch.setattr(
         "app.api.main.review_active_semantic_assertion_category_binding",
-        lambda session, requested_document_id, requested_binding_id, **kwargs: (_ for _ in ()).throw(
+        lambda session, requested_document_id, requested_binding_id, **kwargs: (
+            _ for _ in ()
+        ).throw(
             api_error(
                 404,
                 "semantic_assertion_category_binding_not_found",
@@ -1022,7 +1028,9 @@ def test_semantic_review_routes_return_conflict_when_feature_disabled(monkeypatc
     assertion_id = uuid4()
     binding_id = uuid4()
 
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False))
+    monkeypatch.setattr(
+        "app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False)
+    )
     monkeypatch.setattr(
         "app.api.main.review_active_semantic_assertion",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
@@ -1190,8 +1198,12 @@ def test_semantic_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
     document_id = uuid4()
     run_id = uuid4()
 
-    storage_service.get_semantic_json_path(document_id, run_id, "2.1").write_text('{"kind":"semantic"}')
-    storage_service.get_semantic_yaml_path(document_id, run_id, "2.1").write_text("kind: semantic\n")
+    storage_service.get_semantic_json_path(document_id, run_id, "2.1").write_text(
+        '{"kind":"semantic"}'
+    )
+    storage_service.get_semantic_yaml_path(document_id, run_id, "2.1").write_text(
+        "kind: semantic\n"
+    )
 
     semantic_pass = SimpleNamespace(
         run_id=run_id,
