@@ -130,18 +130,56 @@ class StorageService:
 
         return staged_path, hasher.hexdigest()
 
-    def stage_local_file(self, source_path: Path) -> tuple[Path, str]:
+    def stage_local_file(
+        self,
+        source_path: Path,
+        *,
+        max_file_bytes: int | None = None,
+        validate_pdf_header: bool = False,
+        size_limit_detail: str = "File exceeds local ingest size limit.",
+    ) -> tuple[Path, str]:
         suffix = source_path.suffix or ".pdf"
         hasher = hashlib.sha256()
+        header_prefix = bytearray()
+        bytes_written = 0
+        staged_path: Path | None = None
 
-        with source_path.open("rb") as source_file:
-            with NamedTemporaryFile(
-                delete=False, dir=self.staging_root, suffix=suffix
-            ) as temp_file:
-                while chunk := source_file.read(1024 * 1024):
-                    temp_file.write(chunk)
-                    hasher.update(chunk)
-                staged_path = Path(temp_file.name)
+        try:
+            with source_path.open("rb") as source_file:
+                with NamedTemporaryFile(
+                    delete=False, dir=self.staging_root, suffix=suffix
+                ) as temp_file:
+                    staged_path = Path(temp_file.name)
+                    while chunk := source_file.read(1024 * 1024):
+                        if validate_pdf_header and len(header_prefix) < 5:
+                            remaining = 5 - len(header_prefix)
+                            header_prefix.extend(chunk[:remaining])
+                            if len(header_prefix) == 5 and bytes(header_prefix) != b"%PDF-":
+                                raise api_error(
+                                    status.HTTP_400_BAD_REQUEST,
+                                    "invalid_pdf",
+                                    "File is not a valid PDF.",
+                                )
+                        bytes_written += len(chunk)
+                        if max_file_bytes is not None and bytes_written > max_file_bytes:
+                            raise api_error(
+                                status.HTTP_400_BAD_REQUEST,
+                                "file_size_limit_exceeded",
+                                size_limit_detail,
+                            )
+                        temp_file.write(chunk)
+                        hasher.update(chunk)
+
+            if validate_pdf_header and (bytes_written < 5 or bytes(header_prefix) != b"%PDF-"):
+                raise api_error(
+                    status.HTTP_400_BAD_REQUEST,
+                    "invalid_pdf",
+                    "File is not a valid PDF.",
+                )
+        except Exception:
+            if staged_path is not None:
+                staged_path.unlink(missing_ok=True)
+            raise
 
         return staged_path, hasher.hexdigest()
 

@@ -1101,13 +1101,59 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
     def metadata_era(harness_config: dict | None) -> str:
         return "harness_v1" if harness_config else "legacy_pre_harness"
 
-    for feedback in feedback_rows:
-        request_row = session.get(SearchRequestRecord, feedback.search_request_id)
-        result_row = (
-            session.get(SearchRequestResult, feedback.search_request_result_id)
+    if uses_in_memory_session(session):
+        request_rows_by_id = {
+            feedback.search_request_id: session.get(SearchRequestRecord, feedback.search_request_id)
+            for feedback in feedback_rows
+        }
+        result_rows_by_id = {
+            feedback.search_request_result_id: session.get(
+                SearchRequestResult,
+                feedback.search_request_result_id,
+            )
+            for feedback in feedback_rows
             if feedback.search_request_result_id is not None
-            else None
-        )
+        }
+        replay_runs_by_id = {
+            row.replay_run_id: session.get(SearchReplayRun, row.replay_run_id)
+            for row in replay_rows
+        }
+    else:
+        request_ids = {feedback.search_request_id for feedback in feedback_rows}
+        result_ids = {
+            feedback.search_request_result_id
+            for feedback in feedback_rows
+            if feedback.search_request_result_id is not None
+        }
+        replay_run_ids = {row.replay_run_id for row in replay_rows}
+        request_rows_by_id = {
+            row.id: row
+            for row in session.execute(
+                select(SearchRequestRecord).where(SearchRequestRecord.id.in_(request_ids))
+            )
+            .scalars()
+            .all()
+        }
+        result_rows_by_id = {
+            row.id: row
+            for row in session.execute(
+                select(SearchRequestResult).where(SearchRequestResult.id.in_(result_ids))
+            )
+            .scalars()
+            .all()
+        }
+        replay_runs_by_id = {
+            row.id: row
+            for row in session.execute(
+                select(SearchReplayRun).where(SearchReplayRun.id.in_(replay_run_ids))
+            )
+            .scalars()
+            .all()
+        }
+
+    for feedback in feedback_rows:
+        request_row = request_rows_by_id.get(feedback.search_request_id)
+        result_row = result_rows_by_id.get(feedback.search_request_result_id)
         if request_row is None:
             continue
         harness_config = getattr(request_row, "harness_config_json", {}) or {}
@@ -1143,7 +1189,7 @@ def export_ranking_dataset(session: Session, *, limit: int = 200) -> list[dict]:
         )
 
     for row in replay_rows:
-        replay_run = session.get(SearchReplayRun, row.replay_run_id)
+        replay_run = replay_runs_by_id.get(row.replay_run_id)
         harness_config = getattr(replay_run, "harness_config_json", {}) or {}
         dataset.append(
             {

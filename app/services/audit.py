@@ -4,6 +4,7 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import UUID
 
 from sqlalchemy import select
@@ -76,10 +77,48 @@ def _load_audit_context(session: Session) -> AuditContext:
     return AuditContext(
         documents=session.execute(select(Document)).scalars().all(),
         runs=session.execute(select(DocumentRun)).scalars().all(),
-        chunks=session.execute(select(DocumentChunk)).scalars().all(),
-        tables=session.execute(select(DocumentTable)).scalars().all(),
-        figures=session.execute(select(DocumentFigure)).scalars().all(),
-        evaluations=session.execute(select(DocumentRunEvaluation)).scalars().all(),
+        chunks=[
+            SimpleNamespace(run_id=row.run_id)
+            for row in session.execute(select(DocumentChunk.run_id)).all()
+        ],
+        tables=[
+            SimpleNamespace(
+                document_id=row.document_id,
+                run_id=row.run_id,
+                json_path=row.json_path,
+                yaml_path=row.yaml_path,
+            )
+            for row in session.execute(
+                select(
+                    DocumentTable.document_id,
+                    DocumentTable.run_id,
+                    DocumentTable.json_path,
+                    DocumentTable.yaml_path,
+                )
+            ).all()
+        ],
+        figures=[
+            SimpleNamespace(
+                document_id=row.document_id,
+                run_id=row.run_id,
+                json_path=row.json_path,
+                yaml_path=row.yaml_path,
+            )
+            for row in session.execute(
+                select(
+                    DocumentFigure.document_id,
+                    DocumentFigure.run_id,
+                    DocumentFigure.json_path,
+                    DocumentFigure.yaml_path,
+                )
+            ).all()
+        ],
+        evaluations=[
+            SimpleNamespace(run_id=row.run_id, created_at=row.created_at)
+            for row in session.execute(
+                select(DocumentRunEvaluation.run_id, DocumentRunEvaluation.created_at)
+            ).all()
+        ],
     )
 
 

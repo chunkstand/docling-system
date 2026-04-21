@@ -966,6 +966,38 @@ rules:
     assert rules[0].description == "Example rule"
 
 
+def test_load_table_supplement_registry_refreshes_when_file_changes(tmp_path) -> None:
+    registry_path = tmp_path / "table_supplements.yaml"
+    registry_path.write_text(
+        """
+rules:
+  - document_filenames: first.pdf
+    supplement_filename: clean/first.pdf
+    matcher: title_regex_family
+    family_key_pattern: 'FIRST'
+""".strip()
+    )
+
+    first_rules = _load_table_supplement_registry(str(registry_path))
+
+    registry_path.write_text(
+        """
+rules:
+  - document_filenames: second.pdf
+    supplement_filename: clean/second.pdf
+    matcher: title_regex_family
+    family_key_pattern: 'SECOND'
+    description: Updated rule
+""".strip()
+    )
+
+    second_rules = _load_table_supplement_registry(str(registry_path))
+
+    assert first_rules[0].document_filenames == ("first.pdf",)
+    assert second_rules[0].document_filenames == ("second.pdf",)
+    assert second_rules[0].description == "Updated rule"
+
+
 def test_apply_registered_table_supplements_uses_matching_rule(monkeypatch, tmp_path) -> None:
     chapter_tables = [
         _make_table(

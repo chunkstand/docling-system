@@ -1613,6 +1613,9 @@ def get_agent_task_value_density(
     task_ids = _task_ids(tasks)
     outcomes = _list_task_outcome_rows(session, task_ids=task_ids)
     attempts = _list_task_attempt_rows(session, task_ids=task_ids)
+    attempts_by_task_id: dict[UUID, list[AgentTaskAttempt]] = defaultdict(list)
+    for attempt in attempts:
+        attempts_by_task_id[attempt.task_id].append(attempt)
     rows: list[AgentTaskValueDensityRowResponse] = []
     grouped_tasks: dict[tuple[str, str], list[AgentTask]] = defaultdict(list)
     for task in tasks:
@@ -1620,8 +1623,9 @@ def get_agent_task_value_density(
             grouped_tasks[(task.task_type, task.workflow_version)].append(task)
     for (task_type, workflow_version), grouped in sorted(grouped_tasks.items()):
         family_tasks = _recommendation_family_tasks(tasks, grouped)
-        family_task_ids = _task_ids(family_tasks)
-        family_attempts = [attempt for attempt in attempts if attempt.task_id in family_task_ids]
+        family_attempts = [
+            attempt for task in family_tasks for attempt in attempts_by_task_id.get(task.id, [])
+        ]
         recommendation_summary = _recommendation_summary_from_tasks(family_tasks, outcomes)
         performance_summary = _performance_summary_from_attempts(
             family_attempts,

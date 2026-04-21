@@ -15,6 +15,8 @@ services:
   db:
     image: pgvector/pgvector:pg17
     container_name: ${DOCLING_SYSTEM_DB_CONTAINER_NAME:-docling-system-db}
+    cpus: "1.5"
+    mem_limit: 2g
     environment:
       POSTGRES_DB: ${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}
       POSTGRES_USER: docling
@@ -45,6 +47,8 @@ services:
   api:
     <<: *docling-service
     container_name: ${DOCLING_SYSTEM_API_CONTAINER_NAME:-docling-system-api}
+    cpus: "1.0"
+    mem_limit: 1g
     command: ["docling-system-api"]
     environment:
       DOCLING_SYSTEM_DATABASE_URL: postgresql+psycopg://docling:docling@db:5432/${DOCLING_SYSTEM_POSTGRES_DB:-docling_system}
@@ -79,6 +83,8 @@ services:
   worker:
     <<: *docling-service
     container_name: ${DOCLING_SYSTEM_WORKER_CONTAINER_NAME:-docling-system-worker}
+    cpus: "1.0"
+    mem_limit: 2g
     command: ["docling-system-worker"]
     depends_on:
       db:
@@ -90,6 +96,8 @@ services:
   agent-worker:
     <<: *docling-service
     container_name: ${DOCLING_SYSTEM_AGENT_WORKER_CONTAINER_NAME:-docling-system-agent-worker}
+    cpus: "1.0"
+    mem_limit: 1g
     command: ["docling-system-agent-worker"]
     depends_on:
       db:

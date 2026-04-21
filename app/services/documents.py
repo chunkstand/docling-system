@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-import pypdfium2 as pdfium
 from fastapi import UploadFile, status
 from sqlalchemy import Select, func, select
 from sqlalchemy.exc import IntegrityError
@@ -129,6 +128,8 @@ def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True)
 
 
 def _pdf_page_count(file_path: Path) -> int:
+    import pypdfium2 as pdfium
+
     try:
         pdf = pdfium.PdfDocument(str(file_path))
     except Exception as exc:
@@ -601,15 +602,14 @@ def ingest_local_file(
     storage_service: StorageService,
 ) -> tuple[DocumentUploadResponse, int]:
     file_path = _validate_local_ingest_path(file_path, enforce_limits=False)
-    sha256 = _sha256_file(file_path)
-    existing = session.execute(
-        select(Document).where(Document.sha256 == sha256)
-    ).scalar_one_or_none()
-    if existing is not None:
-        return _resolve_existing_document_upload(session, existing)
-    file_path = _validate_local_ingest_path(file_path)
+    settings = get_settings()
 
-    staged_path, sha256 = storage_service.stage_local_file(file_path)
+    staged_path, sha256 = storage_service.stage_local_file(
+        file_path,
+        max_file_bytes=settings.local_ingest_max_file_bytes,
+        validate_pdf_header=True,
+        size_limit_detail="File exceeds local ingest size limit.",
+    )
     return _admit_staged_document(
         session=session,
         storage_service=storage_service,
@@ -619,7 +619,7 @@ def ingest_local_file(
         mime_type="application/pdf",
         size_limit_detail="File exceeds local ingest size limit.",
         page_limit_detail_prefix="PDF page count exceeds local ingest limit",
-        check_existing=False,
+        check_existing=True,
     )
 
 

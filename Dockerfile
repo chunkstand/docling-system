@@ -9,9 +9,10 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip uv
 
-COPY pyproject.toml uv.lock README.md ./
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --extra api --extra ingest --no-install-project
 
+COPY README.md ./README.md
 COPY app ./app
 COPY alembic.ini ./alembic.ini
 COPY alembic ./alembic

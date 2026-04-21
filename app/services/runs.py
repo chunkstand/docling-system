@@ -41,7 +41,7 @@ from app.services.runtime import (
 )
 from app.services.semantics import execute_semantic_pass
 from app.services.storage import StorageService
-from app.services.telemetry import increment
+from app.services.telemetry import increment, increment_many
 from app.services.validation import ValidationReport, validate_persisted_run
 
 
@@ -407,6 +407,7 @@ def _replace_run_tables(
     session.query(DocumentTable).filter(DocumentTable.run_id == run.id).delete()
     now = utcnow()
 
+    table_metric_counts: dict[str, float] = {}
     for table in parsed.tables:
         table_id = uuid.uuid4()
         lineage = lineage_assignments.get(table.table_index, {})
@@ -484,15 +485,27 @@ def _replace_run_tables(
                     created_at=now,
                 )
             )
-        increment("logical_tables_persisted_total")
-        increment("table_segments_persisted_total", len(table.segments))
+        table_metric_counts["logical_tables_persisted_total"] = (
+            table_metric_counts.get("logical_tables_persisted_total", 0) + 1
+        )
+        table_metric_counts["table_segments_persisted_total"] = (
+            table_metric_counts.get("table_segments_persisted_total", 0) + len(table.segments)
+        )
         if table.metadata.get("is_merged"):
-            increment("continuation_merges_total")
+            table_metric_counts["continuation_merges_total"] = (
+                table_metric_counts.get("continuation_merges_total", 0) + 1
+            )
         if table.metadata.get("ambiguous_continuation_candidate"):
-            increment("ambiguous_continuations_total")
+            table_metric_counts["ambiguous_continuations_total"] = (
+                table_metric_counts.get("ambiguous_continuations_total", 0) + 1
+            )
         removed_rows = table.metadata.get("header_rows_removed_count", 0)
         if removed_rows:
-            increment("repeated_header_rows_removed_total", float(removed_rows))
+            table_metric_counts["repeated_header_rows_removed_total"] = (
+                table_metric_counts.get("repeated_header_rows_removed_total", 0)
+                + float(removed_rows)
+            )
+    increment_many(table_metric_counts)
 
 
 def _replace_run_figures(

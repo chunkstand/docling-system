@@ -6,8 +6,17 @@
 .ruff_cache
 .venv
 __pycache__/
+__pycache__
 *.pyc
 *.pyo
 *.pyd
+*.py[cod]
+.DS_Store
 storage/
+storage
 tests/
+htmlcov
+.coverage
+dist
+build
+*.egg-info

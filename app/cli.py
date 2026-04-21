@@ -21,60 +21,7 @@ from app.schemas.search import (
     SearchHarnessOptimizationRequest,
     SearchReplayRunRequest,
 )
-from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
-from app.services.agent_task_context import get_agent_task_context
-from app.services.agent_task_verifications import (
-    get_agent_task_verifications,
-)
-from app.services.agent_tasks import (
-    approve_agent_task,
-    create_agent_task,
-    create_agent_task_outcome,
-    export_agent_task_traces,
-    get_agent_approval_trends,
-    get_agent_task_analytics_summary,
-    get_agent_task_cost_summary,
-    get_agent_task_cost_trends,
-    get_agent_task_decision_signals,
-    get_agent_task_detail,
-    get_agent_task_performance_summary,
-    get_agent_task_performance_trends,
-    get_agent_task_recommendation_summary,
-    get_agent_task_recommendation_trends,
-    get_agent_task_trends,
-    get_agent_task_value_density,
-    get_agent_verification_trends,
-    list_agent_task_action_definitions,
-    list_agent_task_outcomes,
-    list_agent_task_workflow_summaries,
-    list_agent_tasks,
-    reject_agent_task,
-)
-from app.services.audit import run_integrity_audit
-from app.services.cleanup import backfill_legacy_run_audit_fields
-from app.services.documents import ingest_local_file
-from app.services.evaluations import evaluate_run, resolve_baseline_run_id
-from app.services.ingest_batches import (
-    get_ingest_batch_detail,
-    list_ingest_batches,
-    queue_local_ingest_directory,
-)
-from app.services.quality import list_quality_eval_candidates
-from app.services.search_harness_evaluations import (
-    evaluate_search_harness,
-    get_search_harness_evaluation_detail,
-    list_search_harness_evaluations,
-)
-from app.services.search_harness_optimization import run_search_harness_optimization_loop
-from app.services.search_history import replay_search_request
-from app.services.search_release_gate import evaluate_search_harness_release_gate
-from app.services.search_replays import (
-    export_ranking_dataset,
-    run_search_replay_suite,
-)
 from app.services.storage import StorageService
-
-evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
 
 def _parse_json_arg(raw_json: str) -> dict:
@@ -85,6 +32,295 @@ def _parse_json_arg(raw_json: str) -> dict:
     if not isinstance(payload, dict):
         raise SystemExit("JSON payload must be an object.")
     return payload
+
+
+def _lazy_service_attr(module_path: str, name: str):
+    module = __import__(module_path, fromlist=[name])
+    return getattr(module, name)
+
+
+def ingest_local_file(*args, **kwargs):
+    return _lazy_service_attr("app.services.documents", "ingest_local_file")(*args, **kwargs)
+
+
+def queue_local_ingest_directory(*args, **kwargs):
+    return _lazy_service_attr("app.services.ingest_batches", "queue_local_ingest_directory")(
+        *args,
+        **kwargs,
+    )
+
+
+def list_ingest_batches(*args, **kwargs):
+    return _lazy_service_attr("app.services.ingest_batches", "list_ingest_batches")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_ingest_batch_detail(*args, **kwargs):
+    return _lazy_service_attr("app.services.ingest_batches", "get_ingest_batch_detail")(
+        *args,
+        **kwargs,
+    )
+
+
+def evaluate_run(*args, **kwargs):
+    return _lazy_service_attr("app.services.evaluations", "evaluate_run")(*args, **kwargs)
+
+
+def resolve_baseline_run_id(*args, **kwargs):
+    return _lazy_service_attr("app.services.evaluations", "resolve_baseline_run_id")(
+        *args,
+        **kwargs,
+    )
+
+
+def run_integrity_audit(*args, **kwargs):
+    return _lazy_service_attr("app.services.audit", "run_integrity_audit")(*args, **kwargs)
+
+
+def backfill_legacy_run_audit_fields(*args, **kwargs):
+    return _lazy_service_attr("app.services.cleanup", "backfill_legacy_run_audit_fields")(
+        *args,
+        **kwargs,
+    )
+
+
+def replay_search_request(*args, **kwargs):
+    return _lazy_service_attr("app.services.search_history", "replay_search_request")(
+        *args,
+        **kwargs,
+    )
+
+
+def list_quality_eval_candidates(*args, **kwargs):
+    return _lazy_service_attr("app.services.quality", "list_quality_eval_candidates")(
+        *args,
+        **kwargs,
+    )
+
+
+def run_search_replay_suite(*args, **kwargs):
+    return _lazy_service_attr("app.services.search_replays", "run_search_replay_suite")(
+        *args,
+        **kwargs,
+    )
+
+
+def export_ranking_dataset(*args, **kwargs):
+    return _lazy_service_attr("app.services.search_replays", "export_ranking_dataset")(
+        *args,
+        **kwargs,
+    )
+
+
+def evaluate_search_harness(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_harness_evaluations",
+        "evaluate_search_harness",
+    )(*args, **kwargs)
+
+
+def list_search_harness_evaluations(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_harness_evaluations",
+        "list_search_harness_evaluations",
+    )(*args, **kwargs)
+
+
+def get_search_harness_evaluation_detail(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_harness_evaluations",
+        "get_search_harness_evaluation_detail",
+    )(*args, **kwargs)
+
+
+def evaluate_search_harness_release_gate(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_release_gate",
+        "evaluate_search_harness_release_gate",
+    )(*args, **kwargs)
+
+
+def evaluate_search_harness_verification(*args, **kwargs):
+    return evaluate_search_harness_release_gate(*args, **kwargs)
+
+
+def run_search_harness_optimization_loop(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_harness_optimization",
+        "run_search_harness_optimization_loop",
+    )(*args, **kwargs)
+
+
+def list_agent_task_action_definitions(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "list_agent_task_action_definitions",
+    )(*args, **kwargs)
+
+
+def create_agent_task(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "create_agent_task")(*args, **kwargs)
+
+
+def list_agent_tasks(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "list_agent_tasks")(*args, **kwargs)
+
+
+def get_agent_task_detail(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_detail")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_context(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_task_context", "get_agent_task_context")(
+        *args,
+        **kwargs,
+    )
+
+
+def list_agent_task_outcomes(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "list_agent_task_outcomes")(
+        *args,
+        **kwargs,
+    )
+
+
+def create_agent_task_outcome(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "create_agent_task_outcome")(
+        *args,
+        **kwargs,
+    )
+
+
+def list_agent_task_artifacts(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_task_artifacts", "list_agent_task_artifacts")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_artifact(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_task_artifacts", "get_agent_task_artifact")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_verifications(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_task_verifications",
+        "get_agent_task_verifications",
+    )(*args, **kwargs)
+
+
+def approve_agent_task(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "approve_agent_task")(*args, **kwargs)
+
+
+def reject_agent_task(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "reject_agent_task")(*args, **kwargs)
+
+
+def get_agent_task_analytics_summary(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "get_agent_task_analytics_summary",
+    )(*args, **kwargs)
+
+
+def list_agent_task_workflow_summaries(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "list_agent_task_workflow_summaries",
+    )(*args, **kwargs)
+
+
+def export_agent_task_traces(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "export_agent_task_traces")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_trends(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_trends")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_recommendation_summary(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "get_agent_task_recommendation_summary",
+    )(*args, **kwargs)
+
+
+def get_agent_task_recommendation_trends(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "get_agent_task_recommendation_trends",
+    )(*args, **kwargs)
+
+
+def get_agent_task_cost_summary(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_cost_summary")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_cost_trends(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_cost_trends")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_verification_trends(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_verification_trends")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_approval_trends(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_approval_trends")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_performance_summary(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "get_agent_task_performance_summary",
+    )(*args, **kwargs)
+
+
+def get_agent_task_performance_trends(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.agent_tasks",
+        "get_agent_task_performance_trends",
+    )(*args, **kwargs)
+
+
+def get_agent_task_value_density(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_value_density")(
+        *args,
+        **kwargs,
+    )
+
+
+def get_agent_task_decision_signals(*args, **kwargs):
+    return _lazy_service_attr("app.services.agent_tasks", "get_agent_task_decision_signals")(
+        *args,
+        **kwargs,
+    )
 
 
 def run_ingest_file() -> None:

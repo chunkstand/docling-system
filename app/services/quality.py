@@ -471,13 +471,92 @@ def _resolve_candidate_status(
 def _list_quality_eval_candidates_in_memory(
     session: Session, *, limit: int = 12, include_resolved: bool = False
 ) -> list[QualityEvaluationCandidateResponse]:
-    documents = session.execute(select(Document)).scalars().all()
-    runs = session.execute(select(DocumentRun)).scalars().all()
-    evaluations = session.execute(select(DocumentRunEvaluation)).scalars().all()
-    evaluation_queries = session.execute(select(DocumentRunEvaluationQuery)).scalars().all()
-    search_requests = session.execute(select(SearchRequestRecord)).scalars().all()
-    chat_answers = session.execute(select(ChatAnswerRecord)).scalars().all()
-    answer_feedback_rows = session.execute(select(ChatAnswerFeedback)).scalars().all()
+    scan_limit = _candidate_scan_limit(limit)
+    evaluation_queries = (
+        session.execute(
+            select(DocumentRunEvaluationQuery)
+            .order_by(DocumentRunEvaluationQuery.created_at.desc())
+            .limit(scan_limit)
+        )
+        .scalars()
+        .all()[:scan_limit]
+    )
+    search_requests = (
+        session.execute(
+            select(SearchRequestRecord)
+            .order_by(SearchRequestRecord.created_at.desc())
+            .limit(scan_limit)
+        )
+        .scalars()
+        .all()[:scan_limit]
+    )
+    answer_feedback_rows = (
+        session.execute(
+            select(ChatAnswerFeedback).order_by(ChatAnswerFeedback.created_at.desc()).limit(
+                scan_limit
+            )
+        )
+        .scalars()
+        .all()[:scan_limit]
+    )
+
+    evaluation_ids = {row.evaluation_id for row in evaluation_queries}
+    evaluations = [
+        row
+        for row in session.execute(
+            select(DocumentRunEvaluation).where(DocumentRunEvaluation.id.in_(evaluation_ids))
+        )
+        .scalars()
+        .all()
+        if row.id in evaluation_ids
+    ]
+    run_ids = {evaluation.run_id for evaluation in evaluations}
+    runs = [
+        row
+        for row in session.execute(select(DocumentRun).where(DocumentRun.id.in_(run_ids)))
+        .scalars()
+        .all()
+        if row.id in run_ids
+    ]
+
+    chat_answer_ids = {feedback.chat_answer_id for feedback in answer_feedback_rows}
+    chat_answers = [
+        row
+        for row in session.execute(
+            select(ChatAnswerRecord).where(ChatAnswerRecord.id.in_(chat_answer_ids))
+        )
+        .scalars()
+        .all()
+        if row.id in chat_answer_ids
+    ]
+    search_request_ids = {request.id for request in search_requests} | {
+        answer.search_request_id for answer in chat_answers if answer.search_request_id is not None
+    }
+    search_requests = [
+        row
+        for row in session.execute(
+            select(SearchRequestRecord).where(SearchRequestRecord.id.in_(search_request_ids))
+        )
+        .scalars()
+        .all()
+        if row.id in search_request_ids
+    ]
+
+    document_ids = {run.document_id for run in runs}
+    document_ids.update(
+        document_id
+        for row in search_requests
+        for document_id in [_maybe_uuid((row.filters_json or {}).get("document_id"))]
+        if document_id is not None
+    )
+    document_ids.update(answer.document_id for answer in chat_answers if answer.document_id)
+    documents = [
+        row
+        for row in session.execute(select(Document).where(Document.id.in_(document_ids)))
+        .scalars()
+        .all()
+        if row.id in document_ids
+    ]
 
     documents_by_id = {document.id: document for document in documents}
     runs_by_id = {run.id: run for run in runs}

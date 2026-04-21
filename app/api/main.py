@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import os
 import secrets
+import time
+from collections import deque
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
+from threading import Lock
 from uuid import UUID
 
 import uvicorn
@@ -318,6 +321,32 @@ def _resolve_api_credential(
     return None
 
 
+def _search_rate_limit_key(request: Request) -> str:
+    credential = getattr(request.state, "api_credential", None)
+    if credential is not None:
+        return f"credential:{credential.actor}"
+    client_host = request.client.host if request.client else "unknown"
+    return f"client:{client_host}"
+
+
+def _enforce_search_rate_limit(request: Request) -> None:
+    key = _search_rate_limit_key(request)
+    now = time.monotonic()
+    window_start = now - SEARCH_RATE_WINDOW_SECONDS
+    with _search_rate_limit_lock:
+        request_times = _search_request_times.setdefault(key, deque())
+        while request_times and request_times[0] < window_start:
+            request_times.popleft()
+        if len(request_times) >= SEARCH_RATE_LIMIT:
+            raise api_error(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                "rate_limited",
+                "Search request rate limit exceeded. Try again shortly.",
+                headers={"Retry-After": str(int(SEARCH_RATE_WINDOW_SECONDS))},
+            )
+        request_times.append(now)
+
+
 def _validate_runtime_bind_settings() -> tuple[str, int]:
     settings = get_settings()
     resolved_mode = resolve_api_mode(settings)
@@ -355,6 +384,10 @@ UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 app.mount("/ui", StaticFiles(directory=UI_DIR), name="ui")
 
 PUBLIC_REMOTE_PATHS = frozenset({"/health"})
+SEARCH_RATE_LIMIT = 300
+SEARCH_RATE_WINDOW_SECONDS = 60.0
+_search_rate_limit_lock = Lock()
+_search_request_times: dict[str, deque[float]] = {}
 
 
 @app.middleware("http")
@@ -1504,6 +1537,7 @@ def read_figure_yaml_artifact(
     dependencies=[
         Depends(_require_api_key_for_mutations),
         Depends(_require_api_capability("search:query")),
+        Depends(_enforce_search_rate_limit),
     ],
 )
 def search_corpus(

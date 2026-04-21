@@ -31,6 +31,30 @@ def _create_schema_scoped_engine(database_url: str, schema_name: str) -> tuple[E
     return admin_engine, engine
 
 
+def _truncate_schema(engine: Engine, schema_name: str) -> None:
+    table_names = [table.name for table in reversed(Base.metadata.sorted_tables)]
+    if not table_names:
+        return
+    qualified_tables = ", ".join(f'"{schema_name}"."{table_name}"' for table_name in table_names)
+    with engine.begin() as connection:
+        connection.execute(text(f"TRUNCATE TABLE {qualified_tables} RESTART IDENTITY CASCADE"))
+
+
+@pytest.fixture(scope="session")
+def postgres_schema_engine() -> Generator[tuple[Engine, str], None, None]:
+    schema_name = f"test_{uuid4().hex}"
+    get_settings.cache_clear()
+    database_url = get_settings().database_url
+    admin_engine, engine = _create_schema_scoped_engine(database_url, schema_name)
+    try:
+        yield engine, schema_name
+    finally:
+        engine.dispose()
+        with admin_engine.begin() as connection:
+            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+        admin_engine.dispose()
+
+
 @dataclass
 class PostgresIntegrationHarness:
     client: TestClient
@@ -52,12 +76,15 @@ class PostgresIntegrationHarness:
 
 
 @pytest.fixture
-def postgres_integration_harness(monkeypatch, tmp_path) -> Generator[PostgresIntegrationHarness]:
-    schema_name = f"test_{uuid4().hex}"
+def postgres_integration_harness(
+    monkeypatch,
+    tmp_path,
+    postgres_schema_engine,
+) -> Generator[PostgresIntegrationHarness]:
     monkeypatch.setenv("DOCLING_SYSTEM_SEMANTICS_ENABLED", "1")
     get_settings.cache_clear()
-    database_url = get_settings().database_url
-    admin_engine, engine = _create_schema_scoped_engine(database_url, schema_name)
+    engine, schema_name = postgres_schema_engine
+    _truncate_schema(engine, schema_name)
     session_factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
     storage_root = tmp_path / "storage"
     storage_service = StorageService(storage_root=storage_root)
@@ -98,8 +125,5 @@ def postgres_integration_harness(monkeypatch, tmp_path) -> Generator[PostgresInt
     finally:
         client.close()
         app.dependency_overrides.clear()
-        engine.dispose()
-        with admin_engine.begin() as connection:
-            connection.execute(text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
-        admin_engine.dispose()
+        _truncate_schema(engine, schema_name)
         get_settings.cache_clear()

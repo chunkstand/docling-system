@@ -303,6 +303,7 @@ DOCUMENT_METADATA_TEXTSEARCH_SQL = (
 class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
+        Index("ix_documents_updated_at", "updated_at"),
         Index("ix_documents_metadata_textsearch", "metadata_textsearch", postgresql_using="gin"),
     )
 
@@ -1560,6 +1561,7 @@ class SearchReplayQuery(Base):
         Index("ix_search_replay_queries_replay_search_request_id", "replay_search_request_id"),
         Index("ix_search_replay_queries_feedback_id", "feedback_id"),
         Index("ix_search_replay_queries_evaluation_query_id", "evaluation_query_id"),
+        Index("ix_search_replay_queries_created_at", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

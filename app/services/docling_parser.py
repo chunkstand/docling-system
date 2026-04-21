@@ -355,12 +355,25 @@ def _should_attempt_timeout_rescue(primary_result: Any, fallback_result: Any) ->
     )
 
 
-@lru_cache(maxsize=4)
 def _load_table_supplement_registry(registry_path: str) -> tuple[TableSupplementRule, ...]:
     path = Path(registry_path)
     if not path.is_file():
         return ()
+    stat = path.stat()
+    return _load_table_supplement_registry_cached(
+        str(path),
+        stat.st_mtime_ns,
+        stat.st_size,
+    )
 
+
+@lru_cache(maxsize=4)
+def _load_table_supplement_registry_cached(
+    registry_path: str,
+    _mtime_ns: int,
+    _size: int,
+) -> tuple[TableSupplementRule, ...]:
+    path = Path(registry_path)
     payload = yaml.safe_load(path.read_text()) or {}
     if not isinstance(payload, dict):
         raise ValueError("Table supplement registry must be a mapping.")

@@ -396,7 +396,7 @@ def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
     ]
 
 
-def test_local_duplicate_ingest_bypasses_limit_checks_and_staging(monkeypatch) -> None:
+def test_local_duplicate_ingest_stages_once_and_deletes_staged_copy(monkeypatch) -> None:
     document_id = uuid4()
     run_id = uuid4()
     now = datetime.now(UTC)
@@ -436,8 +436,17 @@ def test_local_duplicate_ingest_bypasses_limit_checks_and_staging(monkeypatch) -
             return None
 
     class FakeStorageService:
-        def stage_local_file(self, _source_path):
-            raise AssertionError("stage_local_file should not be called for duplicates")
+        def __init__(self):
+            self.staged_path = Path("/tmp/staged.pdf")
+            self.deleted_paths: list[Path] = []
+
+        def stage_local_file(self, _source_path, **kwargs):
+            assert kwargs["max_file_bytes"] == 1024
+            assert kwargs["validate_pdf_header"] is True
+            return self.staged_path, "known-sha"
+
+        def delete_file_if_exists(self, path):
+            self.deleted_paths.append(path)
 
     validate_calls: list[bool] = []
 
@@ -446,14 +455,19 @@ def test_local_duplicate_ingest_bypasses_limit_checks_and_staging(monkeypatch) -
         return path
 
     monkeypatch.setattr("app.services.documents._validate_local_ingest_path", fake_validate)
-    monkeypatch.setattr("app.services.documents._sha256_file", lambda _: "known-sha")
+    monkeypatch.setattr(
+        "app.services.documents.get_settings",
+        lambda: SimpleNamespace(local_ingest_max_file_bytes=1024),
+    )
 
-    response, status_code = ingest_local_file(FakeSession(), file_path, FakeStorageService())
+    storage_service = FakeStorageService()
+    response, status_code = ingest_local_file(FakeSession(), file_path, storage_service)
 
     assert status_code == 200
     assert response.duplicate is True
     assert response.document_id == document_id
     assert validate_calls == [False]
+    assert storage_service.deleted_paths == [storage_service.staged_path]
 
 
 def test_to_run_summary_exposes_live_progress_metadata(monkeypatch) -> None:

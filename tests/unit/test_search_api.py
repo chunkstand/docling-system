@@ -96,6 +96,32 @@ def test_search_route_returns_machine_readable_error_code(monkeypatch) -> None:
     }
 
 
+def test_search_route_returns_structured_rate_limit_error(monkeypatch) -> None:
+    monkeypatch.setattr("app.api.main.SEARCH_RATE_LIMIT", 1)
+    monkeypatch.setattr("app.api.main.SEARCH_RATE_WINDOW_SECONDS", 60.0)
+    monkeypatch.setattr(
+        "app.api.main.execute_search",
+        lambda session, request, origin="api": SimpleNamespace(request_id=None, results=[]),
+    )
+    from app.api import main
+
+    main._search_request_times.clear()
+
+    client = TestClient(app)
+    first_response = client.post(
+        "/search",
+        json={"query": "hello", "mode": "keyword", "limit": 5},
+    )
+    second_response = client.post(
+        "/search",
+        json={"query": "hello", "mode": "keyword", "limit": 5},
+    )
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 429
+    assert second_response.json()["error_code"] == "rate_limited"
+
+
 def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
     request_id = uuid4()
 

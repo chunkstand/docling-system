@@ -5,7 +5,12 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from app.services.telemetry import increment, observe_search_results, snapshot_metrics
+from app.services.telemetry import (
+    flush_metrics,
+    increment,
+    observe_search_results,
+    snapshot_metrics,
+)
 
 
 def test_snapshot_metrics_reports_mixed_search_table_hit_rate(monkeypatch) -> None:
@@ -55,6 +60,7 @@ def test_increment_tolerates_empty_metrics_file(monkeypatch) -> None:
         metrics_path.write_text("")
 
         increment("tables_detected_total", 2)
+        flush_metrics()
 
         payload = json.loads(metrics_path.read_text())
         assert payload["tables_detected_total"] == 2

@@ -2,6 +2,7 @@ const page = document.body.dataset.page;
 const queryParams = new URLSearchParams(window.location.search);
 
 const UI_AUTH_STORAGE_KEY = "docling-system-ui-auth-v1";
+const DEFAULT_FETCH_TIMEOUT_MS = 30000;
 const DEFAULT_HARNESS_NAME = "default_v1";
 const harnessCopy = {
   default_v1: {
@@ -43,6 +44,7 @@ const uiState = {
     totalCount: 0,
     selectedDocumentId: queryParams.get("document_id"),
     filter: "",
+    outputsByDocumentId: new Map(),
   },
   search: {
     selectedDocumentId: queryParams.get("document_id"),
@@ -199,11 +201,18 @@ function initTabs() {
     buttons.forEach((button) => {
       button.addEventListener("click", () => {
         setActiveTab(button.dataset.tabButton);
+        handleTabActivated(button.dataset.tabButton);
       });
     });
     setActiveTab(defaultTab);
     group.dataset.tabsBound = "true";
   });
+}
+
+function handleTabActivated(tabId) {
+  if (tabId === "documents-outputs" && uiState.documents.selectedDocumentId) {
+    void loadDocumentOutputs(uiState.documents.selectedDocumentId);
+  }
 }
 
 function renderActivityFeed() {
@@ -440,20 +449,54 @@ async function parseResponseError(response) {
 }
 
 async function fetchJson(url, options = {}) {
+  const { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, signal, ...fetchOptions } = options;
   const headers = new Headers(options.headers || {});
   const authHeaders = buildAuthHeaders();
   for (const [name, value] of Object.entries(authHeaders)) {
     headers.set(name, value);
   }
 
-  if (!(options.body instanceof FormData) && options.body && !headers.has("Content-Type")) {
+  if (!(fetchOptions.body instanceof FormData) && fetchOptions.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const abortFromSignal = () => controller.abort();
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", abortFromSignal, { once: true });
+    }
+  }
+  const timeoutId =
+    timeoutMs && timeoutMs > 0
+      ? window.setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new ApiError("Request timed out.", {
+        status: 0,
+        code: "request_timeout",
+      });
+    }
+    throw error;
+  } finally {
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+    }
+    if (signal) {
+      signal.removeEventListener("abort", abortFromSignal);
+    }
+  }
 
   if (!response.ok) {
     throw await parseResponseError(response);
@@ -480,7 +523,22 @@ async function fetchState(url, options = {}) {
 
 async function downloadProtectedResource(path, fallbackName = "download") {
   const headers = new Headers(buildAuthHeaders());
-  const response = await fetch(path, { headers });
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), DEFAULT_FETCH_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetch(path, { headers, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new ApiError("Download timed out.", {
+        status: 0,
+        code: "request_timeout",
+      });
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
   if (!response.ok) {
     throw await parseResponseError(response);
   }
@@ -1320,8 +1378,16 @@ function renderDocumentTables(tablesState, documentId) {
   if (!container) {
     return;
   }
+  if (tablesState.loading) {
+    renderEmpty(container, "Loading active tables.");
+    return;
+  }
   if (tablesState.error) {
     renderEmpty(container, formatApiError(tablesState.error, "Unable to load active tables."));
+    return;
+  }
+  if (!tablesState.data) {
+    renderEmpty(container, "Open Active outputs to load active tables.");
     return;
   }
   const tables = tablesState.data || [];
@@ -1360,8 +1426,16 @@ function renderDocumentFigures(figuresState, documentId) {
   if (!container) {
     return;
   }
+  if (figuresState.loading) {
+    renderEmpty(container, "Loading active figures.");
+    return;
+  }
   if (figuresState.error) {
     renderEmpty(container, formatApiError(figuresState.error, "Unable to load active figures."));
+    return;
+  }
+  if (!figuresState.data) {
+    renderEmpty(container, "Open Active outputs to load active figures.");
     return;
   }
   const figures = figuresState.data || [];
@@ -1394,6 +1468,32 @@ function renderDocumentFigures(figuresState, documentId) {
   );
 }
 
+async function loadDocumentOutputs(documentId) {
+  if (!documentId) {
+    return;
+  }
+  const key = String(documentId);
+  const cached = uiState.documents.outputsByDocumentId.get(key);
+  if (cached) {
+    renderDocumentTables(cached.tablesState, key);
+    renderDocumentFigures(cached.figuresState, key);
+    return;
+  }
+
+  renderDocumentTables({ loading: true }, key);
+  renderDocumentFigures({ loading: true }, key);
+  const [tablesState, figuresState] = await Promise.all([
+    fetchState(`/documents/${key}/tables`),
+    fetchState(`/documents/${key}/figures`),
+  ]);
+  uiState.documents.outputsByDocumentId.set(key, { tablesState, figuresState });
+  if (uiState.documents.selectedDocumentId !== key) {
+    return;
+  }
+  renderDocumentTables(tablesState, key);
+  renderDocumentFigures(figuresState, key);
+}
+
 async function loadSelectedDocument(documentId) {
   if (!documentId) {
     renderDocumentContext({ data: null, error: null }, { data: null, error: null }, { data: null, error: null });
@@ -1415,12 +1515,10 @@ async function loadSelectedDocument(documentId) {
     `Refreshing detail for ${describeDocumentSelection(documentId)}.`,
   );
 
-  const [detailState, runsState, evaluationState, tablesState, figuresState] = await Promise.all([
+  const [detailState, runsState, evaluationState] = await Promise.all([
     fetchState(`/documents/${documentId}`),
     fetchState(`/documents/${documentId}/runs`),
     fetchState(`/documents/${documentId}/evaluations/latest`),
-    fetchState(`/documents/${documentId}/tables`),
-    fetchState(`/documents/${documentId}/figures`),
   ]);
 
   renderDocumentContext(detailState, runsState, evaluationState);
@@ -1428,8 +1526,12 @@ async function loadSelectedDocument(documentId) {
   renderDocumentRuns(runsState, documentId);
   renderDocumentEvaluation(evaluationState);
   renderDocumentArtifacts(detailState, runsState);
-  renderDocumentTables(tablesState, documentId);
-  renderDocumentFigures(figuresState, documentId);
+  const outputsState = uiState.documents.outputsByDocumentId.get(String(documentId));
+  renderDocumentTables(outputsState?.tablesState || { data: null, error: null }, documentId);
+  renderDocumentFigures(outputsState?.figuresState || { data: null, error: null }, documentId);
+  if (byId("documents-outputs")?.hidden === false) {
+    await loadDocumentOutputs(documentId);
+  }
 
   if (detailState.error) {
     recordActivity(
@@ -1443,7 +1545,7 @@ async function loadSelectedDocument(documentId) {
   const detail = detailState.data;
   recordActivity(
     "Document workspace ready",
-    `${detail?.title || detail?.source_filename || "Document"} loaded with ${formatInteger((runsState.data || []).length)} runs, ${formatInteger((tablesState.data || []).length)} active tables, and ${formatInteger((figuresState.data || []).length)} active figures.`,
+    `${detail?.title || detail?.source_filename || "Document"} loaded with ${formatInteger((runsState.data || []).length)} runs.`,
     "success",
   );
 }
