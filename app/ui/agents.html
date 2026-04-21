@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/ui/styles.css" />
@@ -126,30 +126,11 @@
           </div>
           <div>
             <div class="section-heading">
-              <p class="eyebrow">Workflow map</p>
-              <h2>How the agent layer behaves</h2>
+              <p class="eyebrow">Runtime feed</p>
+              <h2>Readable system actions</h2>
             </div>
-            <div class="narrative-list">
-              <article>
-                <strong>Triage replay regression</strong>
-                <p>Shadow-mode comparison across replay sources produces a durable recommendation artifact.</p>
-              </article>
-              <article>
-                <strong>Draft harness config update</strong>
-                <p>Agents propose a review harness instead of changing live retrieval directly.</p>
-              </article>
-              <article>
-                <strong>Verify draft harness config</strong>
-                <p>Replay and verifier checks determine whether the draft is safe enough for review.</p>
-              </article>
-              <article>
-                <strong>Apply harness config update</strong>
-                <p>Publication requires explicit approval and records applied lineage.</p>
-              </article>
-              <article>
-                <strong>Enqueue document reprocess</strong>
-                <p>Reprocessing is approval-gated and still depends on the normal validation gate.</p>
-              </article>
+            <div id="page-activity-feed" class="activity-feed empty-state">
+              Runtime actions will appear here.
             </div>
           </div>
         </section>
@@ -201,92 +182,168 @@
           </div>
           <div>
             <div class="section-heading">
-              <p class="eyebrow">Selected task</p>
-              <h2>Summary, lineage, context, and artifacts</h2>
+              <p class="eyebrow">Selected task context</p>
+              <h2>What is happening with the selected task</h2>
             </div>
-            <div id="agent-task-detail" class="stack-list empty-state">
-              Select a task to inspect its durable detail, context, outcomes, and artifacts.
-            </div>
-          </div>
-        </section>
-
-        <section class="panel panel-split reveal">
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Context and verification</p>
-              <h2>Typed context refs and verifier outcomes</h2>
-            </div>
-            <div id="agent-task-context" class="stack-list empty-state">
-              Task context detail will appear here.
-            </div>
-          </div>
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Operator actions</p>
-              <h2>Approvals, rejections, and outcome labels</h2>
-            </div>
-            <form id="agent-approval-form" class="auth-form action-form">
-              <label>
-                <span class="field-caption">Actor</span>
-                <input id="agent-approval-actor" type="text" placeholder="operator@example.com" />
-              </label>
-              <label class="auth-token-field">
-                <span class="field-caption">Approval note</span>
-                <input id="agent-approval-note" type="text" placeholder="Optional approval note" />
-              </label>
-              <button class="primary-link button-link" id="agent-approve" type="submit">
-                Approve selected task
-              </button>
-            </form>
-            <form id="agent-rejection-form" class="auth-form action-form">
-              <label>
-                <span class="field-caption">Actor</span>
-                <input id="agent-rejection-actor" type="text" placeholder="reviewer@example.com" />
-              </label>
-              <label class="auth-token-field">
-                <span class="field-caption">Rejection note</span>
-                <input id="agent-rejection-note" type="text" placeholder="Optional rejection note" />
-              </label>
-              <button class="secondary-link button-link" id="agent-reject" type="submit">
-                Reject selected task
-              </button>
-            </form>
-            <form id="agent-outcome-form" class="auth-form action-form">
-              <label>
-                <span class="field-caption">Outcome label</span>
-                <select id="agent-outcome-label">
-                  <option value="useful">Useful</option>
-                  <option value="not_useful">Not useful</option>
-                  <option value="correct">Correct</option>
-                  <option value="incorrect">Incorrect</option>
-                </select>
-              </label>
-              <label>
-                <span class="field-caption">Actor</span>
-                <input id="agent-outcome-actor" type="text" placeholder="operator@example.com" />
-              </label>
-              <label class="auth-token-field">
-                <span class="field-caption">Note</span>
-                <input id="agent-outcome-note" type="text" placeholder="Optional learning note" />
-              </label>
-              <button class="secondary-link button-link" id="agent-outcome-submit" type="submit">
-                Attach outcome label
-              </button>
-            </form>
-            <div id="agent-action-note" class="inline-note">
-              Select a task first. Approval actions only work for tasks waiting on approval.
+            <div id="agent-task-context-summary" class="stack-list empty-state">
+              Select a task to inspect its current stage, decision posture, and next operator action.
             </div>
           </div>
         </section>
 
-        <section class="panel reveal">
-          <div class="section-heading">
-            <p class="eyebrow">Harness registry</p>
-            <h2>What each harness is for</h2>
+        <section class="panel tab-shell reveal" data-tab-group="agents-workspace" data-default-tab="agents-summary-tab">
+          <div class="tab-list" role="tablist" aria-label="Agent task workspace">
+            <button type="button" class="tab-button" data-tab-button="agents-summary-tab">Summary</button>
+            <button type="button" class="tab-button" data-tab-button="agents-context-tab">Context</button>
+            <button type="button" class="tab-button" data-tab-button="agents-artifacts-tab">Artifacts</button>
+            <button type="button" class="tab-button" data-tab-button="agents-review-tab">Verification and review</button>
           </div>
-          <div id="agent-harnesses" class="feature-grid empty-state">
-            Harness descriptions will appear here.
-          </div>
+
+          <section id="agents-summary-tab" class="tab-panel" data-tab-panel="agents-workspace">
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Selected task</p>
+                  <h2>Summary, lineage, context, and artifacts</h2>
+                </div>
+                <div id="agent-task-detail" class="stack-list empty-state">
+                  Select a task to inspect its durable detail, context, outcomes, and artifacts.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Task input and result</p>
+                  <h2>Structured payloads</h2>
+                </div>
+                <div id="agent-task-io" class="stack-list empty-state">
+                  Structured task input and result will appear here.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="agents-context-tab" class="tab-panel" data-tab-panel="agents-workspace" hidden>
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Context and verification</p>
+                  <h2>Typed context refs and verifier outcomes</h2>
+                </div>
+                <div id="agent-task-context" class="stack-list empty-state">
+                  Task context detail will appear here.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Decision posture</p>
+                  <h2>Signals and value density</h2>
+                </div>
+                <div id="agent-decision-signals" class="stack-list empty-state">
+                  Decision signals will appear here.
+                </div>
+                <div id="agent-value-density" class="stack-list empty-state">
+                  Workflow value density will appear here.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="agents-artifacts-tab" class="tab-panel" data-tab-panel="agents-workspace" hidden>
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Task artifacts</p>
+                  <h2>Downloads and generated evidence</h2>
+                </div>
+                <div id="agent-task-artifacts" class="stack-list empty-state">
+                  Task artifacts will appear here.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Harness registry</p>
+                  <h2>What each harness is for</h2>
+                </div>
+                <div id="agent-harnesses" class="feature-grid empty-state">
+                  Harness descriptions will appear here.
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="agents-review-tab" class="tab-panel" data-tab-panel="agents-workspace" hidden>
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Verification outcomes</p>
+                  <h2>Verifier rows and outcome labels</h2>
+                </div>
+                <div id="agent-task-verifications" class="stack-list empty-state">
+                  Verifier rows will appear here.
+                </div>
+                <div id="agent-task-outcomes" class="stack-list empty-state">
+                  Outcome labels will appear here.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Operator actions</p>
+                  <h2>Approvals, rejections, and outcome labels</h2>
+                </div>
+                <form id="agent-approval-form" class="auth-form action-form">
+                  <label>
+                    <span class="field-caption">Actor</span>
+                    <input id="agent-approval-actor" type="text" placeholder="operator@example.com" />
+                  </label>
+                  <label class="auth-token-field">
+                    <span class="field-caption">Approval note</span>
+                    <input id="agent-approval-note" type="text" placeholder="Optional approval note" />
+                  </label>
+                  <button class="primary-link button-link" id="agent-approve" type="submit">
+                    Approve selected task
+                  </button>
+                </form>
+                <form id="agent-rejection-form" class="auth-form action-form">
+                  <label>
+                    <span class="field-caption">Actor</span>
+                    <input id="agent-rejection-actor" type="text" placeholder="reviewer@example.com" />
+                  </label>
+                  <label class="auth-token-field">
+                    <span class="field-caption">Rejection note</span>
+                    <input id="agent-rejection-note" type="text" placeholder="Optional rejection note" />
+                  </label>
+                  <button class="secondary-link button-link" id="agent-reject" type="submit">
+                    Reject selected task
+                  </button>
+                </form>
+                <form id="agent-outcome-form" class="auth-form action-form">
+                  <label>
+                    <span class="field-caption">Outcome label</span>
+                    <select id="agent-outcome-label">
+                      <option value="useful">Useful</option>
+                      <option value="not_useful">Not useful</option>
+                      <option value="correct">Correct</option>
+                      <option value="incorrect">Incorrect</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span class="field-caption">Actor</span>
+                    <input id="agent-outcome-actor" type="text" placeholder="operator@example.com" />
+                  </label>
+                  <label class="auth-token-field">
+                    <span class="field-caption">Note</span>
+                    <input id="agent-outcome-note" type="text" placeholder="Optional learning note" />
+                  </label>
+                  <button class="secondary-link button-link" id="agent-outcome-submit" type="submit">
+                    Attach outcome label
+                  </button>
+                </form>
+                <div id="agent-action-note" class="inline-note">
+                  Select a task first. Approval actions only work for tasks waiting on approval.
+                </div>
+              </div>
+            </div>
+          </section>
         </section>
       </main>
     </div>

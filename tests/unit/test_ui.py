@@ -39,6 +39,11 @@ def test_documents_page_serves_document_operator_workspace() -> None:
     assert "Corpus documents" in response.text
     assert "Showing the current document browser slice." in response.text
     assert "Choose a document" in response.text
+    assert "Readable system actions" in response.text
+    assert "Overview" in response.text
+    assert "Run log" in response.text
+    assert "Artifacts" in response.text
+    assert "Active outputs" in response.text
     assert "Persisted quality evidence for the active run" in response.text
     assert "Current figure inspection surface" in response.text
 
@@ -58,6 +63,9 @@ def test_search_page_serves_dedicated_search_workspace() -> None:
     assert "Harness registry" in response.text
     assert "Search discipline" in response.text
     assert "Run search" in response.text
+    assert "Readable harness roles" in response.text
+    assert "Request record" in response.text
+    assert "Replay lab" in response.text
     assert 'data-ui-action="replay-selected-request"' in response.text
     assert "Replay suites" in response.text
     assert "Inspect one persisted replay run" in response.text
@@ -76,6 +84,8 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Compare baseline and candidate retrieval behavior" in eval_response.text
     assert "Recent harness evaluations" in eval_response.text
     assert "Mined gaps and likely fixture additions" in eval_response.text
+    assert "Quality posture at a glance" in eval_response.text
+    assert "Readable system actions" in eval_response.text
 
     assert agent_response.status_code == 200
     assert "Agent workflows" in agent_response.text
@@ -87,6 +97,8 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Inspect a durable task record" in agent_response.text
     assert "Summary, lineage, context, and artifacts" in agent_response.text
     assert "What each harness is for" in agent_response.text
+    assert "Readable system actions" in agent_response.text
+    assert "Verification and review" in agent_response.text
 
 
 def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:

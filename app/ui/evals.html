@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/ui/styles.css" />
@@ -113,83 +113,132 @@
         <section class="panel panel-split reveal">
           <div>
             <div class="section-heading">
-              <p class="eyebrow">Quality summary</p>
-              <h2>Corpus quality posture</h2>
+              <p class="eyebrow">Readable summary</p>
+              <h2>Quality posture at a glance</h2>
             </div>
-            <div id="quality-summary-cards" class="mini-grid empty-state">Summary will appear here.</div>
-            <div id="quality-failures" class="stack-list empty-state">Quality failures will appear here.</div>
+            <div id="eval-context-summary" class="stack-list empty-state">
+              Quality posture context will appear here.
+            </div>
           </div>
           <div>
             <div class="section-heading">
-              <p class="eyebrow">Decision signals</p>
-              <h2>What needs review now</h2>
+              <p class="eyebrow">Runtime feed</p>
+              <h2>Readable system actions</h2>
             </div>
-            <div id="eval-decision-signals" class="stack-list empty-state">
-              Decision signals will appear here.
+            <div id="page-activity-feed" class="activity-feed empty-state">
+              Runtime actions will appear here.
             </div>
           </div>
         </section>
 
-        <section class="panel reveal">
-          <div class="section-heading">
-            <p class="eyebrow">Harness evaluation</p>
-            <h2>Compare baseline and candidate retrieval behavior</h2>
+        <section class="panel tab-shell reveal" data-tab-group="evals-workspace" data-default-tab="evals-overview">
+          <div class="tab-list" role="tablist" aria-label="Evaluation workspace">
+            <button type="button" class="tab-button" data-tab-button="evals-overview">Overview</button>
+            <button type="button" class="tab-button" data-tab-button="evals-harness">Harness compare</button>
+            <button type="button" class="tab-button" data-tab-button="evals-candidates">Gaps and candidates</button>
+            <button type="button" class="tab-button" data-tab-button="evals-trends">Trends</button>
           </div>
-          <form id="harness-eval-form" class="search-controls search-controls-wide">
-            <label>
-              <span class="field-caption">Baseline harness</span>
-              <select id="harness-eval-baseline"></select>
-            </label>
-            <label>
-              <span class="field-caption">Candidate harness</span>
-              <select id="harness-eval-candidate"></select>
-            </label>
-            <label>
-              <span class="field-caption">Replay limit</span>
-              <input id="harness-eval-limit" type="number" min="1" max="100" value="12" />
-            </label>
-            <div class="source-toggle-group" id="harness-eval-sources">
-              <label class="toggle-chip"><input type="checkbox" value="evaluation_queries" checked /><span>Evaluation queries</span></label>
-              <label class="toggle-chip"><input type="checkbox" value="feedback" checked /><span>Feedback</span></label>
-              <label class="toggle-chip"><input type="checkbox" value="live_search_gaps" checked /><span>Live search gaps</span></label>
-              <label class="toggle-chip"><input type="checkbox" value="cross_document_prose_regressions" checked /><span>Cross-document prose</span></label>
-            </div>
-            <button class="primary-link button-link" type="submit">Run harness eval</button>
-          </form>
-          <div id="harness-eval-results" class="result-grid empty-state">
-            Harness evaluation results will appear here.
-          </div>
-          <div class="section-heading section-heading-secondary">
-            <p class="eyebrow">Durable history</p>
-            <h2>Recent harness evaluations</h2>
-          </div>
-          <div id="harness-eval-history" class="stack-list empty-state">
-            Persisted harness evaluations will appear here.
-          </div>
-        </section>
 
-        <section class="panel panel-split reveal">
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Evaluation candidates</p>
-              <h2>Mined gaps and likely fixture additions</h2>
+          <section id="evals-overview" class="tab-panel" data-tab-panel="evals-workspace">
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Quality summary</p>
+                  <h2>Corpus quality posture</h2>
+                </div>
+                <div id="quality-summary-cards" class="mini-grid empty-state">Summary will appear here.</div>
+                <div id="quality-failures" class="stack-list empty-state">Quality failures will appear here.</div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Decision signals</p>
+                  <h2>What needs review now</h2>
+                </div>
+                <div id="eval-decision-signals" class="stack-list empty-state">
+                  Decision signals will appear here.
+                </div>
+              </div>
             </div>
-            <div id="eval-candidates" class="stack-list empty-state">
-              Evaluation candidates will appear here.
+          </section>
+
+          <section id="evals-harness" class="tab-panel" data-tab-panel="evals-workspace" hidden>
+            <div class="workspace-stack">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Harness evaluation</p>
+                  <h2>Compare baseline and candidate retrieval behavior</h2>
+                </div>
+                <form id="harness-eval-form" class="search-controls search-controls-wide">
+                  <label>
+                    <span class="field-caption">Baseline harness</span>
+                    <select id="harness-eval-baseline"></select>
+                  </label>
+                  <label>
+                    <span class="field-caption">Candidate harness</span>
+                    <select id="harness-eval-candidate"></select>
+                  </label>
+                  <label>
+                    <span class="field-caption">Replay limit</span>
+                    <input id="harness-eval-limit" type="number" min="1" max="100" value="12" />
+                  </label>
+                  <div class="source-toggle-group" id="harness-eval-sources">
+                    <label class="toggle-chip"><input type="checkbox" value="evaluation_queries" checked /><span>Evaluation queries</span></label>
+                    <label class="toggle-chip"><input type="checkbox" value="feedback" checked /><span>Feedback</span></label>
+                    <label class="toggle-chip"><input type="checkbox" value="live_search_gaps" checked /><span>Live search gaps</span></label>
+                    <label class="toggle-chip"><input type="checkbox" value="cross_document_prose_regressions" checked /><span>Cross-document prose</span></label>
+                  </div>
+                  <button class="primary-link button-link" type="submit">Run harness eval</button>
+                </form>
+              </div>
+              <div id="harness-eval-results" class="result-grid empty-state">
+                Harness evaluation results will appear here.
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading section-heading-secondary">
+                  <p class="eyebrow">Durable history</p>
+                  <h2>Recent harness evaluations</h2>
+                </div>
+                <div id="harness-eval-history" class="stack-list empty-state">
+                  Persisted harness evaluations will appear here.
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Verification and trend trace</p>
-              <h2>Recent verifier movement</h2>
+          </section>
+
+          <section id="evals-candidates" class="tab-panel" data-tab-panel="evals-workspace" hidden>
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Evaluation candidates</p>
+                  <h2>Mined gaps and likely fixture additions</h2>
+                </div>
+                <div id="eval-candidates" class="stack-list empty-state">
+                  Evaluation candidates will appear here.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Verification and trend trace</p>
+                  <h2>Recent verifier movement</h2>
+                </div>
+                <div id="verification-trends" class="stack-list empty-state">
+                  Verification trends will appear here.
+                </div>
+              </div>
             </div>
-            <div id="verification-trends" class="stack-list empty-state">
-              Verification trends will appear here.
+          </section>
+
+          <section id="evals-trends" class="tab-panel" data-tab-panel="evals-workspace" hidden>
+            <div class="inset-panel">
+              <div class="section-heading">
+                <p class="eyebrow">Search and feedback trend trace</p>
+                <h2>What changed in retrieval behavior over time</h2>
+              </div>
+              <div id="quality-trends" class="stack-list empty-state">
+                Search and feedback trends will appear here.
+              </div>
             </div>
-            <div id="quality-trends" class="stack-list empty-state">
-              Search and feedback trends will appear here.
-            </div>
-          </div>
+          </section>
         </section>
       </main>
     </div>

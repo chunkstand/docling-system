@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/ui/styles.css" />
@@ -116,7 +116,7 @@
           </aside>
         </section>
 
-        <section class="panel document-stage reveal">
+        <section class="document-stage reveal">
           <div class="panel document-browser">
             <div class="section-heading">
               <p class="eyebrow">Corpus browser</p>
@@ -136,74 +136,121 @@
             <div id="documents-list" class="stack-list empty-state">
               Documents will appear here.
             </div>
+            <div class="workspace-support-block">
+              <div class="section-heading compact-heading">
+                <p class="eyebrow">Runtime feed</p>
+                <h2>Readable system actions</h2>
+              </div>
+              <div id="page-activity-feed" class="activity-feed empty-state">
+                Runtime actions will appear here.
+              </div>
+            </div>
           </div>
 
           <div class="document-browser-detail">
             <section class="panel">
               <div class="section-heading">
-                <p class="eyebrow">Document summary</p>
-                <h2>Selected document</h2>
+                <p class="eyebrow">Document context</p>
+                <h2>What is happening with this document right now</h2>
               </div>
-              <div id="document-detail" class="stack-list empty-state">
-                Select a document to inspect its detail and actions.
-              </div>
-            </section>
-            <section class="panel">
-              <div class="section-heading">
-                <p class="eyebrow">Run history</p>
-                <h2>Recent runs</h2>
-              </div>
-              <div id="document-runs" class="stack-list empty-state">
-                Recent document runs will appear here.
+              <div id="document-context" class="stack-list empty-state">
+                Select a document to inspect its active state, promotion posture, and latest quality signal.
               </div>
             </section>
-          </div>
-        </section>
+            <section class="panel tab-shell" data-tab-group="documents-workspace" data-default-tab="documents-overview">
+              <div class="tab-list" role="tablist" aria-label="Document workspace">
+                <button type="button" class="tab-button" data-tab-button="documents-overview">Overview</button>
+                <button type="button" class="tab-button" data-tab-button="documents-runs">Run log</button>
+                <button type="button" class="tab-button" data-tab-button="documents-artifacts">Artifacts</button>
+                <button type="button" class="tab-button" data-tab-button="documents-outputs">Active outputs</button>
+              </div>
 
-        <section class="panel panel-split reveal">
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Latest evaluation</p>
-              <h2>Persisted quality evidence for the active run</h2>
-            </div>
-            <div id="document-evaluation" class="stack-list empty-state">
-              Latest evaluation detail will appear here when available.
-            </div>
-          </div>
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Reprocess</p>
-              <h2>Queue a fresh run without replacing the current active corpus</h2>
-            </div>
-            <div class="action-row">
-              <button class="primary-link button-link" id="document-reprocess" type="button">
-                Queue reprocess
-              </button>
-            </div>
-            <div id="document-action-note" class="inline-note">
-              Select a document first. Reprocess still flows through the normal validation gate.
-            </div>
-          </div>
-        </section>
+              <section id="documents-overview" class="tab-panel" data-tab-panel="documents-workspace">
+                <div class="panel-split panel-split-tight">
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Document summary</p>
+                      <h2>Selected document</h2>
+                    </div>
+                    <div id="document-detail" class="stack-list empty-state">
+                      Select a document to inspect its detail and actions.
+                    </div>
+                  </div>
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Latest evaluation</p>
+                      <h2>Persisted quality evidence for the active run</h2>
+                    </div>
+                    <div id="document-evaluation" class="stack-list empty-state">
+                      Latest evaluation detail will appear here when available.
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-        <section class="panel panel-split reveal">
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Active tables</p>
-              <h2>Current table inspection surface</h2>
-            </div>
-            <div id="document-tables" class="stack-list empty-state">
-              Active tables for the selected document will appear here.
-            </div>
-          </div>
-          <div>
-            <div class="section-heading">
-              <p class="eyebrow">Active figures</p>
-              <h2>Current figure inspection surface</h2>
-            </div>
-            <div id="document-figures" class="stack-list empty-state">
-              Active figures for the selected document will appear here.
-            </div>
+              <section id="documents-runs" class="tab-panel" data-tab-panel="documents-workspace" hidden>
+                <div class="panel-split panel-split-tight">
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Reprocess</p>
+                      <h2>Queue a fresh run without replacing the current active corpus</h2>
+                    </div>
+                    <div class="action-row">
+                      <button class="primary-link button-link" id="document-reprocess" type="button">
+                        Queue reprocess
+                      </button>
+                    </div>
+                    <div id="document-action-note" class="inline-note">
+                      Select a document first. Reprocess still flows through the normal validation gate.
+                    </div>
+                  </div>
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Run history</p>
+                      <h2>Recent runs</h2>
+                    </div>
+                    <div id="document-runs" class="stack-list empty-state">
+                      Recent document runs will appear here.
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section id="documents-artifacts" class="tab-panel" data-tab-panel="documents-workspace" hidden>
+                <div class="inset-panel">
+                  <div class="section-heading">
+                    <p class="eyebrow">Artifacts</p>
+                    <h2>Canonical outputs and recovery evidence</h2>
+                  </div>
+                  <div id="document-artifacts" class="stack-list empty-state">
+                    Select a document to inspect document-level artifacts and failure recovery outputs.
+                  </div>
+                </div>
+              </section>
+
+              <section id="documents-outputs" class="tab-panel" data-tab-panel="documents-workspace" hidden>
+                <div class="panel-split panel-split-tight">
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Active tables</p>
+                      <h2>Current table inspection surface</h2>
+                    </div>
+                    <div id="document-tables" class="stack-list empty-state">
+                      Active tables for the selected document will appear here.
+                    </div>
+                  </div>
+                  <div class="inset-panel">
+                    <div class="section-heading">
+                      <p class="eyebrow">Active figures</p>
+                      <h2>Current figure inspection surface</h2>
+                    </div>
+                    <div id="document-figures" class="stack-list empty-state">
+                      Active figures for the selected document will appear here.
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </section>
           </div>
         </section>
       </main>
