@@ -3,11 +3,24 @@ from __future__ import annotations
 from types import SimpleNamespace
 from uuid import uuid4
 
+from app.db.models import SearchHarnessEvaluation, SearchHarnessEvaluationSource
 from app.schemas.search import SearchHarnessEvaluationRequest
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,
     list_search_harness_definitions,
 )
+
+
+class FakeSession:
+    def __init__(self) -> None:
+        self.added: list[object] = []
+        self.flushed = False
+
+    def add(self, row: object) -> None:
+        self.added.append(row)
+
+    def flush(self) -> None:
+        self.flushed = True
 
 
 def test_list_search_harness_definitions_exposes_default() -> None:
@@ -37,6 +50,7 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
         passed_count = 1 if payload.harness_name == "default_v1" else 2
         return SimpleNamespace(
             replay_run_id=replay_run_id,
+            status="completed",
             query_count=3,
             passed_count=passed_count,
             zero_result_count=0,
@@ -66,8 +80,9 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
         fake_compare_search_replay_runs,
     )
 
+    session = FakeSession()
     response = evaluate_search_harness(
-        None,
+        session,
         SearchHarnessEvaluationRequest(
             candidate_harness_name="wide_v2",
             baseline_harness_name="default_v1",
@@ -77,12 +92,20 @@ def test_evaluate_search_harness_aggregates_per_source(monkeypatch) -> None:
     )
 
     assert response.candidate_harness_name == "wide_v2"
+    assert response.evaluation_id is not None
+    assert response.status == "completed"
     assert response.total_shared_query_count == 9
     assert response.total_improved_count == 3
     assert response.sources[0].source_type == "evaluation_queries"
+    assert response.sources[0].baseline_status == "completed"
     assert response.sources[0].baseline_table_hit_count == 1
     assert response.sources[0].baseline_mrr == 0.6
     assert response.sources[0].candidate_mrr == 0.8
     assert response.sources[0].baseline_foreign_top_result_count == 1
     assert response.sources[0].candidate_foreign_top_result_count == 0
     assert response.sources[0].acceptance_checks["mrr_not_lower"] is True
+    assert any(isinstance(row, SearchHarnessEvaluation) for row in session.added)
+    source_rows = [row for row in session.added if isinstance(row, SearchHarnessEvaluationSource)]
+    assert len(source_rows) == 3
+    assert source_rows[0].search_harness_evaluation_id == response.evaluation_id
+    assert session.flushed is True

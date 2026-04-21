@@ -258,7 +258,9 @@ Batch CLI commands:
 - `POST /search/requests/{search_request_id}/feedback`
 - `POST /search/requests/{search_request_id}/replay`
 - `GET /search/harnesses`
+- `GET /search/harness-evaluations`
 - `POST /search/harness-evaluations`
+- `GET /search/harness-evaluations/{evaluation_id}`
 - `GET /search/replays`
 - `POST /search/replays`
 - `GET /search/replays/{replay_run_id}`
@@ -368,7 +370,11 @@ Durable search telemetry now records:
 Applied review harnesses are persisted in `config/search_harness_overrides.json`, while draft harnesses remain task artifacts until verified and approved.
 
 Use `GET /search/harnesses` to inspect the currently available harnesses.
-Use `POST /search/harness-evaluations` to compare two named harnesses across replay sources without leaving the operator surface.
+Use `POST /search/harness-evaluations` to compare two named harnesses across
+replay sources without leaving the operator surface. The POST creates a durable
+evaluation record; use `GET /search/harness-evaluations` and
+`GET /search/harness-evaluations/{evaluation_id}` to inspect historical results
+and the replay-run provenance behind each source.
 
 ## Agent Tasks
 
@@ -430,9 +436,9 @@ The first workflow-style task is `triage_replay_regression`. It runs in shadow m
 
 The triage task is now also a migrated typed-context task. Its context summary is the primary operator-facing map: recommendation, confidence, quality-gap count, replay evidence counts, and next action. The deeper `triage_summary.json` artifact remains available by reference through the triage context refs and artifact endpoints.
 
-`evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point directly at the baseline and candidate replay runs that produced the evaluation.
+`evaluate_search_harness` is now also a migrated typed-context task. Its context summary stays short by surfacing only the candidate/baseline pair plus aggregate shared-query, improvement, and regression counts, while its context refs point at the durable harness evaluation record and the baseline/candidate replay runs that produced it.
 
-`verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge instead of reading legacy nested payload blobs. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.
+`verify_search_harness_evaluation` now consumes those migrated evaluation contexts through its `target_task` dependency edge and reloads the durable harness evaluation record when the target output carries an `evaluation_id`. Its context exposes the target evaluation ref, persisted verifier record, gate outcome, and threshold snapshot; pre-context evaluation tasks must be rerun before this verifier will consume them.
 
 The first draft/apply flow is the harness review path. `draft_harness_config_update` creates a review-harness artifact without changing live search behavior, `verify_draft_harness_config` evaluates that draft ephemerally against replay sources and writes a verifier record, and `apply_harness_config_update` publishes the verified review harness into `config/search_harness_overrides.json` only after approval.
 

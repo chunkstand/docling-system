@@ -196,6 +196,7 @@ What is now true:
 - durable run resources are first-class and directly readable
 - direct application `HTTPException` construction is centralized through `api_error(...)`
 - agent-task creation rejects dependency graphs that already contain cycles
+- search harness evaluations are first-class persisted resources with source replay provenance
 - the current full unit/integration test suite is green in local verification
 
 ## Residual Risks And Next Steps
@@ -203,9 +204,7 @@ What is now true:
 The highest-signal residuals after this session are:
 
 - capability enforcement is still deployment-wide rather than actor-aware authorization
-- search harness evaluations still return immediate evaluation payloads rather than a separate durable persisted evaluation resource
 
 Recommended next step:
 
-1. Promote search harness evaluations into separate durable resources if evaluation history needs independent lifecycle management.
-2. Only add actor-aware authz if the deployment model becomes genuinely multi-user or hosted.
+1. Only add actor-aware authz if the deployment model becomes genuinely multi-user or hosted.

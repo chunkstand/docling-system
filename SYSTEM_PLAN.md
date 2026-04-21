@@ -381,6 +381,7 @@ Current replay surfaces include:
 - replay suites
 - named-harness comparisons
 - persisted replay-run detail and comparison endpoints
+- persisted harness-evaluation list and detail endpoints
 
 Current replay suites include:
 
@@ -388,6 +389,14 @@ Current replay suites include:
 - `feedback`
 - `live_search_gaps`
 - `cross_document_prose_regressions`
+
+Harness evaluations are first-class persisted resources. `POST /search/harness-evaluations`
+creates a durable evaluation row, stores one source row per replay source type, and
+links every source row to the baseline and candidate replay runs that produced the
+metrics. Operators and agents can inspect the resource through:
+
+- `GET /search/harness-evaluations`
+- `GET /search/harness-evaluations/{evaluation_id}`
 
 ### Quality signals
 

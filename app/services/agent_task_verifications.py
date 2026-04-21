@@ -33,7 +33,10 @@ from app.services.agent_task_context import (
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
 )
-from app.services.search_harness_evaluations import evaluate_search_harness
+from app.services.search_harness_evaluations import (
+    evaluate_search_harness,
+    get_search_harness_evaluation_detail,
+)
 from app.services.search_legibility import get_search_harness_descriptor
 from app.services.search_release_gate import (
     SearchHarnessReleaseGateOutcome,
@@ -191,6 +194,8 @@ def verify_search_harness_evaluation_task(
     )
     output = EvaluateSearchHarnessTaskOutput.model_validate(target_context.output)
     evaluation = output.evaluation
+    if evaluation.evaluation_id is not None:
+        evaluation = get_search_harness_evaluation_detail(session, evaluation.evaluation_id)
     outcome = evaluate_search_harness_verification(session, evaluation, payload)
     details = {
         **outcome.details,

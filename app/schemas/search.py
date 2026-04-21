@@ -307,6 +307,8 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
     source_type: str
     baseline_replay_run_id: UUID
     candidate_replay_run_id: UUID
+    baseline_status: str | None = None
+    candidate_status: str | None = None
     baseline_query_count: int = 0
     candidate_query_count: int = 0
     baseline_passed_count: int = 0
@@ -329,14 +331,37 @@ class SearchHarnessEvaluationSourceResponse(BaseModel):
 
 
 class SearchHarnessEvaluationResponse(BaseModel):
+    evaluation_id: UUID | None = None
+    status: str = "completed"
     baseline_harness_name: str
     candidate_harness_name: str
     limit: int
+    source_types: list[str] = Field(default_factory=list)
+    harness_overrides: dict = Field(default_factory=dict)
     total_shared_query_count: int = 0
     total_improved_count: int = 0
     total_regressed_count: int = 0
     total_unchanged_count: int = 0
+    error_message: str | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
     sources: list[SearchHarnessEvaluationSourceResponse] = Field(default_factory=list)
+
+
+class SearchHarnessEvaluationSummaryResponse(BaseModel):
+    evaluation_id: UUID
+    status: str
+    baseline_harness_name: str
+    candidate_harness_name: str
+    limit: int
+    source_types: list[str] = Field(default_factory=list)
+    total_shared_query_count: int = 0
+    total_improved_count: int = 0
+    total_regressed_count: int = 0
+    total_unchanged_count: int = 0
+    error_message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
 
 
 class SearchHarnessOptimizationRequest(BaseModel):

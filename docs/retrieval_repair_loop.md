@@ -22,6 +22,7 @@ The loop improves search harnesses without giving an agent open-ended control ov
 ## Canonical Artifacts
 
 - `search_request_explanation`: returned by the explain route and embeddable in repair evidence.
+- `search_harness_evaluation`: persisted DB resource returned by `GET /search/harness-evaluations/{evaluation_id}`.
 - `repair_case.json`: written by `triage_replay_regression`.
 - `harness_config_draft.json`: written by `draft_harness_config_update`.
 - `harness_config_draft_verification.json`: written by `verify_draft_harness_config`.
@@ -30,6 +31,22 @@ The loop improves search harnesses without giving an agent open-ended control ov
 - `context.json`: written for each completed task as the canonical task-context envelope.
 
 YAML sidecars may exist for operator readability, but JSON and database state are the machine-facing contracts.
+
+## Durable Harness Evaluations
+
+Harness comparisons are not transient API payloads. `POST /search/harness-evaluations`
+creates a durable `search_harness_evaluation` record and one source row per replay
+source type. Each source row links the baseline and candidate replay runs that
+produced the aggregate metrics.
+
+Inspection surfaces:
+
+- `GET /search/harness-evaluations`
+- `GET /search/harness-evaluations/{evaluation_id}`
+
+Agent tasks should carry the `evaluation_id` forward in task output and context refs.
+Verification gates reload the durable evaluation when present so the DB record, replay
+runs, task context, and operator API all describe the same evidence.
 
 ## Comprehension Gate
 

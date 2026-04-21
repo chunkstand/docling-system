@@ -136,6 +136,7 @@ class ContextRef(BaseModel):
     artifact_id: UUID | None = None
     verification_id: UUID | None = None
     replay_run_id: UUID | None = None
+    search_harness_evaluation_id: UUID | None = None
     artifact_kind: str | None = None
     schema_name: str | None = None
     schema_version: str | None = None

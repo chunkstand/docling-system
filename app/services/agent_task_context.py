@@ -17,6 +17,7 @@ from app.db.models import (
     AgentTaskArtifact,
     AgentTaskDependency,
     AgentTaskVerification,
+    SearchHarnessEvaluation,
     SearchReplayRun,
 )
 from app.schemas.agent_tasks import (
@@ -172,6 +173,52 @@ def _search_replay_run_payload(row: SearchReplayRun) -> dict:
     }
 
 
+def _search_harness_evaluation_payload(row: SearchHarnessEvaluation) -> dict:
+    return {
+        "evaluation_id": str(row.id),
+        "status": row.status,
+        "baseline_harness_name": row.baseline_harness_name,
+        "candidate_harness_name": row.candidate_harness_name,
+        "limit": row.limit,
+        "source_types": row.source_types_json or [],
+        "harness_overrides": row.harness_overrides_json or {},
+        "total_shared_query_count": row.total_shared_query_count,
+        "total_improved_count": row.total_improved_count,
+        "total_regressed_count": row.total_regressed_count,
+        "total_unchanged_count": row.total_unchanged_count,
+        "summary": row.summary_json or {},
+        "error_message": row.error_message,
+        "created_at": row.created_at.isoformat(),
+        "completed_at": row.completed_at.isoformat() if row.completed_at is not None else None,
+    }
+
+
+def _search_harness_evaluation_context_ref(
+    session: Session,
+    evaluation_id: UUID | str | None,
+    *,
+    now,
+) -> ContextRef | None:
+    if evaluation_id is None:
+        return None
+    evaluation_uuid = evaluation_id if isinstance(evaluation_id, UUID) else UUID(str(evaluation_id))
+    evaluation_row = session.get(SearchHarnessEvaluation, evaluation_uuid)
+    if evaluation_row is None:
+        return None
+    return ContextRef(
+        ref_key="search_harness_evaluation",
+        ref_kind="search_harness_evaluation",
+        summary="Durable harness evaluation record consumed by verification gates.",
+        search_harness_evaluation_id=evaluation_row.id,
+        schema_name="search_harness_evaluation",
+        schema_version="1.0",
+        observed_sha256=_payload_sha256(_search_harness_evaluation_payload(evaluation_row)),
+        source_updated_at=evaluation_row.completed_at or evaluation_row.created_at,
+        checked_at=now,
+        freshness_status=ContextFreshnessStatus.FRESH,
+    )
+
+
 def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
     updated = ref.model_copy(deep=True)
     updated.checked_at = utcnow()
@@ -269,6 +316,22 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
             return updated
         updated.freshness_status = ContextFreshnessStatus.FRESH
         updated.source_updated_at = replay_run.completed_at or replay_run.created_at
+        return updated
+
+    if ref.ref_kind == "search_harness_evaluation":
+        if ref.search_harness_evaluation_id is None:
+            updated.freshness_status = ContextFreshnessStatus.MISSING
+            return updated
+        evaluation = session.get(SearchHarnessEvaluation, ref.search_harness_evaluation_id)
+        if evaluation is None:
+            updated.freshness_status = ContextFreshnessStatus.MISSING
+            return updated
+        current_hash = _payload_sha256(_search_harness_evaluation_payload(evaluation))
+        if current_hash != ref.observed_sha256:
+            updated.freshness_status = ContextFreshnessStatus.STALE
+            return updated
+        updated.freshness_status = ContextFreshnessStatus.FRESH
+        updated.source_updated_at = evaluation.completed_at or evaluation.created_at
         return updated
 
     updated.freshness_status = ref.freshness_status or ContextFreshnessStatus.FRESH
@@ -670,6 +733,14 @@ def _build_evaluate_search_harness_context(
     output = EvaluateSearchHarnessTaskOutput.model_validate(payload)
     now = utcnow()
     refs: list[ContextRef] = []
+
+    evaluation_ref = _search_harness_evaluation_context_ref(
+        session,
+        output.evaluation.evaluation_id,
+        now=now,
+    )
+    if evaluation_ref is not None:
+        refs.append(evaluation_ref)
 
     for source in output.evaluation.sources:
         baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)
@@ -2394,6 +2465,14 @@ def _build_verify_draft_harness_config_context(
         )
         break
 
+    evaluation_ref = _search_harness_evaluation_context_ref(
+        session,
+        output.evaluation.get("evaluation_id"),
+        now=now,
+    )
+    if evaluation_ref is not None:
+        refs.append(evaluation_ref)
+
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
         refs.append(
@@ -2635,6 +2714,13 @@ def _build_verify_search_harness_evaluation_context(
             freshness_status=ContextFreshnessStatus.FRESH,
         )
     )
+    evaluation_ref = _search_harness_evaluation_context_ref(
+        session,
+        output.evaluation.evaluation_id,
+        now=now,
+    )
+    if evaluation_ref is not None:
+        refs.append(evaluation_ref)
 
     verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
     if verification_row is not None:
@@ -3186,6 +3272,14 @@ def _build_triage_replay_regression_context(
     output = TriageReplayRegressionTaskOutput.model_validate(payload)
     now = utcnow()
     refs: list[ContextRef] = []
+
+    evaluation_ref = _search_harness_evaluation_context_ref(
+        session,
+        output.evaluation.evaluation_id,
+        now=now,
+    )
+    if evaluation_ref is not None:
+        refs.append(evaluation_ref)
 
     for source in output.evaluation.sources:
         baseline_run = session.get(SearchReplayRun, source.baseline_replay_run_id)

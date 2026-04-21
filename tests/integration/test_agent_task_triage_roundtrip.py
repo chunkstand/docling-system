@@ -19,6 +19,7 @@ from app.db.models import (
     Document,
     DocumentRunEvaluation,
     DocumentRunEvaluationQuery,
+    SearchHarnessEvaluation,
 )
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
@@ -397,7 +398,11 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
         assert task is not None
         assert task.status == AgentTaskStatus.COMPLETED.value
         result_payload = task.result_json["payload"]
+        evaluation_id = result_payload["evaluation"]["evaluation_id"]
         assert result_payload["evaluation"]["total_shared_query_count"] >= 1
+        evaluation_row = session.get(SearchHarnessEvaluation, UUID(evaluation_id))
+        assert evaluation_row is not None
+        assert evaluation_row.status == "completed"
         context_path = (
             postgres_integration_harness.storage_service.get_agent_task_context_json_path(task_id)
         )
@@ -406,10 +411,14 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
         assert context_payload["summary"]["verification_state"] == "pending"
         assert context_payload["summary"]["metrics"]["total_shared_query_count"] >= 1
         assert {row["ref_key"] for row in context_payload["refs"]} >= {
+            "search_harness_evaluation",
             "evaluation_queries_baseline_replay_run",
             "evaluation_queries_candidate_replay_run",
         }
-        assert {row["ref_kind"] for row in context_payload["refs"]} == {"replay_run"}
+        assert {row["ref_kind"] for row in context_payload["refs"]} == {
+            "search_harness_evaluation",
+            "replay_run",
+        }
 
     action_catalog_response = client.get("/agent-tasks/actions")
     assert action_catalog_response.status_code == 200
@@ -425,6 +434,16 @@ def test_evaluate_search_harness_context_roundtrip(postgres_integration_harness)
     context_json = context_response.json()
     assert context_json["summary"]["headline"].startswith("Evaluated wide_v2 against default_v1")
     assert context_json["refs"][0]["freshness_status"] == "fresh"
+
+    evaluations_response = client.get("/search/harness-evaluations")
+    assert evaluations_response.status_code == 200
+    assert evaluations_response.json()[0]["evaluation_id"] == evaluation_id
+
+    evaluation_response = client.get(f"/search/harness-evaluations/{evaluation_id}")
+    assert evaluation_response.status_code == 200
+    evaluation_json = evaluation_response.json()
+    assert evaluation_json["evaluation_id"] == evaluation_id
+    assert evaluation_json["sources"][0]["source_type"] == "evaluation_queries"
 
     detail_response = client.get(f"/agent-tasks/{task_id}")
     assert detail_response.status_code == 200

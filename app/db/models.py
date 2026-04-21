@@ -1635,6 +1635,186 @@ class SearchReplayQuery(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SearchHarnessEvaluation(Base):
+    __tablename__ = "search_harness_evaluations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('completed', 'failed')",
+            name="ck_search_harness_evaluations_status",
+        ),
+        Index("ix_search_harness_evaluations_created_at", "created_at"),
+        Index(
+            "ix_search_harness_evaluations_candidate_created_at",
+            "candidate_harness_name",
+            "created_at",
+        ),
+        Index(
+            "ix_search_harness_evaluations_baseline_candidate",
+            "baseline_harness_name",
+            "candidate_harness_name",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    baseline_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_types_json: Mapped[list] = mapped_column(
+        "source_types",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    harness_overrides_json: Mapped[dict] = mapped_column(
+        "harness_overrides",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    total_shared_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_improved_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_regressed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    total_unchanged_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    error_message: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SearchHarnessEvaluationSource(Base):
+    __tablename__ = "search_harness_evaluation_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ("
+            "'evaluation_queries', "
+            "'live_search_gaps', "
+            "'feedback', "
+            "'cross_document_prose_regressions'"
+            ")",
+            name="ck_search_harness_evaluation_sources_source_type",
+        ),
+        UniqueConstraint(
+            "search_harness_evaluation_id",
+            "source_type",
+            name="uq_search_harness_evaluation_sources_eval_source",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_eval_id",
+            "search_harness_evaluation_id",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_baseline_replay",
+            "baseline_replay_run_id",
+        ),
+        Index(
+            "ix_search_harness_evaluation_sources_candidate_replay",
+            "candidate_replay_run_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_harness_evaluation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_evaluations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_index: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    baseline_replay_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    candidate_replay_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    baseline_status: Mapped[str | None] = mapped_column(Text)
+    candidate_status: Mapped[str | None] = mapped_column(Text)
+    baseline_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_passed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_passed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_zero_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_zero_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_table_hit_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_top_result_changes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_top_result_changes: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    baseline_mrr: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default=sql_text("0")
+    )
+    candidate_mrr: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0, server_default=sql_text("0")
+    )
+    baseline_foreign_top_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    candidate_foreign_top_result_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    acceptance_checks_json: Mapped[dict] = mapped_column(
+        "acceptance_checks",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    shared_query_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    improved_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    regressed_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    unchanged_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default=sql_text("0")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ChatAnswerRecord(Base):
     __tablename__ = "chat_answer_records"
     __table_args__ = (

@@ -92,6 +92,7 @@ from app.schemas.search import (
     SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
+    SearchHarnessEvaluationSummaryResponse,
     SearchHarnessResponse,
     SearchReplayComparisonResponse,
     SearchReplayResponse,
@@ -160,7 +161,9 @@ from app.services.runtime import get_runtime_status, register_runtime_process
 from app.services.search import execute_search
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,
+    get_search_harness_evaluation_detail,
     list_search_harness_definitions,
+    list_search_harness_evaluations,
 )
 from app.services.search_history import (
     get_search_request_detail,
@@ -1618,6 +1621,23 @@ def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptor
         ) from exc
 
 
+@app.get(
+    "/search/harness-evaluations",
+    response_model=list[SearchHarnessEvaluationSummaryResponse],
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_evaluations(
+    limit: int = Query(default=20, ge=1, le=200),
+    candidate_harness_name: str | None = None,
+    session: Session = Depends(get_db_session),
+) -> list[SearchHarnessEvaluationSummaryResponse]:
+    return list_search_harness_evaluations(
+        session,
+        limit=limit,
+        candidate_harness_name=candidate_harness_name,
+    )
+
+
 @app.post(
     "/search/harness-evaluations",
     response_model=SearchHarnessEvaluationResponse,
@@ -1627,6 +1647,7 @@ def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptor
     ],
 )
 def create_search_harness_evaluation(
+    response: Response,
     payload: SearchHarnessEvaluationRequest,
     session: Session = Depends(get_db_session),
 ) -> SearchHarnessEvaluationResponse:
@@ -1639,7 +1660,22 @@ def create_search_harness_evaluation(
             str(exc),
         ) from exc
     session.commit()
+    evaluation_id = _response_field(evaluation, "evaluation_id")
+    if evaluation_id is not None:
+        response.headers["Location"] = f"/search/harness-evaluations/{evaluation_id}"
     return evaluation
+
+
+@app.get(
+    "/search/harness-evaluations/{evaluation_id}",
+    response_model=SearchHarnessEvaluationResponse,
+    dependencies=[Depends(_require_api_capability("search:evaluate"))],
+)
+def read_search_harness_evaluation(
+    evaluation_id: UUID,
+    session: Session = Depends(get_db_session),
+) -> SearchHarnessEvaluationResponse:
+    return get_search_harness_evaluation_detail(session, evaluation_id)
 
 
 @app.post(
