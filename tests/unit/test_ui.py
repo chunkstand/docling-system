@@ -23,6 +23,7 @@ def test_index_serves_overview_ui() -> None:
     assert "/ui/documents.html" in response.text
     assert "/ui/search.html" in response.text
     assert "/ui/evals.html" in response.text
+    assert "/ui/semantics.html" in response.text
     assert "/ui/agents.html" in response.text
     assert "/ui/app.js" in response.text
 
@@ -104,6 +105,20 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Verification and review" in agent_response.text
 
 
+def test_semantics_page_exposes_backfill_observability() -> None:
+    client = TestClient(app)
+
+    response = client.get("/ui/semantics.html")
+
+    assert response.status_code == 200
+    assert "Knowledge graph migration" in response.text
+    assert "Backfill active runs into governed semantic memory" in response.text
+    assert "Semantic pass coverage" in response.text
+    assert "Current graph-readiness state" in response.text
+    assert "Run a bounded vertical slice" in response.text
+    assert "Sample active documents still missing current semantic passes" in response.text
+
+
 def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
     client = TestClient(app)
 
@@ -127,3 +142,15 @@ def test_agent_ui_exposes_technical_report_harness_observability() -> None:
     assert "renderReportHarnessPacket" in response.text
     assert "missing_wake_context_count" in response.text
     assert "unresolved_evidence_card_ref_count" in response.text
+
+
+def test_semantics_ui_wires_backfill_status_and_slice_actions() -> None:
+    client = TestClient(app)
+
+    response = client.get("/ui/app.js")
+
+    assert response.status_code == 200
+    assert "/semantics/backfill/status" in response.text
+    assert "/semantics/backfill" in response.text
+    assert "renderSemanticBackfillStatus" in response.text
+    assert "loadSemanticsPage" in response.text

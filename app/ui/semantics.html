@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docling System | Knowledge Graph</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/ui/styles.css?v=clean-dashboard" />
+    <script defer src="/ui/app.js"></script>
+  </head>
+  <body data-page="semantics">
+    <div class="page-shell">
+      <header class="site-header">
+        <a class="brand-mark" href="/">
+          <span class="brand-crest">DS</span>
+          <span>
+            <strong>Docling System</strong>
+            <small>Governed retrieval and promotion</small>
+          </span>
+        </a>
+        <nav class="site-nav" aria-label="Primary">
+          <a class="nav-link" href="/">Overview</a>
+          <a class="nav-link" href="/ui/documents.html">Documents</a>
+          <a class="nav-link" href="/ui/search.html">Search</a>
+          <a class="nav-link" href="/ui/evals.html">Eval &amp; Verification</a>
+          <a class="nav-link is-active" href="/ui/semantics.html">Knowledge Graph</a>
+          <a class="nav-link" href="/ui/agents.html">Agent Workflows</a>
+        </nav>
+        <div class="topline-signals">
+          <article class="signal-chip">
+            <span>API</span>
+            <strong id="global-health">Checking</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Latest eval coverage</span>
+            <strong id="global-validated">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Approval backlog</span>
+            <strong id="global-backlog">0</strong>
+          </article>
+          <article class="signal-chip">
+            <span>Access</span>
+            <strong id="global-auth">Checking</strong>
+          </article>
+        </div>
+      </header>
+
+      <section class="panel auth-shell reveal">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">Remote access</p>
+          <h2>Saved credential for current API calls</h2>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <label>
+            <span class="field-caption">Credential type</span>
+            <select id="auth-scheme">
+              <option value="x-api-key">X-API-Key</option>
+              <option value="bearer">Bearer token</option>
+            </select>
+          </label>
+          <label class="auth-token-field">
+            <span class="field-caption">Credential</span>
+            <input
+              id="auth-credential"
+              type="password"
+              placeholder="Save an API key or bearer token for remote mode"
+            />
+          </label>
+          <button class="primary-link button-link" type="submit">Save credential</button>
+          <button class="secondary-link button-link secondary-button" id="auth-clear" type="button">
+            Clear
+          </button>
+        </form>
+        <div id="auth-note" class="inline-note">
+          Anonymous mode only works against loopback-local API access.
+        </div>
+      </section>
+
+      <main class="page-stack">
+        <section class="hero reveal">
+          <div class="hero-copy">
+            <p class="eyebrow">Knowledge graph migration</p>
+            <h1>Backfill active runs into governed semantic memory without clearing the corpus.</h1>
+            <p class="hero-summary">
+              This workspace shows whether active documents have current semantic passes, document
+              fact graphs, and promoted cross-document graph memory. Backfill runs reuse active
+              run artifacts and keep ontology and graph promotion explicit.
+            </p>
+          </div>
+          <aside class="hero-metrics">
+            <article class="metric-card">
+              <span>Semantic pass coverage</span>
+              <strong id="semantic-pass-coverage">0 / 0</strong>
+              <p>Active documents with a current semantic pass.</p>
+            </article>
+            <article class="metric-card">
+              <span>Assertions</span>
+              <strong id="semantic-assertion-count">0</strong>
+              <p>Evidence-backed concept mentions in current passes.</p>
+            </article>
+            <article class="metric-card">
+              <span>Facts</span>
+              <strong id="semantic-fact-count">0</strong>
+              <p>Document-to-concept facts available to generation.</p>
+            </article>
+            <article class="metric-card accent">
+              <span>Graph edges</span>
+              <strong id="semantic-graph-edge-count">0</strong>
+              <p>Approved cross-document semantic graph memory.</p>
+            </article>
+          </aside>
+        </section>
+
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Migration posture</p>
+            <h2>Current graph-readiness state</h2>
+          </div>
+          <div id="semantic-backfill-summary" class="stack-list empty-state">
+            Loading semantic backfill status.
+          </div>
+        </section>
+
+        <section class="panel panel-split reveal">
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Backfill control</p>
+              <h2>Run a bounded vertical slice</h2>
+            </div>
+            <form id="semantic-backfill-form" class="auth-form action-form">
+              <label>
+                <span class="field-caption">Document limit</span>
+                <input id="semantic-backfill-limit" type="number" min="1" max="500" value="10" />
+              </label>
+              <label>
+                <span class="field-caption">Mode</span>
+                <select id="semantic-backfill-mode">
+                  <option value="dry-run">Dry run</option>
+                  <option value="execute">Execute</option>
+                </select>
+              </label>
+              <label class="toggle-chip">
+                <input id="semantic-backfill-force" type="checkbox" />
+                <span>Refresh current passes</span>
+              </label>
+              <label class="toggle-chip">
+                <input id="semantic-backfill-facts" type="checkbox" checked />
+                <span>Build fact graphs</span>
+              </label>
+              <button class="primary-link button-link" type="submit">Run backfill slice</button>
+            </form>
+            <div id="semantic-backfill-note" class="inline-note">
+              Dry runs are read-only. Execute mode requires semantic execution to be enabled.
+            </div>
+          </div>
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Latest slice result</p>
+              <h2>Run output</h2>
+            </div>
+            <div id="semantic-backfill-run-output" class="stack-list empty-state">
+              No semantic backfill slice has been run from this browser session.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Coverage gaps</p>
+            <h2>Sample active documents still missing current semantic passes</h2>
+          </div>
+          <div id="semantic-missing-documents" class="stack-list empty-state">
+            Loading missing-document sample.
+          </div>
+        </section>
+
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Operator activity</p>
+            <h2>Local event log</h2>
+          </div>
+          <div id="activity-feed" class="activity-feed"></div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
