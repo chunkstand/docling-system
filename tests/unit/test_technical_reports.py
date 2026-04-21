@@ -194,13 +194,12 @@ def _semantic_brief_payload() -> dict:
     }
 
 
-def test_report_harness_service_roundtrip(monkeypatch) -> None:
-    semantic_brief = _semantic_brief_payload()
+def _plan_from_semantic_brief(monkeypatch, semantic_brief: dict) -> dict:
     monkeypatch.setattr(
         "app.services.technical_reports.prepare_semantic_generation_brief",
         lambda *args, **kwargs: semantic_brief,
     )
-    plan = plan_technical_report(
+    return plan_technical_report(
         object(),
         title="Integration Governance Technical Report",
         goal="Explain the integration governance controls.",
@@ -211,16 +210,15 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
         target_length="medium",
         review_policy="allow_candidate_with_disclosure",
     )
-    plan_task_id = uuid4()
-    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=plan_task_id)
-    assert any(card["source_type"] == "table" for card in evidence_bundle["evidence_cards"])
 
+
+def _fresh_context_ref(task_id=None) -> ContextRef:
     now = datetime.now(UTC)
-    context_ref = ContextRef(
+    return ContextRef(
         ref_key="evidence_cards_task_output",
         ref_kind="task_output",
         summary="test context",
-        task_id=uuid4(),
+        task_id=task_id or uuid4(),
         schema_name="build_report_evidence_cards_output",
         schema_version="1.0",
         observed_sha256="sha",
@@ -228,6 +226,29 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
         checked_at=now,
         freshness_status=ContextFreshnessStatus.FRESH,
     )
+
+
+def _draft_from_semantic_brief(monkeypatch, semantic_brief: dict) -> dict:
+    plan = _plan_from_semantic_brief(monkeypatch, semantic_brief)
+    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=uuid4())
+    context_ref = _fresh_context_ref()
+    harness = prepare_report_agent_harness(
+        evidence_bundle,
+        harness_task_id=uuid4(),
+        evidence_task_id=context_ref.task_id,
+        upstream_context_refs=[context_ref],
+    )
+    return draft_technical_report(harness, harness_task_id=uuid4())
+
+
+def test_report_harness_service_roundtrip(monkeypatch) -> None:
+    semantic_brief = _semantic_brief_payload()
+    plan = _plan_from_semantic_brief(monkeypatch, semantic_brief)
+    plan_task_id = uuid4()
+    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=plan_task_id)
+    assert any(card["source_type"] == "table" for card in evidence_bundle["evidence_cards"])
+
+    context_ref = _fresh_context_ref()
     harness = prepare_report_agent_harness(
         evidence_bundle,
         harness_task_id=uuid4(),
@@ -248,3 +269,59 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert verification.verification_outcome == "passed"
     assert verification.summary["context_ref_count"] == 1
     assert any(metric["stakeholder"] == "Joshua Yu" for metric in verification.success_metrics)
+
+
+def test_fact_backed_claims_bind_to_source_evidence_without_label(monkeypatch) -> None:
+    semantic_brief = _semantic_brief_payload()
+    semantic_brief["claim_candidates"][0]["evidence_labels"] = []
+
+    draft = _draft_from_semantic_brief(monkeypatch, semantic_brief)
+    fact_backed_claim = next(
+        claim for claim in draft["claims"] if claim["claim_id"] == "claim:integration_threshold"
+    )
+
+    assert fact_backed_claim["evidence_card_ids"]
+    verification = verify_technical_report(draft)
+    assert verification.verification_outcome == "passed"
+
+
+def test_harness_marks_missing_wake_context_blocked(monkeypatch) -> None:
+    plan = _plan_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=uuid4())
+
+    harness = prepare_report_agent_harness(
+        evidence_bundle,
+        harness_task_id=uuid4(),
+        evidence_task_id=uuid4(),
+        upstream_context_refs=[],
+    )
+
+    assert harness["workflow_state"]["blocked_steps"]
+    wake_metric = next(
+        metric
+        for metric in harness["success_metrics"]
+        if metric["metric_key"] == "wake_up_packet_complete"
+    )
+    assert wake_metric["passed"] is False
+
+
+def test_verification_fails_without_wake_context(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    draft["llm_adapter_contract"]["harness_context_refs"] = []
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["missing_wake_context_count"] == 1
+    assert any("wake-up context refs" in reason for reason in verification.verification_reasons)
+
+
+def test_verification_fails_unresolved_evidence_card_refs(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    draft["claims"][0]["evidence_card_ids"] = ["missing-card"]
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["unresolved_evidence_card_ref_count"] == 1
+    assert any("missing evidence cards" in reason for reason in verification.verification_reasons)

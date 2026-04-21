@@ -161,11 +161,24 @@ def plan_technical_report(
     )
     semantic_brief = SemanticGenerationBriefPayload.model_validate(semantic_brief_payload)
     claims_by_id = _claim_lookup(list(semantic_brief.claim_candidates))
+    warnings = list(semantic_brief.warnings)
 
     sections: list[dict[str, Any]] = []
     retrieval_plan: list[dict[str, Any]] = []
     for section in semantic_brief.sections:
-        section_claims = [claims_by_id[claim_id] for claim_id in section.claim_ids]
+        missing_claim_ids = [
+            claim_id for claim_id in section.claim_ids if claim_id not in claims_by_id
+        ]
+        if missing_claim_ids:
+            warnings.append(
+                f"{section.section_id} references missing claim ids: "
+                f"{', '.join(missing_claim_ids)}."
+            )
+        section_claims = [
+            claims_by_id[claim_id]
+            for claim_id in section.claim_ids
+            if claim_id in claims_by_id
+        ]
         required_graph_edge_ids = _unique_strings(
             [
                 graph_edge_id
@@ -226,7 +239,7 @@ def plan_technical_report(
         "expected_graph_edge_ids": expected_graph_edge_ids,
         "retrieval_plan": retrieval_plan,
         "semantic_brief": semantic_brief.model_dump(mode="json"),
-        "warnings": list(semantic_brief.warnings),
+        "warnings": _unique_strings(warnings),
         "expert_alignment": _expert_alignment(),
     }
     plan["success_metrics"] = [
@@ -266,7 +279,10 @@ def build_report_evidence_cards(
     evidence_cards: list[dict[str, Any]] = []
     card_id_by_evidence_label: dict[str, str] = {}
     card_ids_by_evidence_id: dict[UUID, list[str]] = {}
+    card_ids_by_fact_id: dict[UUID, list[str]] = {}
+    card_ids_by_assertion_id: dict[UUID, list[str]] = {}
     card_id_by_graph_edge_id: dict[str, str] = {}
+    warnings = list(plan.warnings)
     next_card_index = 1
 
     for evidence in brief.evidence_pack:
@@ -309,6 +325,10 @@ def build_report_evidence_cards(
         evidence_cards.append(card.model_dump(mode="json"))
         card_id_by_evidence_label[evidence.citation_label] = card_id
         card_ids_by_evidence_id.setdefault(evidence.evidence_id, []).append(card_id)
+        for fact_id in fact_ids:
+            card_ids_by_fact_id.setdefault(fact_id, []).append(card_id)
+        for assertion_id in assertion_ids:
+            card_ids_by_assertion_id.setdefault(assertion_id, []).append(card_id)
 
     for concept in brief.semantic_dossier:
         for fact in concept.facts:
@@ -323,6 +343,18 @@ def build_report_evidence_cards(
                         card["fact_ids"] = _unique_strings(
                             [*card.get("fact_ids", []), str(fact.fact_id)]
                         )
+                        if fact.assertion_id:
+                            card["assertion_ids"] = _unique_strings(
+                                [
+                                    *card.get("assertion_ids", []),
+                                    str(fact.assertion_id),
+                                ]
+                            )
+                card_ids_by_fact_id.setdefault(fact.fact_id, []).extend(matched_card_ids)
+                if fact.assertion_id:
+                    card_ids_by_assertion_id.setdefault(fact.assertion_id, []).extend(
+                        matched_card_ids
+                    )
                 continue
             card_id = f"EC{next_card_index}"
             next_card_index += 1
@@ -349,8 +381,16 @@ def build_report_evidence_cards(
                 },
             )
             evidence_cards.append(card.model_dump(mode="json"))
+            card_ids_by_fact_id.setdefault(fact.fact_id, []).append(card_id)
+            if fact.assertion_id:
+                card_ids_by_assertion_id.setdefault(fact.assertion_id, []).append(card_id)
 
     for graph_edge in brief.graph_index:
+        if graph_edge.review_status != "approved":
+            warnings.append(
+                f"{graph_edge.edge_id} is present in graph context with "
+                f"review_status={graph_edge.review_status!r}; verifier approval is required."
+            )
         card_id = f"EC{next_card_index}"
         next_card_index += 1
         concept_keys = [
@@ -392,16 +432,69 @@ def build_report_evidence_cards(
             for edge_id in claim.graph_edge_ids
             if edge_id in card_id_by_graph_edge_id
         ]
+        fact_card_ids = [
+            card_id
+            for fact_id in claim.fact_ids
+            for card_id in card_ids_by_fact_id.get(fact_id, [])
+        ]
+        assertion_card_ids = [
+            card_id
+            for assertion_id in claim.assertion_ids
+            for card_id in card_ids_by_assertion_id.get(assertion_id, [])
+        ]
+        missing_evidence_labels = [
+            label for label in claim.evidence_labels if label not in card_id_by_evidence_label
+        ]
+        missing_graph_edge_ids = [
+            edge_id for edge_id in claim.graph_edge_ids if edge_id not in card_id_by_graph_edge_id
+        ]
+        missing_fact_ids = [
+            str(fact_id) for fact_id in claim.fact_ids if fact_id not in card_ids_by_fact_id
+        ]
+        missing_assertion_ids = [
+            str(assertion_id)
+            for assertion_id in claim.assertion_ids
+            if assertion_id not in card_ids_by_assertion_id
+        ]
+        if missing_evidence_labels:
+            warnings.append(
+                f"{claim.claim_id} references missing evidence labels: "
+                f"{', '.join(missing_evidence_labels)}."
+            )
+        if missing_graph_edge_ids:
+            warnings.append(
+                f"{claim.claim_id} references missing graph edges: "
+                f"{', '.join(missing_graph_edge_ids)}."
+            )
+        if missing_fact_ids:
+            warnings.append(
+                f"{claim.claim_id} references facts without evidence cards: "
+                f"{', '.join(missing_fact_ids)}."
+            )
+        if missing_assertion_ids:
+            warnings.append(
+                f"{claim.claim_id} references assertions without evidence cards: "
+                f"{', '.join(missing_assertion_ids)}."
+            )
+        evidence_card_ids = _unique_strings(
+            [*source_card_ids, *graph_card_ids, *fact_card_ids, *assertion_card_ids]
+        )
+        if not evidence_card_ids and not claim.graph_edge_ids:
+            warnings.append(f"{claim.claim_id} has no resolvable report evidence support.")
         claim_evidence_map.append(
             {
                 "claim_id": claim.claim_id,
                 "section_id": claim.section_id,
                 "summary": claim.summary,
                 "concept_keys": list(claim.concept_keys),
-                "evidence_card_ids": _unique_strings([*source_card_ids, *graph_card_ids]),
+                "evidence_card_ids": evidence_card_ids,
                 "graph_edge_ids": list(claim.graph_edge_ids),
                 "fact_ids": [str(fact_id) for fact_id in claim.fact_ids],
                 "assertion_ids": [str(assertion_id) for assertion_id in claim.assertion_ids],
+                "missing_evidence_labels": missing_evidence_labels,
+                "missing_graph_edge_ids": missing_graph_edge_ids,
+                "missing_fact_ids": missing_fact_ids,
+                "missing_assertion_ids": missing_assertion_ids,
                 "source_document_ids": [
                     str(document_id) for document_id in claim.source_document_ids
                 ],
@@ -418,7 +511,7 @@ def build_report_evidence_cards(
         "claim_evidence_map": claim_evidence_map,
         "retrieval_index": list(plan.retrieval_plan),
         "graph_context": [edge.model_dump(mode="json") for edge in brief.graph_index],
-        "warnings": list(plan.warnings),
+        "warnings": _unique_strings(warnings),
         "expert_alignment": _expert_alignment(),
     }
     bundle["success_metrics"] = [
@@ -432,14 +525,32 @@ def build_report_evidence_cards(
         _success_metric(
             "table_evidence_preserved",
             "Joshua Yu",
-            any(card.get("source_type") == "table" for card in evidence_cards),
+            sum(1 for row in brief.evidence_pack if row.source_type == "table")
+            == sum(1 for card in evidence_cards if card.get("source_type") == "table"),
             "Typed table evidence remains distinguishable from prose evidence.",
-            {"source_types": sorted({str(card.get("source_type")) for card in evidence_cards})},
+            {
+                "source_table_count": sum(
+                    1 for row in brief.evidence_pack if row.source_type == "table"
+                ),
+                "table_card_count": sum(
+                    1 for card in evidence_cards if card.get("source_type") == "table"
+                ),
+                "source_types": sorted(
+                    {str(card.get("source_type")) for card in evidence_cards}
+                ),
+            },
         ),
         _success_metric(
             "claim_contract_bound",
             "Nate B. Jones",
-            all(row["evidence_card_ids"] or row["graph_edge_ids"] for row in claim_evidence_map),
+            all(
+                (row["evidence_card_ids"] or row["graph_edge_ids"])
+                and not row["missing_evidence_labels"]
+                and not row["missing_graph_edge_ids"]
+                and not row["missing_fact_ids"]
+                and not row["missing_assertion_ids"]
+                for row in claim_evidence_map
+            ),
             "Every planned claim has explicit support or graph context before drafting.",
             {"claim_count": len(claim_evidence_map)},
         ),
@@ -548,6 +659,31 @@ def prepare_report_agent_harness(
     evidence_bundle = TechnicalReportEvidenceBundlePayload.model_validate(evidence_bundle_payload)
     plan = evidence_bundle.plan
     context_refs = [ref.model_dump(mode="json") for ref in upstream_context_refs]
+    context_blockers = [
+        ref
+        for ref in context_refs
+        if ref.get("freshness_status")
+        in {
+            ContextFreshnessStatus.MISSING.value,
+            ContextFreshnessStatus.SCHEMA_MISMATCH.value,
+        }
+    ]
+    blocked_steps: list[dict[str, Any]] = []
+    if not context_refs:
+        blocked_steps.append(
+            {
+                "step": "draft_technical_report",
+                "reason": "Missing upstream context refs for agent wake-up.",
+            }
+        )
+    if context_blockers:
+        blocked_steps.append(
+            {
+                "step": "draft_technical_report",
+                "reason": "Upstream context refs include missing or schema-mismatched inputs.",
+                "ref_keys": [str(ref.get("ref_key")) for ref in context_blockers],
+            }
+        )
     harness = {
         "schema_name": "report_agent_harness",
         "schema_version": "1.0",
@@ -572,7 +708,7 @@ def prepare_report_agent_harness(
                 "prepare_report_agent_harness",
             ],
             "next_task_type": "draft_technical_report",
-            "blocked_steps": [],
+            "blocked_steps": blocked_steps,
         },
         "context_refs": context_refs,
         "allowed_tools": _default_allowed_tools(),
@@ -622,7 +758,7 @@ def prepare_report_agent_harness(
             ],
         },
         "source_plan": plan.model_dump(mode="json"),
-        "warnings": [*plan.warnings, *evidence_bundle.warnings],
+        "warnings": _unique_strings([*plan.warnings, *evidence_bundle.warnings]),
         "expert_alignment": _expert_alignment(),
     }
     harness["success_metrics"] = [
@@ -631,7 +767,10 @@ def prepare_report_agent_harness(
             "Ryan Lopopolo",
             bool(harness["allowed_tools"])
             and bool(harness["required_skills"])
-            and bool(harness["claim_contract"]),
+            and bool(harness["claim_contract"])
+            and bool(harness["evidence_cards"])
+            and bool(context_refs)
+            and not blocked_steps,
             "The wake-up packet includes tools, skills, claim contract, and evidence cards.",
             {
                 "tool_count": len(harness["allowed_tools"]),
@@ -688,15 +827,16 @@ def draft_technical_report(
         source_document_ids = [
             UUID(str(value)) for value in claim_contract.get("source_document_ids") or []
         ]
-        if not evidence_card_ids and not graph_edge_ids and not fact_ids and not assertion_ids:
+        if not evidence_card_ids and not graph_edge_ids:
             blocked_claims.append(
                 {
                     "claim_id": claim_contract["claim_id"],
                     "section_id": claim_contract["section_id"],
                     "reason": (
-                        "No evidence card, graph edge, fact, or assertion "
-                        "support was available."
+                        "No evidence card or graph edge support was available."
                     ),
+                    "fact_ids": [str(value) for value in fact_ids],
+                    "assertion_ids": [str(value) for value in assertion_ids],
                 }
             )
             continue
@@ -826,16 +966,30 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         _success_metric(
             "claim_traceability",
             "Ryan Lopopolo",
-            summary["traceable_claim_ratio"] == 1.0,
-            "Every rendered claim resolves to evidence cards or approved graph context.",
-            {"traceable_claim_ratio": summary["traceable_claim_ratio"]},
+            summary["traceable_claim_ratio"] == 1.0
+            and summary["unresolved_evidence_card_ref_count"] == 0
+            and summary["unresolved_graph_edge_ref_count"] == 0,
+            "Every rendered claim resolves to evidence cards and approved graph context.",
+            {
+                "traceable_claim_ratio": summary["traceable_claim_ratio"],
+                "unresolved_evidence_card_ref_count": summary[
+                    "unresolved_evidence_card_ref_count"
+                ],
+                "unresolved_graph_edge_ref_count": summary[
+                    "unresolved_graph_edge_ref_count"
+                ],
+            },
         ),
         _success_metric(
             "explicit_context_gate",
             "Armin Ronacher",
-            summary["context_blocker_count"] == 0,
+            summary["context_blocker_count"] == 0
+            and summary["missing_wake_context_count"] == 0,
             "Missing and schema-mismatched wake-up context is blocked by the verifier.",
-            {"context_blocker_count": summary["context_blocker_count"]},
+            {
+                "context_blocker_count": summary["context_blocker_count"],
+                "missing_wake_context_count": summary["missing_wake_context_count"],
+            },
         ),
         _success_metric(
             "graph_memory_governed",
@@ -847,9 +1001,12 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         _success_metric(
             "owned_wake_context",
             "Nate B. Jones",
-            summary["context_ref_count"] > 0,
+            summary["context_ref_count"] > 0 and summary["missing_wake_context_count"] == 0,
             "The draft is verified against the harness wake-up context.",
-            {"context_ref_count": summary["context_ref_count"]},
+            {
+                "context_ref_count": summary["context_ref_count"],
+                "missing_wake_context_count": summary["missing_wake_context_count"],
+            },
         ),
         _success_metric(
             "durable_platform_loop",
@@ -881,12 +1038,15 @@ def verify_technical_report(
     resolved_claim_count = 0
     unsupported_claim_count = len(draft.blocked_claims)
     unapproved_graph_claim_count = 0
+    unresolved_evidence_card_ref_count = 0
+    unresolved_graph_edge_ref_count = 0
     reasons: list[str] = []
     stale_context_count = 0
     context_blocker_count = 0
     context_refs = []
     if draft.llm_adapter_contract.get("harness_context_refs"):
         context_refs = list(draft.llm_adapter_contract["harness_context_refs"])
+    missing_wake_context_count = 0 if context_refs else 1
 
     for ref in context_refs:
         status = str(ref.get("freshness_status") or "")
@@ -899,9 +1059,27 @@ def verify_technical_report(
             stale_context_count += 1
 
     for claim in draft.claims:
+        missing_evidence_card_ids = [
+            card_id for card_id in claim.evidence_card_ids if card_id not in card_ids
+        ]
+        if missing_evidence_card_ids:
+            unresolved_evidence_card_ref_count += len(missing_evidence_card_ids)
+            reasons.append(
+                f"{claim.claim_id} references missing evidence cards: "
+                f"{', '.join(missing_evidence_card_ids)}."
+            )
         evidence_resolved = bool(claim.evidence_card_ids) and all(
             card_id in card_ids for card_id in claim.evidence_card_ids
         )
+        missing_graph_edge_ids = [
+            edge_id for edge_id in claim.graph_edge_ids if edge_id not in graph_edges
+        ]
+        if missing_graph_edge_ids:
+            unresolved_graph_edge_ref_count += len(missing_graph_edge_ids)
+            reasons.append(
+                f"{claim.claim_id} references missing graph edges: "
+                f"{', '.join(missing_graph_edge_ids)}."
+            )
         graph_refs = [
             graph_edges[edge_id] for edge_id in claim.graph_edge_ids if edge_id in graph_edges
         ]
@@ -909,9 +1087,15 @@ def verify_technical_report(
         graph_approved = graph_resolved and all(
             edge.review_status == "approved" for edge in graph_refs
         )
-        if claim.graph_edge_ids and require_graph_edges_approved and not graph_approved:
+        unapproved_graph_refs = [
+            edge for edge in graph_refs if edge.review_status != "approved"
+        ]
+        if unapproved_graph_refs and require_graph_edges_approved:
             unapproved_graph_claim_count += 1
-            reasons.append(f"{claim.claim_id} references graph edges that are not approved.")
+            reasons.append(
+                f"{claim.claim_id} references graph edges that are not approved: "
+                f"{', '.join(edge.edge_id for edge in unapproved_graph_refs)}."
+            )
         if evidence_resolved or graph_approved:
             resolved_claim_count += 1
             supported_concept_keys.update(claim.concept_keys)
@@ -940,6 +1124,8 @@ def verify_technical_report(
         reasons.append("The report does not cover every required concept from the harness.")
     if context_blocker_count:
         reasons.append("The report used missing or schema-mismatched wake-up context.")
+    if missing_wake_context_count:
+        reasons.append("The report draft does not carry refreshed wake-up context refs.")
     if block_stale_context and stale_context_count:
         reasons.append("The report used stale wake-up context while stale blocking was enabled.")
 
@@ -956,7 +1142,10 @@ def verify_technical_report(
         "covered_required_concept_count": covered_required_concept_count,
         "required_concept_coverage_ratio": required_concept_coverage_ratio,
         "unapproved_graph_claim_count": unapproved_graph_claim_count,
+        "unresolved_evidence_card_ref_count": unresolved_evidence_card_ref_count,
+        "unresolved_graph_edge_ref_count": unresolved_graph_edge_ref_count,
         "context_ref_count": len(context_refs),
+        "missing_wake_context_count": missing_wake_context_count,
         "context_blocker_count": context_blocker_count,
         "stale_context_count": stale_context_count,
     }
