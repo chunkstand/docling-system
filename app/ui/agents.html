@@ -195,6 +195,9 @@
           <div class="tab-list" role="tablist" aria-label="Agent task workspace">
             <button type="button" class="tab-button" data-tab-button="agents-summary-tab">Summary</button>
             <button type="button" class="tab-button" data-tab-button="agents-context-tab">Context</button>
+            <button type="button" class="tab-button" data-tab-button="agents-report-harness-tab">
+              Report harness
+            </button>
             <button type="button" class="tab-button" data-tab-button="agents-artifacts-tab">Artifacts</button>
             <button type="button" class="tab-button" data-tab-button="agents-review-tab">Verification and review</button>
           </div>
@@ -244,6 +247,38 @@
                 <div id="agent-value-density" class="stack-list empty-state">
                   Workflow value density will appear here.
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="agents-report-harness-tab" class="tab-panel" data-tab-panel="agents-workspace" hidden>
+            <div class="panel-split panel-split-tight">
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Technical report milestone</p>
+                  <h2>Registered vertical workflow</h2>
+                </div>
+                <div id="agent-report-harness-contract" class="stack-list empty-state">
+                  Report workflow action contracts will appear here.
+                </div>
+              </div>
+              <div class="inset-panel">
+                <div class="section-heading">
+                  <p class="eyebrow">Live task evidence</p>
+                  <h2>Recent report workflow runs</h2>
+                </div>
+                <div id="agent-report-harness-runs" class="stack-list empty-state">
+                  Recent technical report tasks will appear here.
+                </div>
+              </div>
+            </div>
+            <div class="inset-panel report-packet-panel">
+              <div class="section-heading">
+                <p class="eyebrow">LLM adapter and wake context</p>
+                <h2>Selected report packet observability</h2>
+              </div>
+              <div id="agent-report-harness-packet" class="stack-list empty-state">
+                Select a technical report task to inspect its evidence cards, tools, skills, context refs, and verification gates.
               </div>
             </div>
           </section>

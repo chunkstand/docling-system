@@ -469,6 +469,10 @@ select {
   gap: 14px;
 }
 
+.report-packet-panel {
+  margin-top: 2px;
+}
+
 .section-heading {
   margin-bottom: 12px;
 }

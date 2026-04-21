@@ -98,6 +98,9 @@ def test_eval_and_agent_pages_expose_governance_workflows() -> None:
     assert "Summary, lineage, context, and artifacts" in agent_response.text
     assert "What each harness is for" in agent_response.text
     assert "Readable system actions" in agent_response.text
+    assert "Report harness" in agent_response.text
+    assert "Registered vertical workflow" in agent_response.text
+    assert "LLM adapter and wake context" in agent_response.text
     assert "Verification and review" in agent_response.text
 
 
@@ -110,3 +113,17 @@ def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
     assert "/search/harness-evaluations?limit=8" in response.text
     assert 'data-ui-action="load-harness-evaluation"' in response.text
     assert "loadHarnessEvaluationDetail" in response.text
+
+
+def test_agent_ui_exposes_technical_report_harness_observability() -> None:
+    client = TestClient(app)
+
+    response = client.get("/ui/app.js")
+
+    assert response.status_code == 200
+    assert "TECHNICAL_REPORT_TASK_TYPES" in response.text
+    assert "/agent-tasks/actions" in response.text
+    assert "/agent-tasks/analytics/workflow-versions" in response.text
+    assert "renderReportHarnessPacket" in response.text
+    assert "missing_wake_context_count" in response.text
+    assert "unresolved_evidence_card_ref_count" in response.text
