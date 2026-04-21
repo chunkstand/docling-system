@@ -65,6 +65,7 @@ Unless the user says otherwise, prefer:
 
 - implement milestone by milestone
 - run verification at each milestone
+- for verification runs, prefer `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q`; do not treat skipped Postgres-backed integration tests as sufficient coverage unless the user explicitly approves skipping them
 - commit milestone changes as you go
 - avoid scope drift beyond the v1 system plan unless required to make the system buildable and testable
 - restart API/worker after environment, migration, or runtime dependency changes before live verification
