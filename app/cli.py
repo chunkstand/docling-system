@@ -86,6 +86,20 @@ def backfill_legacy_run_audit_fields(*args, **kwargs):
     )
 
 
+def get_semantic_backfill_status(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.semantic_backfill",
+        "get_semantic_backfill_status",
+    )(*args, **kwargs)
+
+
+def execute_semantic_backfill(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.semantic_backfill",
+        "run_semantic_backfill",
+    )(*args, **kwargs)
+
+
 def replay_search_request(*args, **kwargs):
     return _lazy_service_attr("app.services.search_history", "replay_search_request")(
         *args,
@@ -495,6 +509,75 @@ def run_backfill_legacy_audit() -> None:
     with session_factory() as session:
         summary = backfill_legacy_run_audit_fields(session)
     print(json.dumps(summary))
+
+
+def run_semantic_backfill_status() -> None:
+    parser = argparse.ArgumentParser(
+        description="Inspect semantic backfill readiness for the active corpus."
+    )
+    parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = get_semantic_backfill_status(session)
+    print(json.dumps(payload.model_dump(mode="json"), default=str))
+
+
+def run_semantic_backfill() -> None:
+    from app.schemas.semantic_backfill import SemanticBackfillRequest
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run semantic passes and optional document fact graph construction "
+            "over existing active runs without reparsing PDFs."
+        )
+    )
+    parser.add_argument(
+        "--document-id",
+        action="append",
+        dest="document_ids",
+        default=[],
+        help="Restrict backfill to a document UUID. Can be passed multiple times.",
+    )
+    parser.add_argument("--limit", type=int, default=10, help="Maximum active documents to scan.")
+    parser.add_argument("--force", action="store_true", help="Refresh current semantic passes.")
+    parser.add_argument("--dry-run", action="store_true", help="Plan the backfill without writes.")
+    parser.add_argument(
+        "--skip-ontology-init",
+        action="store_true",
+        help="Do not initialize the workspace ontology before backfill.",
+    )
+    parser.add_argument(
+        "--skip-fact-graphs",
+        action="store_true",
+        help="Do not build document fact graphs after semantic passes.",
+    )
+    parser.add_argument(
+        "--minimum-review-status",
+        choices=["candidate", "approved"],
+        default="candidate",
+        help="Minimum semantic assertion review status for fact graph construction.",
+    )
+    args = parser.parse_args()
+
+    request = SemanticBackfillRequest(
+        document_ids=args.document_ids,
+        limit=args.limit,
+        force=args.force,
+        dry_run=args.dry_run,
+        initialize_ontology=not args.skip_ontology_init,
+        build_fact_graphs=not args.skip_fact_graphs,
+        minimum_review_status=args.minimum_review_status,
+    )
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = execute_semantic_backfill(
+            session,
+            request,
+            storage_service=StorageService(),
+        )
+    print(json.dumps(payload.model_dump(mode="json"), default=str))
 
 
 def run_replay_search() -> None:

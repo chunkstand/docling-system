@@ -120,6 +120,11 @@ from app.schemas.semantics import (
     SemanticReviewDecisionRequest,
     SemanticReviewEventResponse,
 )
+from app.schemas.semantic_backfill import (
+    SemanticBackfillRequest,
+    SemanticBackfillRunResponse,
+    SemanticBackfillStatusResponse,
+)
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
 from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
 from app.services.agent_task_context import get_agent_task_context
@@ -200,6 +205,10 @@ from app.services.search_replays import (
     get_search_replay_run_detail,
     list_search_replay_runs,
     run_search_replay_suite,
+)
+from app.services.semantic_backfill import (
+    get_semantic_backfill_status,
+    run_semantic_backfill,
 )
 from app.services.semantics import (
     get_active_semantic_continuity,
@@ -1196,6 +1205,44 @@ def read_latest_document_semantics(
 ) -> DocumentSemanticPassResponse:
     _ensure_semantics_enabled()
     return get_active_semantic_pass_detail(session, document_id)
+
+
+@app.get(
+    "/semantics/backfill/status",
+    response_model=SemanticBackfillStatusResponse,
+    dependencies=[Depends(_require_api_capability("documents:inspect"))],
+)
+def read_semantic_backfill_status(
+    session: Session = Depends(get_db_session),
+) -> SemanticBackfillStatusResponse:
+    return get_semantic_backfill_status(session)
+
+
+@app.post(
+    "/semantics/backfill",
+    response_model=SemanticBackfillRunResponse,
+    dependencies=[
+        Depends(_require_api_key_for_mutations),
+        Depends(_require_api_capability("documents:review")),
+    ],
+)
+def create_semantic_backfill_run(
+    request: SemanticBackfillRequest,
+    session: Session = Depends(get_db_session),
+) -> SemanticBackfillRunResponse:
+    _ensure_semantics_enabled()
+    try:
+        return run_semantic_backfill(
+            session,
+            request,
+            storage_service=get_storage_service(),
+        )
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "invalid_semantic_backfill_request",
+            str(exc),
+        ) from exc
 
 
 @app.get(
