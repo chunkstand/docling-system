@@ -580,3 +580,154 @@ def test_draft_graph_promotions_refreshes_existing_node_support_metadata(monkeyp
     assert threshold_node["document_ids"] == sorted([document_id_one, document_id_two], key=str)
     assert threshold_node["document_count"] == 2
     assert threshold_node["source_types"] == ["chunk", "table"]
+
+
+def test_draft_graph_promotions_recomputes_node_review_counts_for_new_nodes(monkeypatch) -> None:
+    session = FakeSession()
+    ontology_snapshot = _ontology_snapshot()
+    document_id_one = uuid4()
+    document_id_two = uuid4()
+    monkeypatch.setattr(
+        "app.services.semantic_graph.get_active_semantic_ontology_snapshot",
+        lambda _session: ontology_snapshot,
+    )
+
+    draft = draft_graph_promotions(
+        session,
+        source_payload={
+            "edges": [
+                {
+                    "edge_id": (
+                        "graph_edge:concept_related_to_concept:"
+                        "concept:integration_owner:concept:integration_threshold"
+                    ),
+                    "relation_key": "concept_related_to_concept",
+                    "relation_label": "Concept Related To Concept",
+                    "subject_entity_key": "concept:integration_owner",
+                    "subject_label": "Integration Owner",
+                    "object_entity_key": "concept:integration_threshold",
+                    "object_label": "Integration Threshold",
+                    "review_status": "candidate",
+                    "extractor_score": 0.74,
+                    "supporting_document_ids": [document_id_one],
+                    "support_refs": [
+                        {
+                            "support_ref_id": "support:owner-threshold",
+                            "document_id": document_id_one,
+                            "assertion_ids": [uuid4(), uuid4()],
+                            "evidence_ids": [uuid4()],
+                            "source_types": ["chunk"],
+                            "shared_category_keys": [],
+                        }
+                    ],
+                },
+                {
+                    "edge_id": (
+                        "graph_edge:concept_depends_on_concept:"
+                        "concept:integration_owner:concept:integration_threshold"
+                    ),
+                    "relation_key": "concept_depends_on_concept",
+                    "relation_label": "Concept Depends On Concept",
+                    "subject_entity_key": "concept:integration_owner",
+                    "subject_label": "Integration Owner",
+                    "object_entity_key": "concept:integration_threshold",
+                    "object_label": "Integration Threshold",
+                    "review_status": "candidate",
+                    "extractor_score": 0.83,
+                    "supporting_document_ids": [document_id_two],
+                    "support_refs": [
+                        {
+                            "support_ref_id": "support:owner-depends-threshold",
+                            "document_id": document_id_two,
+                            "assertion_ids": [uuid4(), uuid4()],
+                            "evidence_ids": [uuid4()],
+                            "source_types": ["table"],
+                            "shared_category_keys": [],
+                        }
+                    ],
+                },
+            ]
+        },
+        source_task_id=uuid4(),
+        source_task_type="build_shadow_semantic_graph",
+        proposed_graph_version=None,
+        rationale="refresh graph memory",
+        edge_ids=[],
+        min_score=0.3,
+    )
+
+    owner_node = next(
+        node
+        for node in draft["effective_graph"]["nodes"]
+        if node["entity_key"] == "concept:integration_owner"
+    )
+    assert owner_node["review_status_counts"] == {"approved": 2}
+
+
+def test_verify_draft_graph_promotions_rejects_inverse_conflicts_in_effective_graph(
+    monkeypatch,
+) -> None:
+    session = FakeSession()
+    ontology_snapshot = _ontology_snapshot()
+    monkeypatch.setattr(
+        "app.services.semantic_graph.get_active_semantic_ontology_snapshot",
+        lambda _session: ontology_snapshot,
+    )
+
+    summary, _metrics, reasons, outcome, _success_metrics = verify_draft_graph_promotions(
+        session,
+        {
+            "ontology_snapshot_id": ontology_snapshot.id,
+            "promoted_edges": [
+                {
+                    "edge_id": (
+                        "graph_edge:concept_depends_on_concept:"
+                        "concept:integration_owner:concept:integration_threshold"
+                    ),
+                    "relation_key": "concept_depends_on_concept",
+                    "relation_label": "Concept Depends On Concept",
+                    "subject_entity_key": "concept:integration_owner",
+                    "subject_label": "Integration Owner",
+                    "object_entity_key": "concept:integration_threshold",
+                    "object_label": "Integration Threshold",
+                    "support_refs": [{"support_ref_id": "support:1"}],
+                    "supporting_document_ids": [uuid4()],
+                }
+            ],
+            "effective_graph": {
+                "edges": [
+                    {
+                        "edge_id": (
+                            "graph_edge:concept_depends_on_concept:"
+                            "concept:integration_owner:concept:integration_threshold"
+                        ),
+                        "relation_key": "concept_depends_on_concept",
+                        "relation_label": "Concept Depends On Concept",
+                        "subject_entity_key": "concept:integration_owner",
+                        "subject_label": "Integration Owner",
+                        "object_entity_key": "concept:integration_threshold",
+                        "object_label": "Integration Threshold",
+                    },
+                    {
+                        "edge_id": (
+                            "graph_edge:concept_enables_concept:"
+                            "concept:integration_threshold:concept:integration_owner"
+                        ),
+                        "relation_key": "concept_enables_concept",
+                        "relation_label": "Concept Enables Concept",
+                        "subject_entity_key": "concept:integration_threshold",
+                        "subject_label": "Integration Threshold",
+                        "object_entity_key": "concept:integration_owner",
+                        "object_label": "Integration Owner",
+                    },
+                ]
+            },
+        },
+        min_supporting_document_count=1,
+        max_conflict_count=0,
+        require_current_ontology_snapshot=True,
+    )
+
+    assert outcome == "failed"
+    assert summary["conflict_count"] == 2
+    assert any("conflicting graph edges" in reason for reason in reasons)

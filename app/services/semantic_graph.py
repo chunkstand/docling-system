@@ -1164,11 +1164,13 @@ def _merged_graph_payload(
         str(node.get("entity_key")): dict(node) for node in (base_payload.get("nodes") or [])
     }
     entity_support: dict[str, dict[str, set[Any] | str]] = {}
+    entity_review_status_counts: dict[str, dict[str, int]] = {}
     for edge in edges:
         support_document_ids = _support_document_ids(edge)
         support_source_types = _support_source_types(edge)
         support_assertion_ids = _support_assertion_ids(edge)
         support_evidence_ids = _support_evidence_ids(edge)
+        review_status = str(edge.get("review_status") or "")
         for entity_key, label in (
             (edge["subject_entity_key"], edge["subject_label"]),
             (edge["object_entity_key"], edge["object_label"]),
@@ -1188,6 +1190,9 @@ def _merged_graph_payload(
             support["source_types"].update(support_source_types)
             support["assertion_ids"].update(support_assertion_ids)
             support["evidence_ids"].update(support_evidence_ids)
+            if review_status:
+                review_counts = entity_review_status_counts.setdefault(entity_key, {})
+                review_counts[review_status] = review_counts.get(review_status, 0) + 1
 
     for entity_key, support in entity_support.items():
         node = node_map.setdefault(
@@ -1215,6 +1220,18 @@ def _merged_graph_payload(
         node["source_types"] = sorted(
             set(node.get("source_types") or []) | set(support["source_types"])
         )
+        existing_review_status_counts = {
+            str(status): int(count)
+            for status, count in dict(node.get("review_status_counts") or {}).items()
+            if str(status)
+        }
+        for status, count in entity_review_status_counts.get(entity_key, {}).items():
+            existing_review_status_counts[status] = max(
+                existing_review_status_counts.get(status, 0),
+                count,
+            )
+        if existing_review_status_counts:
+            node["review_status_counts"] = dict(sorted(existing_review_status_counts.items()))
         node["assertion_count"] = max(
             int(node.get("assertion_count") or 0),
             len(set(support["assertion_ids"])),
@@ -1468,6 +1485,46 @@ def verify_draft_graph_promotions(
 ) -> tuple[dict[str, Any], dict[str, Any], list[str], str, list[dict[str, Any]]]:
     current_ontology = get_active_semantic_ontology_snapshot(session)
     registry = semantic_registry_from_payload(current_ontology.payload_json or {})
+
+    def _effective_graph_conflict_count(edges: list[dict[str, Any]]) -> int:
+        seen_pairs: dict[tuple[str, str, str], str] = {}
+        conflict_edge_ids: set[str] = set()
+        for edge in edges:
+            relation_key = str(edge.get("relation_key") or "")
+            relation = get_semantic_relation_definition(registry, relation_key)
+            if relation is None:
+                continue
+            subject_entity_key, _subject_label, object_entity_key, _object_label = (
+                canonicalize_semantic_relation_endpoints(
+                    registry,
+                    relation_key=relation_key,
+                    subject_entity_key=str(edge.get("subject_entity_key") or ""),
+                    subject_label=str(edge.get("subject_label") or ""),
+                    object_entity_key=str(edge.get("object_entity_key") or ""),
+                    object_label=str(edge.get("object_label") or ""),
+                )
+            )
+            pair_key = (
+                relation_key,
+                subject_entity_key,
+                object_entity_key,
+            )
+            current_edge_id = str(edge.get("edge_id") or "")
+            if pair_key in seen_pairs:
+                conflict_edge_ids.update({current_edge_id, seen_pairs[pair_key]})
+                continue
+            inverse_relation_key = relation.inverse_relation_key
+            if inverse_relation_key:
+                inverse_key = (
+                    inverse_relation_key,
+                    object_entity_key,
+                    subject_entity_key,
+                )
+                if inverse_key in seen_pairs:
+                    conflict_edge_ids.update({current_edge_id, seen_pairs[inverse_key]})
+            seen_pairs[pair_key] = current_edge_id
+        return len(conflict_edge_ids)
+
     reasons: list[str] = []
     promoted_edges = list(draft.get("promoted_edges") or [])
     stale_edge_count = 0
@@ -1541,6 +1598,9 @@ def verify_draft_graph_promotions(
                 continue
         seen_pairs[pair_key] = str(edge.get("edge_id") or "")
         supported_edge_count += 1
+
+    effective_graph_edges = list((draft.get("effective_graph") or {}).get("edges") or [])
+    conflict_count = max(conflict_count, _effective_graph_conflict_count(effective_graph_edges))
 
     if stale_edge_count:
         reasons.append("Draft graph promotions target a stale ontology snapshot.")
