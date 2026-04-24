@@ -496,7 +496,9 @@ tracks agent/codebase failures using a closed cause taxonomy and executable arti
 targets; `docling-system-improvement-case-*` commands validate, list, summarize, and
 record cases before any DB/API expansion. `docling-system-hygiene-check` validates
 the registry alongside the repo's existing lint, dead-code, duplicate-helper, and
-file-budget gates.
+file-budget gates. `docling-system-improvement-case-import` can also observe
+hygiene findings, unresolved eval failure cases, failed agent tasks, and failed
+agent verifications, then write deduped open cases keyed by source reference.
 
 ## Tables
 

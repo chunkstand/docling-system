@@ -44,6 +44,8 @@ uv run docling-system-hygiene-check
 uv run docling-system-improvement-case-validate
 uv run docling-system-improvement-case-summary
 uv run docling-system-improvement-case-list
+uv run docling-system-improvement-case-import --source hygiene --dry-run
+uv run docling-system-improvement-case-import --source all
 uv run docling-system-improvement-case-record \
   --title "Route capability strings drifted" \
   --observed-failure "Routers accepted free-form capability strings." \
@@ -53,6 +55,20 @@ uv run docling-system-improvement-case-record \
   --artifact-description "FastAPI route capability manifest and validator." \
   --verification-command "uv run pytest tests/unit/test_api_route_contracts.py -q"
 ```
+
+The import command observes existing repo surfaces and writes deduped `open`
+cases keyed by `source_type` and `source_ref`. Supported sources are:
+
+- `hygiene`: Ruff regressions, duplicate-helper findings, file-budget findings,
+  and improvement-case contract findings
+- `eval-failure-cases`: unresolved DB-backed evaluation failure cases
+- `failed-agent-tasks`: failed DB-backed agent tasks
+- `failed-agent-verifications`: failed or errored agent verification rows
+- `all`: all of the above
+
+Summary output includes lifecycle buckets for open unconverted cases,
+converted-but-unverified cases, verified-but-undeployed cases, repeated cause
+classes, and the oldest open case ID.
 
 ## Non-Goals
 

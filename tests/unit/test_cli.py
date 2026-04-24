@@ -40,6 +40,7 @@ from app.cli import (
     run_eval_run,
     run_export_ranking_dataset,
     run_gate_search_harness_release,
+    run_improvement_case_import,
     run_improvement_case_list,
     run_improvement_case_record,
     run_improvement_case_summary,
@@ -54,6 +55,7 @@ from app.cli import (
     run_search_harness_evaluation_list,
     run_search_harness_evaluation_show,
 )
+from app.services.improvement_cases import ImprovementCaseObservation
 
 
 def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
@@ -1814,6 +1816,46 @@ def test_improvement_case_record_and_list_cli_roundtrip(
 
     assert listed[0]["case_id"] == "IC-20260424-cli"
     assert listed[0]["artifact_type"] == "contract"
+
+
+def test_improvement_case_import_cli_imports_hygiene_observations(
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    monkeypatch.setattr(
+        "app.cli._collect_hygiene_import_observations",
+        lambda *, limit, workflow_version: [
+            ImprovementCaseObservation(
+                title="Hygiene finding",
+                observed_failure="The hygiene gate found a lint regression.",
+                cause_class="bad_pattern",
+                source_type="hygiene_finding",
+                source_ref="hygiene:test",
+                workflow_version=workflow_version,
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-import",
+            "--path",
+            str(registry_path),
+            "--source",
+            "hygiene",
+            "--limit",
+            "5",
+        ],
+    )
+
+    run_improvement_case_import()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["imported_count"] == 1
+    assert output["imported"][0]["source_type"] == "hygiene_finding"
 
 
 def test_improvement_case_summary_cli_prints_counts(monkeypatch, capsys, tmp_path) -> None:

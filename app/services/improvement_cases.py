@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,9 +53,11 @@ IMPROVEMENT_CASE_STATUSES = frozenset(
 IMPROVEMENT_SOURCE_TYPES = frozenset(
     {
         "agent_task",
+        "agent_verification",
         "bad_diff",
         "eval_failure",
         "flaky_test",
+        "hygiene_finding",
         "incident",
         "operator_note",
         "review_comment",
@@ -116,6 +119,16 @@ class ImprovementCase(BaseModel):
     measurement: ImprovementCaseMeasurement = Field(default_factory=ImprovementCaseMeasurement)
     created_at: str | None = None
     updated_at: str | None = None
+
+
+class ImprovementCaseObservation(BaseModel):
+    title: str
+    observed_failure: str
+    cause_class: str
+    source_type: str
+    source_ref: str
+    source_notes: str | None = None
+    workflow_version: str = "improvement_v1"
 
 
 class ImprovementCaseRegistry(BaseModel):
@@ -205,6 +218,44 @@ def _empty_text(value: object) -> bool:
 
 def _case_issue(case: ImprovementCase, field: str, message: str) -> ImprovementCaseContractIssue:
     return ImprovementCaseContractIssue(case_id=case.case_id, field=field, message=message)
+
+
+def _improvement_payload_fingerprint(payload: object) -> str:
+    encoded = yaml.safe_dump(payload, sort_keys=True).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _deterministic_case_id(source_type: str, source_ref: str) -> str:
+    digest = _improvement_payload_fingerprint(
+        {"source_type": source_type, "source_ref": source_ref}
+    )
+    return f"IC-{digest[:12].upper()}"
+
+
+def _clip_text(value: object, *, max_length: int = 140) -> str:
+    text = str(value or "").strip().replace("\n", " ")
+    if len(text) <= max_length:
+        return text
+    return f"{text[: max_length - 3].rstrip()}..."
+
+
+def _cause_class_from_text(*values: object, default: str = "missing_test") -> str:
+    text = " ".join(str(value or "").lower() for value in values)
+    if any(token in text for token in ("permission", "auth", "credential", "secret")):
+        return "unsafe_permission"
+    if "tool" in text:
+        return "bad_tool"
+    if any(token in text for token in ("owner", "ownership", "handoff")):
+        return "unclear_ownership"
+    if any(token in text for token in ("context", "provenance", "artifact", "source ref")):
+        return "missing_context"
+    if any(token in text for token in ("test", "eval", "coverage", "fixture")):
+        return "missing_test"
+    if any(token in text for token in ("contract", "constraint", "schema", "policy", "gate")):
+        return "missing_constraint"
+    if any(token in text for token in ("pattern", "duplicate", "budget", "lint", "ruff")):
+        return "bad_pattern"
+    return default
 
 
 def _has_artifact_payload(case: ImprovementCase) -> bool:
@@ -445,6 +496,19 @@ def summarize_improvement_cases(registry: ImprovementCaseRegistry) -> dict:
         for case in cases
         if case.measurement.metric_name is not None and case.measurement.current_value is not None
     ]
+    open_unconverted_cases = [case for case in cases if case.status == "open"]
+    converted_unverified_cases = [case for case in cases if case.status == "converted"]
+    verified_undeployed_cases = [case for case in cases if case.status == "verified"]
+    repeated_cause_classes = {
+        cause_class: count
+        for cause_class, count in Counter(case.cause_class for case in cases).items()
+        if cause_class and count > 1
+    }
+    oldest_open_case = min(
+        open_unconverted_cases,
+        key=lambda case: case.created_at or "",
+        default=None,
+    )
     return {
         "schema_name": "improvement_case_summary",
         "schema_version": "1.0",
@@ -457,6 +521,13 @@ def summarize_improvement_cases(registry: ImprovementCaseRegistry) -> dict:
         "workflow_version_counts": dict(Counter(case.workflow_version for case in cases)),
         "source_type_counts": dict(Counter(case.source.source_type for case in cases)),
         "measured_case_count": len(measured_cases),
+        "actionable_buckets": {
+            "open_unconverted_count": len(open_unconverted_cases),
+            "converted_unverified_count": len(converted_unverified_cases),
+            "verified_undeployed_count": len(verified_undeployed_cases),
+            "oldest_open_case_id": oldest_open_case.case_id if oldest_open_case else None,
+            "repeated_cause_classes": repeated_cause_classes,
+        },
     }
 
 
@@ -553,3 +624,235 @@ def record_improvement_case(
         raise ValueError(f"Invalid improvement case registry: {issue_lines}")
     write_improvement_case_registry(candidate_registry, path, project_root=root)
     return case
+
+
+def import_improvement_case_observations(
+    observations: list[ImprovementCaseObservation],
+    *,
+    path: str | Path | None = None,
+    project_root: Path | None = None,
+    dry_run: bool = False,
+) -> dict:
+    root = project_root or repo_root()
+    registry = load_improvement_case_registry(path, project_root=root)
+    existing_refs = {
+        (case.source.source_type, case.source.source_ref)
+        for case in registry.cases
+        if case.source.source_ref
+    }
+    imported_cases: list[ImprovementCase] = []
+    skipped: list[dict] = []
+    now = utcnow().isoformat()
+
+    for observation in observations:
+        source_key = (observation.source_type, observation.source_ref)
+        if source_key in existing_refs:
+            skipped.append(
+                {
+                    "source_type": observation.source_type,
+                    "source_ref": observation.source_ref,
+                    "reason": "already_imported",
+                }
+            )
+            continue
+
+        case = ImprovementCase(
+            case_id=_deterministic_case_id(observation.source_type, observation.source_ref),
+            title=observation.title,
+            status="open",
+            cause_class=observation.cause_class,
+            observed_failure=observation.observed_failure,
+            source=ImprovementCaseSource(
+                source_type=observation.source_type,
+                source_ref=observation.source_ref,
+                notes=observation.source_notes,
+            ),
+            workflow_version=observation.workflow_version,
+            created_at=now,
+            updated_at=now,
+        )
+        existing_refs.add(source_key)
+        imported_cases.append(case)
+
+    candidate_registry = ImprovementCaseRegistry(
+        schema_name=registry.schema_name,
+        schema_version=registry.schema_version,
+        cases=[*registry.cases, *imported_cases],
+    )
+    issues = validate_improvement_case_registry(candidate_registry, project_root=root)
+    if issues:
+        issue_lines = "; ".join(
+            f"{issue.case_id or 'registry'} {issue.field}: {issue.message}" for issue in issues
+        )
+        raise ValueError(f"Invalid improvement case import: {issue_lines}")
+    if imported_cases and not dry_run:
+        write_improvement_case_registry(candidate_registry, path, project_root=root)
+
+    return {
+        "schema_name": "improvement_case_import",
+        "schema_version": "1.0",
+        "dry_run": dry_run,
+        "candidate_count": len(observations),
+        "imported_count": len(imported_cases),
+        "skipped_count": len(skipped),
+        "imported": build_improvement_case_manifest(
+            ImprovementCaseRegistry(cases=imported_cases)
+        ),
+        "skipped": skipped,
+    }
+
+
+def collect_hygiene_finding_observations(
+    findings: list[object],
+    *,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+) -> list[ImprovementCaseObservation]:
+    observations: list[ImprovementCaseObservation] = []
+    for finding in findings[:limit]:
+        kind = str(getattr(finding, "kind", "hygiene"))
+        relative_path = getattr(finding, "relative_path", None)
+        lineno = getattr(finding, "lineno", None)
+        message = str(getattr(finding, "message", "Hygiene finding."))
+        rendered = finding.render() if hasattr(finding, "render") else message
+        source_ref = f"hygiene:{_improvement_payload_fingerprint(rendered)[:16]}"
+        observations.append(
+            ImprovementCaseObservation(
+                title=f"Hygiene finding: {_clip_text(kind, max_length=80)}",
+                observed_failure=rendered,
+                cause_class=_cause_class_from_text(kind, message, default="bad_pattern"),
+                source_type="hygiene_finding",
+                source_ref=source_ref,
+                source_notes=(
+                    f"{relative_path}:{lineno}" if relative_path and lineno else relative_path
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+    return observations
+
+
+def collect_eval_failure_case_observations(
+    session,
+    *,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+) -> list[ImprovementCaseObservation]:
+    from sqlalchemy import select
+
+    from app.db.models import EvalFailureCase
+
+    rows = (
+        session.execute(
+            select(EvalFailureCase)
+            .where(EvalFailureCase.status.notin_(("resolved", "suppressed")))
+            .order_by(EvalFailureCase.updated_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    observations: list[ImprovementCaseObservation] = []
+    for row in rows:
+        observed_failure = (
+            f"{row.problem_statement} Observed: {row.observed_behavior} "
+            f"Expected: {row.expected_behavior}"
+        )
+        observations.append(
+            ImprovementCaseObservation(
+                title=f"Eval failure: {_clip_text(row.problem_statement, max_length=100)}",
+                observed_failure=observed_failure,
+                cause_class=_cause_class_from_text(
+                    row.failure_classification,
+                    row.problem_statement,
+                    row.diagnosis,
+                    default="missing_test",
+                ),
+                source_type="eval_failure",
+                source_ref=f"eval_failure_case:{row.id}",
+                source_notes=f"surface={row.surface}; severity={row.severity}; status={row.status}",
+                workflow_version=workflow_version,
+            )
+        )
+    return observations
+
+
+def collect_failed_agent_task_observations(
+    session,
+    *,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+) -> list[ImprovementCaseObservation]:
+    from sqlalchemy import select
+
+    from app.db.models import AgentTask, AgentTaskStatus
+
+    rows = (
+        session.execute(
+            select(AgentTask)
+            .where(AgentTask.status == AgentTaskStatus.FAILED.value)
+            .order_by(AgentTask.updated_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        ImprovementCaseObservation(
+            title=f"Failed agent task: {_clip_text(row.task_type, max_length=100)}",
+            observed_failure=row.error_message
+            or f"Agent task {row.task_type} failed without an error message.",
+            cause_class=_cause_class_from_text(
+                row.task_type,
+                row.error_message,
+                default="missing_context",
+            ),
+            source_type="agent_task",
+            source_ref=f"agent_task:{row.id}",
+            source_notes=f"task_type={row.task_type}; workflow_version={row.workflow_version}",
+            workflow_version=workflow_version,
+        )
+        for row in rows
+    ]
+
+
+def collect_failed_agent_verification_observations(
+    session,
+    *,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+) -> list[ImprovementCaseObservation]:
+    from sqlalchemy import select
+
+    from app.db.models import AgentTaskVerification
+
+    rows = (
+        session.execute(
+            select(AgentTaskVerification)
+            .where(AgentTaskVerification.outcome.in_(("failed", "error")))
+            .order_by(AgentTaskVerification.created_at.desc())
+            .limit(limit)
+        )
+        .scalars()
+        .all()
+    )
+    observations: list[ImprovementCaseObservation] = []
+    for row in rows:
+        reasons = "; ".join(str(reason) for reason in (row.reasons_json or []))
+        observations.append(
+            ImprovementCaseObservation(
+                title=f"Failed agent verification: {_clip_text(row.verifier_type, max_length=90)}",
+                observed_failure=reasons
+                or f"Agent verification {row.verifier_type} ended with outcome {row.outcome}.",
+                cause_class=_cause_class_from_text(
+                    row.verifier_type,
+                    reasons,
+                    default="missing_constraint",
+                ),
+                source_type="agent_verification",
+                source_ref=f"agent_verification:{row.id}",
+                source_notes=f"target_task_id={row.target_task_id}; outcome={row.outcome}",
+                workflow_version=workflow_version,
+            )
+        )
+    return observations

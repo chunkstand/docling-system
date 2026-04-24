@@ -3,10 +3,15 @@ from __future__ import annotations
 from app.services.improvement_cases import (
     ImprovementCase,
     ImprovementCaseArtifact,
+    ImprovementCaseObservation,
     ImprovementCaseRegistry,
     ImprovementCaseSource,
     ImprovementCaseVerification,
     build_improvement_case_manifest,
+    collect_eval_failure_case_observations,
+    collect_failed_agent_task_observations,
+    collect_hygiene_finding_observations,
+    import_improvement_case_observations,
     load_improvement_case_registry,
     record_improvement_case,
     summarize_improvement_cases,
@@ -148,6 +153,9 @@ def test_improvement_case_summary_counts_by_contract_dimensions() -> None:
     }
     assert summary["artifact_type_counts"] == {"contract": 1, "generated_map": 1}
     assert summary["workflow_version_counts"] == {"improvement_v1": 2, "improvement_v2": 1}
+    assert summary["actionable_buckets"]["open_unconverted_count"] == 1
+    assert summary["actionable_buckets"]["converted_unverified_count"] == 0
+    assert summary["actionable_buckets"]["verified_undeployed_count"] == 2
 
 
 def test_record_improvement_case_writes_valid_registry(tmp_path) -> None:
@@ -172,3 +180,86 @@ def test_record_improvement_case_writes_valid_registry(tmp_path) -> None:
     assert case.case_id == "IC-20260424-test"
     assert validate_improvement_case_registry(registry) == []
     assert registry.cases[0].artifact.target_path == "tests/unit/test_api_route_contracts.py"
+
+
+def test_import_improvement_case_observations_dedupes_by_source_ref(tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    observation = ImprovementCaseObservation(
+        title="Failed agent task",
+        observed_failure="The task failed because context was missing.",
+        cause_class="missing_context",
+        source_type="agent_task",
+        source_ref="agent_task:123",
+    )
+
+    first = import_improvement_case_observations([observation], path=registry_path)
+    second = import_improvement_case_observations([observation], path=registry_path)
+    registry = load_improvement_case_registry(registry_path)
+
+    assert first["imported_count"] == 1
+    assert second["imported_count"] == 0
+    assert second["skipped"][0]["reason"] == "already_imported"
+    assert registry.cases[0].status == "open"
+    assert registry.cases[0].source.source_ref == "agent_task:123"
+
+
+def test_collect_hygiene_finding_observations_maps_findings_to_open_cases() -> None:
+    class Finding:
+        kind = "ruff_regression"
+        relative_path = "app/example.py"
+        lineno = None
+        message = "E501 count 1 exceeds baseline 0"
+
+        def render(self) -> str:
+            return "app/example.py: ruff_regression: E501 count 1 exceeds baseline 0"
+
+    observations = collect_hygiene_finding_observations([Finding()])
+
+    assert observations[0].source_type == "hygiene_finding"
+    assert observations[0].cause_class == "bad_pattern"
+    assert observations[0].source_ref.startswith("hygiene:")
+
+
+def test_collect_db_failure_observations_from_existing_surfaces() -> None:
+    class Result:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class Session:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def execute(self, statement):
+            return Result(self.rows)
+
+    class EvalCase:
+        id = "eval-1"
+        problem_statement = "A retrieval eval failed."
+        observed_behavior = "Wrong document ranked first."
+        expected_behavior = "Expected document ranked first."
+        failure_classification = "eval_coverage_gap"
+        diagnosis = None
+        surface = "document_evaluation"
+        severity = "high"
+        status = "open"
+
+    class AgentTask:
+        id = "task-1"
+        task_type = "triage_replay_regression"
+        status = "failed"
+        error_message = "Missing context for replay evidence."
+        workflow_version = "v1"
+
+    eval_observations = collect_eval_failure_case_observations(Session([EvalCase()]))
+    task_observations = collect_failed_agent_task_observations(Session([AgentTask()]))
+
+    assert eval_observations[0].source_type == "eval_failure"
+    assert eval_observations[0].source_ref == "eval_failure_case:eval-1"
+    assert task_observations[0].source_type == "agent_task"
+    assert task_observations[0].cause_class == "missing_context"

@@ -39,6 +39,7 @@ class FileBudget:
 @dataclass(frozen=True)
 class HygienePolicy:
     duplicate_helper_name_allowances: dict[str, frozenset[str]]
+    duplicate_helper_body_allowances: frozenset[frozenset[str]]
     default_file_budget: FileBudget
     file_budgets: dict[str, FileBudget]
 
@@ -141,6 +142,10 @@ def load_hygiene_policy(
         name = str(row["name"]).strip()
         modules = frozenset(str(module).strip() for module in row.get("modules") or [])
         duplicate_allowances[name] = modules
+    duplicate_body_allowances = frozenset(
+        frozenset(str(helper).strip() for helper in row.get("helpers") or [])
+        for row in payload.get("duplicate_helper_bodies") or []
+    )
 
     budget_payload = payload.get("file_budgets") or {}
     default_budget = FileBudget(
@@ -156,6 +161,7 @@ def load_hygiene_policy(
     }
     return HygienePolicy(
         duplicate_helper_name_allowances=duplicate_allowances,
+        duplicate_helper_body_allowances=duplicate_body_allowances,
         default_file_budget=default_budget,
         file_budgets=file_budgets,
     )
@@ -187,7 +193,14 @@ def find_duplicate_helper_name_findings(
     return findings
 
 
-def find_duplicate_helper_body_findings(helpers: list[PrivateHelper]) -> list[HygieneFinding]:
+def _helper_identity(helper: PrivateHelper) -> str:
+    return f"{helper.relative_path}:{helper.name}"
+
+
+def find_duplicate_helper_body_findings(
+    helpers: list[PrivateHelper],
+    policy: HygienePolicy,
+) -> list[HygieneFinding]:
     findings: list[HygieneFinding] = []
     grouped: dict[str, list[PrivateHelper]] = defaultdict(list)
     for helper in helpers:
@@ -195,6 +208,9 @@ def find_duplicate_helper_body_findings(helpers: list[PrivateHelper]) -> list[Hy
 
     for rows in sorted(grouped.values(), key=len, reverse=True):
         if len(rows) < 2:
+            continue
+        helper_identities = frozenset(_helper_identity(row) for row in rows)
+        if helper_identities in policy.duplicate_helper_body_allowances:
             continue
         modules = ", ".join(f"{row.relative_path}:{row.lineno}" for row in rows)
         findings.append(
@@ -369,7 +385,7 @@ def run_python_hygiene_checks(
     helpers = collect_private_helpers(root, roots=roots)
     findings = [
         *find_duplicate_helper_name_findings(helpers, policy),
-        *find_duplicate_helper_body_findings(helpers),
+        *find_duplicate_helper_body_findings(helpers, policy),
         *find_file_budget_findings(root, policy=policy, roots=roots),
     ]
     return sorted(

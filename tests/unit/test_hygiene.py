@@ -89,6 +89,46 @@ def test_hygiene_flags_duplicate_bodies_and_budget_growth(tmp_path: Path) -> Non
     assert "helper_budget" in kinds
 
 
+def test_hygiene_allows_explicit_duplicate_helper_bodies(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "app" / "alpha.py",
+        "\n".join(
+            [
+                "def _one():",
+                "    return 1",
+                "",
+                "def _two():",
+                "    return 1",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "duplicate_helper_bodies:",
+                "  - helpers:",
+                "      - app/alpha.py:_one",
+                "      - app/alpha.py:_two",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_python_hygiene_checks(
+        tmp_path,
+        policy_path=Path("config/policy.yaml"),
+    )
+
+    assert findings == []
+
+
 def test_hygiene_flags_only_new_ruff_debt() -> None:
     findings = find_ruff_regression_findings(
         current_counts={

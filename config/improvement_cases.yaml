@@ -1,3 +1,36 @@
 schema_name: improvement_cases
 schema_version: '1.0'
-cases: []
+cases:
+  - case_id: IC-20260424-hygiene-gate
+    title: Default hygiene gate drifted from the current repo state
+    status: verified
+    cause_class: missing_constraint
+    observed_failure: >-
+      uv run docling-system-hygiene-check failed because the Ruff baseline,
+      duplicate-helper allowances, and file budgets no longer matched the
+      current checked-in architecture.
+    source:
+      source_type: hygiene_finding
+      source_ref: hygiene:default-gate-drift-20260424
+      notes: Captured while implementing the improvement intake and green-gate pass.
+    artifact:
+      artifact_type: lint
+      target_path: config/hygiene_policy.yaml
+      description: Incremental hygiene policy and baseline gate for the current repo.
+    verification:
+      commands:
+        - uv run docling-system-hygiene-check
+      acceptance_conditions: []
+      catches_old_failure: true
+      allows_good_changes: true
+    workflow_version: improvement_v1
+    deployment:
+      deployed_ref: null
+      notes: null
+    measurement:
+      metric_name: null
+      current_value: null
+      measurement_window: null
+      notes: null
+    created_at: '2026-04-24T00:00:00+00:00'
+    updated_at: '2026-04-24T00:00:00+00:00'

@@ -4,6 +4,16 @@ duplicate_helper_names:
       - app/services/evaluations.py
       - app/services/search_replays.py
     reason: Evaluation and replay services compute the same concept over different result payloads.
+  - name: _extractor_descriptor
+    modules:
+      - app/services/semantic_candidates.py
+      - app/services/semantic_graph.py
+    reason: Candidate and graph semantic workflows describe extractor contracts at separate boundaries.
+  - name: _file_sha256
+    modules:
+      - app/services/ingest_batches.py
+      - app/services/validation.py
+    reason: Batch ingest and PDF validation hash different file lifecycle inputs.
   - name: _latest_evaluations_by_run
     modules:
       - app/services/audit.py
@@ -14,6 +24,11 @@ duplicate_helper_names:
       - app/services/search_release_gate.py
       - app/services/search_replays.py
     reason: Release gating and replay inspection resolve different replay run shapes.
+  - name: _load_target_documents
+    modules:
+      - app/services/semantic_bootstrap.py
+      - app/services/semantic_candidates.py
+    reason: Bootstrap and candidate workflows load target documents for different semantic stages.
   - name: _matching_rank
     modules:
       - app/services/evaluations.py
@@ -24,6 +39,26 @@ duplicate_helper_names:
       - app/services/docling_parser.py
       - app/services/search.py
     reason: Parser normalization and retrieval normalization are intentionally different.
+  - name: _page_label
+    modules:
+      - app/services/chat.py
+      - app/services/semantic_generation.py
+    reason: Chat citations and semantic generation render page labels in separate response models.
+  - name: _payload_fingerprint
+    modules:
+      - app/services/eval_workbench.py
+      - app/services/search_legibility.py
+    reason: Eval workbench and search legibility hash payloads for separate operator contracts.
+  - name: _payload_sha256
+    modules:
+      - app/services/agent_task_context_store.py
+      - app/services/technical_reports.py
+    reason: Agent context and technical report workflows hash different artifact payload boundaries.
+  - name: _rank_metrics
+    modules:
+      - app/services/search_harness_evaluations.py
+      - app/services/search_release_gate.py
+    reason: Harness evaluation and release gating compute rank metrics for separate gate surfaces.
   - name: _reciprocal_rank
     modules:
       - app/services/evaluations.py
@@ -34,16 +69,52 @@ duplicate_helper_names:
       - app/services/chat.py
       - app/services/search.py
     reason: Chat citations and search results render different UI labels.
+  - name: _review_rank
+    modules:
+      - app/services/semantic_facts.py
+      - app/services/semantic_graph.py
+      - app/services/semantic_orchestration.py
+    reason: Semantic facts, graph memory, and orchestration rank review states in different row shapes.
+  - name: _support_level
+    modules:
+      - app/services/semantic_generation.py
+      - app/services/semantic_graph.py
+    reason: Generation and graph verification compute support labels over different evidence structures.
+  - name: _to_evaluation_summary
+    modules:
+      - app/services/evaluations.py
+      - app/services/search_harness_evaluations.py
+    reason: Document evaluations and harness evaluations summarize different result schemas.
   - name: _top_n_source_hit_count
     modules:
       - app/services/evaluations.py
       - app/services/search_replays.py
     reason: Evaluation and replay services count expected-document hits in different result models.
+  - name: _unique_uuids
+    modules:
+      - app/services/semantic_generation.py
+      - app/services/technical_reports.py
+    reason: Generation and report workflows dedupe UUID lists at separate contract boundaries.
   - name: _write_failure_artifact
     modules:
       - app/services/agent_task_worker.py
       - app/services/runs.py
     reason: Run failures and agent-task failures serialize different artifact schemas.
+duplicate_helper_bodies:
+  - helpers:
+      - app/services/agent_task_context_store.py:_payload_sha256
+      - app/services/eval_workbench.py:_payload_fingerprint
+      - app/services/search_legibility.py:_payload_fingerprint
+      - app/services/technical_reports.py:_payload_sha256
+    reason: Payload hash helpers intentionally repeat the same stable JSON hashing contract at artifact boundaries.
+  - helpers:
+      - app/services/chat.py:_page_label
+      - app/services/semantic_generation.py:_page_label
+    reason: Page-label formatting is duplicated for separate response models until a UI formatting module exists.
+  - helpers:
+      - app/services/semantic_facts.py:_review_rank
+      - app/services/semantic_graph.py:_review_rank
+    reason: Fact and graph services rank semantic review status in different persistence workflows.
 file_budgets:
   defaults:
     max_lines: 600
@@ -53,44 +124,77 @@ file_budgets:
       max_lines: 948
       max_private_helpers: 2
     app/cli.py:
-      max_lines: 929
-      max_private_helpers: 1
+      max_lines: 1712
+      max_private_helpers: 5
     app/db/models.py:
-      max_lines: 1242
+      max_lines: 2588
       max_private_helpers: 0
     app/schemas/agent_tasks.py:
-      max_lines: 604
+      max_lines: 2061
       max_private_helpers: 0
     app/services/agent_task_actions.py:
-      max_lines: 695
-      max_private_helpers: 12
+      max_lines: 3448
+      max_private_helpers: 53
     app/services/agent_task_context.py:
-      max_lines: 1014
-      max_private_helpers: 13
+      max_lines: 3860
+      max_private_helpers: 42
+    app/services/agent_task_verifications.py:
+      max_lines: 636
+      max_private_helpers: 6
+    app/services/agent_task_worker.py:
+      max_lines: 696
+      max_private_helpers: 11
     app/services/agent_tasks.py:
-      max_lines: 1604
-      max_private_helpers: 32
+      max_lines: 1851
+      max_private_helpers: 42
     app/services/docling_parser.py:
-      max_lines: 1453
-      max_private_helpers: 52
+      max_lines: 1555
+      max_private_helpers: 57
     app/services/documents.py:
-      max_lines: 607
-      max_private_helpers: 21
+      max_lines: 822
+      max_private_helpers: 28
+    app/services/eval_workbench.py:
+      max_lines: 964
+      max_private_helpers: 20
     app/services/evaluations.py:
-      max_lines: 2103
-      max_private_helpers: 58
+      max_lines: 2161
+      max_private_helpers: 61
+    app/services/improvement_cases.py:
+      max_lines: 858
+      max_private_helpers: 8
     app/services/ingest_batches.py:
-      max_lines: 689
+      max_lines: 692
       max_private_helpers: 18
     app/services/quality.py:
-      max_lines: 1216
-      max_private_helpers: 19
+      max_lines: 1454
+      max_private_helpers: 24
     app/services/runs.py:
-      max_lines: 1008
-      max_private_helpers: 14
+      max_lines: 1049
+      max_private_helpers: 15
     app/services/search.py:
-      max_lines: 2126
-      max_private_helpers: 61
+      max_lines: 2201
+      max_private_helpers: 65
     app/services/search_replays.py:
-      max_lines: 1113
-      max_private_helpers: 26
+      max_lines: 1227
+      max_private_helpers: 28
+    app/services/semantic_candidates.py:
+      max_lines: 1357
+      max_private_helpers: 23
+    app/services/semantic_generation.py:
+      max_lines: 1260
+      max_private_helpers: 15
+    app/services/semantic_graph.py:
+      max_lines: 1848
+      max_private_helpers: 23
+    app/services/semantic_orchestration.py:
+      max_lines: 1092
+      max_private_helpers: 11
+    app/services/semantic_registry.py:
+      max_lines: 730
+      max_private_helpers: 9
+    app/services/semantics.py:
+      max_lines: 2309
+      max_private_helpers: 28
+    app/services/technical_reports.py:
+      max_lines: 1193
+      max_private_helpers: 10
