@@ -1827,7 +1827,7 @@ def test_improvement_case_import_cli_delegates_to_service(
 
     def fake_import_workflow(**kwargs):
         captured.update(kwargs)
-        return {
+        payload = {
             "schema_name": "improvement_case_import",
             "schema_version": "1.0",
             "dry_run": kwargs["dry_run"],
@@ -1837,6 +1837,7 @@ def test_improvement_case_import_cli_delegates_to_service(
             "imported": [{"source_type": "hygiene_finding"}],
             "skipped": [],
         }
+        return SimpleNamespace(model_dump=lambda mode="json": payload)
 
     monkeypatch.setattr("app.cli.run_improvement_case_import_workflow", fake_import_workflow)
     monkeypatch.setattr(

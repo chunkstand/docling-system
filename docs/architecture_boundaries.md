@@ -66,3 +66,8 @@ Improvement-case intake is owned by `app.services.improvement_case_intake`.
 CLI, API, worker, or UI callers should delegate source selection, observation
 collection, and deduped import to that service facade instead of branching over
 hygiene, eval-workbench, and agent-task tables at the boundary.
+
+The facade exposes `ImprovementCaseImportRequest` and
+`ImprovementCaseImportResult` as the reusable machine contract. Boundary callers
+should pass that typed request, or the equivalent keyword arguments, and render
+the typed result without reconstructing import payloads themselves.

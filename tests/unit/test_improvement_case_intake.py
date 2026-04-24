@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from app.services import improvement_case_intake as intake
@@ -114,12 +116,56 @@ def test_run_import_facade_writes_and_dedupes_cases(monkeypatch, tmp_path) -> No
     second = intake.run_improvement_case_import(path=registry_path)
     registry = load_improvement_case_registry(registry_path)
 
-    assert first["imported_count"] == 1
-    assert second["imported_count"] == 0
-    assert second["skipped"][0]["reason"] == "already_imported"
+    assert isinstance(first, intake.ImprovementCaseImportResult)
+    assert first.schema_name == "improvement_case_import"
+    assert first.imported_count == 1
+    assert second.imported_count == 0
+    assert second.skipped[0].reason == "already_imported"
     assert registry.cases[0].source.source_ref == "hygiene:test"
+
+
+def test_run_import_facade_accepts_typed_request(monkeypatch, tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    monkeypatch.setattr(
+        intake,
+        "collect_improvement_case_import_observations",
+        lambda **kwargs: [_observation(workflow_version=kwargs["workflow_version"])],
+    )
+
+    result = intake.run_improvement_case_import(
+        request=intake.ImprovementCaseImportRequest(
+            source="hygiene",
+            limit=1,
+            workflow_version="improvement_v2",
+            path=registry_path,
+            dry_run=True,
+        )
+    )
+
+    assert result.dry_run is True
+    assert result.imported_count == 1
+    assert result.imported[0].workflow_version == "improvement_v2"
+    assert not registry_path.exists()
 
 
 def test_collect_import_observations_rejects_unknown_source() -> None:
     with pytest.raises(ValueError, match="Unknown improvement case import source"):
         intake.collect_improvement_case_import_observations(source="mystery")
+
+
+def test_import_request_rejects_unknown_source() -> None:
+    with pytest.raises(ValueError, match="Unknown improvement case import source"):
+        intake.ImprovementCaseImportRequest(source="mystery")
+
+
+def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
+    cli_source = (Path(__file__).parents[2] / "app" / "cli.py").read_text()
+
+    for forbidden in (
+        "collect_eval_failure_case_observations",
+        "collect_failed_agent_task_observations",
+        "collect_failed_agent_verification_observations",
+        "collect_hygiene_finding_observations",
+        "import_improvement_case_observations",
+    ):
+        assert forbidden not in cli_source

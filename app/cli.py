@@ -1614,4 +1614,4 @@ def run_improvement_case_import() -> None:
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    print(json.dumps(payload))
+    print(json.dumps(payload.model_dump(mode="json")))
