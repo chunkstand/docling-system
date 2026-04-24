@@ -3395,7 +3395,20 @@ def build_agent_task_action_manifest() -> list[dict[str, object]]:
 
 
 def validate_agent_task_action_contracts() -> list[AgentActionContractIssue]:
-    return validate_agent_action_contracts(list_agent_task_actions())
+    issues = validate_agent_action_contracts(
+        list_agent_task_actions(),
+        registry_keys=set(_ACTION_REGISTRY),
+    )
+    for registry_key, action in _ACTION_REGISTRY.items():
+        if registry_key != action.task_type:
+            issues.append(
+                AgentActionContractIssue(
+                    task_type=action.task_type,
+                    field="task_type",
+                    message=f"registry key '{registry_key}' must match task_type",
+                )
+            )
+    return issues
 
 
 def get_agent_task_action(task_type: str) -> AgentTaskActionDefinition:

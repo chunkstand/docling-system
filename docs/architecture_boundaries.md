@@ -38,3 +38,11 @@ declares its owning capability, input model, output model/schema metadata,
 input example, side-effect level, approval requirement, and context-builder
 name. `tests/unit/test_agent_action_contracts.py` validates those contracts and
 checks that every named context builder is registered.
+`GET /agent-tasks/actions` exposes the same capability and context-builder
+metadata so agents can inspect the public task surface without reading private
+registry internals.
+
+The contract vocabulary is intentionally closed: capabilities, definition
+kinds, and side-effect levels are enumerated in `app.services.agent_actions`.
+Changing those categories should be a deliberate contract change, not an
+accidental string addition in one registry entry.

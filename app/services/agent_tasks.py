@@ -495,10 +495,12 @@ def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionRespon
         rows.append(
             AgentTaskActionDefinitionResponse(
                 task_type=action.task_type,
+                capability=action.capability,
                 definition_kind=action.definition_kind,
                 description=action.description,
                 side_effect_level=action.side_effect_level,
                 requires_approval=action.requires_approval,
+                context_builder_name=action.context_builder_name,
                 input_schema=action.payload_model.model_json_schema(),
                 output_schema_name=action.output_schema_name,
                 output_schema_version=action.output_schema_version,

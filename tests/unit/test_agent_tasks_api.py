@@ -16,9 +16,11 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
         lambda: [
             {
                 "task_type": "evaluate_search_harness",
+                "capability": "retrieval",
                 "description": "Compare harnesses.",
                 "side_effect_level": "read_only",
                 "requires_approval": False,
+                "context_builder_name": "evaluate_search_harness",
                 "input_schema": {},
                 "output_schema_name": "evaluate_search_harness_output",
                 "output_schema_version": "1.0",
@@ -33,6 +35,8 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["task_type"] == "evaluate_search_harness"
+    assert response.json()[0]["capability"] == "retrieval"
+    assert response.json()[0]["context_builder_name"] == "evaluate_search_harness"
     assert response.json()[0]["output_schema_name"] == "evaluate_search_harness_output"
 
 
@@ -87,6 +91,8 @@ def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrate
         assert definitions[task_type]["output_schema_name"] is not None
         assert definitions[task_type]["output_schema_version"] == "1.0"
         assert definitions[task_type]["output_schema"]
+        assert definitions[task_type]["capability"]
+        assert definitions[task_type]["context_builder_name"]
 
 
 def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> None:

@@ -62,10 +62,12 @@ class AgentTaskOutcomeCreateRequest(BaseModel):
 
 class AgentTaskActionDefinitionResponse(BaseModel):
     task_type: str
+    capability: str
     definition_kind: str = "action"
     description: str
     side_effect_level: str
     requires_approval: bool
+    context_builder_name: str
     input_schema: dict = Field(default_factory=dict)
     output_schema_name: str | None = None
     output_schema_version: str | None = None
