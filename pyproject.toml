@@ -96,6 +96,10 @@ docling-system-agent-task-value-density = "app.cli:run_agent_task_value_density"
 docling-system-agent-task-decision-signals = "app.cli:run_agent_task_decision_signals"
 docling-system-agent-task-workflow-versions = "app.cli:run_agent_task_workflow_versions"
 docling-system-agent-task-export-traces = "app.cli:run_agent_task_export_traces"
+docling-system-improvement-case-validate = "app.cli:run_improvement_case_validate"
+docling-system-improvement-case-list = "app.cli:run_improvement_case_list"
+docling-system-improvement-case-summary = "app.cli:run_improvement_case_summary"
+docling-system-improvement-case-record = "app.cli:run_improvement_case_record"
 docling-system-hygiene-check = "app.hygiene:run"
 
 [tool.hatch.build.targets.wheel]

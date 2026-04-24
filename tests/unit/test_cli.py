@@ -38,6 +38,10 @@ from app.cli import (
     run_eval_run,
     run_export_ranking_dataset,
     run_gate_search_harness_release,
+    run_improvement_case_list,
+    run_improvement_case_record,
+    run_improvement_case_summary,
+    run_improvement_case_validate,
     run_ingest_batch_list,
     run_ingest_batch_show,
     run_ingest_dir,
@@ -1667,3 +1671,111 @@ def test_agent_task_remaining_milestone9_clis_print_payloads(monkeypatch, capsys
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-decision-signals"])
     run_agent_task_decision_signals()
     assert json.loads(capsys.readouterr().out.strip())[0]["status"] == "healthy"
+
+
+def test_improvement_case_validate_cli_prints_validation(monkeypatch, capsys, tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    registry_path.write_text("schema_name: improvement_cases\nschema_version: '1.0'\ncases: []\n")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-improvement-case-validate", "--path", str(registry_path)],
+    )
+
+    run_improvement_case_validate()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["valid"] is True
+    assert output["issue_count"] == 0
+
+
+def test_improvement_case_record_and_list_cli_roundtrip(
+    monkeypatch, capsys, tmp_path
+) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-record",
+            "--path",
+            str(registry_path),
+            "--case-id",
+            "IC-20260424-cli",
+            "--title",
+            "Missing route contract",
+            "--observed-failure",
+            "A router could use an unknown capability.",
+            "--cause-class",
+            "missing_constraint",
+            "--artifact-type",
+            "contract",
+            "--artifact-path",
+            "tests/unit/test_api_route_contracts.py",
+            "--artifact-description",
+            "Route capability manifest contract.",
+            "--verification-command",
+            "uv run pytest tests/unit/test_api_route_contracts.py -q",
+            "--source-type",
+            "bad_diff",
+        ],
+    )
+
+    run_improvement_case_record()
+    created = json.loads(capsys.readouterr().out.strip())
+
+    assert created["case_id"] == "IC-20260424-cli"
+    assert created["verification"]["catches_old_failure"] is True
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-improvement-case-list", "--path", str(registry_path)],
+    )
+    run_improvement_case_list()
+    listed = json.loads(capsys.readouterr().out.strip())
+
+    assert listed[0]["case_id"] == "IC-20260424-cli"
+    assert listed[0]["artifact_type"] == "contract"
+
+
+def test_improvement_case_summary_cli_prints_counts(monkeypatch, capsys, tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-record",
+            "--path",
+            str(registry_path),
+            "--case-id",
+            "IC-20260424-summary",
+            "--title",
+            "Bad tool choice",
+            "--observed-failure",
+            "A command used an unsafe tool for the job.",
+            "--cause-class",
+            "bad_tool",
+            "--artifact-type",
+            "runbook",
+            "--artifact-path",
+            "docs/improvement_loop.md",
+            "--artifact-description",
+            "Runbook guidance for future tool choice.",
+            "--acceptance-condition",
+            "Future cases classify bad tool usage explicitly.",
+        ],
+    )
+    run_improvement_case_record()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-improvement-case-summary", "--path", str(registry_path)],
+    )
+    run_improvement_case_summary()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["case_count"] == 1
+    assert output["cause_class_counts"] == {"bad_tool": 1}

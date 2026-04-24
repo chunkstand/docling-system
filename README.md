@@ -491,6 +491,11 @@ That split keeps the process portable: two different users can ingest different 
 
 The current learning surface is intentionally simple and durable: operators can label finished tasks, inspect analytics over approvals, rejections, verifier outcomes, and labels, compare workflow versions, and export the resulting traces for later analysis.
 
+The broader repo self-improvement loop is file-backed first. `config/improvement_cases.yaml`
+tracks agent/codebase failures using a closed cause taxonomy and executable artifact
+targets; `docling-system-improvement-case-*` commands validate, list, summarize, and
+record cases before any DB/API expansion.
+
 ## Tables
 
 Tables are first-class retrieval objects. The parser stores logical tables, source table segment provenance, merge metadata, repeated-header removal metadata, and audit hashes. Continued tables can be merged into one logical table when the evidence is strong enough; ambiguous continuation candidates are recorded instead of guessed.
