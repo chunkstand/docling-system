@@ -50,6 +50,25 @@ def test_improvement_case_registry_accepts_valid_cases() -> None:
     assert manifest[0]["artifact_type"] == "contract"
 
 
+def test_improvement_case_registry_accepts_open_cases_without_artifacts() -> None:
+    registry = ImprovementCaseRegistry(
+        cases=[
+            ImprovementCase(
+                case_id="IC-20260424-open",
+                title="A failure has been observed but not converted yet",
+                status="open",
+                cause_class="missing_test",
+                observed_failure="A regression escaped without a durable test.",
+                source=ImprovementCaseSource(source_type="incident"),
+            )
+        ]
+    )
+
+    issues = validate_improvement_case_registry(registry)
+
+    assert issues == []
+
+
 def test_improvement_case_registry_rejects_unknown_vocabularies() -> None:
     case = _valid_case()
     case.status = "mystery"
@@ -80,6 +99,16 @@ def test_improvement_case_registry_requires_executable_verification() -> None:
     } <= fields
 
 
+def test_improvement_case_registry_requires_real_artifact_after_conversion() -> None:
+    case = _valid_case()
+    case.status = "converted"
+    case.artifact.target_path = "tests/unit/test_missing_contract.py"
+
+    issues = validate_improvement_case_registry(ImprovementCaseRegistry(cases=[case]))
+
+    assert any(issue.field == "artifact.target_path" for issue in issues)
+
+
 def test_improvement_case_registry_requires_deploy_and_measurement_for_late_statuses() -> None:
     case = _valid_case()
     case.status = "closed"
@@ -95,6 +124,14 @@ def test_improvement_case_summary_counts_by_contract_dimensions() -> None:
         cases=[
             _valid_case("IC-20260424-route-contract"),
             _valid_case("IC-20260424-agent-actions"),
+            ImprovementCase(
+                case_id="IC-20260424-open",
+                title="Observed failure",
+                status="open",
+                cause_class="missing_test",
+                observed_failure="A failure is awaiting conversion.",
+                source=ImprovementCaseSource(source_type="incident"),
+            ),
         ]
     )
     registry.cases[1].cause_class = "missing_context"
@@ -103,10 +140,14 @@ def test_improvement_case_summary_counts_by_contract_dimensions() -> None:
 
     summary = summarize_improvement_cases(registry)
 
-    assert summary["case_count"] == 2
-    assert summary["cause_class_counts"] == {"missing_constraint": 1, "missing_context": 1}
+    assert summary["case_count"] == 3
+    assert summary["cause_class_counts"] == {
+        "missing_constraint": 1,
+        "missing_context": 1,
+        "missing_test": 1,
+    }
     assert summary["artifact_type_counts"] == {"contract": 1, "generated_map": 1}
-    assert summary["workflow_version_counts"] == {"improvement_v1": 1, "improvement_v2": 1}
+    assert summary["workflow_version_counts"] == {"improvement_v1": 2, "improvement_v2": 1}
 
 
 def test_record_improvement_case_writes_valid_registry(tmp_path) -> None:

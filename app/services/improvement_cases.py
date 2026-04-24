@@ -8,6 +8,7 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, Field
 
+from app.core.files import repo_root
 from app.core.time import utcnow
 
 DEFAULT_IMPROVEMENT_CASES_PATH = Path("config") / "improvement_cases.yaml"
@@ -64,6 +65,10 @@ IMPROVEMENT_SOURCE_TYPES = frozenset(
 )
 DEPLOYED_IMPROVEMENT_STATUSES = frozenset({"deployed", "measured", "closed"})
 MEASURED_IMPROVEMENT_STATUSES = frozenset({"measured", "closed"})
+CONVERTED_IMPROVEMENT_STATUSES = frozenset(
+    {"converted", "verified", "deployed", "measured", "closed"}
+)
+VERIFIED_IMPROVEMENT_STATUSES = frozenset({"verified", "deployed", "measured", "closed"})
 
 
 class ImprovementCaseSource(BaseModel):
@@ -105,7 +110,7 @@ class ImprovementCase(BaseModel):
     observed_failure: str = ""
     source: ImprovementCaseSource = Field(default_factory=ImprovementCaseSource)
     artifact: ImprovementCaseArtifact = Field(default_factory=ImprovementCaseArtifact)
-    verification: ImprovementCaseVerification
+    verification: ImprovementCaseVerification = Field(default_factory=ImprovementCaseVerification)
     workflow_version: str = "improvement_v1"
     deployment: ImprovementCaseDeployment = Field(default_factory=ImprovementCaseDeployment)
     measurement: ImprovementCaseMeasurement = Field(default_factory=ImprovementCaseMeasurement)
@@ -126,34 +131,63 @@ class ImprovementCaseContractIssue:
     message: str
 
 
-def _project_root() -> Path:
-    return Path(__file__).resolve().parents[2]
-
-
-def resolve_improvement_cases_path(path: str | Path | None = None) -> Path:
+def resolve_improvement_cases_path(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
     raw_path = Path(path) if path is not None else DEFAULT_IMPROVEMENT_CASES_PATH
     if raw_path.is_absolute():
         return raw_path
-    return _project_root() / raw_path
+    return (project_root or repo_root()) / raw_path
 
 
 def empty_improvement_case_registry() -> ImprovementCaseRegistry:
     return ImprovementCaseRegistry()
 
 
-def load_improvement_case_registry(path: str | Path | None = None) -> ImprovementCaseRegistry:
-    resolved_path = resolve_improvement_cases_path(path)
+def load_improvement_case_registry(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> ImprovementCaseRegistry:
+    resolved_path = resolve_improvement_cases_path(path, project_root=project_root)
     if not resolved_path.exists():
         return empty_improvement_case_registry()
     payload = yaml.safe_load(resolved_path.read_text()) or {}
     return ImprovementCaseRegistry.model_validate(payload)
 
 
+def load_improvement_case_registry_for_validation(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> tuple[ImprovementCaseRegistry, list[ImprovementCaseContractIssue]]:
+    try:
+        return (
+            load_improvement_case_registry(path, project_root=project_root),
+            [],
+        )
+    except Exception as exc:
+        return (
+            empty_improvement_case_registry(),
+            [
+                ImprovementCaseContractIssue(
+                    case_id=None,
+                    field="registry",
+                    message=f"Unable to load improvement case registry: {exc}",
+                )
+            ],
+        )
+
+
 def write_improvement_case_registry(
     registry: ImprovementCaseRegistry,
     path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
 ) -> Path:
-    resolved_path = resolve_improvement_cases_path(path)
+    resolved_path = resolve_improvement_cases_path(path, project_root=project_root)
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     resolved_path.write_text(
         yaml.safe_dump(
@@ -173,10 +207,71 @@ def _case_issue(case: ImprovementCase, field: str, message: str) -> ImprovementC
     return ImprovementCaseContractIssue(case_id=case.case_id, field=field, message=message)
 
 
+def _has_artifact_payload(case: ImprovementCase) -> bool:
+    return any(
+        isinstance(value, str) and value.strip()
+        for value in (
+            case.artifact.artifact_type,
+            case.artifact.target_path,
+            case.artifact.description,
+        )
+    )
+
+
+def _artifact_path_issues(
+    case: ImprovementCase,
+    *,
+    project_root: Path,
+) -> list[ImprovementCaseContractIssue]:
+    if _empty_text(case.artifact.target_path):
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path is required.",
+            )
+        ]
+
+    raw_target_path = Path(case.artifact.target_path)
+    if raw_target_path.is_absolute():
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path must be repo-relative.",
+            )
+        ]
+
+    resolved_target_path = (project_root / raw_target_path).resolve()
+    try:
+        resolved_target_path.relative_to(project_root.resolve())
+    except ValueError:
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path must stay inside the repo.",
+            )
+        ]
+
+    if not resolved_target_path.exists():
+        return [
+            _case_issue(
+                case,
+                "artifact.target_path",
+                "Executable artifact target path does not exist.",
+            )
+        ]
+    return []
+
+
 def validate_improvement_case_registry(
     registry: ImprovementCaseRegistry,
+    *,
+    project_root: Path | None = None,
 ) -> list[ImprovementCaseContractIssue]:
     issues: list[ImprovementCaseContractIssue] = []
+    root = (project_root or repo_root()).resolve()
     if registry.schema_name != IMPROVEMENT_CASE_SCHEMA_NAME:
         issues.append(
             ImprovementCaseContractIssue(
@@ -240,7 +335,11 @@ def validate_improvement_case_registry(
                     f"Unknown source type '{case.source.source_type}'.",
                 )
             )
-        if case.artifact.artifact_type not in IMPROVEMENT_ARTIFACT_TYPES:
+        requires_artifact = case.status in CONVERTED_IMPROVEMENT_STATUSES
+        has_artifact_payload = _has_artifact_payload(case)
+        if (requires_artifact or has_artifact_payload) and (
+            case.artifact.artifact_type not in IMPROVEMENT_ARTIFACT_TYPES
+        ):
             issues.append(
                 _case_issue(
                     case,
@@ -248,15 +347,11 @@ def validate_improvement_case_registry(
                     f"Unknown artifact type '{case.artifact.artifact_type}'.",
                 )
             )
-        if _empty_text(case.artifact.target_path):
-            issues.append(
-                _case_issue(
-                    case,
-                    "artifact.target_path",
-                    "Executable artifact target path is required.",
-                )
-            )
-        if _empty_text(case.artifact.description):
+        if requires_artifact or has_artifact_payload:
+            issues.extend(_artifact_path_issues(case, project_root=root))
+        if (requires_artifact or has_artifact_payload) and _empty_text(
+            case.artifact.description
+        ):
             issues.append(
                 _case_issue(
                     case,
@@ -269,7 +364,7 @@ def validate_improvement_case_registry(
         has_acceptance_condition = any(
             condition.strip() for condition in case.verification.acceptance_conditions
         )
-        if not has_verification_command and not has_acceptance_condition:
+        if requires_artifact and not has_verification_command and not has_acceptance_condition:
             issues.append(
                 _case_issue(
                     case,
@@ -277,7 +372,10 @@ def validate_improvement_case_registry(
                     "At least one verification command or acceptance condition is required.",
                 )
             )
-        if not case.verification.catches_old_failure:
+        if (
+            case.status in VERIFIED_IMPROVEMENT_STATUSES
+            and not case.verification.catches_old_failure
+        ):
             issues.append(
                 _case_issue(
                     case,
@@ -285,7 +383,10 @@ def validate_improvement_case_registry(
                     "Verification must explicitly catch the old failure.",
                 )
             )
-        if not case.verification.allows_good_changes:
+        if (
+            case.status in VERIFIED_IMPROVEMENT_STATUSES
+            and not case.verification.allows_good_changes
+        ):
             issues.append(
                 _case_issue(
                     case,
@@ -350,7 +451,9 @@ def summarize_improvement_cases(registry: ImprovementCaseRegistry) -> dict:
         "case_count": len(cases),
         "status_counts": dict(Counter(case.status for case in cases)),
         "cause_class_counts": dict(Counter(case.cause_class for case in cases)),
-        "artifact_type_counts": dict(Counter(case.artifact.artifact_type for case in cases)),
+        "artifact_type_counts": dict(
+            Counter(case.artifact.artifact_type for case in cases if case.artifact.artifact_type)
+        ),
         "workflow_version_counts": dict(Counter(case.workflow_version for case in cases)),
         "source_type_counts": dict(Counter(case.source.source_type for case in cases)),
         "measured_case_count": len(measured_cases),
@@ -387,9 +490,9 @@ def record_improvement_case(
     title: str,
     observed_failure: str,
     cause_class: str,
-    artifact_type: str,
-    artifact_target_path: str,
-    artifact_description: str,
+    artifact_type: str | None = None,
+    artifact_target_path: str | None = None,
+    artifact_description: str | None = None,
     verification_commands: list[str] | None = None,
     acceptance_conditions: list[str] | None = None,
     source_type: str = "operator_note",
@@ -401,9 +504,14 @@ def record_improvement_case(
     metric_name: str | None = None,
     metric_value: float | None = None,
     measurement_window: str | None = None,
+    project_root: Path | None = None,
 ) -> ImprovementCase:
-    registry = load_improvement_case_registry(path)
+    root = project_root or repo_root()
+    registry = load_improvement_case_registry(path, project_root=root)
     now = utcnow().isoformat()
+    commands = verification_commands or []
+    acceptance_conditions = acceptance_conditions or []
+    has_verification_evidence = bool(commands or acceptance_conditions)
     case = ImprovementCase(
         case_id=case_id or f"IC-{utcnow().strftime('%Y%m%d')}-{uuid4().hex[:8]}",
         title=title,
@@ -412,15 +520,15 @@ def record_improvement_case(
         observed_failure=observed_failure,
         source=ImprovementCaseSource(source_type=source_type, source_ref=source_ref),
         artifact=ImprovementCaseArtifact(
-            artifact_type=artifact_type,
-            target_path=artifact_target_path,
-            description=artifact_description,
+            artifact_type=artifact_type or "",
+            target_path=artifact_target_path or "",
+            description=artifact_description or "",
         ),
         verification=ImprovementCaseVerification(
-            commands=verification_commands or [],
-            acceptance_conditions=acceptance_conditions or [],
-            catches_old_failure=True,
-            allows_good_changes=True,
+            commands=commands,
+            acceptance_conditions=acceptance_conditions,
+            catches_old_failure=has_verification_evidence,
+            allows_good_changes=has_verification_evidence,
         ),
         workflow_version=workflow_version,
         deployment=ImprovementCaseDeployment(deployed_ref=deployed_ref),
@@ -437,11 +545,11 @@ def record_improvement_case(
         schema_version=registry.schema_version,
         cases=[*registry.cases, case],
     )
-    issues = validate_improvement_case_registry(candidate_registry)
+    issues = validate_improvement_case_registry(candidate_registry, project_root=root)
     if issues:
         issue_lines = "; ".join(
             f"{issue.case_id or 'registry'} {issue.field}: {issue.message}" for issue in issues
         )
         raise ValueError(f"Invalid improvement case registry: {issue_lines}")
-    write_improvement_case_registry(candidate_registry, path)
+    write_improvement_case_registry(candidate_registry, path, project_root=root)
     return case

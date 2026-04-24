@@ -494,7 +494,9 @@ The current learning surface is intentionally simple and durable: operators can 
 The broader repo self-improvement loop is file-backed first. `config/improvement_cases.yaml`
 tracks agent/codebase failures using a closed cause taxonomy and executable artifact
 targets; `docling-system-improvement-case-*` commands validate, list, summarize, and
-record cases before any DB/API expansion.
+record cases before any DB/API expansion. `docling-system-hygiene-check` validates
+the registry alongside the repo's existing lint, dead-code, duplicate-helper, and
+file-budget gates.
 
 ## Tables
 

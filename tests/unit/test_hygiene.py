@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.hygiene import find_ruff_regression_findings, run_python_hygiene_checks
+from app.hygiene import (
+    find_ruff_regression_findings,
+    run_improvement_case_contract_checks,
+    run_python_hygiene_checks,
+)
 
 
 def _write(path: Path, content: str) -> None:
@@ -103,3 +107,37 @@ def test_hygiene_flags_only_new_ruff_debt() -> None:
         ("app/alpha.py", "F401 count 1 exceeds baseline 0"),
         ("app/gamma.py", "UP035 count 1 exceeds baseline 0"),
     }
+
+
+def test_hygiene_validates_improvement_case_registry(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "config" / "improvement_cases.yaml",
+        "\n".join(
+            [
+                "schema_name: improvement_cases",
+                "schema_version: '1.0'",
+                "cases:",
+                "  - case_id: IC-20260424-gap",
+                "    title: Missing validation",
+                "    status: converted",
+                "    cause_class: missing_constraint",
+                "    observed_failure: Registry artifacts were not enforced.",
+                "    source:",
+                "      source_type: review_comment",
+                "    artifact:",
+                "      artifact_type: contract",
+                "      target_path: tests/unit/test_missing.py",
+                "      description: Missing artifact.",
+                "    verification:",
+                "      commands:",
+                "        - uv run pytest tests/unit/test_missing.py -q",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_improvement_case_contract_checks(tmp_path)
+
+    assert findings
+    assert findings[0].kind == "improvement_case_contract"
+    assert findings[0].relative_path == "config/improvement_cases.yaml"

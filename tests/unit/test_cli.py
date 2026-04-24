@@ -5,6 +5,8 @@ import sys
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from app.cli import (
     run_agent_task_actions,
     run_agent_task_analytics,
@@ -1687,6 +1689,81 @@ def test_improvement_case_validate_cli_prints_validation(monkeypatch, capsys, tm
     output = json.loads(capsys.readouterr().out.strip())
     assert output["valid"] is True
     assert output["issue_count"] == 0
+
+
+def test_improvement_case_validate_cli_reports_invalid_registry(
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    registry_path.write_text(
+        "\n".join(
+            [
+                "schema_name: improvement_cases",
+                "schema_version: '1.0'",
+                "cases:",
+                "  - case_id: ''",
+                "    title: ''",
+                "    status: open",
+                "    cause_class: missing_test",
+                "    observed_failure: ''",
+                "    source:",
+                "      source_type: incident",
+            ]
+        )
+        + "\n"
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-improvement-case-validate", "--path", str(registry_path)],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_improvement_case_validate()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert exc_info.value.code == 1
+    assert output["valid"] is False
+    assert output["issue_count"] >= 1
+
+
+def test_improvement_case_record_cli_allows_open_observation(
+    monkeypatch,
+    capsys,
+    tmp_path,
+) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-record",
+            "--path",
+            str(registry_path),
+            "--case-id",
+            "IC-20260424-open-cli",
+            "--title",
+            "Missing eval coverage",
+            "--observed-failure",
+            "A failed behavior had not yet been converted into an artifact.",
+            "--cause-class",
+            "missing_test",
+            "--source-type",
+            "incident",
+            "--status",
+            "open",
+        ],
+    )
+
+    run_improvement_case_record()
+
+    created = json.loads(capsys.readouterr().out.strip())
+    assert created["case_id"] == "IC-20260424-open-cli"
+    assert created["status"] == "open"
+    assert created["artifact"]["target_path"] == ""
+    assert created["verification"]["catches_old_failure"] is False
 
 
 def test_improvement_case_record_and_list_cli_roundtrip(

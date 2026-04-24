@@ -273,6 +273,13 @@ def load_improvement_case_registry(*args, **kwargs):
     )(*args, **kwargs)
 
 
+def load_improvement_case_registry_for_validation(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.improvement_cases",
+        "load_improvement_case_registry_for_validation",
+    )(*args, **kwargs)
+
+
 def validate_improvement_case_registry(*args, **kwargs):
     return _lazy_service_attr(
         "app.services.improvement_cases",
@@ -1462,8 +1469,10 @@ def run_improvement_case_validate() -> None:
     _add_improvement_case_path_arg(parser)
     args = parser.parse_args()
 
-    registry = load_improvement_case_registry(args.path)
-    issues = validate_improvement_case_registry(registry)
+    registry, load_issues = load_improvement_case_registry_for_validation(args.path)
+    issues = [*load_issues]
+    if not load_issues:
+        issues.extend(validate_improvement_case_registry(registry))
     payload = {
         "schema_name": "improvement_case_validation",
         "schema_version": "1.0",
@@ -1515,10 +1524,9 @@ def run_improvement_case_record() -> None:
     parser.add_argument(
         "--artifact-type",
         choices=sorted(IMPROVEMENT_ARTIFACT_TYPES),
-        required=True,
     )
-    parser.add_argument("--artifact-path", required=True)
-    parser.add_argument("--artifact-description", required=True)
+    parser.add_argument("--artifact-path")
+    parser.add_argument("--artifact-description")
     parser.add_argument(
         "--verification-command",
         action="append",

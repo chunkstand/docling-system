@@ -18,15 +18,25 @@ Every case must declare:
 - a closed cause class: `missing_context`, `missing_test`,
   `missing_constraint`, `bad_pattern`, `bad_tool`, `unclear_ownership`, or
   `unsafe_permission`
-- an executable artifact target: `test`, `lint`, `contract`, `eval`,
-  `generated_map`, `script`, `runbook`, or `permission_rule`
-- a verification command or acceptance condition
-- explicit evidence that verification catches the old failure and does not
-  block good changes
 - a workflow version so future changes can be compared by process version
+
+`open` and `suppressed` cases capture the observe/classify stage. `converted`,
+`verified`, `deployed`, `measured`, and `closed` cases must also declare an
+executable repo-local artifact target: `test`, `lint`, `contract`, `eval`,
+`generated_map`, `script`, `runbook`, or `permission_rule`.
+
+Converted cases must include a verification command or acceptance condition.
+Verified, deployed, measured, and closed cases must explicitly prove that the
+artifact catches the old failure and does not block good changes.
 
 Deployed, measured, and closed cases must also carry deployment refs. Measured
 and closed cases must include a metric name and value.
+
+The repo hygiene command validates the registry by default:
+
+```bash
+uv run docling-system-hygiene-check
+```
 
 ## CLI
 

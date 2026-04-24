@@ -11,6 +11,12 @@ from pathlib import Path
 
 import yaml
 
+from app.services.improvement_cases import (
+    DEFAULT_IMPROVEMENT_CASES_PATH,
+    load_improvement_case_registry_for_validation,
+    validate_improvement_case_registry,
+)
+
 DEFAULT_POLICY_PATH = Path("config") / "hygiene_policy.yaml"
 DEFAULT_RUFF_BASELINE_PATH = Path("config") / "ruff_baseline.yaml"
 DEFAULT_VULTURE_CONFIDENCE = 85
@@ -372,6 +378,41 @@ def run_python_hygiene_checks(
     )
 
 
+def _registry_relative_path(project_root: Path, path: Path) -> str:
+    resolved_path = path if path.is_absolute() else project_root / path
+    try:
+        return resolved_path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(resolved_path)
+
+
+def run_improvement_case_contract_checks(
+    project_root: Path | None = None,
+    *,
+    registry_path: Path | None = None,
+) -> list[HygieneFinding]:
+    root = project_root or _project_root()
+    path = registry_path or DEFAULT_IMPROVEMENT_CASES_PATH
+    registry, load_issues = load_improvement_case_registry_for_validation(
+        path,
+        project_root=root,
+    )
+    contract_issues = list(load_issues)
+    if not load_issues:
+        contract_issues.extend(
+            validate_improvement_case_registry(registry, project_root=root)
+        )
+    relative_path = _registry_relative_path(root, path)
+    return [
+        HygieneFinding(
+            kind="improvement_case_contract",
+            relative_path=relative_path,
+            message=f"{issue.field}: {issue.message}",
+        )
+        for issue in contract_issues
+    ]
+
+
 def _run_external_check(description: str, command: list[str], *, cwd: Path) -> int:
     print(f"[hygiene] {description}: {' '.join(command)}")
     completed = subprocess.run(command, cwd=cwd)
@@ -394,6 +435,11 @@ def run(argv: list[str] | None = None) -> int:
         "--skip-python-hygiene",
         action="store_true",
         help="Skip duplicate-helper and file-budget checks.",
+    )
+    parser.add_argument(
+        "--skip-improvement-cases",
+        action="store_true",
+        help="Skip improvement-case registry contract checks.",
     )
     parser.add_argument(
         "--policy-path",
@@ -474,6 +520,16 @@ def run(argv: list[str] | None = None) -> int:
             failed = True
         else:
             print("[hygiene] duplicate/budget findings: none")
+
+    if not args.skip_improvement_cases:
+        findings = run_improvement_case_contract_checks(project_root)
+        if findings:
+            print("[hygiene] improvement-case findings:")
+            for finding in findings:
+                print(f"  - {finding.render()}")
+            failed = True
+        else:
+            print("[hygiene] improvement-case findings: none")
 
     return 1 if failed else 0
 
