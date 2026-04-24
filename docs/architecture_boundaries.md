@@ -31,6 +31,13 @@ Service modules also avoid importing underscore-prefixed helpers from other
 service modules. When shared behavior crosses a module boundary, expose a public
 helper or move it to an explicitly shared module.
 
+`uv run docling-system-architecture-inspect` is the top-level architecture
+inspection command. It emits a machine-readable architecture map and validates
+the API route, agent action, capability facade, service import, improvement
+intake, and architecture-documentation contracts as one boundary fitness
+function. `uv run docling-system-hygiene-check` runs the same inspection by
+default.
+
 ## API Route Capability Contracts
 
 Remote API permissions are a closed route contract, not free-form router

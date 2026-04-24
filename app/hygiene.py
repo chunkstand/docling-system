@@ -429,6 +429,21 @@ def run_improvement_case_contract_checks(
     ]
 
 
+def run_architecture_contract_checks(project_root: Path | None = None) -> list[HygieneFinding]:
+    from app.architecture_inspection import inspect_architecture_contracts
+
+    root = project_root or _project_root()
+    return [
+        HygieneFinding(
+            kind="architecture_contract",
+            relative_path=violation.relative_path,
+            lineno=violation.lineno,
+            message=f"{violation.contract}.{violation.field}: {violation.message}",
+        )
+        for violation in inspect_architecture_contracts(root)
+    ]
+
+
 def _run_external_check(description: str, command: list[str], *, cwd: Path) -> int:
     print(f"[hygiene] {description}: {' '.join(command)}")
     completed = subprocess.run(command, cwd=cwd)
@@ -456,6 +471,11 @@ def run(argv: list[str] | None = None) -> int:
         "--skip-improvement-cases",
         action="store_true",
         help="Skip improvement-case registry contract checks.",
+    )
+    parser.add_argument(
+        "--skip-architecture",
+        action="store_true",
+        help="Skip architecture contract checks.",
     )
     parser.add_argument(
         "--policy-path",
@@ -546,6 +566,16 @@ def run(argv: list[str] | None = None) -> int:
             failed = True
         else:
             print("[hygiene] improvement-case findings: none")
+
+    if not args.skip_architecture:
+        findings = run_architecture_contract_checks(project_root)
+        if findings:
+            print("[hygiene] architecture findings:")
+            for finding in findings:
+                print(f"  - {finding.render()}")
+            failed = True
+        else:
+            print("[hygiene] architecture findings: none")
 
     return 1 if failed else 0
 

@@ -499,6 +499,9 @@ the registry alongside the repo's existing lint, dead-code, duplicate-helper, an
 file-budget gates. `docling-system-improvement-case-import` can also observe
 hygiene findings, unresolved eval failure cases, failed agent tasks, and failed
 agent verifications, then write deduped open cases keyed by source reference.
+`docling-system-architecture-inspect` emits the machine-readable architecture
+map and validates boundary contracts as a Brown/Structurizr-style inspection;
+the hygiene command runs that inspection by default.
 
 ## Tables
 

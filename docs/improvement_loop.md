@@ -36,6 +36,7 @@ The repo hygiene command validates the registry by default:
 
 ```bash
 uv run docling-system-hygiene-check
+uv run docling-system-architecture-inspect
 ```
 
 ## CLI

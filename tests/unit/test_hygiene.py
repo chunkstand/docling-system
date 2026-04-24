@@ -4,6 +4,7 @@ from pathlib import Path
 
 from app.hygiene import (
     find_ruff_regression_findings,
+    run_architecture_contract_checks,
     run_improvement_case_contract_checks,
     run_python_hygiene_checks,
 )
@@ -181,3 +182,24 @@ def test_hygiene_validates_improvement_case_registry(tmp_path: Path) -> None:
     assert findings
     assert findings[0].kind == "improvement_case_contract"
     assert findings[0].relative_path == "config/improvement_cases.yaml"
+
+
+def test_hygiene_adapts_architecture_contract_violations(monkeypatch) -> None:
+    class Violation:
+        contract = "test_contract"
+        field = "test_field"
+        message = "Boundary drifted."
+        relative_path = "app/example.py"
+        lineno = 12
+
+    monkeypatch.setattr(
+        "app.architecture_inspection.inspect_architecture_contracts",
+        lambda project_root: [Violation()],
+    )
+
+    findings = run_architecture_contract_checks()
+
+    assert findings[0].kind == "architecture_contract"
+    assert findings[0].relative_path == "app/example.py"
+    assert findings[0].lineno == 12
+    assert findings[0].message == "test_contract.test_field: Boundary drifted."
