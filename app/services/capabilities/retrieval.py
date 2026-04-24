@@ -160,7 +160,7 @@ class ServicesRetrievalCapability:
             request,
             origin=origin,
             run_id=run_id,
-            parent_search_request_id=parent_search_request_id,
+            parent_request_id=parent_search_request_id,
             evaluation_id=evaluation_id,
         )
 
