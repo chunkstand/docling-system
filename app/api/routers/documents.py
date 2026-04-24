@@ -13,7 +13,7 @@ from app.api.deps import (
     storage_file_response,
 )
 from app.api.errors import api_error
-from app.db.models import DocumentFigure, DocumentRun, DocumentTable
+from app.db.models import DocumentFigure, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
@@ -25,21 +25,60 @@ from app.schemas.documents import (
 from app.schemas.evaluations import EvaluationDetailResponse
 from app.schemas.figures import DocumentFigureDetailResponse, DocumentFigureSummaryResponse
 from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummaryResponse
-from app.services.chunks import get_active_chunks
-from app.services.documents import (
-    get_document_detail,
-    get_document_run_summary,
-    get_latest_document_evaluation_detail,
-    ingest_upload,
-    list_document_runs,
-    list_documents,
-    reprocess_document,
-)
-from app.services.eval_workbench import explain_latest_document_evaluation
-from app.services.figures import get_active_figure_detail, get_active_figures
-from app.services.tables import get_active_table_detail, get_active_tables
+from app.services.capabilities import evaluation, run_lifecycle
 
 router = APIRouter()
+
+list_documents = run_lifecycle.list_documents
+ingest_upload = run_lifecycle.ingest_upload
+get_document_detail = run_lifecycle.get_document_detail
+list_document_runs = run_lifecycle.list_document_runs
+get_document_run_summary = run_lifecycle.get_document_run_summary
+get_latest_document_evaluation_detail = evaluation.get_latest_document_evaluation_detail
+explain_latest_document_evaluation = evaluation.explain_latest_document_evaluation
+get_active_chunks = run_lifecycle.get_active_chunks
+get_active_tables = run_lifecycle.get_active_tables
+get_active_table_detail = run_lifecycle.get_active_table_detail
+get_active_figures = run_lifecycle.get_active_figures
+get_active_figure_detail = run_lifecycle.get_active_figure_detail
+reprocess_document = run_lifecycle.reprocess_document
+get_document_run_row = run_lifecycle.get_run_row
+
+
+def get_active_table_row(
+    session: Session,
+    document_id: UUID,
+    table_id: UUID,
+) -> DocumentTable | None:
+    document = get_document_detail(session, document_id)
+    if document.active_run_id is None:
+        return None
+    table = session.get(DocumentTable, table_id)
+    if (
+        table is None
+        or table.run_id != document.active_run_id
+        or table.document_id != document_id
+    ):
+        return None
+    return table
+
+
+def get_active_figure_row(
+    session: Session,
+    document_id: UUID,
+    figure_id: UUID,
+) -> DocumentFigure | None:
+    document = get_document_detail(session, document_id)
+    if document.active_run_id is None:
+        return None
+    figure = session.get(DocumentFigure, figure_id)
+    if (
+        figure is None
+        or figure.run_id != document.active_run_id
+        or figure.document_id != document_id
+    ):
+        return None
+    return figure
 
 
 @router.get(
@@ -216,7 +255,11 @@ def reprocess_existing_document(
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     session: Session = Depends(get_db_session),
 ) -> DocumentUploadResponse:
-    payload = reprocess_document(session, document_id, idempotency_key=idempotency_key)
+    payload = reprocess_document(
+        session,
+        document_id,
+        idempotency_key=idempotency_key,
+    )
     response.status_code = 202
     run_id = response_field(payload, "run_id")
     if run_id is not None:
@@ -232,7 +275,7 @@ def read_run_failure_artifact(
     run_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    run = session.get(DocumentRun, run_id)
+    run = get_document_run_row(session, run_id)
     if run is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -266,7 +309,7 @@ def read_docling_json_artifact(
             document_id=str(document_id),
             artifact_format="json",
         )
-    run = session.get(DocumentRun, document.active_run_id)
+    run = get_document_run_row(session, document.active_run_id)
     if run is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -300,7 +343,7 @@ def read_yaml_artifact(
             document_id=str(document_id),
             artifact_format="yaml",
         )
-    run = session.get(DocumentRun, document.active_run_id)
+    run = get_document_run_row(session, document.active_run_id)
     if run is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -317,34 +360,6 @@ def read_yaml_artifact(
     )
 
 
-def _get_active_table_row(
-    session: Session, document_id: UUID, table_id: UUID
-) -> DocumentTable | None:
-    document = get_document_detail(session, document_id)
-    if document.active_run_id is None:
-        return None
-    table = session.get(DocumentTable, table_id)
-    if table is None or table.run_id != document.active_run_id or table.document_id != document_id:
-        return None
-    return table
-
-
-def _get_active_figure_row(
-    session: Session, document_id: UUID, figure_id: UUID
-) -> DocumentFigure | None:
-    document = get_document_detail(session, document_id)
-    if document.active_run_id is None:
-        return None
-    figure = session.get(DocumentFigure, figure_id)
-    if (
-        figure is None
-        or figure.run_id != document.active_run_id
-        or figure.document_id != document_id
-    ):
-        return None
-    return figure
-
-
 @router.get(
     "/documents/{document_id}/tables/{table_id}/artifacts/json",
     dependencies=[Depends(require_api_capability("documents:inspect"))],
@@ -354,7 +369,7 @@ def read_table_json_artifact(
     table_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    table = _get_active_table_row(session, document_id, table_id)
+    table = get_active_table_row(session, document_id, table_id)
     if table is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -384,7 +399,7 @@ def read_table_yaml_artifact(
     table_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    table = _get_active_table_row(session, document_id, table_id)
+    table = get_active_table_row(session, document_id, table_id)
     if table is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -414,7 +429,7 @@ def read_figure_json_artifact(
     figure_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    figure = _get_active_figure_row(session, document_id, figure_id)
+    figure = get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -448,7 +463,7 @@ def read_figure_yaml_artifact(
     figure_id: UUID,
     session: Session = Depends(get_db_session),
 ):
-    figure = _get_active_figure_row(session, document_id, figure_id)
+    figure = get_active_figure_row(session, document_id, figure_id)
     if figure is None:
         raise api_error(
             status.HTTP_404_NOT_FOUND,

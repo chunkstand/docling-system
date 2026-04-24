@@ -25,16 +25,19 @@ from app.schemas.semantics import (
     SemanticReviewDecisionRequest,
     SemanticReviewEventResponse,
 )
-from app.services.semantic_backfill import get_semantic_backfill_status, run_semantic_backfill
-from app.services.semantics import (
-    get_active_semantic_continuity,
-    get_active_semantic_pass_detail,
-    get_active_semantic_pass_row,
-    review_active_semantic_assertion,
-    review_active_semantic_assertion_category_binding,
-)
+from app.services.capabilities import semantics
 
 router = APIRouter()
+
+get_active_semantic_pass_detail = semantics.get_active_semantic_pass_detail
+get_active_semantic_pass_row = semantics.get_active_semantic_pass_row
+get_active_semantic_continuity = semantics.get_active_semantic_continuity
+get_semantic_backfill_status = semantics.get_semantic_backfill_status
+run_semantic_backfill = semantics.run_semantic_backfill
+review_active_semantic_assertion = semantics.review_active_semantic_assertion
+review_active_semantic_assertion_category_binding = (
+    semantics.review_active_semantic_assertion_category_binding
+)
 
 
 @router.get(

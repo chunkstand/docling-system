@@ -37,35 +37,28 @@ from app.schemas.search import (
     SearchRequestExplanationResponse,
     SearchResult,
 )
-from app.services.chat import answer_question, record_chat_answer_feedback
-from app.services.eval_workbench import (
-    explain_search_harness_evaluation,
-    explain_search_replay_run,
-)
-from app.services.search import execute_search
-from app.services.search_harness_evaluations import (
-    evaluate_search_harness,
-    get_search_harness_evaluation_detail,
-    list_search_harness_definitions,
-    list_search_harness_evaluations,
-)
-from app.services.search_history import (
-    get_search_request_detail,
-    record_search_feedback,
-    replay_search_request,
-)
-from app.services.search_legibility import (
-    get_search_harness_descriptor,
-    get_search_request_explanation,
-)
-from app.services.search_replays import (
-    compare_search_replay_runs,
-    get_search_replay_run_detail,
-    list_search_replay_runs,
-    run_search_replay_suite,
-)
+from app.services.capabilities import evaluation, retrieval
 
 router = APIRouter()
+
+execute_search = retrieval.execute_search
+get_search_request_detail = retrieval.get_search_request_detail
+get_search_request_explanation = retrieval.get_search_request_explanation
+record_search_feedback = retrieval.record_search_feedback
+replay_search_request = retrieval.replay_search_request
+list_search_replay_runs = retrieval.list_search_replay_runs
+run_search_replay_suite = retrieval.run_search_replay_suite
+compare_search_replay_runs = retrieval.compare_search_replay_runs
+get_search_replay_run_detail = retrieval.get_search_replay_run_detail
+explain_search_replay_run = retrieval.explain_search_replay_run
+list_search_harness_definitions = retrieval.list_search_harness_definitions
+get_search_harness_descriptor = retrieval.get_search_harness_descriptor
+list_search_harness_evaluations = retrieval.list_search_harness_evaluations
+evaluate_search_harness = retrieval.evaluate_search_harness
+get_search_harness_evaluation_detail = retrieval.get_search_harness_evaluation_detail
+explain_search_harness_evaluation = evaluation.explain_search_harness_evaluation
+answer_question = retrieval.answer_question
+record_chat_answer_feedback = retrieval.record_chat_answer_feedback
 
 
 @router.post(
@@ -261,7 +254,7 @@ def create_search_harness_evaluation(
     session: Session = Depends(get_db_session),
 ) -> SearchHarnessEvaluationResponse:
     try:
-        evaluation = evaluate_search_harness(session, payload)
+        evaluation_response = evaluate_search_harness(session, payload)
     except ValueError as exc:
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
@@ -269,10 +262,10 @@ def create_search_harness_evaluation(
             str(exc),
         ) from exc
     session.commit()
-    evaluation_id = response_field(evaluation, "evaluation_id")
+    evaluation_id = response_field(evaluation_response, "evaluation_id")
     if evaluation_id is not None:
         response.headers["Location"] = f"/search/harness-evaluations/{evaluation_id}"
-    return evaluation
+    return evaluation_response
 
 
 @router.get(

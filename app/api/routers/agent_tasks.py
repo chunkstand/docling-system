@@ -43,35 +43,36 @@ from app.schemas.agent_tasks import (
     AgentTaskWorkflowVersionSummaryResponse,
     TaskContextEnvelope,
 )
-from app.services.agent_task_artifacts import get_agent_task_artifact, list_agent_task_artifacts
-from app.services.agent_task_context import get_agent_task_context
-from app.services.agent_task_verifications import get_agent_task_verifications
-from app.services.agent_tasks import (
-    approve_agent_task,
-    create_agent_task,
-    create_agent_task_outcome,
-    export_agent_task_traces,
-    get_agent_approval_trends,
-    get_agent_task_analytics_summary,
-    get_agent_task_cost_summary,
-    get_agent_task_cost_trends,
-    get_agent_task_decision_signals,
-    get_agent_task_detail,
-    get_agent_task_performance_summary,
-    get_agent_task_performance_trends,
-    get_agent_task_recommendation_summary,
-    get_agent_task_recommendation_trends,
-    get_agent_task_trends,
-    get_agent_task_value_density,
-    get_agent_verification_trends,
-    list_agent_task_action_definitions,
-    list_agent_task_outcomes,
-    list_agent_task_workflow_summaries,
-    list_agent_tasks,
-    reject_agent_task,
-)
+from app.services.capabilities import agent_orchestration
 
 router = APIRouter()
+
+list_agent_task_action_definitions = agent_orchestration.list_agent_task_action_definitions
+list_agent_tasks = agent_orchestration.list_agent_tasks
+create_agent_task = agent_orchestration.create_agent_task
+get_agent_task_detail = agent_orchestration.get_agent_task_detail
+get_agent_task_context = agent_orchestration.get_agent_task_context
+list_agent_task_outcomes = agent_orchestration.list_agent_task_outcomes
+create_agent_task_outcome = agent_orchestration.create_agent_task_outcome
+list_agent_task_artifacts = agent_orchestration.list_agent_task_artifacts
+get_agent_task_artifact = agent_orchestration.get_agent_task_artifact
+get_agent_task_verifications = agent_orchestration.get_agent_task_verifications
+approve_agent_task = agent_orchestration.approve_agent_task
+reject_agent_task = agent_orchestration.reject_agent_task
+get_agent_task_analytics_summary = agent_orchestration.get_agent_task_analytics_summary
+get_agent_task_trends = agent_orchestration.get_agent_task_trends
+get_agent_verification_trends = agent_orchestration.get_agent_verification_trends
+get_agent_approval_trends = agent_orchestration.get_agent_approval_trends
+get_agent_task_recommendation_summary = agent_orchestration.get_agent_task_recommendation_summary
+get_agent_task_recommendation_trends = agent_orchestration.get_agent_task_recommendation_trends
+get_agent_task_cost_summary = agent_orchestration.get_agent_task_cost_summary
+get_agent_task_cost_trends = agent_orchestration.get_agent_task_cost_trends
+get_agent_task_performance_summary = agent_orchestration.get_agent_task_performance_summary
+get_agent_task_performance_trends = agent_orchestration.get_agent_task_performance_trends
+get_agent_task_value_density = agent_orchestration.get_agent_task_value_density
+get_agent_task_decision_signals = agent_orchestration.get_agent_task_decision_signals
+list_agent_task_workflow_summaries = agent_orchestration.list_agent_task_workflow_summaries
+export_agent_task_traces = agent_orchestration.export_agent_task_traces
 
 
 @router.get(

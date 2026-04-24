@@ -23,14 +23,7 @@ from app.schemas.quality import (
     QualitySummaryResponse,
     QualityTrendsResponse,
 )
-from app.services.eval_workbench import (
-    get_eval_failure_case,
-    get_eval_workbench,
-    inspect_eval_failure_case,
-    list_eval_failure_cases,
-    list_eval_observations,
-    refresh_eval_failure_cases,
-)
+from app.services.capabilities import evaluation
 from app.services.quality import (
     get_quality_failures,
     get_quality_summary,
@@ -40,6 +33,13 @@ from app.services.quality import (
 )
 
 router = APIRouter()
+
+refresh_eval_failure_cases = evaluation.refresh_eval_failure_cases
+get_eval_workbench = evaluation.get_eval_workbench
+list_eval_observations = evaluation.list_eval_observations
+list_eval_failure_cases = evaluation.list_eval_failure_cases
+get_eval_failure_case = evaluation.get_eval_failure_case
+inspect_eval_failure_case = evaluation.inspect_eval_failure_case
 
 
 @router.get(

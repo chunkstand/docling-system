@@ -6,9 +6,32 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 MAIN_PATH = ROOT / "app/api/main.py"
 SERVICES_DIR = ROOT / "app/services"
+BOUNDARY_DIRS = (ROOT / "app/api/routers", ROOT / "app/workers")
 APP_ROUTE_DECORATORS = {"get", "post", "put", "delete", "patch"}
 FORBIDDEN_SERVICE_IMPORT_PREFIXES = ("app.api.main", "app.api.routers")
 ALLOWED_MAIN_SERVICE_IMPORTS = {"app.services.runtime"}
+FORBIDDEN_BOUNDARY_SERVICE_IMPORTS = (
+    "app.services.agent_task_artifacts",
+    "app.services.agent_task_context",
+    "app.services.agent_task_verifications",
+    "app.services.agent_task_worker",
+    "app.services.agent_tasks",
+    "app.services.chat",
+    "app.services.chunks",
+    "app.services.documents",
+    "app.services.eval_workbench",
+    "app.services.evaluations",
+    "app.services.figures",
+    "app.services.runs",
+    "app.services.search",
+    "app.services.search_harness_evaluations",
+    "app.services.search_history",
+    "app.services.search_legibility",
+    "app.services.search_replays",
+    "app.services.semantic_backfill",
+    "app.services.semantics",
+    "app.services.tables",
+)
 
 
 def _iter_import_targets(tree: ast.AST) -> list[str]:
@@ -59,4 +82,15 @@ def test_service_modules_do_not_import_api_bootstrap_or_router_modules() -> None
         for target in _iter_import_targets(tree):
             if target.startswith(FORBIDDEN_SERVICE_IMPORT_PREFIXES):
                 violations.append((str(path.relative_to(ROOT)), target))
+    assert violations == []
+
+
+def test_api_and_worker_boundaries_use_capability_interfaces_for_core_domains() -> None:
+    violations: list[tuple[str, str]] = []
+    for boundary_dir in BOUNDARY_DIRS:
+        for path in sorted(boundary_dir.rglob("*.py")):
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for target in _iter_import_targets(tree):
+                if target in FORBIDDEN_BOUNDARY_SERVICE_IMPORTS:
+                    violations.append((str(path.relative_to(ROOT)), target))
     assert violations == []
