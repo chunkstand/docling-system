@@ -67,7 +67,7 @@ def test_discover_semantic_bootstrap_candidates_finds_domain_agnostic_phrase(mon
         lambda session: _registry(),
     )
     monkeypatch.setattr(
-        "app.services.semantic_bootstrap._build_semantic_sources",
+        "app.services.semantic_bootstrap.build_semantic_sources",
         lambda _session, _run_id: [
             SemanticSourceItem(
                 source_type="chunk",
@@ -151,7 +151,7 @@ def test_discover_semantic_bootstrap_candidates_sorts_document_ids(monkeypatch) 
         lambda session: _registry(),
     )
     monkeypatch.setattr(
-        "app.services.semantic_bootstrap._build_semantic_sources",
+        "app.services.semantic_bootstrap.build_semantic_sources",
         lambda _session, _run_id: [
             SemanticSourceItem(
                 source_type="chunk",

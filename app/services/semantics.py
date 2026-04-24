@@ -175,6 +175,9 @@ def _source_artifact_api_path(
     return None
 
 
+source_artifact_api_path = _source_artifact_api_path
+
+
 def _build_semantic_sources(
     session: Session,
     run_id: UUID,
@@ -306,6 +309,9 @@ def _build_semantic_sources(
         )
 
     return sources
+
+
+build_semantic_sources = _build_semantic_sources
 
 
 def _materialize_semantic_assertions(
@@ -2293,3 +2299,11 @@ def preview_semantic_registry_update_for_document(
         "candidate_registry_version": registry.registry_version,
         "candidate_registry_sha256": registry.sha256,
     }
+
+
+latest_category_review_overlays = _latest_category_review_overlays
+latest_concept_review_overlays = _latest_concept_review_overlays
+materialize_semantic_assertions = _materialize_semantic_assertions
+preview_assertions = _preview_assertions
+preview_concept_category_bindings = _preview_concept_category_bindings
+semantic_evaluation_result = _semantic_evaluation_result

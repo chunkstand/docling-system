@@ -12,7 +12,6 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.models import Document, DocumentRun, RunStatus
 from app.services.documents import (
-    _allowed_ingest_roots,
     _build_duplicate_response,
     _enforce_remote_document_run_backpressure,
     _is_pdf,
@@ -20,6 +19,7 @@ from app.services.documents import (
     _resolve_existing_document_upload,
     _to_run_summary,
     _validate_local_ingest_path,
+    allowed_ingest_roots,
     ingest_local_file,
     ingest_upload,
     reprocess_document,
@@ -309,7 +309,7 @@ def test_local_ingest_rejects_symlink(monkeypatch) -> None:
         target.write_bytes(b"%PDF-1.4")
         link = root / "link.pdf"
         link.symlink_to(target)
-        monkeypatch.setattr("app.services.documents._allowed_ingest_roots", lambda: [root])
+        monkeypatch.setattr("app.services.documents.allowed_ingest_roots", lambda: [root])
         try:
             _validate_local_ingest_path(link)
         except HTTPException as exc:
@@ -324,7 +324,7 @@ def test_local_ingest_rejects_path_outside_allowed_roots(monkeypatch) -> None:
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
         monkeypatch.setattr(
-            "app.services.documents._allowed_ingest_roots", lambda: [root / "other"]
+            "app.services.documents.allowed_ingest_roots", lambda: [root / "other"]
         )
         try:
             _validate_local_ingest_path(file_path)
@@ -340,7 +340,7 @@ def test_local_ingest_rejects_pdf_over_page_limit(monkeypatch) -> None:
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
         monkeypatch.setattr(
-            "app.services.documents._allowed_ingest_roots", lambda: [root.resolve()]
+            "app.services.documents.allowed_ingest_roots", lambda: [root.resolve()]
         )
         monkeypatch.setattr(
             "app.services.documents.get_settings",
@@ -365,7 +365,7 @@ def test_local_ingest_accepts_pdf_within_page_limit(monkeypatch) -> None:
         file_path = root / "doc.pdf"
         file_path.write_bytes(b"%PDF-1.4")
         monkeypatch.setattr(
-            "app.services.documents._allowed_ingest_roots", lambda: [root.resolve()]
+            "app.services.documents.allowed_ingest_roots", lambda: [root.resolve()]
         )
         monkeypatch.setattr(
             "app.services.documents.get_settings",
@@ -377,7 +377,7 @@ def test_local_ingest_accepts_pdf_within_page_limit(monkeypatch) -> None:
         assert _validate_local_ingest_path(file_path) == file_path.resolve()
 
 
-def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
+def testallowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
     fake_home = Path("/tmp/fake-home")
     fake_cwd = Path("/tmp/fake-cwd")
     monkeypatch.setattr(
@@ -387,7 +387,7 @@ def test_allowed_ingest_roots_include_downloads_by_default(monkeypatch) -> None:
     monkeypatch.setattr("app.core.config.Path.home", lambda: fake_home)
     monkeypatch.setattr("app.core.config.Path.cwd", lambda: fake_cwd)
 
-    roots = _allowed_ingest_roots()
+    roots = allowed_ingest_roots()
 
     assert roots == [
         fake_cwd.resolve(),

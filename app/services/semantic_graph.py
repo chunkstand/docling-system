@@ -19,7 +19,7 @@ from app.db.models import (
     SemanticReviewStatus,
     WorkspaceSemanticGraphState,
 )
-from app.services.semantic_candidates import _cosine_similarity, _embedding_vector, _tokenize
+from app.services.semantic_candidates import cosine_similarity, embedding_vector, tokenize
 from app.services.semantic_registry import (
     canonicalize_semantic_relation_endpoints,
     get_active_semantic_ontology_snapshot,
@@ -268,8 +268,8 @@ def _dependency_relation_pairs(
 
 
 def _token_jaccard(left: str, right: str) -> float:
-    left_tokens = set(_tokenize(left))
-    right_tokens = set(_tokenize(right))
+    left_tokens = set(tokenize(left))
+    right_tokens = set(tokenize(right))
     if not left_tokens or not right_tokens:
         return 0.0
     union = left_tokens | right_tokens
@@ -295,9 +295,9 @@ def _relation_score(
     object_ = nodes_by_key[edge_bucket.object_concept_key]
     label_similarity = max(
         _token_jaccard(subject.preferred_label, object_.preferred_label),
-        _cosine_similarity(
-            _embedding_vector(subject.preferred_label),
-            _embedding_vector(object_.preferred_label),
+        cosine_similarity(
+            embedding_vector(subject.preferred_label),
+            embedding_vector(object_.preferred_label),
         ),
     )
     return round(

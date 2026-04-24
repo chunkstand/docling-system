@@ -26,3 +26,15 @@ should not import them directly.
 worker launchers into the large implementation modules listed above. Add new
 externally reachable behavior to a capability facade first, then call the
 facade from the router or worker boundary.
+
+Service modules also avoid importing underscore-prefixed helpers from other
+service modules. When shared behavior crosses a module boundary, expose a public
+helper or move it to an explicitly shared module.
+
+## Agent Action Contracts
+
+Agent-task definitions are machine-checked contracts. Each registered action
+declares its owning capability, input model, output model/schema metadata,
+input example, side-effect level, approval requirement, and context-builder
+name. `tests/unit/test_agent_action_contracts.py` validates those contracts and
+checks that every named context builder is registered.

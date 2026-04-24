@@ -24,7 +24,7 @@ from app.schemas.chat import (
     ChatResponse,
 )
 from app.schemas.search import SearchFilters, SearchRequest, SearchResult
-from app.services.search import _is_tabular_query, execute_search
+from app.services.search import execute_search, is_tabular_query
 
 MAX_CONTEXT_EXCERPT_CHARS = 700
 FALLBACK_CITATION_COUNT = 3
@@ -346,7 +346,7 @@ def answer_question(
                 execution = retry_execution
                 citations = retry_citations
 
-    if citations and not _is_tabular_query(request.question) and _all_table_citations(citations):
+    if citations and not is_tabular_query(request.question) and _all_table_citations(citations):
         chunk_retry_request = SearchRequest(
             query=request.question,
             mode=request.mode,

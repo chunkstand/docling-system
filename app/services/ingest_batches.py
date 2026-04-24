@@ -20,7 +20,7 @@ from app.schemas.ingest_batches import (
     IngestBatchItemResponse,
     IngestBatchSummaryResponse,
 )
-from app.services.documents import _allowed_ingest_roots, ingest_local_file
+from app.services.documents import allowed_ingest_roots, ingest_local_file
 from app.services.storage import StorageService
 
 IN_FLIGHT_RUN_STATUSES = {
@@ -68,7 +68,7 @@ def _validate_local_ingest_directory(directory_path: Path) -> Path:
             "Directory not found.",
             directory_path=str(resolved_path),
         )
-    if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
+    if not any(resolved_path.is_relative_to(root) for root in allowed_ingest_roots()):
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
             "invalid_ingest_directory",

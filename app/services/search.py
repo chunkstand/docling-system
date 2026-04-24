@@ -960,6 +960,9 @@ def _is_tabular_query(query: str) -> bool:
     return False
 
 
+is_tabular_query = _is_tabular_query
+
+
 def _classify_query_intent(query: str) -> str:
     if _is_tabular_query(query):
         return QUERY_INTENT_TABULAR

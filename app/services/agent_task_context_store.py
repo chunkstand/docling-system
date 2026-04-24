@@ -359,3 +359,13 @@ def refresh_task_context_freshness(
     refreshed.refs = refreshed_refs
     refreshed.freshness_status = _derive_freshness_status(refreshed_refs)
     return refreshed
+
+
+payload_sha256 = _payload_sha256
+artifact_context_ref = _artifact_context_ref
+task_output_context_ref = _task_output_context_ref
+derive_freshness_status = _derive_freshness_status
+get_context_artifact_row = _get_context_artifact_row
+verification_payload = _verification_payload
+search_replay_run_payload = _search_replay_run_payload
+search_harness_evaluation_context_ref = _search_harness_evaluation_context_ref

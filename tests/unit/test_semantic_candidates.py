@@ -259,7 +259,7 @@ def test_evaluate_semantic_candidate_extractor_improves_expected_recall(monkeypa
         lambda _session, _document_id: semantic_pass,
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._build_semantic_sources",
+        "app.services.semantic_candidates.build_semantic_sources",
         lambda _session, _run_id: [
             SemanticSourceItem(
                 source_type="chunk",
@@ -300,11 +300,11 @@ def test_evaluate_semantic_candidate_extractor_improves_expected_recall(monkeypa
         ],
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._latest_concept_review_overlays",
+        "app.services.semantic_candidates.latest_concept_review_overlays",
         lambda *_args, **_kwargs: {},
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._latest_category_review_overlays",
+        "app.services.semantic_candidates.latest_category_review_overlays",
         lambda *_args, **_kwargs: {},
     )
 
@@ -327,7 +327,7 @@ def test_evaluate_semantic_candidate_extractor_improves_expected_recall(monkeypa
         )
 
     monkeypatch.setattr(
-        "app.services.semantic_candidates._semantic_evaluation_result",
+        "app.services.semantic_candidates.semantic_evaluation_result",
         _fake_semantic_eval,
     )
 
@@ -610,7 +610,7 @@ def test_evaluate_semantic_candidate_extractor_reports_role_specific_descriptors
         lambda _session, _document_id: semantic_pass,
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._build_semantic_sources",
+        "app.services.semantic_candidates.build_semantic_sources",
         lambda _session, _run_id: [
             SemanticSourceItem(
                 source_type="chunk",
@@ -636,15 +636,15 @@ def test_evaluate_semantic_candidate_extractor_reports_role_specific_descriptors
         ],
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._latest_concept_review_overlays",
+        "app.services.semantic_candidates.latest_concept_review_overlays",
         lambda *_args, **_kwargs: {},
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._latest_category_review_overlays",
+        "app.services.semantic_candidates.latest_category_review_overlays",
         lambda *_args, **_kwargs: {},
     )
     monkeypatch.setattr(
-        "app.services.semantic_candidates._semantic_evaluation_result",
+        "app.services.semantic_candidates.semantic_evaluation_result",
         lambda _document, assertions, _bindings: (
             "completed",
             "integration-shadow-fixture",

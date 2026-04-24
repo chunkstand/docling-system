@@ -59,15 +59,15 @@ from app.schemas.agent_tasks import (
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context_store import (
-    _artifact_context_ref,
-    _derive_freshness_status,
-    _get_context_artifact_row,
-    _payload_sha256,
-    _search_harness_evaluation_context_ref,
-    _search_replay_run_payload,
-    _task_output_context_ref,
-    _verification_payload,
+    artifact_context_ref,
+    derive_freshness_status,
+    get_context_artifact_row,
+    payload_sha256,
     refresh_task_context_freshness,
+    search_harness_evaluation_context_ref,
+    search_replay_run_payload,
+    task_output_context_ref,
+    verification_payload,
 )
 from app.services.agent_task_context_store import (
     get_agent_task_context as get_agent_task_context,
@@ -185,7 +185,7 @@ def resolve_required_task_output_context(
         )
     if task.status != "completed":
         raise _target_task_not_completed(task_id, task_status=task.status)
-    context_row = _get_context_artifact_row(session, task.id)
+    context_row = get_context_artifact_row(session, task.id)
     if context_row is None:
         raise _rerun_required(
             "agent_task_context_output_missing",
@@ -282,7 +282,7 @@ def _build_draft_harness_config_context(
             from app.services.agent_task_actions import get_agent_task_action
 
             source_action = get_agent_task_action(source_task.task_type)
-            source_context_row = _get_context_artifact_row(session, source_task.id)
+            source_context_row = get_context_artifact_row(session, source_task.id)
             if source_context_row is not None:
                 source_context = TaskContextEnvelope.model_validate(
                     source_context_row.payload_json or {}
@@ -298,7 +298,7 @@ def _build_draft_harness_config_context(
                     task_id=source_task.id,
                     schema_name=source_action.output_schema_name,
                     schema_version=source_action.output_schema_version,
-                    observed_sha256=_payload_sha256(observed_payload),
+                    observed_sha256=payload_sha256(observed_payload),
                     source_updated_at=source_task.updated_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -317,7 +317,7 @@ def _build_draft_harness_config_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -366,7 +366,7 @@ def _build_draft_harness_config_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -389,7 +389,7 @@ def _build_draft_semantic_registry_update_context(
         from app.services.agent_task_actions import get_agent_task_action
 
         source_action = get_agent_task_action(source_task.task_type)
-        source_context_row = _get_context_artifact_row(session, source_task.id)
+        source_context_row = get_context_artifact_row(session, source_task.id)
         observed_payload = (
             TaskContextEnvelope.model_validate(source_context_row.payload_json or {}).output
             if source_context_row is not None
@@ -403,7 +403,7 @@ def _build_draft_semantic_registry_update_context(
                 task_id=source_task.id,
                 schema_name=source_action.output_schema_name,
                 schema_version=source_action.output_schema_version,
-                observed_sha256=_payload_sha256(observed_payload),
+                observed_sha256=payload_sha256(observed_payload),
                 source_updated_at=source_task.updated_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -422,7 +422,7 @@ def _build_draft_semantic_registry_update_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -456,7 +456,7 @@ def _build_draft_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -474,7 +474,7 @@ def _build_evaluate_search_harness_context(
     now = utcnow()
     refs: list[ContextRef] = []
 
-    evaluation_ref = _search_harness_evaluation_context_ref(
+    evaluation_ref = search_harness_evaluation_context_ref(
         session,
         output.evaluation.evaluation_id,
         now=now,
@@ -494,7 +494,7 @@ def _build_evaluate_search_harness_context(
                         f"{output.baseline_harness_name}."
                     ),
                     replay_run_id=baseline_run.id,
-                    observed_sha256=_payload_sha256(_search_replay_run_payload(baseline_run)),
+                    observed_sha256=payload_sha256(search_replay_run_payload(baseline_run)),
                     source_updated_at=baseline_run.completed_at or baseline_run.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -511,7 +511,7 @@ def _build_evaluate_search_harness_context(
                         f"{output.candidate_harness_name}."
                     ),
                     replay_run_id=candidate_run.id,
-                    observed_sha256=_payload_sha256(_search_replay_run_payload(candidate_run)),
+                    observed_sha256=payload_sha256(search_replay_run_payload(candidate_run)),
                     source_updated_at=candidate_run.completed_at or candidate_run.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -547,7 +547,7 @@ def _build_evaluate_search_harness_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -627,7 +627,7 @@ def _build_initialize_workspace_ontology_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -661,7 +661,7 @@ def _build_initialize_workspace_ontology_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -793,7 +793,7 @@ def _build_draft_ontology_extension_context(
                 task_id=source_context.task_id,
                 schema_name=source_context.output_schema_name,
                 schema_version=source_context.output_schema_version,
-                observed_sha256=_payload_sha256(source_context.output),
+                observed_sha256=payload_sha256(source_context.output),
                 source_updated_at=source_context.task_updated_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -812,7 +812,7 @@ def _build_draft_ontology_extension_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -848,7 +848,7 @@ def _build_draft_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -891,7 +891,7 @@ def _build_verify_draft_ontology_extension_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -907,7 +907,7 @@ def _build_verify_draft_ontology_extension_context(
                 summary="Verifier record persisted for the ontology extension verification gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -926,7 +926,7 @@ def _build_verify_draft_ontology_extension_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -966,7 +966,7 @@ def _build_verify_draft_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1008,7 +1008,7 @@ def _build_apply_ontology_extension_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1039,7 +1039,7 @@ def _build_apply_ontology_extension_context(
             task_id=verification_context.task_id,
             schema_name=verification_context.output_schema_name,
             schema_version=verification_context.output_schema_version,
-            observed_sha256=_payload_sha256(verification_context.output),
+            observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1058,7 +1058,7 @@ def _build_apply_ontology_extension_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1093,7 +1093,7 @@ def _build_apply_ontology_extension_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1123,7 +1123,7 @@ def _build_build_document_fact_graph_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1157,7 +1157,7 @@ def _build_build_document_fact_graph_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1189,7 +1189,7 @@ def _build_build_shadow_semantic_graph_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1228,7 +1228,7 @@ def _build_build_shadow_semantic_graph_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1258,7 +1258,7 @@ def _build_evaluate_semantic_relation_extractor_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1302,7 +1302,7 @@ def _build_evaluate_semantic_relation_extractor_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1344,7 +1344,7 @@ def _build_triage_semantic_graph_disagreements_context(
             task_id=evaluation_context.task_id,
             schema_name=evaluation_context.output_schema_name,
             schema_version=evaluation_context.output_schema_version,
-            observed_sha256=_payload_sha256(evaluation_context.output),
+            observed_sha256=payload_sha256(evaluation_context.output),
             source_updated_at=evaluation_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1360,7 +1360,7 @@ def _build_triage_semantic_graph_disagreements_context(
                 summary="Verifier record for the bounded shadow-graph disagreement gate.",
                 task_id=task.id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1379,7 +1379,7 @@ def _build_triage_semantic_graph_disagreements_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1417,7 +1417,7 @@ def _build_triage_semantic_graph_disagreements_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1462,7 +1462,7 @@ def _build_draft_graph_promotions_context(
             task_id=source_context.task_id,
             schema_name=source_context.output_schema_name,
             schema_version=source_context.output_schema_version,
-            observed_sha256=_payload_sha256(source_context.output),
+            observed_sha256=payload_sha256(source_context.output),
             source_updated_at=source_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1481,7 +1481,7 @@ def _build_draft_graph_promotions_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1515,7 +1515,7 @@ def _build_draft_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1557,7 +1557,7 @@ def _build_verify_draft_graph_promotions_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1573,7 +1573,7 @@ def _build_verify_draft_graph_promotions_context(
                 summary="Verifier record for the semantic graph promotion gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1592,7 +1592,7 @@ def _build_verify_draft_graph_promotions_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1635,7 +1635,7 @@ def _build_verify_draft_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1677,7 +1677,7 @@ def _build_apply_graph_promotions_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1709,7 +1709,7 @@ def _build_apply_graph_promotions_context(
             task_id=verification_context.task_id,
             schema_name=verification_context.output_schema_name,
             schema_version=verification_context.output_schema_version,
-            observed_sha256=_payload_sha256(verification_context.output),
+            observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -1728,7 +1728,7 @@ def _build_apply_graph_promotions_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1766,7 +1766,7 @@ def _build_apply_graph_promotions_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1796,7 +1796,7 @@ def _build_discover_semantic_bootstrap_candidates_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1841,7 +1841,7 @@ def _build_discover_semantic_bootstrap_candidates_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1871,7 +1871,7 @@ def _build_export_semantic_supervision_corpus_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1913,7 +1913,7 @@ def _build_export_semantic_supervision_corpus_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -1943,7 +1943,7 @@ def _build_evaluate_semantic_candidate_extractor_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -1982,7 +1982,7 @@ def _build_evaluate_semantic_candidate_extractor_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2029,7 +2029,7 @@ def _build_prepare_semantic_generation_brief_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2044,7 +2044,7 @@ def _build_prepare_semantic_generation_brief_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2085,7 +2085,7 @@ def _build_draft_semantic_grounded_document_context(
             task_id=brief_context.task_id,
             schema_name=brief_context.output_schema_name,
             schema_version=brief_context.output_schema_version,
-            observed_sha256=_payload_sha256(brief_context.output),
+            observed_sha256=payload_sha256(brief_context.output),
             source_updated_at=brief_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -2104,7 +2104,7 @@ def _build_draft_semantic_grounded_document_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2141,7 +2141,7 @@ def _build_draft_semantic_grounded_document_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2180,7 +2180,7 @@ def _build_verify_draft_harness_config_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -2208,7 +2208,7 @@ def _build_verify_draft_harness_config_context(
         )
         break
 
-    evaluation_ref = _search_harness_evaluation_context_ref(
+    evaluation_ref = search_harness_evaluation_context_ref(
         session,
         output.evaluation.get("evaluation_id"),
         now=now,
@@ -2225,7 +2225,7 @@ def _build_verify_draft_harness_config_context(
                 summary="Verifier record persisted for the draft review gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2294,7 +2294,7 @@ def _build_verify_draft_harness_config_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2336,7 +2336,7 @@ def _build_verify_draft_semantic_registry_update_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -2352,7 +2352,7 @@ def _build_verify_draft_semantic_registry_update_context(
                 summary="Verifier record persisted for the semantic registry draft gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2371,7 +2371,7 @@ def _build_verify_draft_semantic_registry_update_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2408,7 +2408,7 @@ def _build_verify_draft_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2451,13 +2451,13 @@ def _build_verify_search_harness_evaluation_context(
             task_id=target_context.task_id,
             schema_name=target_context.output_schema_name,
             schema_version=target_context.output_schema_version,
-            observed_sha256=_payload_sha256(target_context.output),
+            observed_sha256=payload_sha256(target_context.output),
             source_updated_at=target_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
         )
     )
-    evaluation_ref = _search_harness_evaluation_context_ref(
+    evaluation_ref = search_harness_evaluation_context_ref(
         session,
         output.evaluation.evaluation_id,
         now=now,
@@ -2474,7 +2474,7 @@ def _build_verify_search_harness_evaluation_context(
                 summary="Verifier record persisted for the evaluation rollout gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2517,7 +2517,7 @@ def _build_verify_search_harness_evaluation_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2559,7 +2559,7 @@ def _build_verify_semantic_grounded_document_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -2575,7 +2575,7 @@ def _build_verify_semantic_grounded_document_context(
                 summary="Verifier record persisted for the semantic grounded-document gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2594,7 +2594,7 @@ def _build_verify_semantic_grounded_document_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -2636,7 +2636,7 @@ def _build_verify_semantic_grounded_document_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2653,7 +2653,7 @@ def _build_plan_technical_report_context(
     output = PlanTechnicalReportTaskOutput.model_validate(payload)
     now = utcnow()
     refs: list[ContextRef] = []
-    artifact_ref = _artifact_context_ref(
+    artifact_ref = artifact_context_ref(
         session,
         task=task,
         artifact_id=output.artifact_id,
@@ -2689,7 +2689,7 @@ def _build_plan_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2722,14 +2722,14 @@ def _build_build_report_evidence_cards_context(
         ),
     )
     refs: list[ContextRef] = [
-        _task_output_context_ref(
+        task_output_context_ref(
             ref_key="plan_task_output",
             summary="Typed technical report plan consumed by this evidence-card task.",
             context=plan_context,
             now=now,
         )
     ]
-    artifact_ref = _artifact_context_ref(
+    artifact_ref = artifact_context_ref(
         session,
         task=task,
         artifact_id=output.artifact_id,
@@ -2765,7 +2765,7 @@ def _build_build_report_evidence_cards_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2800,14 +2800,14 @@ def _build_prepare_report_agent_harness_context(
         ),
     )
     refs: list[ContextRef] = [
-        _task_output_context_ref(
+        task_output_context_ref(
             ref_key="evidence_cards_task_output",
             summary="Typed evidence-card bundle consumed by this report harness.",
             context=evidence_context,
             now=now,
         )
     ]
-    artifact_ref = _artifact_context_ref(
+    artifact_ref = artifact_context_ref(
         session,
         task=task,
         artifact_id=output.artifact_id,
@@ -2846,7 +2846,7 @@ def _build_prepare_report_agent_harness_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2879,14 +2879,14 @@ def _build_draft_technical_report_context(
         ),
     )
     refs: list[ContextRef] = [
-        _task_output_context_ref(
+        task_output_context_ref(
             ref_key="report_agent_harness_task_output",
             summary="Typed report wake-up harness consumed by this draft task.",
             context=harness_context,
             now=now,
         )
     ]
-    artifact_ref = _artifact_context_ref(
+    artifact_ref = artifact_context_ref(
         session,
         task=task,
         artifact_id=output.artifact_id,
@@ -2923,7 +2923,7 @@ def _build_draft_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -2956,7 +2956,7 @@ def _build_verify_technical_report_context(
         ),
     )
     refs: list[ContextRef] = [
-        _task_output_context_ref(
+        task_output_context_ref(
             ref_key="technical_report_draft_task_output",
             summary="Typed technical report draft consumed by this verification task.",
             context=draft_context,
@@ -2972,13 +2972,13 @@ def _build_verify_technical_report_context(
                 summary="Verifier record persisted for the technical report gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
             )
         )
-    artifact_ref = _artifact_context_ref(
+    artifact_ref = artifact_context_ref(
         session,
         task=task,
         artifact_id=output.artifact_id,
@@ -3023,7 +3023,7 @@ def _build_verify_technical_report_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3065,7 +3065,7 @@ def _build_triage_semantic_pass_context(
             task_id=target_context.task_id,
             schema_name=target_context.output_schema_name,
             schema_version=target_context.output_schema_version,
-            observed_sha256=_payload_sha256(target_context.output),
+            observed_sha256=payload_sha256(target_context.output),
             source_updated_at=target_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3081,7 +3081,7 @@ def _build_triage_semantic_pass_context(
                 summary="Verifier record persisted for the semantic gap gate.",
                 task_id=output.verification.target_task_id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3102,7 +3102,7 @@ def _build_triage_semantic_pass_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3141,7 +3141,7 @@ def _build_triage_semantic_pass_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3185,7 +3185,7 @@ def _build_triage_semantic_candidate_disagreements_context(
             task_id=target_context.task_id,
             schema_name=target_context.output_schema_name,
             schema_version=target_context.output_schema_version,
-            observed_sha256=_payload_sha256(target_context.output),
+            observed_sha256=payload_sha256(target_context.output),
             source_updated_at=target_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3201,7 +3201,7 @@ def _build_triage_semantic_candidate_disagreements_context(
                 summary="Verifier record persisted for the shadow semantic disagreement gate.",
                 task_id=task.id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3220,7 +3220,7 @@ def _build_triage_semantic_candidate_disagreements_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3257,7 +3257,7 @@ def _build_triage_semantic_candidate_disagreements_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3298,7 +3298,7 @@ def _build_apply_semantic_registry_update_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3331,7 +3331,7 @@ def _build_apply_semantic_registry_update_context(
             task_id=verification_context.task_id,
             schema_name=verification_context.output_schema_name,
             schema_version=verification_context.output_schema_version,
-            observed_sha256=_payload_sha256(verification_context.output),
+            observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3350,7 +3350,7 @@ def _build_apply_semantic_registry_update_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3385,7 +3385,7 @@ def _build_apply_semantic_registry_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3403,7 +3403,7 @@ def _build_triage_replay_regression_context(
     now = utcnow()
     refs: list[ContextRef] = []
 
-    evaluation_ref = _search_harness_evaluation_context_ref(
+    evaluation_ref = search_harness_evaluation_context_ref(
         session,
         output.evaluation.evaluation_id,
         now=now,
@@ -3420,7 +3420,7 @@ def _build_triage_replay_regression_context(
                     ref_kind="replay_run",
                     summary=(f"Baseline replay run for {source.source_type} used by triage."),
                     replay_run_id=baseline_run.id,
-                    observed_sha256=_payload_sha256(_search_replay_run_payload(baseline_run)),
+                    observed_sha256=payload_sha256(search_replay_run_payload(baseline_run)),
                     source_updated_at=baseline_run.completed_at or baseline_run.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -3434,7 +3434,7 @@ def _build_triage_replay_regression_context(
                     ref_kind="replay_run",
                     summary=(f"Candidate replay run for {source.source_type} used by triage."),
                     replay_run_id=candidate_run.id,
-                    observed_sha256=_payload_sha256(_search_replay_run_payload(candidate_run)),
+                    observed_sha256=payload_sha256(search_replay_run_payload(candidate_run)),
                     source_updated_at=candidate_run.completed_at or candidate_run.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -3450,7 +3450,7 @@ def _build_triage_replay_regression_context(
                 summary="Verifier record captured for the shadow-mode triage gate.",
                 task_id=task.id,
                 verification_id=verification_row.id,
-                observed_sha256=_payload_sha256(_verification_payload(verification_row)),
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
                 source_updated_at=verification_row.completed_at or verification_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3469,7 +3469,7 @@ def _build_triage_replay_regression_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3491,7 +3491,7 @@ def _build_triage_replay_regression_context(
                     artifact_kind=repair_case_artifact_row.artifact_kind,
                     schema_name="search_harness_repair_case",
                     schema_version="1.0",
-                    observed_sha256=_payload_sha256(repair_case_artifact_row.payload_json or {}),
+                    observed_sha256=payload_sha256(repair_case_artifact_row.payload_json or {}),
                     source_updated_at=repair_case_artifact_row.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -3542,7 +3542,7 @@ def _build_triage_replay_regression_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3586,7 +3586,7 @@ def _build_apply_harness_config_update_context(
             task_id=draft_context.task_id,
             schema_name=draft_context.output_schema_name,
             schema_version=draft_context.output_schema_version,
-            observed_sha256=_payload_sha256(draft_context.output),
+            observed_sha256=payload_sha256(draft_context.output),
             source_updated_at=draft_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3617,7 +3617,7 @@ def _build_apply_harness_config_update_context(
             task_id=verification_context.task_id,
             schema_name=verification_context.output_schema_name,
             schema_version=verification_context.output_schema_version,
-            observed_sha256=_payload_sha256(verification_context.output),
+            observed_sha256=payload_sha256(verification_context.output),
             source_updated_at=verification_context.task_updated_at,
             checked_at=now,
             freshness_status=ContextFreshnessStatus.FRESH,
@@ -3636,7 +3636,7 @@ def _build_apply_harness_config_update_context(
                 artifact_kind=artifact_row.artifact_kind,
                 schema_name=action.output_schema_name,
                 schema_version=action.output_schema_version,
-                observed_sha256=_payload_sha256(artifact_row.payload_json or {}),
+                observed_sha256=payload_sha256(artifact_row.payload_json or {}),
                 source_updated_at=artifact_row.created_at,
                 checked_at=now,
                 freshness_status=ContextFreshnessStatus.FRESH,
@@ -3656,7 +3656,7 @@ def _build_apply_harness_config_update_context(
                     artifact_kind=follow_up_artifact_row.artifact_kind,
                     schema_name="search_harness_follow_up_evidence",
                     schema_version="1.0",
-                    observed_sha256=_payload_sha256(follow_up_artifact_row.payload_json or {}),
+                    observed_sha256=payload_sha256(follow_up_artifact_row.payload_json or {}),
                     source_updated_at=follow_up_artifact_row.created_at,
                     checked_at=now,
                     freshness_status=ContextFreshnessStatus.FRESH,
@@ -3726,7 +3726,7 @@ def _build_apply_harness_config_update_context(
         task_updated_at=task.updated_at,
         output_schema_name=action.output_schema_name,
         output_schema_version=action.output_schema_version,
-        freshness_status=_derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
         summary=summary,
         refs=refs,
         output=output.model_dump(mode="json"),
@@ -3761,6 +3761,62 @@ def _build_generic_task_context(
     )
 
 
+_CONTEXT_BUILDERS = {
+    "generic": _build_generic_task_context,
+    "latest_semantic_pass": _build_latest_semantic_pass_context,
+    "initialize_workspace_ontology": _build_initialize_workspace_ontology_context,
+    "get_active_ontology_snapshot": _build_get_active_ontology_snapshot_context,
+    "discover_semantic_bootstrap_candidates": _build_discover_semantic_bootstrap_candidates_context,
+    "export_semantic_supervision_corpus": _build_export_semantic_supervision_corpus_context,
+    "evaluate_semantic_candidate_extractor": _build_evaluate_semantic_candidate_extractor_context,
+    "build_shadow_semantic_graph": _build_build_shadow_semantic_graph_context,
+    "evaluate_semantic_relation_extractor": _build_evaluate_semantic_relation_extractor_context,
+    "plan_technical_report": _build_plan_technical_report_context,
+    "build_report_evidence_cards": _build_build_report_evidence_cards_context,
+    "prepare_report_agent_harness": _build_prepare_report_agent_harness_context,
+    "draft_technical_report": _build_draft_technical_report_context,
+    "verify_technical_report": _build_verify_technical_report_context,
+    "prepare_semantic_generation_brief": _build_prepare_semantic_generation_brief_context,
+    "draft_harness_config": _build_draft_harness_config_context,
+    "evaluate_search_harness": _build_evaluate_search_harness_context,
+    "verify_search_harness_evaluation": _build_verify_search_harness_evaluation_context,
+    "draft_semantic_registry_update": _build_draft_semantic_registry_update_context,
+    "draft_ontology_extension": _build_draft_ontology_extension_context,
+    "draft_graph_promotions": _build_draft_graph_promotions_context,
+    "verify_draft_harness_config": _build_verify_draft_harness_config_context,
+    "verify_draft_semantic_registry_update": _build_verify_draft_semantic_registry_update_context,
+    "verify_draft_ontology_extension": _build_verify_draft_ontology_extension_context,
+    "verify_draft_graph_promotions": _build_verify_draft_graph_promotions_context,
+    "draft_semantic_grounded_document": _build_draft_semantic_grounded_document_context,
+    "verify_semantic_grounded_document": _build_verify_semantic_grounded_document_context,
+    "triage_replay_regression": _build_triage_replay_regression_context,
+    "triage_semantic_pass": _build_triage_semantic_pass_context,
+    "triage_semantic_candidate_disagreements": (
+        _build_triage_semantic_candidate_disagreements_context
+    ),
+    "triage_semantic_graph_disagreements": _build_triage_semantic_graph_disagreements_context,
+    "apply_harness_config_update": _build_apply_harness_config_update_context,
+    "apply_semantic_registry_update": _build_apply_semantic_registry_update_context,
+    "apply_ontology_extension": _build_apply_ontology_extension_context,
+    "apply_graph_promotions": _build_apply_graph_promotions_context,
+    "build_document_fact_graph": _build_build_document_fact_graph_context,
+}
+
+
+def get_agent_task_context_builder(name: str | None):
+    builder_name = name or "generic"
+    try:
+        return _CONTEXT_BUILDERS[builder_name]
+    except KeyError as exc:
+        available = ", ".join(sorted(_CONTEXT_BUILDERS))
+        msg = f"Unknown agent task context builder '{builder_name}'. Available: {available}"
+        raise ValueError(msg) from exc
+
+
+def list_agent_task_context_builder_names() -> set[str]:
+    return set(_CONTEXT_BUILDERS)
+
+
 def build_agent_task_context(
     session: Session,
     task: AgentTask,
@@ -3773,7 +3829,7 @@ def build_agent_task_context(
         return None
 
     payload = (result or {}).get("payload") or {}
-    builder = action.context_builder or _build_generic_task_context
+    builder = get_agent_task_context_builder(action.context_builder_name)
     return builder(session, task, payload, action=action)
 
 

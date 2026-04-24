@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.core.text import collapse_whitespace
 from app.db.models import Document
-from app.services.semantic_candidates import _tokenize, _unique_document_ids
+from app.services.semantic_candidates import tokenize, unique_document_ids
 from app.services.semantic_registry import get_semantic_registry
-from app.services.semantics import _build_semantic_sources, _source_artifact_api_path
+from app.services.semantics import build_semantic_sources, source_artifact_api_path
 
 BOOTSTRAP_STOPWORDS = frozenset(
     {
@@ -67,7 +67,7 @@ def _load_target_documents(
     document_ids: list[UUID],
 ) -> list[Document]:
     documents: list[Document] = []
-    for document_id in _unique_document_ids(document_ids):
+    for document_id in unique_document_ids(document_ids):
         document = session.get(Document, document_id)
         if document is None:
             raise ValueError(f"Document not found: {document_id}")
@@ -128,7 +128,7 @@ def _source_phrase_candidates(
     max_phrase_tokens: int,
     excluded_terms: set[str],
 ) -> list[tuple[str, tuple[str, ...]]]:
-    tokens = _tokenize(normalized_text)
+    tokens = tokenize(normalized_text)
     if not tokens:
         return []
     rows: list[tuple[str, tuple[str, ...]]] = []
@@ -281,7 +281,7 @@ def discover_semantic_bootstrap_candidates(
     for document in documents:
         run_id = document.active_run_id
         assert run_id is not None
-        sources = _build_semantic_sources(session, run_id)
+        sources = build_semantic_sources(session, run_id)
         total_source_count += len(sources)
         for source in sources:
             for normalized_phrase, phrase_tokens in _source_phrase_candidates(
@@ -317,7 +317,7 @@ def discover_semantic_bootstrap_candidates(
                             "page_from": source.page_from,
                             "page_to": source.page_to,
                             "excerpt": source.excerpt,
-                            "source_artifact_api_path": _source_artifact_api_path(
+                            "source_artifact_api_path": source_artifact_api_path(
                                 document.id,
                                 source_type=source.source_type,
                                 table_id=source.table_id,

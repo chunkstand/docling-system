@@ -162,11 +162,11 @@ def test_queue_local_directory_ingest_creates_durable_batch_and_tracks_run_progr
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
-        "app.services.ingest_batches._allowed_ingest_roots",
+        "app.services.ingest_batches.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents._allowed_ingest_roots",
+        "app.services.documents.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
@@ -226,11 +226,11 @@ def test_queue_local_directory_ingest_reports_completed_with_errors_when_runs_fa
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
-        "app.services.ingest_batches._allowed_ingest_roots",
+        "app.services.ingest_batches.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents._allowed_ingest_roots",
+        "app.services.documents.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
@@ -274,11 +274,11 @@ def test_queue_local_directory_ingest_resolves_failed_item_after_successful_repr
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
-        "app.services.ingest_batches._allowed_ingest_roots",
+        "app.services.ingest_batches.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
-        "app.services.documents._allowed_ingest_roots",
+        "app.services.documents.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(
@@ -327,7 +327,7 @@ def test_queue_local_directory_ingest_marks_batch_failed_when_directory_scan_err
 
     allowed_root = root.resolve()
     monkeypatch.setattr(
-        "app.services.ingest_batches._allowed_ingest_roots",
+        "app.services.ingest_batches.allowed_ingest_roots",
         lambda: [allowed_root],
     )
     monkeypatch.setattr(

@@ -94,3 +94,18 @@ def test_api_and_worker_boundaries_use_capability_interfaces_for_core_domains() 
                 if target in FORBIDDEN_BOUNDARY_SERVICE_IMPORTS:
                     violations.append((str(path.relative_to(ROOT)), target))
     assert violations == []
+
+
+def test_service_modules_do_not_import_private_symbols_from_other_service_modules() -> None:
+    violations: list[tuple[str, str, str]] = []
+    for path in sorted(SERVICES_DIR.rglob("*.py")):
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ImportFrom):
+                continue
+            if node.module is None or not node.module.startswith("app.services"):
+                continue
+            for alias in node.names:
+                if alias.name.startswith("_"):
+                    violations.append((str(path.relative_to(ROOT)), node.module, alias.name))
+    assert violations == []

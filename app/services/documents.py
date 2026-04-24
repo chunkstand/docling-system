@@ -59,7 +59,7 @@ def _is_pdf(upload: UploadFile) -> bool:
     return upload.content_type in PDF_MIME_TYPES or filename.lower().endswith(".pdf")
 
 
-def _allowed_ingest_roots() -> list[Path]:
+def allowed_ingest_roots() -> list[Path]:
     settings = get_settings()
     if settings.local_ingest_allowed_roots:
         return [
@@ -118,7 +118,7 @@ def _validate_local_ingest_path(file_path: Path, *, enforce_limits: bool = True)
         )
     if resolved_path.suffix.lower() != ".pdf":
         raise api_error(status.HTTP_400_BAD_REQUEST, "invalid_pdf", "Only PDF files are supported.")
-    if not any(resolved_path.is_relative_to(root) for root in _allowed_ingest_roots()):
+    if not any(resolved_path.is_relative_to(root) for root in allowed_ingest_roots()):
         raise api_error(
             status.HTTP_400_BAD_REQUEST,
             "local_ingest_path_not_allowed",

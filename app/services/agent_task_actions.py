@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any
-
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -103,44 +99,14 @@ from app.schemas.search import (
     SearchHarnessOptimizationRequest,
     SearchReplayRunRequest,
 )
+from app.services.agent_actions.manifest import (
+    AgentActionContractIssue,
+    build_agent_action_manifest,
+    validate_agent_action_contracts,
+)
+from app.services.agent_actions.types import AgentTaskActionDefinition
 from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.agent_task_context import (
-    _build_apply_graph_promotions_context,
-    _build_apply_harness_config_update_context,
-    _build_apply_ontology_extension_context,
-    _build_apply_semantic_registry_update_context,
-    _build_build_document_fact_graph_context,
-    _build_build_report_evidence_cards_context,
-    _build_build_shadow_semantic_graph_context,
-    _build_discover_semantic_bootstrap_candidates_context,
-    _build_draft_graph_promotions_context,
-    _build_draft_harness_config_context,
-    _build_draft_ontology_extension_context,
-    _build_draft_semantic_grounded_document_context,
-    _build_draft_semantic_registry_update_context,
-    _build_draft_technical_report_context,
-    _build_evaluate_search_harness_context,
-    _build_evaluate_semantic_candidate_extractor_context,
-    _build_evaluate_semantic_relation_extractor_context,
-    _build_export_semantic_supervision_corpus_context,
-    _build_generic_task_context,
-    _build_get_active_ontology_snapshot_context,
-    _build_initialize_workspace_ontology_context,
-    _build_latest_semantic_pass_context,
-    _build_plan_technical_report_context,
-    _build_prepare_report_agent_harness_context,
-    _build_prepare_semantic_generation_brief_context,
-    _build_triage_replay_regression_context,
-    _build_triage_semantic_candidate_disagreements_context,
-    _build_triage_semantic_graph_disagreements_context,
-    _build_triage_semantic_pass_context,
-    _build_verify_draft_graph_promotions_context,
-    _build_verify_draft_harness_config_context,
-    _build_verify_draft_ontology_extension_context,
-    _build_verify_draft_semantic_registry_update_context,
-    _build_verify_search_harness_evaluation_context,
-    _build_verify_semantic_grounded_document_context,
-    _build_verify_technical_report_context,
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
 )
@@ -221,22 +187,6 @@ from app.services.technical_reports import (
 )
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
-
-
-@dataclass(frozen=True)
-class AgentTaskActionDefinition:
-    task_type: str
-    definition_kind: str
-    description: str
-    payload_model: type[BaseModel]
-    executor: Callable[[Session, AgentTask, BaseModel], dict]
-    side_effect_level: str = AgentTaskSideEffectLevel.READ_ONLY.value
-    requires_approval: bool = False
-    output_model: type[BaseModel] | None = None
-    output_schema_name: str | None = None
-    output_schema_version: str | None = None
-    input_example: dict[str, Any] | None = None
-    context_builder: Callable[..., object] | None = None
 
 
 def _latest_evaluation_executor(
@@ -2585,6 +2535,7 @@ def _triage_replay_regression_executor(
 _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
     "get_latest_evaluation": AgentTaskActionDefinition(
         task_type="get_latest_evaluation",
+        capability="evaluation",
         definition_kind="action",
         description="Fetch the latest persisted evaluation detail for one document.",
         payload_model=LatestEvaluationTaskInput,
@@ -2593,10 +2544,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="get_latest_evaluation_output",
         output_schema_version="1.0",
         input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "get_latest_semantic_pass": AgentTaskActionDefinition(
         task_type="get_latest_semantic_pass",
+        capability="semantic_memory",
         definition_kind="action",
         description="Fetch the latest active semantic pass for one document.",
         payload_model=LatestSemanticPassTaskInput,
@@ -2605,10 +2557,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="get_latest_semantic_pass_output",
         output_schema_version="1.0",
         input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_latest_semantic_pass_context,
+        context_builder_name="latest_semantic_pass",
     ),
     "initialize_workspace_ontology": AgentTaskActionDefinition(
         task_type="initialize_workspace_ontology",
+        capability="semantic_memory",
         definition_kind="workflow",
         description="Initialize the workspace ontology from the configured upper ontology seed.",
         payload_model=InitializeWorkspaceOntologyTaskInput,
@@ -2617,10 +2570,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="initialize_workspace_ontology_output",
         output_schema_version="1.0",
         input_example={},
-        context_builder=_build_initialize_workspace_ontology_context,
+        context_builder_name="initialize_workspace_ontology",
     ),
     "get_active_ontology_snapshot": AgentTaskActionDefinition(
         task_type="get_active_ontology_snapshot",
+        capability="semantic_memory",
         definition_kind="action",
         description="Fetch the active workspace ontology snapshot.",
         payload_model=GetActiveOntologySnapshotTaskInput,
@@ -2629,10 +2583,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="get_active_ontology_snapshot_output",
         output_schema_version="1.0",
         input_example={},
-        context_builder=_build_get_active_ontology_snapshot_context,
+        context_builder_name="get_active_ontology_snapshot",
     ),
     "discover_semantic_bootstrap_candidates": AgentTaskActionDefinition(
         task_type="discover_semantic_bootstrap_candidates",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Discover provisional semantic concept candidates directly from active "
@@ -2652,10 +2607,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_phrase_tokens": 4,
             "exclude_existing_registry_terms": True,
         },
-        context_builder=_build_discover_semantic_bootstrap_candidates_context,
+        context_builder_name="discover_semantic_bootstrap_candidates",
     ),
     "export_semantic_supervision_corpus": AgentTaskActionDefinition(
         task_type="export_semantic_supervision_corpus",
+        capability="semantic_memory",
         definition_kind="action",
         description=(
             "Export reviewed semantic, evaluation, continuity, and grounded-verification "
@@ -2671,10 +2627,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "reviewed_only": True,
             "include_generation_verifications": True,
         },
-        context_builder=_build_export_semantic_supervision_corpus_context,
+        context_builder_name="export_semantic_supervision_corpus",
     ),
     "evaluate_semantic_candidate_extractor": AgentTaskActionDefinition(
         task_type="evaluate_semantic_candidate_extractor",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Evaluate a shadow semantic candidate extractor against the lexical baseline "
@@ -2692,10 +2649,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_candidates_per_source": 3,
             "score_threshold": 0.34,
         },
-        context_builder=_build_evaluate_semantic_candidate_extractor_context,
+        context_builder_name="evaluate_semantic_candidate_extractor",
     ),
     "build_shadow_semantic_graph": AgentTaskActionDefinition(
         task_type="build_shadow_semantic_graph",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Build a shadow cross-document semantic graph memory artifact without "
@@ -2713,10 +2671,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_shared_documents": 2,
             "score_threshold": 0.45,
         },
-        context_builder=_build_build_shadow_semantic_graph_context,
+        context_builder_name="build_shadow_semantic_graph",
     ),
     "evaluate_semantic_relation_extractor": AgentTaskActionDefinition(
         task_type="evaluate_semantic_relation_extractor",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Evaluate a shadow semantic relation extractor against a deterministic graph baseline."
@@ -2735,10 +2694,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "candidate_score_threshold": 0.45,
             "expected_min_shared_documents": 1,
         },
-        context_builder=_build_evaluate_semantic_relation_extractor_context,
+        context_builder_name="evaluate_semantic_relation_extractor",
     ),
     "plan_technical_report": AgentTaskActionDefinition(
         task_type="plan_technical_report",
+        capability="technical_reports",
         definition_kind="workflow",
         description=(
             "Plan a technical report from semantic evidence, graph memory, "
@@ -2757,10 +2717,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "target_length": "medium",
             "review_policy": "allow_candidate_with_disclosure",
         },
-        context_builder=_build_plan_technical_report_context,
+        context_builder_name="plan_technical_report",
     ),
     "build_report_evidence_cards": AgentTaskActionDefinition(
         task_type="build_report_evidence_cards",
+        capability="technical_reports",
         definition_kind="workflow",
         description="Bind a technical report plan to typed evidence cards and graph refs.",
         payload_model=BuildReportEvidenceCardsTaskInput,
@@ -2769,10 +2730,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="build_report_evidence_cards_output",
         output_schema_version="1.0",
         input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_build_report_evidence_cards_context,
+        context_builder_name="build_report_evidence_cards",
     ),
     "prepare_report_agent_harness": AgentTaskActionDefinition(
         task_type="prepare_report_agent_harness",
+        capability="technical_reports",
         definition_kind="workflow",
         description=(
             "Package the LLM wake-up context with tools, skills, evidence cards, "
@@ -2784,10 +2746,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="prepare_report_agent_harness_output",
         output_schema_version="1.0",
         input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_prepare_report_agent_harness_context,
+        context_builder_name="prepare_report_agent_harness",
     ),
     "draft_technical_report": AgentTaskActionDefinition(
         task_type="draft_technical_report",
+        capability="technical_reports",
         definition_kind="draft",
         description="Draft a verification-ready technical report from a report agent harness.",
         payload_model=DraftTechnicalReportTaskInput,
@@ -2800,10 +2763,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "target_task_id": "00000000-0000-0000-0000-000000000000",
             "generator_mode": "structured_fallback",
         },
-        context_builder=_build_draft_technical_report_context,
+        context_builder_name="draft_technical_report",
     ),
     "verify_technical_report": AgentTaskActionDefinition(
         task_type="verify_technical_report",
+        capability="technical_reports",
         definition_kind="verifier",
         description=(
             "Verify technical report claim traceability, graph approval, citations, "
@@ -2822,10 +2786,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "require_graph_edges_approved": True,
             "block_stale_context": False,
         },
-        context_builder=_build_verify_technical_report_context,
+        context_builder_name="verify_technical_report",
     ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Build a typed semantic generation brief and dossier for knowledge-brief drafting."
@@ -2847,10 +2812,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "candidate_score_threshold": 0.34,
             "max_shadow_candidates": 8,
         },
-        context_builder=_build_prepare_semantic_generation_brief_context,
+        context_builder_name="prepare_semantic_generation_brief",
     ),
     "list_quality_eval_candidates": AgentTaskActionDefinition(
         task_type="list_quality_eval_candidates",
+        capability="evaluation",
         definition_kind="action",
         description="List mined evaluation candidates from failed evals and live search gaps.",
         payload_model=QualityEvalCandidatesTaskInput,
@@ -2859,10 +2825,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="list_quality_eval_candidates_output",
         output_schema_version="1.0",
         input_example={"limit": 12, "include_resolved": False},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "refresh_eval_failure_cases": AgentTaskActionDefinition(
         task_type="refresh_eval_failure_cases",
+        capability="evaluation",
         definition_kind="action",
         description="Upsert durable eval observations and failure cases from quality signals.",
         payload_model=RefreshEvalFailureCasesTaskInput,
@@ -2871,10 +2838,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="refresh_eval_failure_cases_output",
         output_schema_version="1.0",
         input_example={"limit": 50, "include_resolved": False},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "inspect_eval_failure_case": AgentTaskActionDefinition(
         task_type="inspect_eval_failure_case",
+        capability="evaluation",
         definition_kind="action",
         description="Load one eval failure case with linked agent-legible evidence.",
         payload_model=InspectEvalFailureCaseTaskInput,
@@ -2883,10 +2851,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="inspect_eval_failure_case_output",
         output_schema_version="1.0",
         input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "triage_eval_failure_case": AgentTaskActionDefinition(
         task_type="triage_eval_failure_case",
+        capability="evaluation",
         definition_kind="workflow",
         description="Classify one eval failure case and produce bounded repair next steps.",
         payload_model=TriageEvalFailureCaseTaskInput,
@@ -2895,10 +2864,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="triage_eval_failure_case_output",
         output_schema_version="1.0",
         input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "optimize_search_harness_from_case": AgentTaskActionDefinition(
         task_type="optimize_search_harness_from_case",
+        capability="evaluation",
         definition_kind="workflow",
         description=(
             "Run a bounded transient search-harness optimization loop from one "
@@ -2916,10 +2886,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "limit": 25,
             "iterations": 2,
         },
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "draft_harness_config_update_from_optimization": AgentTaskActionDefinition(
         task_type="draft_harness_config_update_from_optimization",
+        capability="retrieval",
         definition_kind="draft",
         description=(
             "Convert a completed harness optimization task into a review harness "
@@ -2935,10 +2906,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "source_task_id": "00000000-0000-0000-0000-000000000000",
             "draft_harness_name": "case_repair_review",
         },
-        context_builder=_build_draft_harness_config_context,
+        context_builder_name="draft_harness_config",
     ),
     "replay_search_request": AgentTaskActionDefinition(
         task_type="replay_search_request",
+        capability="retrieval",
         definition_kind="action",
         description="Replay one persisted search request against the current search stack.",
         payload_model=ReplaySearchRequestTaskInput,
@@ -2947,10 +2919,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="replay_search_request_output",
         output_schema_version="1.0",
         input_example={"search_request_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "run_search_replay_suite": AgentTaskActionDefinition(
         task_type="run_search_replay_suite",
+        capability="retrieval",
         definition_kind="action",
         description="Run a replay suite over persisted evaluation, feedback, or gap sources.",
         payload_model=SearchReplayRunRequest,
@@ -2959,10 +2932,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="run_search_replay_suite_output",
         output_schema_version="1.0",
         input_example={"source_type": "feedback", "limit": 12, "harness_name": "default_v1"},
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "evaluate_search_harness": AgentTaskActionDefinition(
         task_type="evaluate_search_harness",
+        capability="retrieval",
         definition_kind="action",
         description="Compare a candidate harness against a baseline across replay sources.",
         payload_model=SearchHarnessEvaluationRequest,
@@ -2976,10 +2950,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "source_types": ["evaluation_queries", "feedback"],
             "limit": 12,
         },
-        context_builder=_build_evaluate_search_harness_context,
+        context_builder_name="evaluate_search_harness",
     ),
     "verify_search_harness_evaluation": AgentTaskActionDefinition(
         task_type="verify_search_harness_evaluation",
+        capability="retrieval",
         definition_kind="verifier",
         description=(
             "Verify persisted harness-evaluation replay evidence against rollout thresholds."
@@ -2997,10 +2972,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
-        context_builder=_build_verify_search_harness_evaluation_context,
+        context_builder_name="verify_search_harness_evaluation",
     ),
     "draft_harness_config_update": AgentTaskActionDefinition(
         task_type="draft_harness_config_update",
+        capability="retrieval",
         definition_kind="draft",
         description=(
             "Draft a derived search harness configuration without changing live search behavior."
@@ -3022,10 +2998,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
                 "document_title_token_coverage_bonus": 0.05,
             },
         },
-        context_builder=_build_draft_harness_config_context,
+        context_builder_name="draft_harness_config",
     ),
     "draft_semantic_registry_update": AgentTaskActionDefinition(
         task_type="draft_semantic_registry_update",
+        capability="semantic_memory",
         definition_kind="draft",
         description=(
             "Draft an additive semantic registry update from semantic triage or "
@@ -3042,10 +3019,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "rationale": "Add the missing synonym surfaced by semantic triage.",
             "candidate_ids": [],
         },
-        context_builder=_build_draft_semantic_registry_update_context,
+        context_builder_name="draft_semantic_registry_update",
     ),
     "draft_ontology_extension": AgentTaskActionDefinition(
         task_type="draft_ontology_extension",
+        capability="semantic_memory",
         definition_kind="draft",
         description=(
             "Draft an additive ontology extension from semantic triage or bootstrap discovery."
@@ -3061,10 +3039,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "rationale": "Extend the portable ontology from corpus evidence.",
             "candidate_ids": [],
         },
-        context_builder=_build_draft_ontology_extension_context,
+        context_builder_name="draft_ontology_extension",
     ),
     "draft_graph_promotions": AgentTaskActionDefinition(
         task_type="draft_graph_promotions",
+        capability="semantic_memory",
         definition_kind="draft",
         description="Draft approved cross-document graph edges without mutating live graph memory.",
         payload_model=DraftGraphPromotionsTaskInput,
@@ -3079,10 +3058,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "rationale": "Promote approved cross-document graph memory.",
             "min_score": 0.45,
         },
-        context_builder=_build_draft_graph_promotions_context,
+        context_builder_name="draft_graph_promotions",
     ),
     "verify_draft_harness_config": AgentTaskActionDefinition(
         task_type="verify_draft_harness_config",
+        capability="retrieval",
         definition_kind="verifier",
         description=(
             "Evaluate a draft harness configuration ephemerally and persist a verifier verdict."
@@ -3103,10 +3083,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
-        context_builder=_build_verify_draft_harness_config_context,
+        context_builder_name="verify_draft_harness_config",
     ),
     "verify_draft_semantic_registry_update": AgentTaskActionDefinition(
         task_type="verify_draft_semantic_registry_update",
+        capability="semantic_memory",
         definition_kind="verifier",
         description=(
             "Verify an additive semantic registry draft against active "
@@ -3123,10 +3104,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_failed_expectation_increase": 0,
             "min_improved_document_count": 1,
         },
-        context_builder=_build_verify_draft_semantic_registry_update_context,
+        context_builder_name="verify_draft_semantic_registry_update",
     ),
     "verify_draft_ontology_extension": AgentTaskActionDefinition(
         task_type="verify_draft_ontology_extension",
+        capability="semantic_memory",
         definition_kind="verifier",
         description=("Verify an additive ontology extension draft against active documents."),
         payload_model=VerifyDraftOntologyExtensionTaskInput,
@@ -3140,10 +3122,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_failed_expectation_increase": 0,
             "min_improved_document_count": 1,
         },
-        context_builder=_build_verify_draft_ontology_extension_context,
+        context_builder_name="verify_draft_ontology_extension",
     ),
     "verify_draft_graph_promotions": AgentTaskActionDefinition(
         task_type="verify_draft_graph_promotions",
+        capability="semantic_memory",
         definition_kind="verifier",
         description=(
             "Verify a graph promotion draft against current ontology and traceability constraints."
@@ -3159,10 +3142,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_conflict_count": 0,
             "require_current_ontology_snapshot": True,
         },
-        context_builder=_build_verify_draft_graph_promotions_context,
+        context_builder_name="verify_draft_graph_promotions",
     ),
     "draft_semantic_grounded_document": AgentTaskActionDefinition(
         task_type="draft_semantic_grounded_document",
+        capability="semantic_memory",
         definition_kind="draft",
         description=(
             "Draft a semantic-grounded knowledge brief from a typed semantic generation brief."
@@ -3174,10 +3158,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         output_schema_name="draft_semantic_grounded_document_output",
         output_schema_version="1.0",
         input_example={"target_task_id": "00000000-0000-0000-0000-000000000000"},
-        context_builder=_build_draft_semantic_grounded_document_context,
+        context_builder_name="draft_semantic_grounded_document",
     ),
     "verify_semantic_grounded_document": AgentTaskActionDefinition(
         task_type="verify_semantic_grounded_document",
+        capability="semantic_memory",
         definition_kind="verifier",
         description=(
             "Verify that a semantic-grounded knowledge brief is fully "
@@ -3194,10 +3179,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "require_full_claim_traceability": True,
             "require_full_concept_coverage": True,
         },
-        context_builder=_build_verify_semantic_grounded_document_context,
+        context_builder_name="verify_semantic_grounded_document",
     ),
     "triage_replay_regression": AgentTaskActionDefinition(
         task_type="triage_replay_regression",
+        capability="retrieval",
         definition_kind="workflow",
         description=(
             "Run a shadow-mode replay regression triage over quality gaps and harness evidence."
@@ -3220,10 +3206,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "max_foreign_top_result_count_increase": 0,
             "min_total_shared_query_count": 1,
         },
-        context_builder=_build_triage_replay_regression_context,
+        context_builder_name="triage_replay_regression",
     ),
     "triage_semantic_pass": AgentTaskActionDefinition(
         task_type="triage_semantic_pass",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Summarize active semantic-pass gaps, continuity changes, and bounded next actions."
@@ -3237,10 +3224,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "target_task_id": "00000000-0000-0000-0000-000000000000",
             "low_evidence_threshold": 2,
         },
-        context_builder=_build_triage_semantic_pass_context,
+        context_builder_name="triage_semantic_pass",
     ),
     "triage_semantic_candidate_disagreements": AgentTaskActionDefinition(
         task_type="triage_semantic_candidate_disagreements",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Compact shadow semantic disagreements into typed issues and "
@@ -3256,10 +3244,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_score": 0.34,
             "include_expected_only": False,
         },
-        context_builder=_build_triage_semantic_candidate_disagreements_context,
+        context_builder_name="triage_semantic_candidate_disagreements",
     ),
     "triage_semantic_graph_disagreements": AgentTaskActionDefinition(
         task_type="triage_semantic_graph_disagreements",
+        capability="semantic_memory",
         definition_kind="workflow",
         description=(
             "Compact shadow semantic graph disagreements into typed issues and "
@@ -3275,10 +3264,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_score": 0.45,
             "expected_only": True,
         },
-        context_builder=_build_triage_semantic_graph_disagreements_context,
+        context_builder_name="triage_semantic_graph_disagreements",
     ),
     "enqueue_document_reprocess": AgentTaskActionDefinition(
         task_type="enqueue_document_reprocess",
+        capability="document_lifecycle",
         definition_kind="promotion",
         description=(
             "Queue a new processing run for an existing document after explicit approval."
@@ -3295,10 +3285,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "source_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Triaged replay regression needs a fresh parse.",
         },
-        context_builder=_build_generic_task_context,
+        context_builder_name="generic",
     ),
     "apply_harness_config_update": AgentTaskActionDefinition(
         task_type="apply_harness_config_update",
+        capability="retrieval",
         definition_kind="promotion",
         description=(
             "Apply a verified draft harness configuration as a new review harness after approval."
@@ -3315,10 +3306,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified review harness for operator use.",
         },
-        context_builder=_build_apply_harness_config_update_context,
+        context_builder_name="apply_harness_config_update",
     ),
     "apply_semantic_registry_update": AgentTaskActionDefinition(
         task_type="apply_semantic_registry_update",
+        capability="semantic_memory",
         definition_kind="promotion",
         description=("Apply a verified semantic registry update after approval."),
         payload_model=ApplySemanticRegistryUpdateTaskInput,
@@ -3333,10 +3325,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified registry update.",
         },
-        context_builder=_build_apply_semantic_registry_update_context,
+        context_builder_name="apply_semantic_registry_update",
     ),
     "apply_ontology_extension": AgentTaskActionDefinition(
         task_type="apply_ontology_extension",
+        capability="semantic_memory",
         definition_kind="promotion",
         description="Apply a verified ontology extension as the new active workspace snapshot.",
         payload_model=ApplyOntologyExtensionTaskInput,
@@ -3351,10 +3344,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified ontology extension.",
         },
-        context_builder=_build_apply_ontology_extension_context,
+        context_builder_name="apply_ontology_extension",
     ),
     "apply_graph_promotions": AgentTaskActionDefinition(
         task_type="apply_graph_promotions",
+        capability="semantic_memory",
         definition_kind="promotion",
         description=(
             "Apply a verified semantic graph promotion draft as the new active graph snapshot."
@@ -3371,10 +3365,11 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified semantic graph memory snapshot.",
         },
-        context_builder=_build_apply_graph_promotions_context,
+        context_builder_name="apply_graph_promotions",
     ),
     "build_document_fact_graph": AgentTaskActionDefinition(
         task_type="build_document_fact_graph",
+        capability="semantic_memory",
         definition_kind="workflow",
         description="Build a minimal semantic fact graph for one document.",
         payload_model=BuildDocumentFactGraphTaskInput,
@@ -3386,13 +3381,21 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "document_id": "00000000-0000-0000-0000-000000000000",
             "minimum_review_status": "approved",
         },
-        context_builder=_build_build_document_fact_graph_context,
+        context_builder_name="build_document_fact_graph",
     ),
 }
 
 
 def list_agent_task_actions() -> list[AgentTaskActionDefinition]:
     return list(_ACTION_REGISTRY.values())
+
+
+def build_agent_task_action_manifest() -> list[dict[str, object]]:
+    return build_agent_action_manifest(list_agent_task_actions())
+
+
+def validate_agent_task_action_contracts() -> list[AgentActionContractIssue]:
+    return validate_agent_action_contracts(list_agent_task_actions())
 
 
 def get_agent_task_action(task_type: str) -> AgentTaskActionDefinition:

@@ -12,7 +12,6 @@ from app.services.search import (
     RankedResult,
     _build_query_feature_set,
     _classify_query_intent,
-    _is_tabular_query,
     _looks_like_identifier_lookup,
     _merge_hybrid_results,
     _ranked_metadata_overlap_score,
@@ -20,6 +19,7 @@ from app.services.search import (
     _should_run_metadata_supplement,
     _table_title_match_features,
     execute_search,
+    is_tabular_query,
     search_documents,
 )
 
@@ -90,14 +90,14 @@ def test_merge_hybrid_results_supports_tables() -> None:
     assert results[0].table_title == "TABLE 1"
 
 
-def test_is_tabular_query_matches_table_reference() -> None:
-    assert _is_tabular_query("TABLE 701.2")
-    assert _is_tabular_query("701.2 drainage piping")
-    assert _is_tabular_query("row and column limits")
+def testis_tabular_query_matches_table_reference() -> None:
+    assert is_tabular_query("TABLE 701.2")
+    assert is_tabular_query("701.2 drainage piping")
+    assert is_tabular_query("row and column limits")
 
 
-def test_is_tabular_query_does_not_treat_identifier_like_filename_as_tabular() -> None:
-    assert _is_tabular_query("fseprd1091222") is False
+def testis_tabular_query_does_not_treat_identifier_like_filename_as_tabular() -> None:
+    assert is_tabular_query("fseprd1091222") is False
 
 
 def test_classify_query_intent_distinguishes_tabular_lookup_and_broad() -> None:

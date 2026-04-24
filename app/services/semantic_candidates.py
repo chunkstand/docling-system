@@ -22,15 +22,17 @@ from app.services.semantics import (
     SemanticAssertionMaterialization,
     SemanticEvidenceMaterialization,
     SemanticSourceItem,
-    _build_semantic_sources,
-    _latest_category_review_overlays,
-    _latest_concept_review_overlays,
-    _materialize_semantic_assertions,
-    _preview_assertions,
-    _preview_concept_category_bindings,
-    _semantic_evaluation_result,
-    _source_artifact_api_path,
+    build_semantic_sources,
     get_active_semantic_pass_detail,
+    latest_category_review_overlays,
+    latest_concept_review_overlays,
+    materialize_semantic_assertions,
+    preview_assertions,
+    preview_concept_category_bindings,
+    semantic_evaluation_result,
+)
+from app.services.semantics import (
+    source_artifact_api_path as semantic_source_artifact_api_path,
 )
 
 DEFAULT_BASELINE_EXTRACTOR = "registry_lexical_v1"
@@ -114,6 +116,12 @@ def _unique_document_ids(document_ids: list[UUID]) -> list[UUID]:
     return list(dict.fromkeys(document_ids))
 
 
+tokenize = _tokenize
+embedding_vector = _embedding_vector
+cosine_similarity = _cosine_similarity
+unique_document_ids = _unique_document_ids
+
+
 def _extractor_descriptor(extractor_name: str) -> CandidateExtractorDescriptor:
     if extractor_name == DEFAULT_BASELINE_EXTRACTOR:
         return CandidateExtractorDescriptor(
@@ -163,7 +171,7 @@ def _lexical_extractor(
     registry: SemanticRegistry,
     sources: list[SemanticSourceItem],
 ) -> CandidateExtractionResult:
-    materializations = _materialize_semantic_assertions(registry, sources)
+    materializations = materialize_semantic_assertions(registry, sources)
     source_predictions: list[CandidateSourcePrediction] = []
     for source in sources:
         candidates: list[CandidateConceptScore] = []
@@ -349,7 +357,7 @@ def _source_prediction_payload(
         "page_from": source.page_from,
         "page_to": source.page_to,
         "excerpt": source.excerpt,
-        "source_artifact_api_path": _source_artifact_api_path(
+        "source_artifact_api_path": semantic_source_artifact_api_path(
             document_id,
             source_type=source.source_type,
             table_id=source.table_id,
@@ -393,24 +401,24 @@ def _preview_payloads_for_extractor(
     registry: SemanticRegistry,
     extraction: CandidateExtractionResult,
 ) -> tuple[list[dict], list[dict], dict]:
-    concept_review_overlays = _latest_concept_review_overlays(
+    concept_review_overlays = latest_concept_review_overlays(
         session,
         document.id,
         registry.registry_version,
     )
-    category_review_overlays = _latest_category_review_overlays(
+    category_review_overlays = latest_category_review_overlays(
         session,
         document.id,
         registry.registry_version,
     )
-    assertions = _preview_assertions(
+    assertions = preview_assertions(
         list(extraction.materializations),
         concept_review_overlays=concept_review_overlays,
         category_review_overlays=category_review_overlays,
         registry=registry,
     )
-    concept_category_bindings = _preview_concept_category_bindings(registry)
-    _evaluation_status, _fixture_name, evaluation_summary = _semantic_evaluation_result(
+    concept_category_bindings = preview_concept_category_bindings(registry)
+    _evaluation_status, _fixture_name, evaluation_summary = semantic_evaluation_result(
         document,
         assertions,
         concept_category_bindings,
@@ -427,7 +435,7 @@ def _shadow_candidates_from_predictions(
     buckets: dict[str, dict] = {}
     for prediction in source_predictions:
         source = prediction.source
-        source_artifact_api_path = _source_artifact_api_path(
+        source_artifact_api_path = semantic_source_artifact_api_path(
             document_id,
             source_type=source.source_type,
             table_id=source.table_id,
@@ -840,7 +848,7 @@ def _evaluate_document_candidate_extractors(
     max_candidates_per_source: int,
 ) -> dict:
     semantic_pass = get_active_semantic_pass_detail(session, document.id)
-    sources = _build_semantic_sources(session, semantic_pass.run_id)
+    sources = build_semantic_sources(session, semantic_pass.run_id)
     baseline = _run_candidate_extractor(
         registry,
         sources,
