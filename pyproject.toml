@@ -101,7 +101,10 @@ docling-system-improvement-case-list = "app.cli:run_improvement_case_list"
 docling-system-improvement-case-summary = "app.cli:run_improvement_case_summary"
 docling-system-improvement-case-record = "app.cli:run_improvement_case_record"
 docling-system-improvement-case-import = "app.cli:run_improvement_case_import"
+docling-system-improvement-case-update = "app.improvement_case_lifecycle_cli:run_update"
 docling-system-architecture-inspect = "app.architecture_inspection:run"
+docling-system-architecture-measure-record = "app.architecture_measurement_cli:run_record"
+docling-system-architecture-measure-summary = "app.architecture_measurement_cli:run_summary"
 docling-system-hygiene-check = "app.hygiene:run"
 
 [tool.hatch.build.targets.wheel]

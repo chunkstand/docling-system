@@ -28,6 +28,8 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         "agent_action_catalog",
         "improvement_case_registry",
         "improvement_case_intake",
+        "improvement_case_lifecycle",
+        "architecture_measurement_history",
     } <= contract_names
     assert {
         "run_lifecycle",

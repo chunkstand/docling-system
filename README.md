@@ -494,7 +494,9 @@ The current learning surface is intentionally simple and durable: operators can 
 The broader repo self-improvement loop is file-backed first. `config/improvement_cases.yaml`
 tracks agent/codebase failures using a closed cause taxonomy and executable artifact
 targets; `docling-system-improvement-case-*` commands validate, list, summarize, and
-record cases before any DB/API expansion. `docling-system-hygiene-check` validates
+record cases before any DB/API expansion. Existing cases move through deploy and
+measure stages with `docling-system-improvement-case-update`, which validates the
+whole registry before writing lifecycle changes. `docling-system-hygiene-check` validates
 the registry alongside the repo's existing lint, dead-code, duplicate-helper, and
 file-budget gates. `docling-system-improvement-case-import` can also observe
 hygiene findings, unresolved eval failure cases, failed agent tasks, and failed
@@ -503,7 +505,9 @@ agent verifications, then write deduped open cases keyed by source reference.
 map and validates boundary contracts as a Brown/Structurizr-style inspection;
 the hygiene command runs that inspection by default. The committed map is
 `docs/architecture_contract_map.json`, and severity policy lives in
-`config/architecture_inspection.yaml`.
+`config/architecture_inspection.yaml`. `docling-system-architecture-measure-record`
+persists inspection measurements under `storage/architecture_inspections/history.jsonl`,
+and `docling-system-architecture-measure-summary` reports the latest trend.
 
 ## Tables
 

@@ -84,3 +84,13 @@ The facade exposes `ImprovementCaseImportRequest` and
 `ImprovementCaseImportResult` as the reusable machine contract. Boundary callers
 should pass that typed request, or the equivalent keyword arguments, and render
 the typed result without reconstructing import payloads themselves.
+
+Improvement-case lifecycle transitions are owned by
+`app.services.improvement_case_lifecycle`. CLI, API, worker, or UI callers
+should use that service when deploying or measuring a case so late-stage status
+changes always pass the registry contract before being written.
+
+Architecture measurement history is owned by `app.architecture_measurements`.
+The history is local JSONL runtime data under
+`storage/architecture_inspections/history.jsonl`; source control versions the
+recording and summary mechanism, while `storage/` tracks local executions.

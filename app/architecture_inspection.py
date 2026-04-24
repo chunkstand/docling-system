@@ -490,6 +490,18 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_version": IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
                 "import_sources": list(list_improvement_case_import_sources()),
             },
+            {
+                "name": "improvement_case_lifecycle",
+                "source": "app.services.improvement_case_lifecycle",
+                "schema_name": "improvement_case_update",
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            },
+            {
+                "name": "architecture_measurement_history",
+                "source": "app.architecture_measurements",
+                "schema_name": "architecture_measurement_history",
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            },
         ],
         "inspection_sources": [
             "API route capability contracts",
@@ -500,6 +512,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "improvement intake CLI delegation",
             "architecture boundary documentation",
             "committed architecture contract map drift",
+            "architecture measurement history",
         ],
     }
 

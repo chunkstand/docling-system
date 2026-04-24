@@ -47,6 +47,12 @@ uv run docling-system-improvement-case-summary
 uv run docling-system-improvement-case-list
 uv run docling-system-improvement-case-import --source hygiene --dry-run
 uv run docling-system-improvement-case-import --source all
+uv run docling-system-improvement-case-update \
+  --case-id IC-20260424-hygiene-gate \
+  --status measured \
+  --deployed-ref 78ec3c8 \
+  --metric-name hygiene_architecture_findings \
+  --metric-value 0
 uv run docling-system-improvement-case-record \
   --title "Route capability strings drifted" \
   --observed-failure "Routers accepted free-form capability strings." \
@@ -56,6 +62,10 @@ uv run docling-system-improvement-case-record \
   --artifact-description "FastAPI route capability manifest and validator." \
   --verification-command "uv run pytest tests/unit/test_api_route_contracts.py -q"
 ```
+
+The update command transitions existing cases after conversion. It validates the
+full registry before writing, so a `measured` or `closed` transition cannot land
+without both a deployment ref and metric evidence.
 
 The import command observes existing repo surfaces and writes deduped `open`
 cases keyed by `source_type` and `source_ref`. Supported sources are:
@@ -80,9 +90,17 @@ boundary surfaces can reuse a typed import contract instead of copying CLI
 payload shape.
 
 Architecture inspection reports include an `architecture_inspection_measurement`
-snapshot with severity counts and contract surface counts. That snapshot gives
-future agents a stable trend signal instead of relying on ad hoc inspection
-notes.
+snapshot with severity counts and contract surface counts. Record and summarize
+those snapshots with:
+
+```bash
+uv run docling-system-architecture-measure-record
+uv run docling-system-architecture-measure-summary
+```
+
+The default history path is `storage/architecture_inspections/history.jsonl`.
+That local JSONL history gives future agents a stable trend signal instead of
+relying on ad hoc inspection notes.
 
 ## Non-Goals
 

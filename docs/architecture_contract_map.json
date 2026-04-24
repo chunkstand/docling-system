@@ -58,6 +58,18 @@
       "schema_name": "improvement_case_import",
       "schema_version": "1.0",
       "source": "app.services.improvement_case_intake"
+    },
+    {
+      "name": "improvement_case_lifecycle",
+      "schema_name": "improvement_case_update",
+      "schema_version": "1.0",
+      "source": "app.services.improvement_case_lifecycle"
+    },
+    {
+      "name": "architecture_measurement_history",
+      "schema_name": "architecture_measurement_history",
+      "schema_version": "1.0",
+      "source": "app.architecture_measurements"
     }
   ],
   "inspection_sources": [
@@ -68,7 +80,8 @@
     "private service symbol imports",
     "improvement intake CLI delegation",
     "architecture boundary documentation",
-    "committed architecture contract map drift"
+    "committed architecture contract map drift",
+    "architecture measurement history"
   ],
   "schema_name": "architecture_contract_map",
   "schema_version": "1.0",
