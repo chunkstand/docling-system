@@ -501,7 +501,9 @@ hygiene findings, unresolved eval failure cases, failed agent tasks, and failed
 agent verifications, then write deduped open cases keyed by source reference.
 `docling-system-architecture-inspect` emits the machine-readable architecture
 map and validates boundary contracts as a Brown/Structurizr-style inspection;
-the hygiene command runs that inspection by default.
+the hygiene command runs that inspection by default. The committed map is
+`docs/architecture_contract_map.json`, and severity policy lives in
+`config/architecture_inspection.yaml`.
 
 ## Tables
 

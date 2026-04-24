@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from app.api.main import create_app
 from app.api.route_contracts import (
@@ -29,7 +31,12 @@ from app.services.improvement_cases import (
 
 ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME = "architecture_contract_map"
 ARCHITECTURE_INSPECTION_SCHEMA_NAME = "architecture_inspection"
+ARCHITECTURE_INSPECTION_POLICY_SCHEMA_NAME = "architecture_inspection_policy"
+ARCHITECTURE_MEASUREMENT_SCHEMA_NAME = "architecture_inspection_measurement"
 ARCHITECTURE_CONTRACT_SCHEMA_VERSION = "1.0"
+DEFAULT_ARCHITECTURE_CONTRACT_MAP_PATH = Path("docs") / "architecture_contract_map.json"
+DEFAULT_ARCHITECTURE_POLICY_PATH = Path("config") / "architecture_inspection.yaml"
+ARCHITECTURE_SEVERITIES = frozenset({"error", "warning", "info", "ignore"})
 APP_ROUTE_DECORATORS = frozenset({"get", "post", "put", "delete", "patch"})
 BOUNDARY_DIRS = ("app/api/routers", "app/workers")
 FORBIDDEN_SERVICE_IMPORT_PREFIXES = ("app.api.main", "app.api.routers")
@@ -100,6 +107,65 @@ class ArchitectureViolation:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureInspectionPolicy:
+    default_severity: str = "error"
+    severity_overrides: dict[str, str] | None = None
+
+
+def load_architecture_inspection_policy(
+    policy_path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> ArchitectureInspectionPolicy:
+    root = project_root or repo_root()
+    raw_path = Path(policy_path) if policy_path is not None else DEFAULT_ARCHITECTURE_POLICY_PATH
+    resolved_path = raw_path if raw_path.is_absolute() else root / raw_path
+    if not resolved_path.exists():
+        return ArchitectureInspectionPolicy()
+
+    payload = yaml.safe_load(resolved_path.read_text()) or {}
+    default_severity = str(payload.get("default_severity", "error"))
+    if default_severity not in ARCHITECTURE_SEVERITIES:
+        raise ValueError(f"Unknown architecture severity '{default_severity}'.")
+
+    overrides: dict[str, str] = {}
+    for row in payload.get("severity_overrides") or []:
+        key = str(row["match"]).strip()
+        severity = str(row["severity"]).strip()
+        if severity not in ARCHITECTURE_SEVERITIES:
+            raise ValueError(f"Unknown architecture severity '{severity}'.")
+        overrides[key] = severity
+
+    return ArchitectureInspectionPolicy(
+        default_severity=default_severity,
+        severity_overrides=overrides,
+    )
+
+
+def _severity_for_violation(
+    violation: ArchitectureViolation,
+    policy: ArchitectureInspectionPolicy,
+) -> str:
+    overrides = policy.severity_overrides or {}
+    return (
+        overrides.get(f"{violation.contract}.{violation.field}.{violation.symbol}")
+        or overrides.get(f"{violation.contract}.{violation.field}")
+        or overrides.get(violation.contract)
+        or policy.default_severity
+    )
+
+
+def _apply_architecture_policy(
+    violations: list[ArchitectureViolation],
+    policy: ArchitectureInspectionPolicy,
+) -> list[ArchitectureViolation]:
+    return [
+        replace(violation, severity=_severity_for_violation(violation, policy))
+        for violation in violations
+    ]
 
 
 def _parse_python(project_root: Path, relative_path: str) -> ast.Module:
@@ -287,8 +353,60 @@ def _agent_action_contract_violations() -> list[ArchitectureViolation]:
     ]
 
 
+def _architecture_contract_map_path(
+    project_root: Path,
+    path: str | Path | None = None,
+) -> Path:
+    raw_path = Path(path) if path is not None else DEFAULT_ARCHITECTURE_CONTRACT_MAP_PATH
+    return raw_path if raw_path.is_absolute() else project_root / raw_path
+
+
+def _architecture_map_drift_violations(
+    project_root: Path,
+    *,
+    map_path: str | Path | None = None,
+) -> list[ArchitectureViolation]:
+    resolved_path = _architecture_contract_map_path(project_root, map_path)
+    try:
+        relative_path = resolved_path.resolve().relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        relative_path = str(resolved_path)
+
+    if not resolved_path.exists():
+        return [
+            ArchitectureViolation(
+                contract="architecture_contract_map",
+                field="persisted_map",
+                relative_path=relative_path,
+                message=(
+                    "Committed architecture contract map is missing; run "
+                    "`uv run docling-system-architecture-inspect --write-map`."
+                ),
+            )
+        ]
+
+    current_map = build_architecture_contract_map(project_root)
+    persisted_map = json.loads(resolved_path.read_text())
+    if persisted_map == current_map:
+        return []
+    return [
+        ArchitectureViolation(
+            contract="architecture_contract_map",
+            field="persisted_map",
+            relative_path=relative_path,
+            message=(
+                "Committed architecture contract map is stale; run "
+                "`uv run docling-system-architecture-inspect --write-map`."
+            ),
+        )
+    ]
+
+
 def inspect_architecture_contracts(
     project_root: Path | None = None,
+    *,
+    policy_path: str | Path | None = None,
+    map_path: str | Path | None = None,
 ) -> list[ArchitectureViolation]:
     root = project_root or repo_root()
     violations = [
@@ -301,6 +419,13 @@ def inspect_architecture_contracts(
         *_architecture_doc_violations(root),
         *_api_route_contract_violations(),
         *_agent_action_contract_violations(),
+        *_architecture_map_drift_violations(root, map_path=map_path),
+    ]
+    policy = load_architecture_inspection_policy(policy_path, project_root=root)
+    violations = [
+        violation
+        for violation in _apply_architecture_policy(violations, policy)
+        if violation.severity != "ignore"
     ]
     return sorted(
         violations,
@@ -316,7 +441,7 @@ def inspect_architecture_contracts(
 
 
 def build_architecture_contract_map(project_root: Path | None = None) -> dict[str, Any]:
-    root = project_root or repo_root()
+    del project_root
     route_manifest = build_api_route_capability_manifest(create_app())
     agent_action_manifest = build_agent_task_action_manifest()
     return {
@@ -374,22 +499,75 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "private service symbol imports",
             "improvement intake CLI delegation",
             "architecture boundary documentation",
+            "committed architecture contract map drift",
         ],
-        "project_root": root.as_posix(),
     }
 
 
-def build_architecture_inspection_report(project_root: Path | None = None) -> dict[str, Any]:
+def build_architecture_measurement_snapshot(
+    violations: list[ArchitectureViolation],
+    architecture_map: dict[str, Any],
+) -> dict[str, Any]:
+    severity_counts = {
+        severity: sum(1 for violation in violations if violation.severity == severity)
+        for severity in sorted(ARCHITECTURE_SEVERITIES - {"ignore"})
+    }
+    contracts = architecture_map["contracts"]
+    return {
+        "schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
+        "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+        "severity_counts": severity_counts,
+        "non_ignored_violation_count": len(violations),
+        "contract_count": len(contracts),
+        "api_route_count": next(
+            contract["item_count"]
+            for contract in contracts
+            if contract["name"] == "api_route_capabilities"
+        ),
+        "agent_action_count": next(
+            contract["item_count"]
+            for contract in contracts
+            if contract["name"] == "agent_action_catalog"
+        ),
+    }
+
+
+def build_architecture_inspection_report(
+    project_root: Path | None = None,
+    *,
+    policy_path: str | Path | None = None,
+    map_path: str | Path | None = None,
+) -> dict[str, Any]:
     root = project_root or repo_root()
-    violations = inspect_architecture_contracts(root)
+    violations = inspect_architecture_contracts(
+        root,
+        policy_path=policy_path,
+        map_path=map_path,
+    )
+    architecture_map = build_architecture_contract_map(root)
     return {
         "schema_name": ARCHITECTURE_INSPECTION_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-        "valid": len(violations) == 0,
+        "valid": all(violation.severity != "error" for violation in violations),
         "violation_count": len(violations),
         "violations": [violation.to_dict() for violation in violations],
-        "architecture_map": build_architecture_contract_map(root),
+        "measurement": build_architecture_measurement_snapshot(violations, architecture_map),
+        "architecture_map": architecture_map,
     }
+
+
+def write_architecture_contract_map(
+    path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    root = project_root or repo_root()
+    resolved_path = _architecture_contract_map_path(root, path)
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_path.write_text(
+        json.dumps(build_architecture_contract_map(root), indent=2, sort_keys=True) + "\n"
+    )
+    return resolved_path
 
 
 def run(argv: list[str] | None = None) -> int:
@@ -401,12 +579,48 @@ def run(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print only the architecture contract map.",
     )
+    parser.add_argument(
+        "--write-map",
+        action="store_true",
+        help="Write the current architecture contract map to docs/architecture_contract_map.json.",
+    )
+    parser.add_argument(
+        "--map-path",
+        default=str(DEFAULT_ARCHITECTURE_CONTRACT_MAP_PATH),
+        help="Path to the persisted architecture contract map.",
+    )
+    parser.add_argument(
+        "--policy-path",
+        default=str(DEFAULT_ARCHITECTURE_POLICY_PATH),
+        help="Path to the architecture inspection policy.",
+    )
     args = parser.parse_args(argv)
+
+    if args.write_map:
+        path = write_architecture_contract_map(args.map_path)
+        try:
+            display_path = path.relative_to(repo_root()).as_posix()
+        except ValueError:
+            display_path = path.as_posix()
+        print(
+            json.dumps(
+                {
+                    "schema_name": "architecture_contract_map_write",
+                    "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                    "path": display_path,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
 
     payload = (
         build_architecture_contract_map()
         if args.map_only
-        else build_architecture_inspection_report()
+        else build_architecture_inspection_report(
+            policy_path=args.policy_path,
+            map_path=args.map_path,
+        )
     )
     print(json.dumps(payload, sort_keys=True))
     if args.map_only:

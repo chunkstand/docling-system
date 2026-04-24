@@ -79,6 +79,11 @@ same source selection and dedupe path. The facade accepts
 boundary surfaces can reuse a typed import contract instead of copying CLI
 payload shape.
 
+Architecture inspection reports include an `architecture_inspection_measurement`
+snapshot with severity counts and contract surface counts. That snapshot gives
+future agents a stable trend signal instead of relying on ad hoc inspection
+notes.
+
 ## Non-Goals
 
 - no automatic Git commit or PR creation

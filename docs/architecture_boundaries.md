@@ -38,6 +38,12 @@ intake, and architecture-documentation contracts as one boundary fitness
 function. `uv run docling-system-hygiene-check` runs the same inspection by
 default.
 
+The committed map lives at `docs/architecture_contract_map.json`; regenerate it
+with `uv run docling-system-architecture-inspect --write-map` after intentional
+boundary changes. Inspection severity is governed by
+`config/architecture_inspection.yaml`, whose default policy treats every
+non-ignored violation as an error.
+
 ## API Route Capability Contracts
 
 Remote API permissions are a closed route contract, not free-form router

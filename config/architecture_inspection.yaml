@@ -1,0 +1,4 @@
+schema_name: architecture_inspection_policy
+schema_version: "1.0"
+default_severity: error
+severity_overrides: []

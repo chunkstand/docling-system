@@ -1,0 +1,82 @@
+{
+  "boundary_modules": {
+    "api_bootstrap": "app/api/main.py",
+    "boundary_dirs": [
+      "app/api/routers",
+      "app/workers"
+    ],
+    "service_dir": "app/services"
+  },
+  "capability_facades": [
+    {
+      "module": "app.services.capabilities.run_lifecycle",
+      "name": "run_lifecycle"
+    },
+    {
+      "module": "app.services.capabilities.retrieval",
+      "name": "retrieval"
+    },
+    {
+      "module": "app.services.capabilities.evaluation",
+      "name": "evaluation"
+    },
+    {
+      "module": "app.services.capabilities.semantics",
+      "name": "semantics"
+    },
+    {
+      "module": "app.services.capabilities.agent_orchestration",
+      "name": "agent_orchestration"
+    }
+  ],
+  "contracts": [
+    {
+      "item_count": 89,
+      "name": "api_route_capabilities",
+      "source": "app.api.route_contracts"
+    },
+    {
+      "item_count": 45,
+      "name": "agent_action_catalog",
+      "source": "app.services.agent_actions"
+    },
+    {
+      "name": "improvement_case_registry",
+      "schema_name": "improvement_cases",
+      "schema_version": "1.0",
+      "source": "config/improvement_cases.yaml"
+    },
+    {
+      "import_sources": [
+        "all",
+        "eval-failure-cases",
+        "failed-agent-tasks",
+        "failed-agent-verifications",
+        "hygiene"
+      ],
+      "name": "improvement_case_intake",
+      "schema_name": "improvement_case_import",
+      "schema_version": "1.0",
+      "source": "app.services.improvement_case_intake"
+    }
+  ],
+  "inspection_sources": [
+    "API route capability contracts",
+    "agent action contracts",
+    "capability facade boundary imports",
+    "service-to-API import boundaries",
+    "private service symbol imports",
+    "improvement intake CLI delegation",
+    "architecture boundary documentation",
+    "committed architecture contract map drift"
+  ],
+  "schema_name": "architecture_contract_map",
+  "schema_version": "1.0",
+  "source_documents": [
+    "SYSTEM_PLAN.md",
+    "README.md",
+    "docs/architecture_boundaries.md",
+    "docs/improvement_loop.md"
+  ],
+  "system_style": "modular_monolith"
+}
