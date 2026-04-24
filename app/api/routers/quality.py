@@ -6,6 +6,7 @@ import yaml
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import require_api_capability, require_api_key_for_mutations
 from app.api.errors import api_error
 from app.db.session import get_db_session
@@ -45,7 +46,7 @@ inspect_eval_failure_case = evaluation.inspect_eval_failure_case
 @router.get(
     "/quality/summary",
     response_model=QualitySummaryResponse,
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_summary(session: Session = Depends(get_db_session)) -> QualitySummaryResponse:
     return get_quality_summary(session)
@@ -54,7 +55,7 @@ def read_quality_summary(session: Session = Depends(get_db_session)) -> QualityS
 @router.get(
     "/quality/failures",
     response_model=QualityFailuresResponse,
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_failures(session: Session = Depends(get_db_session)) -> QualityFailuresResponse:
     return get_quality_failures(session)
@@ -63,7 +64,7 @@ def read_quality_failures(session: Session = Depends(get_db_session)) -> Quality
 @router.get(
     "/quality/evaluations",
     response_model=list[QualityEvaluationStatusResponse],
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_evaluations(
     session: Session = Depends(get_db_session),
@@ -74,7 +75,7 @@ def read_quality_evaluations(
 @router.get(
     "/quality/eval-candidates",
     response_model=list[QualityEvaluationCandidateResponse],
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_eval_candidates(
     limit: int = 12,
@@ -91,7 +92,7 @@ def read_quality_eval_candidates(
 @router.get(
     "/quality/trends",
     response_model=QualityTrendsResponse,
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTrendsResponse:
     return get_quality_trends(session)
@@ -102,7 +103,7 @@ def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTr
     response_model=EvalFailureCaseRefreshResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("agent_tasks:write")),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
     ],
 )
 def refresh_eval_failure_cases_route(
@@ -122,7 +123,7 @@ def refresh_eval_failure_cases_route(
 @router.get(
     "/eval/workbench",
     response_model=EvalWorkbenchResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_workbench(
     limit: int = Query(default=25, ge=1, le=100),
@@ -134,7 +135,7 @@ def read_eval_workbench(
 @router.get(
     "/eval/observations",
     response_model=list[EvalObservationResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_observations(
     limit: int = Query(default=50, ge=1, le=200),
@@ -146,7 +147,7 @@ def read_eval_observations(
 @router.get(
     "/eval/failure-cases",
     response_model=list[EvalFailureCaseResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_failure_cases(
     case_status: list[str] | None = Query(default=None, alias="status"),
@@ -164,7 +165,7 @@ def read_eval_failure_cases(
 
 @router.get(
     "/eval/failure-cases/{case_id}",
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_failure_case(
     case_id: UUID,
@@ -191,7 +192,7 @@ def read_eval_failure_case(
 @router.get(
     "/eval/failure-cases/{case_id}/inspect",
     response_model=EvalFailureCaseInspectionResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def inspect_eval_failure_case_route(
     case_id: UUID,

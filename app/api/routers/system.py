@@ -5,6 +5,7 @@ import os
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import UI_DIR, api_mode_metadata, require_api_capability
 from app.services.runtime import get_runtime_status
 from app.services.telemetry import snapshot_metrics
@@ -24,7 +25,7 @@ def health() -> dict[str, str]:
 
 @router.get(
     "/runtime/status",
-    dependencies=[Depends(require_api_capability("system:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SYSTEM_READ))],
 )
 def runtime_status() -> dict:
     payload = get_runtime_status(process_identity=f"api:{os.getpid()}")
@@ -32,6 +33,9 @@ def runtime_status() -> dict:
     return payload
 
 
-@router.get("/metrics", dependencies=[Depends(require_api_capability("system:read"))])
+@router.get(
+    "/metrics",
+    dependencies=[Depends(require_api_capability(api_capabilities.SYSTEM_READ))],
+)
 def metrics() -> dict[str, float]:
     return snapshot_metrics()

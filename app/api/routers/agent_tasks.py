@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import (
     get_storage_service,
     require_api_capability,
@@ -78,7 +79,7 @@ export_agent_task_traces = agent_orchestration.export_agent_task_traces
 @router.get(
     "/agent-tasks/actions",
     response_model=list[AgentTaskActionDefinitionResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
     return list_agent_task_action_definitions()
@@ -87,7 +88,7 @@ def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
 @router.get(
     "/agent-tasks",
     response_model=list[AgentTaskSummaryResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_tasks(
     task_status: list[str] | None = Query(default=None, alias="status"),
@@ -103,7 +104,7 @@ def read_agent_tasks(
     status_code=status.HTTP_201_CREATED,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("agent_tasks:write")),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
     ],
 )
 def create_agent_task_route(
@@ -128,7 +129,7 @@ def create_agent_task_route(
 @router.get(
     "/agent-tasks/analytics/summary",
     response_model=AgentTaskAnalyticsSummaryResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_analytics_summary(
     session: Session = Depends(get_db_session),
@@ -139,7 +140,7 @@ def read_agent_task_analytics_summary(
 @router.get(
     "/agent-tasks/analytics/trends",
     response_model=AgentTaskTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_trends(
     bucket: str = "day",
@@ -158,7 +159,7 @@ def read_agent_task_trends(
 @router.get(
     "/agent-tasks/analytics/verifications",
     response_model=AgentTaskVerificationTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_verification_trends(
     bucket: str = "day",
@@ -177,7 +178,7 @@ def read_agent_task_verification_trends(
 @router.get(
     "/agent-tasks/analytics/approvals",
     response_model=AgentTaskApprovalTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_approval_trends(
     bucket: str = "day",
@@ -196,7 +197,7 @@ def read_agent_task_approval_trends(
 @router.get(
     "/agent-tasks/analytics/recommendations",
     response_model=AgentTaskRecommendationSummaryResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_recommendation_summary(
     task_type: str | None = None,
@@ -213,7 +214,7 @@ def read_agent_task_recommendation_summary(
 @router.get(
     "/agent-tasks/analytics/recommendations/trends",
     response_model=AgentTaskRecommendationTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_recommendation_trends(
     bucket: str = "day",
@@ -232,7 +233,7 @@ def read_agent_task_recommendation_trends(
 @router.get(
     "/agent-tasks/analytics/costs",
     response_model=AgentTaskCostSummaryResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_cost_summary(
     task_type: str | None = None,
@@ -249,7 +250,7 @@ def read_agent_task_cost_summary(
 @router.get(
     "/agent-tasks/analytics/costs/trends",
     response_model=AgentTaskCostTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_cost_trends(
     bucket: str = "day",
@@ -268,7 +269,7 @@ def read_agent_task_cost_trends(
 @router.get(
     "/agent-tasks/analytics/performance",
     response_model=AgentTaskPerformanceSummaryResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_performance_summary(
     task_type: str | None = None,
@@ -285,7 +286,7 @@ def read_agent_task_performance_summary(
 @router.get(
     "/agent-tasks/analytics/performance/trends",
     response_model=AgentTaskPerformanceTrendResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_performance_trends(
     bucket: str = "day",
@@ -304,7 +305,7 @@ def read_agent_task_performance_trends(
 @router.get(
     "/agent-tasks/analytics/value-density",
     response_model=list[AgentTaskValueDensityRowResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_value_density(
     session: Session = Depends(get_db_session),
@@ -315,7 +316,7 @@ def read_agent_task_value_density(
 @router.get(
     "/agent-tasks/analytics/decision-signals",
     response_model=list[AgentTaskDecisionSignalResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_decision_signals(
     session: Session = Depends(get_db_session),
@@ -326,7 +327,7 @@ def read_agent_task_decision_signals(
 @router.get(
     "/agent-tasks/analytics/workflow-versions",
     response_model=list[AgentTaskWorkflowVersionSummaryResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_workflow_summaries(
     session: Session = Depends(get_db_session),
@@ -337,7 +338,7 @@ def read_agent_task_workflow_summaries(
 @router.get(
     "/agent-tasks/traces/export",
     response_model=AgentTaskTraceExportResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_trace_export(
     limit: int = 50,
@@ -356,7 +357,7 @@ def read_agent_task_trace_export(
 @router.get(
     "/agent-tasks/{task_id}",
     response_model=AgentTaskDetailResponse,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_detail_route(
     task_id: UUID,
@@ -368,7 +369,7 @@ def read_agent_task_detail_route(
 @router.get(
     "/agent-tasks/{task_id}/context",
     response_model=TaskContextEnvelope,
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_context_route(
     task_id: UUID,
@@ -395,7 +396,7 @@ def read_agent_task_context_route(
 @router.get(
     "/agent-tasks/{task_id}/outcomes",
     response_model=list[AgentTaskOutcomeResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_outcomes(
     task_id: UUID,
@@ -410,7 +411,7 @@ def read_agent_task_outcomes(
     response_model=AgentTaskOutcomeResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("agent_tasks:write")),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
     ],
 )
 def create_agent_task_outcome_route(
@@ -424,7 +425,7 @@ def create_agent_task_outcome_route(
 @router.get(
     "/agent-tasks/{task_id}/artifacts",
     response_model=list[AgentTaskArtifactResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_artifacts(
     task_id: UUID,
@@ -436,7 +437,7 @@ def read_agent_task_artifacts(
 
 @router.get(
     "/agent-tasks/{task_id}/artifacts/{artifact_id}",
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_artifact_route(
     task_id: UUID,
@@ -453,7 +454,7 @@ def read_agent_task_artifact_route(
 @router.get(
     "/agent-tasks/{task_id}/verifications",
     response_model=list[AgentTaskVerificationResponse],
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_verifications_route(
     task_id: UUID,
@@ -465,7 +466,7 @@ def read_agent_task_verifications_route(
 
 @router.get(
     "/agent-tasks/{task_id}/failure-artifact",
-    dependencies=[Depends(require_api_capability("agent_tasks:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_failure_artifact(
     task_id: UUID,
@@ -486,7 +487,7 @@ def read_agent_task_failure_artifact(
     response_model=AgentTaskDetailResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("agent_tasks:write")),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
     ],
 )
 def approve_agent_task_route(
@@ -502,7 +503,7 @@ def approve_agent_task_route(
     response_model=AgentTaskDetailResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("agent_tasks:write")),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
     ],
 )
 def reject_agent_task_route(

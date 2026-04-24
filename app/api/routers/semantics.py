@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import (
     ensure_semantics_enabled,
     get_storage_service,
@@ -43,7 +44,7 @@ review_active_semantic_assertion_category_binding = (
 @router.get(
     "/documents/{document_id}/semantics/latest",
     response_model=DocumentSemanticPassResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_latest_document_semantics(
     document_id: UUID,
@@ -56,7 +57,7 @@ def read_latest_document_semantics(
 @router.get(
     "/semantics/backfill/status",
     response_model=SemanticBackfillStatusResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_semantic_backfill_status(
     session: Session = Depends(get_db_session),
@@ -69,7 +70,7 @@ def read_semantic_backfill_status(
     response_model=SemanticBackfillRunResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("documents:review")),
+        Depends(require_api_capability(api_capabilities.DOCUMENTS_REVIEW)),
     ],
 )
 def create_semantic_backfill_run(
@@ -94,7 +95,7 @@ def create_semantic_backfill_run(
 @router.get(
     "/documents/{document_id}/semantics/latest/continuity",
     response_model=SemanticContinuityResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_latest_document_semantic_continuity(
     document_id: UUID,
@@ -109,7 +110,7 @@ def read_latest_document_semantic_continuity(
     response_model=SemanticReviewEventResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("documents:review")),
+        Depends(require_api_capability(api_capabilities.DOCUMENTS_REVIEW)),
     ],
 )
 def review_latest_document_semantic_assertion(
@@ -135,7 +136,7 @@ def review_latest_document_semantic_assertion(
     response_model=SemanticReviewEventResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("documents:review")),
+        Depends(require_api_capability(api_capabilities.DOCUMENTS_REVIEW)),
     ],
 )
 def review_latest_document_semantic_assertion_category_binding(
@@ -158,7 +159,7 @@ def review_latest_document_semantic_assertion_category_binding(
 
 @router.get(
     "/documents/{document_id}/semantics/latest/artifacts/json",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_latest_semantic_json_artifact(
     document_id: UUID,
@@ -192,7 +193,7 @@ def read_latest_semantic_json_artifact(
 
 @router.get(
     "/documents/{document_id}/semantics/latest/artifacts/yaml",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_latest_semantic_yaml_artifact(
     document_id: UUID,

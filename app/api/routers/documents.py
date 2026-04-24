@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Header, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import (
     get_storage_service,
     require_api_capability,
@@ -84,7 +85,7 @@ def get_active_figure_row(
 @router.get(
     "/documents",
     response_model=list[DocumentSummaryResponse],
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_documents(
     limit: int = Query(default=50, ge=1, le=10000),
@@ -98,7 +99,7 @@ def read_documents(
     response_model=DocumentUploadResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("documents:upload")),
+        Depends(require_api_capability(api_capabilities.DOCUMENTS_UPLOAD)),
     ],
 )
 def create_document(
@@ -123,7 +124,7 @@ def create_document(
 @router.get(
     "/documents/{document_id}",
     response_model=DocumentDetailResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document(
     document_id: UUID,
@@ -135,7 +136,7 @@ def read_document(
 @router.get(
     "/documents/{document_id}/runs",
     response_model=list[DocumentRunSummaryResponse],
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_runs(
     document_id: UUID,
@@ -147,7 +148,7 @@ def read_document_runs(
 @router.get(
     "/runs/{run_id}",
     response_model=DocumentRunSummaryResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_run(
     run_id: UUID,
@@ -159,7 +160,7 @@ def read_document_run(
 @router.get(
     "/documents/{document_id}/evaluations/latest",
     response_model=EvaluationDetailResponse,
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_latest_document_evaluation(
     document_id: UUID,
@@ -170,7 +171,7 @@ def read_latest_document_evaluation(
 
 @router.get(
     "/documents/{document_id}/evaluations/latest/explain",
-    dependencies=[Depends(require_api_capability("quality:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def explain_latest_document_evaluation_route(
     document_id: UUID,
@@ -182,7 +183,7 @@ def explain_latest_document_evaluation_route(
 @router.get(
     "/documents/{document_id}/chunks",
     response_model=list[DocumentChunkResponse],
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_chunks(
     document_id: UUID,
@@ -194,7 +195,7 @@ def read_document_chunks(
 @router.get(
     "/documents/{document_id}/tables",
     response_model=list[DocumentTableSummaryResponse],
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_tables(
     document_id: UUID,
@@ -206,7 +207,7 @@ def read_document_tables(
 @router.get(
     "/documents/{document_id}/tables/{table_id}",
     response_model=DocumentTableDetailResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_table(
     document_id: UUID,
@@ -219,7 +220,7 @@ def read_document_table(
 @router.get(
     "/documents/{document_id}/figures",
     response_model=list[DocumentFigureSummaryResponse],
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_figures(
     document_id: UUID,
@@ -231,7 +232,7 @@ def read_document_figures(
 @router.get(
     "/documents/{document_id}/figures/{figure_id}",
     response_model=DocumentFigureDetailResponse,
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_document_figure(
     document_id: UUID,
@@ -246,7 +247,7 @@ def read_document_figure(
     response_model=DocumentUploadResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("documents:reprocess")),
+        Depends(require_api_capability(api_capabilities.DOCUMENTS_REPROCESS)),
     ],
 )
 def reprocess_existing_document(
@@ -269,7 +270,7 @@ def reprocess_existing_document(
 
 @router.get(
     "/runs/{run_id}/failure-artifact",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_run_failure_artifact(
     run_id: UUID,
@@ -294,7 +295,7 @@ def read_run_failure_artifact(
 
 @router.get(
     "/documents/{document_id}/artifacts/json",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_docling_json_artifact(
     document_id: UUID,
@@ -328,7 +329,7 @@ def read_docling_json_artifact(
 
 @router.get(
     "/documents/{document_id}/artifacts/yaml",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_yaml_artifact(
     document_id: UUID,
@@ -362,7 +363,7 @@ def read_yaml_artifact(
 
 @router.get(
     "/documents/{document_id}/tables/{table_id}/artifacts/json",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_table_json_artifact(
     document_id: UUID,
@@ -392,7 +393,7 @@ def read_table_json_artifact(
 
 @router.get(
     "/documents/{document_id}/tables/{table_id}/artifacts/yaml",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_table_yaml_artifact(
     document_id: UUID,
@@ -422,7 +423,7 @@ def read_table_yaml_artifact(
 
 @router.get(
     "/documents/{document_id}/figures/{figure_id}/artifacts/json",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_figure_json_artifact(
     document_id: UUID,
@@ -456,7 +457,7 @@ def read_figure_json_artifact(
 
 @router.get(
     "/documents/{document_id}/figures/{figure_id}/artifacts/yaml",
-    dependencies=[Depends(require_api_capability("documents:inspect"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_figure_yaml_artifact(
     document_id: UUID,

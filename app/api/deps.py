@@ -10,6 +10,7 @@ from threading import Lock
 from fastapi import Header, Request, status
 from fastapi.responses import FileResponse
 
+from app.api.capabilities import require_known_api_capability
 from app.api.errors import api_error
 from app.api.file_delivery import file_response_if_exists
 from app.core.config import (
@@ -93,6 +94,8 @@ def require_api_key_for_mutations(
 
 
 def require_api_capability(capability: str):
+    capability = require_known_api_capability(capability)
+
     def dependency(
         request: Request,
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
@@ -125,7 +128,11 @@ def require_api_capability(capability: str):
             actor=credential.actor,
         )
 
+    dependency.api_capability = capability
     return dependency
+
+
+require_api_key_for_mutations.api_mutation_key_required = True
 
 
 def _bearer_token_from_header(authorization: str | None) -> str | None:

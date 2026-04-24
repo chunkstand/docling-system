@@ -31,6 +31,19 @@ Service modules also avoid importing underscore-prefixed helpers from other
 service modules. When shared behavior crosses a module boundary, expose a public
 helper or move it to an explicitly shared module.
 
+## API Route Capability Contracts
+
+Remote API permissions are a closed route contract, not free-form router
+strings. Capability names live in `app.api.capabilities`; routers reference
+those constants when calling `require_api_capability(...)`.
+
+`app.api.route_contracts` builds an inspectable manifest from the actual
+FastAPI app: method, path, route name, endpoint, capability, public exemption,
+mutation-key gate, and response model. `tests/unit/test_api_route_contracts.py`
+validates that every non-exempt public route has exactly one known capability
+and that every mutating route also carries `require_api_key_for_mutations`.
+The only public remote exemptions are `/` and `/health`.
+
 ## Agent Action Contracts
 
 Agent-task definitions are machine-checked contracts. Each registered action

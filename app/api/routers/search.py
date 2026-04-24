@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
+import app.api.capabilities as api_capabilities
 from app.api.deps import (
     enforce_search_rate_limit,
     require_api_capability,
@@ -66,7 +67,7 @@ record_chat_answer_feedback = retrieval.record_chat_answer_feedback
     response_model=list[SearchResult],
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:query")),
+        Depends(require_api_capability(api_capabilities.SEARCH_QUERY)),
         Depends(enforce_search_rate_limit),
     ],
 )
@@ -93,7 +94,7 @@ def search_corpus(
     "/search/executions",
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:query")),
+        Depends(require_api_capability(api_capabilities.SEARCH_QUERY)),
         Depends(enforce_search_rate_limit),
     ],
 )
@@ -130,7 +131,7 @@ def execute_search_with_explanation_ref(
 @router.get(
     "/search/requests/{search_request_id}",
     response_model=SearchRequestDetailResponse,
-    dependencies=[Depends(require_api_capability("search:history:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_HISTORY_READ))],
 )
 def read_search_request(
     search_request_id: UUID,
@@ -142,7 +143,7 @@ def read_search_request(
 @router.get(
     "/search/requests/{search_request_id}/explain",
     response_model=SearchRequestExplanationResponse,
-    dependencies=[Depends(require_api_capability("search:history:read"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_HISTORY_READ))],
 )
 def explain_search_request(
     search_request_id: UUID,
@@ -156,7 +157,7 @@ def explain_search_request(
     response_model=SearchFeedbackResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:feedback")),
+        Depends(require_api_capability(api_capabilities.SEARCH_FEEDBACK)),
     ],
 )
 def create_search_feedback(
@@ -174,7 +175,7 @@ def create_search_feedback(
     response_model=SearchReplayResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:replay")),
+        Depends(require_api_capability(api_capabilities.SEARCH_REPLAY)),
     ],
 )
 def replay_logged_search(
@@ -189,7 +190,7 @@ def replay_logged_search(
 @router.get(
     "/search/replays",
     response_model=list[SearchReplayRunSummaryResponse],
-    dependencies=[Depends(require_api_capability("search:replay"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_REPLAY))],
 )
 def read_search_replays(
     session: Session = Depends(get_db_session),
@@ -200,7 +201,7 @@ def read_search_replays(
 @router.get(
     "/search/harnesses",
     response_model=list[SearchHarnessResponse],
-    dependencies=[Depends(require_api_capability("search:evaluate"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def read_search_harnesses() -> list[SearchHarnessResponse]:
     return list_search_harness_definitions()
@@ -209,7 +210,7 @@ def read_search_harnesses() -> list[SearchHarnessResponse]:
 @router.get(
     "/search/harnesses/{harness_name}/descriptor",
     response_model=SearchHarnessDescriptorResponse,
-    dependencies=[Depends(require_api_capability("search:evaluate"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptorResponse:
     try:
@@ -226,7 +227,7 @@ def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptor
 @router.get(
     "/search/harness-evaluations",
     response_model=list[SearchHarnessEvaluationSummaryResponse],
-    dependencies=[Depends(require_api_capability("search:evaluate"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def read_search_harness_evaluations(
     limit: int = Query(default=20, ge=1, le=200),
@@ -245,7 +246,7 @@ def read_search_harness_evaluations(
     response_model=SearchHarnessEvaluationResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:evaluate")),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
     ],
 )
 def create_search_harness_evaluation(
@@ -271,7 +272,7 @@ def create_search_harness_evaluation(
 @router.get(
     "/search/harness-evaluations/{evaluation_id}",
     response_model=SearchHarnessEvaluationResponse,
-    dependencies=[Depends(require_api_capability("search:evaluate"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def read_search_harness_evaluation(
     evaluation_id: UUID,
@@ -282,7 +283,7 @@ def read_search_harness_evaluation(
 
 @router.get(
     "/search/harness-evaluations/{evaluation_id}/explain",
-    dependencies=[Depends(require_api_capability("search:evaluate"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def explain_search_harness_evaluation_route(
     evaluation_id: UUID,
@@ -296,7 +297,7 @@ def explain_search_harness_evaluation_route(
     response_model=SearchReplayRunDetailResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("search:replay")),
+        Depends(require_api_capability(api_capabilities.SEARCH_REPLAY)),
     ],
 )
 def create_search_replay_run(
@@ -322,7 +323,7 @@ def create_search_replay_run(
 @router.get(
     "/search/replays/compare",
     response_model=SearchReplayComparisonResponse,
-    dependencies=[Depends(require_api_capability("search:replay"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_REPLAY))],
 )
 def read_search_replay_comparison(
     baseline_replay_run_id: UUID,
@@ -339,7 +340,7 @@ def read_search_replay_comparison(
 @router.get(
     "/search/replays/{replay_run_id}",
     response_model=SearchReplayRunDetailResponse,
-    dependencies=[Depends(require_api_capability("search:replay"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_REPLAY))],
 )
 def read_search_replay_run(
     replay_run_id: UUID,
@@ -350,7 +351,7 @@ def read_search_replay_run(
 
 @router.get(
     "/search/replays/{replay_run_id}/explain",
-    dependencies=[Depends(require_api_capability("search:replay"))],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_REPLAY))],
 )
 def explain_search_replay_run_route(
     replay_run_id: UUID,
@@ -364,7 +365,7 @@ def explain_search_replay_run_route(
     response_model=ChatResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("chat:query")),
+        Depends(require_api_capability(api_capabilities.CHAT_QUERY)),
     ],
 )
 def chat_with_corpus(
@@ -388,7 +389,7 @@ def chat_with_corpus(
     response_model=ChatAnswerFeedbackResponse,
     dependencies=[
         Depends(require_api_key_for_mutations),
-        Depends(require_api_capability("chat:feedback")),
+        Depends(require_api_capability(api_capabilities.CHAT_FEEDBACK)),
     ],
 )
 def create_chat_answer_feedback(
