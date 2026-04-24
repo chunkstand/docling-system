@@ -315,38 +315,10 @@ def record_improvement_case(*args, **kwargs):
     )(*args, **kwargs)
 
 
-def import_improvement_case_observations(*args, **kwargs):
+def run_improvement_case_import_workflow(*args, **kwargs):
     return _lazy_service_attr(
-        "app.services.improvement_cases",
-        "import_improvement_case_observations",
-    )(*args, **kwargs)
-
-
-def collect_hygiene_finding_observations(*args, **kwargs):
-    return _lazy_service_attr(
-        "app.services.improvement_cases",
-        "collect_hygiene_finding_observations",
-    )(*args, **kwargs)
-
-
-def collect_eval_failure_case_observations(*args, **kwargs):
-    return _lazy_service_attr(
-        "app.services.improvement_cases",
-        "collect_eval_failure_case_observations",
-    )(*args, **kwargs)
-
-
-def collect_failed_agent_task_observations(*args, **kwargs):
-    return _lazy_service_attr(
-        "app.services.improvement_cases",
-        "collect_failed_agent_task_observations",
-    )(*args, **kwargs)
-
-
-def collect_failed_agent_verification_observations(*args, **kwargs):
-    return _lazy_service_attr(
-        "app.services.improvement_cases",
-        "collect_failed_agent_verification_observations",
+        "app.services.improvement_case_intake",
+        "run_improvement_case_import",
     )(*args, **kwargs)
 
 
@@ -1614,30 +1586,6 @@ def run_improvement_case_record() -> None:
     print(json.dumps(case.model_dump(mode="json")))
 
 
-def _collect_hygiene_import_observations(*, limit: int, workflow_version: str):
-    from app.hygiene import (
-        collect_ruff_violation_counts,
-        find_ruff_regression_findings,
-        load_ruff_baseline,
-        run_improvement_case_contract_checks,
-        run_python_hygiene_checks,
-    )
-
-    project_root = Path(__file__).resolve().parents[1]
-    current_counts = collect_ruff_violation_counts(project_root)
-    baseline_counts = load_ruff_baseline(project_root=project_root)
-    findings = [
-        *find_ruff_regression_findings(current_counts, baseline_counts),
-        *run_python_hygiene_checks(project_root),
-        *run_improvement_case_contract_checks(project_root),
-    ]
-    return collect_hygiene_finding_observations(
-        findings,
-        limit=limit,
-        workflow_version=workflow_version,
-    )
-
-
 def run_improvement_case_import() -> None:
     parser = argparse.ArgumentParser(
         description="Import observed failures into the improvement case registry."
@@ -1645,65 +1593,22 @@ def run_improvement_case_import() -> None:
     _add_improvement_case_path_arg(parser)
     parser.add_argument(
         "--source",
-        choices=[
-            "all",
-            "hygiene",
-            "eval-failure-cases",
-            "failed-agent-tasks",
-            "failed-agent-verifications",
-        ],
         default="hygiene",
+        help=(
+            "Import source: all, hygiene, eval-failure-cases, "
+            "failed-agent-tasks, or failed-agent-verifications."
+        ),
     )
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--workflow-version", default="improvement_v1")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    observations = []
-    if args.source in {"all", "hygiene"}:
-        observations.extend(
-            _collect_hygiene_import_observations(
-                limit=args.limit,
-                workflow_version=args.workflow_version,
-            )
-        )
-
-    if args.source in {
-        "all",
-        "eval-failure-cases",
-        "failed-agent-tasks",
-        "failed-agent-verifications",
-    }:
-        session_factory = get_session_factory()
-        with session_factory() as session:
-            if args.source in {"all", "eval-failure-cases"}:
-                observations.extend(
-                    collect_eval_failure_case_observations(
-                        session,
-                        limit=args.limit,
-                        workflow_version=args.workflow_version,
-                    )
-                )
-            if args.source in {"all", "failed-agent-tasks"}:
-                observations.extend(
-                    collect_failed_agent_task_observations(
-                        session,
-                        limit=args.limit,
-                        workflow_version=args.workflow_version,
-                    )
-                )
-            if args.source in {"all", "failed-agent-verifications"}:
-                observations.extend(
-                    collect_failed_agent_verification_observations(
-                        session,
-                        limit=args.limit,
-                        workflow_version=args.workflow_version,
-                    )
-                )
-
     try:
-        payload = import_improvement_case_observations(
-            observations,
+        payload = run_improvement_case_import_workflow(
+            source=args.source,
+            limit=args.limit,
+            workflow_version=args.workflow_version,
             path=args.path,
             dry_run=args.dry_run,
         )

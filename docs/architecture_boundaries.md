@@ -59,3 +59,10 @@ The contract vocabulary is intentionally closed: capabilities, definition
 kinds, and side-effect levels are enumerated in `app.services.agent_actions`.
 Changing those categories should be a deliberate contract change, not an
 accidental string addition in one registry entry.
+
+## Improvement Intake Boundary
+
+Improvement-case intake is owned by `app.services.improvement_case_intake`.
+CLI, API, worker, or UI callers should delegate source selection, observation
+collection, and deduped import to that service facade instead of branching over
+hygiene, eval-workbench, and agent-task tables at the boundary.

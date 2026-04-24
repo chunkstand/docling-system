@@ -70,6 +70,11 @@ Summary output includes lifecycle buckets for open unconverted cases,
 converted-but-unverified cases, verified-but-undeployed cases, repeated cause
 classes, and the oldest open case ID.
 
+The import orchestration lives in `app.services.improvement_case_intake`; the
+CLI is only an argument parser and JSON renderer. Keep new observation sources
+behind that service facade so later API, worker, or UI surfaces can reuse the
+same source selection and dedupe path.
+
 ## Non-Goals
 
 - no automatic Git commit or PR creation

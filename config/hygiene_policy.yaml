@@ -124,7 +124,7 @@ file_budgets:
       max_lines: 948
       max_private_helpers: 2
     app/cli.py:
-      max_lines: 1712
+      max_lines: 1617
       max_private_helpers: 5
     app/db/models.py:
       max_lines: 2588

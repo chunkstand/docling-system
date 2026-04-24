@@ -55,7 +55,6 @@ from app.cli import (
     run_search_harness_evaluation_list,
     run_search_harness_evaluation_show,
 )
-from app.services.improvement_cases import ImprovementCaseObservation
 
 
 def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
@@ -1818,25 +1817,28 @@ def test_improvement_case_record_and_list_cli_roundtrip(
     assert listed[0]["artifact_type"] == "contract"
 
 
-def test_improvement_case_import_cli_imports_hygiene_observations(
+def test_improvement_case_import_cli_delegates_to_service(
     monkeypatch,
     capsys,
     tmp_path,
 ) -> None:
     registry_path = tmp_path / "improvement_cases.yaml"
-    monkeypatch.setattr(
-        "app.cli._collect_hygiene_import_observations",
-        lambda *, limit, workflow_version: [
-            ImprovementCaseObservation(
-                title="Hygiene finding",
-                observed_failure="The hygiene gate found a lint regression.",
-                cause_class="bad_pattern",
-                source_type="hygiene_finding",
-                source_ref="hygiene:test",
-                workflow_version=workflow_version,
-            )
-        ],
-    )
+    captured = {}
+
+    def fake_import_workflow(**kwargs):
+        captured.update(kwargs)
+        return {
+            "schema_name": "improvement_case_import",
+            "schema_version": "1.0",
+            "dry_run": kwargs["dry_run"],
+            "candidate_count": 1,
+            "imported_count": 1,
+            "skipped_count": 0,
+            "imported": [{"source_type": "hygiene_finding"}],
+            "skipped": [],
+        }
+
+    monkeypatch.setattr("app.cli.run_improvement_case_import_workflow", fake_import_workflow)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -1848,12 +1850,22 @@ def test_improvement_case_import_cli_imports_hygiene_observations(
             "hygiene",
             "--limit",
             "5",
+            "--workflow-version",
+            "improvement_v2",
+            "--dry-run",
         ],
     )
 
     run_improvement_case_import()
 
     output = json.loads(capsys.readouterr().out.strip())
+    assert captured == {
+        "source": "hygiene",
+        "limit": 5,
+        "workflow_version": "improvement_v2",
+        "path": str(registry_path),
+        "dry_run": True,
+    }
     assert output["imported_count"] == 1
     assert output["imported"][0]["source_type"] == "hygiene_finding"
 
