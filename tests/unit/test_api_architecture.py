@@ -8,6 +8,7 @@ MAIN_PATH = ROOT / "app/api/main.py"
 SERVICES_DIR = ROOT / "app/services"
 APP_ROUTE_DECORATORS = {"get", "post", "put", "delete", "patch"}
 FORBIDDEN_SERVICE_IMPORT_PREFIXES = ("app.api.main", "app.api.routers")
+ALLOWED_MAIN_SERVICE_IMPORTS = {"app.services.runtime"}
 
 
 def _iter_import_targets(tree: ast.AST) -> list[str]:
@@ -37,6 +38,18 @@ def test_main_is_bootstrap_only_and_defines_no_feature_routes() -> None:
             if func.attr in APP_ROUTE_DECORATORS:
                 offenders.append((node.name, node.lineno))
     assert offenders == []
+
+
+def test_main_imports_no_feature_service_modules() -> None:
+    tree = ast.parse(MAIN_PATH.read_text(), filename=str(MAIN_PATH))
+    service_imports = sorted(
+        {
+            target
+            for target in _iter_import_targets(tree)
+            if target.startswith("app.services") and target not in ALLOWED_MAIN_SERVICE_IMPORTS
+        }
+    )
+    assert service_imports == []
 
 
 def test_service_modules_do_not_import_api_bootstrap_or_router_modules() -> None:

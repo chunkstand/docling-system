@@ -57,7 +57,7 @@ def test_create_document_route_uses_ingest_service(monkeypatch) -> None:
             202,
         )
 
-    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr("app.api.routers.documents.ingest_upload", fake_ingest_upload)
 
     client = TestClient(app)
     response = client.post(
@@ -91,9 +91,9 @@ def test_create_document_route_requires_api_key_when_configured(monkeypatch) -> 
             202,
         )
 
-    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr("app.api.routers.documents.ingest_upload", fake_ingest_upload)
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -138,9 +138,9 @@ def test_create_document_route_enforces_actor_scoped_capabilities(monkeypatch) -
             202,
         )
 
-    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr("app.api.routers.documents.ingest_upload", fake_ingest_upload)
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -184,7 +184,7 @@ def test_create_document_route_enforces_actor_scoped_capabilities(monkeypatch) -
 
 def test_document_list_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -206,9 +206,9 @@ def test_document_list_route_requires_inspect_capability_in_remote_mode(monkeypa
 
 
 def test_document_list_route_accepts_actor_scoped_bearer_token(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_documents", lambda session, limit=50: [])
+    monkeypatch.setattr("app.api.routers.documents.list_documents", lambda session, limit=50: [])
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -241,7 +241,7 @@ def test_document_list_route_forwards_limit_query_param(monkeypatch) -> None:
         captured["limit"] = limit
         return []
 
-    monkeypatch.setattr("app.api.main.list_documents", fake_list_documents)
+    monkeypatch.setattr("app.api.routers.documents.list_documents", fake_list_documents)
 
     client = TestClient(app)
     response = client.get("/documents?limit=125")
@@ -254,7 +254,7 @@ def test_document_list_route_forwards_limit_query_param(monkeypatch) -> None:
 def test_document_detail_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
     document_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -264,7 +264,7 @@ def test_document_detail_route_requires_inspect_capability_in_remote_mode(monkey
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.get_document_detail",
+        "app.api.routers.documents.get_document_detail",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before document detail runs")
         ),
@@ -283,7 +283,7 @@ def test_document_detail_route_requires_inspect_capability_in_remote_mode(monkey
 def test_document_run_route_allows_inspect_capability_in_remote_mode(monkeypatch) -> None:
     run_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -293,7 +293,7 @@ def test_document_run_route_allows_inspect_capability_in_remote_mode(monkeypatch
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.get_document_run_summary",
+        "app.api.routers.documents.get_document_run_summary",
         lambda session, requested_run_id: {
             "run_id": str(requested_run_id),
             "run_number": 1,
@@ -334,9 +334,12 @@ def test_document_run_route_allows_inspect_capability_in_remote_mode(monkeypatch
 
 def test_document_chunks_route_requires_inspect_capability_in_remote_mode(monkeypatch) -> None:
     document_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_active_chunks", lambda session, requested_document_id: [])
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.routers.documents.get_active_chunks",
+        lambda session, requested_document_id: [],
+    )
+    monkeypatch.setattr(
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -358,9 +361,12 @@ def test_document_chunks_route_requires_inspect_capability_in_remote_mode(monkey
 
 def test_document_chunks_route_allows_inspect_capability_in_remote_mode(monkeypatch) -> None:
     document_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_active_chunks", lambda session, requested_document_id: [])
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.routers.documents.get_active_chunks",
+        lambda session, requested_document_id: [],
+    )
+    monkeypatch.setattr(
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -461,7 +467,7 @@ def test_create_document_route_passes_idempotency_key(monkeypatch) -> None:
             202,
         )
 
-    monkeypatch.setattr("app.api.main.ingest_upload", fake_ingest_upload)
+    monkeypatch.setattr("app.api.routers.documents.ingest_upload", fake_ingest_upload)
 
     client = TestClient(app)
     response = client.post(
@@ -480,7 +486,7 @@ def test_latest_evaluation_route_uses_evaluation_service(monkeypatch) -> None:
     run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_latest_document_evaluation_detail",
+        "app.api.routers.documents.get_latest_document_evaluation_detail",
         lambda session, document_id: {
             "evaluation_id": str(evaluation_id),
             "run_id": str(run_id),
@@ -563,7 +569,7 @@ def test_document_runs_route_uses_run_history_service(monkeypatch) -> None:
     run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.list_document_runs",
+        "app.api.routers.documents.list_document_runs",
         lambda session, requested_document_id: [
             {
                 "run_id": str(run_id),
@@ -599,7 +605,7 @@ def test_document_run_route_uses_run_summary_service(monkeypatch) -> None:
     run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_document_run_summary",
+        "app.api.routers.documents.get_document_run_summary",
         lambda session, requested_run_id: {
             "run_id": str(requested_run_id),
             "run_number": 2,
@@ -655,7 +661,8 @@ def test_run_failure_artifact_route_serves_json(monkeypatch, tmp_path: Path) -> 
         def close(self) -> None:
             return None
 
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
         client = TestClient(app)
@@ -712,7 +719,7 @@ def test_document_artifact_routes_return_404_for_missing_storage_owned_paths(
             return None
 
     monkeypatch.setattr(
-        "app.api.main.get_document_detail",
+        "app.api.routers.documents.get_document_detail",
         lambda session, requested_document_id: SimpleNamespace(
             id=requested_document_id,
             active_run_id=run_id,
@@ -720,7 +727,8 @@ def test_document_artifact_routes_return_404_for_missing_storage_owned_paths(
             has_yaml_artifact=True,
         ),
     )
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
 
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
@@ -767,11 +775,12 @@ def test_semantic_artifact_routes_return_404_for_missing_storage_owned_paths(
             return None
 
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_pass_row",
+        "app.api.routers.semantics.get_active_semantic_pass_row",
         lambda session, requested_document_id: semantic_pass,
     )
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.semantics.get_storage_service", lambda: storage_service)
 
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
@@ -791,22 +800,22 @@ def test_semantic_read_routes_return_conflict_when_feature_disabled(monkeypatch)
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False)
+        "app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=False)
     )
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_pass_detail",
+        "app.api.routers.semantics.get_active_semantic_pass_detail",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("semantic detail lookup should stay disabled")
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_continuity",
+        "app.api.routers.semantics.get_active_semantic_continuity",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("semantic continuity lookup should stay disabled")
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_pass_row",
+        "app.api.routers.semantics.get_active_semantic_pass_row",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("semantic artifact lookup should stay disabled")
         ),
@@ -832,10 +841,10 @@ def test_latest_semantics_route_returns_machine_readable_error_when_pass_missing
     monkeypatch,
 ) -> None:
     document_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
 
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_pass_detail",
+        "app.api.routers.semantics.get_active_semantic_pass_detail",
         lambda session, requested_document_id: (_ for _ in ()).throw(
             api_error(
                 404,
@@ -857,10 +866,10 @@ def test_latest_semantic_continuity_route_returns_machine_readable_error_when_pa
     monkeypatch,
 ) -> None:
     document_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
 
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_continuity",
+        "app.api.routers.semantics.get_active_semantic_continuity",
         lambda session, requested_document_id: (_ for _ in ()).throw(
             api_error(
                 404,
@@ -883,11 +892,11 @@ def test_latest_semantic_continuity_route_requires_inspect_capability_in_remote_
 ) -> None:
     document_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: _remote_semantic_settings(enabled=True),
     )
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_continuity",
+        "app.api.routers.semantics.get_active_semantic_continuity",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before semantic continuity runs")
         ),
@@ -908,10 +917,10 @@ def test_semantic_assertion_review_route_returns_machine_readable_error_when_tar
 ) -> None:
     document_id = uuid4()
     assertion_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
 
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion",
+        "app.api.routers.semantics.review_active_semantic_assertion",
         lambda session, requested_document_id, requested_assertion_id, **kwargs: (
             _ for _ in ()
         ).throw(
@@ -940,11 +949,11 @@ def test_semantic_assertion_review_route_requires_remote_review_capability(monke
     assertion_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: _remote_semantic_settings(enabled=True),
     )
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion",
+        "app.api.routers.semantics.review_active_semantic_assertion",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before semantic assertion review")
         ),
@@ -966,10 +975,10 @@ def test_semantic_category_binding_review_route_errors_when_target_missing(
 ) -> None:
     document_id = uuid4()
     binding_id = uuid4()
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
 
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion_category_binding",
+        "app.api.routers.semantics.review_active_semantic_assertion_category_binding",
         lambda session, requested_document_id, requested_binding_id, **kwargs: (
             _ for _ in ()
         ).throw(
@@ -1000,11 +1009,11 @@ def test_semantic_assertion_category_binding_review_route_requires_remote_review
     binding_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: _remote_semantic_settings(enabled=True),
     )
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion_category_binding",
+        "app.api.routers.semantics.review_active_semantic_assertion_category_binding",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError(
                 "remote capability gate should block before semantic category binding review"
@@ -1029,16 +1038,16 @@ def test_semantic_review_routes_return_conflict_when_feature_disabled(monkeypatc
     binding_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings", lambda: _local_semantic_settings(enabled=False)
+        "app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=False)
     )
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion",
+        "app.api.routers.semantics.review_active_semantic_assertion",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("semantic assertion review should stay disabled")
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.review_active_semantic_assertion_category_binding",
+        "app.api.routers.semantics.review_active_semantic_assertion_category_binding",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             AssertionError("semantic category binding review should stay disabled")
         ),
@@ -1097,7 +1106,8 @@ def test_run_failure_artifact_route_returns_machine_readable_error_when_artifact
         def close(self) -> None:
             return None
 
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
         client = TestClient(app)
@@ -1160,7 +1170,7 @@ def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
             return None
 
     monkeypatch.setattr(
-        "app.api.main.get_document_detail",
+        "app.api.routers.documents.get_document_detail",
         lambda session, requested_document_id: SimpleNamespace(
             id=requested_document_id,
             active_run_id=run_id,
@@ -1168,7 +1178,8 @@ def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
             has_yaml_artifact=True,
         ),
     )
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
 
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:
@@ -1217,11 +1228,12 @@ def test_semantic_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
             return None
 
     monkeypatch.setattr(
-        "app.api.main.get_active_semantic_pass_row",
+        "app.api.routers.semantics.get_active_semantic_pass_row",
         lambda session, requested_document_id: semantic_pass,
     )
-    monkeypatch.setattr("app.api.main.get_settings", lambda: _local_semantic_settings(enabled=True))
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_settings", lambda: _local_semantic_settings(enabled=True))
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.semantics.get_storage_service", lambda: storage_service)
 
     app.dependency_overrides[get_db_session] = lambda: FakeSession()
     try:

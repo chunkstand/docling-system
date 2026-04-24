@@ -39,7 +39,7 @@ def test_search_route_uses_search_service(monkeypatch) -> None:
             ],
         )
 
-    monkeypatch.setattr("app.api.main.execute_search", fake_execute_search)
+    monkeypatch.setattr("app.api.routers.search.execute_search", fake_execute_search)
 
     client = TestClient(app)
     response = client.post("/search", json={"query": "hello", "mode": "hybrid", "limit": 5})
@@ -69,7 +69,7 @@ def test_search_execution_route_returns_agent_legible_envelope(monkeypatch) -> N
             }
 
     monkeypatch.setattr(
-        "app.api.main.execute_search",
+        "app.api.routers.search.execute_search",
         lambda session, request, origin="api": SimpleNamespace(
             request_id=request_id,
             results=[ResultStub()],
@@ -93,7 +93,7 @@ def test_search_execution_route_returns_agent_legible_envelope(monkeypatch) -> N
 
 def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -103,7 +103,7 @@ def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.execute_search",
+        "app.api.routers.search.execute_search",
         lambda session, request, origin="api": SimpleNamespace(request_id=None, results=[]),
     )
 
@@ -120,7 +120,7 @@ def test_search_route_is_allowed_in_remote_mode_by_default(monkeypatch) -> None:
 
 def test_search_route_returns_machine_readable_error_code(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.execute_search",
+        "app.api.routers.search.execute_search",
         lambda session, request, origin="api": (_ for _ in ()).throw(
             ValueError("bad search request")
         ),
@@ -137,15 +137,15 @@ def test_search_route_returns_machine_readable_error_code(monkeypatch) -> None:
 
 
 def test_search_route_returns_structured_rate_limit_error(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.SEARCH_RATE_LIMIT", 1)
-    monkeypatch.setattr("app.api.main.SEARCH_RATE_WINDOW_SECONDS", 60.0)
+    monkeypatch.setattr("app.api.deps.SEARCH_RATE_LIMIT", 1)
+    monkeypatch.setattr("app.api.deps.SEARCH_RATE_WINDOW_SECONDS", 60.0)
     monkeypatch.setattr(
-        "app.api.main.execute_search",
+        "app.api.routers.search.execute_search",
         lambda session, request, origin="api": SimpleNamespace(request_id=None, results=[]),
     )
-    from app.api import main
+    from app.api import deps
 
-    main._search_request_times.clear()
+    deps._search_request_times.clear()
 
     client = TestClient(app)
     first_response = client.post(
@@ -166,7 +166,7 @@ def test_search_request_detail_route_uses_history_service(monkeypatch) -> None:
     request_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_search_request_detail",
+        "app.api.routers.search.get_search_request_detail",
         lambda session, search_request_id: {
             "search_request_id": str(search_request_id),
             "parent_search_request_id": None,
@@ -202,7 +202,7 @@ def test_search_request_explain_route_uses_legibility_service(monkeypatch) -> No
     request_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_search_request_explanation",
+        "app.api.routers.search.get_search_request_explanation",
         lambda session, search_request_id: {
             "schema_name": "search_request_explanation",
             "schema_version": "1.0",
@@ -268,7 +268,7 @@ def test_search_request_explain_route_returns_machine_readable_error(monkeypatch
             search_request_id=str(search_request_id),
         )
 
-    monkeypatch.setattr("app.api.main.get_search_request_explanation", raise_not_found)
+    monkeypatch.setattr("app.api.routers.search.get_search_request_explanation", raise_not_found)
 
     client = TestClient(app)
     response = client.get(f"/search/requests/{request_id}/explain")
@@ -278,9 +278,9 @@ def test_search_request_explain_route_returns_machine_readable_error(monkeypatch
 
 
 def test_search_replay_list_route_requires_remote_replay_capability(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_search_replay_runs", lambda session: [])
+    monkeypatch.setattr("app.api.routers.search.list_search_replay_runs", lambda session: [])
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -298,9 +298,9 @@ def test_search_replay_list_route_requires_remote_replay_capability(monkeypatch)
 
 
 def test_search_replay_list_route_allows_remote_replay_capability(monkeypatch) -> None:
-    monkeypatch.setattr("app.api.main.list_search_replay_runs", lambda session: [])
+    monkeypatch.setattr("app.api.routers.search.list_search_replay_runs", lambda session: [])
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -322,7 +322,7 @@ def test_search_request_replay_route_uses_history_service(monkeypatch) -> None:
     replay_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.replay_search_request",
+        "app.api.routers.search.replay_search_request",
         lambda session, search_request_id: {
             "original_request": {
                 "search_request_id": str(search_request_id),
@@ -389,7 +389,7 @@ def test_search_request_replay_route_requires_remote_capability(monkeypatch) -> 
     request_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -399,7 +399,7 @@ def test_search_request_replay_route_requires_remote_capability(monkeypatch) -> 
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.replay_search_request",
+        "app.api.routers.search.replay_search_request",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before replay runs")
         ),
@@ -420,7 +420,7 @@ def test_search_request_feedback_route_uses_history_service(monkeypatch) -> None
     feedback_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.record_search_feedback",
+        "app.api.routers.search.record_search_feedback",
         lambda session, search_request_id, payload: {
             "feedback_id": str(feedback_id),
             "search_request_id": str(search_request_id),
@@ -450,7 +450,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
     comparison_candidate_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.list_search_replay_runs",
+        "app.api.routers.search.list_search_replay_runs",
         lambda session: [
             {
                 "replay_run_id": str(replay_run_id),
@@ -469,7 +469,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.run_search_replay_suite",
+        "app.api.routers.search.run_search_replay_suite",
         lambda session, payload: {
             "replay_run_id": str(replay_run_id),
             "source_type": payload.source_type,
@@ -488,7 +488,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_search_replay_run_detail",
+        "app.api.routers.search.get_search_replay_run_detail",
         lambda session, replay_run_id: {
             "replay_run_id": str(replay_run_id),
             "source_type": "live_search_gaps",
@@ -507,7 +507,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.api.main.compare_search_replay_runs",
+        "app.api.routers.search.compare_search_replay_runs",
         lambda session, baseline_replay_run_id, candidate_replay_run_id: {
             "baseline_replay_run_id": str(baseline_replay_run_id),
             "candidate_replay_run_id": str(candidate_replay_run_id),
@@ -552,7 +552,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     candidate_replay_run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.list_search_harness_definitions",
+        "app.api.routers.search.list_search_harness_definitions",
         lambda: [
             {
                 "harness_name": "default_v1",
@@ -565,7 +565,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.evaluate_search_harness",
+        "app.api.routers.search.evaluate_search_harness",
         lambda session, payload: {
             "evaluation_id": str(evaluation_id),
             "status": "completed",
@@ -603,7 +603,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.api.main.list_search_harness_evaluations",
+        "app.api.routers.search.list_search_harness_evaluations",
         lambda session, limit=20, candidate_harness_name=None: [
             {
                 "evaluation_id": str(evaluation_id),
@@ -622,7 +622,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.get_search_harness_evaluation_detail",
+        "app.api.routers.search.get_search_harness_evaluation_detail",
         lambda session, lookup_evaluation_id: {
             "evaluation_id": str(lookup_evaluation_id),
             "status": "completed",
@@ -650,7 +650,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_search_harness_descriptor",
+        "app.api.routers.search.get_search_harness_descriptor",
         lambda harness_name: {
             "schema_name": "search_harness_descriptor",
             "schema_version": "1.0",
@@ -709,7 +709,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
 
 def test_search_harness_descriptor_route_returns_machine_readable_error(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_search_harness_descriptor",
+        "app.api.routers.search.get_search_harness_descriptor",
         lambda harness_name: (_ for _ in ()).throw(ValueError("Unknown search harness")),
     )
 
@@ -725,7 +725,7 @@ def test_search_harness_evaluation_detail_route_returns_machine_readable_error(
 ) -> None:
     evaluation_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_search_harness_evaluation_detail",
+        "app.api.routers.search.get_search_harness_evaluation_detail",
         lambda session, lookup_evaluation_id: (_ for _ in ()).throw(
             api_error(
                 404,

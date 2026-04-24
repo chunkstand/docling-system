@@ -34,11 +34,11 @@ def _override_db_session():
 def test_semantic_backfill_status_route_returns_machine_readable_payload(monkeypatch) -> None:
     now = datetime.now(UTC)
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: _local_semantic_settings(enabled=False),
     )
     monkeypatch.setattr(
-        "app.api.main.get_semantic_backfill_status",
+        "app.api.routers.semantics.get_semantic_backfill_status",
         lambda session: SemanticBackfillStatusResponse(
             semantics_enabled=False,
             active_document_count=2,
@@ -73,7 +73,7 @@ def test_semantic_backfill_status_route_returns_machine_readable_payload(monkeyp
 
 def test_semantic_backfill_run_route_blocks_when_semantics_disabled(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: _local_semantic_settings(enabled=False),
     )
     app.dependency_overrides[get_db_session] = _override_db_session

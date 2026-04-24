@@ -12,7 +12,7 @@ from app.services.storage import StorageService
 
 def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.list_agent_task_action_definitions",
+        "app.api.routers.agent_tasks.list_agent_task_action_definitions",
         lambda: [
             {
                 "task_type": "evaluate_search_harness",
@@ -99,7 +99,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
     failure_path.write_text('{"error":"failed"}')
 
     monkeypatch.setattr(
-        "app.api.main.list_agent_tasks",
+        "app.api.routers.agent_tasks.list_agent_tasks",
         lambda session, statuses=None, limit=50: [
             {
                 "task_id": str(task_id),
@@ -121,7 +121,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.create_agent_task",
+        "app.api.routers.agent_tasks.create_agent_task",
         lambda session, payload: {
             "task_id": str(task_id),
             "task_type": payload.task_type,
@@ -167,7 +167,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_analytics_summary",
+        "app.api.routers.agent_tasks.get_agent_task_analytics_summary",
         lambda session: {
             "task_count": 4,
             "completed_count": 2,
@@ -185,7 +185,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_trends",
+        "app.api.routers.agent_tasks.get_agent_task_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -209,7 +209,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_verification_trends",
+        "app.api.routers.agent_tasks.get_agent_verification_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -227,7 +227,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_approval_trends",
+        "app.api.routers.agent_tasks.get_agent_approval_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -244,7 +244,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_recommendation_summary",
+        "app.api.routers.agent_tasks.get_agent_task_recommendation_summary",
         lambda session, task_type=None, workflow_version=None: {
             "task_type": task_type,
             "workflow_version": workflow_version,
@@ -266,7 +266,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_recommendation_trends",
+        "app.api.routers.agent_tasks.get_agent_task_recommendation_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -286,7 +286,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_cost_summary",
+        "app.api.routers.agent_tasks.get_agent_task_cost_summary",
         lambda session, task_type=None, workflow_version=None: {
             "task_type": task_type,
             "workflow_version": workflow_version,
@@ -300,7 +300,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_cost_trends",
+        "app.api.routers.agent_tasks.get_agent_task_cost_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -320,7 +320,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_performance_summary",
+        "app.api.routers.agent_tasks.get_agent_task_performance_summary",
         lambda session, task_type=None, workflow_version=None: {
             "task_type": task_type,
             "workflow_version": workflow_version,
@@ -335,7 +335,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_performance_trends",
+        "app.api.routers.agent_tasks.get_agent_task_performance_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: {
             "bucket": bucket,
             "task_type": task_type,
@@ -355,7 +355,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_value_density",
+        "app.api.routers.agent_tasks.get_agent_task_value_density",
         lambda session: [
             {
                 "task_type": "triage_replay_regression",
@@ -372,7 +372,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_decision_signals",
+        "app.api.routers.agent_tasks.get_agent_task_decision_signals",
         lambda session: [
             {
                 "task_type": "triage_replay_regression",
@@ -385,7 +385,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.list_agent_task_workflow_summaries",
+        "app.api.routers.agent_tasks.list_agent_task_workflow_summaries",
         lambda session: [
             {
                 "workflow_version": "v1",
@@ -403,7 +403,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.export_agent_task_traces",
+        "app.api.routers.agent_tasks.export_agent_task_traces",
         lambda session, limit=50, workflow_version=None, task_type=None: {
             "export_count": 1,
             "workflow_version": workflow_version,
@@ -454,7 +454,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_detail",
+        "app.api.routers.agent_tasks.get_agent_task_detail",
         lambda session, incoming_task_id: {
             "task_id": str(incoming_task_id),
             "task_type": "list_quality_eval_candidates",
@@ -498,7 +498,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.list_agent_task_outcomes",
+        "app.api.routers.agent_tasks.list_agent_task_outcomes",
         lambda session, incoming_task_id, limit=20: [
             {
                 "outcome_id": str(outcome_id),
@@ -511,7 +511,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.create_agent_task_outcome",
+        "app.api.routers.agent_tasks.create_agent_task_outcome",
         lambda session, incoming_task_id, payload: {
             "outcome_id": str(outcome_id),
             "task_id": str(incoming_task_id),
@@ -522,7 +522,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.list_agent_task_artifacts",
+        "app.api.routers.agent_tasks.list_agent_task_artifacts",
         lambda session, incoming_task_id, limit=20: [
             {
                 "artifact_id": str(artifact_id),
@@ -536,7 +536,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_artifact",
+        "app.api.routers.agent_tasks.get_agent_task_artifact",
         lambda session, incoming_task_id, incoming_artifact_id: type(
             "ArtifactRow",
             (),
@@ -548,9 +548,10 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
             },
         )(),
     )
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.agent_tasks.get_storage_service", lambda: storage_service)
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_verifications",
+        "app.api.routers.agent_tasks.get_agent_task_verifications",
         lambda session, incoming_task_id, limit=20: [
             {
                 "verification_id": str(verification_id),
@@ -567,7 +568,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         ],
     )
     monkeypatch.setattr(
-        "app.api.main.approve_agent_task",
+        "app.api.routers.agent_tasks.approve_agent_task",
         lambda session, incoming_task_id, payload: {
             "task_id": str(incoming_task_id),
             "task_type": "evaluate_search_harness",
@@ -611,7 +612,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.reject_agent_task",
+        "app.api.routers.agent_tasks.reject_agent_task",
         lambda session, incoming_task_id, payload: {
             "task_id": str(incoming_task_id),
             "task_type": "enqueue_document_reprocess",
@@ -653,7 +654,7 @@ def test_agent_task_routes_use_service_layer(monkeypatch, tmp_path: Path) -> Non
         },
     )
     monkeypatch.setattr(
-        "app.api.main.FileResponse",
+        "app.api.deps.FileResponse",
         lambda path, media_type=None: {"path": str(path), "media_type": media_type},
     )
 
@@ -791,7 +792,7 @@ def test_agent_task_context_route_supports_json_and_yaml(monkeypatch) -> None:
     task_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_context",
+        "app.api.routers.agent_tasks.get_agent_task_context",
         lambda session, incoming_task_id: {
             "task_id": str(incoming_task_id),
             "task_type": "draft_harness_config_update",
@@ -833,7 +834,7 @@ def test_agent_task_context_route_supports_json_and_yaml(monkeypatch) -> None:
 def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:
     task_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_detail",
+        "app.api.routers.agent_tasks.get_agent_task_detail",
         lambda session, incoming_task_id: {
             "task_id": str(incoming_task_id),
             "task_type": "triage_replay_regression",
@@ -983,9 +984,10 @@ def test_agent_task_artifact_route_does_not_serve_paths_outside_storage_root(
     outside_path = tmp_path / "outside.json"
     outside_path.write_text('{"should":"not-serve"}')
 
-    monkeypatch.setattr("app.api.main.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.agent_tasks.get_storage_service", lambda: storage_service)
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_artifact",
+        "app.api.routers.agent_tasks.get_agent_task_artifact",
         lambda session, incoming_task_id, incoming_artifact_id: type(
             "ArtifactRow",
             (),
@@ -1013,7 +1015,7 @@ def test_agent_task_list_route_accepts_repeated_status_query(monkeypatch) -> Non
         captured["limit"] = limit
         return []
 
-    monkeypatch.setattr("app.api.main.list_agent_tasks", fake_list_tasks)
+    monkeypatch.setattr("app.api.routers.agent_tasks.list_agent_tasks", fake_list_tasks)
 
     client = TestClient(app)
     response = client.get("/agent-tasks?status=queued&status=failed&limit=7")
@@ -1025,7 +1027,7 @@ def test_agent_task_list_route_accepts_repeated_status_query(monkeypatch) -> Non
 
 def test_create_agent_task_route_returns_bad_request_on_unknown_task_type(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.create_agent_task",
+        "app.api.routers.agent_tasks.create_agent_task",
         lambda session, payload: (_ for _ in ()).throw(ValueError("Unknown agent task type")),
     )
 
@@ -1055,7 +1057,7 @@ def test_create_agent_task_route_returns_422_on_invalid_inner_payload() -> None:
 
 def test_create_agent_task_route_requires_remote_capability(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -1069,7 +1071,7 @@ def test_create_agent_task_route_requires_remote_capability(monkeypatch) -> None
         )(),
     )
     monkeypatch.setattr(
-        "app.api.main.create_agent_task",
+        "app.api.routers.agent_tasks.create_agent_task",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before agent task creation runs")
         ),
@@ -1091,7 +1093,7 @@ def test_agent_task_context_route_returns_machine_readable_error_code_for_bad_fo
 ) -> None:
     task_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_agent_task_context",
+        "app.api.routers.agent_tasks.get_agent_task_context",
         lambda session, requested_task_id: {"summary": {}, "refs": []},
     )
 
@@ -1104,10 +1106,10 @@ def test_agent_task_context_route_returns_machine_readable_error_code_for_bad_fo
 
 def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: []
+        "app.api.routers.agent_tasks.list_agent_tasks", lambda session, statuses=None, limit=50: []
     )
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -1133,10 +1135,10 @@ def test_agent_task_list_route_requires_api_key_in_remote_mode(monkeypatch) -> N
 
 def test_agent_task_list_route_allows_remote_read_capability(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.list_agent_tasks", lambda session, statuses=None, limit=50: []
+        "app.api.routers.agent_tasks.list_agent_tasks", lambda session, statuses=None, limit=50: []
     )
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),

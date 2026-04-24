@@ -16,7 +16,7 @@ def test_health_endpoint() -> None:
 
 def test_runtime_status_endpoint(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_runtime_status",
+        "app.api.routers.system.get_runtime_status",
         lambda process_identity=None: {
             "process_identity": process_identity,
             "startup_code_fingerprint": "startup-1",
@@ -27,7 +27,7 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -57,7 +57,7 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
 
 def test_runtime_status_endpoint_requires_remote_read_capability(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -80,7 +80,7 @@ def test_runtime_status_endpoint_requires_remote_read_capability(monkeypatch) ->
 
 def test_runtime_status_endpoint_exposes_actor_scoped_auth_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_runtime_status",
+        "app.api.routers.system.get_runtime_status",
         lambda process_identity=None: {
             "process_identity": process_identity,
             "startup_code_fingerprint": "startup-1",
@@ -91,7 +91,7 @@ def test_runtime_status_endpoint_exposes_actor_scoped_auth_metadata(monkeypatch)
         },
     )
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -139,7 +139,7 @@ def test_runtime_status_endpoint_exposes_actor_scoped_auth_metadata(monkeypatch)
 
 def test_health_endpoint_remains_public_in_remote_mode(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),

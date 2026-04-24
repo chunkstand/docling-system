@@ -59,7 +59,7 @@ def test_eval_workbench_route_returns_agent_task_payloads(monkeypatch) -> None:
     case_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_eval_workbench",
+        "app.api.routers.quality.get_eval_workbench",
         lambda session, limit=25: {
             "schema_name": "eval_workbench",
             "schema_version": "1.0",
@@ -96,7 +96,7 @@ def test_eval_workbench_route_returns_agent_task_payloads(monkeypatch) -> None:
 def test_eval_failure_case_yaml_is_derived_from_json_contract(monkeypatch) -> None:
     case_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_eval_failure_case",
+        "app.api.routers.quality.get_eval_failure_case",
         lambda session, requested_case_id: _case_payload(requested_case_id),
     )
 
@@ -117,7 +117,7 @@ def test_eval_failure_cases_route_accepts_repeated_status_query(monkeypatch) -> 
         captured["limit"] = limit
         return []
 
-    monkeypatch.setattr("app.api.main.list_eval_failure_cases", fake_list_cases)
+    monkeypatch.setattr("app.api.routers.quality.list_eval_failure_cases", fake_list_cases)
 
     client = TestClient(app)
     response = client.get(
@@ -145,7 +145,7 @@ def test_refresh_eval_failure_cases_route_commits(monkeypatch) -> None:
 
     app.dependency_overrides[get_db_session] = override_session
     monkeypatch.setattr(
-        "app.api.main.refresh_eval_failure_cases",
+        "app.api.routers.quality.refresh_eval_failure_cases",
         lambda session, limit=50, include_resolved=False: {
             "schema_name": "eval_failure_case_refresh",
             "schema_version": "1.0",
@@ -172,7 +172,7 @@ def test_refresh_eval_failure_cases_route_requires_remote_write_capability(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -182,7 +182,7 @@ def test_refresh_eval_failure_cases_route_requires_remote_write_capability(
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.refresh_eval_failure_cases",
+        "app.api.routers.quality.refresh_eval_failure_cases",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("capability gate should block before eval failure refresh runs")
         ),
@@ -200,7 +200,7 @@ def test_refresh_eval_failure_cases_route_requires_remote_write_capability(
 
 def test_eval_workbench_route_requires_remote_read_capability(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -210,7 +210,7 @@ def test_eval_workbench_route_requires_remote_read_capability(monkeypatch) -> No
         ),
     )
     monkeypatch.setattr(
-        "app.api.main.get_eval_workbench",
+        "app.api.routers.quality.get_eval_workbench",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("capability gate should block before eval workbench reads")
         ),

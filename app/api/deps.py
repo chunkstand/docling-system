@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import secrets
-import sys
 import time
 from collections import deque
 from functools import lru_cache
@@ -30,27 +29,8 @@ _search_rate_limit_lock = Lock()
 _search_request_times: dict[str, deque[float]] = {}
 
 
-def _main_override(name: str, default):
-    api_main = sys.modules.get("app.api.main")
-    if api_main is None:
-        return default
-    return getattr(api_main, name, default)
-
-
-def _current_settings():
-    return _main_override("get_settings", get_settings)()
-
-
-def _current_search_rate_limit() -> int:
-    return _main_override("SEARCH_RATE_LIMIT", SEARCH_RATE_LIMIT)
-
-
-def _current_search_rate_window_seconds() -> float:
-    return _main_override("SEARCH_RATE_WINDOW_SECONDS", SEARCH_RATE_WINDOW_SECONDS)
-
-
 def api_mode_metadata() -> dict[str, object]:
-    settings = _current_settings()
+    settings = get_settings()
     resolved_mode = resolve_api_mode(settings)
     resolved_credentials = resolve_api_credentials(settings)
     payload = {
@@ -76,7 +56,7 @@ def api_mode_metadata() -> dict[str, object]:
 
 
 def ensure_semantics_enabled() -> None:
-    settings = _current_settings()
+    settings = get_settings()
     if semantics_feature_enabled(settings):
         return
     raise api_error(
@@ -91,7 +71,7 @@ def require_api_key_for_mutations(
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
     authorization: str | None = Header(default=None, alias="Authorization"),
 ) -> None:
-    settings = _current_settings()
+    settings = get_settings()
     if resolve_api_mode(settings) != "remote" and not api_auth_is_configured(settings):
         return
 
@@ -118,7 +98,7 @@ def require_api_capability(capability: str):
         x_api_key: str | None = Header(default=None, alias="X-API-Key"),
         authorization: str | None = Header(default=None, alias="Authorization"),
     ) -> None:
-        settings = _current_settings()
+        settings = get_settings()
         if resolve_api_mode(settings) != "remote":
             return
         credential = getattr(request.state, "api_credential", None) or resolve_api_credential(
@@ -186,8 +166,8 @@ def _search_rate_limit_key(request: Request) -> str:
 def enforce_search_rate_limit(request: Request) -> None:
     key = _search_rate_limit_key(request)
     now = time.monotonic()
-    rate_window_seconds = _current_search_rate_window_seconds()
-    rate_limit = _current_search_rate_limit()
+    rate_window_seconds = SEARCH_RATE_WINDOW_SECONDS
+    rate_limit = SEARCH_RATE_LIMIT
     window_start = now - rate_window_seconds
     with _search_rate_limit_lock:
         request_times = _search_request_times.setdefault(key, deque())
@@ -219,7 +199,7 @@ def storage_file_response(
     return file_response_if_exists(
         get_storage_service().resolve_existing_path(path_value),
         media_type=media_type,
-        response_factory=_main_override("FileResponse", FileResponse),
+        response_factory=FileResponse,
         not_found_detail=not_found_detail,
         not_found_error_code=not_found_error_code,
         not_found_context=not_found_context,

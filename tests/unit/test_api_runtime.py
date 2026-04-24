@@ -12,7 +12,7 @@ def test_run_uses_configured_bind_host_and_port(monkeypatch) -> None:
     captured: dict = {}
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="local",
             api_host="127.0.0.1",
@@ -39,7 +39,7 @@ def test_run_uses_configured_bind_host_and_port(monkeypatch) -> None:
 
 def test_run_rejects_non_loopback_bind_without_api_key(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(api_mode=None, api_host="0.0.0.0", api_port=8000, api_key=None),
     )
 
@@ -55,7 +55,7 @@ def test_run_rejects_non_loopback_bind_without_api_key(monkeypatch) -> None:
 
 def test_run_rejects_local_mode_when_host_is_not_loopback(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="local",
             api_host="0.0.0.0",
@@ -73,7 +73,7 @@ def test_run_rejects_local_mode_when_host_is_not_loopback(monkeypatch) -> None:
 
 def test_run_rejects_remote_mode_without_api_key(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="127.0.0.1",
@@ -96,7 +96,7 @@ def test_run_accepts_remote_mode_with_actor_scoped_credentials(monkeypatch) -> N
     captured: dict = {}
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",
@@ -132,7 +132,7 @@ def test_run_accepts_remote_mode_with_actor_scoped_credentials(monkeypatch) -> N
 
 def test_run_rejects_invalid_actor_scoped_credentials_json(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: SimpleNamespace(
             api_mode="remote",
             api_host="0.0.0.0",

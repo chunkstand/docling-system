@@ -13,7 +13,7 @@ def test_chat_route_uses_answer_service(monkeypatch) -> None:
     run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.answer_question",
+        "app.api.routers.search.answer_question",
         lambda session, request: {
             "answer": "Vent sizing is covered in the retrieved chapter text [1].",
             "citations": [
@@ -52,7 +52,7 @@ def test_chat_feedback_route_uses_chat_service(monkeypatch) -> None:
     feedback_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.record_chat_answer_feedback",
+        "app.api.routers.search.record_chat_answer_feedback",
         lambda session, chat_answer_id, payload: {
             "feedback_id": str(feedback_id),
             "chat_answer_id": str(chat_answer_id),
@@ -85,7 +85,7 @@ def test_chat_feedback_route_returns_machine_readable_not_found(monkeypatch) -> 
             chat_answer_id=str(chat_answer_id),
         )
 
-    monkeypatch.setattr("app.api.main.record_chat_answer_feedback", missing_answer)
+    monkeypatch.setattr("app.api.routers.search.record_chat_answer_feedback", missing_answer)
 
     client = TestClient(app)
     response = client.post(

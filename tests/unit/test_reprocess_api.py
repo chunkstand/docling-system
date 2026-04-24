@@ -25,7 +25,7 @@ def test_reprocess_route_returns_accepted(monkeypatch) -> None:
             "active_run_status": None,
         }
 
-    monkeypatch.setattr("app.api.main.reprocess_document", fake_reprocess_document)
+    monkeypatch.setattr("app.api.routers.documents.reprocess_document", fake_reprocess_document)
 
     client = TestClient(app)
     response = client.post(f"/documents/{document_id}/reprocess")
@@ -52,7 +52,7 @@ def test_reprocess_route_passes_idempotency_key(monkeypatch) -> None:
             "active_run_status": None,
         }
 
-    monkeypatch.setattr("app.api.main.reprocess_document", fake_reprocess_document)
+    monkeypatch.setattr("app.api.routers.documents.reprocess_document", fake_reprocess_document)
 
     client = TestClient(app)
     response = client.post(
@@ -76,7 +76,7 @@ def test_reprocess_route_returns_machine_readable_error_code(monkeypatch) -> Non
             },
         )
 
-    monkeypatch.setattr("app.api.main.reprocess_document", fake_reprocess_document)
+    monkeypatch.setattr("app.api.routers.documents.reprocess_document", fake_reprocess_document)
 
     client = TestClient(app)
     response = client.post(f"/documents/{document_id}/reprocess")
@@ -92,7 +92,7 @@ def test_reprocess_route_requires_remote_capability(monkeypatch) -> None:
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_settings",
+        "app.api.deps.get_settings",
         lambda: type(
             "Settings",
             (),
@@ -106,7 +106,7 @@ def test_reprocess_route_requires_remote_capability(monkeypatch) -> None:
         )(),
     )
     monkeypatch.setattr(
-        "app.api.main.reprocess_document",
+        "app.api.routers.documents.reprocess_document",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("remote capability gate should block before reprocess service runs")
         ),

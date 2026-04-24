@@ -9,7 +9,7 @@ from app.api.main import app
 
 def test_quality_summary_route_uses_quality_service(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.api.main.get_quality_summary",
+        "app.api.routers.quality.get_quality_summary",
         lambda session: {
             "document_count": 8,
             "latest_runs_completed": 8,
@@ -41,7 +41,7 @@ def test_quality_evaluations_route_uses_quality_service(monkeypatch) -> None:
     run_id = uuid4()
     evaluation_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.list_quality_evaluations",
+        "app.api.routers.quality.list_quality_evaluations",
         lambda session: [
             {
                 "document_id": str(document_id),
@@ -80,7 +80,7 @@ def test_quality_failures_route_uses_quality_service(monkeypatch) -> None:
     document_id = uuid4()
     run_id = uuid4()
     monkeypatch.setattr(
-        "app.api.main.get_quality_failures",
+        "app.api.routers.quality.get_quality_failures",
         lambda session: {
             "evaluation_failures": [
                 {
@@ -137,7 +137,7 @@ def test_quality_eval_candidates_route_uses_quality_service(monkeypatch) -> None
     captured = {}
 
     monkeypatch.setattr(
-        "app.api.main.list_quality_eval_candidates",
+        "app.api.routers.quality.list_quality_eval_candidates",
         lambda session, limit=12, include_resolved=False: (
             captured.update({"limit": limit, "include_resolved": include_resolved})
             or [
@@ -179,7 +179,7 @@ def test_quality_trends_route_uses_quality_service(monkeypatch) -> None:
     replay_run_id = uuid4()
 
     monkeypatch.setattr(
-        "app.api.main.get_quality_trends",
+        "app.api.routers.quality.get_quality_trends",
         lambda session: {
             "search_request_days": [
                 {

@@ -33,7 +33,7 @@ def test_document_figures_route_uses_figure_service(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr("app.api.main.get_active_figures", fake_get_active_figures)
+    monkeypatch.setattr("app.api.routers.documents.get_active_figures", fake_get_active_figures)
 
     client = TestClient(app)
     response = client.get(f"/documents/{document_id}/figures")
@@ -74,7 +74,10 @@ def test_document_figure_detail_route_uses_figure_service(monkeypatch) -> None:
             },
         }
 
-    monkeypatch.setattr("app.api.main.get_active_figure_detail", fake_get_active_figure_detail)
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_figure_detail",
+        fake_get_active_figure_detail,
+    )
 
     client = TestClient(app)
     response = client.get(f"/documents/{document_id}/figures/{figure_id}")

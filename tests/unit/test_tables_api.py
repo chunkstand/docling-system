@@ -34,7 +34,7 @@ def test_document_tables_route_uses_table_service(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr("app.api.main.get_active_tables", fake_get_active_tables)
+    monkeypatch.setattr("app.api.routers.documents.get_active_tables", fake_get_active_tables)
 
     client = TestClient(app)
     response = client.get(f"/documents/{document_id}/tables")
@@ -82,7 +82,10 @@ def test_document_table_detail_route_uses_table_service(monkeypatch) -> None:
             ],
         }
 
-    monkeypatch.setattr("app.api.main.get_active_table_detail", fake_get_active_table_detail)
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_table_detail",
+        fake_get_active_table_detail,
+    )
 
     client = TestClient(app)
     response = client.get(f"/documents/{document_id}/tables/{table_id}")
