@@ -55,8 +55,11 @@ def _severity_for_violation(
     policy: ArchitectureInspectionPolicy,
 ) -> str:
     overrides = policy.severity_overrides or {}
+    rule_match = f"rule.{violation.rule_id}" if violation.rule_id else None
     return (
-        overrides.get(f"{violation.contract}.{violation.field}.{violation.symbol}")
+        (overrides.get(rule_match) if rule_match else None)
+        or (overrides.get(violation.rule_id) if violation.rule_id else None)
+        or overrides.get(f"{violation.contract}.{violation.field}.{violation.symbol}")
         or overrides.get(f"{violation.contract}.{violation.field}")
         or overrides.get(violation.contract)
         or policy.default_severity

@@ -59,7 +59,8 @@ The committed map lives at `docs/architecture_contract_map.json`; regenerate it
 with `uv run docling-system-architecture-inspect --write-map` after intentional
 boundary changes. Inspection severity is governed by
 `config/architecture_inspection.yaml`, whose default policy treats every
-non-ignored violation as an error.
+non-ignored violation as an error. Severity overrides can target a stable rule
+with `rule.<rule_id>`, a contract, or a contract field.
 
 ## Architecture Decisions
 

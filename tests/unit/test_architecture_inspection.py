@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.architecture_inspection import (
     ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
     ARCHITECTURE_INSPECTION_SCHEMA_NAME,
@@ -18,7 +20,11 @@ from app.architecture_inspection_rules import (
     build_architecture_rule_manifest,
     list_architecture_rules,
 )
-from app.architecture_inspection_types import ARCHITECTURE_SEVERITIES, ArchitectureRule
+from app.architecture_inspection_types import (
+    ARCHITECTURE_SEVERITIES,
+    ArchitectureRule,
+    ArchitectureViolation,
+)
 
 EXPECTED_ARCHITECTURE_RULE_IDS = {
     "agent-action-catalog-contracts",
@@ -110,6 +116,45 @@ def test_architecture_rule_registry_exposes_stable_manifest() -> None:
     assert all(row["default_severity"] in ARCHITECTURE_SEVERITIES for row in manifest)
 
 
+def test_architecture_rule_rejects_mismatched_violation_contract() -> None:
+    rule = ArchitectureRule(
+        rule_id="test-rule",
+        contract="expected_contract",
+        description="Test rule.",
+        source_path="tests/unit/test_architecture_inspection.py",
+        checker=lambda _context: [
+            ArchitectureViolation(
+                contract="other_contract",
+                field="field",
+                message="wrong contract",
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="expected_contract"):
+        rule.check(None)
+
+
+def test_architecture_rule_rejects_mismatched_nested_rule_id() -> None:
+    rule = ArchitectureRule(
+        rule_id="test-rule",
+        contract="expected_contract",
+        description="Test rule.",
+        source_path="tests/unit/test_architecture_inspection.py",
+        checker=lambda _context: [
+            ArchitectureViolation(
+                contract="expected_contract",
+                field="field",
+                message="wrong rule",
+                rule_id="other-rule",
+            )
+        ],
+    )
+
+    with pytest.raises(ValueError, match="other-rule"):
+        rule.check(None)
+
+
 def test_architecture_inspection_contracts_are_clean() -> None:
     assert inspect_architecture_contracts() == []
 
@@ -158,6 +203,35 @@ def test_architecture_inspection_policy_can_demote_violation(tmp_path: Path) -> 
 
     assert report["valid"] is True
     assert report["violation_count"] == 1
+    assert report["violations"][0]["severity"] == "warning"
+
+
+def test_architecture_inspection_policy_can_demote_violation_by_rule_id(
+    tmp_path: Path,
+) -> None:
+    policy_path = tmp_path / "architecture_policy.yaml"
+    policy_path.write_text(
+        "\n".join(
+            [
+                "schema_name: architecture_inspection_policy",
+                'schema_version: "1.0"',
+                "default_severity: error",
+                "severity_overrides:",
+                "  - match: rule.architecture-contract-map-drift",
+                "    severity: warning",
+            ]
+        )
+        + "\n"
+    )
+
+    report = build_architecture_inspection_report(
+        policy_path=policy_path,
+        map_path=tmp_path / "missing.json",
+    )
+
+    assert report["valid"] is True
+    assert report["violation_count"] == 1
+    assert report["violations"][0]["rule_id"] == "architecture-contract-map-drift"
     assert report["violations"][0]["severity"] == "warning"
 
 

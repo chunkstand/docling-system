@@ -36,18 +36,30 @@ class ArchitectureRule:
             raise ValueError(f"Unknown architecture severity '{self.default_severity}'.")
 
     def check(self, context: Any) -> list[ArchitectureViolation]:
-        return [
-            replace(
-                violation,
-                rule_id=violation.rule_id or self.rule_id,
-                severity=(
-                    self.default_severity
-                    if violation.severity == "error"
-                    else violation.severity
-                ),
+        violations: list[ArchitectureViolation] = []
+        for violation in self.checker(context):
+            if violation.contract != self.contract:
+                raise ValueError(
+                    f"Rule '{self.rule_id}' emitted violation for contract "
+                    f"'{violation.contract}', expected '{self.contract}'."
+                )
+            if violation.rule_id is not None and violation.rule_id != self.rule_id:
+                raise ValueError(
+                    f"Rule '{self.rule_id}' emitted violation for rule "
+                    f"'{violation.rule_id}'."
+                )
+            violations.append(
+                replace(
+                    violation,
+                    rule_id=self.rule_id,
+                    severity=(
+                        self.default_severity
+                        if violation.severity == "error"
+                        else violation.severity
+                    ),
+                )
             )
-            for violation in self.checker(context)
-        ]
+        return violations
 
     def to_manifest(self) -> dict[str, object]:
         return {
