@@ -1,0 +1,2261 @@
+{
+  "facade_count": 5,
+  "facades": [
+    {
+      "exported_instance": "run_lifecycle",
+      "function_count": 16,
+      "functions": [
+        {
+          "name": "get_active_chunks",
+          "operation_kind": "read",
+          "owner_module": "app.services.chunks",
+          "owner_symbol": "get_active_chunks",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "list[DocumentChunkResponse]",
+          "source_lineno": 68
+        },
+        {
+          "name": "get_active_figure_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.figures",
+          "owner_symbol": "get_active_figure_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "figure_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentFigureDetailResponse",
+          "source_lineno": 93
+        },
+        {
+          "name": "get_active_figure_row",
+          "operation_kind": "read",
+          "owner_module": null,
+          "owner_symbol": null,
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "figure_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentFigure | None",
+          "source_lineno": 109
+        },
+        {
+          "name": "get_active_figures",
+          "operation_kind": "read",
+          "owner_module": "app.services.figures",
+          "owner_symbol": "get_active_figures",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "list[DocumentFigureSummaryResponse]",
+          "source_lineno": 87
+        },
+        {
+          "name": "get_active_table_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.tables",
+          "owner_symbol": "get_active_table_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "table_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentTableDetailResponse",
+          "source_lineno": 80
+        },
+        {
+          "name": "get_active_table_row",
+          "operation_kind": "read",
+          "owner_module": null,
+          "owner_symbol": null,
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "table_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentTable | None",
+          "source_lineno": 102
+        },
+        {
+          "name": "get_active_tables",
+          "operation_kind": "read",
+          "owner_module": "app.services.tables",
+          "owner_symbol": "get_active_tables",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "list[DocumentTableSummaryResponse]",
+          "source_lineno": 74
+        },
+        {
+          "name": "get_document_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "get_document_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentDetailResponse",
+          "source_lineno": 42
+        },
+        {
+          "name": "get_document_run_summary",
+          "operation_kind": "read",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "get_document_run_summary",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "run_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentRunSummaryResponse",
+          "source_lineno": 54
+        },
+        {
+          "name": "get_run_row",
+          "operation_kind": "read",
+          "owner_module": null,
+          "owner_symbol": null,
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "run_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentRun | None",
+          "source_lineno": 100
+        },
+        {
+          "name": "ingest_upload",
+          "operation_kind": "write",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "ingest_upload",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UploadFile",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "upload",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "idempotency_key",
+              "required": false
+            }
+          ],
+          "returns": "tuple[DocumentUploadResponse, int]",
+          "source_lineno": 33
+        },
+        {
+          "name": "list_document_runs",
+          "operation_kind": "read",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "list_document_runs",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "list[DocumentRunSummaryResponse]",
+          "source_lineno": 48
+        },
+        {
+          "name": "list_documents",
+          "operation_kind": "read",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "list_documents",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": "50",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            }
+          ],
+          "returns": "list[DocumentSummaryResponse]",
+          "source_lineno": 26
+        },
+        {
+          "name": "process_run",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.runs",
+          "owner_symbol": "process_run",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "run_id",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "storage_service",
+              "required": true
+            },
+            {
+              "annotation": "DoclingParser",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "parser",
+              "required": true
+            },
+            {
+              "annotation": "EmbeddingProvider | None",
+              "default": "None",
+              "kind": "positional_or_keyword",
+              "name": "embedding_provider",
+              "required": false
+            }
+          ],
+          "returns": "None",
+          "source_lineno": 116
+        },
+        {
+          "name": "reprocess_document",
+          "operation_kind": "write",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "reprocess_document",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "idempotency_key",
+              "required": false
+            }
+          ],
+          "returns": "DocumentUploadResponse",
+          "source_lineno": 60
+        },
+        {
+          "name": "run_worker_loop",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.runs",
+          "owner_symbol": "run_worker_loop",
+          "parameters": [],
+          "returns": "None",
+          "source_lineno": 125
+        }
+      ],
+      "implementation": "ServicesRunLifecycleCapability",
+      "module": "app.services.capabilities.run_lifecycle",
+      "name": "run_lifecycle",
+      "owner_modules": [
+        "app.services.chunks",
+        "app.services.documents",
+        "app.services.figures",
+        "app.services.runs",
+        "app.services.tables"
+      ],
+      "protocol": "RunLifecycleCapability",
+      "source": "app/services/capabilities/run_lifecycle.py"
+    },
+    {
+      "exported_instance": "retrieval",
+      "function_count": 17,
+      "functions": [
+        {
+          "name": "answer_question",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.chat",
+          "owner_symbol": "answer_question",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "ChatRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "request",
+              "required": true
+            }
+          ],
+          "returns": "ChatResponse",
+          "source_lineno": 137
+        },
+        {
+          "name": "compare_search_replay_runs",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.search_replays",
+          "owner_symbol": "compare_search_replay_runs",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "baseline_replay_run_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "candidate_replay_run_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchReplayComparisonResponse",
+          "source_lineno": 90
+        },
+        {
+          "name": "evaluate_search_harness",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.search_harness_evaluations",
+          "owner_symbol": "evaluate_search_harness",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "SearchHarnessEvaluationRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "SearchHarnessEvaluationResponse",
+          "source_lineno": 125
+        },
+        {
+          "name": "execute_search",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.search",
+          "owner_symbol": "execute_search",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "SearchRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "request",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "origin",
+              "required": true
+            },
+            {
+              "annotation": "UUID | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "run_id",
+              "required": false
+            },
+            {
+              "annotation": "UUID | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "parent_search_request_id",
+              "required": false
+            },
+            {
+              "annotation": "UUID | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "evaluation_id",
+              "required": false
+            }
+          ],
+          "returns": "search.SearchExecution",
+          "source_lineno": 43
+        },
+        {
+          "name": "explain_search_replay_run",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "explain_search_replay_run",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "replay_run_id",
+              "required": true
+            }
+          ],
+          "returns": "dict",
+          "source_lineno": 104
+        },
+        {
+          "name": "get_search_harness_descriptor",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_legibility",
+          "owner_symbol": "get_search_harness_descriptor",
+          "parameters": [
+            {
+              "annotation": "str",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "harness_name",
+              "required": true
+            }
+          ],
+          "returns": "SearchHarnessDescriptorResponse",
+          "source_lineno": 112
+        },
+        {
+          "name": "get_search_harness_evaluation_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_harness_evaluations",
+          "owner_symbol": "get_search_harness_evaluation_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "evaluation_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchHarnessEvaluationResponse",
+          "source_lineno": 131
+        },
+        {
+          "name": "get_search_replay_run_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_replays",
+          "owner_symbol": "get_search_replay_run_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "replay_run_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchReplayRunDetailResponse",
+          "source_lineno": 98
+        },
+        {
+          "name": "get_search_request_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_history",
+          "owner_symbol": "get_search_request_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "search_request_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchRequestDetailResponse",
+          "source_lineno": 54
+        },
+        {
+          "name": "get_search_request_explanation",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_legibility",
+          "owner_symbol": "get_search_request_explanation",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "search_request_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchRequestExplanationResponse",
+          "source_lineno": 60
+        },
+        {
+          "name": "list_search_harness_definitions",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_harness_evaluations",
+          "owner_symbol": "list_search_harness_definitions",
+          "parameters": [],
+          "returns": "list[SearchHarnessResponse]",
+          "source_lineno": 110
+        },
+        {
+          "name": "list_search_harness_evaluations",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_harness_evaluations",
+          "owner_symbol": "list_search_harness_evaluations",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "candidate_harness_name",
+              "required": false
+            }
+          ],
+          "returns": "list[SearchHarnessEvaluationSummaryResponse]",
+          "source_lineno": 117
+        },
+        {
+          "name": "list_search_replay_runs",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_replays",
+          "owner_symbol": "list_search_replay_runs",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "list[SearchReplayRunSummaryResponse]",
+          "source_lineno": 79
+        },
+        {
+          "name": "record_chat_answer_feedback",
+          "operation_kind": "write",
+          "owner_module": "app.services.chat",
+          "owner_symbol": "record_chat_answer_feedback",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "chat_answer_id",
+              "required": true
+            },
+            {
+              "annotation": "ChatAnswerFeedbackCreateRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "ChatAnswerFeedbackResponse",
+          "source_lineno": 139
+        },
+        {
+          "name": "record_search_feedback",
+          "operation_kind": "write",
+          "owner_module": "app.services.search_history",
+          "owner_symbol": "record_search_feedback",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "search_request_id",
+              "required": true
+            },
+            {
+              "annotation": "SearchFeedbackCreateRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "SearchFeedbackResponse",
+          "source_lineno": 66
+        },
+        {
+          "name": "replay_search_request",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.search_history",
+          "owner_symbol": "replay_search_request",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "search_request_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchReplayResponse",
+          "source_lineno": 73
+        },
+        {
+          "name": "run_search_replay_suite",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.search_replays",
+          "owner_symbol": "run_search_replay_suite",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "SearchReplayRunRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "SearchReplayRunDetailResponse",
+          "source_lineno": 84
+        }
+      ],
+      "implementation": "ServicesRetrievalCapability",
+      "module": "app.services.capabilities.retrieval",
+      "name": "retrieval",
+      "owner_modules": [
+        "app.services.chat",
+        "app.services.eval_workbench",
+        "app.services.search",
+        "app.services.search_harness_evaluations",
+        "app.services.search_history",
+        "app.services.search_legibility",
+        "app.services.search_replays"
+      ],
+      "protocol": "RetrievalCapability",
+      "source": "app/services/capabilities/retrieval.py"
+    },
+    {
+      "exported_instance": "evaluation",
+      "function_count": 10,
+      "functions": [
+        {
+          "name": "evaluate_run",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.evaluations",
+          "owner_symbol": "evaluate_run",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "Document",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document",
+              "required": true
+            },
+            {
+              "annotation": "DocumentRun",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "run",
+              "required": true
+            },
+            {
+              "annotation": "UUID | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "baseline_run_id",
+              "required": false
+            },
+            {
+              "annotation": "Path | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "corpus_path",
+              "required": false
+            },
+            {
+              "annotation": "str",
+              "default": "evaluations.DEFAULT_CORPUS_NAME",
+              "kind": "keyword_only",
+              "name": "corpus_name",
+              "required": false
+            }
+          ],
+          "returns": "DocumentRunEvaluation",
+          "source_lineno": 22
+        },
+        {
+          "name": "explain_latest_document_evaluation",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "explain_latest_document_evaluation",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "dict",
+          "source_lineno": 39
+        },
+        {
+          "name": "explain_search_harness_evaluation",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "explain_search_harness_evaluation",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "evaluation_id",
+              "required": true
+            }
+          ],
+          "returns": "dict",
+          "source_lineno": 45
+        },
+        {
+          "name": "get_eval_failure_case",
+          "operation_kind": "read",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "get_eval_failure_case",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "case_id",
+              "required": true
+            }
+          ],
+          "returns": "EvalFailureCaseResponse",
+          "source_lineno": 77
+        },
+        {
+          "name": "get_eval_workbench",
+          "operation_kind": "read",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "get_eval_workbench",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            }
+          ],
+          "returns": "EvalWorkbenchResponse",
+          "source_lineno": 59
+        },
+        {
+          "name": "get_latest_document_evaluation_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.documents",
+          "owner_symbol": "get_latest_document_evaluation_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "EvaluationDetailResponse",
+          "source_lineno": 33
+        },
+        {
+          "name": "inspect_eval_failure_case",
+          "operation_kind": "read",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "inspect_eval_failure_case",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "case_id",
+              "required": true
+            }
+          ],
+          "returns": "EvalFailureCaseInspectionResponse",
+          "source_lineno": 83
+        },
+        {
+          "name": "list_eval_failure_cases",
+          "operation_kind": "read",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "list_eval_failure_cases",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "list[str] | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "status_filter",
+              "required": false
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "kind": "keyword_only",
+              "name": "include_resolved",
+              "required": false
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            }
+          ],
+          "returns": "list[EvalFailureCaseResponse]",
+          "source_lineno": 68
+        },
+        {
+          "name": "list_eval_observations",
+          "operation_kind": "read",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "list_eval_observations",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            }
+          ],
+          "returns": "list[EvalObservationResponse]",
+          "source_lineno": 61
+        },
+        {
+          "name": "refresh_eval_failure_cases",
+          "operation_kind": "write",
+          "owner_module": "app.services.eval_workbench",
+          "owner_symbol": "refresh_eval_failure_cases",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            },
+            {
+              "annotation": "bool",
+              "default": "False",
+              "kind": "keyword_only",
+              "name": "include_resolved",
+              "required": false
+            }
+          ],
+          "returns": "EvalFailureCaseRefreshResponse",
+          "source_lineno": 51
+        }
+      ],
+      "implementation": "ServicesEvaluationCapability",
+      "module": "app.services.capabilities.evaluation",
+      "name": "evaluation",
+      "owner_modules": [
+        "app.services.documents",
+        "app.services.eval_workbench",
+        "app.services.evaluations"
+      ],
+      "protocol": "EvaluationCapability",
+      "source": "app/services/capabilities/evaluation.py"
+    },
+    {
+      "exported_instance": "semantics",
+      "function_count": 7,
+      "functions": [
+        {
+          "name": "get_active_semantic_continuity",
+          "operation_kind": "read",
+          "owner_module": "app.services.semantics",
+          "owner_symbol": "get_active_semantic_continuity",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "SemanticContinuityResponse",
+          "source_lineno": 37
+        },
+        {
+          "name": "get_active_semantic_pass_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.semantics",
+          "owner_symbol": "get_active_semantic_pass_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentSemanticPassResponse",
+          "source_lineno": 25
+        },
+        {
+          "name": "get_active_semantic_pass_row",
+          "operation_kind": "read",
+          "owner_module": "app.services.semantics",
+          "owner_symbol": "get_active_semantic_pass_row",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            }
+          ],
+          "returns": "DocumentRunSemanticPass | None",
+          "source_lineno": 31
+        },
+        {
+          "name": "get_semantic_backfill_status",
+          "operation_kind": "read",
+          "owner_module": "app.services.semantic_backfill",
+          "owner_symbol": "get_semantic_backfill_status",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "SemanticBackfillStatusResponse",
+          "source_lineno": 43
+        },
+        {
+          "name": "review_active_semantic_assertion",
+          "operation_kind": "write",
+          "owner_module": "app.services.semantics",
+          "owner_symbol": "review_active_semantic_assertion",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "assertion_id",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "review_status",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "review_note",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "reviewed_by",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": true
+            }
+          ],
+          "returns": "SemanticReviewEventResponse",
+          "source_lineno": 53
+        },
+        {
+          "name": "review_active_semantic_assertion_category_binding",
+          "operation_kind": "write",
+          "owner_module": "app.services.semantics",
+          "owner_symbol": "review_active_semantic_assertion_category_binding",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "document_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "binding_id",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "review_status",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "review_note",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "reviewed_by",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": true
+            }
+          ],
+          "returns": "SemanticReviewEventResponse",
+          "source_lineno": 65
+        },
+        {
+          "name": "run_semantic_backfill",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.semantic_backfill",
+          "owner_symbol": "run_semantic_backfill",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "SemanticBackfillRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "request",
+              "required": true
+            },
+            {
+              "annotation": "StorageService | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": false
+            }
+          ],
+          "returns": "SemanticBackfillRunResponse",
+          "source_lineno": 45
+        }
+      ],
+      "implementation": "ServicesSemanticsCapability",
+      "module": "app.services.capabilities.semantics",
+      "name": "semantics",
+      "owner_modules": [
+        "app.services.semantic_backfill",
+        "app.services.semantics"
+      ],
+      "protocol": "SemanticsCapability",
+      "source": "app/services/capabilities/semantics.py"
+    },
+    {
+      "exported_instance": "agent_orchestration",
+      "function_count": 27,
+      "functions": [
+        {
+          "name": "approve_agent_task",
+          "operation_kind": "write",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "approve_agent_task",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "AgentTaskApprovalRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskDetailResponse",
+          "source_lineno": 103
+        },
+        {
+          "name": "create_agent_task",
+          "operation_kind": "write",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "create_agent_task",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "AgentTaskCreateRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskDetailResponse",
+          "source_lineno": 55
+        },
+        {
+          "name": "create_agent_task_outcome",
+          "operation_kind": "write",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "create_agent_task_outcome",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "AgentTaskOutcomeCreateRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskOutcomeResponse",
+          "source_lineno": 73
+        },
+        {
+          "name": "export_agent_task_traces",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "export_agent_task_traces",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": "50",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskTraceExportResponse",
+          "source_lineno": 215
+        },
+        {
+          "name": "get_agent_approval_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_approval_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskApprovalTrendResponse",
+          "source_lineno": 140
+        },
+        {
+          "name": "get_agent_task_analytics_summary",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_analytics_summary",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskAnalyticsSummaryResponse",
+          "source_lineno": 117
+        },
+        {
+          "name": "get_agent_task_artifact",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_task_artifacts",
+          "owner_symbol": "get_agent_task_artifact",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "artifact_id",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskArtifactResponse",
+          "source_lineno": 88
+        },
+        {
+          "name": "get_agent_task_context",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_task_context",
+          "owner_symbol": "get_agent_task_context",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            }
+          ],
+          "returns": "TaskContextEnvelope",
+          "source_lineno": 63
+        },
+        {
+          "name": "get_agent_task_cost_summary",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_cost_summary",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskCostSummaryResponse",
+          "source_lineno": 166
+        },
+        {
+          "name": "get_agent_task_cost_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_cost_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskCostTrendResponse",
+          "source_lineno": 174
+        },
+        {
+          "name": "get_agent_task_decision_signals",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_decision_signals",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "list[AgentTaskDecisionSignalResponse]",
+          "source_lineno": 205
+        },
+        {
+          "name": "get_agent_task_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskDetailResponse",
+          "source_lineno": 61
+        },
+        {
+          "name": "get_agent_task_performance_summary",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_performance_summary",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskPerformanceSummaryResponse",
+          "source_lineno": 183
+        },
+        {
+          "name": "get_agent_task_performance_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_performance_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskPerformanceTrendResponse",
+          "source_lineno": 191
+        },
+        {
+          "name": "get_agent_task_recommendation_summary",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_recommendation_summary",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskRecommendationSummaryResponse",
+          "source_lineno": 149
+        },
+        {
+          "name": "get_agent_task_recommendation_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_recommendation_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskRecommendationTrendResponse",
+          "source_lineno": 157
+        },
+        {
+          "name": "get_agent_task_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskTrendResponse",
+          "source_lineno": 122
+        },
+        {
+          "name": "get_agent_task_value_density",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_task_value_density",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "list[AgentTaskValueDensityRowResponse]",
+          "source_lineno": 200
+        },
+        {
+          "name": "get_agent_task_verifications",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_task_verifications",
+          "owner_symbol": "get_agent_task_verifications",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": "20",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            }
+          ],
+          "returns": "list[AgentTaskVerificationResponse]",
+          "source_lineno": 95
+        },
+        {
+          "name": "get_agent_verification_trends",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "get_agent_verification_trends",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "str",
+              "default": "'day'",
+              "kind": "keyword_only",
+              "name": "bucket",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "task_type",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "workflow_version",
+              "required": false
+            }
+          ],
+          "returns": "AgentTaskVerificationTrendResponse",
+          "source_lineno": 131
+        },
+        {
+          "name": "list_agent_task_action_definitions",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "list_agent_task_action_definitions",
+          "parameters": [],
+          "returns": "list[AgentTaskActionDefinitionResponse]",
+          "source_lineno": 45
+        },
+        {
+          "name": "list_agent_task_artifacts",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_task_artifacts",
+          "owner_symbol": "list_agent_task_artifacts",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": "20",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            }
+          ],
+          "returns": "list[AgentTaskArtifactResponse]",
+          "source_lineno": 80
+        },
+        {
+          "name": "list_agent_task_outcomes",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "list_agent_task_outcomes",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": "20",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            }
+          ],
+          "returns": "list[AgentTaskOutcomeResponse]",
+          "source_lineno": 65
+        },
+        {
+          "name": "list_agent_task_workflow_summaries",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "list_agent_task_workflow_summaries",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            }
+          ],
+          "returns": "list[AgentTaskWorkflowVersionSummaryResponse]",
+          "source_lineno": 210
+        },
+        {
+          "name": "list_agent_tasks",
+          "operation_kind": "read",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "list_agent_tasks",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "list[str] | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "statuses",
+              "required": false
+            },
+            {
+              "annotation": "int",
+              "default": "50",
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": false
+            }
+          ],
+          "returns": "list[AgentTaskSummaryResponse]",
+          "source_lineno": 47
+        },
+        {
+          "name": "reject_agent_task",
+          "operation_kind": "write",
+          "owner_module": "app.services.agent_tasks",
+          "owner_symbol": "reject_agent_task",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "task_id",
+              "required": true
+            },
+            {
+              "annotation": "AgentTaskRejectionRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "AgentTaskDetailResponse",
+          "source_lineno": 110
+        },
+        {
+          "name": "run_worker_loop",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.agent_task_worker",
+          "owner_symbol": "run_agent_task_worker_loop",
+          "parameters": [],
+          "returns": "None",
+          "source_lineno": 224
+        }
+      ],
+      "implementation": "ServicesAgentOrchestrationCapability",
+      "module": "app.services.capabilities.agent_orchestration",
+      "name": "agent_orchestration",
+      "owner_modules": [
+        "app.services.agent_task_artifacts",
+        "app.services.agent_task_context",
+        "app.services.agent_task_verifications",
+        "app.services.agent_task_worker",
+        "app.services.agent_tasks"
+      ],
+      "protocol": "AgentOrchestrationCapability",
+      "source": "app/services/capabilities/agent_orchestration.py"
+    }
+  ],
+  "function_count": 77,
+  "schema_name": "capability_contract_map",
+  "schema_version": "1.0"
+}

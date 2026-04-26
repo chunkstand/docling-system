@@ -508,6 +508,9 @@ the hygiene command runs that inspection by default. The committed map is
 `config/architecture_inspection.yaml`. `docling-system-architecture-measure-record`
 persists inspection measurements under `storage/architecture_inspections/history.jsonl`,
 and `docling-system-architecture-measure-summary` reports the latest trend.
+`docling-system-capability-contracts --write-map` maintains
+`docs/capability_contract_map.json`, the machine-readable surface map for the
+service capability facades.
 
 ## Tables
 

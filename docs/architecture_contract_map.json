@@ -9,22 +9,27 @@
   },
   "capability_facades": [
     {
+      "function_count": 16,
       "module": "app.services.capabilities.run_lifecycle",
       "name": "run_lifecycle"
     },
     {
+      "function_count": 17,
       "module": "app.services.capabilities.retrieval",
       "name": "retrieval"
     },
     {
+      "function_count": 10,
       "module": "app.services.capabilities.evaluation",
       "name": "evaluation"
     },
     {
+      "function_count": 7,
       "module": "app.services.capabilities.semantics",
       "name": "semantics"
     },
     {
+      "function_count": 27,
       "module": "app.services.capabilities.agent_orchestration",
       "name": "agent_orchestration"
     }
@@ -39,6 +44,13 @@
       "item_count": 45,
       "name": "agent_action_catalog",
       "source": "app.services.agent_actions"
+    },
+    {
+      "item_count": 77,
+      "name": "capability_surface_contracts",
+      "schema_name": "capability_contract_map",
+      "schema_version": "1.0",
+      "source": "docs/capability_contract_map.json"
     },
     {
       "name": "improvement_case_registry",
@@ -75,6 +87,7 @@
   "inspection_sources": [
     "API route capability contracts",
     "agent action contracts",
+    "service capability surface contracts",
     "capability facade boundary imports",
     "service-to-API import boundaries",
     "private service symbol imports",

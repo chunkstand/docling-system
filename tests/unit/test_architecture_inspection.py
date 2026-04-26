@@ -26,6 +26,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert {
         "api_route_capabilities",
         "agent_action_catalog",
+        "capability_surface_contracts",
         "improvement_case_registry",
         "improvement_case_intake",
         "improvement_case_lifecycle",
@@ -38,6 +39,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         "semantics",
         "agent_orchestration",
     } <= facade_names
+    assert all(facade["function_count"] > 0 for facade in contract_map["capability_facades"])
     assert "docs/architecture_boundaries.md" in contract_map["source_documents"]
 
 

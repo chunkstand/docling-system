@@ -20,6 +20,14 @@ The existing service modules behind those facades remain implementation
 modules. They may collaborate internally, but externally reachable boundaries
 should not import them directly.
 
+The facade surface is a machine-readable contract. The committed contract map
+is `docs/capability_contract_map.json`; regenerate it with
+`uv run docling-system-capability-contracts --write-map` after intentional
+facade changes. The map records each facade's Protocol methods, implementation
+owner modules, operation kind, parameter annotations, and return annotations.
+Protocol methods are the public surface. The concrete `Services*Capability`
+classes must not expose extra public methods outside the Protocol.
+
 ## Guardrail
 
 `tests/unit/test_api_architecture.py` rejects direct imports from API routers and
@@ -33,10 +41,10 @@ helper or move it to an explicitly shared module.
 
 `uv run docling-system-architecture-inspect` is the top-level architecture
 inspection command. It emits a machine-readable architecture map and validates
-the API route, agent action, capability facade, service import, improvement
-intake, and architecture-documentation contracts as one boundary fitness
-function. `uv run docling-system-hygiene-check` runs the same inspection by
-default.
+the API route, agent action, capability facade surface, service import,
+improvement intake, and architecture-documentation contracts as one boundary
+fitness function. `uv run docling-system-hygiene-check` runs the same
+inspection by default.
 
 The committed map lives at `docs/architecture_contract_map.json`; regenerate it
 with `uv run docling-system-architecture-inspect --write-map` after intentional

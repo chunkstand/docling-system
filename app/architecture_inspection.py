@@ -14,6 +14,11 @@ from app.api.route_contracts import (
     build_api_route_capability_manifest,
     validate_api_route_capability_contracts,
 )
+from app.capability_contracts import (
+    CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
+    build_capability_contract_map,
+    validate_capability_contracts,
+)
 from app.core.files import repo_root
 from app.services.agent_task_actions import (
     build_agent_task_action_manifest,
@@ -86,15 +91,6 @@ REQUIRED_ARCHITECTURE_DOC_TOKENS = frozenset(
         "ImprovementCaseImportResult",
     }
 )
-CAPABILITY_FACADES = (
-    "run_lifecycle",
-    "retrieval",
-    "evaluation",
-    "semantics",
-    "agent_orchestration",
-)
-
-
 @dataclass(frozen=True, slots=True)
 class ArchitectureViolation:
     contract: str
@@ -419,6 +415,10 @@ def inspect_architecture_contracts(
         *_architecture_doc_violations(root),
         *_api_route_contract_violations(),
         *_agent_action_contract_violations(),
+        *(
+            ArchitectureViolation(**issue.to_dict())
+            for issue in validate_capability_contracts(root)
+        ),
         *_architecture_map_drift_violations(root, map_path=map_path),
     ]
     policy = load_architecture_inspection_policy(policy_path, project_root=root)
@@ -441,9 +441,10 @@ def inspect_architecture_contracts(
 
 
 def build_architecture_contract_map(project_root: Path | None = None) -> dict[str, Any]:
-    del project_root
+    root = project_root or repo_root()
     route_manifest = build_api_route_capability_manifest(create_app())
     agent_action_manifest = build_agent_task_action_manifest()
+    capability_contract_map = build_capability_contract_map(root)
     return {
         "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
@@ -461,10 +462,11 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         },
         "capability_facades": [
             {
-                "name": name,
-                "module": f"app.services.capabilities.{name}",
+                "name": facade["name"],
+                "module": facade["module"],
+                "function_count": facade["function_count"],
             }
-            for name in CAPABILITY_FACADES
+            for facade in capability_contract_map["facades"]
         ],
         "contracts": [
             {
@@ -476,6 +478,13 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "name": "agent_action_catalog",
                 "source": "app.services.agent_actions",
                 "item_count": len(agent_action_manifest),
+            },
+            {
+                "name": "capability_surface_contracts",
+                "source": "docs/capability_contract_map.json",
+                "schema_name": CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "item_count": capability_contract_map["function_count"],
             },
             {
                 "name": "improvement_case_registry",
@@ -506,6 +515,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         "inspection_sources": [
             "API route capability contracts",
             "agent action contracts",
+            "service capability surface contracts",
             "capability facade boundary imports",
             "service-to-API import boundaries",
             "private service symbol imports",

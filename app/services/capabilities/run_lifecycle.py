@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
@@ -265,9 +264,5 @@ class ServicesRunLifecycleCapability:
 
     def run_worker_loop(self) -> None:
         runs.run_worker_loop()
-
-    def source_exists(self, path: Path) -> bool:
-        return path.exists()
-
 
 run_lifecycle: RunLifecycleCapability = ServicesRunLifecycleCapability()
