@@ -13,6 +13,17 @@ from app.architecture_inspection import (
     run,
     write_architecture_contract_map,
 )
+from app.architecture_inspection_rules import (
+    _cli_improvement_intake_violations,
+    _main_service_import_violations,
+    _private_service_import_violations,
+    _service_api_import_violations,
+)
+
+
+def _write_python(path: Path, source: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source)
 
 
 def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None:
@@ -135,3 +146,103 @@ def test_architecture_inspection_cli_can_write_map(capsys, tmp_path: Path) -> No
     assert exit_code == 0
     assert output["schema_name"] == "architecture_contract_map_write"
     assert json.loads(map_path.read_text()) == build_architecture_contract_map()
+
+
+def test_architecture_rules_match_module_boundaries_not_name_prefixes(
+    tmp_path: Path,
+) -> None:
+    _write_python(
+        tmp_path / "app/api/main.py",
+        "import app.services_extra\n",
+    )
+    _write_python(
+        tmp_path / "app/services/safe.py",
+        "\n".join(
+            [
+                "import app.api.mainframe",
+                "from app.api.routers_extra import helper",
+                "from app.services_extra.helpers import _private_helper",
+            ]
+        )
+        + "\n",
+    )
+
+    assert _main_service_import_violations(tmp_path) == []
+    assert _service_api_import_violations(tmp_path) == []
+    assert _private_service_import_violations(tmp_path) == []
+
+    _write_python(
+        tmp_path / "app/api/main.py",
+        "from app.services.documents import list_documents\n",
+    )
+    _write_python(
+        tmp_path / "app/services/unsafe.py",
+        "\n".join(
+            [
+                "import app.api.main",
+                "from app.api.routers.documents import router",
+                "from app.services.documents import _private_helper",
+            ]
+        )
+        + "\n",
+    )
+
+    assert {
+        violation.symbol
+        for violation in _main_service_import_violations(tmp_path)
+    } == {"app.services.documents"}
+    assert {
+        violation.symbol
+        for violation in _service_api_import_violations(tmp_path)
+    } == {"app.api.main", "app.api.routers.documents"}
+    assert {
+        violation.symbol
+        for violation in _private_service_import_violations(tmp_path)
+    } == {"app.services.documents._private_helper"}
+
+
+def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
+    tmp_path: Path,
+) -> None:
+    _write_python(
+        tmp_path / "app/cli.py",
+        "\n".join(
+            [
+                "# collect_hygiene_finding_observations is only prose here.",
+                'HELP = "import_improvement_case_observations"',
+                'safe = _lazy_service_attr("app.services.improvement_cases", "load_registry")',
+                "from app.services.other import collect_hygiene_finding_observations",
+                (
+                    'also_safe = _lazy_service_attr("app.services.other", '
+                    '"import_improvement_case_observations")'
+                ),
+            ]
+        )
+        + "\n",
+    )
+
+    assert _cli_improvement_intake_violations(tmp_path) == []
+
+    _write_python(
+        tmp_path / "app/cli.py",
+        "\n".join(
+            [
+                "from app.services.improvement_cases import (",
+                "    collect_hygiene_finding_observations,",
+                ")",
+                "bad = _lazy_service_attr(",
+                '    "app.services.improvement_cases",',
+                '    "import_improvement_case_observations",',
+                ")",
+            ]
+        )
+        + "\n",
+    )
+
+    assert {
+        violation.symbol
+        for violation in _cli_improvement_intake_violations(tmp_path)
+    } == {
+        "app.services.improvement_cases.collect_hygiene_finding_observations",
+        "app.services.improvement_cases.import_improvement_case_observations",
+    }

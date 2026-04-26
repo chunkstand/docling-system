@@ -91,6 +91,17 @@ def _iter_import_targets(tree: ast.AST) -> list[tuple[str, int]]:
     return targets
 
 
+def _matches_module_or_submodule(target: str, module: str) -> bool:
+    return target == module or target.startswith(f"{module}.")
+
+
+def _matches_any_module_or_submodule(
+    target: str,
+    modules: frozenset[str] | tuple[str, ...],
+) -> bool:
+    return any(_matches_module_or_submodule(target, module) for module in modules)
+
+
 def _main_bootstrap_violations(project_root: Path) -> list[ArchitectureViolation]:
     violations: list[ArchitectureViolation] = []
     tree = _parse_python(project_root, "app/api/main.py")
@@ -122,7 +133,10 @@ def _main_bootstrap_violations(project_root: Path) -> list[ArchitectureViolation
 def _main_service_import_violations(project_root: Path) -> list[ArchitectureViolation]:
     violations: list[ArchitectureViolation] = []
     for target, lineno in _iter_import_targets(_parse_python(project_root, "app/api/main.py")):
-        if not target.startswith("app.services") or target in ALLOWED_MAIN_SERVICE_IMPORTS:
+        if not _matches_module_or_submodule(
+            target,
+            "app.services",
+        ) or _matches_any_module_or_submodule(target, ALLOWED_MAIN_SERVICE_IMPORTS):
             continue
         violations.append(
             ArchitectureViolation(
@@ -143,7 +157,7 @@ def _service_api_import_violations(project_root: Path) -> list[ArchitectureViola
         tree = ast.parse(path.read_text(), filename=str(path))
         relative_path = path.resolve().relative_to(project_root.resolve()).as_posix()
         for target, lineno in _iter_import_targets(tree):
-            if not target.startswith(FORBIDDEN_SERVICE_IMPORT_PREFIXES):
+            if not _matches_any_module_or_submodule(target, FORBIDDEN_SERVICE_IMPORT_PREFIXES):
                 continue
             violations.append(
                 ArchitectureViolation(
@@ -200,7 +214,10 @@ def _private_service_import_violations(project_root: Path) -> list[ArchitectureV
         for node in ast.walk(tree):
             if not isinstance(node, ast.ImportFrom):
                 continue
-            if node.module is None or not node.module.startswith("app.services"):
+            if node.module is None or not _matches_module_or_submodule(
+                node.module,
+                "app.services",
+            ):
                 continue
             for alias in node.names:
                 if not alias.name.startswith("_"):
@@ -219,18 +236,58 @@ def _private_service_import_violations(project_root: Path) -> list[ArchitectureV
 
 
 def _cli_improvement_intake_violations(project_root: Path) -> list[ArchitectureViolation]:
-    cli_source = (project_root / "app/cli.py").read_text()
-    return [
-        ArchitectureViolation(
-            contract="improvement_intake_boundary",
-            field="cli_import",
-            relative_path="app/cli.py",
-            symbol=symbol,
-            message="CLI must delegate improvement imports to the intake facade.",
-        )
-        for symbol in sorted(FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS)
-        if symbol in cli_source
-    ]
+    tree = _parse_python(project_root, "app/cli.py")
+    violations: list[ArchitectureViolation] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.module is None:
+                continue
+            if not _matches_module_or_submodule(node.module, "app.services.improvement_cases"):
+                continue
+            for alias in node.names:
+                if alias.name not in FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS:
+                    continue
+                violations.append(
+                    ArchitectureViolation(
+                        contract="improvement_intake_boundary",
+                        field="cli_import",
+                        relative_path="app/cli.py",
+                        lineno=node.lineno,
+                        symbol=f"{node.module}.{alias.name}",
+                        message="CLI must delegate improvement imports to the intake facade.",
+                    )
+                )
+        elif isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.func.id != "_lazy_service_attr":
+                continue
+            if len(node.args) < 2:
+                continue
+            module_arg, symbol_arg = node.args[:2]
+            if not (
+                isinstance(module_arg, ast.Constant)
+                and isinstance(module_arg.value, str)
+                and isinstance(symbol_arg, ast.Constant)
+                and isinstance(symbol_arg.value, str)
+            ):
+                continue
+            if not _matches_module_or_submodule(
+                module_arg.value,
+                "app.services.improvement_cases",
+            ):
+                continue
+            if symbol_arg.value not in FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS:
+                continue
+            violations.append(
+                ArchitectureViolation(
+                    contract="improvement_intake_boundary",
+                    field="cli_import",
+                    relative_path="app/cli.py",
+                    lineno=node.lineno,
+                    symbol=f"{module_arg.value}.{symbol_arg.value}",
+                    message="CLI must delegate improvement imports to the intake facade.",
+                )
+            )
+    return violations
 
 
 def _architecture_doc_violations(project_root: Path) -> list[ArchitectureViolation]:
