@@ -50,6 +50,11 @@ model import, improvement intake, and architecture-documentation contracts as
 one boundary fitness function. `uv run docling-system-hygiene-check` runs the same
 inspection by default.
 
+Architecture inspection rules are first-class registry entries with stable
+rule IDs, linked contracts, descriptions, default severities, source paths, and
+callable checkers. The architecture contract map exposes that rule inventory so
+agents can inspect both the boundary model and the checks that enforce it.
+
 The committed map lives at `docs/architecture_contract_map.json`; regenerate it
 with `uv run docling-system-architecture-inspect --write-map` after intentional
 boundary changes. Inspection severity is governed by

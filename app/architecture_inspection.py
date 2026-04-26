@@ -18,6 +18,7 @@ from app.architecture_inspection_policy import (
 )
 from app.architecture_inspection_rules import (
     BOUNDARY_DIRS,
+    build_architecture_rule_manifest,
     collect_architecture_rule_violations,
     resolve_architecture_contract_map_path,
 )
@@ -93,6 +94,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
     agent_action_manifest = build_agent_task_action_manifest()
     capability_contract_map = build_capability_contract_map(root)
     architecture_decision_map = build_architecture_decision_map(root)
+    inspection_rules = build_architecture_rule_manifest()
     decision_ids_by_contract = {
         row["contract"]: row["decision_ids"]
         for row in architecture_decision_map["contract_decision_links"]
@@ -208,6 +210,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "committed architecture contract map drift",
             "architecture measurement history",
         ],
+        "inspection_rules": inspection_rules,
     }
 
 

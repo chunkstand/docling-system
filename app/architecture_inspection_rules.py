@@ -2,69 +2,35 @@ from __future__ import annotations
 
 import ast
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from app.api.main import create_app
 from app.api.route_contracts import validate_api_route_capability_contracts
 from app.architecture_decisions import validate_architecture_decisions
-from app.architecture_inspection_types import ArchitectureViolation
+from app.architecture_inspection_rule_config import (
+    ALLOWED_MAIN_SERVICE_IMPORTS,
+    APP_ROUTE_DECORATORS,
+    BOUNDARY_DIRS,
+    FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS,
+    FORBIDDEN_BOUNDARY_SERVICE_IMPORTS,
+    FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS,
+    FORBIDDEN_SERVICE_IMPORT_PREFIXES,
+    REQUIRED_ARCHITECTURE_DOC_TOKENS,
+)
+from app.architecture_inspection_types import ArchitectureRule, ArchitectureViolation
 from app.capability_contracts import validate_capability_contracts
 from app.services.agent_task_actions import validate_agent_task_action_contracts
 
-APP_ROUTE_DECORATORS = frozenset({"get", "post", "put", "delete", "patch"})
-BOUNDARY_DIRS = ("app/api/routers", "app/workers")
-FORBIDDEN_SERVICE_IMPORT_PREFIXES = ("app.api.main", "app.api.routers")
-ALLOWED_MAIN_SERVICE_IMPORTS = frozenset({"app.services.runtime"})
-FORBIDDEN_BOUNDARY_SERVICE_IMPORTS = frozenset(
-    {
-        "app.services.agent_task_artifacts",
-        "app.services.agent_task_context",
-        "app.services.agent_task_verifications",
-        "app.services.agent_task_worker",
-        "app.services.agent_tasks",
-        "app.services.chat",
-        "app.services.chunks",
-        "app.services.documents",
-        "app.services.eval_workbench",
-        "app.services.evaluations",
-        "app.services.figures",
-        "app.services.runs",
-        "app.services.search",
-        "app.services.search_harness_evaluations",
-        "app.services.search_history",
-        "app.services.search_legibility",
-        "app.services.search_replays",
-        "app.services.semantic_backfill",
-        "app.services.semantics",
-        "app.services.tables",
-    }
-)
-FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS = frozenset({"app.db.models"})
-FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS = frozenset(
-    {
-        "collect_eval_failure_case_observations",
-        "collect_failed_agent_task_observations",
-        "collect_failed_agent_verification_observations",
-        "collect_hygiene_finding_observations",
-        "import_improvement_case_observations",
-    }
-)
-REQUIRED_ARCHITECTURE_DOC_TOKENS = frozenset(
-    {
-        "app.services.capabilities",
-        "app.api.route_contracts",
-        "tests/unit/test_api_architecture.py",
-        "tests/unit/test_api_route_contracts.py",
-        "tests/unit/test_agent_action_contracts.py",
-        "app.db.models",
-        "app.architecture_decisions",
-        "docs/architecture_decisions.yaml",
-        "app.services.improvement_case_intake",
-        "ImprovementCaseImportRequest",
-        "ImprovementCaseImportResult",
-    }
-)
+
+@dataclass(frozen=True, slots=True)
+class ArchitectureInspectionContext:
+    project_root: Path
+    expected_contracts: tuple[str, ...]
+    current_map: dict[str, Any]
+    map_path: str | Path | None
+    default_map_path: Path
 
 
 def resolve_architecture_contract_map_path(
@@ -397,6 +363,225 @@ def _architecture_map_drift_violations(
     ]
 
 
+def check_main_bootstrap_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _main_bootstrap_violations(context.project_root)
+
+
+def check_main_service_import_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _main_service_import_violations(context.project_root)
+
+
+def check_service_api_import_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _service_api_import_violations(context.project_root)
+
+
+def check_boundary_service_import_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return [
+        violation
+        for violation in _boundary_service_import_violations(context.project_root)
+        if violation.field == "service_import"
+    ]
+
+
+def check_boundary_data_model_import_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return [
+        violation
+        for violation in _boundary_service_import_violations(context.project_root)
+        if violation.field == "data_model_import"
+    ]
+
+
+def check_private_service_import_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _private_service_import_violations(context.project_root)
+
+
+def check_cli_improvement_intake_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _cli_improvement_intake_violations(context.project_root)
+
+
+def check_architecture_doc_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _architecture_doc_violations(context.project_root)
+
+
+def check_api_route_contract_rule(
+    _context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _api_route_contract_violations()
+
+
+def check_agent_action_contract_rule(
+    _context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _agent_action_contract_violations()
+
+
+def check_architecture_decision_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _architecture_decision_violations(
+        context.project_root,
+        expected_contracts=context.expected_contracts,
+    )
+
+
+def check_capability_contract_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _capability_contract_violations(context.project_root)
+
+
+def check_architecture_map_drift_rule(
+    context: ArchitectureInspectionContext,
+) -> list[ArchitectureViolation]:
+    return _architecture_map_drift_violations(
+        context.project_root,
+        current_map=context.current_map,
+        map_path=context.map_path,
+        default_map_path=context.default_map_path,
+    )
+
+
+def _validate_architecture_rule_registry(
+    rules: tuple[ArchitectureRule, ...],
+) -> tuple[ArchitectureRule, ...]:
+    rule_ids = [rule.rule_id for rule in rules]
+    duplicate_ids = sorted({rule_id for rule_id in rule_ids if rule_ids.count(rule_id) > 1})
+    if duplicate_ids:
+        raise ValueError(f"Duplicate architecture rule IDs: {', '.join(duplicate_ids)}")
+    return rules
+
+BOUNDARY_DOC_PATH = "docs/architecture_boundaries.md"
+_ARCHITECTURE_RULE_DEFINITIONS = (
+    (
+        "api-bootstrap-no-feature-routes",
+        "api_bootstrap_boundary",
+        "API bootstrap must not define feature routes.",
+        BOUNDARY_DOC_PATH,
+        check_main_bootstrap_rule,
+    ),
+    (
+        "api-bootstrap-no-feature-service-imports",
+        "api_bootstrap_boundary",
+        "API bootstrap must not import feature service modules.",
+        BOUNDARY_DOC_PATH,
+        check_main_service_import_rule,
+    ),
+    (
+        "service-layer-no-api-imports",
+        "service_layer_boundary",
+        "Service modules must not import API bootstrap or router modules.",
+        BOUNDARY_DOC_PATH,
+        check_service_api_import_rule,
+    ),
+    (
+        "boundary-modules-use-capability-facades",
+        "capability_facade_boundary",
+        "Boundary modules must use capability facades for core domains.",
+        BOUNDARY_DOC_PATH,
+        check_boundary_service_import_rule,
+    ),
+    (
+        "boundary-modules-no-orm-model-imports",
+        "capability_facade_boundary",
+        "Boundary modules must not import ORM models directly.",
+        BOUNDARY_DOC_PATH,
+        check_boundary_data_model_import_rule,
+    ),
+    (
+        "service-layer-no-private-service-imports",
+        "service_layer_boundary",
+        "Service modules must not import private service symbols.",
+        BOUNDARY_DOC_PATH,
+        check_private_service_import_rule,
+    ),
+    (
+        "cli-delegates-improvement-intake",
+        "improvement_intake_boundary",
+        "CLI improvement imports must delegate to the intake facade.",
+        BOUNDARY_DOC_PATH,
+        check_cli_improvement_intake_rule,
+    ),
+    (
+        "architecture-doc-required-tokens",
+        "architecture_documentation",
+        "Architecture documentation must name required boundary contracts.",
+        BOUNDARY_DOC_PATH,
+        check_architecture_doc_rule,
+    ),
+    (
+        "api-route-capability-contracts",
+        "api_route_capabilities",
+        "API routes must satisfy the route capability contract.",
+        "app/api/route_contracts.py",
+        check_api_route_contract_rule,
+    ),
+    (
+        "agent-action-catalog-contracts",
+        "agent_action_catalog",
+        "Agent actions must satisfy the machine-readable action catalog.",
+        "app/services/agent_task_actions.py",
+        check_agent_action_contract_rule,
+    ),
+    (
+        "architecture-decision-contracts",
+        "architecture_decisions",
+        "Architecture decisions must be valid and linked to contracts.",
+        "app/architecture_decisions.py",
+        check_architecture_decision_rule,
+    ),
+    (
+        "capability-surface-contracts",
+        "capability_surface_contracts",
+        "Capability facades must match their generated public surface.",
+        "app/capability_contracts.py",
+        check_capability_contract_rule,
+    ),
+    (
+        "architecture-contract-map-drift",
+        "architecture_contract_map",
+        "Committed architecture contract map must match generated state.",
+        "docs/architecture_contract_map.json",
+        check_architecture_map_drift_rule,
+    ),
+)
+ARCHITECTURE_RULES = _validate_architecture_rule_registry(
+    tuple(
+        ArchitectureRule(
+            rule_id=rule_id,
+            contract=contract,
+            description=description,
+            source_path=source_path,
+            checker=checker,
+        )
+        for rule_id, contract, description, source_path, checker in _ARCHITECTURE_RULE_DEFINITIONS
+    )
+)
+
+
+def list_architecture_rules() -> tuple[ArchitectureRule, ...]:
+    return ARCHITECTURE_RULES
+
+
+def build_architecture_rule_manifest() -> list[dict[str, object]]:
+    return [rule.to_manifest() for rule in ARCHITECTURE_RULES]
+
+
 def collect_architecture_rule_violations(
     project_root: Path,
     *,
@@ -405,22 +590,11 @@ def collect_architecture_rule_violations(
     map_path: str | Path | None,
     default_map_path: Path,
 ) -> list[ArchitectureViolation]:
-    return [
-        *_main_bootstrap_violations(project_root),
-        *_main_service_import_violations(project_root),
-        *_service_api_import_violations(project_root),
-        *_boundary_service_import_violations(project_root),
-        *_private_service_import_violations(project_root),
-        *_cli_improvement_intake_violations(project_root),
-        *_architecture_doc_violations(project_root),
-        *_api_route_contract_violations(),
-        *_agent_action_contract_violations(),
-        *_architecture_decision_violations(project_root, expected_contracts=expected_contracts),
-        *_capability_contract_violations(project_root),
-        *_architecture_map_drift_violations(
-            project_root,
-            current_map=current_map,
-            map_path=map_path,
-            default_map_path=default_map_path,
-        ),
-    ]
+    context = ArchitectureInspectionContext(
+        project_root=project_root,
+        expected_contracts=expected_contracts,
+        current_map=current_map,
+        map_path=map_path,
+        default_map_path=default_map_path,
+    )
+    return [violation for rule in ARCHITECTURE_RULES for violation in rule.check(context)]

@@ -120,6 +120,7 @@ decisions:
       - improvement_case_lifecycle
     linked_sources:
       - app/architecture_inspection.py
+      - app/architecture_inspection_rules.py
       - app/hygiene.py
       - docs/improvement_loop.md
 

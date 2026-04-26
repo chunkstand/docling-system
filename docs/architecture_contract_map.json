@@ -135,6 +135,99 @@
       "source": "app.architecture_measurements"
     }
   ],
+  "inspection_rules": [
+    {
+      "contract": "api_bootstrap_boundary",
+      "default_severity": "error",
+      "description": "API bootstrap must not define feature routes.",
+      "rule_id": "api-bootstrap-no-feature-routes",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "api_bootstrap_boundary",
+      "default_severity": "error",
+      "description": "API bootstrap must not import feature service modules.",
+      "rule_id": "api-bootstrap-no-feature-service-imports",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "service_layer_boundary",
+      "default_severity": "error",
+      "description": "Service modules must not import API bootstrap or router modules.",
+      "rule_id": "service-layer-no-api-imports",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "capability_facade_boundary",
+      "default_severity": "error",
+      "description": "Boundary modules must use capability facades for core domains.",
+      "rule_id": "boundary-modules-use-capability-facades",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "capability_facade_boundary",
+      "default_severity": "error",
+      "description": "Boundary modules must not import ORM models directly.",
+      "rule_id": "boundary-modules-no-orm-model-imports",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "service_layer_boundary",
+      "default_severity": "error",
+      "description": "Service modules must not import private service symbols.",
+      "rule_id": "service-layer-no-private-service-imports",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "improvement_intake_boundary",
+      "default_severity": "error",
+      "description": "CLI improvement imports must delegate to the intake facade.",
+      "rule_id": "cli-delegates-improvement-intake",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "architecture_documentation",
+      "default_severity": "error",
+      "description": "Architecture documentation must name required boundary contracts.",
+      "rule_id": "architecture-doc-required-tokens",
+      "source_path": "docs/architecture_boundaries.md"
+    },
+    {
+      "contract": "api_route_capabilities",
+      "default_severity": "error",
+      "description": "API routes must satisfy the route capability contract.",
+      "rule_id": "api-route-capability-contracts",
+      "source_path": "app/api/route_contracts.py"
+    },
+    {
+      "contract": "agent_action_catalog",
+      "default_severity": "error",
+      "description": "Agent actions must satisfy the machine-readable action catalog.",
+      "rule_id": "agent-action-catalog-contracts",
+      "source_path": "app/services/agent_task_actions.py"
+    },
+    {
+      "contract": "architecture_decisions",
+      "default_severity": "error",
+      "description": "Architecture decisions must be valid and linked to contracts.",
+      "rule_id": "architecture-decision-contracts",
+      "source_path": "app/architecture_decisions.py"
+    },
+    {
+      "contract": "capability_surface_contracts",
+      "default_severity": "error",
+      "description": "Capability facades must match their generated public surface.",
+      "rule_id": "capability-surface-contracts",
+      "source_path": "app/capability_contracts.py"
+    },
+    {
+      "contract": "architecture_contract_map",
+      "default_severity": "error",
+      "description": "Committed architecture contract map must match generated state.",
+      "rule_id": "architecture-contract-map-drift",
+      "source_path": "docs/architecture_contract_map.json"
+    }
+  ],
   "inspection_sources": [
     "API route capability contracts",
     "agent action contracts",

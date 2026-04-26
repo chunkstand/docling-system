@@ -14,11 +14,27 @@ from app.architecture_inspection import (
     write_architecture_contract_map,
 )
 from app.architecture_inspection_rules import (
-    _cli_improvement_intake_violations,
-    _main_service_import_violations,
-    _private_service_import_violations,
-    _service_api_import_violations,
+    ArchitectureInspectionContext,
+    build_architecture_rule_manifest,
+    list_architecture_rules,
 )
+from app.architecture_inspection_types import ARCHITECTURE_SEVERITIES, ArchitectureRule
+
+EXPECTED_ARCHITECTURE_RULE_IDS = {
+    "agent-action-catalog-contracts",
+    "api-bootstrap-no-feature-routes",
+    "api-bootstrap-no-feature-service-imports",
+    "api-route-capability-contracts",
+    "architecture-contract-map-drift",
+    "architecture-decision-contracts",
+    "architecture-doc-required-tokens",
+    "boundary-modules-no-orm-model-imports",
+    "boundary-modules-use-capability-facades",
+    "capability-surface-contracts",
+    "cli-delegates-improvement-intake",
+    "service-layer-no-api-imports",
+    "service-layer-no-private-service-imports",
+}
 
 
 def _write_python(path: Path, source: str) -> None:
@@ -26,10 +42,25 @@ def _write_python(path: Path, source: str) -> None:
     path.write_text(source)
 
 
+def _rule(rule_id: str) -> ArchitectureRule:
+    return next(rule for rule in list_architecture_rules() if rule.rule_id == rule_id)
+
+
+def _inspection_context(project_root: Path) -> ArchitectureInspectionContext:
+    return ArchitectureInspectionContext(
+        project_root=project_root,
+        expected_contracts=(),
+        current_map={},
+        map_path=None,
+        default_map_path=Path("docs") / "architecture_contract_map.json",
+    )
+
+
 def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None:
     contract_map = build_architecture_contract_map()
     contract_names = {contract["name"] for contract in contract_map["contracts"]}
     facade_names = {facade["name"] for facade in contract_map["capability_facades"]}
+    rule_ids = {rule["rule_id"] for rule in contract_map["inspection_rules"]}
 
     assert contract_map["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
     assert contract_map["system_style"] == "modular_monolith"
@@ -55,6 +86,28 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert all(facade["function_count"] > 0 for facade in contract_map["capability_facades"])
     assert "docs/architecture_boundaries.md" in contract_map["source_documents"]
     assert "docs/architecture_decisions.yaml" in contract_map["source_documents"]
+    assert EXPECTED_ARCHITECTURE_RULE_IDS <= rule_ids
+    assert all(rule["contract"] for rule in contract_map["inspection_rules"])
+    assert all(rule["description"] for rule in contract_map["inspection_rules"])
+    assert all(
+        rule["default_severity"] in ARCHITECTURE_SEVERITIES
+        for rule in contract_map["inspection_rules"]
+    )
+    assert all("checker" not in rule for rule in contract_map["inspection_rules"])
+
+
+def test_architecture_rule_registry_exposes_stable_manifest() -> None:
+    rules = list_architecture_rules()
+    manifest = build_architecture_rule_manifest()
+    rule_ids = [rule.rule_id for rule in rules]
+
+    assert set(rule_ids) == EXPECTED_ARCHITECTURE_RULE_IDS
+    assert len(rule_ids) == len(set(rule_ids))
+    assert [row["rule_id"] for row in manifest] == rule_ids
+    assert all(row["source_path"] for row in manifest)
+    assert all(row["contract"] for row in manifest)
+    assert all(row["description"] for row in manifest)
+    assert all(row["default_severity"] in ARCHITECTURE_SEVERITIES for row in manifest)
 
 
 def test_architecture_inspection_contracts_are_clean() -> None:
@@ -151,6 +204,7 @@ def test_architecture_inspection_cli_can_write_map(capsys, tmp_path: Path) -> No
 def test_architecture_rules_match_module_boundaries_not_name_prefixes(
     tmp_path: Path,
 ) -> None:
+    context = _inspection_context(tmp_path)
     _write_python(
         tmp_path / "app/api/main.py",
         "import app.services_extra\n",
@@ -167,9 +221,9 @@ def test_architecture_rules_match_module_boundaries_not_name_prefixes(
         + "\n",
     )
 
-    assert _main_service_import_violations(tmp_path) == []
-    assert _service_api_import_violations(tmp_path) == []
-    assert _private_service_import_violations(tmp_path) == []
+    assert _rule("api-bootstrap-no-feature-service-imports").check(context) == []
+    assert _rule("service-layer-no-api-imports").check(context) == []
+    assert _rule("service-layer-no-private-service-imports").check(context) == []
 
     _write_python(
         tmp_path / "app/api/main.py",
@@ -189,21 +243,26 @@ def test_architecture_rules_match_module_boundaries_not_name_prefixes(
 
     assert {
         violation.symbol
-        for violation in _main_service_import_violations(tmp_path)
+        for violation in _rule("api-bootstrap-no-feature-service-imports").check(context)
     } == {"app.services.documents"}
     assert {
         violation.symbol
-        for violation in _service_api_import_violations(tmp_path)
+        for violation in _rule("service-layer-no-api-imports").check(context)
     } == {"app.api.main", "app.api.routers.documents"}
-    assert {
-        violation.symbol
-        for violation in _private_service_import_violations(tmp_path)
-    } == {"app.services.documents._private_helper"}
+    private_import_violations = _rule("service-layer-no-private-service-imports").check(context)
+    assert {violation.symbol for violation in private_import_violations} == {
+        "app.services.documents._private_helper"
+    }
+    assert {violation.rule_id for violation in private_import_violations} == {
+        "service-layer-no-private-service-imports"
+    }
 
 
 def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
     tmp_path: Path,
 ) -> None:
+    rule = _rule("cli-delegates-improvement-intake")
+    context = _inspection_context(tmp_path)
     _write_python(
         tmp_path / "app/cli.py",
         "\n".join(
@@ -221,7 +280,7 @@ def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
         + "\n",
     )
 
-    assert _cli_improvement_intake_violations(tmp_path) == []
+    assert rule.check(context) == []
 
     _write_python(
         tmp_path / "app/cli.py",
@@ -241,8 +300,11 @@ def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
 
     assert {
         violation.symbol
-        for violation in _cli_improvement_intake_violations(tmp_path)
+        for violation in rule.check(context)
     } == {
         "app.services.improvement_cases.collect_hygiene_finding_observations",
         "app.services.improvement_cases.import_improvement_case_observations",
+    }
+    assert {violation.rule_id for violation in rule.check(context)} == {
+        "cli-delegates-improvement-intake"
     }
