@@ -9,15 +9,14 @@ from app.architecture_inspection import (
     ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
     build_architecture_inspection_report,
 )
+from app.architecture_measurement_contracts import (
+    ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH,
+)
 from app.core.files import repo_root
 from app.core.time import utcnow
-
-ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME = "architecture_measurement_record"
-ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME = "architecture_measurement_history"
-ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME = "architecture_measurement_summary"
-DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH = (
-    Path("storage") / "architecture_inspections" / "history.jsonl"
-)
 
 
 def resolve_architecture_measurement_history_path(
@@ -118,11 +117,14 @@ def _metric_mapping(
         return {}
     if not isinstance(values, dict):
         raise ValueError(f"Architecture measurement field '{name}' must be an object.")
-    return {
-        str(key): value
-        for key, value in values.items()
-        if isinstance(value, (int, float)) and not isinstance(value, bool)
-    }
+    metrics: dict[str, int | float] = {}
+    for key, value in values.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"Architecture measurement field '{name}.{key}' must be numeric."
+            )
+        metrics[str(key)] = value
+    return metrics
 
 
 def _delta(

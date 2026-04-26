@@ -56,7 +56,9 @@ callable checkers. The architecture contract map exposes that rule inventory so
 agents can inspect both the boundary model and the checks that enforce it.
 Architecture measurement snapshots count violations by those stable rule IDs and
 by linked contract, so trend summaries can identify which boundary checks are
-improving or regressing.
+improving or regressing. The architecture contract map also exposes the
+measurement, summary, and delta field lists so agents can read the trend
+contract without reverse-engineering the JSONL history.
 
 The committed map lives at `docs/architecture_contract_map.json`; regenerate it
 with `uv run docling-system-architecture-inspect --write-map` after intentional

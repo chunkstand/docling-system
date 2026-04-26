@@ -25,6 +25,12 @@ from app.architecture_inspection_types import (
     ArchitectureRule,
     ArchitectureViolation,
 )
+from app.architecture_measurement_contracts import (
+    ARCHITECTURE_MEASUREMENT_DELTA_FIELDS,
+    ARCHITECTURE_MEASUREMENT_FIELDS,
+    ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS,
+)
 
 EXPECTED_ARCHITECTURE_RULE_IDS = {
     "agent-action-catalog-contracts",
@@ -67,6 +73,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     contract_names = {contract["name"] for contract in contract_map["contracts"]}
     facade_names = {facade["name"] for facade in contract_map["capability_facades"]}
     rule_ids = {rule["rule_id"] for rule in contract_map["inspection_rules"]}
+    measurement_contract = next(
+        contract
+        for contract in contract_map["contracts"]
+        if contract["name"] == "architecture_measurement_history"
+    )
 
     assert contract_map["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
     assert contract_map["system_style"] == "modular_monolith"
@@ -93,6 +104,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert "docs/architecture_boundaries.md" in contract_map["source_documents"]
     assert "docs/architecture_decisions.yaml" in contract_map["source_documents"]
     assert EXPECTED_ARCHITECTURE_RULE_IDS <= rule_ids
+    assert measurement_contract["schema_name"] == ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME
+    assert measurement_contract["history_path"] == "storage/architecture_inspections/history.jsonl"
+    assert measurement_contract["measurement_fields"] == list(ARCHITECTURE_MEASUREMENT_FIELDS)
+    assert measurement_contract["summary_fields"] == list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS)
+    assert measurement_contract["delta_fields"] == list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS)
     assert all(rule["contract"] for rule in contract_map["inspection_rules"])
     assert all(rule["description"] for rule in contract_map["inspection_rules"])
     assert all(
@@ -173,6 +189,13 @@ def test_architecture_inspection_report_wraps_map_and_violations() -> None:
     )
     assert set(report["measurement"]["rule_violation_counts"]) == {
         rule["rule_id"]
+        for rule in report["architecture_map"]["inspection_rules"]
+    }
+    assert set(report["measurement"]["contract_violation_counts"]) == {
+        contract["name"]
+        for contract in report["architecture_map"]["contracts"]
+    } | {
+        rule["contract"]
         for rule in report["architecture_map"]["inspection_rules"]
     }
     assert all(count == 0 for count in report["measurement"]["rule_violation_counts"].values())

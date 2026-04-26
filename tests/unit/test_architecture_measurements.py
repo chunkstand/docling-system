@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from app.architecture_inspection import ARCHITECTURE_MEASUREMENT_SCHEMA_NAME
 from app.architecture_measurement_cli import run_summary
 from app.architecture_measurements import (
@@ -91,6 +93,55 @@ def test_architecture_measurement_summary_reports_latest_and_deltas(tmp_path: Pa
         "contract-a": -2,
         "contract-b": 0,
     }
+
+
+def test_architecture_measurement_summary_handles_legacy_records(
+    tmp_path: Path,
+) -> None:
+    history_path = tmp_path / "history.jsonl"
+    legacy_report = _report(error_count=1)
+    legacy_report["measurement"].pop("inspection_rule_count")
+    legacy_report["measurement"].pop("rule_violation_counts")
+    legacy_report["measurement"].pop("contract_violation_counts")
+    record_architecture_measurement(
+        legacy_report,
+        history_path=history_path,
+        commit_sha="legacy",
+    )
+    record_architecture_measurement(
+        _report(error_count=2),
+        history_path=history_path,
+        commit_sha="current",
+    )
+
+    summary = summarize_architecture_measurements(history_path)
+
+    assert summary["record_count"] == 2
+    assert summary["deltas"]["error_count"] == 1
+    assert summary["deltas"]["rule_violation_counts"] == {
+        "rule-a": 2,
+        "rule-b": 0,
+    }
+    assert summary["deltas"]["contract_violation_counts"] == {
+        "contract-a": 2,
+        "contract-b": 0,
+    }
+
+
+def test_architecture_measurement_summary_rejects_non_numeric_count_maps(
+    tmp_path: Path,
+) -> None:
+    history_path = tmp_path / "history.jsonl"
+    record = record_architecture_measurement(
+        _report(),
+        history_path=history_path,
+        commit_sha="bad",
+    )
+    record["measurement"]["rule_violation_counts"] = {"rule-a": "1"}
+    history_path.write_text(json.dumps(record) + "\n")
+
+    with pytest.raises(ValueError, match="rule_violation_counts.rule-a"):
+        summarize_architecture_measurements(history_path)
 
 
 def test_architecture_measurement_summary_cli_prints_payload(

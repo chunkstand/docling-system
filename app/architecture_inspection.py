@@ -26,6 +26,16 @@ from app.architecture_inspection_types import (
     ARCHITECTURE_SEVERITIES,
     ArchitectureViolation,
 )
+from app.architecture_measurement_contracts import (
+    ARCHITECTURE_MEASUREMENT_DELTA_FIELDS,
+    ARCHITECTURE_MEASUREMENT_FIELDS,
+    ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
+    ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS,
+    ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH,
+)
 from app.capability_contracts import (
     CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
     build_capability_contract_map,
@@ -45,7 +55,6 @@ from app.services.improvement_cases import (
 ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME = "architecture_contract_map"
 ARCHITECTURE_INSPECTION_SCHEMA_NAME = "architecture_inspection"
 ARCHITECTURE_INSPECTION_POLICY_SCHEMA_NAME = "architecture_inspection_policy"
-ARCHITECTURE_MEASUREMENT_SCHEMA_NAME = "architecture_inspection_measurement"
 ARCHITECTURE_CONTRACT_SCHEMA_VERSION = "1.0"
 DEFAULT_ARCHITECTURE_CONTRACT_MAP_PATH = Path("docs") / "architecture_contract_map.json"
 
@@ -188,8 +197,15 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             {
                 "name": "architecture_measurement_history",
                 "source": "app.architecture_measurements",
-                "schema_name": "architecture_measurement_history",
+                "schema_name": ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "history_path": DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH.as_posix(),
+                "record_schema_name": ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
+                "measurement_schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
+                "summary_schema_name": ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+                "measurement_fields": list(ARCHITECTURE_MEASUREMENT_FIELDS),
+                "summary_fields": list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS),
+                "delta_fields": list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS),
                 "decision_ids": decision_ids_by_contract.get(
                     "architecture_measurement_history",
                     [],
@@ -232,18 +248,9 @@ def build_architecture_measurement_snapshot(
 
     contract_names = list(
         dict.fromkeys(
-            [
-                str(contract["name"])
-                for contract in contracts
-            ]
-            + [
-                str(rule["contract"])
-                for rule in inspection_rules
-            ]
-            + [
-                violation.contract
-                for violation in violations
-            ]
+            [str(contract["name"]) for contract in contracts]
+            + [str(rule["contract"]) for rule in inspection_rules]
+            + [violation.contract for violation in violations]
         )
     )
     contract_violation_counts = {contract_name: 0 for contract_name in contract_names}

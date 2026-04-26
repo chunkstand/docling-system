@@ -129,10 +129,47 @@
         "ADR-0001",
         "ADR-0005"
       ],
+      "delta_fields": [
+        "non_ignored_violation_count",
+        "error_count",
+        "warning_count",
+        "info_count",
+        "contract_count",
+        "rule_violation_counts",
+        "contract_violation_counts"
+      ],
+      "history_path": "storage/architecture_inspections/history.jsonl",
+      "measurement_fields": [
+        "schema_name",
+        "schema_version",
+        "severity_counts",
+        "non_ignored_violation_count",
+        "contract_count",
+        "inspection_rule_count",
+        "rule_violation_counts",
+        "contract_violation_counts",
+        "api_route_count",
+        "agent_action_count"
+      ],
+      "measurement_schema_name": "architecture_inspection_measurement",
       "name": "architecture_measurement_history",
+      "record_schema_name": "architecture_measurement_record",
       "schema_name": "architecture_measurement_history",
       "schema_version": "1.0",
-      "source": "app.architecture_measurements"
+      "source": "app.architecture_measurements",
+      "summary_fields": [
+        "schema_name",
+        "schema_version",
+        "history_schema_name",
+        "history_path",
+        "record_count",
+        "latest",
+        "previous",
+        "latest_rule_violation_counts",
+        "latest_contract_violation_counts",
+        "deltas"
+      ],
+      "summary_schema_name": "architecture_measurement_summary"
     }
   ],
   "inspection_rules": [

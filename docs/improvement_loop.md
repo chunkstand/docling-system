@@ -103,7 +103,10 @@ The default history path is `storage/architecture_inspections/history.jsonl`.
 That local JSONL history gives future agents a stable trend signal instead of
 relying on ad hoc inspection notes. The summary command reports aggregate
 violation deltas and rule-level or contract-level deltas, so recurring boundary
-failures can be measured against stable rule IDs instead of prose labels.
+failures can be measured against stable rule IDs instead of prose labels. The
+architecture contract map publishes the measurement, summary, and delta field
+lists as a machine-readable contract for agents that need to compare history
+records across commits.
 
 ## Non-Goals
 
