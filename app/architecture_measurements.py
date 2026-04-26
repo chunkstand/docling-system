@@ -106,6 +106,25 @@ def _metric(record: dict[str, Any] | None, name: str) -> int | float | None:
     return measurement.get(name, record.get(name))
 
 
+def _metric_mapping(
+    record: dict[str, Any] | None,
+    name: str,
+) -> dict[str, int | float] | None:
+    if record is None:
+        return None
+    measurement = record.get("measurement") or {}
+    values = measurement.get(name)
+    if values is None:
+        return {}
+    if not isinstance(values, dict):
+        raise ValueError(f"Architecture measurement field '{name}' must be an object.")
+    return {
+        str(key): value
+        for key, value in values.items()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    }
+
+
 def _delta(
     latest: dict[str, Any] | None,
     previous: dict[str, Any] | None,
@@ -116,6 +135,21 @@ def _delta(
     if latest_value is None or previous_value is None:
         return None
     return latest_value - previous_value
+
+
+def _mapping_delta(
+    latest: dict[str, Any] | None,
+    previous: dict[str, Any] | None,
+    name: str,
+) -> dict[str, int | float] | None:
+    latest_values = _metric_mapping(latest, name)
+    previous_values = _metric_mapping(previous, name)
+    if latest_values is None or previous_values is None:
+        return None
+    return {
+        key: latest_values.get(key, 0) - previous_values.get(key, 0)
+        for key in sorted(set(latest_values) | set(previous_values))
+    }
 
 
 def summarize_architecture_measurements(
@@ -135,6 +169,14 @@ def summarize_architecture_measurements(
         "record_count": len(records),
         "latest": latest,
         "previous": previous,
+        "latest_rule_violation_counts": _metric_mapping(
+            latest,
+            "rule_violation_counts",
+        ),
+        "latest_contract_violation_counts": _metric_mapping(
+            latest,
+            "contract_violation_counts",
+        ),
         "deltas": {
             "non_ignored_violation_count": _delta(
                 latest,
@@ -145,5 +187,15 @@ def summarize_architecture_measurements(
             "warning_count": _delta(latest, previous, "warning_count"),
             "info_count": _delta(latest, previous, "info_count"),
             "contract_count": _delta(latest, previous, "contract_count"),
+            "rule_violation_counts": _mapping_delta(
+                latest,
+                previous,
+                "rule_violation_counts",
+            ),
+            "contract_violation_counts": _mapping_delta(
+                latest,
+                previous,
+                "contract_violation_counts",
+            ),
         },
     }

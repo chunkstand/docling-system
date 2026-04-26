@@ -54,6 +54,9 @@ Architecture inspection rules are first-class registry entries with stable
 rule IDs, linked contracts, descriptions, default severities, source paths, and
 callable checkers. The architecture contract map exposes that rule inventory so
 agents can inspect both the boundary model and the checks that enforce it.
+Architecture measurement snapshots count violations by those stable rule IDs and
+by linked contract, so trend summaries can identify which boundary checks are
+improving or regressing.
 
 The committed map lives at `docs/architecture_contract_map.json`; regenerate it
 with `uv run docling-system-architecture-inspect --write-map` after intentional

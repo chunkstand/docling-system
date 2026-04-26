@@ -168,6 +168,14 @@ def test_architecture_inspection_report_wraps_map_and_violations() -> None:
     assert report["violations"] == []
     assert report["measurement"]["schema_name"] == ARCHITECTURE_MEASUREMENT_SCHEMA_NAME
     assert report["measurement"]["non_ignored_violation_count"] == 0
+    assert report["measurement"]["inspection_rule_count"] == len(
+        report["architecture_map"]["inspection_rules"]
+    )
+    assert set(report["measurement"]["rule_violation_counts"]) == {
+        rule["rule_id"]
+        for rule in report["architecture_map"]["inspection_rules"]
+    }
+    assert all(count == 0 for count in report["measurement"]["rule_violation_counts"].values())
     assert report["architecture_map"]["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
 
 
@@ -178,6 +186,12 @@ def test_architecture_inspection_reports_missing_persisted_map(tmp_path: Path) -
     assert report["violation_count"] == 1
     assert report["violations"][0]["contract"] == "architecture_contract_map"
     assert report["violations"][0]["severity"] == "error"
+    assert (
+        report["measurement"]["rule_violation_counts"]["architecture-contract-map-drift"] == 1
+    )
+    assert (
+        report["measurement"]["contract_violation_counts"]["architecture_contract_map"] == 1
+    )
 
 
 def test_architecture_inspection_policy_can_demote_violation(tmp_path: Path) -> None:

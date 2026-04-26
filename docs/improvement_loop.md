@@ -90,8 +90,9 @@ boundary surfaces can reuse a typed import contract instead of copying CLI
 payload shape.
 
 Architecture inspection reports include an `architecture_inspection_measurement`
-snapshot with severity counts and contract surface counts. Record and summarize
-those snapshots with:
+snapshot with severity counts, contract surface counts, per-rule violation
+counts, and per-contract violation counts. Record and summarize those snapshots
+with:
 
 ```bash
 uv run docling-system-architecture-measure-record
@@ -100,7 +101,9 @@ uv run docling-system-architecture-measure-summary
 
 The default history path is `storage/architecture_inspections/history.jsonl`.
 That local JSONL history gives future agents a stable trend signal instead of
-relying on ad hoc inspection notes.
+relying on ad hoc inspection notes. The summary command reports aggregate
+violation deltas and rule-level or contract-level deltas, so recurring boundary
+failures can be measured against stable rule IDs instead of prose labels.
 
 ## Non-Goals
 

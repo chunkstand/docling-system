@@ -25,6 +25,15 @@ def _report(error_count: int = 0, contract_count: int = 4) -> dict:
             "severity_counts": {"error": error_count, "info": 0, "warning": 0},
             "non_ignored_violation_count": violation_count,
             "contract_count": contract_count,
+            "inspection_rule_count": 2,
+            "rule_violation_counts": {
+                "rule-a": error_count,
+                "rule-b": 0,
+            },
+            "contract_violation_counts": {
+                "contract-a": error_count,
+                "contract-b": 0,
+            },
             "api_route_count": 20,
             "agent_action_count": 10,
         },
@@ -69,6 +78,19 @@ def test_architecture_measurement_summary_reports_latest_and_deltas(tmp_path: Pa
     assert summary["deltas"]["non_ignored_violation_count"] == -2
     assert summary["deltas"]["error_count"] == -2
     assert summary["deltas"]["contract_count"] == 2
+    assert summary["latest_rule_violation_counts"] == {"rule-a": 0, "rule-b": 0}
+    assert summary["latest_contract_violation_counts"] == {
+        "contract-a": 0,
+        "contract-b": 0,
+    }
+    assert summary["deltas"]["rule_violation_counts"] == {
+        "rule-a": -2,
+        "rule-b": 0,
+    }
+    assert summary["deltas"]["contract_violation_counts"] == {
+        "contract-a": -2,
+        "contract-b": 0,
+    }
 
 
 def test_architecture_measurement_summary_cli_prints_payload(
