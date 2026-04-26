@@ -124,7 +124,7 @@ file_budgets:
       max_lines: 948
       max_private_helpers: 2
     app/architecture_inspection.py:
-      max_lines: 735
+      max_lines: 400
       max_private_helpers: 20
     app/cli.py:
       max_lines: 1617
