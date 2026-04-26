@@ -32,6 +32,7 @@ FORBIDDEN_BOUNDARY_SERVICE_IMPORTS = (
     "app.services.semantics",
     "app.services.tables",
 )
+FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS = ("app.db.models",)
 
 
 def _iter_import_targets(tree: ast.AST) -> list[str]:
@@ -92,6 +93,17 @@ def test_api_and_worker_boundaries_use_capability_interfaces_for_core_domains() 
             tree = ast.parse(path.read_text(), filename=str(path))
             for target in _iter_import_targets(tree):
                 if target in FORBIDDEN_BOUNDARY_SERVICE_IMPORTS:
+                    violations.append((str(path.relative_to(ROOT)), target))
+    assert violations == []
+
+
+def test_api_and_worker_boundaries_do_not_import_orm_models() -> None:
+    violations: list[tuple[str, str]] = []
+    for boundary_dir in BOUNDARY_DIRS:
+        for path in sorted(boundary_dir.rglob("*.py")):
+            tree = ast.parse(path.read_text(), filename=str(path))
+            for target in _iter_import_targets(tree):
+                if target in FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS:
                     violations.append((str(path.relative_to(ROOT)), target))
     assert violations == []
 

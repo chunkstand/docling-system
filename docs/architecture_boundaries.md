@@ -35,15 +35,19 @@ worker launchers into the large implementation modules listed above. Add new
 externally reachable behavior to a capability facade first, then call the
 facade from the router or worker boundary.
 
+Boundary modules also avoid importing `app.db.models` directly. They may accept
+database sessions from FastAPI dependencies, but ORM row lookup and active-run
+scoping belong behind the service capability facades.
+
 Service modules also avoid importing underscore-prefixed helpers from other
 service modules. When shared behavior crosses a module boundary, expose a public
 helper or move it to an explicitly shared module.
 
 `uv run docling-system-architecture-inspect` is the top-level architecture
 inspection command. It emits a machine-readable architecture map and validates
-the API route, agent action, capability facade surface, service import,
-improvement intake, and architecture-documentation contracts as one boundary
-fitness function. `uv run docling-system-hygiene-check` runs the same
+the API route, agent action, capability facade surface, service import, data
+model import, improvement intake, and architecture-documentation contracts as
+one boundary fitness function. `uv run docling-system-hygiene-check` runs the same
 inspection by default.
 
 The committed map lives at `docs/architecture_contract_map.json`; regenerate it

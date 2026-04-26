@@ -89,6 +89,7 @@
     "agent action contracts",
     "service capability surface contracts",
     "capability facade boundary imports",
+    "boundary data model import checks",
     "service-to-API import boundaries",
     "private service symbol imports",
     "improvement intake CLI delegation",

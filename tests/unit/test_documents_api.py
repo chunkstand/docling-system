@@ -727,6 +727,18 @@ def test_document_artifact_routes_return_404_for_missing_storage_owned_paths(
             has_yaml_artifact=True,
         ),
     )
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_table_row",
+        lambda session, requested_document_id, requested_table_id: stale_table
+        if requested_document_id == document_id and requested_table_id == table_id
+        else None,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_figure_row",
+        lambda session, requested_document_id, requested_figure_id: stale_figure
+        if requested_document_id == document_id and requested_figure_id == figure_id
+        else None,
+    )
     monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
 
@@ -1177,6 +1189,18 @@ def test_document_artifact_routes_prefer_storage_owned_paths(monkeypatch, tmp_pa
             has_json_artifact=True,
             has_yaml_artifact=True,
         ),
+    )
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_table_row",
+        lambda session, requested_document_id, requested_table_id: table
+        if requested_document_id == document_id and requested_table_id == table_id
+        else None,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.documents.get_active_figure_row",
+        lambda session, requested_document_id, requested_figure_id: figure
+        if requested_document_id == document_id and requested_figure_id == figure_id
+        else None,
     )
     monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)

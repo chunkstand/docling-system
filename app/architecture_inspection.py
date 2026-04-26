@@ -70,6 +70,7 @@ FORBIDDEN_BOUNDARY_SERVICE_IMPORTS = frozenset(
         "app.services.tables",
     }
 )
+FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS = frozenset({"app.db.models"})
 FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS = frozenset(
     {
         "collect_eval_failure_case_observations",
@@ -86,6 +87,7 @@ REQUIRED_ARCHITECTURE_DOC_TOKENS = frozenset(
         "tests/unit/test_api_architecture.py",
         "tests/unit/test_api_route_contracts.py",
         "tests/unit/test_agent_action_contracts.py",
+        "app.db.models",
         "app.services.improvement_case_intake",
         "ImprovementCaseImportRequest",
         "ImprovementCaseImportResult",
@@ -253,18 +255,30 @@ def _boundary_service_import_violations(project_root: Path) -> list[Architecture
             tree = ast.parse(path.read_text(), filename=str(path))
             relative_path = path.resolve().relative_to(project_root.resolve()).as_posix()
             for target, lineno in _iter_import_targets(tree):
-                if target not in FORBIDDEN_BOUNDARY_SERVICE_IMPORTS:
-                    continue
-                violations.append(
-                    ArchitectureViolation(
-                        contract="capability_facade_boundary",
-                        field="service_import",
-                        relative_path=relative_path,
-                        lineno=lineno,
-                        symbol=target,
-                        message="Boundary modules must use app.services.capabilities facades.",
+                if target in FORBIDDEN_BOUNDARY_SERVICE_IMPORTS:
+                    violations.append(
+                        ArchitectureViolation(
+                            contract="capability_facade_boundary",
+                            field="service_import",
+                            relative_path=relative_path,
+                            lineno=lineno,
+                            symbol=target,
+                            message=(
+                                "Boundary modules must use app.services.capabilities facades."
+                            ),
+                        )
                     )
-                )
+                if target in FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS:
+                    violations.append(
+                        ArchitectureViolation(
+                            contract="capability_facade_boundary",
+                            field="data_model_import",
+                            relative_path=relative_path,
+                            lineno=lineno,
+                            symbol=target,
+                            message="Boundary modules must not import ORM models directly.",
+                        )
+                    )
     return violations
 
 
@@ -517,6 +531,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "agent action contracts",
             "service capability surface contracts",
             "capability facade boundary imports",
+            "boundary data model import checks",
             "service-to-API import boundaries",
             "private service symbol imports",
             "improvement intake CLI delegation",

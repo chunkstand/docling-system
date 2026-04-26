@@ -15,7 +15,6 @@ from app.api.deps import (
     storage_file_response,
 )
 from app.api.errors import api_error
-from app.db.models import DocumentFigure, DocumentTable
 from app.db.session import get_db_session
 from app.schemas.chunks import DocumentChunkResponse
 from app.schemas.documents import (
@@ -49,42 +48,8 @@ get_active_figures = run_lifecycle.get_active_figures
 get_active_figure_detail = run_lifecycle.get_active_figure_detail
 reprocess_document = run_lifecycle.reprocess_document
 get_document_run_row = run_lifecycle.get_run_row
-
-
-def get_active_table_row(
-    session: Session,
-    document_id: UUID,
-    table_id: UUID,
-) -> DocumentTable | None:
-    document = get_document_detail(session, document_id)
-    if document.active_run_id is None:
-        return None
-    table = session.get(DocumentTable, table_id)
-    if (
-        table is None
-        or table.run_id != document.active_run_id
-        or table.document_id != document_id
-    ):
-        return None
-    return table
-
-
-def get_active_figure_row(
-    session: Session,
-    document_id: UUID,
-    figure_id: UUID,
-) -> DocumentFigure | None:
-    document = get_document_detail(session, document_id)
-    if document.active_run_id is None:
-        return None
-    figure = session.get(DocumentFigure, figure_id)
-    if (
-        figure is None
-        or figure.run_id != document.active_run_id
-        or figure.document_id != document_id
-    ):
-        return None
-    return figure
+get_active_table_row = run_lifecycle.get_active_table_row
+get_active_figure_row = run_lifecycle.get_active_figure_row
 
 
 @router.get(
