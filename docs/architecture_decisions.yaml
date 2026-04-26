@@ -1,0 +1,219 @@
+schema_name: architecture_decisions
+schema_version: "1.0"
+decisions:
+  - id: ADR-0001
+    status: accepted
+    date: "2026-04-26"
+    title: Keep v1 as a modular monolith
+    context: >
+      The system is still local-first and evolving quickly across ingest,
+      retrieval, evaluation, semantics, and agent-task orchestration.
+      Premature service decomposition would add deployment, networking, and
+      data-consistency cost before the internal boundaries are stable.
+    decision: >
+      Keep v1 as a modular monolith. Express architectural boundaries through
+      packages, service facades, persisted contracts, and inspection gates
+      before extracting services.
+    consequences:
+      - API and worker boundaries stay in-process.
+      - Boundary quality is enforced by architecture inspection and tests.
+      - Future service extraction must follow stable capability seams.
+    linked_contracts:
+      - architecture_contract_map
+      - architecture_measurement_history
+    linked_sources:
+      - docs/architecture_boundaries.md
+      - app/architecture_inspection.py
+
+  - id: ADR-0002
+    status: accepted
+    date: "2026-04-26"
+    title: Use service capability facades at external boundaries
+    context: >
+      Routers and worker launchers need stable entrypoints into large service
+      domains without importing implementation modules directly.
+    decision: >
+      API routers and worker launchers depend on app.services.capabilities
+      facades. The Protocol methods define the public service surface, and the
+      generated capability map records that surface.
+    consequences:
+      - Route-facing behavior must be added to a facade before external use.
+      - Implementation modules can continue to collaborate internally.
+      - Extra public implementation methods outside a Protocol are rejected.
+    linked_contracts:
+      - api_route_capabilities
+      - capability_surface_contracts
+    linked_sources:
+      - app/services/capabilities
+      - app/capability_contracts.py
+      - tests/unit/test_api_architecture.py
+
+  - id: ADR-0003
+    status: accepted
+    date: "2026-04-26"
+    title: Keep JSON canonical and YAML derived
+    context: >
+      Operators benefit from readable YAML artifacts, but search, persistence,
+      validation, and API contracts need a stable machine-facing source of
+      truth.
+    decision: >
+      JSON artifacts and structured database fields are canonical. YAML remains
+      human-readable derived output and must not become a source of truth for
+      ranking, filtering, validation, or persistence.
+    consequences:
+      - Public service surfaces should expose structured responses and JSON
+        artifact paths as the durable contract.
+      - YAML can be regenerated from canonical state.
+      - New retrieval or validation logic must not depend on YAML-only fields.
+    linked_contracts:
+      - api_route_capabilities
+      - capability_surface_contracts
+    linked_sources:
+      - AGENTS.md
+      - SYSTEM_PLAN.md
+      - docs/architecture_boundaries.md
+
+  - id: ADR-0004
+    status: accepted
+    date: "2026-04-26"
+    title: Promote active runs only after validation
+    context: >
+      The system stores multiple document runs and must preserve prior active
+      content when a new parse or repair run fails validation.
+    decision: >
+      documents.active_run_id advances only after document and table validation
+      passes. Failed validation runs remain persisted but non-active.
+    consequences:
+      - Retrieval and artifact routes use active-run scoping.
+      - Failed runs remain available for diagnosis.
+      - Evaluation and improvement loops should treat validation failure as a
+        captured observation, not as an implicit promotion.
+    linked_contracts:
+      - api_route_capabilities
+      - improvement_case_registry
+      - improvement_case_intake
+    linked_sources:
+      - AGENTS.md
+      - SYSTEM_PLAN.md
+      - docs/improvement_loop.md
+
+  - id: ADR-0005
+    status: accepted
+    date: "2026-04-26"
+    title: Use architecture and hygiene checks as fitness functions
+    context: >
+      Architecture rules drift when they live only in prose or review comments.
+      The repo needs repeatable checks that turn prior failures into executable
+      constraints.
+    decision: >
+      Treat architecture inspection, hygiene checks, capability contracts, and
+      measurement history as boundary fitness functions that run locally and in
+      test suites.
+    consequences:
+      - Contract drift is detected by generated map comparisons.
+      - Hygiene checks remain incremental but block new regressions.
+      - Measurement history can track whether future agents make fewer similar
+        mistakes.
+    linked_contracts:
+      - architecture_contract_map
+      - architecture_measurement_history
+      - improvement_case_lifecycle
+    linked_sources:
+      - app/architecture_inspection.py
+      - app/hygiene.py
+      - docs/improvement_loop.md
+
+  - id: ADR-0006
+    status: accepted
+    date: "2026-04-26"
+    title: Keep ORM models behind service boundaries
+    context: >
+      API routers previously duplicated active-run table and figure row lookup
+      logic, which leaked persistence details into the externally reachable
+      boundary.
+    decision: >
+      Boundary modules may receive database sessions, but they must not import
+      app.db.models directly. ORM row lookup and active-run scoping belong
+      behind service capability facades.
+    consequences:
+      - Routers stay focused on HTTP concerns.
+      - Active-run scoping remains centralized.
+      - Architecture inspection rejects direct ORM model imports from routers
+        and worker launchers.
+    linked_contracts:
+      - api_route_capabilities
+      - capability_surface_contracts
+    linked_sources:
+      - app/architecture_inspection.py
+      - app/api/routers/documents.py
+      - tests/unit/test_api_architecture.py
+
+  - id: ADR-0007
+    status: accepted
+    date: "2026-04-26"
+    title: Make agent actions machine-readable contracts
+    context: >
+      Agent-task orchestration is a public automation surface. Agents need to
+      inspect available actions, inputs, outputs, approval requirements, and
+      context builders without reading registry internals.
+    decision: >
+      Agent actions are registered as a closed, machine-readable catalog with
+      validation for capabilities, schemas, examples, side effects, approval
+      requirements, and context-builder names.
+    consequences:
+      - New actions must declare their operational contract.
+      - The public action endpoint mirrors the checked registry metadata.
+      - Agent-facing task changes become inspectable and testable.
+    linked_contracts:
+      - agent_action_catalog
+    linked_sources:
+      - app/services/agent_task_actions.py
+      - app/services/agent_actions
+      - tests/unit/test_agent_action_contracts.py
+
+  - id: ADR-0008
+    status: accepted
+    date: "2026-04-26"
+    title: Keep the improvement loop as a durable registry and lifecycle
+    context: >
+      Failures, review comments, flaky tests, tool confusion, and bad diffs
+      should become executable artifacts instead of disappearing into chat
+      history.
+    decision: >
+      Store improvement cases in a registry, route observations through the
+      intake facade, and move case status through the lifecycle service.
+    consequences:
+      - Imported observations are deduplicated before becoming cases.
+      - Deploy and measure transitions share one validation path.
+      - Future agents can inspect the loop as repo data.
+    linked_contracts:
+      - improvement_case_registry
+      - improvement_case_intake
+      - improvement_case_lifecycle
+    linked_sources:
+      - config/improvement_cases.yaml
+      - app/services/improvement_case_intake.py
+      - app/services/improvement_case_lifecycle.py
+
+  - id: ADR-0009
+    status: accepted
+    date: "2026-04-26"
+    title: Treat architecture decisions as first-class contracts
+    context: >
+      The architecture map records what exists, but agents also need a durable
+      explanation of why boundary contracts exist and what would justify
+      changing them.
+    decision: >
+      Maintain architecture decisions in docs/architecture_decisions.yaml and
+      generate docs/architecture_decision_map.json for machine-readable
+      inspection. Every architecture contract-map entry must have a linked
+      decision record.
+    consequences:
+      - Boundary changes require an explicit design rationale.
+      - The inspection gate catches missing or stale decision records.
+      - The architecture model now captures both structure and rationale.
+    linked_contracts:
+      - architecture_decisions
+    linked_sources:
+      - docs/architecture_decisions.yaml
+      - app/architecture_decisions.py

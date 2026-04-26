@@ -14,6 +14,11 @@ from app.api.route_contracts import (
     build_api_route_capability_manifest,
     validate_api_route_capability_contracts,
 )
+from app.architecture_decisions import (
+    ARCHITECTURE_DECISION_SCHEMA_NAME,
+    build_architecture_decision_map,
+    validate_architecture_decisions,
+)
 from app.capability_contracts import (
     CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
     build_capability_contract_map,
@@ -88,6 +93,8 @@ REQUIRED_ARCHITECTURE_DOC_TOKENS = frozenset(
         "tests/unit/test_api_route_contracts.py",
         "tests/unit/test_agent_action_contracts.py",
         "app.db.models",
+        "app.architecture_decisions",
+        "docs/architecture_decisions.yaml",
         "app.services.improvement_case_intake",
         "ImprovementCaseImportRequest",
         "ImprovementCaseImportResult",
@@ -363,6 +370,20 @@ def _agent_action_contract_violations() -> list[ArchitectureViolation]:
     ]
 
 
+def _architecture_decision_violations(
+    project_root: Path,
+    *,
+    expected_contracts: tuple[str, ...],
+) -> list[ArchitectureViolation]:
+    return [
+        ArchitectureViolation(**issue.to_dict())
+        for issue in validate_architecture_decisions(
+            project_root,
+            expected_contracts=expected_contracts,
+        )
+    ]
+
+
 def _architecture_contract_map_path(
     project_root: Path,
     path: str | Path | None = None,
@@ -419,6 +440,11 @@ def inspect_architecture_contracts(
     map_path: str | Path | None = None,
 ) -> list[ArchitectureViolation]:
     root = project_root or repo_root()
+    architecture_map = build_architecture_contract_map(root)
+    expected_contracts = tuple(
+        str(contract["name"])
+        for contract in architecture_map["contracts"]
+    )
     violations = [
         *_main_bootstrap_violations(root),
         *_main_service_import_violations(root),
@@ -429,6 +455,7 @@ def inspect_architecture_contracts(
         *_architecture_doc_violations(root),
         *_api_route_contract_violations(),
         *_agent_action_contract_violations(),
+        *_architecture_decision_violations(root, expected_contracts=expected_contracts),
         *(
             ArchitectureViolation(**issue.to_dict())
             for issue in validate_capability_contracts(root)
@@ -459,6 +486,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
     route_manifest = build_api_route_capability_manifest(create_app())
     agent_action_manifest = build_agent_task_action_manifest()
     capability_contract_map = build_capability_contract_map(root)
+    architecture_decision_map = build_architecture_decision_map(root)
     return {
         "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
@@ -467,6 +495,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "SYSTEM_PLAN.md",
             "README.md",
             "docs/architecture_boundaries.md",
+            "docs/architecture_decisions.yaml",
             "docs/improvement_loop.md",
         ],
         "boundary_modules": {
@@ -520,6 +549,14 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
             },
             {
+                "name": "architecture_decisions",
+                "source": "docs/architecture_decisions.yaml",
+                "map_source": "docs/architecture_decision_map.json",
+                "schema_name": ARCHITECTURE_DECISION_SCHEMA_NAME,
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "item_count": architecture_decision_map["decision_count"],
+            },
+            {
                 "name": "architecture_measurement_history",
                 "source": "app.architecture_measurements",
                 "schema_name": "architecture_measurement_history",
@@ -536,6 +573,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "private service symbol imports",
             "improvement intake CLI delegation",
             "architecture boundary documentation",
+            "architecture decision registry",
             "committed architecture contract map drift",
             "architecture measurement history",
         ],

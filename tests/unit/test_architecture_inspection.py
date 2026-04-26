@@ -30,6 +30,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         "improvement_case_registry",
         "improvement_case_intake",
         "improvement_case_lifecycle",
+        "architecture_decisions",
         "architecture_measurement_history",
     } <= contract_names
     assert {
@@ -41,6 +42,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     } <= facade_names
     assert all(facade["function_count"] > 0 for facade in contract_map["capability_facades"])
     assert "docs/architecture_boundaries.md" in contract_map["source_documents"]
+    assert "docs/architecture_decisions.yaml" in contract_map["source_documents"]
 
 
 def test_architecture_inspection_contracts_are_clean() -> None:

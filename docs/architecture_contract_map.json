@@ -78,6 +78,14 @@
       "source": "app.services.improvement_case_lifecycle"
     },
     {
+      "item_count": 9,
+      "map_source": "docs/architecture_decision_map.json",
+      "name": "architecture_decisions",
+      "schema_name": "architecture_decisions",
+      "schema_version": "1.0",
+      "source": "docs/architecture_decisions.yaml"
+    },
+    {
       "name": "architecture_measurement_history",
       "schema_name": "architecture_measurement_history",
       "schema_version": "1.0",
@@ -94,6 +102,7 @@
     "private service symbol imports",
     "improvement intake CLI delegation",
     "architecture boundary documentation",
+    "architecture decision registry",
     "committed architecture contract map drift",
     "architecture measurement history"
   ],
@@ -103,6 +112,7 @@
     "SYSTEM_PLAN.md",
     "README.md",
     "docs/architecture_boundaries.md",
+    "docs/architecture_decisions.yaml",
     "docs/improvement_loop.md"
   ],
   "system_style": "modular_monolith"

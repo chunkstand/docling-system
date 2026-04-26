@@ -56,6 +56,19 @@ boundary changes. Inspection severity is governed by
 `config/architecture_inspection.yaml`, whose default policy treats every
 non-ignored violation as an error.
 
+## Architecture Decisions
+
+Architecture decisions are source-controlled contracts, not only prose in
+review threads. The canonical registry is `docs/architecture_decisions.yaml`;
+regenerate the machine-readable map with
+`uv run docling-system-architecture-decisions --write-map` after intentional
+decision changes.
+
+`app.architecture_decisions` validates decision shape, map drift, linked source
+paths, and whether every major architecture contract-map entry has a linked
+decision. `uv run docling-system-architecture-inspect` runs that validation as
+part of the architecture fitness function.
+
 ## API Route Capability Contracts
 
 Remote API permissions are a closed route contract, not free-form router

@@ -511,6 +511,10 @@ and `docling-system-architecture-measure-summary` reports the latest trend.
 `docling-system-capability-contracts --write-map` maintains
 `docs/capability_contract_map.json`, the machine-readable surface map for the
 service capability facades.
+`docling-system-architecture-decisions --write-map` maintains
+`docs/architecture_decision_map.json` from `docs/architecture_decisions.yaml`
+and verifies that architecture contract-map entries have linked decision
+records.
 
 ## Tables
 
