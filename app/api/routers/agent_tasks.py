@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 import yaml
@@ -47,6 +48,8 @@ from app.schemas.agent_tasks import (
 from app.services.capabilities import agent_orchestration
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db_session)]
+TaskStatusQuery = Annotated[list[str] | None, Query(alias="status")]
 
 list_agent_task_action_definitions = agent_orchestration.list_agent_task_action_definitions
 list_agent_tasks = agent_orchestration.list_agent_tasks
@@ -91,9 +94,9 @@ def read_agent_task_actions() -> list[AgentTaskActionDefinitionResponse]:
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_tasks(
-    task_status: list[str] | None = Query(default=None, alias="status"),
+    session: DbSession,
+    task_status: TaskStatusQuery = None,
     limit: int = 50,
-    session: Session = Depends(get_db_session),
 ) -> list[AgentTaskSummaryResponse]:
     return list_agent_tasks(session, statuses=task_status, limit=limit)
 
@@ -110,7 +113,7 @@ def read_agent_tasks(
 def create_agent_task_route(
     response: Response,
     payload: AgentTaskCreateRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskDetailResponse:
     try:
         task_response = create_agent_task(session, payload)
@@ -132,7 +135,7 @@ def create_agent_task_route(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_analytics_summary(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskAnalyticsSummaryResponse:
     return get_agent_task_analytics_summary(session)
 
@@ -143,10 +146,10 @@ def read_agent_task_analytics_summary(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskTrendResponse:
     return get_agent_task_trends(
         session,
@@ -162,10 +165,10 @@ def read_agent_task_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_verification_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskVerificationTrendResponse:
     return get_agent_verification_trends(
         session,
@@ -181,10 +184,10 @@ def read_agent_task_verification_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_approval_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskApprovalTrendResponse:
     return get_agent_approval_trends(
         session,
@@ -200,9 +203,9 @@ def read_agent_task_approval_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_recommendation_summary(
+    session: DbSession,
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskRecommendationSummaryResponse:
     return get_agent_task_recommendation_summary(
         session,
@@ -217,10 +220,10 @@ def read_agent_task_recommendation_summary(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_recommendation_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskRecommendationTrendResponse:
     return get_agent_task_recommendation_trends(
         session,
@@ -236,9 +239,9 @@ def read_agent_task_recommendation_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_cost_summary(
+    session: DbSession,
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskCostSummaryResponse:
     return get_agent_task_cost_summary(
         session,
@@ -253,10 +256,10 @@ def read_agent_task_cost_summary(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_cost_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskCostTrendResponse:
     return get_agent_task_cost_trends(
         session,
@@ -272,9 +275,9 @@ def read_agent_task_cost_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_performance_summary(
+    session: DbSession,
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskPerformanceSummaryResponse:
     return get_agent_task_performance_summary(
         session,
@@ -289,10 +292,10 @@ def read_agent_task_performance_summary(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_performance_trends(
+    session: DbSession,
     bucket: str = "day",
     task_type: str | None = None,
     workflow_version: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskPerformanceTrendResponse:
     return get_agent_task_performance_trends(
         session,
@@ -308,7 +311,7 @@ def read_agent_task_performance_trends(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_value_density(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[AgentTaskValueDensityRowResponse]:
     return get_agent_task_value_density(session)
 
@@ -319,7 +322,7 @@ def read_agent_task_value_density(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_decision_signals(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[AgentTaskDecisionSignalResponse]:
     return get_agent_task_decision_signals(session)
 
@@ -330,7 +333,7 @@ def read_agent_task_decision_signals(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_workflow_summaries(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[AgentTaskWorkflowVersionSummaryResponse]:
     return list_agent_task_workflow_summaries(session)
 
@@ -341,10 +344,10 @@ def read_agent_task_workflow_summaries(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_agent_task_trace_export(
+    session: DbSession,
     limit: int = 50,
     workflow_version: str | None = None,
     task_type: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> AgentTaskTraceExportResponse:
     return export_agent_task_traces(
         session,
@@ -361,7 +364,7 @@ def read_agent_task_trace_export(
 )
 def read_agent_task_detail_route(
     task_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskDetailResponse:
     return get_agent_task_detail(session, task_id)
 
@@ -373,8 +376,8 @@ def read_agent_task_detail_route(
 )
 def read_agent_task_context_route(
     task_id: UUID,
+    session: DbSession,
     format: str = "json",
-    session: Session = Depends(get_db_session),
 ):
     context = get_agent_task_context(session, task_id)
     context_payload = context.model_dump(mode="json") if hasattr(context, "model_dump") else context
@@ -400,8 +403,8 @@ def read_agent_task_context_route(
 )
 def read_agent_task_outcomes(
     task_id: UUID,
+    session: DbSession,
     limit: int = 20,
-    session: Session = Depends(get_db_session),
 ) -> list[AgentTaskOutcomeResponse]:
     return list_agent_task_outcomes(session, task_id, limit=limit)
 
@@ -417,7 +420,7 @@ def read_agent_task_outcomes(
 def create_agent_task_outcome_route(
     task_id: UUID,
     payload: AgentTaskOutcomeCreateRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskOutcomeResponse:
     return create_agent_task_outcome(session, task_id, payload)
 
@@ -429,8 +432,8 @@ def create_agent_task_outcome_route(
 )
 def read_agent_task_artifacts(
     task_id: UUID,
+    session: DbSession,
     limit: int = 20,
-    session: Session = Depends(get_db_session),
 ) -> list[AgentTaskArtifactResponse]:
     return list_agent_task_artifacts(session, task_id, limit=limit)
 
@@ -442,7 +445,7 @@ def read_agent_task_artifacts(
 def read_agent_task_artifact_route(
     task_id: UUID,
     artifact_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     artifact = get_agent_task_artifact(session, task_id, artifact_id)
     file_response = storage_file_response(artifact.storage_path, media_type="application/json")
@@ -458,8 +461,8 @@ def read_agent_task_artifact_route(
 )
 def read_agent_task_verifications_route(
     task_id: UUID,
+    session: DbSession,
     limit: int = 20,
-    session: Session = Depends(get_db_session),
 ) -> list[AgentTaskVerificationResponse]:
     return get_agent_task_verifications(session, task_id, limit=limit)
 
@@ -470,7 +473,7 @@ def read_agent_task_verifications_route(
 )
 def read_agent_task_failure_artifact(
     task_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     get_agent_task_detail(session, task_id)
     return storage_file_response(
@@ -493,7 +496,7 @@ def read_agent_task_failure_artifact(
 def approve_agent_task_route(
     task_id: UUID,
     payload: AgentTaskApprovalRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskDetailResponse:
     return approve_agent_task(session, task_id, payload)
 
@@ -509,6 +512,6 @@ def approve_agent_task_route(
 def reject_agent_task_route(
     task_id: UUID,
     payload: AgentTaskRejectionRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> AgentTaskDetailResponse:
     return reject_agent_task(session, task_id, payload)

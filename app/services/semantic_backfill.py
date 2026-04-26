@@ -201,22 +201,28 @@ def _readiness(
     next_actions: list[str] = []
     if not semantics_enabled:
         blocked_reasons.append(
-            "Semantic execution is disabled. Set DOCLING_SYSTEM_SEMANTICS_ENABLED=1 before running backfill."
+            "Semantic execution is disabled. Set DOCLING_SYSTEM_SEMANTICS_ENABLED=1 "
+            "before running backfill."
         )
     if active_document_count == 0:
         blocked_reasons.append("No active documents are available for semantic backfill.")
     if registry_status.concept_count == 0:
         warnings.append(
-            "The active ontology has no governed concepts, so semantic passes will not emit assertions."
+            "The active ontology has no governed concepts, so semantic passes will "
+            "not emit assertions."
         )
         next_actions.append(
-            "Run bootstrap discovery, review corpus-derived concepts, and apply a verified ontology extension."
+            "Run bootstrap discovery, review corpus-derived concepts, and apply a "
+            "verified ontology extension."
         )
     if "document_mentions_concept" not in set(registry_status.relation_keys):
         warnings.append(
-            "The active ontology is missing document_mentions_concept, so document fact graphs cannot be built."
+            "The active ontology is missing document_mentions_concept, so document "
+            "fact graphs cannot be built."
         )
-        next_actions.append("Apply an ontology snapshot that includes the portable fact-graph relations.")
+        next_actions.append(
+            "Apply an ontology snapshot that includes the portable fact-graph relations."
+        )
     if missing_current_pass_count:
         next_actions.append("Run semantic backfill over active runs.")
     if assertion_count and not fact_count:
@@ -256,9 +262,13 @@ def get_semantic_backfill_status(session: Session) -> SemanticBackfillStatusResp
         if row.current_pass is None
         or row.current_pass.status != SemanticPassStatus.COMPLETED.value
     ]
-    stale_or_failed_count = sum(1 for row in active_rows if row.latest_pass and row in missing_current_rows)
+    stale_or_failed_count = sum(
+        1 for row in active_rows if row.latest_pass and row in missing_current_rows
+    )
     pass_counts: dict[str, int] = {}
-    active_run_ids = [row.document.active_run_id for row in active_rows if row.document.active_run_id]
+    active_run_ids = [
+        row.document.active_run_id for row in active_rows if row.document.active_run_id
+    ]
     if active_run_ids:
         for status, count in session.execute(
             select(DocumentRunSemanticPass.status, func.count())
@@ -279,9 +289,15 @@ def get_semantic_backfill_status(session: Session) -> SemanticBackfillStatusResp
         if current_pass_ids
         else 0
     )
-    entity_count = int(session.execute(select(func.count()).select_from(SemanticEntity)).scalar_one())
-    assertion_count = sum(int(row.current_pass.assertion_count or 0) for row in current_completed_rows)
-    evidence_count = sum(int(row.current_pass.evidence_count or 0) for row in current_completed_rows)
+    entity_count = int(
+        session.execute(select(func.count()).select_from(SemanticEntity)).scalar_one()
+    )
+    assertion_count = sum(
+        int(row.current_pass.assertion_count or 0) for row in current_completed_rows
+    )
+    evidence_count = sum(
+        int(row.current_pass.evidence_count or 0) for row in current_completed_rows
+    )
     graph_status = _active_graph_status(session)
 
     return SemanticBackfillStatusResponse(

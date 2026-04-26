@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 import yaml
@@ -34,6 +35,10 @@ from app.services.quality import (
 )
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db_session)]
+EvalFailureStatusQuery = Annotated[list[str] | None, Query(alias="status")]
+EvalLimitQuery = Annotated[int, Query(ge=1, le=200)]
+EvalWorkbenchLimitQuery = Annotated[int, Query(ge=1, le=100)]
 
 refresh_eval_failure_cases = evaluation.refresh_eval_failure_cases
 get_eval_workbench = evaluation.get_eval_workbench
@@ -48,7 +53,7 @@ inspect_eval_failure_case = evaluation.inspect_eval_failure_case
     response_model=QualitySummaryResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
-def read_quality_summary(session: Session = Depends(get_db_session)) -> QualitySummaryResponse:
+def read_quality_summary(session: DbSession) -> QualitySummaryResponse:
     return get_quality_summary(session)
 
 
@@ -57,7 +62,7 @@ def read_quality_summary(session: Session = Depends(get_db_session)) -> QualityS
     response_model=QualityFailuresResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
-def read_quality_failures(session: Session = Depends(get_db_session)) -> QualityFailuresResponse:
+def read_quality_failures(session: DbSession) -> QualityFailuresResponse:
     return get_quality_failures(session)
 
 
@@ -67,7 +72,7 @@ def read_quality_failures(session: Session = Depends(get_db_session)) -> Quality
     dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_evaluations(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[QualityEvaluationStatusResponse]:
     return list_quality_evaluations(session)
 
@@ -78,9 +83,9 @@ def read_quality_evaluations(
     dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
 def read_quality_eval_candidates(
+    session: DbSession,
     limit: int = 12,
     include_resolved: bool = False,
-    session: Session = Depends(get_db_session),
 ) -> list[QualityEvaluationCandidateResponse]:
     return list_quality_eval_candidates(
         session,
@@ -94,7 +99,7 @@ def read_quality_eval_candidates(
     response_model=QualityTrendsResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.QUALITY_READ))],
 )
-def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTrendsResponse:
+def read_quality_trends(session: DbSession) -> QualityTrendsResponse:
     return get_quality_trends(session)
 
 
@@ -107,9 +112,9 @@ def read_quality_trends(session: Session = Depends(get_db_session)) -> QualityTr
     ],
 )
 def refresh_eval_failure_cases_route(
-    limit: int = Query(default=50, ge=1, le=200),
+    session: DbSession,
+    limit: EvalLimitQuery = 50,
     include_resolved: bool = False,
-    session: Session = Depends(get_db_session),
 ) -> EvalFailureCaseRefreshResponse:
     response = refresh_eval_failure_cases(
         session,
@@ -126,8 +131,8 @@ def refresh_eval_failure_cases_route(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_workbench(
-    limit: int = Query(default=25, ge=1, le=100),
-    session: Session = Depends(get_db_session),
+    session: DbSession,
+    limit: EvalWorkbenchLimitQuery = 25,
 ) -> EvalWorkbenchResponse:
     return get_eval_workbench(session, limit=limit)
 
@@ -138,8 +143,8 @@ def read_eval_workbench(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_observations(
-    limit: int = Query(default=50, ge=1, le=200),
-    session: Session = Depends(get_db_session),
+    session: DbSession,
+    limit: EvalLimitQuery = 50,
 ) -> list[EvalObservationResponse]:
     return list_eval_observations(session, limit=limit)
 
@@ -150,10 +155,10 @@ def read_eval_observations(
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
 )
 def read_eval_failure_cases(
-    case_status: list[str] | None = Query(default=None, alias="status"),
+    session: DbSession,
+    case_status: EvalFailureStatusQuery = None,
     include_resolved: bool = False,
-    limit: int = Query(default=50, ge=1, le=200),
-    session: Session = Depends(get_db_session),
+    limit: EvalLimitQuery = 50,
 ) -> list[EvalFailureCaseResponse]:
     return list_eval_failure_cases(
         session,
@@ -169,8 +174,8 @@ def read_eval_failure_cases(
 )
 def read_eval_failure_case(
     case_id: UUID,
+    session: DbSession,
     format: str = "json",
-    session: Session = Depends(get_db_session),
 ):
     case = get_eval_failure_case(session, case_id)
     case_payload = case.model_dump(mode="json") if hasattr(case, "model_dump") else case
@@ -196,6 +201,6 @@ def read_eval_failure_case(
 )
 def inspect_eval_failure_case_route(
     case_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> EvalFailureCaseInspectionResponse:
     return inspect_eval_failure_case(session, case_id)

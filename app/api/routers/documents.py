@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Header, Query, Response, UploadFile, status
@@ -29,6 +30,10 @@ from app.schemas.tables import DocumentTableDetailResponse, DocumentTableSummary
 from app.services.capabilities import evaluation, run_lifecycle
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db_session)]
+DocumentLimitQuery = Annotated[int, Query(ge=1, le=10000)]
+IdempotencyKeyHeader = Annotated[str | None, Header(alias="Idempotency-Key")]
+PdfUpload = Annotated[UploadFile, File()]
 
 list_documents = run_lifecycle.list_documents
 ingest_upload = run_lifecycle.ingest_upload
@@ -88,8 +93,8 @@ def get_active_figure_row(
     dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_documents(
-    limit: int = Query(default=50, ge=1, le=10000),
-    session: Session = Depends(get_db_session),
+    session: DbSession,
+    limit: DocumentLimitQuery = 50,
 ) -> list[DocumentSummaryResponse]:
     return list_documents(session, limit=limit)
 
@@ -104,9 +109,9 @@ def read_documents(
 )
 def create_document(
     response: Response,
-    file: UploadFile = File(...),
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    session: Session = Depends(get_db_session),
+    file: PdfUpload,
+    session: DbSession,
+    idempotency_key: IdempotencyKeyHeader = None,
 ) -> DocumentUploadResponse:
     payload, status_code = ingest_upload(
         session=session,
@@ -128,7 +133,7 @@ def create_document(
 )
 def read_document(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> DocumentDetailResponse:
     return get_document_detail(session, document_id)
 
@@ -140,7 +145,7 @@ def read_document(
 )
 def read_document_runs(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[DocumentRunSummaryResponse]:
     return list_document_runs(session, document_id)
 
@@ -152,7 +157,7 @@ def read_document_runs(
 )
 def read_document_run(
     run_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> DocumentRunSummaryResponse:
     return get_document_run_summary(session, run_id)
 
@@ -164,7 +169,7 @@ def read_document_run(
 )
 def read_latest_document_evaluation(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> EvaluationDetailResponse:
     return get_latest_document_evaluation_detail(session, document_id)
 
@@ -175,7 +180,7 @@ def read_latest_document_evaluation(
 )
 def explain_latest_document_evaluation_route(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> dict:
     return explain_latest_document_evaluation(session, document_id)
 
@@ -187,7 +192,7 @@ def explain_latest_document_evaluation_route(
 )
 def read_document_chunks(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[DocumentChunkResponse]:
     return get_active_chunks(session, document_id)
 
@@ -199,7 +204,7 @@ def read_document_chunks(
 )
 def read_document_tables(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[DocumentTableSummaryResponse]:
     return get_active_tables(session, document_id)
 
@@ -212,7 +217,7 @@ def read_document_tables(
 def read_document_table(
     document_id: UUID,
     table_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> DocumentTableDetailResponse:
     return get_active_table_detail(session, document_id, table_id)
 
@@ -224,7 +229,7 @@ def read_document_table(
 )
 def read_document_figures(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[DocumentFigureSummaryResponse]:
     return get_active_figures(session, document_id)
 
@@ -237,7 +242,7 @@ def read_document_figures(
 def read_document_figure(
     document_id: UUID,
     figure_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> DocumentFigureDetailResponse:
     return get_active_figure_detail(session, document_id, figure_id)
 
@@ -253,8 +258,8 @@ def read_document_figure(
 def reprocess_existing_document(
     document_id: UUID,
     response: Response,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    session: Session = Depends(get_db_session),
+    session: DbSession,
+    idempotency_key: IdempotencyKeyHeader = None,
 ) -> DocumentUploadResponse:
     payload = reprocess_document(
         session,
@@ -274,7 +279,7 @@ def reprocess_existing_document(
 )
 def read_run_failure_artifact(
     run_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     run = get_document_run_row(session, run_id)
     if run is None:
@@ -299,7 +304,7 @@ def read_run_failure_artifact(
 )
 def read_docling_json_artifact(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     document = get_document_detail(session, document_id)
     if not document.has_json_artifact or document.active_run_id is None:
@@ -333,7 +338,7 @@ def read_docling_json_artifact(
 )
 def read_yaml_artifact(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     document = get_document_detail(session, document_id)
     if not document.has_yaml_artifact or document.active_run_id is None:
@@ -368,7 +373,7 @@ def read_yaml_artifact(
 def read_table_json_artifact(
     document_id: UUID,
     table_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     table = get_active_table_row(session, document_id, table_id)
     if table is None:
@@ -398,7 +403,7 @@ def read_table_json_artifact(
 def read_table_yaml_artifact(
     document_id: UUID,
     table_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     table = get_active_table_row(session, document_id, table_id)
     if table is None:
@@ -428,7 +433,7 @@ def read_table_yaml_artifact(
 def read_figure_json_artifact(
     document_id: UUID,
     figure_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     figure = get_active_figure_row(session, document_id, figure_id)
     if figure is None:
@@ -462,7 +467,7 @@ def read_figure_json_artifact(
 def read_figure_yaml_artifact(
     document_id: UUID,
     figure_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     figure = get_active_figure_row(session, document_id, figure_id)
     if figure is None:

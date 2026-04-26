@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Response, status
@@ -41,6 +42,8 @@ from app.schemas.search import (
 from app.services.capabilities import evaluation, retrieval
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db_session)]
+HarnessEvaluationLimitQuery = Annotated[int, Query(ge=1, le=200)]
 
 execute_search = retrieval.execute_search
 get_search_request_detail = retrieval.get_search_request_detail
@@ -74,7 +77,7 @@ record_chat_answer_feedback = retrieval.record_chat_answer_feedback
 def search_corpus(
     request: SearchRequest,
     response: Response,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[SearchResult]:
     try:
         execution = execute_search(session, request, origin="api")
@@ -101,7 +104,7 @@ def search_corpus(
 def execute_search_with_explanation_ref(
     request: SearchRequest,
     response: Response,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> dict:
     try:
         execution = execute_search(session, request, origin="api")
@@ -135,7 +138,7 @@ def execute_search_with_explanation_ref(
 )
 def read_search_request(
     search_request_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchRequestDetailResponse:
     return get_search_request_detail(session, search_request_id)
 
@@ -147,7 +150,7 @@ def read_search_request(
 )
 def explain_search_request(
     search_request_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchRequestExplanationResponse:
     return get_search_request_explanation(session, search_request_id)
 
@@ -163,7 +166,7 @@ def explain_search_request(
 def create_search_feedback(
     search_request_id: UUID,
     payload: SearchFeedbackCreateRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchFeedbackResponse:
     feedback = record_search_feedback(session, search_request_id, payload)
     session.commit()
@@ -180,7 +183,7 @@ def create_search_feedback(
 )
 def replay_logged_search(
     search_request_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchReplayResponse:
     replay = replay_search_request(session, search_request_id)
     session.commit()
@@ -193,7 +196,7 @@ def replay_logged_search(
     dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_REPLAY))],
 )
 def read_search_replays(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> list[SearchReplayRunSummaryResponse]:
     return list_search_replay_runs(session)
 
@@ -230,9 +233,9 @@ def read_search_harness_descriptor(harness_name: str) -> SearchHarnessDescriptor
     dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
 )
 def read_search_harness_evaluations(
-    limit: int = Query(default=20, ge=1, le=200),
+    session: DbSession,
+    limit: HarnessEvaluationLimitQuery = 20,
     candidate_harness_name: str | None = None,
-    session: Session = Depends(get_db_session),
 ) -> list[SearchHarnessEvaluationSummaryResponse]:
     return list_search_harness_evaluations(
         session,
@@ -252,7 +255,7 @@ def read_search_harness_evaluations(
 def create_search_harness_evaluation(
     response: Response,
     payload: SearchHarnessEvaluationRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchHarnessEvaluationResponse:
     try:
         evaluation_response = evaluate_search_harness(session, payload)
@@ -276,7 +279,7 @@ def create_search_harness_evaluation(
 )
 def read_search_harness_evaluation(
     evaluation_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchHarnessEvaluationResponse:
     return get_search_harness_evaluation_detail(session, evaluation_id)
 
@@ -287,7 +290,7 @@ def read_search_harness_evaluation(
 )
 def explain_search_harness_evaluation_route(
     evaluation_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> dict:
     return explain_search_harness_evaluation(session, evaluation_id)
 
@@ -303,7 +306,7 @@ def explain_search_harness_evaluation_route(
 def create_search_replay_run(
     response: Response,
     payload: SearchReplayRunRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchReplayRunDetailResponse:
     try:
         replay_run = run_search_replay_suite(session, payload)
@@ -328,7 +331,7 @@ def create_search_replay_run(
 def read_search_replay_comparison(
     baseline_replay_run_id: UUID,
     candidate_replay_run_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchReplayComparisonResponse:
     return compare_search_replay_runs(
         session,
@@ -344,7 +347,7 @@ def read_search_replay_comparison(
 )
 def read_search_replay_run(
     replay_run_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SearchReplayRunDetailResponse:
     return get_search_replay_run_detail(session, replay_run_id)
 
@@ -355,7 +358,7 @@ def read_search_replay_run(
 )
 def explain_search_replay_run_route(
     replay_run_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> dict:
     return explain_search_replay_run(session, replay_run_id)
 
@@ -370,7 +373,7 @@ def explain_search_replay_run_route(
 )
 def chat_with_corpus(
     request: ChatRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> ChatResponse:
     try:
         response = answer_question(session, request)
@@ -395,7 +398,7 @@ def chat_with_corpus(
 def create_chat_answer_feedback(
     chat_answer_id: UUID,
     payload: ChatAnswerFeedbackCreateRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> ChatAnswerFeedbackResponse:
     response = record_chat_answer_feedback(session, chat_answer_id, payload)
     session.commit()

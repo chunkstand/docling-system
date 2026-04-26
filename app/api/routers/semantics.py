@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -29,6 +30,7 @@ from app.schemas.semantics import (
 from app.services.capabilities import semantics
 
 router = APIRouter()
+DbSession = Annotated[Session, Depends(get_db_session)]
 
 get_active_semantic_pass_detail = semantics.get_active_semantic_pass_detail
 get_active_semantic_pass_row = semantics.get_active_semantic_pass_row
@@ -48,7 +50,7 @@ review_active_semantic_assertion_category_binding = (
 )
 def read_latest_document_semantics(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> DocumentSemanticPassResponse:
     ensure_semantics_enabled()
     return get_active_semantic_pass_detail(session, document_id)
@@ -60,7 +62,7 @@ def read_latest_document_semantics(
     dependencies=[Depends(require_api_capability(api_capabilities.DOCUMENTS_INSPECT))],
 )
 def read_semantic_backfill_status(
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SemanticBackfillStatusResponse:
     return get_semantic_backfill_status(session)
 
@@ -75,7 +77,7 @@ def read_semantic_backfill_status(
 )
 def create_semantic_backfill_run(
     request: SemanticBackfillRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SemanticBackfillRunResponse:
     ensure_semantics_enabled()
     try:
@@ -99,7 +101,7 @@ def create_semantic_backfill_run(
 )
 def read_latest_document_semantic_continuity(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SemanticContinuityResponse:
     ensure_semantics_enabled()
     return get_active_semantic_continuity(session, document_id)
@@ -117,7 +119,7 @@ def review_latest_document_semantic_assertion(
     document_id: UUID,
     assertion_id: UUID,
     request: SemanticReviewDecisionRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SemanticReviewEventResponse:
     ensure_semantics_enabled()
     return review_active_semantic_assertion(
@@ -143,7 +145,7 @@ def review_latest_document_semantic_assertion_category_binding(
     document_id: UUID,
     binding_id: UUID,
     request: SemanticReviewDecisionRequest,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ) -> SemanticReviewEventResponse:
     ensure_semantics_enabled()
     return review_active_semantic_assertion_category_binding(
@@ -163,7 +165,7 @@ def review_latest_document_semantic_assertion_category_binding(
 )
 def read_latest_semantic_json_artifact(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     ensure_semantics_enabled()
     semantic_pass = get_active_semantic_pass_row(session, document_id)
@@ -197,7 +199,7 @@ def read_latest_semantic_json_artifact(
 )
 def read_latest_semantic_yaml_artifact(
     document_id: UUID,
-    session: Session = Depends(get_db_session),
+    session: DbSession,
 ):
     ensure_semantics_enabled()
     semantic_pass = get_active_semantic_pass_row(session, document_id)
