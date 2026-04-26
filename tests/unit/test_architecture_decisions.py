@@ -89,6 +89,83 @@ def test_architecture_decision_validation_reports_missing_contract_link(
     assert any(issue.symbol == "agent_action_catalog" for issue in issues)
 
 
+def test_architecture_decision_validation_reports_unknown_contract_link(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "architecture_decisions.yaml"
+    map_path = tmp_path / "architecture_decision_map.json"
+    registry_path.write_text(
+        "\n".join(
+            [
+                "schema_name: architecture_decisions",
+                'schema_version: "1.0"',
+                "decisions:",
+                "  - id: ADR-9002",
+                "    status: accepted",
+                '    date: "2026-04-26"',
+                "    title: Unknown contract coverage",
+                "    context: Test fixture.",
+                "    decision: Test fixture.",
+                "    consequences:",
+                "      - Test consequence.",
+                "    linked_contracts:",
+                "      - api_route_capabilities",
+                "      - missing_contract",
+                "    linked_sources:",
+                "      - README.md",
+            ]
+        )
+        + "\n"
+    )
+    write_architecture_decision_map(map_path, registry_path=registry_path)
+
+    issues = validate_architecture_decisions(
+        registry_path=registry_path,
+        map_path=map_path,
+        expected_contracts=("api_route_capabilities",),
+    )
+
+    assert any(issue.symbol == "missing_contract" for issue in issues)
+
+
+def test_architecture_decision_validation_requires_accepted_contract_link(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "architecture_decisions.yaml"
+    map_path = tmp_path / "architecture_decision_map.json"
+    registry_path.write_text(
+        "\n".join(
+            [
+                "schema_name: architecture_decisions",
+                'schema_version: "1.0"',
+                "decisions:",
+                "  - id: ADR-9003",
+                "    status: superseded",
+                '    date: "2026-04-26"',
+                "    title: Superseded contract coverage",
+                "    context: Test fixture.",
+                "    decision: Test fixture.",
+                "    consequences:",
+                "      - Test consequence.",
+                "    linked_contracts:",
+                "      - api_route_capabilities",
+                "    linked_sources:",
+                "      - README.md",
+            ]
+        )
+        + "\n"
+    )
+    write_architecture_decision_map(map_path, registry_path=registry_path)
+
+    issues = validate_architecture_decisions(
+        registry_path=registry_path,
+        map_path=map_path,
+        expected_contracts=("api_route_capabilities",),
+    )
+
+    assert any(issue.symbol == "api_route_capabilities" for issue in issues)
+
+
 def test_architecture_decision_validation_reports_stale_persisted_map(
     tmp_path: Path,
 ) -> None:

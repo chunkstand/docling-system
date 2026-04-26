@@ -16,6 +16,7 @@ ARCHITECTURE_DECISION_SCHEMA_VERSION = "1.0"
 DEFAULT_ARCHITECTURE_DECISION_REGISTRY_PATH = Path("docs") / "architecture_decisions.yaml"
 DEFAULT_ARCHITECTURE_DECISION_MAP_PATH = Path("docs") / "architecture_decision_map.json"
 ARCHITECTURE_DECISION_STATUSES = frozenset({"accepted", "proposed", "superseded", "deprecated"})
+CURRENT_CONTRACT_DECISION_STATUSES = frozenset({"accepted"})
 REQUIRED_TEXT_FIELDS = ("id", "status", "date", "title", "context", "decision")
 REQUIRED_LIST_FIELDS = ("consequences", "linked_contracts", "linked_sources")
 
@@ -288,22 +289,40 @@ def _contract_coverage_issues(
     if expected_contracts is None:
         return []
     payload = _load_registry_payload(registry_path)
-    linked_contracts = {
+    all_linked_contracts = {
         contract_name
         for row in _decision_rows(payload)
         for contract_name in _string_list(row.get("linked_contracts"))
     }
+    current_linked_contracts = {
+        contract_name
+        for row in _decision_rows(payload)
+        if str(row.get("status", "")).strip() in CURRENT_CONTRACT_DECISION_STATUSES
+        for contract_name in _string_list(row.get("linked_contracts"))
+    }
     relative_registry_path = _relative_path(project_root, registry_path)
-    return [
+    expected_contract_set = set(expected_contracts)
+    issues = [
         ArchitectureDecisionIssue(
             contract="architecture_decisions",
             field="linked_contracts",
             relative_path=relative_registry_path,
             symbol=contract_name,
-            message="Architecture contract lacks a linked decision record.",
+            message="Architecture contract lacks an accepted linked decision record.",
         )
-        for contract_name in sorted(set(expected_contracts) - linked_contracts)
+        for contract_name in sorted(expected_contract_set - current_linked_contracts)
     ]
+    issues.extend(
+        ArchitectureDecisionIssue(
+            contract="architecture_decisions",
+            field="linked_contracts",
+            relative_path=relative_registry_path,
+            symbol=contract_name,
+            message="Decision links an unknown architecture contract.",
+        )
+        for contract_name in sorted(all_linked_contracts - expected_contract_set)
+    )
+    return issues
 
 
 def _persisted_map_issues(

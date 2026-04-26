@@ -33,6 +33,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         "architecture_decisions",
         "architecture_measurement_history",
     } <= contract_names
+    assert all(contract.get("decision_ids") for contract in contract_map["contracts"])
     assert {
         "run_lifecycle",
         "retrieval",

@@ -487,6 +487,10 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
     agent_action_manifest = build_agent_task_action_manifest()
     capability_contract_map = build_capability_contract_map(root)
     architecture_decision_map = build_architecture_decision_map(root)
+    decision_ids_by_contract = {
+        row["contract"]: row["decision_ids"]
+        for row in architecture_decision_map["contract_decision_links"]
+    }
     return {
         "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
@@ -513,14 +517,26 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         ],
         "contracts": [
             {
+                "name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+                "source": "docs/architecture_contract_map.json",
+                "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "decision_ids": decision_ids_by_contract.get(
+                    ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+                    [],
+                ),
+            },
+            {
                 "name": "api_route_capabilities",
                 "source": "app.api.route_contracts",
                 "item_count": len(route_manifest),
+                "decision_ids": decision_ids_by_contract.get("api_route_capabilities", []),
             },
             {
                 "name": "agent_action_catalog",
                 "source": "app.services.agent_actions",
                 "item_count": len(agent_action_manifest),
+                "decision_ids": decision_ids_by_contract.get("agent_action_catalog", []),
             },
             {
                 "name": "capability_surface_contracts",
@@ -528,12 +544,14 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_name": CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
                 "item_count": capability_contract_map["function_count"],
+                "decision_ids": decision_ids_by_contract.get("capability_surface_contracts", []),
             },
             {
                 "name": "improvement_case_registry",
                 "source": "config/improvement_cases.yaml",
                 "schema_name": IMPROVEMENT_CASE_SCHEMA_NAME,
                 "schema_version": IMPROVEMENT_CASE_SCHEMA_VERSION,
+                "decision_ids": decision_ids_by_contract.get("improvement_case_registry", []),
             },
             {
                 "name": "improvement_case_intake",
@@ -541,12 +559,14 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_name": IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
                 "schema_version": IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
                 "import_sources": list(list_improvement_case_import_sources()),
+                "decision_ids": decision_ids_by_contract.get("improvement_case_intake", []),
             },
             {
                 "name": "improvement_case_lifecycle",
                 "source": "app.services.improvement_case_lifecycle",
                 "schema_name": "improvement_case_update",
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "decision_ids": decision_ids_by_contract.get("improvement_case_lifecycle", []),
             },
             {
                 "name": "architecture_decisions",
@@ -555,12 +575,17 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_name": ARCHITECTURE_DECISION_SCHEMA_NAME,
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
                 "item_count": architecture_decision_map["decision_count"],
+                "decision_ids": decision_ids_by_contract.get("architecture_decisions", []),
             },
             {
                 "name": "architecture_measurement_history",
                 "source": "app.architecture_measurements",
                 "schema_name": "architecture_measurement_history",
                 "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "decision_ids": decision_ids_by_contract.get(
+                    "architecture_measurement_history",
+                    [],
+                ),
             },
         ],
         "inspection_sources": [

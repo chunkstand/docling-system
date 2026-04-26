@@ -36,16 +36,40 @@
   ],
   "contracts": [
     {
+      "decision_ids": [
+        "ADR-0001",
+        "ADR-0005"
+      ],
+      "name": "architecture_contract_map",
+      "schema_name": "architecture_contract_map",
+      "schema_version": "1.0",
+      "source": "docs/architecture_contract_map.json"
+    },
+    {
+      "decision_ids": [
+        "ADR-0002",
+        "ADR-0003",
+        "ADR-0004",
+        "ADR-0006"
+      ],
       "item_count": 89,
       "name": "api_route_capabilities",
       "source": "app.api.route_contracts"
     },
     {
+      "decision_ids": [
+        "ADR-0007"
+      ],
       "item_count": 45,
       "name": "agent_action_catalog",
       "source": "app.services.agent_actions"
     },
     {
+      "decision_ids": [
+        "ADR-0002",
+        "ADR-0003",
+        "ADR-0006"
+      ],
       "item_count": 77,
       "name": "capability_surface_contracts",
       "schema_name": "capability_contract_map",
@@ -53,12 +77,20 @@
       "source": "docs/capability_contract_map.json"
     },
     {
+      "decision_ids": [
+        "ADR-0004",
+        "ADR-0008"
+      ],
       "name": "improvement_case_registry",
       "schema_name": "improvement_cases",
       "schema_version": "1.0",
       "source": "config/improvement_cases.yaml"
     },
     {
+      "decision_ids": [
+        "ADR-0004",
+        "ADR-0008"
+      ],
       "import_sources": [
         "all",
         "eval-failure-cases",
@@ -72,12 +104,19 @@
       "source": "app.services.improvement_case_intake"
     },
     {
+      "decision_ids": [
+        "ADR-0005",
+        "ADR-0008"
+      ],
       "name": "improvement_case_lifecycle",
       "schema_name": "improvement_case_update",
       "schema_version": "1.0",
       "source": "app.services.improvement_case_lifecycle"
     },
     {
+      "decision_ids": [
+        "ADR-0009"
+      ],
       "item_count": 9,
       "map_source": "docs/architecture_decision_map.json",
       "name": "architecture_decisions",
@@ -86,6 +125,10 @@
       "source": "docs/architecture_decisions.yaml"
     },
     {
+      "decision_ids": [
+        "ADR-0001",
+        "ADR-0005"
+      ],
       "name": "architecture_measurement_history",
       "schema_name": "architecture_measurement_history",
       "schema_version": "1.0",

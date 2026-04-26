@@ -68,6 +68,9 @@ decision changes.
 paths, and whether every major architecture contract-map entry has a linked
 decision. `uv run docling-system-architecture-inspect` runs that validation as
 part of the architecture fitness function.
+Current architecture contracts must be linked to accepted decisions, and the
+architecture contract map repeats each contract's `decision_ids` so agents can
+move from structure to rationale without joining separate files by hand.
 
 ## API Route Capability Contracts
 
