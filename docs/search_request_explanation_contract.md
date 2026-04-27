@@ -21,6 +21,7 @@ Required interpretation rules:
 - `requested_mode` and `served_mode` explain whether the system honored the requested keyword, semantic, or hybrid mode.
 - `harness_config` is the captured config snapshot from request execution, not a live lookup.
 - `span_candidate_count` reports how many final candidates carried persisted retrieval evidence span citations.
+- `selected_result_span_count` appears in `details` and reports how many selected results have span citations after final citation attachment.
 - `top_result_snapshot` is a compact result summary for review, not a replacement for `/search/requests/{id}`.
 - `diagnosis.category` is a bounded system classification, not a human judgment.
 - `recommended_next_action` is advisory and must not mutate runtime state.
@@ -40,5 +41,7 @@ Required interpretation rules:
 Explanations must be reconstructable from persisted state. If a future explanation field depends on transient runtime state, that field must either be persisted first or marked advisory outside this contract.
 
 Span candidate counts are derived from persisted search telemetry and result-span citation rows. The full span text/hash evidence belongs in `/search/requests/{id}` and `/search/requests/{id}/evidence-package`, not in the compact explanation snapshot.
+
+If an active legacy run is missing retrieval evidence spans, search may rebuild the span index before candidate generation and record `details.retrieval_span_backfill`. That backfill is additive and derived from canonical chunk/table rows.
 
 YAML renderings may be added as derived artifacts, but JSON remains the machine-facing contract.

@@ -8,11 +8,11 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import structlog
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import DocumentChunk, DocumentRun, DocumentTable, RetrievalEvidenceSpan
+from app.db.models import Document, DocumentChunk, DocumentRun, DocumentTable, RetrievalEvidenceSpan
 from app.services.embeddings import EmbeddingProvider
 
 logger = structlog.get_logger(__name__)
@@ -313,4 +313,67 @@ def rebuild_retrieval_evidence_spans(
         "table_span_count": sum(1 for spec in specs if spec.source_type == "table"),
         "embedding_status": embedding_status,
         "embedding_error": embedding_error,
+    }
+
+
+def ensure_retrieval_evidence_spans_for_search(
+    session: Session,
+    *,
+    run_id: UUID | None = None,
+    document_id: UUID | None = None,
+) -> dict:
+    if not isinstance(session, Session):
+        return {
+            "schema_name": "retrieval_evidence_span_backfill_summary",
+            "schema_version": "1.0",
+            "checked_run_count": 0,
+            "rebuilt_run_count": 0,
+            "rebuilt_runs": [],
+        }
+
+    if run_id is not None:
+        run_rows = [run] if (run := session.get(DocumentRun, run_id)) is not None else []
+    elif document_id is not None:
+        document = session.get(Document, document_id)
+        run_rows = (
+            [run]
+            if document is not None
+            and document.active_run_id is not None
+            and (run := session.get(DocumentRun, document.active_run_id)) is not None
+            else []
+        )
+    else:
+        run_rows = list(
+            session.scalars(
+                select(DocumentRun)
+                .join(Document, Document.active_run_id == DocumentRun.id)
+                .order_by(DocumentRun.created_at.asc(), DocumentRun.id.asc())
+            )
+        )
+
+    rebuilt_runs: list[dict] = []
+    for run in run_rows:
+        if int((run.chunk_count or 0) + (run.table_count or 0)) <= 0:
+            continue
+        span_count = session.scalar(
+            select(func.count())
+            .select_from(RetrievalEvidenceSpan)
+            .where(RetrievalEvidenceSpan.run_id == run.id)
+        )
+        if span_count:
+            continue
+        rebuilt_runs.append(
+            rebuild_retrieval_evidence_spans(
+                session,
+                run,
+                embedding_provider=None,
+            )
+        )
+
+    return {
+        "schema_name": "retrieval_evidence_span_backfill_summary",
+        "schema_version": "1.0",
+        "checked_run_count": len(run_rows),
+        "rebuilt_run_count": len(rebuilt_runs),
+        "rebuilt_runs": rebuilt_runs,
     }

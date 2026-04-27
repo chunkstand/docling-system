@@ -32,6 +32,7 @@ from app.schemas.search import (
 )
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evidence import record_knowledge_operator_run
+from app.services.retrieval_spans import ensure_retrieval_evidence_spans_for_search
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.search_plan import (
     SearchCandidateStrategy,
@@ -858,7 +859,7 @@ def _span_evidence_payload(
     span: RetrievalEvidenceSpan,
     *,
     score_kind: str,
-    score: float,
+    score: float | None,
 ) -> RankedEvidenceSpan:
     return RankedEvidenceSpan(
         retrieval_evidence_span_id=span.id,
@@ -866,7 +867,7 @@ def _span_evidence_payload(
         source_id=span.source_id,
         span_index=span.span_index,
         score_kind=score_kind,
-        score=float(score),
+        score=float(score) if score is not None else None,
         page_from=span.page_from,
         page_to=span.page_to,
         text_excerpt=span.span_text,
@@ -990,6 +991,67 @@ def _keyword_terms(query: str) -> list[str]:
 
 def _supports_retrieval_span_search(session: Session | None) -> bool:
     return isinstance(session, Session)
+
+
+def _load_source_evidence_spans(
+    session: Session,
+    request: SearchRequest,
+    item: RankedResult,
+    *,
+    limit: int = SEARCH_RESULT_SPAN_LIMIT,
+) -> tuple[RankedEvidenceSpan, ...]:
+    if not _supports_retrieval_span_search(session):
+        return item.evidence_spans
+
+    source_type = item.result_type
+    tsquery = func.plainto_tsquery("english", request.query)
+    rank = cast(func.ts_rank_cd(RetrievalEvidenceSpan.textsearch, tsquery), Float)
+    scored_statement = (
+        select(RetrievalEvidenceSpan, rank.label("score"))
+        .where(
+            RetrievalEvidenceSpan.source_type == source_type,
+            RetrievalEvidenceSpan.source_id == item.result_id,
+            RetrievalEvidenceSpan.textsearch.op("@@")(tsquery),
+        )
+        .order_by(rank.desc(), RetrievalEvidenceSpan.span_index.asc())
+        .limit(limit)
+    )
+    scored_spans = tuple(
+        _span_evidence_payload(span, score_kind="selected_result_keyword_span", score=score)
+        for span, score in session.execute(scored_statement).all()
+    )
+    if scored_spans:
+        return _merge_evidence_spans(item.evidence_spans, scored_spans)
+
+    fallback_statement = (
+        select(RetrievalEvidenceSpan)
+        .where(
+            RetrievalEvidenceSpan.source_type == source_type,
+            RetrievalEvidenceSpan.source_id == item.result_id,
+        )
+        .order_by(RetrievalEvidenceSpan.span_index.asc())
+        .limit(limit)
+    )
+    fallback_spans = tuple(
+        _span_evidence_payload(span, score_kind="selected_result_source_span", score=None)
+        for span in session.scalars(fallback_statement)
+    )
+    return _merge_evidence_spans(item.evidence_spans, fallback_spans)
+
+
+def _ensure_reranked_result_evidence_spans(
+    session: Session,
+    request: SearchRequest,
+    reranked_results: list[RerankedResult],
+) -> None:
+    if not _supports_retrieval_span_search(session):
+        return
+    for candidate in reranked_results:
+        candidate.item.evidence_spans = _load_source_evidence_spans(
+            session,
+            request,
+            candidate.item,
+        )
 
 
 def _build_relaxed_tsquery(query: str):
@@ -2756,6 +2818,11 @@ def execute_search(
         prose_lookup_intent=QUERY_INTENT_PROSE_LOOKUP,
         prose_broad_intent=QUERY_INTENT_PROSE_BROAD,
     )
+    span_backfill_summary = ensure_retrieval_evidence_spans_for_search(
+        session,
+        run_id=run_id,
+        document_id=request.filters.document_id if request.filters else None,
+    )
     keyword_candidate_limit = max(
         request.limit * harness.retrieval_profile.keyword_candidate_multiplier,
         harness.retrieval_profile.min_candidate_limit,
@@ -2888,6 +2955,8 @@ def execute_search(
         fallback_reason=fallback_reason,
         semantic_augmented_with_keyword_context=semantic_augmented_with_keyword_context,
     )
+    if span_backfill_summary.get("rebuilt_run_count"):
+        details["retrieval_span_backfill"] = span_backfill_summary
 
     reranked_results = _rerank_results(
         candidate_items,
@@ -2896,6 +2965,10 @@ def execute_search(
         tabular_query=effective_tabular_query,
         query_intent=query_intent,
         reranker=active_reranker,
+    )
+    _ensure_reranked_result_evidence_spans(session, request, reranked_results)
+    details["selected_result_span_count"] = sum(
+        1 for candidate in reranked_results if candidate.item.evidence_spans
     )
     results = [_to_search_result(candidate.item, candidate.score) for candidate in reranked_results]
 

@@ -676,6 +676,9 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             "has_retrieval_evidence_spans": any(
                 item.get("retrieval_evidence_spans") for item in source_evidence
             ),
+            "all_results_have_retrieval_evidence_spans": all(
+                bool(item.get("retrieval_evidence_spans")) for item in source_evidence
+            ),
             "all_span_citations_hashed": all(
                 bool(span.get("content_sha256")) and bool(span.get("source_snapshot_sha256"))
                 for item in source_evidence
