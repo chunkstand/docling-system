@@ -34,6 +34,7 @@ from app.services.evaluations import (
     evaluate_run,
     resolve_baseline_run_id,
 )
+from app.services.retrieval_spans import rebuild_retrieval_evidence_spans
 from app.services.runtime import (
     get_process_identity,
     register_runtime_process,
@@ -488,9 +489,9 @@ def _replace_run_tables(
         table_metric_counts["logical_tables_persisted_total"] = (
             table_metric_counts.get("logical_tables_persisted_total", 0) + 1
         )
-        table_metric_counts["table_segments_persisted_total"] = (
-            table_metric_counts.get("table_segments_persisted_total", 0) + len(table.segments)
-        )
+        table_metric_counts["table_segments_persisted_total"] = table_metric_counts.get(
+            "table_segments_persisted_total", 0
+        ) + len(table.segments)
         if table.metadata.get("is_merged"):
             table_metric_counts["continuation_merges_total"] = (
                 table_metric_counts.get("continuation_merges_total", 0) + 1
@@ -501,10 +502,9 @@ def _replace_run_tables(
             )
         removed_rows = table.metadata.get("header_rows_removed_count", 0)
         if removed_rows:
-            table_metric_counts["repeated_header_rows_removed_total"] = (
-                table_metric_counts.get("repeated_header_rows_removed_total", 0)
-                + float(removed_rows)
-            )
+            table_metric_counts["repeated_header_rows_removed_total"] = table_metric_counts.get(
+                "repeated_header_rows_removed_total", 0
+            ) + float(removed_rows)
     increment_many(table_metric_counts)
 
 
@@ -776,6 +776,7 @@ class RunProcessingStage(StrEnum):
     CHUNK_PERSIST = "chunk_persist"
     TABLE_PERSIST = "table_persist"
     FIGURE_PERSIST = "figure_persist"
+    RETRIEVAL_SPAN_PERSIST = "retrieval_span_persist"
     RUN_PERSIST = "run_persist"
     VALIDATION = "validation"
     PROMOTION = "promotion"
@@ -842,6 +843,7 @@ class RunProcessor:
             RunProcessingStage.CHUNK_PERSIST,
             RunProcessingStage.TABLE_PERSIST,
             RunProcessingStage.FIGURE_PERSIST,
+            RunProcessingStage.RETRIEVAL_SPAN_PERSIST,
             RunProcessingStage.RUN_PERSIST,
             RunProcessingStage.VALIDATION,
             RunProcessingStage.PROMOTION,
@@ -908,6 +910,21 @@ class RunProcessor:
                 self.run,
                 self.parsed,
                 self.storage_service,
+            )
+            return
+
+        if stage == RunProcessingStage.RETRIEVAL_SPAN_PERSIST:
+            summary = rebuild_retrieval_evidence_spans(
+                self.session,
+                self.run,
+                embedding_provider=self.embedding_provider,
+            )
+            logger.info(
+                "retrieval_evidence_spans_rebuilt",
+                run_id=str(self.run.id),
+                document_id=str(self.document.id),
+                span_count=summary["span_count"],
+                embedding_status=summary["embedding_status"],
             )
             return
 

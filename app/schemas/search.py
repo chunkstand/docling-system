@@ -31,6 +31,20 @@ class SearchScores(BaseModel):
     hybrid_score: float | None = None
 
 
+class SearchEvidenceSpan(BaseModel):
+    retrieval_evidence_span_id: UUID | None = None
+    source_type: str
+    source_id: UUID
+    span_index: int
+    score_kind: str
+    score: float | None = None
+    page_from: int | None = None
+    page_to: int | None = None
+    text_excerpt: str
+    content_sha256: str
+    source_snapshot_sha256: str | None = None
+
+
 class SearchResult(BaseModel):
     result_type: str
     document_id: UUID
@@ -49,6 +63,7 @@ class SearchResult(BaseModel):
     page_to: int | None
     source_filename: str
     scores: SearchScores
+    evidence_spans: list[SearchEvidenceSpan] = Field(default_factory=list)
 
 
 class SearchLoggedResultResponse(SearchResult):
@@ -153,6 +168,7 @@ class SearchRequestExplanationResponse(BaseModel):
     keyword_strict_candidate_count: int = 0
     semantic_candidate_count: int = 0
     metadata_candidate_count: int = 0
+    span_candidate_count: int = 0
     context_expansion_count: int = 0
     candidate_count: int = 0
     result_count: int = 0

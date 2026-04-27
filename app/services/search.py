@@ -18,10 +18,18 @@ from app.db.models import (
     Document,
     DocumentChunk,
     DocumentTable,
+    RetrievalEvidenceSpan,
     SearchRequestRecord,
     SearchRequestResult,
+    SearchRequestResultSpan,
 )
-from app.schemas.search import SearchFilters, SearchRequest, SearchResult, SearchScores
+from app.schemas.search import (
+    SearchEvidenceSpan,
+    SearchFilters,
+    SearchRequest,
+    SearchResult,
+    SearchScores,
+)
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evidence import record_knowledge_operator_run
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
@@ -39,7 +47,23 @@ QUERY_INTENT_PROSE_BROAD = "prose_broad"
 PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
 PROSE_ADJACENT_EXPANSION_LIMIT = 12
 PROSE_ADJACENT_SEED_LIMIT = 6
+SEARCH_RESULT_SPAN_LIMIT = 5
 TABULAR_REFERENCE_PATTERN = re.compile(r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b")
+
+
+@dataclass
+class RankedEvidenceSpan:
+    retrieval_evidence_span_id: UUID
+    source_type: str
+    source_id: UUID
+    span_index: int
+    score_kind: str
+    score: float | None
+    page_from: int | None
+    page_to: int | None
+    text_excerpt: str
+    content_sha256: str
+    source_snapshot_sha256: str | None
 
 
 @dataclass
@@ -65,6 +89,7 @@ class RankedResult:
     semantic_score: float | None = None
     hybrid_score: float | None = None
     retrieval_sources: tuple[str, ...] = ()
+    evidence_spans: tuple[RankedEvidenceSpan, ...] = ()
 
 
 @dataclass
@@ -650,6 +675,60 @@ def _table_query(run_id: UUID | None = None) -> Select[tuple[DocumentTable, Docu
     )
 
 
+def _span_chunk_query(
+    run_id: UUID | None = None,
+) -> Select[tuple[RetrievalEvidenceSpan, DocumentChunk, Document]]:
+    if run_id is None:
+        return (
+            select(RetrievalEvidenceSpan, DocumentChunk, Document)
+            .join(DocumentChunk, RetrievalEvidenceSpan.chunk_id == DocumentChunk.id)
+            .join(
+                Document,
+                and_(
+                    Document.id == RetrievalEvidenceSpan.document_id,
+                    Document.active_run_id == RetrievalEvidenceSpan.run_id,
+                ),
+            )
+            .where(RetrievalEvidenceSpan.source_type == "chunk")
+        )
+    return (
+        select(RetrievalEvidenceSpan, DocumentChunk, Document)
+        .join(DocumentChunk, RetrievalEvidenceSpan.chunk_id == DocumentChunk.id)
+        .join(Document, Document.id == RetrievalEvidenceSpan.document_id)
+        .where(
+            RetrievalEvidenceSpan.run_id == run_id,
+            RetrievalEvidenceSpan.source_type == "chunk",
+        )
+    )
+
+
+def _span_table_query(
+    run_id: UUID | None = None,
+) -> Select[tuple[RetrievalEvidenceSpan, DocumentTable, Document]]:
+    if run_id is None:
+        return (
+            select(RetrievalEvidenceSpan, DocumentTable, Document)
+            .join(DocumentTable, RetrievalEvidenceSpan.table_id == DocumentTable.id)
+            .join(
+                Document,
+                and_(
+                    Document.id == RetrievalEvidenceSpan.document_id,
+                    Document.active_run_id == RetrievalEvidenceSpan.run_id,
+                ),
+            )
+            .where(RetrievalEvidenceSpan.source_type == "table")
+        )
+    return (
+        select(RetrievalEvidenceSpan, DocumentTable, Document)
+        .join(DocumentTable, RetrievalEvidenceSpan.table_id == DocumentTable.id)
+        .join(Document, Document.id == RetrievalEvidenceSpan.document_id)
+        .where(
+            RetrievalEvidenceSpan.run_id == run_id,
+            RetrievalEvidenceSpan.source_type == "table",
+        )
+    )
+
+
 def _document_query(run_id: UUID | None = None) -> Select:
     if run_id is None:
         return select(Document).where(Document.active_run_id.is_not(None))
@@ -720,6 +799,31 @@ def _apply_document_filters(statement: Select, filters: SearchFilters | None) ->
     return statement
 
 
+def _apply_span_filters(statement: Select, filters: SearchFilters | None) -> Select:
+    if filters is None:
+        return statement
+
+    if filters.result_type is not None:
+        statement = statement.where(RetrievalEvidenceSpan.source_type == filters.result_type)
+
+    if filters.document_id is not None:
+        statement = statement.where(RetrievalEvidenceSpan.document_id == filters.document_id)
+
+    if filters.page_range is not None:
+        lower = filters.page_range.page_from
+        upper = filters.page_range.page_to
+        statement = statement.where(
+            and_(
+                func.coalesce(RetrievalEvidenceSpan.page_from, RetrievalEvidenceSpan.page_to)
+                <= upper,
+                func.coalesce(RetrievalEvidenceSpan.page_to, RetrievalEvidenceSpan.page_from)
+                >= lower,
+            )
+        )
+
+    return statement
+
+
 def _hydrate_ranked_chunks(
     rows: Iterable[tuple[DocumentChunk, Document, float]],
     score_kind: str,
@@ -741,6 +845,60 @@ def _hydrate_ranked_chunks(
             chunk_text=chunk.text,
             heading=chunk.heading,
             retrieval_sources=(retrieval_source,),
+        )
+        if score_kind == "keyword":
+            ranked.keyword_score = float(score)
+        else:
+            ranked.semantic_score = float(score)
+        hydrated.append(ranked)
+    return hydrated
+
+
+def _span_evidence_payload(
+    span: RetrievalEvidenceSpan,
+    *,
+    score_kind: str,
+    score: float,
+) -> RankedEvidenceSpan:
+    return RankedEvidenceSpan(
+        retrieval_evidence_span_id=span.id,
+        source_type=span.source_type,
+        source_id=span.source_id,
+        span_index=span.span_index,
+        score_kind=score_kind,
+        score=float(score),
+        page_from=span.page_from,
+        page_to=span.page_to,
+        text_excerpt=span.span_text,
+        content_sha256=span.content_sha256,
+        source_snapshot_sha256=span.source_snapshot_sha256,
+    )
+
+
+def _hydrate_ranked_span_chunks(
+    rows: Iterable[tuple[RetrievalEvidenceSpan, DocumentChunk, Document, float]],
+    score_kind: str,
+    *,
+    retrieval_source: str,
+) -> list[RankedResult]:
+    hydrated: list[RankedResult] = []
+    for span, chunk, document, score in rows:
+        ranked = RankedResult(
+            result_type="chunk",
+            result_id=chunk.id,
+            document_id=chunk.document_id,
+            run_id=chunk.run_id,
+            source_filename=document.source_filename,
+            document_title=document.title,
+            page_from=chunk.page_from,
+            page_to=chunk.page_to,
+            chunk_index=chunk.chunk_index,
+            chunk_text=chunk.text,
+            heading=chunk.heading,
+            retrieval_sources=(retrieval_source,),
+            evidence_spans=(
+                _span_evidence_payload(span, score_kind=score_kind, score=float(score)),
+            ),
         )
         if score_kind == "keyword":
             ranked.keyword_score = float(score)
@@ -783,6 +941,42 @@ def _hydrate_ranked_tables(
     return hydrated
 
 
+def _hydrate_ranked_span_tables(
+    rows: Iterable[tuple[RetrievalEvidenceSpan, DocumentTable, Document, float]],
+    score_kind: str,
+    *,
+    retrieval_source: str,
+) -> list[RankedResult]:
+    hydrated: list[RankedResult] = []
+    for span, table, document, score in rows:
+        ranked = RankedResult(
+            result_type="table",
+            result_id=table.id,
+            document_id=table.document_id,
+            run_id=table.run_id,
+            source_filename=document.source_filename,
+            document_title=document.title,
+            page_from=table.page_from,
+            page_to=table.page_to,
+            table_index=table.table_index,
+            table_title=table.title,
+            table_heading=table.heading,
+            table_preview=table.preview_text,
+            row_count=table.row_count,
+            col_count=table.col_count,
+            retrieval_sources=(retrieval_source,),
+            evidence_spans=(
+                _span_evidence_payload(span, score_kind=score_kind, score=float(score)),
+            ),
+        )
+        if score_kind == "keyword":
+            ranked.keyword_score = float(score)
+        else:
+            ranked.semantic_score = float(score)
+        hydrated.append(ranked)
+    return hydrated
+
+
 def _keyword_terms(query: str) -> list[str]:
     terms: list[str] = []
     seen: set[str] = set()
@@ -792,6 +986,10 @@ def _keyword_terms(query: str) -> list[str]:
         seen.add(token)
         terms.append(token)
     return terms
+
+
+def _supports_retrieval_span_search(session: Session | None) -> bool:
+    return isinstance(session, Session)
 
 
 def _build_relaxed_tsquery(query: str):
@@ -899,6 +1097,74 @@ def _run_relaxed_keyword_table_search(
     )
 
 
+def _run_keyword_span_chunk_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+    relaxed: bool = False,
+) -> list[RankedResult]:
+    if not _supports_retrieval_span_search(session):
+        return []
+    tsquery = (
+        _build_relaxed_tsquery(request.query)
+        if relaxed
+        else func.plainto_tsquery("english", request.query)
+    )
+    if tsquery is None:
+        return []
+    rank = cast(func.ts_rank_cd(RetrievalEvidenceSpan.textsearch, tsquery), Float)
+    statement = (
+        _apply_span_filters(_span_chunk_query(run_id), request.filters)
+        .add_columns(rank.label("score"))
+        .where(RetrievalEvidenceSpan.textsearch.op("@@")(tsquery))
+        .order_by(
+            rank.desc(), DocumentChunk.chunk_index.asc(), RetrievalEvidenceSpan.span_index.asc()
+        )
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_span_chunks(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="span_keyword_relaxed" if relaxed else "span_keyword",
+    )
+
+
+def _run_keyword_span_table_search(
+    session: Session,
+    request: SearchRequest,
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+    relaxed: bool = False,
+) -> list[RankedResult]:
+    if not _supports_retrieval_span_search(session):
+        return []
+    tsquery = (
+        _build_relaxed_tsquery(request.query)
+        if relaxed
+        else func.plainto_tsquery("english", request.query)
+    )
+    if tsquery is None:
+        return []
+    rank = cast(func.ts_rank_cd(RetrievalEvidenceSpan.textsearch, tsquery), Float)
+    statement = (
+        _apply_span_filters(_span_table_query(run_id), request.filters)
+        .add_columns(rank.label("score"))
+        .where(RetrievalEvidenceSpan.textsearch.op("@@")(tsquery))
+        .order_by(
+            rank.desc(), DocumentTable.table_index.asc(), RetrievalEvidenceSpan.span_index.asc()
+        )
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_span_tables(
+        session.execute(statement).all(),
+        "keyword",
+        retrieval_source="span_keyword_relaxed" if relaxed else "span_keyword",
+    )
+
+
 def _run_semantic_chunk_search(
     session: Session,
     request: SearchRequest,
@@ -923,6 +1189,34 @@ def _run_semantic_chunk_search(
     )
 
 
+def _run_semantic_span_chunk_search(
+    session: Session,
+    request: SearchRequest,
+    query_embedding: list[float],
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
+    if not _supports_retrieval_span_search(session):
+        return []
+    distance = RetrievalEvidenceSpan.embedding.cosine_distance(query_embedding)
+    similarity = cast(1 - distance, Float)
+    statement = (
+        _apply_span_filters(_span_chunk_query(run_id), request.filters)
+        .add_columns(similarity.label("score"))
+        .where(RetrievalEvidenceSpan.embedding.is_not(None))
+        .order_by(
+            distance.asc(), DocumentChunk.chunk_index.asc(), RetrievalEvidenceSpan.span_index.asc()
+        )
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_span_chunks(
+        session.execute(statement).all(),
+        "semantic",
+        retrieval_source="span_semantic",
+    )
+
+
 def _run_semantic_table_search(
     session: Session,
     request: SearchRequest,
@@ -944,6 +1238,34 @@ def _run_semantic_table_search(
         session.execute(statement).all(),
         "semantic",
         retrieval_source="semantic_primary",
+    )
+
+
+def _run_semantic_span_table_search(
+    session: Session,
+    request: SearchRequest,
+    query_embedding: list[float],
+    candidate_limit: int | None = None,
+    *,
+    run_id: UUID | None = None,
+) -> list[RankedResult]:
+    if not _supports_retrieval_span_search(session):
+        return []
+    distance = RetrievalEvidenceSpan.embedding.cosine_distance(query_embedding)
+    similarity = cast(1 - distance, Float)
+    statement = (
+        _apply_span_filters(_span_table_query(run_id), request.filters)
+        .add_columns(similarity.label("score"))
+        .where(RetrievalEvidenceSpan.embedding.is_not(None))
+        .order_by(
+            distance.asc(), DocumentTable.table_index.asc(), RetrievalEvidenceSpan.span_index.asc()
+        )
+        .limit(candidate_limit or request.limit)
+    )
+    return _hydrate_ranked_span_tables(
+        session.execute(statement).all(),
+        "semantic",
+        retrieval_source="span_semantic",
     )
 
 
@@ -1209,6 +1531,28 @@ def _merge_retrieval_sources(*source_groups: tuple[str, ...]) -> tuple[str, ...]
     return tuple(merged)
 
 
+def _merge_evidence_spans(
+    *span_groups: tuple[RankedEvidenceSpan, ...],
+) -> tuple[RankedEvidenceSpan, ...]:
+    merged: dict[UUID, RankedEvidenceSpan] = {}
+    for group in span_groups:
+        for span in group:
+            current = merged.get(span.retrieval_evidence_span_id)
+            if current is None or (span.score or 0.0) > (current.score or 0.0):
+                merged[span.retrieval_evidence_span_id] = span
+    return tuple(
+        sorted(
+            merged.values(),
+            key=lambda span: (
+                -(span.score or 0.0),
+                span.source_type,
+                str(span.source_id),
+                span.span_index,
+            ),
+        )
+    )
+
+
 def _table_title_match_features(
     item: RankedResult,
     query_or_features: QueryFeatureSet | str | None,
@@ -1310,6 +1654,22 @@ def _to_search_result(item: RankedResult, score: float) -> SearchResult:
             semantic_score=item.semantic_score,
             hybrid_score=item.hybrid_score,
         ),
+        evidence_spans=[
+            SearchEvidenceSpan(
+                retrieval_evidence_span_id=span.retrieval_evidence_span_id,
+                source_type=span.source_type,
+                source_id=span.source_id,
+                span_index=span.span_index,
+                score_kind=span.score_kind,
+                score=span.score,
+                page_from=span.page_from,
+                page_to=span.page_to,
+                text_excerpt=span.text_excerpt,
+                content_sha256=span.content_sha256,
+                source_snapshot_sha256=span.source_snapshot_sha256,
+            )
+            for span in item.evidence_spans
+        ],
     )
 
 
@@ -1343,6 +1703,10 @@ def _merge_hybrid_candidates(
             current.retrieval_sources,
             result.retrieval_sources,
         )
+        current.evidence_spans = _merge_evidence_spans(
+            current.evidence_spans,
+            result.evidence_spans,
+        )
 
     for idx, result in enumerate(semantic_results, start=1):
         current = merged.get(_result_key(result))
@@ -1354,6 +1718,10 @@ def _merge_hybrid_candidates(
         current.retrieval_sources = _merge_retrieval_sources(
             current.retrieval_sources,
             result.retrieval_sources,
+        )
+        current.evidence_spans = _merge_evidence_spans(
+            current.evidence_spans,
+            result.evidence_spans,
         )
 
     return list(merged.values())
@@ -1377,6 +1745,10 @@ def _dedupe_ranked_results(items: list[RankedResult]) -> list[RankedResult]:
         current.retrieval_sources = _merge_retrieval_sources(
             current.retrieval_sources,
             item.retrieval_sources,
+        )
+        current.evidence_spans = _merge_evidence_spans(
+            current.evidence_spans,
+            item.evidence_spans,
         )
     return list(merged.values())
 
@@ -1712,6 +2084,22 @@ def _ranked_result_evidence_payload(item: RankedResult, index: int) -> dict:
         "semantic_score": item.semantic_score,
         "hybrid_score": item.hybrid_score,
         "retrieval_sources": list(item.retrieval_sources),
+        "evidence_spans": [
+            {
+                "retrieval_evidence_span_id": str(span.retrieval_evidence_span_id),
+                "source_type": span.source_type,
+                "source_id": str(span.source_id),
+                "span_index": span.span_index,
+                "score_kind": span.score_kind,
+                "score": span.score,
+                "page_from": span.page_from,
+                "page_to": span.page_to,
+                "text_excerpt": span.text_excerpt,
+                "content_sha256": span.content_sha256,
+                "source_snapshot_sha256": span.source_snapshot_sha256,
+            }
+            for span in item.evidence_spans
+        ],
         "label": _result_label(item),
     }
 
@@ -1734,6 +2122,22 @@ def _reranked_result_evidence_payload(
         "source_filename": candidate.item.source_filename,
         "label": _result_label(candidate.item),
         "preview_text": _result_preview(candidate.item),
+        "evidence_spans": [
+            {
+                "retrieval_evidence_span_id": str(span.retrieval_evidence_span_id),
+                "source_type": span.source_type,
+                "source_id": str(span.source_id),
+                "span_index": span.span_index,
+                "score_kind": span.score_kind,
+                "score": span.score,
+                "page_from": span.page_from,
+                "page_to": span.page_to,
+                "text_excerpt": span.text_excerpt,
+                "content_sha256": span.content_sha256,
+                "source_snapshot_sha256": span.source_snapshot_sha256,
+            }
+            for span in candidate.item.evidence_spans
+        ],
         "features": candidate.features,
     }
 
@@ -1803,6 +2207,7 @@ def _persist_search_operator_runs(
             "keyword_candidate_count": details.get("keyword_candidate_count", 0),
             "semantic_candidate_count": details.get("semantic_candidate_count", 0),
             "metadata_candidate_count": details.get("metadata_candidate_count", 0),
+            "span_candidate_count": details.get("span_candidate_count", 0),
             "context_expansion_count": details.get("context_expansion_count", 0),
         },
         metadata={
@@ -1923,6 +2328,46 @@ def _persist_search_operator_runs(
     return operator_run_ids
 
 
+def _persist_search_result_spans(
+    session: Session,
+    *,
+    search_request_id: UUID,
+    reranked_results: list[RerankedResult],
+    result_rows: list[SearchRequestResult],
+    created_at,
+) -> None:
+    for candidate, result_row in zip(reranked_results, result_rows, strict=True):
+        for span_rank, span in enumerate(
+            candidate.item.evidence_spans[:SEARCH_RESULT_SPAN_LIMIT],
+            start=1,
+        ):
+            session.add(
+                SearchRequestResultSpan(
+                    id=uuid.uuid4(),
+                    search_request_id=search_request_id,
+                    search_request_result_id=result_row.id,
+                    retrieval_evidence_span_id=span.retrieval_evidence_span_id,
+                    span_rank=span_rank,
+                    score_kind=span.score_kind,
+                    score=span.score,
+                    source_type=span.source_type,
+                    source_id=span.source_id,
+                    span_index=span.span_index,
+                    page_from=span.page_from,
+                    page_to=span.page_to,
+                    text_excerpt=span.text_excerpt,
+                    content_sha256=span.content_sha256,
+                    source_snapshot_sha256=span.source_snapshot_sha256,
+                    metadata_json={
+                        "retrieval_source_count": len(candidate.item.retrieval_sources),
+                        "retrieval_sources": list(candidate.item.retrieval_sources),
+                    },
+                    created_at=created_at,
+                )
+            )
+    session.flush()
+
+
 def _persist_search_execution(
     session: Session | None,
     *,
@@ -2009,6 +2454,13 @@ def _persist_search_execution(
         session.add(result_row)
 
     session.flush()
+    _persist_search_result_spans(
+        session,
+        search_request_id=search_request.id,
+        reranked_results=reranked_results,
+        result_rows=result_rows,
+        created_at=created_at,
+    )
     operator_run_ids = _persist_search_operator_runs(
         session,
         search_request=search_request,
@@ -2044,6 +2496,18 @@ def _load_keyword_candidates(
     if run_id is None:
         chunk_results = chunk_loader(session, request, candidate_limit=candidate_limit)
         table_results = table_loader(session, request, candidate_limit=candidate_limit)
+        span_chunk_results = _run_keyword_span_chunk_search(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            relaxed=relaxed,
+        )
+        span_table_results = _run_keyword_span_table_search(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            relaxed=relaxed,
+        )
     else:
         chunk_results = chunk_loader(
             session,
@@ -2057,7 +2521,24 @@ def _load_keyword_candidates(
             candidate_limit=candidate_limit,
             run_id=run_id,
         )
-    return chunk_results, table_results
+        span_chunk_results = _run_keyword_span_chunk_search(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            run_id=run_id,
+            relaxed=relaxed,
+        )
+        span_table_results = _run_keyword_span_table_search(
+            session,
+            request,
+            candidate_limit=candidate_limit,
+            run_id=run_id,
+            relaxed=relaxed,
+        )
+    return (
+        _dedupe_ranked_results([*chunk_results, *span_chunk_results]),
+        _dedupe_ranked_results([*table_results, *span_table_results]),
+    )
 
 
 def _load_semantic_candidates(
@@ -2083,6 +2564,22 @@ def _load_semantic_candidates(
                 candidate_limit=candidate_limit,
             )
         )
+        semantic_results.extend(
+            _run_semantic_span_chunk_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+            )
+        )
+        semantic_results.extend(
+            _run_semantic_span_table_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+            )
+        )
     else:
         semantic_results = _run_semantic_chunk_search(
             session,
@@ -2100,6 +2597,25 @@ def _load_semantic_candidates(
                 run_id=run_id,
             )
         )
+        semantic_results.extend(
+            _run_semantic_span_chunk_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+                run_id=run_id,
+            )
+        )
+        semantic_results.extend(
+            _run_semantic_span_table_search(
+                session,
+                request,
+                query_embedding,
+                candidate_limit=candidate_limit,
+                run_id=run_id,
+            )
+        )
+    semantic_results = _dedupe_ranked_results(semantic_results)
     return _sort_ranked_candidates_by_score(semantic_results, score_getter=_semantic_score)
 
 
@@ -2198,6 +2714,7 @@ def _build_search_execution_details(
         "metadata_candidate_count": sum(
             1 for item in candidate_items if "metadata_supplement" in item.retrieval_sources
         ),
+        "span_candidate_count": sum(1 for item in candidate_items if item.evidence_spans),
         "context_expansion_count": sum(
             1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
         ),

@@ -1454,6 +1454,147 @@ class SearchRequestResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RetrievalEvidenceSpan(Base):
+    __tablename__ = "retrieval_evidence_spans"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('chunk', 'table')",
+            name="ck_retrieval_evidence_spans_source_type",
+        ),
+        CheckConstraint(
+            "("
+            "source_type = 'chunk' AND chunk_id IS NOT NULL AND table_id IS NULL"
+            ") OR ("
+            "source_type = 'table' AND table_id IS NOT NULL AND chunk_id IS NULL"
+            ")",
+            name="ck_retrieval_evidence_spans_source_ref",
+        ),
+        UniqueConstraint(
+            "run_id",
+            "source_type",
+            "source_id",
+            "span_index",
+            name="uq_retrieval_evidence_spans_run_source_span",
+        ),
+        Index("ix_retrieval_evidence_spans_document_id", "document_id"),
+        Index("ix_retrieval_evidence_spans_run_id", "run_id"),
+        Index("ix_retrieval_evidence_spans_source", "source_type", "source_id"),
+        Index("ix_retrieval_evidence_spans_chunk_id", "chunk_id"),
+        Index("ix_retrieval_evidence_spans_table_id", "table_id"),
+        Index("ix_retrieval_evidence_spans_page_from", "page_from"),
+        Index("ix_retrieval_evidence_spans_page_to", "page_to"),
+        Index("ix_retrieval_evidence_spans_content_sha256", "content_sha256"),
+        Index(
+            "ix_retrieval_evidence_spans_textsearch",
+            "textsearch",
+            postgresql_using="gin",
+        ),
+        Index(
+            "ix_retrieval_evidence_spans_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    chunk_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_chunks.id", ondelete="CASCADE")
+    )
+    table_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_tables.id", ondelete="CASCADE")
+    )
+    span_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    span_text: Mapped[str] = mapped_column(Text, nullable=False)
+    heading: Mapped[str | None] = mapped_column(Text)
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    source_snapshot_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536))
+    textsearch: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', coalesce(heading, '')), 'A') || "
+            "to_tsvector('english', coalesce(span_text, ''))",
+            persisted=True,
+        ),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class SearchRequestResultSpan(Base):
+    __tablename__ = "search_request_result_spans"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('chunk', 'table')",
+            name="ck_search_request_result_spans_source_type",
+        ),
+        UniqueConstraint(
+            "search_request_result_id",
+            "span_rank",
+            name="uq_search_request_result_spans_result_rank",
+        ),
+        Index("ix_search_request_result_spans_request_id", "search_request_id"),
+        Index("ix_search_request_result_spans_result_id", "search_request_result_id"),
+        Index("ix_search_request_result_spans_span_id", "retrieval_evidence_span_id"),
+        Index("ix_search_request_result_spans_source", "source_type", "source_id"),
+        Index("ix_search_request_result_spans_content_sha256", "content_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_request_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    search_request_result_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_request_results.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    retrieval_evidence_span_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("retrieval_evidence_spans.id", ondelete="SET NULL"),
+    )
+    span_rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    score: Mapped[float | None] = mapped_column(Float)
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    span_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    page_from: Mapped[int | None] = mapped_column(Integer)
+    page_to: Mapped[int | None] = mapped_column(Integer)
+    text_excerpt: Mapped[str] = mapped_column(Text, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    source_snapshot_sha256: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class SearchFeedback(Base):
     __tablename__ = "search_feedback"
     __table_args__ = (

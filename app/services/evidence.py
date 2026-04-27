@@ -32,6 +32,7 @@ from app.db.models import (
     KnowledgeOperatorRun,
     SearchRequestRecord,
     SearchRequestResult,
+    SearchRequestResultSpan,
     SemanticAssertion,
     SemanticAssertionEvidence,
     SemanticFact,
@@ -268,10 +269,7 @@ def _select_by_ids(session: Session, model, ids: Iterable[UUID]) -> dict[UUID, A
     unique_ids = {value for value in ids if value is not None}
     if not unique_ids:
         return {}
-    return {
-        row.id: row
-        for row in session.scalars(select(model).where(model.id.in_(unique_ids)))
-    }
+    return {row.id: row for row in session.scalars(select(model).where(model.id.in_(unique_ids)))}
 
 
 def _document_payload(row: Document | None) -> dict | None:
@@ -419,10 +417,31 @@ def _figure_payload(row: DocumentFigure | None) -> dict | None:
     return payload
 
 
+def _search_result_span_payload(row: SearchRequestResultSpan) -> dict:
+    return {
+        "search_request_result_span_id": row.id,
+        "retrieval_evidence_span_id": row.retrieval_evidence_span_id,
+        "span_rank": row.span_rank,
+        "score_kind": row.score_kind,
+        "score": row.score,
+        "source_type": row.source_type,
+        "source_id": row.source_id,
+        "span_index": row.span_index,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "text_excerpt": row.text_excerpt,
+        "content_sha256": row.content_sha256,
+        "source_snapshot_sha256": row.source_snapshot_sha256,
+        "metadata": row.metadata_json or {},
+        "created_at": row.created_at,
+    }
+
+
 def _result_payload(
     row: SearchRequestResult,
     *,
     source_snapshot_sha256: str | None,
+    retrieval_evidence_spans: list[dict] | None = None,
 ) -> dict:
     return {
         "search_request_result_id": row.id,
@@ -444,6 +463,7 @@ def _result_payload(
         "label": row.label,
         "preview_text": row.preview_text,
         "source_snapshot_sha256": source_snapshot_sha256,
+        "retrieval_evidence_spans": retrieval_evidence_spans or [],
     }
 
 
@@ -451,6 +471,7 @@ def _source_evidence_payloads(
     session: Session,
     result_rows: list[SearchRequestResult],
 ) -> list[dict]:
+    result_ids = [row.id for row in result_rows]
     documents_by_id = _select_by_ids(session, Document, (row.document_id for row in result_rows))
     runs_by_id = _select_by_ids(session, DocumentRun, (row.run_id for row in result_rows))
     chunks_by_id = _select_by_ids(
@@ -480,6 +501,21 @@ def _source_evidence_payloads(
         for segment in segment_rows:
             segments_by_table_id.setdefault(segment.table_id, []).append(segment)
 
+    spans_by_result_id: dict[UUID, list[SearchRequestResultSpan]] = {
+        result_id: [] for result_id in result_ids
+    }
+    if result_ids:
+        span_rows = session.scalars(
+            select(SearchRequestResultSpan)
+            .where(SearchRequestResultSpan.search_request_result_id.in_(result_ids))
+            .order_by(
+                SearchRequestResultSpan.search_request_result_id.asc(),
+                SearchRequestResultSpan.span_rank.asc(),
+            )
+        )
+        for span in span_rows:
+            spans_by_result_id.setdefault(span.search_request_result_id, []).append(span)
+
     payloads: list[dict] = []
     for result in result_rows:
         document = documents_by_id.get(result.document_id)
@@ -502,6 +538,9 @@ def _source_evidence_payloads(
             "run": _run_payload(run),
             "chunk": chunk_payload,
             "table": table_payload,
+            "retrieval_evidence_spans": [
+                _search_result_span_payload(span) for span in spans_by_result_id.get(result.id, [])
+            ],
         }
         payload["source_snapshot_sha256"] = payload_sha256(payload)
         payloads.append(payload)
@@ -596,6 +635,12 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
                 source_snapshot_sha256=source_evidence_by_result_id.get(str(row.id), {}).get(
                     "source_snapshot_sha256"
                 ),
+                retrieval_evidence_spans=[
+                    dict(span)
+                    for span in source_evidence_by_result_id.get(str(row.id), {}).get(
+                        "retrieval_evidence_spans", []
+                    )
+                ],
             )
             for row in result_rows
         ],
@@ -622,12 +667,19 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
                 for item in source_evidence
             ),
             "all_result_runs_validation_passed": all(
-                item.get("run") is not None
-                and item["run"].get("validation_status") == "passed"
+                item.get("run") is not None and item["run"].get("validation_status") == "passed"
                 for item in source_evidence
             ),
             "all_source_snapshots_hashed": all(
                 bool(item.get("source_snapshot_sha256")) for item in source_evidence
+            ),
+            "has_retrieval_evidence_spans": any(
+                item.get("retrieval_evidence_spans") for item in source_evidence
+            ),
+            "all_span_citations_hashed": all(
+                bool(span.get("content_sha256")) and bool(span.get("source_snapshot_sha256"))
+                for item in source_evidence
+                for span in item.get("retrieval_evidence_spans", [])
             ),
         },
     }
@@ -669,8 +721,7 @@ def _evidence_card_snapshot(card: dict[str, Any]) -> dict[str, Any]:
 
 def build_technical_report_derivation_package(draft_payload: dict[str, Any]) -> dict[str, Any]:
     evidence_cards = [
-        _evidence_card_snapshot(dict(card))
-        for card in draft_payload.get("evidence_cards", [])
+        _evidence_card_snapshot(dict(card)) for card in draft_payload.get("evidence_cards", [])
     ]
     cards_by_id = {
         str(card.get("evidence_card_id")): card
@@ -1189,8 +1240,7 @@ def _technical_report_integrity_payload(
         "export_package_hash_mismatch_count": export_package_hash_mismatch_count,
         "expected_claim_derivation_count": len(expected_derivations_by_claim_id),
         "stored_claim_derivation_count": len(derivations),
-        "claim_derivation_count_matches": len(derivations)
-        == len(expected_derivations_by_claim_id),
+        "claim_derivation_count_matches": len(derivations) == len(expected_derivations_by_claim_id),
         "claim_derivation_hash_mismatch_count": len(mismatched_claim_ids),
         "claim_package_hash_mismatch_count": len(package_mismatched_claim_ids),
         "missing_claim_derivation_count": len(missing_claim_derivation_ids),
@@ -1421,9 +1471,7 @@ def _report_evidence_card_source_records(evidence_cards: list[dict[str, Any]]) -
             "page_from": card.get("page_from"),
             "page_to": card.get("page_to"),
             "source_artifact_api_path": card.get("source_artifact_api_path"),
-            "evidence_card_sha256": _evidence_card_snapshot(dict(card)).get(
-                "evidence_card_sha256"
-            ),
+            "evidence_card_sha256": _evidence_card_snapshot(dict(card)).get("evidence_card_sha256"),
             "source_snapshot_sha256s": card.get("source_snapshot_sha256s") or [],
         }
         for card in evidence_cards
@@ -1568,9 +1616,7 @@ def build_technical_report_evidence_manifest_payload(
         ]
     )
     evidence_ids = _uuid_values(
-        evidence_id
-        for card in evidence_cards
-        for evidence_id in (card.get("evidence_ids") or [])
+        evidence_id for card in evidence_cards for evidence_id in (card.get("evidence_ids") or [])
     )
     documents_by_id = _select_by_ids(session, Document, document_ids)
     runs_by_id = _select_by_ids(session, DocumentRun, run_ids)
@@ -1605,11 +1651,7 @@ def build_technical_report_evidence_manifest_payload(
     source_snapshot_sha256s = _string_values(
         [
             *(draft_payload.get("source_snapshot_sha256s") or []),
-            *[
-                value
-                for claim in claims
-                for value in (claim.get("source_snapshot_sha256s") or [])
-            ],
+            *[value for claim in claims for value in (claim.get("source_snapshot_sha256s") or [])],
             *[
                 value
                 for export in evidence_exports
@@ -2163,10 +2205,7 @@ def _build_evidence_trace_graph_specs(
             )
             _put_trace_edge(
                 edges,
-                edge_key=(
-                    "operator_parent:"
-                    f"{parent_node_key}->{operator_node_key}"
-                ),
+                edge_key=(f"operator_parent:{parent_node_key}->{operator_node_key}"),
                 edge_kind="operator_run_parent_child",
                 from_node_key=parent_node_key,
                 to_node_key=operator_node_key,
@@ -2189,14 +2228,10 @@ def _persist_evidence_trace_graph(
         manifest_payload=manifest_payload,
     )
     session.execute(
-        delete(EvidenceTraceEdge).where(
-            EvidenceTraceEdge.evidence_manifest_id == manifest_row.id
-        )
+        delete(EvidenceTraceEdge).where(EvidenceTraceEdge.evidence_manifest_id == manifest_row.id)
     )
     session.execute(
-        delete(EvidenceTraceNode).where(
-            EvidenceTraceNode.evidence_manifest_id == manifest_row.id
-        )
+        delete(EvidenceTraceNode).where(EvidenceTraceNode.evidence_manifest_id == manifest_row.id)
     )
     session.flush()
 
@@ -2330,14 +2365,10 @@ def _evidence_trace_integrity_payload(
         (_trace_edge_spec_from_row(edge) for edge in edges),
     )
     node_payload_hash_mismatch_count = sum(
-        1
-        for node in nodes
-        if _trace_payload_sha256(node.payload_json or {}) != node.content_sha256
+        1 for node in nodes if _trace_payload_sha256(node.payload_json or {}) != node.content_sha256
     )
     edge_payload_hash_mismatch_count = sum(
-        1
-        for edge in edges
-        if _trace_payload_sha256(edge.payload_json or {}) != edge.content_sha256
+        1 for edge in edges if _trace_payload_sha256(edge.payload_json or {}) != edge.content_sha256
     )
     recomputed_trace_sha256 = None
     recomputation_error = None

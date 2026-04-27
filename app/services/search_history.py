@@ -9,8 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import SearchFeedback, SearchRequestRecord, SearchRequestResult
+from app.db.models import (
+    SearchFeedback,
+    SearchRequestRecord,
+    SearchRequestResult,
+    SearchRequestResultSpan,
+)
 from app.schemas.search import (
+    SearchEvidenceSpan,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchFilters,
@@ -42,7 +48,11 @@ def _search_result_key(
     return result.result_type, result.chunk_id
 
 
-def _to_logged_result(row: SearchRequestResult) -> SearchLoggedResultResponse:
+def _to_logged_result(
+    row: SearchRequestResult,
+    *,
+    spans: list[SearchRequestResultSpan] | None = None,
+) -> SearchLoggedResultResponse:
     return SearchLoggedResultResponse(
         rank=row.rank,
         base_rank=row.base_rank,
@@ -68,6 +78,22 @@ def _to_logged_result(row: SearchRequestResult) -> SearchLoggedResultResponse:
             semantic_score=row.semantic_score,
             hybrid_score=row.hybrid_score,
         ),
+        evidence_spans=[
+            SearchEvidenceSpan(
+                retrieval_evidence_span_id=span.retrieval_evidence_span_id,
+                source_type=span.source_type,
+                source_id=span.source_id,
+                span_index=span.span_index,
+                score_kind=span.score_kind,
+                score=span.score,
+                page_from=span.page_from,
+                page_to=span.page_to,
+                text_excerpt=span.text_excerpt,
+                content_sha256=span.content_sha256,
+                source_snapshot_sha256=span.source_snapshot_sha256,
+            )
+            for span in (spans or [])
+        ],
     )
 
 
@@ -111,6 +137,28 @@ def _build_request_detail(
         .scalars()
         .all()
     )
+    result_spans_by_result_id: dict[UUID, list[SearchRequestResultSpan]] = {
+        row.id: [] for row in result_rows
+    }
+    if result_rows:
+        result_span_rows = (
+            session.execute(
+                select(SearchRequestResultSpan)
+                .where(
+                    SearchRequestResultSpan.search_request_result_id.in_(
+                        [row.id for row in result_rows]
+                    )
+                )
+                .order_by(
+                    SearchRequestResultSpan.search_request_result_id.asc(),
+                    SearchRequestResultSpan.span_rank.asc(),
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for span in result_span_rows:
+            result_spans_by_result_id.setdefault(span.search_request_result_id, []).append(span)
     return SearchRequestDetailResponse(
         search_request_id=request_row.id,
         parent_search_request_id=request_row.parent_request_id,
@@ -136,7 +184,10 @@ def _build_request_detail(
         duration_ms=request_row.duration_ms,
         created_at=request_row.created_at,
         feedback=[_to_feedback_response(row) for row in feedback_rows],
-        results=[_to_logged_result(row) for row in result_rows],
+        results=[
+            _to_logged_result(row, spans=result_spans_by_result_id.get(row.id, []))
+            for row in result_rows
+        ],
     )
 
 

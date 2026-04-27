@@ -18,6 +18,7 @@ Important fields:
 
 - `config_fingerprint`: SHA-256 over the normalized harness config snapshot.
 - `retrieval_stages`: readable execution stages enabled by the harness family.
+- Span-level keyword and semantic stages mean candidate generation can use persisted retrieval evidence spans in addition to whole chunks and tables.
 - `tunable_knobs`: allowed override fields grouped by `retrieval_profile_overrides` and `reranker_overrides`.
 - `constraints`: invariants a draft must respect before apply.
 - `known_tradeoffs`: expected risks when tuning the harness.

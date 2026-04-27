@@ -69,6 +69,7 @@ def _diagnose_search_request(
     keyword_candidate_count: int,
     semantic_candidate_count: int,
     metadata_candidate_count: int,
+    span_candidate_count: int,
     top_results: list[SearchRequestExplanationResult],
 ) -> SearchRequestDiagnosis:
     evidence = {
@@ -82,6 +83,7 @@ def _diagnose_search_request(
         "keyword_candidate_count": keyword_candidate_count,
         "semantic_candidate_count": semantic_candidate_count,
         "metadata_candidate_count": metadata_candidate_count,
+        "span_candidate_count": span_candidate_count,
         "filters": filters,
     }
 
@@ -216,6 +218,7 @@ def get_search_request_explanation(
         keyword_candidate_count=int(details.get("keyword_candidate_count") or 0),
         semantic_candidate_count=int(details.get("semantic_candidate_count") or 0),
         metadata_candidate_count=int(details.get("metadata_candidate_count") or 0),
+        span_candidate_count=int(details.get("span_candidate_count") or 0),
         top_results=top_results,
     )
     return SearchRequestExplanationResponse(
@@ -243,6 +246,7 @@ def get_search_request_explanation(
         keyword_strict_candidate_count=int(details.get("keyword_strict_candidate_count") or 0),
         semantic_candidate_count=int(details.get("semantic_candidate_count") or 0),
         metadata_candidate_count=int(details.get("metadata_candidate_count") or 0),
+        span_candidate_count=int(details.get("span_candidate_count") or 0),
         context_expansion_count=int(details.get("context_expansion_count") or 0),
         candidate_count=detail.candidate_count,
         result_count=detail.result_count,
@@ -255,6 +259,7 @@ def get_search_request_explanation(
             "semantic_augmented_with_keyword_context": bool(
                 details.get("semantic_augmented_with_keyword_context")
             ),
+            "span_candidate_count": int(details.get("span_candidate_count") or 0),
         },
         top_result_snapshot=top_results,
         diagnosis=diagnosis,
@@ -293,7 +298,9 @@ def get_search_harness_descriptor(
         retrieval_profile_name=harness.retrieval_profile_name,
         retrieval_stages=[
             "keyword_candidates",
+            "span_level_keyword_candidates",
             "semantic_candidates_when_embedding_available",
+            "span_level_semantic_candidates_when_embedding_available",
             "metadata_supplement_for_selected_prose_queries",
             "adjacent_context_expansion",
             "linear_feature_reranking",

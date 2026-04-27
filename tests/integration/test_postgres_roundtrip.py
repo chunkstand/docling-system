@@ -13,6 +13,8 @@ from app.core.config import get_settings
 from app.db.models import (
     DocumentFigure,
     DocumentTable,
+    RetrievalEvidenceSpan,
+    SearchRequestResultSpan,
     SemanticGraphSourceKind,
     SemanticOntologySourceKind,
 )
@@ -235,10 +237,30 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         json={"query": "integration threshold", "mode": "keyword", "limit": 5},
     )
     assert search_response.status_code == 200
-    assert search_response.headers["X-Search-Request-Id"]
+    search_request_id = search_response.headers["X-Search-Request-Id"]
+    assert search_request_id
     results = search_response.json()
     assert {"chunk", "table"}.issubset({result["result_type"] for result in results})
     assert all(result["run_id"] == str(run_id) for result in results)
+    assert any(result["evidence_spans"] for result in results)
+    assert all(
+        span["content_sha256"] and span["source_snapshot_sha256"]
+        for result in results
+        for span in result["evidence_spans"]
+    )
+
+    search_detail_response = client.get(f"/search/requests/{search_request_id}")
+    assert search_detail_response.status_code == 200
+    search_detail = search_detail_response.json()
+    assert search_detail["details"]["span_candidate_count"] >= 1
+    assert any(result["evidence_spans"] for result in search_detail["results"])
+
+    search_evidence_response = client.get(f"/search/requests/{search_request_id}/evidence-package")
+    assert search_evidence_response.status_code == 200
+    search_evidence = search_evidence_response.json()
+    assert search_evidence["audit_checklist"]["has_retrieval_evidence_spans"] is True
+    assert search_evidence["audit_checklist"]["all_span_citations_hashed"] is True
+    assert any(item["retrieval_evidence_spans"] for item in search_evidence["source_evidence"])
 
     chunks_response = client.get(f"/documents/{document_id}/chunks")
     assert chunks_response.status_code == 200
@@ -339,13 +361,9 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
 
     assert client.get(f"/documents/{document_id}/artifacts/json").status_code == 200
     assert client.get(f"/documents/{document_id}/artifacts/yaml").status_code == 200
-    table_json_response = client.get(
-        f"/documents/{document_id}/tables/{table_id}/artifacts/json"
-    )
+    table_json_response = client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/json")
     assert table_json_response.status_code == 200
-    table_yaml_response = client.get(
-        f"/documents/{document_id}/tables/{table_id}/artifacts/yaml"
-    )
+    table_yaml_response = client.get(f"/documents/{document_id}/tables/{table_id}/artifacts/yaml")
     assert table_yaml_response.status_code == 200
     figure_json_response = client.get(
         f"/documents/{document_id}/figures/{figure_id}/artifacts/json"
@@ -368,18 +386,41 @@ def test_upload_process_search_and_evaluate_document_roundtrip(
         figure_row = session.execute(
             select(DocumentFigure).where(DocumentFigure.id == UUID(figure_id))
         ).scalar_one()
+        retrieval_span_count = len(
+            session.execute(
+                select(RetrievalEvidenceSpan).where(RetrievalEvidenceSpan.run_id == run_id)
+            )
+            .scalars()
+            .all()
+        )
+        result_span_count = len(
+            session.execute(
+                select(SearchRequestResultSpan).where(
+                    SearchRequestResultSpan.search_request_id == UUID(search_request_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
 
-    assert hashlib.sha256(Path(table_row.json_path).read_bytes()).hexdigest() == (
-        table_row.metadata_json["audit"]["json_artifact_sha256"]
+    assert retrieval_span_count >= 2
+    assert result_span_count >= 1
+
+    assert (
+        hashlib.sha256(Path(table_row.json_path).read_bytes()).hexdigest()
+        == (table_row.metadata_json["audit"]["json_artifact_sha256"])
     )
-    assert hashlib.sha256(Path(table_row.yaml_path).read_bytes()).hexdigest() == (
-        table_row.metadata_json["audit"]["yaml_artifact_sha256"]
+    assert (
+        hashlib.sha256(Path(table_row.yaml_path).read_bytes()).hexdigest()
+        == (table_row.metadata_json["audit"]["yaml_artifact_sha256"])
     )
-    assert hashlib.sha256(Path(figure_row.json_path).read_bytes()).hexdigest() == (
-        figure_row.metadata_json["audit"]["json_artifact_sha256"]
+    assert (
+        hashlib.sha256(Path(figure_row.json_path).read_bytes()).hexdigest()
+        == (figure_row.metadata_json["audit"]["json_artifact_sha256"])
     )
-    assert hashlib.sha256(Path(figure_row.yaml_path).read_bytes()).hexdigest() == (
-        figure_row.metadata_json["audit"]["yaml_artifact_sha256"]
+    assert (
+        hashlib.sha256(Path(figure_row.yaml_path).read_bytes()).hexdigest()
+        == (figure_row.metadata_json["audit"]["yaml_artifact_sha256"])
     )
     semantic_artifact_response = client.get(
         f"/documents/{document_id}/semantics/latest/artifacts/json"
