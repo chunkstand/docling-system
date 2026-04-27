@@ -317,7 +317,9 @@ Search also writes a knowledge-operator evidence chain. Each persisted request n
 separate `retrieve`, `rerank`, and deterministic `judge` operator runs, with input/output
 hashes, harness/config fingerprints, candidate sets, selected evidence, and parent-run
 lineage. `GET /search/requests/{search_request_id}/evidence-package` exports the replayable
-evidence package for the request.
+evidence package for the request, including source document checksums, active-run validation
+state, result snapshots, chunk/table source records, table segment provenance, and package
+hashes.
 
 ### Current prose experiment
 

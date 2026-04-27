@@ -1732,6 +1732,8 @@ def _reranked_result_evidence_payload(
         "page_from": candidate.item.page_from,
         "page_to": candidate.item.page_to,
         "source_filename": candidate.item.source_filename,
+        "label": _result_label(candidate.item),
+        "preview_text": _result_preview(candidate.item),
         "features": candidate.features,
     }
 

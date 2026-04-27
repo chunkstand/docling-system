@@ -51,6 +51,13 @@ def test_search_evidence_operator_runs_roundtrip(postgres_integration_harness):
     assert package["audit_checklist"]["has_rerank_run"] is True
     assert package["audit_checklist"]["has_judge_run"] is True
     assert package["audit_checklist"]["result_count_matches"] is True
+    assert package["audit_checklist"]["has_source_snapshots"] is True
+    assert package["audit_checklist"]["all_results_have_source_snapshot"] is True
+    assert package["audit_checklist"]["all_results_have_source_record"] is True
+    assert package["audit_checklist"]["all_results_reference_active_run"] is True
+    assert package["audit_checklist"]["all_result_runs_validation_passed"] is True
+    assert package["audit_checklist"]["all_source_snapshots_hashed"] is True
+    assert package["package_sha256"]
     assert [row["operator_kind"] for row in package["operator_runs"]] == [
         "retrieve",
         "rerank",
@@ -59,6 +66,24 @@ def test_search_evidence_operator_runs_roundtrip(postgres_integration_harness):
     assert package["operator_runs"][0]["outputs"][0]["output_kind"] == "candidate_set"
     assert package["operator_runs"][1]["config_sha256"]
     assert package["operator_runs"][2]["outputs"][0]["output_kind"] == "selected_evidence"
+    assert package["operator_runs"][2]["outputs"][0]["payload"]["preview_text"]
+    assert package["results"][0]["search_request_result_id"]
+    assert package["results"][0]["source_snapshot_sha256"]
+    assert package["results"][0]["preview_text"]
+    assert len(package["source_evidence"]) == package["search_request"]["result_count"]
+
+    table_snapshot = next(
+        row for row in package["source_evidence"] if row["result_type"] == "table"
+    )
+    assert table_snapshot["document"]["sha256"]
+    assert table_snapshot["run"]["validation_status"] == "passed"
+    segment_metadata = table_snapshot["table"]["segments"][0]["metadata"]
+    assert segment_metadata["source_artifact_sha256"] == "segment-sha"
+
+    chunk_snapshot = next(
+        row for row in package["source_evidence"] if row["result_type"] == "chunk"
+    )
+    assert chunk_snapshot["chunk"]["text_sha256"]
 
     with postgres_integration_harness.session_factory() as session:
         rows = list(

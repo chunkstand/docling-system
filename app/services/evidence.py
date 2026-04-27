@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
 from app.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentRun,
+    DocumentTable,
+    DocumentTableSegment,
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
@@ -218,6 +223,215 @@ def _operator_run_payload(
     }
 
 
+def _select_by_ids(session: Session, model, ids: Iterable[UUID]) -> dict[UUID, Any]:
+    unique_ids = {value for value in ids if value is not None}
+    if not unique_ids:
+        return {}
+    return {
+        row.id: row
+        for row in session.scalars(select(model).where(model.id.in_(unique_ids)))
+    }
+
+
+def _document_payload(row: Document | None) -> dict | None:
+    if row is None:
+        return None
+    return {
+        "id": row.id,
+        "source_filename": row.source_filename,
+        "sha256": row.sha256,
+        "mime_type": row.mime_type,
+        "title": row.title,
+        "page_count": row.page_count,
+        "active_run_id": row.active_run_id,
+        "latest_run_id": row.latest_run_id,
+        "created_at": row.created_at,
+        "updated_at": row.updated_at,
+    }
+
+
+def _run_payload(row: DocumentRun | None) -> dict | None:
+    if row is None:
+        return None
+    return {
+        "id": row.id,
+        "document_id": row.document_id,
+        "run_number": row.run_number,
+        "status": row.status,
+        "docling_json_path": row.docling_json_path,
+        "yaml_path": row.yaml_path,
+        "chunk_count": row.chunk_count,
+        "table_count": row.table_count,
+        "figure_count": row.figure_count,
+        "embedding_model": row.embedding_model,
+        "embedding_dim": row.embedding_dim,
+        "validation_status": row.validation_status,
+        "validation_results": row.validation_results_json or {},
+        "created_at": row.created_at,
+        "started_at": row.started_at,
+        "completed_at": row.completed_at,
+    }
+
+
+def _chunk_payload(row: DocumentChunk | None) -> dict | None:
+    if row is None:
+        return None
+    payload = {
+        "id": row.id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "chunk_index": row.chunk_index,
+        "heading": row.heading,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "text": row.text,
+        "metadata": row.metadata_json or {},
+        "created_at": row.created_at,
+    }
+    payload["text_sha256"] = payload_sha256({"text": row.text})
+    return payload
+
+
+def _table_segment_payload(row: DocumentTableSegment) -> dict:
+    return {
+        "id": row.id,
+        "table_id": row.table_id,
+        "run_id": row.run_id,
+        "segment_index": row.segment_index,
+        "source_table_ref": row.source_table_ref,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "segment_order": row.segment_order,
+        "metadata": row.metadata_json or {},
+        "created_at": row.created_at,
+    }
+
+
+def _table_payload(
+    row: DocumentTable | None,
+    *,
+    segments: list[DocumentTableSegment],
+) -> dict | None:
+    if row is None:
+        return None
+    payload = {
+        "id": row.id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "table_index": row.table_index,
+        "title": row.title,
+        "logical_table_key": row.logical_table_key,
+        "table_version": row.table_version,
+        "supersedes_table_id": row.supersedes_table_id,
+        "lineage_group": row.lineage_group,
+        "heading": row.heading,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "row_count": row.row_count,
+        "col_count": row.col_count,
+        "status": row.status,
+        "search_text": row.search_text,
+        "preview_text": row.preview_text,
+        "metadata": row.metadata_json or {},
+        "json_path": row.json_path,
+        "yaml_path": row.yaml_path,
+        "segments": [_table_segment_payload(segment) for segment in segments],
+        "created_at": row.created_at,
+    }
+    payload["search_text_sha256"] = payload_sha256({"search_text": row.search_text})
+    payload["preview_text_sha256"] = payload_sha256({"preview_text": row.preview_text})
+    return payload
+
+
+def _result_payload(
+    row: SearchRequestResult,
+    *,
+    source_snapshot_sha256: str | None,
+) -> dict:
+    return {
+        "search_request_result_id": row.id,
+        "rank": row.rank,
+        "base_rank": row.base_rank,
+        "result_type": row.result_type,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "chunk_id": row.chunk_id,
+        "table_id": row.table_id,
+        "score": row.score,
+        "keyword_score": row.keyword_score,
+        "semantic_score": row.semantic_score,
+        "hybrid_score": row.hybrid_score,
+        "rerank_features": row.rerank_features_json or {},
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "source_filename": row.source_filename,
+        "label": row.label,
+        "preview_text": row.preview_text,
+        "source_snapshot_sha256": source_snapshot_sha256,
+    }
+
+
+def _source_evidence_payloads(
+    session: Session,
+    result_rows: list[SearchRequestResult],
+) -> list[dict]:
+    documents_by_id = _select_by_ids(session, Document, (row.document_id for row in result_rows))
+    runs_by_id = _select_by_ids(session, DocumentRun, (row.run_id for row in result_rows))
+    chunks_by_id = _select_by_ids(
+        session,
+        DocumentChunk,
+        (row.chunk_id for row in result_rows if row.chunk_id is not None),
+    )
+    tables_by_id = _select_by_ids(
+        session,
+        DocumentTable,
+        (row.table_id for row in result_rows if row.table_id is not None),
+    )
+    table_ids = set(tables_by_id)
+    segments_by_table_id: dict[UUID, list[DocumentTableSegment]] = {
+        table_id: [] for table_id in table_ids
+    }
+    if table_ids:
+        segment_rows = session.scalars(
+            select(DocumentTableSegment)
+            .where(DocumentTableSegment.table_id.in_(table_ids))
+            .order_by(
+                DocumentTableSegment.table_id.asc(),
+                DocumentTableSegment.segment_order.asc(),
+                DocumentTableSegment.segment_index.asc(),
+            )
+        )
+        for segment in segment_rows:
+            segments_by_table_id.setdefault(segment.table_id, []).append(segment)
+
+    payloads: list[dict] = []
+    for result in result_rows:
+        document = documents_by_id.get(result.document_id)
+        run = runs_by_id.get(result.run_id)
+        chunk_payload = None
+        table_payload = None
+        if result.result_type == "chunk" and result.chunk_id is not None:
+            chunk_payload = _chunk_payload(chunks_by_id.get(result.chunk_id))
+        if result.result_type == "table" and result.table_id is not None:
+            table_payload = _table_payload(
+                tables_by_id.get(result.table_id),
+                segments=segments_by_table_id.get(result.table_id, []),
+            )
+        payload = {
+            "search_request_result_id": result.id,
+            "rank": result.rank,
+            "result_type": result.result_type,
+            "source_id": result.chunk_id if result.result_type == "chunk" else result.table_id,
+            "document": _document_payload(document),
+            "run": _run_payload(run),
+            "chunk": chunk_payload,
+            "table": table_payload,
+        }
+        payload["source_snapshot_sha256"] = payload_sha256(payload)
+        payloads.append(payload)
+    return payloads
+
+
 def get_search_evidence_package(session: Session, search_request_id: UUID) -> dict:
     request_row = session.get(SearchRequestRecord, search_request_id)
     if request_row is None:
@@ -268,7 +482,11 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
     for row in output_rows:
         outputs_by_run.setdefault(row.operator_run_id, []).append(row)
 
-    return {
+    source_evidence = _source_evidence_payloads(session, result_rows)
+    source_evidence_by_result_id = {
+        str(row["search_request_result_id"]): row for row in source_evidence
+    }
+    package = {
         "schema_name": "search_evidence_package",
         "schema_version": "1.0",
         "search_request": {
@@ -297,26 +515,15 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             for row in operator_rows
         ],
         "results": [
-            {
-                "rank": row.rank,
-                "base_rank": row.base_rank,
-                "result_type": row.result_type,
-                "document_id": row.document_id,
-                "run_id": row.run_id,
-                "chunk_id": row.chunk_id,
-                "table_id": row.table_id,
-                "score": row.score,
-                "keyword_score": row.keyword_score,
-                "semantic_score": row.semantic_score,
-                "hybrid_score": row.hybrid_score,
-                "rerank_features": row.rerank_features_json or {},
-                "page_from": row.page_from,
-                "page_to": row.page_to,
-                "source_filename": row.source_filename,
-                "label": row.label,
-            }
+            _result_payload(
+                row,
+                source_snapshot_sha256=source_evidence_by_result_id.get(str(row.id), {}).get(
+                    "source_snapshot_sha256"
+                ),
+            )
             for row in result_rows
         ],
+        "source_evidence": source_evidence,
         "audit_checklist": {
             "has_retrieve_run": any(row.operator_kind == "retrieve" for row in operator_rows),
             "has_rerank_run": any(row.operator_kind == "rerank" for row in operator_rows),
@@ -327,5 +534,26 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
                 if row.operator_kind in {"retrieve", "rerank"}
             ),
             "result_count_matches": len(result_rows) == request_row.result_count,
+            "has_source_snapshots": bool(source_evidence),
+            "all_results_have_source_snapshot": len(source_evidence) == len(result_rows),
+            "all_results_have_source_record": all(
+                item.get(str(item.get("result_type"))) is not None for item in source_evidence
+            ),
+            "all_results_reference_active_run": all(
+                item.get("document") is not None
+                and item.get("run") is not None
+                and str(item["document"].get("active_run_id")) == str(item["run"].get("id"))
+                for item in source_evidence
+            ),
+            "all_result_runs_validation_passed": all(
+                item.get("run") is not None
+                and item["run"].get("validation_status") == "passed"
+                for item in source_evidence
+            ),
+            "all_source_snapshots_hashed": all(
+                bool(item.get("source_snapshot_sha256")) for item in source_evidence
+            ),
         },
     }
+    package["package_sha256"] = payload_sha256(package)
+    return package

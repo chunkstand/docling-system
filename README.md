@@ -14,7 +14,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
-The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload.
+The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, source document checksums, active-run validation state, chunk/table snapshots, table segment provenance, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload.
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
