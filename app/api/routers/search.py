@@ -48,6 +48,7 @@ HarnessEvaluationLimitQuery = Annotated[int, Query(ge=1, le=200)]
 execute_search = retrieval.execute_search
 get_search_request_detail = retrieval.get_search_request_detail
 get_search_request_explanation = retrieval.get_search_request_explanation
+get_search_evidence_package = retrieval.get_search_evidence_package
 record_search_feedback = retrieval.record_search_feedback
 replay_search_request = retrieval.replay_search_request
 list_search_replay_runs = retrieval.list_search_replay_runs
@@ -153,6 +154,25 @@ def explain_search_request(
     session: DbSession,
 ) -> SearchRequestExplanationResponse:
     return get_search_request_explanation(session, search_request_id)
+
+
+@router.get(
+    "/search/requests/{search_request_id}/evidence-package",
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_HISTORY_READ))],
+)
+def read_search_evidence_package(
+    search_request_id: UUID,
+    session: DbSession,
+) -> dict:
+    try:
+        return get_search_evidence_package(session, search_request_id)
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "search_request_not_found",
+            str(exc),
+            search_request_id=str(search_request_id),
+        ) from exc
 
 
 @router.post(

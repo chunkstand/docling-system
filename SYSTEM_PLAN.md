@@ -313,6 +313,12 @@ Every direct search request is persisted. The system records:
 
 Search feedback is also persisted and can be replayed later through the replay surface.
 
+Search also writes a knowledge-operator evidence chain. Each persisted request now records
+separate `retrieve`, `rerank`, and deterministic `judge` operator runs, with input/output
+hashes, harness/config fingerprints, candidate sets, selected evidence, and parent-run
+lineage. `GET /search/requests/{search_request_id}/evidence-package` exports the replayable
+evidence package for the request.
+
 ### Current prose experiment
 
 The current non-default `prose_v3` harness extends prose-heavy retrieval with:
@@ -613,6 +619,7 @@ Current workflow-heavy paths include:
 - `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
 - `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
 - `plan_technical_report -> build_report_evidence_cards -> prepare_report_agent_harness -> draft_technical_report -> verify_technical_report`, which turns the semantic dossier and approved graph memory into a report plan, typed evidence cards, an LLM wake-up packet with allowed tools and required skills, a verification-ready report draft, and a verifier gate that checks refreshed context, claim traceability, graph approval, and concept coverage
+- technical-report drafting and verification also write `generate` and `verify` knowledge-operator runs so generated documents carry a database-backed activity trail from harness input through verifier outcome
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`

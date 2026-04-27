@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from app.db.models import Document, SearchRequestRecord, SearchRequestResult
+from app.db.models import Document, KnowledgeOperatorRun, SearchRequestRecord, SearchRequestResult
 from app.schemas.search import SearchFilters, SearchRequest
 from app.services.search import (
     RankedResult,
@@ -1034,8 +1034,10 @@ def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> No
 
     request_rows = [row for row in session.added if isinstance(row, SearchRequestRecord)]
     result_rows = [row for row in session.added if isinstance(row, SearchRequestResult)]
+    operator_rows = [row for row in session.added if isinstance(row, KnowledgeOperatorRun)]
 
     assert execution.request_id is not None
+    assert len(execution.evidence_operator_run_ids) == 3
     assert execution.harness_name == "default_v1"
     assert execution.reranker_name == "linear_feature_reranker"
     assert execution.reranker_version == "v1"
@@ -1047,6 +1049,9 @@ def test_execute_search_persists_request_and_result_snapshots(monkeypatch) -> No
     assert "source_filename_token_coverage" in result_rows[0].rerank_features_json
     assert "document_title_token_coverage" in result_rows[0].rerank_features_json
     assert "document_cluster_strength" in result_rows[0].rerank_features_json
+    assert [row.operator_kind for row in operator_rows] == ["retrieve", "rerank", "judge"]
+    assert operator_rows[1].parent_operator_run_id == operator_rows[0].id
+    assert operator_rows[2].parent_operator_run_id == operator_rows[1].id
 
 
 def test_execute_search_falls_back_to_relaxed_keyword_matching(monkeypatch) -> None:

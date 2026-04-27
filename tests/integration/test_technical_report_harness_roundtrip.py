@@ -5,9 +5,10 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db.models import AgentTask
+from app.db.models import AgentTask, KnowledgeOperatorRun
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import create_agent_task
@@ -178,6 +179,14 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         markdown_path = Path(draft_task_row.result_json["payload"]["draft"]["markdown_path"])
         assert markdown_path.exists()
         assert "Evidence Cards" in markdown_path.read_text()
+        draft_operator_rows = list(
+            session.scalars(
+                select(KnowledgeOperatorRun).where(
+                    KnowledgeOperatorRun.agent_task_id == draft_task_id
+                )
+            )
+        )
+        assert [row.operator_kind for row in draft_operator_rows] == ["generate"]
 
         verify_task_row = session.get(AgentTask, verify_task_id)
         assert verify_task_row is not None
@@ -185,6 +194,15 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["outcome"] == "passed"
         assert verification["metrics"]["context_ref_count"] >= 1
         assert verification["metrics"]["unsupported_claim_count"] == 0
+        verify_operator_rows = list(
+            session.scalars(
+                select(KnowledgeOperatorRun).where(
+                    KnowledgeOperatorRun.agent_task_id == verify_task_id
+                )
+            )
+        )
+        assert [row.operator_kind for row in verify_operator_rows] == ["verify"]
+        assert verify_operator_rows[0].output_sha256
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200

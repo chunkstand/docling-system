@@ -1224,6 +1224,7 @@ class DraftTechnicalReportTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+    operator_run_id: UUID | None = None
 
 
 class VerifyTechnicalReportTaskInput(BaseModel):
@@ -1243,6 +1244,7 @@ class VerifyTechnicalReportTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+    operator_run_id: UUID | None = None
 
 
 class SemanticSupervisionCorpusRow(BaseModel):

@@ -31,6 +31,7 @@ from app.schemas.search import (
 from app.services import (
     chat,
     eval_workbench,
+    evidence,
     search,
     search_harness_evaluations,
     search_history,
@@ -62,6 +63,12 @@ class RetrievalCapability(Protocol):
         session: Session,
         search_request_id: UUID,
     ) -> SearchRequestExplanationResponse: ...
+
+    def get_search_evidence_package(
+        self,
+        session: Session,
+        search_request_id: UUID,
+    ) -> dict: ...
 
     def record_search_feedback(
         self,
@@ -177,6 +184,13 @@ class ServicesRetrievalCapability:
         search_request_id: UUID,
     ) -> SearchRequestExplanationResponse:
         return search_legibility.get_search_request_explanation(session, search_request_id)
+
+    def get_search_evidence_package(
+        self,
+        session: Session,
+        search_request_id: UUID,
+    ) -> dict:
+        return evidence.get_search_evidence_package(session, search_request_id)
 
     def record_search_feedback(
         self,

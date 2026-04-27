@@ -277,6 +277,45 @@ def test_search_request_explain_route_returns_machine_readable_error(monkeypatch
     assert response.json()["error_code"] == "search_request_not_found"
 
 
+def test_search_request_evidence_package_route_uses_evidence_service(monkeypatch) -> None:
+    request_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.routers.search.get_search_evidence_package",
+        lambda session, search_request_id: {
+            "schema_name": "search_evidence_package",
+            "schema_version": "1.0",
+            "search_request": {"id": str(search_request_id), "query_text": "vent stack"},
+            "operator_runs": [{"operator_kind": "retrieve"}],
+            "results": [],
+            "audit_checklist": {"has_retrieve_run": True},
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/requests/{request_id}/evidence-package")
+
+    assert response.status_code == 200
+    assert response.json()["search_request"]["id"] == str(request_id)
+    assert response.json()["operator_runs"][0]["operator_kind"] == "retrieve"
+
+
+def test_search_request_evidence_package_route_returns_structured_404(monkeypatch) -> None:
+    request_id = uuid4()
+
+    def raise_not_found(session, search_request_id):
+        raise ValueError(f"Search request '{search_request_id}' was not found.")
+
+    monkeypatch.setattr("app.api.routers.search.get_search_evidence_package", raise_not_found)
+
+    client = TestClient(app)
+    response = client.get(f"/search/requests/{request_id}/evidence-package")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_request_not_found"
+    assert response.json()["error_context"]["search_request_id"] == str(request_id)
+
+
 def test_search_replay_list_route_requires_remote_replay_capability(monkeypatch) -> None:
     monkeypatch.setattr("app.api.routers.search.list_search_replay_runs", lambda session: [])
     monkeypatch.setattr(

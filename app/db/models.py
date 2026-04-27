@@ -80,6 +80,24 @@ class AgentTaskOutcomeLabel(StrEnum):
     INCORRECT = "incorrect"
 
 
+class KnowledgeOperatorKind(StrEnum):
+    PARSE = "parse"
+    EMBED = "embed"
+    RETRIEVE = "retrieve"
+    RERANK = "rerank"
+    JUDGE = "judge"
+    GENERATE = "generate"
+    VERIFY = "verify"
+    EXPORT = "export"
+    ORCHESTRATE = "orchestrate"
+
+
+class KnowledgeOperatorStatus(StrEnum):
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class SemanticPassStatus(StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
@@ -2402,6 +2420,159 @@ class AgentTaskVerification(Base):
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class KnowledgeOperatorRun(Base):
+    __tablename__ = "knowledge_operator_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "operator_kind IN ("
+            "'parse', 'embed', 'retrieve', 'rerank', 'judge', "
+            "'generate', 'verify', 'export', 'orchestrate'"
+            ")",
+            name="ck_knowledge_operator_runs_operator_kind",
+        ),
+        CheckConstraint(
+            "status IN ('completed', 'failed', 'skipped')",
+            name="ck_knowledge_operator_runs_status",
+        ),
+        Index("ix_knowledge_operator_runs_created_at", "created_at"),
+        Index("ix_knowledge_operator_runs_search_request_id", "search_request_id"),
+        Index("ix_knowledge_operator_runs_agent_task_id", "agent_task_id"),
+        Index("ix_knowledge_operator_runs_parent_id", "parent_operator_run_id"),
+        Index("ix_knowledge_operator_runs_kind_created_at", "operator_kind", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    parent_operator_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_operator_runs.id", ondelete="SET NULL"),
+    )
+    operator_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    operator_name: Mapped[str] = mapped_column(Text, nullable=False)
+    operator_version: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default=KnowledgeOperatorStatus.COMPLETED.value,
+        server_default=sql_text("'completed'"),
+    )
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("documents.id", ondelete="SET NULL"),
+    )
+    run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_runs.id", ondelete="SET NULL"),
+    )
+    search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    search_harness_evaluation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_evaluations.id", ondelete="SET NULL"),
+    )
+    agent_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    agent_task_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_attempts.id", ondelete="SET NULL"),
+    )
+    model_name: Mapped[str | None] = mapped_column(Text)
+    model_version: Mapped[str | None] = mapped_column(Text)
+    prompt_sha256: Mapped[str | None] = mapped_column(Text)
+    config_sha256: Mapped[str | None] = mapped_column(Text)
+    input_sha256: Mapped[str | None] = mapped_column(Text)
+    output_sha256: Mapped[str | None] = mapped_column(Text)
+    metrics_json: Mapped[dict] = mapped_column(
+        "metrics",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[float | None] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeOperatorInput(Base):
+    __tablename__ = "knowledge_operator_inputs"
+    __table_args__ = (
+        Index("ix_knowledge_operator_inputs_operator_run_id", "operator_run_id"),
+        Index("ix_knowledge_operator_inputs_source", "source_table", "source_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    operator_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_operator_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    input_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sql_text("0"),
+    )
+    input_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_table: Mapped[str | None] = mapped_column(Text)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    artifact_path: Mapped[str | None] = mapped_column(Text)
+    artifact_sha256: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class KnowledgeOperatorOutput(Base):
+    __tablename__ = "knowledge_operator_outputs"
+    __table_args__ = (
+        Index("ix_knowledge_operator_outputs_operator_run_id", "operator_run_id"),
+        Index("ix_knowledge_operator_outputs_target", "target_table", "target_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    operator_run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_operator_runs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    output_index: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sql_text("0"),
+    )
+    output_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    target_table: Mapped[str | None] = mapped_column(Text)
+    target_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    artifact_path: Mapped[str | None] = mapped_column(Text)
+    artifact_sha256: Mapped[str | None] = mapped_column(Text)
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class DocumentChunk(Base):

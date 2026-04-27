@@ -127,6 +127,7 @@ from app.services.eval_workbench import (
     refresh_eval_failure_cases,
     triage_eval_failure_case,
 )
+from app.services.evidence import record_knowledge_operator_run
 from app.services.quality import list_quality_eval_candidates
 from app.services.search import get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
@@ -715,11 +716,66 @@ def _draft_technical_report_executor(
         storage_service=storage_service,
         filename="technical_report_draft.json",
     )
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="generate",
+        operator_name="technical_report_draft",
+        operator_version="v1",
+        agent_task_id=task.id,
+        model_name=payload.generator_model,
+        config={
+            "generator_mode": payload.generator_mode,
+            "llm_adapter_contract": draft_payload.get("llm_adapter_contract", {}),
+        },
+        input_payload={
+            "target_task_id": str(payload.target_task_id),
+            "harness_task_type": harness_context.task_type,
+            "claim_contract_count": len(
+                harness_output.harness.model_dump(mode="json").get("claim_contract") or []
+            ),
+        },
+        output_payload={
+            "artifact_id": str(artifact.id),
+            "artifact_kind": artifact.artifact_kind,
+            "artifact_path": artifact.storage_path,
+            "claim_count": len(draft_payload.get("claims") or []),
+            "blocked_claim_count": len(draft_payload.get("blocked_claims") or []),
+        },
+        metrics={
+            "claim_count": len(draft_payload.get("claims") or []),
+            "blocked_claim_count": len(draft_payload.get("blocked_claims") or []),
+            "evidence_card_count": len(draft_payload.get("evidence_cards") or []),
+        },
+        metadata={
+            "audit_role": "records the report generation activity and its source harness",
+        },
+        inputs=[
+            {
+                "input_kind": "report_agent_harness",
+                "source_table": "agent_tasks",
+                "source_id": payload.target_task_id,
+                "payload": {"target_task_type": harness_context.task_type},
+            }
+        ],
+        outputs=[
+            {
+                "output_kind": "technical_report_draft",
+                "target_table": "agent_task_artifacts",
+                "target_id": artifact.id,
+                "artifact_path": artifact.storage_path,
+                "payload": {
+                    "claim_count": len(draft_payload.get("claims") or []),
+                    "markdown_path": draft_payload.get("markdown_path"),
+                },
+            }
+        ],
+    )
     return {
         "draft": draft_payload,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
+        "operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
 
 
@@ -787,11 +843,66 @@ def _verify_technical_report_executor(
         storage_service=StorageService(),
         filename="technical_report_verification.json",
     )
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="verify",
+        operator_name="technical_report_gate",
+        operator_version="v1",
+        agent_task_id=task.id,
+        config=outcome.verification_details.get("thresholds", {}),
+        input_payload={
+            "target_task_id": str(payload.target_task_id),
+            "draft_task_type": draft_context.task_type,
+            "claim_count": outcome.summary.get("claim_count", 0),
+        },
+        output_payload={
+            "verification_id": str(record.verification_id),
+            "verification_outcome": outcome.verification_outcome,
+            "artifact_id": str(artifact.id),
+            "artifact_kind": artifact.artifact_kind,
+            "artifact_path": artifact.storage_path,
+        },
+        metrics=outcome.verification_metrics,
+        metadata={
+            "verification_outcome": outcome.verification_outcome,
+            "audit_role": "records the verifier gate for a generated technical report",
+        },
+        inputs=[
+            {
+                "input_kind": "technical_report_draft",
+                "source_table": "agent_tasks",
+                "source_id": payload.target_task_id,
+                "payload": {
+                    "target_task_type": draft_context.task_type,
+                    "context_ref_count": outcome.summary.get("context_ref_count", 0),
+                },
+            }
+        ],
+        outputs=[
+            {
+                "output_kind": "technical_report_verification",
+                "target_table": "agent_task_verifications",
+                "target_id": record.verification_id,
+                "payload": {
+                    "outcome": outcome.verification_outcome,
+                    "reasons": outcome.verification_reasons,
+                },
+            },
+            {
+                "output_kind": "technical_report_verification_artifact",
+                "target_table": "agent_task_artifacts",
+                "target_id": artifact.id,
+                "artifact_path": artifact.storage_path,
+                "payload": {"artifact_kind": artifact.artifact_kind},
+            },
+        ],
+    )
     return {
         **result,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
+        "operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
 
 

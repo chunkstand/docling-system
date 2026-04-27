@@ -14,6 +14,8 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
+The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload.
+
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
 The semantics stack is now portable across arbitrary user corpora. The repo ships only a generic upper ontology seed plus workflow code; the active ontology, approved fact graph, and approved cross-document graph memory live in DB-backed snapshots that can be rebuilt from whatever documents a user ingests. Shadow semantic extractors and graph builders stay additive until they pass verification and an operator approves publication.
@@ -255,6 +257,7 @@ Batch CLI commands:
 - `GET /runs/{run_id}/failure-artifact`
 - `POST /search`
 - `GET /search/requests/{search_request_id}`
+- `GET /search/requests/{search_request_id}/evidence-package`
 - `POST /search/requests/{search_request_id}/feedback`
 - `POST /search/requests/{search_request_id}/replay`
 - `GET /search/harnesses`
@@ -328,6 +331,7 @@ Keyword, semantic, and hybrid modes search active chunks and active tables indep
 Every direct search request is persisted and returned with an `X-Search-Request-Id` response header. That durable request ID supports:
 
 - request detail inspection through `GET /search/requests/{search_request_id}`
+- auditable evidence export through `GET /search/requests/{search_request_id}/evidence-package`
 - operator labeling through `POST /search/requests/{search_request_id}/feedback`
 - one-off replay through `POST /search/requests/{search_request_id}/replay`
 - batch replay suites and trend reporting through the replay and quality endpoints
