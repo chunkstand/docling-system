@@ -522,6 +522,9 @@ GitHub Actions workflow at `.github/workflows/architecture-governance.yml` write
 that report to `build/architecture-governance/architecture_governance_report.json`
 and uploads the `build/architecture-governance/` directory as the
 `architecture-governance-report` artifact before running the architecture gates.
+The workflow also dry-runs the improvement-case import against that report, so
+the uploaded governance artifact is continuously checked as a consumable
+feedback source for the self-improvement loop.
 The same report can be fed back into the improvement loop with
 `docling-system-improvement-case-import --source architecture-governance-report
 --source-path build/architecture-governance/architecture_governance_report.json`

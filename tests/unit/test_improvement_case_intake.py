@@ -32,26 +32,30 @@ def _write_architecture_governance_report(
     *,
     valid: bool = True,
     recording_required: bool = False,
+    include_top_level_measurement_fields: bool = True,
+    schema_name: str = "architecture_governance_report",
     violations: list[dict] | None = None,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    measurement_summary = {
+        "current_commit_sha": "current-sha",
+        "latest_recorded_commit_sha": "old-sha" if recording_required else "current-sha",
+        "recording_required": recording_required,
+    }
+    payload = {
+        "schema_name": schema_name,
+        "schema_version": "1.0",
+        "valid": valid,
+        "violation_count": len(violations or []),
+        "inspection": {
+            "violations": violations or [],
+        },
+        "measurement_summary": measurement_summary,
+    }
+    if include_top_level_measurement_fields:
+        payload.update(measurement_summary)
     path.write_text(
-        json.dumps(
-            {
-                "schema_name": "architecture_governance_report",
-                "schema_version": "1.0",
-                "valid": valid,
-                "violation_count": len(violations or []),
-                "current_commit_sha": "current-sha",
-                "latest_recorded_commit_sha": (
-                    "old-sha" if recording_required else "current-sha"
-                ),
-                "recording_required": recording_required,
-                "inspection": {
-                    "violations": violations or [],
-                },
-            }
-        )
+        json.dumps(payload)
     )
 
 
@@ -120,7 +124,11 @@ def test_collect_architecture_governance_report_observations_from_stale_report(
     tmp_path: Path,
 ) -> None:
     report_path = tmp_path / "architecture_governance_report.json"
-    _write_architecture_governance_report(report_path, recording_required=True)
+    _write_architecture_governance_report(
+        report_path,
+        recording_required=True,
+        include_top_level_measurement_fields=False,
+    )
 
     observations = intake.collect_improvement_case_import_observations(
         source="architecture-governance-report",
@@ -132,6 +140,7 @@ def test_collect_architecture_governance_report_observations_from_stale_report(
     assert observations[0].source_ref == "architecture-governance:measurement-freshness:current-sha"
     assert observations[0].cause_class == "missing_context"
     assert "old-sha" in observations[0].observed_failure
+    assert "current_commit_sha=current-sha" in observations[0].source_notes
 
 
 def test_collect_architecture_governance_report_observations_skips_clean_report(
@@ -155,6 +164,19 @@ def test_collect_architecture_governance_report_requires_explicit_existing_path(
         intake.collect_improvement_case_import_observations(
             source="architecture-governance-report",
             source_path=tmp_path / "missing.json",
+        )
+
+
+def test_collect_architecture_governance_report_rejects_wrong_schema(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "not_architecture_governance_report.json"
+    _write_architecture_governance_report(report_path, schema_name="other_report")
+
+    with pytest.raises(ValueError, match="unexpected schema_name"):
+        intake.collect_improvement_case_import_observations(
+            source="architecture-governance-report",
+            source_path=report_path,
         )
 
 
@@ -312,6 +334,7 @@ def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
     cli_source = (Path(__file__).parents[2] / "app" / "cli.py").read_text()
 
     for forbidden in (
+        "collect_architecture_governance_report_observations",
         "collect_eval_failure_case_observations",
         "collect_failed_agent_task_observations",
         "collect_failed_agent_verification_observations",

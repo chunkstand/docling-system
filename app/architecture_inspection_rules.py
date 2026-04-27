@@ -19,6 +19,9 @@ from app.architecture_inspection_rule_config import (
     FORBIDDEN_SERVICE_IMPORT_PREFIXES,
     REQUIRED_ARCHITECTURE_DOC_TOKENS,
 )
+from app.architecture_inspection_rule_config import (
+    FORBIDDEN_CLI_IMPROVEMENT_INTAKE_MODULES as CLI_INTAKE_MODULES,
+)
 from app.architecture_inspection_types import ArchitectureRule, ArchitectureViolation
 from app.capability_contracts import validate_capability_contracts
 from app.services.agent_task_actions import validate_agent_task_action_contracts
@@ -208,7 +211,7 @@ def _cli_improvement_intake_violations(project_root: Path) -> list[ArchitectureV
         if isinstance(node, ast.ImportFrom):
             if node.module is None:
                 continue
-            if not _matches_module_or_submodule(node.module, "app.services.improvement_cases"):
+            if not _matches_any_module_or_submodule(node.module, CLI_INTAKE_MODULES):
                 continue
             for alias in node.names:
                 if alias.name not in FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS:
@@ -236,10 +239,7 @@ def _cli_improvement_intake_violations(project_root: Path) -> list[ArchitectureV
                 and isinstance(symbol_arg.value, str)
             ):
                 continue
-            if not _matches_module_or_submodule(
-                module_arg.value,
-                "app.services.improvement_cases",
-            ):
+            if not _matches_any_module_or_submodule(module_arg.value, CLI_INTAKE_MODULES):
                 continue
             if symbol_arg.value not in FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS:
                 continue

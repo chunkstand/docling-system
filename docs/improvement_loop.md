@@ -108,6 +108,11 @@ uv run docling-system-architecture-governance-report \
   --output-path build/architecture-governance/architecture_governance_report.json
 ```
 
+The architecture-governance CI workflow dry-runs
+`docling-system-improvement-case-import --source architecture-governance-report`
+against the generated report before the architecture gates, which proves the
+report remains a valid self-improvement intake source.
+
 The default history path is `storage/architecture_inspections/history.jsonl`.
 That local JSONL history gives future agents a stable trend signal instead of
 relying on ad hoc inspection notes. The summary command reports aggregate

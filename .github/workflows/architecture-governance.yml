@@ -43,6 +43,13 @@ jobs:
           path: build/architecture-governance/
           if-no-files-found: warn
 
+      - name: Validate governance feedback intake
+        run: >
+          uv run docling-system-improvement-case-import
+          --source architecture-governance-report
+          --source-path build/architecture-governance/architecture_governance_report.json
+          --dry-run
+
       - name: Ruff
         run: uv run ruff check
 

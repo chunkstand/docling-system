@@ -7,7 +7,10 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.architecture_measurement_contracts import DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
+from app.architecture_measurement_contracts import (
+    ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH,
+)
 from app.core.files import repo_root
 from app.db.session import get_session_factory
 from app.hygiene import (
@@ -152,6 +155,17 @@ def _architecture_governance_source_notes(
     return "; ".join(parts)
 
 
+def _architecture_governance_report_value(
+    report: dict,
+    measurement_summary: dict | None,
+    key: str,
+) -> object:
+    value = report.get(key)
+    if value is None and measurement_summary is not None:
+        return measurement_summary.get(key)
+    return value
+
+
 def _architecture_violation_source_ref(violation: dict) -> str:
     rule_id = str(violation.get("rule_id") or "unattributed")
     locator = (
@@ -188,15 +202,37 @@ def collect_architecture_governance_report_observations(
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid architecture governance report JSON: {exc}") from exc
 
+    if not isinstance(report, dict):
+        raise ValueError("Architecture governance report must be a JSON object.")
+    if report.get("schema_name") != ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME:
+        raise ValueError(
+            "Architecture governance report has unexpected schema_name "
+            f"{report.get('schema_name')!r}."
+        )
+
+    measurement_summary = report.get("measurement_summary")
+    if not isinstance(measurement_summary, dict):
+        measurement_summary = None
     inspection = report.get("inspection") if isinstance(report, dict) else None
     violations = (
         inspection.get("violations", [])
         if isinstance(inspection, dict) and isinstance(inspection.get("violations", []), list)
         else []
     )
-    current_commit_sha = report.get("current_commit_sha") if isinstance(report, dict) else None
-    latest_recorded_commit_sha = (
-        report.get("latest_recorded_commit_sha") if isinstance(report, dict) else None
+    current_commit_sha = _architecture_governance_report_value(
+        report,
+        measurement_summary,
+        "current_commit_sha",
+    )
+    latest_recorded_commit_sha = _architecture_governance_report_value(
+        report,
+        measurement_summary,
+        "latest_recorded_commit_sha",
+    )
+    recording_required = _architecture_governance_report_value(
+        report,
+        measurement_summary,
+        "recording_required",
     )
     observations: list[ImprovementCaseObservation] = []
 
@@ -228,7 +264,7 @@ def collect_architecture_governance_report_observations(
             )
         )
 
-    if isinstance(report, dict) and report.get("valid") is False and not observations:
+    if report.get("valid") is False and not observations:
         observations.append(
             ImprovementCaseObservation(
                 title="Architecture governance report is invalid",
@@ -251,7 +287,7 @@ def collect_architecture_governance_report_observations(
             )
         )
 
-    if isinstance(report, dict) and report.get("recording_required") is True:
+    if recording_required is True:
         observations.append(
             ImprovementCaseObservation(
                 title="Architecture measurement history is stale",

@@ -29,12 +29,18 @@ FORBIDDEN_BOUNDARY_SERVICE_IMPORTS = frozenset(
     }
 )
 FORBIDDEN_BOUNDARY_DATA_MODEL_IMPORTS = frozenset({"app.db.models"})
+FORBIDDEN_CLI_IMPROVEMENT_INTAKE_MODULES = frozenset(
+    {"app.services.improvement_cases", "app.services.improvement_case_intake"}
+)
 FORBIDDEN_CLI_IMPROVEMENT_INTAKE_SYMBOLS = frozenset(
     {
+        "collect_architecture_governance_report_observations",
         "collect_eval_failure_case_observations",
         "collect_failed_agent_task_observations",
         "collect_failed_agent_verification_observations",
+        "collect_hygiene_import_observations",
         "collect_hygiene_finding_observations",
+        "collect_improvement_case_import_observations",
         "import_improvement_case_observations",
     }
 )

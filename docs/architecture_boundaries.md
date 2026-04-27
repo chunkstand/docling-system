@@ -141,8 +141,10 @@ CI artifact shape without appending to local measurement history unless
 `build/architecture-governance/architecture_measurement_history.jsonl`, writes the
 fresh report to
 `build/architecture-governance/architecture_governance_report.json`, uploads the
-build-scoped governance directory for future agents, and then runs the
-architecture, capability, lint, focused test, and hygiene gates.
+build-scoped governance directory for future agents, dry-runs
+`docling-system-improvement-case-import --source architecture-governance-report`
+against the report, and then runs the architecture, capability, lint, focused
+test, and hygiene gates.
 
 The read-only API surface is owned by the `system_governance` service capability
 facade and exposed through `GET /architecture/inspection` and

@@ -128,6 +128,9 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert "docling-system-architecture-governance-report" in workflow_text
     assert "--record-current" in workflow_text
     assert measurement_contract["ci_history_path"] in workflow_text
+    assert "docling-system-improvement-case-import" in workflow_text
+    assert "--source architecture-governance-report" in workflow_text
+    assert "--dry-run" in workflow_text
     assert all(rule["contract"] for rule in contract_map["inspection_rules"])
     assert all(rule["description"] for rule in contract_map["inspection_rules"])
     assert all(
@@ -419,9 +422,16 @@ def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
                 "from app.services.improvement_cases import (",
                 "    collect_hygiene_finding_observations,",
                 ")",
+                "from app.services.improvement_case_intake import (",
+                "    collect_architecture_governance_report_observations,",
+                ")",
                 "bad = _lazy_service_attr(",
                 '    "app.services.improvement_cases",',
                 '    "import_improvement_case_observations",',
+                ")",
+                "also_bad = _lazy_service_attr(",
+                '    "app.services.improvement_case_intake",',
+                '    "collect_improvement_case_import_observations",',
                 ")",
             ]
         )
@@ -432,6 +442,14 @@ def test_cli_improvement_intake_rule_uses_ast_not_substring_scan(
         violation.symbol
         for violation in rule.check(context)
     } == {
+        (
+            "app.services.improvement_case_intake."
+            "collect_architecture_governance_report_observations"
+        ),
+        (
+            "app.services.improvement_case_intake."
+            "collect_improvement_case_import_observations"
+        ),
         "app.services.improvement_cases.collect_hygiene_finding_observations",
         "app.services.improvement_cases.import_improvement_case_observations",
     }
