@@ -20,6 +20,7 @@ from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
+from app.services.evidence import refresh_technical_report_evidence_manifest
 from app.services.runtime import (
     get_process_identity,
     register_runtime_process,
@@ -88,6 +89,16 @@ def _duration_ms(started_at: datetime | None, completed_at: datetime | None) -> 
     if started_at is None or completed_at is None:
         return None
     return max(0.0, (completed_at - started_at).total_seconds() * 1000.0)
+
+
+def _technical_report_verification_passed(result: dict) -> bool:
+    if result.get("task_type") != "verify_technical_report":
+        return False
+    payload = result.get("payload")
+    if not isinstance(payload, dict):
+        return False
+    verification = payload.get("verification")
+    return isinstance(verification, dict) and verification.get("outcome") == "passed"
 
 
 def _evaluation_query_count_from_evaluation(evaluation: dict) -> int:
@@ -531,6 +542,17 @@ def finalize_agent_task_success(
     if task.failure_artifact_path and storage_service is not None:
         storage_service.delete_file_if_exists(Path(task.failure_artifact_path))
     task.failure_artifact_path = None
+
+    if _technical_report_verification_passed(sanitized_result):
+        evidence_manifest = refresh_technical_report_evidence_manifest(
+            session,
+            task_id=task.id,
+        )
+        payload = sanitized_result.get("payload")
+        if isinstance(payload, dict):
+            payload["evidence_manifest_id"] = str(evidence_manifest.id)
+            payload["evidence_manifest_sha256"] = evidence_manifest.manifest_sha256
+            task.result_json = sanitized_result
 
     attempt = _current_attempt(session, task)
     if attempt is not None:

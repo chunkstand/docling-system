@@ -1704,32 +1704,67 @@ def build_technical_report_evidence_manifest_payload(
     }
 
 
-def _evidence_manifest_response(row: EvidenceManifest) -> dict[str, Any]:
+def _evidence_manifest_integrity_payload(
+    session: Session,
+    row: EvidenceManifest,
+) -> dict[str, Any]:
+    stored_payload = row.manifest_payload_json or {}
+    stored_payload_sha256 = payload_sha256(stored_payload)
+    recomputed_manifest_sha256 = None
+    recomputation_error = None
+    try:
+        recomputed_payload = build_technical_report_evidence_manifest_payload(
+            session,
+            row.verification_task_id,
+        )
+        recomputed_manifest_sha256 = payload_sha256(recomputed_payload)
+    except ValueError as exc:
+        recomputation_error = str(exc)
+
+    stored_payload_hash_matches = stored_payload_sha256 == row.manifest_sha256
+    recomputed_manifest_hash_matches = recomputed_manifest_sha256 == row.manifest_sha256
+    stored_payload_matches_recomputed = (
+        stored_payload_sha256 == recomputed_manifest_sha256
+        if recomputed_manifest_sha256 is not None
+        else False
+    )
+    return {
+        "stored_manifest_sha256": row.manifest_sha256,
+        "stored_payload_sha256": stored_payload_sha256,
+        "recomputed_manifest_sha256": recomputed_manifest_sha256,
+        "stored_payload_hash_matches": stored_payload_hash_matches,
+        "recomputed_manifest_hash_matches": recomputed_manifest_hash_matches,
+        "stored_payload_matches_recomputed": stored_payload_matches_recomputed,
+        "recomputation_error": recomputation_error,
+        "manifest_status": row.manifest_status,
+        "complete": (
+            row.manifest_status == "completed"
+            and stored_payload_hash_matches
+            and recomputed_manifest_hash_matches
+            and stored_payload_matches_recomputed
+        ),
+    }
+
+
+def _evidence_manifest_response(session: Session, row: EvidenceManifest) -> dict[str, Any]:
     return {
         **(row.manifest_payload_json or {}),
         "evidence_manifest_id": str(row.id),
         "manifest_sha256": row.manifest_sha256,
         "manifest_status": row.manifest_status,
         "created_at": row.created_at,
+        "manifest_integrity": _evidence_manifest_integrity_payload(session, row),
     }
 
 
-def persist_technical_report_evidence_manifest(
-    session: Session,
+def _evidence_manifest_row_from_payload(
     *,
-    task_id: UUID,
+    verification_task_id: UUID,
+    payload: dict[str, Any],
+    manifest_sha256: str,
 ) -> EvidenceManifest:
-    task = session.get(AgentTask, task_id)
-    if task is None:
-        raise ValueError(f"Agent task '{task_id}' was not found.")
-    verification_task_id = _verification_task_id_for_manifest(session, task)
-    existing = _existing_evidence_manifest(session, verification_task_id)
-    if existing is not None:
-        return existing
-    payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
-    manifest_sha256 = str(payload_sha256(payload))
     evidence_exports = payload["report_trace"]["evidence_package_exports"]
-    row = EvidenceManifest(
+    return EvidenceManifest(
         id=uuid.uuid4(),
         manifest_kind=TECHNICAL_REPORT_EVIDENCE_MANIFEST_KIND,
         agent_task_id=verification_task_id,
@@ -1751,14 +1786,89 @@ def persist_technical_report_evidence_manifest(
         manifest_status="completed",
         created_at=utcnow(),
     )
+
+
+def _update_evidence_manifest_row_from_payload(
+    row: EvidenceManifest,
+    *,
+    payload: dict[str, Any],
+    manifest_sha256: str,
+) -> EvidenceManifest:
+    evidence_exports = payload["report_trace"]["evidence_package_exports"]
+    row.draft_task_id = _uuid_or_none(payload["draft_task"].get("task_id"))
+    row.evidence_package_export_id = (
+        _uuid_or_none(evidence_exports[0].get("evidence_package_export_id"))
+        if evidence_exports
+        else None
+    )
+    row.manifest_sha256 = manifest_sha256
+    row.manifest_payload_json = _json_payload(payload)
+    row.source_snapshot_sha256s_json = list(payload["source_snapshot_sha256s"])
+    row.document_ids_json = list(payload["document_ids"])
+    row.run_ids_json = list(payload["run_ids"])
+    row.claim_ids_json = list(payload["claim_ids"])
+    row.search_request_ids_json = list(payload["search_request_ids"])
+    row.operator_run_ids_json = list(payload["operator_run_ids"])
+    row.manifest_status = "completed"
+    return row
+
+
+def persist_technical_report_evidence_manifest(
+    session: Session,
+    *,
+    task_id: UUID,
+) -> EvidenceManifest:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise ValueError(f"Agent task '{task_id}' was not found.")
+    verification_task_id = _verification_task_id_for_manifest(session, task)
+    existing = _existing_evidence_manifest(session, verification_task_id)
+    if existing is not None:
+        return existing
+    payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
+    manifest_sha256 = str(payload_sha256(payload))
+    row = _evidence_manifest_row_from_payload(
+        verification_task_id=verification_task_id,
+        payload=payload,
+        manifest_sha256=manifest_sha256,
+    )
     session.add(row)
+    session.flush()
+    return row
+
+
+def refresh_technical_report_evidence_manifest(
+    session: Session,
+    *,
+    task_id: UUID,
+) -> EvidenceManifest:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise ValueError(f"Agent task '{task_id}' was not found.")
+    verification_task_id = _verification_task_id_for_manifest(session, task)
+    payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
+    manifest_sha256 = str(payload_sha256(payload))
+    row = _existing_evidence_manifest(session, verification_task_id)
+    if row is None:
+        row = _evidence_manifest_row_from_payload(
+            verification_task_id=verification_task_id,
+            payload=payload,
+            manifest_sha256=manifest_sha256,
+        )
+        session.add(row)
+    else:
+        _update_evidence_manifest_row_from_payload(
+            row,
+            payload=payload,
+            manifest_sha256=manifest_sha256,
+        )
     session.flush()
     return row
 
 
 def get_agent_task_evidence_manifest(session: Session, task_id: UUID) -> dict[str, Any]:
     row = persist_technical_report_evidence_manifest(session, task_id=task_id)
-    return _evidence_manifest_response(row)
+    return _evidence_manifest_response(session, row)
 
 
 def _draft_task_id_for_audit(task: AgentTask) -> UUID:

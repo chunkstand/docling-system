@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from pathlib import Path
 from uuid import UUID
 
@@ -296,3 +297,26 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     ] is True
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
     assert manifest["provenance_edges"]
+    assert manifest["manifest_integrity"]["complete"] is True
+    assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
+    assert manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
+    assert manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        manifest_row = session.scalar(
+            select(EvidenceManifest).where(EvidenceManifest.verification_task_id == verify_task_id)
+        )
+        assert manifest_row is not None
+        tampered_payload = deepcopy(manifest_row.manifest_payload_json)
+        tampered_payload["source_documents"][0]["sha256"] = "tampered-source-checksum"
+        manifest_row.manifest_payload_json = tampered_payload
+        session.commit()
+
+    tampered_manifest_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-manifest")
+    assert tampered_manifest_response.status_code == 200
+    tampered_manifest = tampered_manifest_response.json()
+    assert tampered_manifest["source_documents"][0]["sha256"] == "tampered-source-checksum"
+    assert tampered_manifest["manifest_integrity"]["complete"] is False
+    assert tampered_manifest["manifest_integrity"]["stored_payload_hash_matches"] is False
+    assert tampered_manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
+    assert tampered_manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is False
