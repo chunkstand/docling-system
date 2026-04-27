@@ -40,7 +40,6 @@ from app.cli import (
     run_eval_run,
     run_export_ranking_dataset,
     run_gate_search_harness_release,
-    run_improvement_case_import,
     run_improvement_case_list,
     run_improvement_case_record,
     run_improvement_case_summary,
@@ -55,6 +54,7 @@ from app.cli import (
     run_search_harness_evaluation_list,
     run_search_harness_evaluation_show,
 )
+from app.improvement_case_intake_cli import run_import as run_improvement_case_import
 
 
 def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
@@ -1839,7 +1839,10 @@ def test_improvement_case_import_cli_delegates_to_service(
         }
         return SimpleNamespace(model_dump=lambda mode="json": payload)
 
-    monkeypatch.setattr("app.cli.run_improvement_case_import_workflow", fake_import_workflow)
+    monkeypatch.setattr(
+        "app.improvement_case_intake_cli.run_improvement_case_import_workflow",
+        fake_import_workflow,
+    )
     monkeypatch.setattr(
         sys,
         "argv",

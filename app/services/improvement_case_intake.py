@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.architecture_measurement_contracts import (
     ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
@@ -80,20 +80,6 @@ def _validate_import_source(source: str) -> None:
         )
 
 
-def parse_improvement_case_source_paths(raw_values: list[str]) -> dict[str, str]:
-    source_paths: dict[str, str] = {}
-    for raw_value in raw_values:
-        if "=" not in raw_value:
-            raise ValueError("--source-path-for must use SOURCE=PATH.")
-        source, path = raw_value.split("=", 1)
-        if not source or not path:
-            raise ValueError("--source-path-for must use SOURCE=PATH.")
-        if source in source_paths:
-            raise ValueError(f"Duplicate --source-path-for source: {source}.")
-        source_paths[source] = path
-    return source_paths
-
-
 class ImprovementCaseImportRequest(BaseModel):
     source: str = "hygiene"
     limit: int = Field(default=50, ge=0)
@@ -108,6 +94,15 @@ class ImprovementCaseImportRequest(BaseModel):
     def validate_source(source: str) -> str:
         _validate_import_source(source)
         return source
+
+    @model_validator(mode="after")
+    def validate_source_path_contract(self) -> ImprovementCaseImportRequest:
+        _resolve_source_paths(
+            _select_import_source_specs(self.source),
+            source_path=self.source_path,
+            source_paths=self.source_paths,
+        )
+        return self
 
 
 class ImprovementCaseImportCaseSummary(BaseModel):
@@ -478,6 +473,8 @@ def _validate_source_paths(
 ) -> None:
     selected_sources = {spec.source for spec in source_specs}
     for source in source_paths:
+        if source == IMPROVEMENT_CASE_IMPORT_ALL_SOURCE:
+            raise ValueError("source_paths cannot target aggregate import source 'all'.")
         if source not in _IMPORT_SOURCE_REGISTRY:
             raise ValueError(f"source_paths contains unknown import source '{source}'.")
         spec = _IMPORT_SOURCE_REGISTRY[source]

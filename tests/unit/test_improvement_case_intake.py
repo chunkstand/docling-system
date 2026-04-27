@@ -212,6 +212,16 @@ def test_collect_import_observations_rejects_unknown_source_path_key(
         )
 
 
+def test_collect_import_observations_rejects_aggregate_source_path_key(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="cannot target aggregate import source"):
+        intake.collect_improvement_case_import_observations(
+            source="all",
+            source_paths={"all": tmp_path / "report.json"},
+        )
+
+
 def test_collect_import_observations_rejects_unselected_source_path_key(
     tmp_path: Path,
 ) -> None:
@@ -508,6 +518,14 @@ def test_import_request_rejects_unknown_source() -> None:
         intake.ImprovementCaseImportRequest(source="mystery")
 
 
+def test_import_request_rejects_invalid_source_path_contract(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="source_path is not supported"):
+        intake.ImprovementCaseImportRequest(
+            source="hygiene",
+            source_path=tmp_path / "report.json",
+        )
+
+
 def test_import_sources_include_architecture_governance_report() -> None:
     assert "architecture-governance-report" in intake.list_improvement_case_import_sources()
 
@@ -540,6 +558,9 @@ def test_import_source_specs_expose_source_behavior() -> None:
 
 def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
     cli_source = (Path(__file__).parents[2] / "app" / "cli.py").read_text()
+    intake_source = (
+        Path(__file__).parents[2] / "app" / "services" / "improvement_case_intake.py"
+    ).read_text()
 
     for forbidden in (
         "collect_architecture_governance_report_observations",
@@ -552,3 +573,4 @@ def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
         "import_improvement_case_observations",
     ):
         assert forbidden not in cli_source
+    assert "--source-path-for" not in intake_source

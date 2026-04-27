@@ -21,7 +21,6 @@ from app.schemas.search import (
     SearchHarnessOptimizationRequest,
     SearchReplayRunRequest,
 )
-from app.services.improvement_case_intake import parse_improvement_case_source_paths
 from app.services.improvement_cases import (
     IMPROVEMENT_ARTIFACT_TYPES,
     IMPROVEMENT_CASE_STATUSES,
@@ -313,13 +312,6 @@ def record_improvement_case(*args, **kwargs):
     return _lazy_service_attr(
         "app.services.improvement_cases",
         "record_improvement_case",
-    )(*args, **kwargs)
-
-
-def run_improvement_case_import_workflow(*args, **kwargs):
-    return _lazy_service_attr(
-        "app.services.improvement_case_intake",
-        "run_improvement_case_import",
     )(*args, **kwargs)
 
 
@@ -1585,32 +1577,3 @@ def run_improvement_case_record() -> None:
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     print(json.dumps(case.model_dump(mode="json")))
-
-
-def run_improvement_case_import() -> None:
-    parser = argparse.ArgumentParser(description="Import observed failures into the registry.")
-    _add_improvement_case_path_arg(parser)
-    parser.add_argument("--source", default="hygiene", help="Import source.")
-    parser.add_argument("--limit", type=int, default=50)
-    parser.add_argument("--workflow-version", default="improvement_v1")
-    parser.add_argument("--source-path", default=None, help="Optional file-backed source path.")
-    parser.add_argument(
-        "--source-path-for", action="append", default=[], metavar="SOURCE=PATH",
-        help="Per-source file-backed import source path.",
-    )
-    parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args()
-
-    try:
-        payload = run_improvement_case_import_workflow(
-            source=args.source,
-            limit=args.limit,
-            workflow_version=args.workflow_version,
-            path=args.path,
-            source_path=args.source_path,
-            source_paths=parse_improvement_case_source_paths(args.source_path_for),
-            dry_run=args.dry_run,
-        )
-    except ValueError as exc:
-        raise SystemExit(str(exc)) from exc
-    print(json.dumps(payload.model_dump(mode="json")))
