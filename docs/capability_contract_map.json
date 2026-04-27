@@ -1765,7 +1765,7 @@
             }
           ],
           "returns": "AgentTaskDetailResponse",
-          "source_lineno": 112
+          "source_lineno": 119
         },
         {
           "name": "create_agent_task",
@@ -1789,7 +1789,7 @@
             }
           ],
           "returns": "AgentTaskDetailResponse",
-          "source_lineno": 56
+          "source_lineno": 57
         },
         {
           "name": "create_agent_task_outcome",
@@ -1820,7 +1820,7 @@
             }
           ],
           "returns": "AgentTaskOutcomeResponse",
-          "source_lineno": 82
+          "source_lineno": 89
         },
         {
           "name": "export_agent_task_traces",
@@ -1858,7 +1858,7 @@
             }
           ],
           "returns": "AgentTaskTraceExportResponse",
-          "source_lineno": 224
+          "source_lineno": 231
         },
         {
           "name": "get_agent_approval_trends",
@@ -1896,7 +1896,7 @@
             }
           ],
           "returns": "AgentTaskApprovalTrendResponse",
-          "source_lineno": 149
+          "source_lineno": 156
         },
         {
           "name": "get_agent_task_analytics_summary",
@@ -1913,7 +1913,7 @@
             }
           ],
           "returns": "AgentTaskAnalyticsSummaryResponse",
-          "source_lineno": 126
+          "source_lineno": 133
         },
         {
           "name": "get_agent_task_artifact",
@@ -1944,7 +1944,7 @@
             }
           ],
           "returns": "AgentTaskArtifactResponse",
-          "source_lineno": 97
+          "source_lineno": 104
         },
         {
           "name": "get_agent_task_audit_bundle",
@@ -1968,7 +1968,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 66
+          "source_lineno": 67
         },
         {
           "name": "get_agent_task_context",
@@ -1992,7 +1992,7 @@
             }
           ],
           "returns": "TaskContextEnvelope",
-          "source_lineno": 64
+          "source_lineno": 65
         },
         {
           "name": "get_agent_task_cost_summary",
@@ -2023,7 +2023,7 @@
             }
           ],
           "returns": "AgentTaskCostSummaryResponse",
-          "source_lineno": 175
+          "source_lineno": 182
         },
         {
           "name": "get_agent_task_cost_trends",
@@ -2061,7 +2061,7 @@
             }
           ],
           "returns": "AgentTaskCostTrendResponse",
-          "source_lineno": 183
+          "source_lineno": 190
         },
         {
           "name": "get_agent_task_decision_signals",
@@ -2078,7 +2078,7 @@
             }
           ],
           "returns": "list[AgentTaskDecisionSignalResponse]",
-          "source_lineno": 214
+          "source_lineno": 221
         },
         {
           "name": "get_agent_task_detail",
@@ -2102,7 +2102,7 @@
             }
           ],
           "returns": "AgentTaskDetailResponse",
-          "source_lineno": 62
+          "source_lineno": 63
         },
         {
           "name": "get_agent_task_evidence_manifest",
@@ -2126,7 +2126,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 68
+          "source_lineno": 69
         },
         {
           "name": "get_agent_task_evidence_trace",
@@ -2150,7 +2150,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 70
+          "source_lineno": 71
         },
         {
           "name": "get_agent_task_performance_summary",
@@ -2181,7 +2181,7 @@
             }
           ],
           "returns": "AgentTaskPerformanceSummaryResponse",
-          "source_lineno": 192
+          "source_lineno": 199
         },
         {
           "name": "get_agent_task_performance_trends",
@@ -2219,7 +2219,7 @@
             }
           ],
           "returns": "AgentTaskPerformanceTrendResponse",
-          "source_lineno": 200
+          "source_lineno": 207
         },
         {
           "name": "get_agent_task_provenance_export",
@@ -2240,10 +2240,17 @@
               "kind": "positional_or_keyword",
               "name": "task_id",
               "required": true
+            },
+            {
+              "annotation": "StorageService | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": false
             }
           ],
           "returns": "dict",
-          "source_lineno": 72
+          "source_lineno": 73
         },
         {
           "name": "get_agent_task_recommendation_summary",
@@ -2274,7 +2281,7 @@
             }
           ],
           "returns": "AgentTaskRecommendationSummaryResponse",
-          "source_lineno": 158
+          "source_lineno": 165
         },
         {
           "name": "get_agent_task_recommendation_trends",
@@ -2312,7 +2319,7 @@
             }
           ],
           "returns": "AgentTaskRecommendationTrendResponse",
-          "source_lineno": 166
+          "source_lineno": 173
         },
         {
           "name": "get_agent_task_trends",
@@ -2350,7 +2357,7 @@
             }
           ],
           "returns": "AgentTaskTrendResponse",
-          "source_lineno": 131
+          "source_lineno": 138
         },
         {
           "name": "get_agent_task_value_density",
@@ -2367,7 +2374,7 @@
             }
           ],
           "returns": "list[AgentTaskValueDensityRowResponse]",
-          "source_lineno": 209
+          "source_lineno": 216
         },
         {
           "name": "get_agent_task_verifications",
@@ -2398,7 +2405,7 @@
             }
           ],
           "returns": "list[AgentTaskVerificationResponse]",
-          "source_lineno": 104
+          "source_lineno": 111
         },
         {
           "name": "get_agent_verification_trends",
@@ -2436,7 +2443,7 @@
             }
           ],
           "returns": "AgentTaskVerificationTrendResponse",
-          "source_lineno": 140
+          "source_lineno": 147
         },
         {
           "name": "list_agent_task_action_definitions",
@@ -2445,7 +2452,7 @@
           "owner_symbol": "list_agent_task_action_definitions",
           "parameters": [],
           "returns": "list[AgentTaskActionDefinitionResponse]",
-          "source_lineno": 46
+          "source_lineno": 47
         },
         {
           "name": "list_agent_task_artifacts",
@@ -2476,7 +2483,7 @@
             }
           ],
           "returns": "list[AgentTaskArtifactResponse]",
-          "source_lineno": 89
+          "source_lineno": 96
         },
         {
           "name": "list_agent_task_outcomes",
@@ -2507,7 +2514,7 @@
             }
           ],
           "returns": "list[AgentTaskOutcomeResponse]",
-          "source_lineno": 74
+          "source_lineno": 81
         },
         {
           "name": "list_agent_task_workflow_summaries",
@@ -2524,7 +2531,7 @@
             }
           ],
           "returns": "list[AgentTaskWorkflowVersionSummaryResponse]",
-          "source_lineno": 219
+          "source_lineno": 226
         },
         {
           "name": "list_agent_tasks",
@@ -2555,7 +2562,7 @@
             }
           ],
           "returns": "list[AgentTaskSummaryResponse]",
-          "source_lineno": 48
+          "source_lineno": 49
         },
         {
           "name": "reject_agent_task",
@@ -2586,7 +2593,7 @@
             }
           ],
           "returns": "AgentTaskDetailResponse",
-          "source_lineno": 119
+          "source_lineno": 126
         },
         {
           "name": "run_worker_loop",
@@ -2595,7 +2602,7 @@
           "owner_symbol": "run_agent_task_worker_loop",
           "parameters": [],
           "returns": "None",
-          "source_lineno": 233
+          "source_lineno": 240
         }
       ],
       "implementation": "ServicesAgentOrchestrationCapability",

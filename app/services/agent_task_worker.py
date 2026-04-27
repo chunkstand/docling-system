@@ -20,7 +20,10 @@ from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
-from app.services.evidence import refresh_technical_report_evidence_manifest
+from app.services.evidence import (
+    persist_agent_task_provenance_export,
+    refresh_technical_report_evidence_manifest,
+)
 from app.services.runtime import (
     get_process_identity,
     register_runtime_process,
@@ -548,10 +551,19 @@ def finalize_agent_task_success(
             session,
             task_id=task.id,
         )
+        provenance_artifact = persist_agent_task_provenance_export(
+            session,
+            task_id=task.id,
+            storage_service=storage_service,
+        )
         payload = sanitized_result.get("payload")
         if isinstance(payload, dict):
             payload["evidence_manifest_id"] = str(evidence_manifest.id)
             payload["evidence_manifest_sha256"] = evidence_manifest.manifest_sha256
+            payload["provenance_export_artifact_id"] = str(provenance_artifact.id)
+            payload["provenance_export_sha256"] = (
+                (provenance_artifact.payload_json or {}).get("frozen_export") or {}
+            ).get("export_payload_sha256")
             task.result_json = sanitized_result
 
     attempt = _current_attempt(session, task)

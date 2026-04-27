@@ -965,11 +965,12 @@ def test_agent_task_provenance_route_uses_provenance_service(monkeypatch) -> Non
 
     monkeypatch.setattr(
         "app.api.routers.agent_tasks.get_agent_task_provenance_export",
-        lambda session, incoming_task_id: {
+        lambda session, incoming_task_id, *, storage_service: {
             "schema_name": "technical_report_prov_export",
             "task_id": str(incoming_task_id),
             "entity": {"docling:documents/1": {"prov:type": "docling:SourceDocument"}},
             "activity": {"docling:agent-tasks/1": {"prov:type": "docling:AgentTask"}},
+            "frozen_export": {"storage_path": str(storage_service.storage_root)},
             "prov_integrity": {"complete": True},
         },
     )
@@ -986,7 +987,7 @@ def test_agent_task_provenance_route_uses_provenance_service(monkeypatch) -> Non
 def test_agent_task_provenance_route_returns_structured_404(monkeypatch) -> None:
     task_id = uuid4()
 
-    def raise_not_found(session, incoming_task_id):
+    def raise_not_found(session, incoming_task_id, *, storage_service):
         raise ValueError(f"Agent task '{incoming_task_id}' was not found.")
 
     monkeypatch.setattr(

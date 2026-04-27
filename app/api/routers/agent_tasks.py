@@ -46,9 +46,11 @@ from app.schemas.agent_tasks import (
     TaskContextEnvelope,
 )
 from app.services.capabilities import agent_orchestration
+from app.services.storage import StorageService
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db_session)]
+StorageDep = Annotated[StorageService, Depends(get_storage_service)]
 TaskStatusQuery = Annotated[list[str] | None, Query(alias="status")]
 
 list_agent_task_action_definitions = agent_orchestration.list_agent_task_action_definitions
@@ -468,9 +470,14 @@ def read_agent_task_evidence_trace_route(
 def read_agent_task_provenance_route(
     task_id: UUID,
     session: DbSession,
+    storage_service: StorageDep,
 ) -> dict:
     try:
-        response = get_agent_task_provenance_export(session, task_id)
+        response = get_agent_task_provenance_export(
+            session,
+            task_id,
+            storage_service=storage_service,
+        )
         session.commit()
         return response
     except ValueError as exc:

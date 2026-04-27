@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from copy import deepcopy
 from pathlib import Path
@@ -184,6 +185,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
 
     _process_next_task(postgres_integration_harness)
 
+    prov_artifact_id = None
+    prov_artifact_sha256 = None
     with postgres_integration_harness.session_factory() as session:
         draft_task_row = session.get(AgentTask, draft_task_id)
         assert draft_task_row is not None
@@ -308,6 +311,25 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert manifest_rows[0].manifest_payload_json["audit_checklist"][
             "hash_integrity_verified"
         ] is True
+        prov_artifacts = list(
+            session.scalars(
+                select(AgentTaskArtifact).where(
+                    AgentTaskArtifact.task_id == verify_task_id,
+                    AgentTaskArtifact.artifact_kind == "technical_report_prov_export",
+                )
+            )
+        )
+        assert len(prov_artifacts) == 1
+        prov_artifact = prov_artifacts[0]
+        assert prov_artifact.storage_path is not None
+        stored_prov_export = json.loads(Path(prov_artifact.storage_path).read_text())
+        assert stored_prov_export == prov_artifact.payload_json
+        assert stored_prov_export["schema_name"] == "technical_report_prov_export"
+        assert stored_prov_export["frozen_export"]["artifact_id"] == str(prov_artifact.id)
+        assert stored_prov_export["frozen_export"]["storage_path"] == prov_artifact.storage_path
+        assert stored_prov_export["frozen_export"]["export_payload_sha256"]
+        prov_artifact_id = prov_artifact.id
+        prov_artifact_sha256 = stored_prov_export["frozen_export"]["export_payload_sha256"]
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -321,6 +343,7 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
     assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_source_evidence_packages"] is True
+    assert audit_bundle["audit_checklist"]["has_frozen_prov_export"] is True
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
@@ -367,6 +390,10 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         == 0
     )
     assert audit_bundle["search_evidence_package_traces"]
+    assert any(
+        row["artifact_kind"] == "technical_report_prov_export"
+        for row in audit_bundle["artifacts"]
+    )
     assert all(
         row["trace_integrity"]["complete"]
         for row in audit_bundle["search_evidence_package_traces"]
@@ -446,10 +473,14 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
     assert provenance["prov_integrity"]["complete"] is True
     assert provenance["prov_integrity"]["hash_policy"] == (
-        "sha256 over canonical JSON excluding prov_integrity"
+        "sha256 over canonical JSON excluding frozen_export and prov_integrity"
     )
     assert "prov_integrity" not in provenance["prov_integrity"]["hash_basis_fields"]
+    assert "frozen_export" not in provenance["prov_integrity"]["hash_basis_fields"]
     assert provenance["prov_integrity"]["prov_sha256"]
+    assert provenance["frozen_export"]["artifact_id"] == str(prov_artifact_id)
+    assert provenance["frozen_export"]["artifact_kind"] == "technical_report_prov_export"
+    assert provenance["frozen_export"]["export_payload_sha256"] == prov_artifact_sha256
     assert provenance["prov_integrity"]["all_relation_references_declared"] is True
     assert provenance["prov_integrity"]["missing_relation_reference_count"] == 0
     assert provenance["prov_integrity"]["relation_count"] == provenance["prov_summary"][
@@ -462,6 +493,29 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     )
     assert provenance["wasDerivedFrom"]
     assert provenance["used"]
+    artifact_response = client.get(
+        f"/agent-tasks/{verify_task_id}/artifacts/{prov_artifact_id}"
+    )
+    assert artifact_response.status_code == 200
+    assert artifact_response.json()["frozen_export"]["artifact_id"] == str(prov_artifact_id)
+
+    second_provenance_response = client.get(f"/agent-tasks/{verify_task_id}/provenance")
+    assert second_provenance_response.status_code == 200
+    assert second_provenance_response.json()["frozen_export"]["artifact_id"] == str(
+        prov_artifact_id
+    )
+    with postgres_integration_harness.session_factory() as session:
+        prov_artifact_count = len(
+            list(
+                session.scalars(
+                    select(AgentTaskArtifact).where(
+                        AgentTaskArtifact.task_id == verify_task_id,
+                        AgentTaskArtifact.artifact_kind == "technical_report_prov_export",
+                    )
+                )
+            )
+        )
+    assert prov_artifact_count == 1
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(

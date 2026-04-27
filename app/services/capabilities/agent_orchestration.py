@@ -40,6 +40,7 @@ from app.services import (
     evidence,
 )
 from app.services import agent_task_worker as worker_service
+from app.services.storage import StorageService
 
 
 class AgentOrchestrationCapability(Protocol):
@@ -69,7 +70,13 @@ class AgentOrchestrationCapability(Protocol):
 
     def get_agent_task_evidence_trace(self, session: Session, task_id: UUID) -> dict: ...
 
-    def get_agent_task_provenance_export(self, session: Session, task_id: UUID) -> dict: ...
+    def get_agent_task_provenance_export(
+        self,
+        session: Session,
+        task_id: UUID,
+        *,
+        storage_service: StorageService | None = None,
+    ) -> dict: ...
 
     def list_agent_task_outcomes(
         self,
@@ -268,8 +275,18 @@ class ServicesAgentOrchestrationCapability:
     def get_agent_task_evidence_trace(self, session: Session, task_id: UUID) -> dict:
         return evidence.get_agent_task_evidence_trace(session, task_id)
 
-    def get_agent_task_provenance_export(self, session: Session, task_id: UUID) -> dict:
-        return evidence.get_agent_task_provenance_export(session, task_id)
+    def get_agent_task_provenance_export(
+        self,
+        session: Session,
+        task_id: UUID,
+        *,
+        storage_service: StorageService | None = None,
+    ) -> dict:
+        return evidence.get_agent_task_provenance_export(
+            session,
+            task_id,
+            storage_service=storage_service,
+        )
 
     def list_agent_task_outcomes(
         self,

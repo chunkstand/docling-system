@@ -39,6 +39,11 @@ from app.db.models import (
     SemanticFact,
     SemanticFactEvidence,
 )
+from app.services.storage import StorageService
+
+TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
+TECHNICAL_REPORT_PROV_EXPORT_FILENAME = "technical_report_prov_export.json"
+_PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
 
 
 def payload_sha256(payload: Any | None) -> str | None:
@@ -4132,7 +4137,7 @@ def _prov_export_integrity_payload(prov_export: dict[str, Any]) -> dict[str, Any
         *missing_attribution_agents,
     ]
 
-    hash_basis = _clean_mapping(prov_export, drop_fields={"prov_integrity"})
+    hash_basis = _clean_mapping(prov_export, drop_fields=_PROV_INTEGRITY_EXCLUDED_FIELDS)
     manifest_integrity_complete = bool((audit.get("manifest_integrity") or {}).get("complete"))
     trace_integrity_complete = bool((audit.get("trace_integrity") or {}).get("complete"))
     retrieval_evaluation_complete = bool(retrieval_evaluation.get("complete"))
@@ -4140,10 +4145,10 @@ def _prov_export_integrity_payload(prov_export: dict[str, Any]) -> dict[str, Any
     relation_references_complete = not missing_relation_references
 
     return {
-        "hash_policy": "sha256 over canonical JSON excluding prov_integrity",
+        "hash_policy": "sha256 over canonical JSON excluding frozen_export and prov_integrity",
         "hash_basis_schema": "technical_report_prov_export_without_integrity_v1",
         "hash_basis_fields": sorted(hash_basis.keys()),
-        "hash_excluded_fields": ["prov_integrity"],
+        "hash_excluded_fields": sorted(_PROV_INTEGRITY_EXCLUDED_FIELDS),
         "prov_sha256": payload_sha256(hash_basis),
         "manifest_integrity_complete": manifest_integrity_complete,
         "trace_integrity_complete": trace_integrity_complete,
@@ -4173,7 +4178,7 @@ def _prov_export_integrity_payload(prov_export: dict[str, Any]) -> dict[str, Any
     }
 
 
-def get_agent_task_provenance_export(session: Session, task_id: UUID) -> dict[str, Any]:
+def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict[str, Any]:
     manifest = get_agent_task_evidence_manifest(session, task_id)
     trace = get_agent_task_evidence_trace(session, task_id)
     retrieval_evaluation = dict(
@@ -4534,6 +4539,111 @@ def get_agent_task_provenance_export(session: Session, task_id: UUID) -> dict[st
     return _json_payload(prov_export)
 
 
+def _existing_prov_export_artifact(
+    session: Session,
+    task_id: UUID,
+) -> AgentTaskArtifact | None:
+    return session.scalar(
+        select(AgentTaskArtifact)
+        .where(
+            AgentTaskArtifact.task_id == task_id,
+            AgentTaskArtifact.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND,
+        )
+        .order_by(AgentTaskArtifact.created_at.asc())
+        .limit(1)
+    )
+
+
+def _frozen_prov_export_payload(
+    prov_export: dict[str, Any],
+    *,
+    artifact_id: UUID,
+    task_id: UUID,
+    created_at: Any,
+    storage_path: str | None,
+) -> dict[str, Any]:
+    frozen_payload = _json_payload(prov_export)
+    frozen_payload["frozen_export"] = {
+        "schema_name": "technical_report_prov_export_freeze",
+        "schema_version": "1.0",
+        "artifact_id": str(artifact_id),
+        "artifact_kind": TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND,
+        "task_id": str(task_id),
+        "storage_path": storage_path,
+        "frozen_at": created_at.isoformat() if hasattr(created_at, "isoformat") else created_at,
+        "freeze_policy": (
+            "The first completed technical-report PROV export is persisted as an "
+            "agent-task artifact and reused for subsequent reads."
+        ),
+        "export_payload_sha256": payload_sha256(prov_export),
+        "prov_hash_basis_sha256": (prov_export.get("prov_integrity") or {}).get(
+            "prov_sha256"
+        ),
+    }
+    return _json_payload(frozen_payload)
+
+
+def persist_agent_task_provenance_export(
+    session: Session,
+    *,
+    task_id: UUID,
+    storage_service: StorageService | None = None,
+) -> AgentTaskArtifact:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise ValueError(f"Agent task '{task_id}' was not found.")
+    verification_task_id = _verification_task_id_for_manifest(session, task)
+    existing = _existing_prov_export_artifact(session, verification_task_id)
+    if existing is not None:
+        return existing
+
+    artifact_id = uuid.uuid4()
+    created_at = utcnow()
+    artifact_path = (
+        storage_service.get_agent_task_dir(verification_task_id)
+        / TECHNICAL_REPORT_PROV_EXPORT_FILENAME
+        if storage_service is not None
+        else None
+    )
+    storage_path = str(artifact_path) if artifact_path is not None else None
+    prov_export = _build_agent_task_provenance_export(session, verification_task_id)
+    frozen_payload = _frozen_prov_export_payload(
+        prov_export,
+        artifact_id=artifact_id,
+        task_id=verification_task_id,
+        created_at=created_at,
+        storage_path=storage_path,
+    )
+    if artifact_path is not None:
+        artifact_path.write_text(json.dumps(frozen_payload, indent=2, sort_keys=True))
+
+    row = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=verification_task_id,
+        artifact_kind=TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND,
+        storage_path=storage_path,
+        payload_json=frozen_payload,
+        created_at=created_at,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def get_agent_task_provenance_export(
+    session: Session,
+    task_id: UUID,
+    *,
+    storage_service: StorageService | None = None,
+) -> dict[str, Any]:
+    artifact = persist_agent_task_provenance_export(
+        session,
+        task_id=task_id,
+        storage_service=storage_service,
+    )
+    return _json_payload(artifact.payload_json or {})
+
+
 def _draft_task_id_for_audit(task: AgentTask) -> UUID:
     if task.task_type == "draft_technical_report":
         return task.id
@@ -4616,6 +4726,11 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             .order_by(AgentTaskArtifact.created_at.asc())
         )
     )
+    prov_export_artifacts = [
+        row
+        for row in artifacts
+        if row.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+    ]
     exports = list(
         session.scalars(
             select(EvidencePackageExport)
@@ -4685,6 +4800,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             == len(draft_payload.get("claims") or []),
             "hash_integrity_verified": hash_integrity_verified,
             "has_frozen_source_evidence_packages": bool(search_exports),
+            "has_frozen_prov_export": bool(prov_export_artifacts),
             "source_evidence_trace_integrity_verified": (
                 source_evidence_trace_integrity_verified
             ),
@@ -4707,6 +4823,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         audit_bundle["audit_checklist"]["generation_evidence_closed"]
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
+        and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
     )

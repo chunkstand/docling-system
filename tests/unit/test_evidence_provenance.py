@@ -62,6 +62,8 @@ def test_prov_export_integrity_is_complete_for_closed_relation_graph() -> None:
         "technical_report_prov_export_without_integrity_v1"
     )
     assert "prov_integrity" not in integrity["hash_basis_fields"]
+    assert "frozen_export" not in integrity["hash_basis_fields"]
+    assert integrity["hash_excluded_fields"] == ["frozen_export", "prov_integrity"]
     assert integrity["all_relation_references_declared"] is True
     assert integrity["missing_relation_reference_count"] == 0
     assert integrity["prov_sha256"]
