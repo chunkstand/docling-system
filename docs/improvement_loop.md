@@ -106,11 +106,15 @@ violation deltas and rule-level or contract-level deltas, so recurring boundary
 failures can be measured against stable rule IDs instead of prose labels. The
 architecture contract map publishes the measurement, summary, and delta field
 lists as a machine-readable contract for agents that need to compare history
-records across commits.
+records across commits. Operators and agents can also read the latest
+architecture inspection report and measurement trend through
+`GET /architecture/inspection` and `GET /architecture/measurements/summary`;
+both endpoints are read-only and require the `system:read` API capability in
+remote mode.
 
 ## Non-Goals
 
 - no automatic Git commit or PR creation
-- no DB/API expansion before the file-backed contract proves useful
+- no write-side DB/API expansion before the file-backed contract proves useful
 - no free-form cause or artifact vocabularies
 - no hidden prompt memory as the source of truth

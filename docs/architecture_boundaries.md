@@ -132,4 +132,7 @@ changes always pass the registry contract before being written.
 Architecture measurement history is owned by `app.architecture_measurements`.
 The history is local JSONL runtime data under
 `storage/architecture_inspections/history.jsonl`; source control versions the
-recording and summary mechanism, while `storage/` tracks local executions.
+recording and summary mechanism, while `storage/` tracks local executions. The
+read-only API surface is owned by the `system_governance` service capability
+facade and exposed through `GET /architecture/inspection` and
+`GET /architecture/measurements/summary` under the `system:read` capability.

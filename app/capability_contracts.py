@@ -18,6 +18,7 @@ CAPABILITY_FACADES = (
     "evaluation",
     "semantics",
     "agent_orchestration",
+    "system_governance",
 )
 WRITE_PREFIXES = (
     "approve_",

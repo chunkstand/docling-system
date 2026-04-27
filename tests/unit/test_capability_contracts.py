@@ -21,13 +21,14 @@ def test_capability_contract_map_exposes_facade_surfaces() -> None:
     facades = {facade["name"]: facade for facade in payload["facades"]}
 
     assert payload["schema_name"] == CAPABILITY_CONTRACT_MAP_SCHEMA_NAME
-    assert payload["facade_count"] == 5
+    assert payload["facade_count"] == 6
     assert {
         "run_lifecycle",
         "retrieval",
         "evaluation",
         "semantics",
         "agent_orchestration",
+        "system_governance",
     } <= set(facades)
     assert payload["function_count"] == sum(
         facade["function_count"] for facade in payload["facades"]
@@ -41,6 +42,10 @@ def test_capability_contract_map_exposes_facade_surfaces() -> None:
         "get_agent_task_context",
         "run_worker_loop",
     } <= {row["name"] for row in facades["agent_orchestration"]["functions"]}
+    assert {
+        "get_architecture_inspection_report",
+        "summarize_architecture_measurements",
+    } <= {row["name"] for row in facades["system_governance"]["functions"]}
 
 
 def test_capability_contract_map_captures_owner_modules_and_operation_kind() -> None:

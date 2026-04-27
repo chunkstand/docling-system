@@ -1,5 +1,5 @@
 {
-  "facade_count": 5,
+  "facade_count": 6,
   "facades": [
     {
       "exported_instance": "run_lifecycle",
@@ -2253,9 +2253,92 @@
       ],
       "protocol": "AgentOrchestrationCapability",
       "source": "app/services/capabilities/agent_orchestration.py"
+    },
+    {
+      "exported_instance": "system_governance",
+      "function_count": 4,
+      "functions": [
+        {
+          "name": "get_architecture_inspection_report",
+          "operation_kind": "read",
+          "owner_module": "app.services.architecture_governance",
+          "owner_symbol": "get_architecture_inspection_report",
+          "parameters": [
+            {
+              "annotation": "Path | None",
+              "default": "None",
+              "kind": "positional_or_keyword",
+              "name": "project_root",
+              "required": false
+            }
+          ],
+          "returns": "dict[str, Any]",
+          "source_lineno": 17
+        },
+        {
+          "name": "get_runtime_status",
+          "operation_kind": "read",
+          "owner_module": "app.services.runtime",
+          "owner_symbol": "get_runtime_status",
+          "parameters": [
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "positional_or_keyword",
+              "name": "process_identity",
+              "required": false
+            }
+          ],
+          "returns": "dict[str, Any]",
+          "source_lineno": 10
+        },
+        {
+          "name": "snapshot_metrics",
+          "operation_kind": "read",
+          "owner_module": "app.services.telemetry",
+          "owner_symbol": "snapshot_metrics",
+          "parameters": [],
+          "returns": "dict[str, float]",
+          "source_lineno": 15
+        },
+        {
+          "name": "summarize_architecture_measurements",
+          "operation_kind": "read",
+          "owner_module": "app.services.architecture_governance",
+          "owner_symbol": "summarize_architecture_measurements",
+          "parameters": [
+            {
+              "annotation": "str | Path | None",
+              "default": "None",
+              "kind": "positional_or_keyword",
+              "name": "path",
+              "required": false
+            },
+            {
+              "annotation": "Path | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "project_root",
+              "required": false
+            }
+          ],
+          "returns": "dict[str, Any]",
+          "source_lineno": 22
+        }
+      ],
+      "implementation": "ServicesSystemGovernanceCapability",
+      "module": "app.services.capabilities.system_governance",
+      "name": "system_governance",
+      "owner_modules": [
+        "app.services.architecture_governance",
+        "app.services.runtime",
+        "app.services.telemetry"
+      ],
+      "protocol": "SystemGovernanceCapability",
+      "source": "app/services/capabilities/system_governance.py"
     }
   ],
-  "function_count": 77,
+  "function_count": 81,
   "schema_name": "capability_contract_map",
   "schema_version": "1.0"
 }

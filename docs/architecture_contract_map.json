@@ -32,6 +32,11 @@
       "function_count": 27,
       "module": "app.services.capabilities.agent_orchestration",
       "name": "agent_orchestration"
+    },
+    {
+      "function_count": 4,
+      "module": "app.services.capabilities.system_governance",
+      "name": "system_governance"
     }
   ],
   "contracts": [
@@ -52,7 +57,7 @@
         "ADR-0004",
         "ADR-0006"
       ],
-      "item_count": 89,
+      "item_count": 91,
       "name": "api_route_capabilities",
       "source": "app.api.route_contracts"
     },
@@ -70,7 +75,7 @@
         "ADR-0003",
         "ADR-0006"
       ],
-      "item_count": 77,
+      "item_count": 81,
       "name": "capability_surface_contracts",
       "schema_name": "capability_contract_map",
       "schema_version": "1.0",

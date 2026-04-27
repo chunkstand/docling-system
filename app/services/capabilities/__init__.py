@@ -10,6 +10,7 @@ from app.services.capabilities.evaluation import evaluation
 from app.services.capabilities.retrieval import retrieval
 from app.services.capabilities.run_lifecycle import run_lifecycle
 from app.services.capabilities.semantics import semantics
+from app.services.capabilities.system_governance import system_governance
 
 __all__ = [
     "agent_orchestration",
@@ -17,4 +18,5 @@ __all__ = [
     "retrieval",
     "run_lifecycle",
     "semantics",
+    "system_governance",
 ]
