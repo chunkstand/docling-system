@@ -59,6 +59,29 @@ def _unique_uuids(values: list[UUID]) -> list[UUID]:
     return [value for value in dict.fromkeys(values) if value is not None]
 
 
+def _source_evidence_match_status(statuses: list[str]) -> str | None:
+    unique_statuses = _unique_strings(statuses)
+    if not unique_statuses:
+        return None
+    status_order = {
+        "missing": 0,
+        "matched_document_run_fallback": 1,
+        "matched_page_span": 2,
+        "matched_source_record": 3,
+    }
+    return min(unique_statuses, key=lambda status: status_order.get(status, -1))
+
+
+def _card_requires_source_match(card: TechnicalReportEvidenceCard) -> bool:
+    source_type = str(card.source_type or "").strip().lower()
+    evidence_kind = str(card.evidence_kind or "").strip().lower()
+    return (
+        source_type in {"chunk", "table", "figure"}
+        or evidence_kind in {"source_evidence", "semantic_fact"}
+        or bool(card.evidence_ids)
+    )
+
+
 def _expert_alignment() -> list[dict[str, str]]:
     return [
         {
@@ -308,6 +331,10 @@ def build_report_evidence_cards(
             evidence_card_id=card_id,
             evidence_kind="source_evidence",
             source_type=evidence.source_type,
+            source_locator=evidence.source_locator,
+            chunk_id=evidence.chunk_id,
+            table_id=evidence.table_id,
+            figure_id=evidence.figure_id,
             citation_label=evidence.citation_label,
             document_id=evidence.document_id,
             run_id=evidence.run_id,
@@ -318,13 +345,21 @@ def build_report_evidence_cards(
             page_to=evidence.page_to,
             excerpt=evidence.excerpt,
             source_artifact_api_path=evidence.source_artifact_api_path,
+            source_artifact_sha256=evidence.source_artifact_sha256,
             evidence_ids=[evidence.evidence_id],
             fact_ids=fact_ids,
             assertion_ids=assertion_ids,
             concept_keys=concept_keys,
             support_level="source",
             review_status=evidence.review_status,
-            metadata={"matched_terms": list(evidence.matched_terms)},
+            metadata={
+                "matched_terms": list(evidence.matched_terms),
+                "source_locator": evidence.source_locator,
+                "chunk_id": str(evidence.chunk_id) if evidence.chunk_id else None,
+                "table_id": str(evidence.table_id) if evidence.table_id else None,
+                "figure_id": str(evidence.figure_id) if evidence.figure_id else None,
+                "source_artifact_sha256": evidence.source_artifact_sha256,
+            },
         )
         evidence_cards.append(card.model_dump(mode="json"))
         card_id_by_evidence_label[evidence.citation_label] = card_id
@@ -754,6 +789,12 @@ def prepare_report_agent_harness(
                 "graph_edge_ids",
                 "source_evidence_package_export_ids",
                 "source_search_request_ids",
+                "source_evidence_match_keys",
+                "source_evidence_match_status",
+                "source_locator",
+                "chunk_id",
+                "table_id",
+                "figure_id",
                 "fact_ids",
                 "assertion_ids",
                 "source_document_ids",
@@ -883,6 +924,21 @@ def draft_technical_report(
                 for sha256 in card.source_evidence_trace_sha256s
             ]
         )
+        source_evidence_match_keys = _unique_strings(
+            [
+                match_key
+                for card in claim_cards
+                for match_key in card.source_evidence_match_keys
+            ]
+        )
+        source_evidence_match_status = _source_evidence_match_status(
+            [
+                card.source_evidence_match_status
+                for card in claim_cards
+                if _card_requires_source_match(card)
+                if card.source_evidence_match_status
+            ]
+        )
         claims.append(
             {
                 "claim_id": claim_contract["claim_id"],
@@ -901,6 +957,8 @@ def draft_technical_report(
                 "source_evidence_package_export_ids": source_evidence_package_export_ids,
                 "source_evidence_package_sha256s": source_evidence_package_sha256s,
                 "source_evidence_trace_sha256s": source_evidence_trace_sha256s,
+                "source_evidence_match_keys": source_evidence_match_keys,
+                "source_evidence_match_status": source_evidence_match_status,
             }
         )
         section_claim_ids.setdefault(claim_contract["section_id"], []).append(

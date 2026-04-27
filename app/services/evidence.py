@@ -967,6 +967,22 @@ def get_search_evidence_package_export_trace(
     return _search_evidence_package_trace_response(session, export, nodes, edges)
 
 
+_ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES = {
+    "matched_source_record",
+    "matched_page_span",
+}
+
+
+def _report_card_requires_source_match(card: dict[str, Any]) -> bool:
+    source_type = str(card.get("source_type") or "").strip().lower()
+    evidence_kind = str(card.get("evidence_kind") or "").strip().lower()
+    return (
+        source_type in {"chunk", "table", "figure"}
+        or evidence_kind in {"source_evidence", "semantic_fact"}
+        or bool(card.get("evidence_ids"))
+    )
+
+
 def technical_report_search_evidence_closure_payload(
     session: Session,
     draft_payload: dict[str, Any],
@@ -1032,12 +1048,39 @@ def technical_report_search_evidence_closure_payload(
         for claim in claims
         for card_id in (claim.get("evidence_card_ids") or [])
     }
-    cited_cards_missing_source_exports = sorted(
-        str(card.get("evidence_card_id"))
+    cited_source_cards = [
+        card
         for card in evidence_cards
         if str(card.get("evidence_card_id")) in cited_card_ids
-        and not card.get("source_evidence_package_export_ids")
+        and _report_card_requires_source_match(card)
+    ]
+    cited_cards_missing_source_exports = sorted(
+        str(card.get("evidence_card_id"))
+        for card in cited_source_cards
+        if not card.get("source_evidence_package_export_ids")
     )
+    cited_cards_without_acceptable_source_match = sorted(
+        str(card.get("evidence_card_id"))
+        for card in cited_source_cards
+        if card.get("source_evidence_match_status")
+        not in _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES
+    )
+    cited_cards_without_source_record_match = sorted(
+        str(card.get("evidence_card_id"))
+        for card in cited_source_cards
+        if card.get("source_evidence_match_status") != "matched_source_record"
+    )
+    cited_cards_with_document_run_fallback = sorted(
+        str(card.get("evidence_card_id"))
+        for card in cited_source_cards
+        if card.get("source_evidence_match_status") == "matched_document_run_fallback"
+    )
+    source_evidence_match_status_counts: dict[str, int] = {}
+    for card in cited_source_cards:
+        status = str(card.get("source_evidence_match_status") or "missing")
+        source_evidence_match_status_counts[status] = (
+            source_evidence_match_status_counts.get(status, 0) + 1
+        )
     complete = (
         bool(claims)
         and bool(expected_export_ids)
@@ -1046,12 +1089,14 @@ def technical_report_search_evidence_closure_payload(
         and not incomplete_trace_export_ids
         and not claims_missing_source_exports
         and not cited_cards_missing_source_exports
+        and not cited_cards_without_acceptable_source_match
     )
     return {
         "schema_name": "technical_report_search_evidence_closure",
         "schema_version": "1.0",
         "complete": complete,
         "claim_count": len(claims),
+        "cited_source_card_count": len(cited_source_cards),
         "expected_source_evidence_package_export_count": len(expected_export_ids),
         "persisted_source_evidence_package_export_count": len(trace_summaries),
         "trace_complete_count": sum(
@@ -1066,6 +1111,16 @@ def technical_report_search_evidence_closure_payload(
         "cited_cards_missing_source_evidence_package_export_count": len(
             cited_cards_missing_source_exports
         ),
+        "cited_cards_without_acceptable_source_evidence_match_count": len(
+            cited_cards_without_acceptable_source_match
+        ),
+        "cited_cards_without_source_record_match_count": len(
+            cited_cards_without_source_record_match
+        ),
+        "cited_cards_with_document_run_fallback_match_count": len(
+            cited_cards_with_document_run_fallback
+        ),
+        "source_evidence_match_status_counts": source_evidence_match_status_counts,
         "expected_source_evidence_package_export_ids": [
             str(export_id) for export_id in expected_export_ids
         ],
@@ -1075,6 +1130,13 @@ def technical_report_search_evidence_closure_payload(
         "claims_missing_source_evidence_package_export_ids": claims_missing_source_exports,
         "cited_cards_missing_source_evidence_package_export_ids": (
             cited_cards_missing_source_exports
+        ),
+        "cited_cards_without_acceptable_source_evidence_match_ids": (
+            cited_cards_without_acceptable_source_match
+        ),
+        "cited_cards_without_source_record_match_ids": cited_cards_without_source_record_match,
+        "cited_cards_with_document_run_fallback_match_ids": (
+            cited_cards_with_document_run_fallback
         ),
         "trace_summaries": trace_summaries,
     }

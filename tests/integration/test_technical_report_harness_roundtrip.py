@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from app.core.config import get_settings
 from app.db.models import (
     AgentTask,
+    AgentTaskArtifact,
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,
@@ -198,6 +199,29 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert all(
             claim["source_evidence_package_export_ids"] for claim in draft_payload["claims"]
         )
+        cited_card_ids = {
+            card_id
+            for claim in draft_payload["claims"]
+            for card_id in claim["evidence_card_ids"]
+        }
+        cited_source_cards = [
+            card
+            for card in draft_payload["evidence_cards"]
+            if card["evidence_card_id"] in cited_card_ids
+            and card["evidence_kind"] in {"source_evidence", "semantic_fact"}
+        ]
+        assert cited_source_cards
+        assert all(
+            card["source_evidence_match_status"]
+            in {"matched_source_record", "matched_page_span"}
+            for card in cited_source_cards
+        )
+        assert all(card["source_evidence_match_keys"] for card in cited_source_cards)
+        assert all(
+            claim["source_evidence_match_status"]
+            in {"matched_source_record", "matched_page_span"}
+            for claim in draft_payload["claims"]
+        )
         draft_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -237,6 +261,16 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
         assert verification["metrics"]["source_evidence_closure_complete"] is True
         assert verification["metrics"]["source_evidence_package_trace_incomplete_count"] == 0
+        assert (
+            verification["metrics"][
+                "cited_cards_without_acceptable_source_evidence_match_count"
+            ]
+            == 0
+        )
+        assert (
+            verification["metrics"]["cited_cards_with_document_run_fallback_match_count"]
+            == 0
+        )
         verify_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -300,6 +334,18 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert search_exports
     search_export_id = UUID(search_exports[0]["evidence_package_export_id"])
     assert audit_bundle["source_evidence_closure"]["complete"] is True
+    assert (
+        audit_bundle["source_evidence_closure"][
+            "cited_cards_without_acceptable_source_evidence_match_count"
+        ]
+        == 0
+    )
+    assert (
+        audit_bundle["source_evidence_closure"][
+            "cited_cards_with_document_run_fallback_match_count"
+        ]
+        == 0
+    )
     assert audit_bundle["search_evidence_package_traces"]
     assert all(
         row["trace_integrity"]["complete"]
@@ -326,6 +372,12 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     ] is True
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
+    assert (
+        manifest["retrieval_trace"]["source_evidence_closure"][
+            "cited_cards_without_acceptable_source_evidence_match_count"
+        ]
+        == 0
+    )
     assert manifest["retrieval_trace"]["search_evidence_package_trace_summaries"]
     assert manifest["provenance_edges"]
     assert manifest["manifest_integrity"]["complete"] is True
@@ -469,6 +521,92 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert tampered_manifest["manifest_integrity"]["stored_payload_hash_matches"] is False
     assert tampered_manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert tampered_manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        original_draft_result = deepcopy(draft_task_row.result_json)
+        draft_context_row = session.scalar(
+            select(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.task_id == draft_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+            .order_by(AgentTaskArtifact.created_at.desc())
+            .limit(1)
+        )
+        assert draft_context_row is not None
+        original_draft_context = deepcopy(draft_context_row.payload_json)
+        weak_match_context = deepcopy(original_draft_context)
+        weak_draft = weak_match_context["output"]["draft"]
+        weak_card = next(
+            card
+            for card in weak_draft["evidence_cards"]
+            if card["evidence_kind"] == "source_evidence"
+            and card["source_evidence_match_status"]
+            in {"matched_source_record", "matched_page_span"}
+        )
+        weak_card["source_evidence_match_status"] = "matched_document_run_fallback"
+        weak_card["source_evidence_match_keys"] = [
+            f"document-run-fallback:{weak_card['document_id']}:{weak_card['run_id']}"
+        ]
+        for claim in weak_draft["claims"]:
+            if weak_card["evidence_card_id"] in claim["evidence_card_ids"]:
+                claim["source_evidence_match_status"] = "matched_document_run_fallback"
+                claim["source_evidence_match_keys"] = list(
+                    weak_card["source_evidence_match_keys"]
+                )
+        weak_match_result = deepcopy(original_draft_result)
+        weak_match_result["payload"]["draft"] = deepcopy(weak_draft)
+        draft_task_row.result_json = weak_match_result
+        draft_context_row.payload_json = weak_match_context
+        weak_match_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_technical_report",
+                input={"target_task_id": str(draft_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        weak_match_verify_task_id = weak_match_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        weak_match_verify_task_row = session.get(AgentTask, weak_match_verify_task_id)
+        assert weak_match_verify_task_row is not None
+        weak_match_verification = weak_match_verify_task_row.result_json["payload"][
+            "verification"
+        ]
+        assert weak_match_verification["outcome"] == "failed"
+        assert (
+            weak_match_verification["metrics"]["source_evidence_closure_complete"]
+            is False
+        )
+        assert (
+            weak_match_verification["metrics"][
+                "cited_cards_without_acceptable_source_evidence_match_count"
+            ]
+            == 1
+        )
+        assert any(
+            "source-record or page-span coverage" in reason
+            for reason in weak_match_verification["reasons"]
+        )
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        draft_task_row.result_json = original_draft_result
+        draft_context_row = session.scalar(
+            select(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.task_id == draft_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+            .order_by(AgentTaskArtifact.created_at.desc())
+            .limit(1)
+        )
+        assert draft_context_row is not None
+        draft_context_row.payload_json = original_draft_context
 
     with postgres_integration_harness.session_factory() as session:
         source_trace_node = session.scalar(

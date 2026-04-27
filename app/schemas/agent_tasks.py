@@ -774,10 +774,15 @@ class SemanticGenerationEvidenceRef(BaseModel):
     review_status: str
     source_filename: str
     source_type: str
+    source_locator: str | None = None
+    chunk_id: UUID | None = None
+    table_id: UUID | None = None
+    figure_id: UUID | None = None
     page_from: int | None = None
     page_to: int | None = None
     excerpt: str | None = None
     source_artifact_api_path: str | None = None
+    source_artifact_sha256: str | None = None
     matched_terms: list[str] = Field(default_factory=list)
 
 
@@ -1072,6 +1077,10 @@ class TechnicalReportEvidenceCard(BaseModel):
     evidence_card_id: str
     evidence_kind: str
     source_type: str | None = None
+    source_locator: str | None = None
+    chunk_id: UUID | None = None
+    table_id: UUID | None = None
+    figure_id: UUID | None = None
     citation_label: str | None = None
     document_id: UUID | None = None
     run_id: UUID | None = None
@@ -1082,6 +1091,7 @@ class TechnicalReportEvidenceCard(BaseModel):
     page_to: int | None = None
     excerpt: str | None = None
     source_artifact_api_path: str | None = None
+    source_artifact_sha256: str | None = None
     evidence_ids: list[UUID] = Field(default_factory=list)
     fact_ids: list[UUID] = Field(default_factory=list)
     assertion_ids: list[UUID] = Field(default_factory=list)
@@ -1094,6 +1104,8 @@ class TechnicalReportEvidenceCard(BaseModel):
     source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_sha256s: list[str] = Field(default_factory=list)
     source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
+    source_evidence_match_keys: list[str] = Field(default_factory=list)
+    source_evidence_match_status: str | None = None
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
     source_snapshot_sha256s: list[str] = Field(default_factory=list)
@@ -1198,6 +1210,8 @@ class TechnicalReportClaim(BaseModel):
     source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_sha256s: list[str] = Field(default_factory=list)
     source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
+    source_evidence_match_keys: list[str] = Field(default_factory=list)
+    source_evidence_match_status: str | None = None
     derivation_rule: str | None = None
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None

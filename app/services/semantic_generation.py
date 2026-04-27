@@ -471,10 +471,18 @@ def prepare_semantic_generation_brief(
                             "review_status": assertion.review_status,
                             "source_filename": document.source_filename,
                             "source_type": evidence.source_type,
+                            "source_locator": str(
+                                evidence.chunk_id or evidence.table_id or evidence.figure_id or ""
+                            )
+                            or None,
+                            "chunk_id": evidence.chunk_id,
+                            "table_id": evidence.table_id,
+                            "figure_id": evidence.figure_id,
                             "page_from": evidence.page_from,
                             "page_to": evidence.page_to,
                             "excerpt": collapse_whitespace(evidence.excerpt),
                             "source_artifact_api_path": evidence.source_artifact_api_path,
+                            "source_artifact_sha256": evidence.source_artifact_sha256,
                             "matched_terms": list(evidence.matched_terms),
                         }
                         for evidence in assertion.evidence

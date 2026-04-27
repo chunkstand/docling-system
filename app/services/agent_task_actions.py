@@ -591,14 +591,105 @@ def _unique_strings(values) -> list[str]:
     return [str(value) for value in dict.fromkeys(values) if value is not None and value != ""]
 
 
+def _source_record_key(source_type, source_id) -> str | None:
+    if source_type is None or source_id is None or source_id == "":
+        return None
+    source_type_value = str(source_type).strip().lower()
+    if source_type_value not in {"chunk", "table"}:
+        return None
+    return f"source:{source_type_value}:{source_id}"
+
+
+def _int_or_none(value) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _source_page_span(
+    *,
+    document_id,
+    run_id,
+    page_from,
+    page_to,
+) -> dict | None:
+    page_from_value = _int_or_none(page_from)
+    if page_from_value is None or document_id is None or run_id is None:
+        return None
+    page_to_value = _int_or_none(page_to) or page_from_value
+    return {
+        "document_id": str(document_id),
+        "run_id": str(run_id),
+        "page_from": page_from_value,
+        "page_to": page_to_value,
+        "key": (
+            f"page:{document_id}:{run_id}:"
+            f"{page_from_value}:{page_to_value}"
+        ),
+    }
+
+
+def _unique_page_spans(spans: list[dict]) -> list[dict]:
+    return list({span["key"]: span for span in spans if span and span.get("key")}.values())
+
+
+def _page_spans_overlap(card_span: dict, source_span: dict) -> bool:
+    if (
+        card_span.get("document_id") != source_span.get("document_id")
+        or card_span.get("run_id") != source_span.get("run_id")
+    ):
+        return False
+    return (
+        int(card_span["page_from"]) <= int(source_span["page_to"])
+        and int(source_span["page_from"]) <= int(card_span["page_to"])
+    )
+
+
 def _source_export_summary(export) -> dict:
     package_payload = export.package_payload_json or {}
     search_request = package_payload.get("search_request") or {}
+    source_evidence = list(package_payload.get("source_evidence") or [])
     source_document_run_keys = _unique_strings(
         f"{document_id}:{run_id}"
         for document_id in (export.document_ids_json or [])
         for run_id in (export.run_ids_json or [])
     )
+    source_record_keys: list[str] = []
+    source_page_spans: list[dict] = []
+    for source_item in source_evidence:
+        document = source_item.get("document") or {}
+        run = source_item.get("run") or {}
+        source_record_keys.append(
+            _source_record_key(source_item.get("result_type"), source_item.get("source_id"))
+        )
+        for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
+            source_payload = source_item.get(payload_key) or {}
+            source_record_keys.append(
+                _source_record_key(source_type, source_payload.get("id"))
+            )
+            source_page_spans.append(
+                _source_page_span(
+                    document_id=source_payload.get("document_id") or document.get("id"),
+                    run_id=source_payload.get("run_id") or run.get("id"),
+                    page_from=source_payload.get("page_from"),
+                    page_to=source_payload.get("page_to"),
+                )
+            )
+        for span in source_item.get("retrieval_evidence_spans") or []:
+            source_record_keys.append(
+                _source_record_key(span.get("source_type"), span.get("source_id"))
+            )
+            source_page_spans.append(
+                _source_page_span(
+                    document_id=document.get("id"),
+                    run_id=run.get("id"),
+                    page_from=span.get("page_from"),
+                    page_to=span.get("page_to"),
+                )
+            )
     return {
         "evidence_package_export_id": str(export.id),
         "search_request_id": str(export.search_request_id) if export.search_request_id else None,
@@ -609,6 +700,9 @@ def _source_export_summary(export) -> dict:
         "document_ids": [str(value) for value in export.document_ids_json or []],
         "run_ids": [str(value) for value in export.run_ids_json or []],
         "source_document_run_keys": source_document_run_keys,
+        "source_record_keys": _unique_strings(source_record_keys),
+        "source_page_spans": _unique_page_spans(source_page_spans),
+        "source_result_count": len(source_evidence),
     }
 
 
@@ -622,28 +716,123 @@ def _card_document_run_keys(card: dict) -> list[str]:
     return [f"{document_id}:{run_id}" for document_id in document_ids for run_id in run_ids]
 
 
+def _card_source_record_keys(card: dict) -> list[str]:
+    metadata = card.get("metadata") or {}
+    source_type = str(card.get("source_type") or "").strip().lower()
+    source_record_keys: list[str] = [
+        _source_record_key("chunk", card.get("chunk_id") or metadata.get("chunk_id")),
+        _source_record_key("table", card.get("table_id") or metadata.get("table_id")),
+    ]
+    if source_type in {"chunk", "table"}:
+        source_record_keys.append(
+            _source_record_key(
+                source_type,
+                card.get("source_locator") or metadata.get("source_locator"),
+            )
+        )
+    return _unique_strings(source_record_keys)
+
+
+def _card_requires_source_match(card: dict) -> bool:
+    source_type = str(card.get("source_type") or "").strip().lower()
+    evidence_kind = str(card.get("evidence_kind") or "").strip().lower()
+    return (
+        source_type in {"chunk", "table", "figure"}
+        or evidence_kind in {"source_evidence", "semantic_fact"}
+        or bool(card.get("evidence_ids"))
+    )
+
+
+def _card_page_span(card: dict) -> dict | None:
+    return _source_page_span(
+        document_id=card.get("document_id"),
+        run_id=card.get("run_id"),
+        page_from=card.get("page_from"),
+        page_to=card.get("page_to"),
+    )
+
+
+def _match_card_source_exports(
+    card: dict,
+    search_export_summaries: list[dict],
+) -> tuple[str, list[dict], list[str]]:
+    source_record_keys = set(_card_source_record_keys(card))
+    if source_record_keys:
+        matched_summaries: list[dict] = []
+        matched_keys: list[str] = []
+        for summary in search_export_summaries:
+            summary_keys = set(summary.get("source_record_keys") or [])
+            overlap = sorted(source_record_keys & summary_keys)
+            if overlap:
+                matched_summaries.append(summary)
+                matched_keys.extend(overlap)
+        if matched_summaries:
+            return "matched_source_record", matched_summaries, _unique_strings(matched_keys)
+
+    card_page_span = _card_page_span(card)
+    if card_page_span:
+        matched_summaries = []
+        matched_keys = []
+        for summary in search_export_summaries:
+            overlapping_source_spans = [
+                span
+                for span in summary.get("source_page_spans") or []
+                if _page_spans_overlap(card_page_span, span)
+            ]
+            if overlapping_source_spans:
+                matched_summaries.append(summary)
+                matched_keys.extend(span["key"] for span in overlapping_source_spans)
+        if matched_summaries:
+            return "matched_page_span", matched_summaries, _unique_strings(matched_keys)
+
+    if not source_record_keys and not card_page_span:
+        matched_summaries = []
+        for key in _card_document_run_keys(card):
+            matched_summaries.extend(
+                summary
+                for summary in search_export_summaries
+                if key in (summary.get("source_document_run_keys") or [])
+            )
+        if matched_summaries:
+            return "matched_document_run_fallback", matched_summaries, _card_document_run_keys(
+                card
+            )
+
+    return "missing", [], []
+
+
+def _aggregate_source_match_status(statuses: list[str]) -> str | None:
+    unique_statuses = _unique_strings(statuses)
+    if not unique_statuses:
+        return None
+    status_order = {
+        "missing": 0,
+        "matched_document_run_fallback": 1,
+        "matched_page_span": 2,
+        "matched_source_record": 3,
+    }
+    return min(unique_statuses, key=lambda status: status_order.get(status, -1))
+
+
+def _card_targeted_query(card: dict) -> str | None:
+    excerpt = str(card.get("excerpt") or "").strip()
+    if excerpt:
+        return " ".join(excerpt.split())[:1000]
+    matched_terms = (card.get("metadata") or {}).get("matched_terms") or []
+    query = " ".join(_unique_strings(matched_terms)).strip()
+    return query[:1000] or None
+
+
 def _attach_source_exports_to_evidence_bundle(
     evidence_bundle: dict,
     search_export_summaries: list[dict],
 ) -> None:
-    summaries_by_document_run_key: dict[str, list[dict]] = {}
-    summaries_by_document_id: dict[str, list[dict]] = {}
-    for summary in search_export_summaries:
-        for key in summary.get("source_document_run_keys") or []:
-            summaries_by_document_run_key.setdefault(str(key), []).append(summary)
-        for document_id in summary.get("document_ids") or []:
-            summaries_by_document_id.setdefault(str(document_id), []).append(summary)
-
     cards_by_id: dict[str, dict] = {}
     for card in evidence_bundle.get("evidence_cards") or []:
-        matched_summaries: list[dict] = []
-        for key in _card_document_run_keys(card):
-            matched_summaries.extend(summaries_by_document_run_key.get(key, []))
-        if not matched_summaries:
-            for document_id in _unique_strings(
-                [card.get("document_id"), *(card.get("source_document_ids") or [])]
-            ):
-                matched_summaries.extend(summaries_by_document_id.get(document_id, []))
+        source_match_status, matched_summaries, source_match_keys = _match_card_source_exports(
+            card,
+            search_export_summaries,
+        )
         matched_summaries = list(
             {
                 summary["evidence_package_export_id"]: summary
@@ -662,6 +851,12 @@ def _attach_source_exports_to_evidence_bundle(
         card["source_evidence_trace_sha256s"] = _unique_strings(
             summary.get("trace_sha256") for summary in matched_summaries
         )
+        card["source_evidence_match_keys"] = source_match_keys
+        card["source_evidence_match_status"] = source_match_status
+        card_metadata = dict(card.get("metadata") or {})
+        card_metadata["source_record_keys"] = _card_source_record_keys(card)
+        card_metadata["source_page_span"] = _card_page_span(card)
+        card["metadata"] = card_metadata
         cards_by_id[str(card.get("evidence_card_id"))] = card
 
     for claim in evidence_bundle.get("claim_evidence_map") or []:
@@ -690,6 +885,19 @@ def _attach_source_exports_to_evidence_bundle(
             for card in claim_cards
             for value in (card.get("source_evidence_trace_sha256s") or [])
         )
+        claim["source_evidence_match_keys"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_evidence_match_keys") or [])
+        )
+        claim["source_evidence_match_status"] = _aggregate_source_match_status(
+            [
+                card.get("source_evidence_match_status")
+                for card in claim_cards
+                if _card_requires_source_match(card)
+                if card.get("source_evidence_match_status")
+            ]
+        )
 
     evidence_bundle["search_evidence_package_exports"] = search_export_summaries
 
@@ -701,12 +909,12 @@ def _freeze_report_retrieval_evidence(
     evidence_bundle: dict,
 ) -> list[dict]:
     summaries: list[dict] = []
-    seen_search_keys: set[tuple[str, str | None]] = set()
+    seen_search_keys: set[tuple[str, str | None, str | None]] = set()
     for retrieval_row in evidence_bundle.get("retrieval_index") or []:
         document_ids = _unique_strings(retrieval_row.get("document_ids") or [])
         for query in _unique_strings(retrieval_row.get("queries") or []):
             for document_id in document_ids:
-                search_key = (query, document_id)
+                search_key = (query, document_id, None)
                 if search_key in seen_search_keys:
                     continue
                 seen_search_keys.add(search_key)
@@ -728,6 +936,41 @@ def _freeze_report_retrieval_evidence(
                     agent_task_id=task_id,
                 )
                 summaries.append(_source_export_summary(export))
+    for card in evidence_bundle.get("evidence_cards") or []:
+        source_type = str(card.get("source_type") or "").strip().lower()
+        if source_type not in {"chunk", "table"}:
+            continue
+        document_id = str(card.get("document_id") or "")
+        if not document_id:
+            continue
+        query = _card_targeted_query(card)
+        if not query:
+            continue
+        search_key = (query, document_id, source_type)
+        if search_key in seen_search_keys:
+            continue
+        seen_search_keys.add(search_key)
+        execution = execute_search(
+            session,
+            SearchRequest(
+                query=query,
+                mode="keyword",
+                filters=SearchFilters(
+                    document_id=UUID(document_id),
+                    result_type=source_type,
+                ),
+                limit=10,
+            ),
+            origin="agent_task_report_source_card_retrieval",
+        )
+        if execution.request_id is None:
+            continue
+        export = persist_search_evidence_package_export(
+            session,
+            search_request_id=execution.request_id,
+            agent_task_id=task_id,
+        )
+        summaries.append(_source_export_summary(export))
     _attach_source_exports_to_evidence_bundle(evidence_bundle, summaries)
     return summaries
 
@@ -1018,13 +1261,22 @@ def _verify_technical_report_executor(
         "claims_missing_source_evidence_package_export_count": source_evidence_closure[
             "claims_missing_source_evidence_package_export_count"
         ],
+        "cited_cards_without_acceptable_source_evidence_match_count": (
+            source_evidence_closure[
+                "cited_cards_without_acceptable_source_evidence_match_count"
+            ]
+        ),
+        "cited_cards_with_document_run_fallback_match_count": source_evidence_closure[
+            "cited_cards_with_document_run_fallback_match_count"
+        ],
         "source_evidence_closure_complete": source_evidence_closure["complete"],
     }
     reasons = list(outcome.verification_reasons)
     if payload.require_frozen_source_evidence and not source_evidence_closure["complete"]:
         reasons.append(
             "Every generated claim must be backed by frozen search evidence packages "
-            "with complete persisted trace integrity."
+            "with complete persisted trace integrity and source-record or page-span "
+            "coverage."
         )
     verification_outcome = "failed" if reasons else "passed"
     success_metrics = [
@@ -1043,6 +1295,9 @@ def _verify_technical_report_executor(
                 ],
                 "trace_complete_count": source_evidence_closure["trace_complete_count"],
                 "incomplete_trace_count": source_evidence_closure["incomplete_trace_count"],
+                "weak_source_match_count": source_evidence_closure[
+                    "cited_cards_without_acceptable_source_evidence_match_count"
+                ],
             },
         },
     ]
