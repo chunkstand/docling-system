@@ -39,6 +39,8 @@ The stage stores one or more vectors per retrieval evidence span in Postgres, co
 
 Those traces make a late-interaction hit explainable without treating the vector index as a black box.
 
+The evidence package materializes each referenced span-vector row, including token range, vector text, content hash, embedding model, embedding dimension, embedding hash, and a span-vector snapshot hash. The trace therefore points to durable DB evidence instead of only naming an opaque vector id.
+
 ## Repair Use
 
 `verify_draft_harness_config` builds a descriptor for the transient draft harness and includes it in the comprehension gate. A draft should not pass comprehension unless its changed scopes are within the descriptor-backed, bounded repair surface.

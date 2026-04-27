@@ -209,6 +209,16 @@ def _span_multivector_content_sha256(
     )
 
 
+def _embedding_sha256(embedding: list[float]) -> str:
+    return _payload_sha256(
+        {
+            "schema_name": "retrieval_evidence_span_multivector_embedding",
+            "schema_version": "1.0",
+            "embedding": [float(value) for value in embedding],
+        }
+    )
+
+
 def build_chunk_span_specs(chunk: DocumentChunk) -> list[SourceSpanSpec]:
     source_snapshot_sha256 = _payload_sha256(_chunk_source_snapshot(chunk))
     specs: list[SourceSpanSpec] = []
@@ -435,6 +445,7 @@ def rebuild_retrieval_evidence_span_multivectors(
     now = utcnow()
     embedding_model = str(getattr(embedding_provider, "model", "unknown"))
     for spec, embedding in zip(specs, embeddings, strict=True):
+        embedding_sha256 = _embedding_sha256(embedding)
         session.add(
             RetrievalEvidenceSpanMultiVector(
                 id=uuid.uuid4(),
@@ -450,11 +461,13 @@ def rebuild_retrieval_evidence_span_multivectors(
                 content_sha256=spec.content_sha256,
                 embedding_model=embedding_model,
                 embedding_dim=len(embedding),
+                embedding_sha256=embedding_sha256,
                 embedding=embedding,
                 metadata_json={
                     **spec.metadata,
                     "embedding_status": embedding_status,
                     "embedding_model": embedding_model,
+                    "embedding_sha256": embedding_sha256,
                 },
                 created_at=now,
             )

@@ -86,7 +86,7 @@ promote parser behavior.
 
 `multivector_v1` is available as a bounded search harness for high-accuracy retrieval experiments. It adds persisted retrieval evidence span multivectors and a late-interaction max-sim candidate stage without changing canonical chunk, table, or span truth.
 
-Repair agents may tune whether a derived harness enables late interaction and its candidate limits through descriptor-listed retrieval-profile overrides. They must still verify against durable replay or evaluation evidence. A late-interaction improvement is auditable only when the resulting search request retains the per-span max-sim trace in persisted result-span metadata.
+Repair agents may tune whether a derived harness enables late interaction and its candidate limits through descriptor-listed retrieval-profile overrides. They must still verify against durable replay or evaluation evidence. A late-interaction improvement is auditable only when the resulting search request retains the per-span max-sim trace in persisted result-span metadata and the evidence package materializes the referenced span-vector rows with content and embedding hashes.
 
 Audit bundles are stored under `storage/audit_bundles/`, persisted in
 `audit_bundle_exports`, and include a PROV-style graph plus HMAC-SHA256 signature

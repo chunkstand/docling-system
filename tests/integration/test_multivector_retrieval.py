@@ -122,6 +122,11 @@ def test_multivector_harness_persists_late_interaction_trace(
             .select_from(RetrievalEvidenceSpanMultiVector)
             .where(RetrievalEvidenceSpanMultiVector.run_id == run_id)
         )
+        stored_vector_hash = session.scalar(
+            select(RetrievalEvidenceSpanMultiVector.embedding_sha256)
+            .where(RetrievalEvidenceSpanMultiVector.run_id == run_id)
+            .limit(1)
+        )
         stored_trace_span = session.scalar(
             select(SearchRequestResultSpan)
             .where(SearchRequestResultSpan.search_request_id == search_request_id)
@@ -130,5 +135,28 @@ def test_multivector_harness_persists_late_interaction_trace(
         )
 
     assert stored_vector_count and stored_vector_count >= 1
+    assert stored_vector_hash
     assert stored_trace_span is not None
     assert stored_trace_span.metadata_json["late_interaction"]["maxsim_matches"]
+
+    evidence_response = postgres_integration_harness.client.get(
+        f"/search/requests/{search_request_id}/evidence-package"
+    )
+    assert evidence_response.status_code == 200
+    evidence_package = evidence_response.json()
+    assert evidence_package["audit_checklist"]["late_interaction_trace_count"] >= 1
+    assert (
+        evidence_package["audit_checklist"]["all_late_interaction_vectors_materialized"]
+        is True
+    )
+    assert evidence_package["audit_checklist"]["all_late_interaction_vectors_hashed"] is True
+    evidence_late_spans = [
+        span
+        for item in evidence_package["source_evidence"]
+        for span in item["retrieval_evidence_spans"]
+        if span["score_kind"] == "late_interaction_maxsim"
+    ]
+    assert evidence_late_spans
+    evidence_vector = evidence_late_spans[0]["late_interaction_multivectors"][0]
+    assert evidence_vector["embedding_sha256"] == stored_vector_hash
+    assert evidence_vector["span_vector_snapshot_sha256"]

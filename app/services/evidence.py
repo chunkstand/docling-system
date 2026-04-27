@@ -30,6 +30,7 @@ from app.db.models import (
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
+    RetrievalEvidenceSpanMultiVector,
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
@@ -417,8 +418,54 @@ def _figure_payload(row: DocumentFigure | None) -> dict | None:
     return payload
 
 
-def _search_result_span_payload(row: SearchRequestResultSpan) -> dict:
-    return {
+def _late_interaction_matches(metadata: dict | None) -> list[dict]:
+    late_interaction = (metadata or {}).get("late_interaction") or {}
+    matches = late_interaction.get("maxsim_matches") or []
+    return [match for match in matches if isinstance(match, dict)]
+
+
+def _late_interaction_span_vector_ids(metadata: dict | None) -> list[UUID]:
+    return _uuid_values(
+        match.get("span_vector_id") for match in _late_interaction_matches(metadata)
+    )
+
+
+def _span_multivector_payload(row: RetrievalEvidenceSpanMultiVector) -> dict:
+    payload = {
+        "span_vector_id": row.id,
+        "retrieval_evidence_span_id": row.retrieval_evidence_span_id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "source_type": row.source_type,
+        "source_id": row.source_id,
+        "vector_index": row.vector_index,
+        "token_start": row.token_start,
+        "token_end": row.token_end,
+        "vector_text": row.vector_text,
+        "content_sha256": row.content_sha256,
+        "embedding_model": row.embedding_model,
+        "embedding_dim": row.embedding_dim,
+        "embedding_sha256": row.embedding_sha256,
+        "metadata": row.metadata_json or {},
+        "created_at": row.created_at,
+    }
+    payload["span_vector_snapshot_sha256"] = payload_sha256(payload)
+    return payload
+
+
+def _search_result_span_payload(
+    row: SearchRequestResultSpan,
+    *,
+    span_vectors_by_id: dict[UUID, RetrievalEvidenceSpanMultiVector] | None = None,
+) -> dict:
+    metadata = row.metadata_json or {}
+    span_vectors_by_id = span_vectors_by_id or {}
+    vector_payloads = [
+        _span_multivector_payload(vector_row)
+        for vector_id in _late_interaction_span_vector_ids(metadata)
+        if (vector_row := span_vectors_by_id.get(vector_id)) is not None
+    ]
+    payload = {
         "search_request_result_span_id": row.id,
         "retrieval_evidence_span_id": row.retrieval_evidence_span_id,
         "span_rank": row.span_rank,
@@ -432,9 +479,12 @@ def _search_result_span_payload(row: SearchRequestResultSpan) -> dict:
         "text_excerpt": row.text_excerpt,
         "content_sha256": row.content_sha256,
         "source_snapshot_sha256": row.source_snapshot_sha256,
-        "metadata": row.metadata_json or {},
+        "metadata": metadata,
         "created_at": row.created_at,
     }
+    if vector_payloads:
+        payload["late_interaction_multivectors"] = vector_payloads
+    return payload
 
 
 def _result_payload(
@@ -516,6 +566,17 @@ def _source_evidence_payloads(
         for span in span_rows:
             spans_by_result_id.setdefault(span.search_request_result_id, []).append(span)
 
+    span_vectors_by_id = _select_by_ids(
+        session,
+        RetrievalEvidenceSpanMultiVector,
+        (
+            vector_id
+            for spans in spans_by_result_id.values()
+            for span in spans
+            for vector_id in _late_interaction_span_vector_ids(span.metadata_json or {})
+        ),
+    )
+
     payloads: list[dict] = []
     for result in result_rows:
         document = documents_by_id.get(result.document_id)
@@ -539,7 +600,11 @@ def _source_evidence_payloads(
             "chunk": chunk_payload,
             "table": table_payload,
             "retrieval_evidence_spans": [
-                _search_result_span_payload(span) for span in spans_by_result_id.get(result.id, [])
+                _search_result_span_payload(
+                    span,
+                    span_vectors_by_id=span_vectors_by_id,
+                )
+                for span in spans_by_result_id.get(result.id, [])
             ],
         }
         payload["source_snapshot_sha256"] = payload_sha256(payload)
@@ -601,6 +666,17 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
     source_evidence_by_result_id = {
         str(row["search_request_result_id"]): row for row in source_evidence
     }
+    late_interaction_span_payloads = [
+        span
+        for item in source_evidence
+        for span in item.get("retrieval_evidence_spans", [])
+        if span.get("score_kind") == "late_interaction_maxsim"
+    ]
+    late_interaction_vector_payloads = [
+        vector
+        for span in late_interaction_span_payloads
+        for vector in span.get("late_interaction_multivectors", [])
+    ]
     package = {
         "schema_name": "search_evidence_package",
         "schema_version": "1.0",
@@ -683,6 +759,23 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
                 bool(span.get("content_sha256")) and bool(span.get("source_snapshot_sha256"))
                 for item in source_evidence
                 for span in item.get("retrieval_evidence_spans", [])
+            ),
+            "late_interaction_trace_count": len(late_interaction_span_payloads),
+            "late_interaction_span_vector_count": len(late_interaction_vector_payloads),
+            "all_late_interaction_vectors_materialized": all(
+                len(span.get("late_interaction_multivectors", []))
+                == len(_late_interaction_matches(span.get("metadata") or {}))
+                for span in late_interaction_span_payloads
+            ),
+            "all_late_interaction_vectors_hashed": (
+                not late_interaction_span_payloads
+                or bool(late_interaction_vector_payloads)
+                and all(
+                    bool(vector.get("content_sha256"))
+                    and bool(vector.get("embedding_sha256"))
+                    and bool(vector.get("span_vector_snapshot_sha256"))
+                    for vector in late_interaction_vector_payloads
+                )
             ),
         },
     }

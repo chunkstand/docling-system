@@ -1648,6 +1648,7 @@ def _run_late_interaction_search(
                 "vector_text": vector_row.vector_text,
                 "vector_content_sha256": vector_row.content_sha256,
                 "embedding_model": vector_row.embedding_model,
+                "embedding_sha256": vector_row.embedding_sha256,
             }
 
     scored_states: dict[UUID, dict] = {}
