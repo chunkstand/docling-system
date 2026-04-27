@@ -8,6 +8,14 @@ uv run docling-system-export-ranking-dataset --limit 200
 
 It returns a JSON array containing two row types.
 
+The durable retrieval-learning ledger is materialized by:
+
+```bash
+uv run docling-system-materialize-retrieval-learning --limit 200
+```
+
+That command stores a judgment set, item-level judgments, mined hard negatives, a training run payload hash, and a semantic governance event in Postgres. The JSON export remains a lightweight derived view for offline inspection.
+
 ## Feedback Rows
 
 `dataset_type = "feedback"`
@@ -95,4 +103,9 @@ Use this export to:
 - cluster repeated live misses before promoting them into durable evaluation fixtures
 - inspect which feature snapshots correlate with operator-approved results
 
-This export is a derived operator artifact, not a source of truth. The durable source of truth remains the persisted search request, feedback, replay, and evaluation tables in Postgres.
+This export is a derived operator artifact, not a source of truth. The durable source of truth remains the persisted search request, feedback, replay, evaluation, and retrieval-learning ledger tables in Postgres:
+
+- `retrieval_judgment_sets` records the source mix, criteria, counts, and canonical payload hash.
+- `retrieval_judgments` stores positive, negative, and missing judgments with query, harness, result, rerank feature, and evidence-span references.
+- `retrieval_hard_negatives` stores explicit and mined hard negatives for reranker training.
+- `retrieval_training_runs` stores the canonical training payload and links it to `semantic_governance_events` for auditability.

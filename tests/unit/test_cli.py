@@ -48,6 +48,7 @@ from app.cli import (
     run_ingest_batch_show,
     run_ingest_dir,
     run_ingest_file,
+    run_materialize_retrieval_learning_dataset,
     run_optimize_search_harness,
     run_replay_search,
     run_replay_suite,
@@ -524,6 +525,62 @@ def test_export_ranking_dataset_cli_prints_rows(monkeypatch, capsys) -> None:
     output = json.loads(capsys.readouterr().out.strip())
     assert output[0]["dataset_type"] == "feedback"
     assert output[1]["dataset_type"] == "replay"
+
+
+def test_materialize_retrieval_learning_dataset_cli_prints_summary(
+    monkeypatch, capsys
+) -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def commit(self):
+            return None
+
+    release_id = uuid4()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-materialize-retrieval-learning",
+            "--limit",
+            "7",
+            "--source-type",
+            "feedback",
+            "--set-name",
+            "operator-set",
+            "--created-by",
+            "tester",
+            "--search-harness-release-id",
+            str(release_id),
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+
+    def fake_materialize(session, **kwargs):
+        assert kwargs["limit"] == 7
+        assert kwargs["source_types"] == ["feedback"]
+        assert kwargs["set_name"] == "operator-set"
+        assert kwargs["created_by"] == "tester"
+        assert kwargs["search_harness_release_id"] == release_id
+        return {
+            "judgment_set_id": str(uuid4()),
+            "summary": {"judgment_count": 3, "hard_negative_count": 1},
+        }
+
+    monkeypatch.setattr(
+        "app.cli.materialize_retrieval_learning_dataset",
+        fake_materialize,
+    )
+
+    run_materialize_retrieval_learning_dataset()
+
+    output = json.loads(capsys.readouterr().out.strip())
+    assert output["summary"]["judgment_count"] == 3
+    assert output["summary"]["hard_negative_count"] == 1
 
 
 def test_eval_reranker_cli_prints_summary(monkeypatch, capsys) -> None:

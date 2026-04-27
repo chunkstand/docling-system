@@ -135,6 +135,13 @@ def export_ranking_dataset(*args, **kwargs):
     )
 
 
+def materialize_retrieval_learning_dataset(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.retrieval_learning",
+        "materialize_retrieval_learning_dataset",
+    )(*args, **kwargs)
+
+
 def evaluate_search_harness(*args, **kwargs):
     return _lazy_service_attr(
         "app.services.search_harness_evaluations",
@@ -734,6 +741,53 @@ def run_export_ranking_dataset() -> None:
     session_factory = get_session_factory()
     with session_factory() as session:
         payload = export_ranking_dataset(session, limit=args.limit)
+    print(json.dumps(payload))
+
+
+def run_materialize_retrieval_learning_dataset() -> None:
+    parser = argparse.ArgumentParser(
+        description="Materialize durable retrieval judgments and hard negatives for reranker work."
+    )
+    parser.add_argument("--limit", type=int, default=200, help="Maximum rows per source set.")
+    parser.add_argument(
+        "--source-type",
+        action="append",
+        choices=["feedback", "replay"],
+        dest="source_types",
+        help="Source family to mine. May be repeated; defaults to feedback and replay.",
+    )
+    parser.add_argument("--set-name", default=None, help="Optional unique judgment set name.")
+    parser.add_argument(
+        "--created-by",
+        default="cli",
+        help="Operator or process name to record on the judgment set and governance event.",
+    )
+    parser.add_argument(
+        "--search-harness-evaluation-id",
+        type=UUID,
+        default=None,
+        help="Optional harness evaluation linked to the materialized training run.",
+    )
+    parser.add_argument(
+        "--search-harness-release-id",
+        type=UUID,
+        default=None,
+        help="Optional harness release linked to the materialized training run.",
+    )
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = materialize_retrieval_learning_dataset(
+            session,
+            limit=args.limit,
+            source_types=args.source_types,
+            set_name=args.set_name,
+            created_by=args.created_by,
+            search_harness_evaluation_id=args.search_harness_evaluation_id,
+            search_harness_release_id=args.search_harness_release_id,
+        )
+        session.commit()
     print(json.dumps(payload))
 
 
