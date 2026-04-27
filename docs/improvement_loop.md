@@ -89,7 +89,10 @@ classes, and the oldest open case ID.
 The import orchestration lives in `app.services.improvement_case_intake`; the
 CLI is only an argument parser and JSON renderer. Keep new observation sources
 behind that service facade so later API, worker, or UI surfaces can reuse the
-same source selection and dedupe path. The facade accepts
+same source selection and dedupe path. The facade owns an internal source
+registry that records each source's kind, DB-session requirement, and
+source-path support, so adding a source means declaring its operational
+contract before routing it. The facade accepts
 `ImprovementCaseImportRequest` and returns `ImprovementCaseImportResult`, so new
 boundary surfaces can reuse a typed import contract instead of copying CLI
 payload shape.

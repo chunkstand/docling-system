@@ -124,6 +124,10 @@ The facade exposes `ImprovementCaseImportRequest` and
 `ImprovementCaseImportResult` as the reusable machine contract. Boundary callers
 should pass that typed request, or the equivalent keyword arguments, and render
 the typed result without reconstructing import payloads themselves.
+The intake service also owns the closed source-adapter registry. Each registered
+source declares whether it reads workspace files, an explicit report file, or
+the database, and whether it accepts `source_path`; the architecture contract
+map publishes that metadata for agents and CI checks.
 
 Improvement-case lifecycle transitions are owned by
 `app.services.improvement_case_lifecycle`. CLI, API, worker, or UI callers

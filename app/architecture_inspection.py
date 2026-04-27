@@ -48,6 +48,7 @@ from app.services.agent_task_actions import build_agent_task_action_manifest
 from app.services.improvement_case_intake import (
     IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
     IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
+    list_improvement_case_import_source_specs,
     list_improvement_case_import_sources,
 )
 from app.services.improvement_cases import (
@@ -179,6 +180,7 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "schema_name": IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
                 "schema_version": IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
                 "import_sources": list(list_improvement_case_import_sources()),
+                "import_source_specs": list(list_improvement_case_import_source_specs()),
                 "decision_ids": decision_ids_by_contract.get("improvement_case_intake", []),
             },
             {

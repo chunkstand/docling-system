@@ -330,6 +330,32 @@ def test_import_sources_include_architecture_governance_report() -> None:
     assert "architecture-governance-report" in intake.list_improvement_case_import_sources()
 
 
+def test_import_source_specs_expose_source_behavior() -> None:
+    specs = {
+        row["source"]: row
+        for row in intake.list_improvement_case_import_source_specs()
+    }
+
+    assert set(intake.list_improvement_case_import_sources()) == {
+        "all",
+        *specs,
+    }
+    assert specs["hygiene"]["source_kind"] == "workspace"
+    assert specs["hygiene"]["requires_db_session"] is False
+    assert specs["hygiene"]["accepts_source_path"] is False
+    assert specs["architecture-governance-report"]["source_kind"] == "file"
+    assert specs["architecture-governance-report"]["accepts_source_path"] is True
+    assert {
+        source
+        for source, row in specs.items()
+        if row["requires_db_session"] is True
+    } == {
+        "eval-failure-cases",
+        "failed-agent-tasks",
+        "failed-agent-verifications",
+    }
+
+
 def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
     cli_source = (Path(__file__).parents[2] / "app" / "cli.py").read_text()
 
@@ -338,7 +364,9 @@ def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:
         "collect_eval_failure_case_observations",
         "collect_failed_agent_task_observations",
         "collect_failed_agent_verification_observations",
+        "collect_hygiene_import_observations",
         "collect_hygiene_finding_observations",
+        "collect_improvement_case_import_observations",
         "import_improvement_case_observations",
     ):
         assert forbidden not in cli_source

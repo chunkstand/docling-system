@@ -80,6 +80,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         for contract in contract_map["contracts"]
         if contract["name"] == "architecture_measurement_history"
     )
+    intake_contract = next(
+        contract
+        for contract in contract_map["contracts"]
+        if contract["name"] == "improvement_case_intake"
+    )
 
     assert contract_map["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
     assert contract_map["system_style"] == "modular_monolith"
@@ -106,6 +111,16 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert "docs/architecture_boundaries.md" in contract_map["source_documents"]
     assert "docs/architecture_decisions.yaml" in contract_map["source_documents"]
     assert EXPECTED_ARCHITECTURE_RULE_IDS <= rule_ids
+    assert {
+        (row["source"], row["source_kind"], row["requires_db_session"])
+        for row in intake_contract["import_source_specs"]
+    } == {
+        ("hygiene", "workspace", False),
+        ("architecture-governance-report", "file", False),
+        ("eval-failure-cases", "database", True),
+        ("failed-agent-tasks", "database", True),
+        ("failed-agent-verifications", "database", True),
+    }
     assert measurement_contract["schema_name"] == ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME
     assert measurement_contract["history_path"] == "storage/architecture_inspections/history.jsonl"
     assert measurement_contract["measurement_fields"] == list(ARCHITECTURE_MEASUREMENT_FIELDS)

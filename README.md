@@ -502,6 +502,9 @@ file-budget gates. `docling-system-improvement-case-import` can also observe
 hygiene findings, architecture governance reports, unresolved eval failure
 cases, failed agent tasks, and failed agent verifications, then write deduped
 open cases keyed by source reference.
+Those import sources are declared in an intake adapter registry with explicit
+source kind, DB-session, and source-path metadata before the public facade routes
+them.
 `docling-system-architecture-inspect` emits the machine-readable architecture
 map and validates boundary contracts as a Brown/Structurizr-style inspection;
 the hygiene command runs that inspection by default. The committed map is

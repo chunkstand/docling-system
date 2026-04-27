@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -31,28 +32,49 @@ from app.services.improvement_cases import (
 
 IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME = "improvement_case_import"
 IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION = "1.0"
-IMPROVEMENT_CASE_IMPORT_SOURCES = frozenset(
-    {
-        "all",
-        "hygiene",
-        "architecture-governance-report",
-        "eval-failure-cases",
-        "failed-agent-tasks",
-        "failed-agent-verifications",
-    }
-)
-_DB_IMPORT_SOURCES = frozenset(
-    {"all", "eval-failure-cases", "failed-agent-tasks", "failed-agent-verifications"}
-)
+IMPROVEMENT_CASE_IMPORT_ALL_SOURCE = "all"
+
+
+@dataclass(frozen=True, slots=True)
+class ImprovementCaseImportSourceContext:
+    limit: int
+    workflow_version: str
+    project_root: Path | None = None
+    source_path: str | Path | None = None
+    session: object | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImprovementCaseImportSourceSpec:
+    source: str
+    source_kind: Literal["workspace", "file", "database"]
+    requires_db_session: bool
+    accepts_source_path: bool
+    collector: Callable[
+        [ImprovementCaseImportSourceContext],
+        list[ImprovementCaseObservation],
+    ]
+
+    def to_contract(self) -> dict[str, object]:
+        return {
+            "source": self.source,
+            "source_kind": self.source_kind,
+            "requires_db_session": self.requires_db_session,
+            "accepts_source_path": self.accepts_source_path,
+        }
 
 
 def list_improvement_case_import_sources() -> tuple[str, ...]:
-    return tuple(sorted(IMPROVEMENT_CASE_IMPORT_SOURCES))
+    return tuple(sorted({IMPROVEMENT_CASE_IMPORT_ALL_SOURCE, *_IMPORT_SOURCE_REGISTRY}))
+
+
+def list_improvement_case_import_source_specs() -> tuple[dict[str, object], ...]:
+    return tuple(spec.to_contract() for spec in _IMPORT_SOURCE_REGISTRY.values())
 
 
 def _validate_import_source(source: str) -> None:
-    if source not in IMPROVEMENT_CASE_IMPORT_SOURCES:
-        allowed = ", ".join(sorted(IMPROVEMENT_CASE_IMPORT_SOURCES))
+    if source not in list_improvement_case_import_sources():
+        allowed = ", ".join(list_improvement_case_import_sources())
         raise ValueError(
             f"Unknown improvement case import source '{source}'. Expected one of: {allowed}."
         )
@@ -314,6 +336,111 @@ def collect_architecture_governance_report_observations(
     return observations[:limit]
 
 
+def _require_import_session(context: ImprovementCaseImportSourceContext) -> object:
+    if context.session is None:
+        raise RuntimeError("DB-backed improvement import source requires a session.")
+    return context.session
+
+
+def _collect_hygiene_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_hygiene_import_observations(
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+        project_root=context.project_root,
+    )
+
+
+def _collect_architecture_governance_report_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_architecture_governance_report_observations(
+        source_path=context.source_path,
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+        project_root=context.project_root,
+        require_existing=context.source_path is not None,
+    )
+
+
+def _collect_eval_failure_case_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_eval_failure_case_observations(
+        _require_import_session(context),
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+    )
+
+
+def _collect_failed_agent_task_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_failed_agent_task_observations(
+        _require_import_session(context),
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+    )
+
+
+def _collect_failed_agent_verification_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_failed_agent_verification_observations(
+        _require_import_session(context),
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+    )
+
+
+_IMPORT_SOURCE_SPECS = (
+    ImprovementCaseImportSourceSpec(
+        source="hygiene",
+        source_kind="workspace",
+        requires_db_session=False,
+        accepts_source_path=False,
+        collector=_collect_hygiene_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="architecture-governance-report",
+        source_kind="file",
+        requires_db_session=False,
+        accepts_source_path=True,
+        collector=_collect_architecture_governance_report_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="eval-failure-cases",
+        source_kind="database",
+        requires_db_session=True,
+        accepts_source_path=False,
+        collector=_collect_eval_failure_case_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="failed-agent-tasks",
+        source_kind="database",
+        requires_db_session=True,
+        accepts_source_path=False,
+        collector=_collect_failed_agent_task_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="failed-agent-verifications",
+        source_kind="database",
+        requires_db_session=True,
+        accepts_source_path=False,
+        collector=_collect_failed_agent_verification_source,
+    ),
+)
+_IMPORT_SOURCE_REGISTRY = {spec.source: spec for spec in _IMPORT_SOURCE_SPECS}
+
+
+def _select_import_source_specs(source: str) -> tuple[ImprovementCaseImportSourceSpec, ...]:
+    _validate_import_source(source)
+    if source == IMPROVEMENT_CASE_IMPORT_ALL_SOURCE:
+        return _IMPORT_SOURCE_SPECS
+    return (_IMPORT_SOURCE_REGISTRY[source],)
+
+
 def collect_improvement_case_import_observations(
     *,
     source: str = "hygiene",
@@ -323,55 +450,32 @@ def collect_improvement_case_import_observations(
     session_factory: Callable | None = None,
     project_root: Path | None = None,
 ) -> list[ImprovementCaseObservation]:
-    _validate_import_source(source)
+    source_specs = _select_import_source_specs(source)
     observations: list[ImprovementCaseObservation] = []
-    if source in {"all", "hygiene"}:
-        observations.extend(
-            collect_hygiene_import_observations(
-                limit=limit,
-                workflow_version=workflow_version,
-                project_root=project_root,
-            )
-        )
+    base_context = ImprovementCaseImportSourceContext(
+        limit=limit,
+        workflow_version=workflow_version,
+        project_root=project_root,
+        source_path=source_path,
+    )
 
-    if source in {"all", "architecture-governance-report"}:
-        observations.extend(
-            collect_architecture_governance_report_observations(
-                source_path=source_path,
-                limit=limit,
-                workflow_version=workflow_version,
-                project_root=project_root,
-                require_existing=source_path is not None,
-            )
-        )
+    for spec in source_specs:
+        if not spec.requires_db_session:
+            observations.extend(spec.collector(base_context))
 
-    if source in _DB_IMPORT_SOURCES:
+    db_source_specs = [spec for spec in source_specs if spec.requires_db_session]
+    if db_source_specs:
         factory = session_factory or get_session_factory()
         with factory() as session:
-            if source in {"all", "eval-failure-cases"}:
-                observations.extend(
-                    collect_eval_failure_case_observations(
-                        session,
-                        limit=limit,
-                        workflow_version=workflow_version,
-                    )
-                )
-            if source in {"all", "failed-agent-tasks"}:
-                observations.extend(
-                    collect_failed_agent_task_observations(
-                        session,
-                        limit=limit,
-                        workflow_version=workflow_version,
-                    )
-                )
-            if source in {"all", "failed-agent-verifications"}:
-                observations.extend(
-                    collect_failed_agent_verification_observations(
-                        session,
-                        limit=limit,
-                        workflow_version=workflow_version,
-                    )
-                )
+            db_context = ImprovementCaseImportSourceContext(
+                limit=limit,
+                workflow_version=workflow_version,
+                project_root=project_root,
+                source_path=source_path,
+                session=session,
+            )
+            for spec in db_source_specs:
+                observations.extend(spec.collector(db_context))
     return observations
 
 

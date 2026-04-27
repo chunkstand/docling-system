@@ -96,6 +96,38 @@
         "ADR-0004",
         "ADR-0008"
       ],
+      "import_source_specs": [
+        {
+          "accepts_source_path": false,
+          "requires_db_session": false,
+          "source": "hygiene",
+          "source_kind": "workspace"
+        },
+        {
+          "accepts_source_path": true,
+          "requires_db_session": false,
+          "source": "architecture-governance-report",
+          "source_kind": "file"
+        },
+        {
+          "accepts_source_path": false,
+          "requires_db_session": true,
+          "source": "eval-failure-cases",
+          "source_kind": "database"
+        },
+        {
+          "accepts_source_path": false,
+          "requires_db_session": true,
+          "source": "failed-agent-tasks",
+          "source_kind": "database"
+        },
+        {
+          "accepts_source_path": false,
+          "requires_db_session": true,
+          "source": "failed-agent-verifications",
+          "source_kind": "database"
+        }
+      ],
       "import_sources": [
         "all",
         "architecture-governance-report",
