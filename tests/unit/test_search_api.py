@@ -587,6 +587,7 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
 
 def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     evaluation_id = uuid4()
+    release_id = uuid4()
     baseline_replay_run_id = uuid4()
     candidate_replay_run_id = uuid4()
 
@@ -688,6 +689,41 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
             ],
         },
     )
+    release_payload = {
+        "schema_name": "search_harness_release_gate",
+        "schema_version": "1.0",
+        "release_id": str(release_id),
+        "evaluation_id": str(evaluation_id),
+        "outcome": "passed",
+        "baseline_harness_name": "default_v1",
+        "candidate_harness_name": "wide_v2",
+        "limit": 5,
+        "source_types": ["cross_document_prose_regressions"],
+        "thresholds": {"max_total_regressed_count": 0},
+        "metrics": {"total_shared_query_count": 3},
+        "reasons": [],
+        "details": {"evaluation_id": str(evaluation_id)},
+        "evaluation_snapshot": {"evaluation_id": str(evaluation_id)},
+        "release_package_sha256": "abc123",
+        "requested_by": "operator",
+        "review_note": "release gate",
+        "created_at": "2026-04-21T00:00:02Z",
+    }
+    monkeypatch.setattr(
+        "app.api.routers.search.create_search_harness_release_gate",
+        lambda session, payload: release_payload,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.list_search_harness_releases",
+        lambda session, limit=20, candidate_harness_name=None, outcome=None: [release_payload],
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_search_harness_release_detail",
+        lambda session, lookup_release_id: {
+            **release_payload,
+            "release_id": str(lookup_release_id),
+        },
+    )
     monkeypatch.setattr(
         "app.api.routers.search.get_search_harness_descriptor",
         lambda harness_name: {
@@ -745,6 +781,30 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         candidate_replay_run_id
     )
 
+    release_response = client.post(
+        "/search/harness-releases",
+        json={
+            "evaluation_id": str(evaluation_id),
+            "max_total_regressed_count": 0,
+            "requested_by": "operator",
+            "review_note": "release gate",
+        },
+    )
+    assert release_response.status_code == 200
+    assert release_response.headers["Location"] == f"/search/harness-releases/{release_id}"
+    assert release_response.json()["release_id"] == str(release_id)
+    assert release_response.json()["outcome"] == "passed"
+
+    release_list_response = client.get("/search/harness-releases")
+    assert release_list_response.status_code == 200
+    assert release_list_response.json()[0]["release_package_sha256"] == "abc123"
+
+    release_detail_response = client.get(f"/search/harness-releases/{release_id}")
+    assert release_detail_response.status_code == 200
+    assert release_detail_response.json()["evaluation_snapshot"]["evaluation_id"] == str(
+        evaluation_id
+    )
+
 
 def test_search_harness_descriptor_route_returns_machine_readable_error(monkeypatch) -> None:
     monkeypatch.setattr(
@@ -781,3 +841,27 @@ def test_search_harness_evaluation_detail_route_returns_machine_readable_error(
     assert response.status_code == 404
     assert response.json()["error_code"] == "search_harness_evaluation_not_found"
     assert response.json()["error_context"]["evaluation_id"] == str(evaluation_id)
+
+
+def test_search_harness_release_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    release_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_search_harness_release_detail",
+        lambda session, lookup_release_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "search_harness_release_not_found",
+                "Search harness release gate not found.",
+                release_id=str(lookup_release_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/harness-releases/{release_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_harness_release_not_found"
+    assert response.json()["error_context"]["release_id"] == str(release_id)

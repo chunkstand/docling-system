@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import uuid
 from dataclasses import dataclass
+from typing import Protocol
 from uuid import UUID
 
+from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
-from app.db.models import AgentTaskVerificationOutcome, SearchReplayRun
-from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
-from app.schemas.search import SearchHarnessEvaluationResponse
+from app.core.time import utcnow
+from app.db.models import AgentTaskVerificationOutcome, SearchHarnessRelease, SearchReplayRun
+from app.schemas.search import (
+    SearchHarnessEvaluationResponse,
+    SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseResponse,
+    SearchHarnessReleaseSummaryResponse,
+)
+from app.services.search_harness_evaluations import get_search_harness_evaluation_detail
 
 
 @dataclass(frozen=True)
@@ -17,6 +29,68 @@ class SearchHarnessReleaseGateOutcome:
     metrics: dict
     reasons: list[str]
     details: dict
+
+
+class SearchHarnessReleaseGateThresholds(Protocol):
+    max_total_regressed_count: int
+    max_mrr_drop: float
+    max_zero_result_count_increase: int
+    max_foreign_top_result_count_increase: int
+    min_total_shared_query_count: int
+
+
+def _search_harness_release_not_found(release_id: UUID) -> HTTPException:
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "search_harness_release_not_found",
+        "Search harness release gate not found.",
+        release_id=str(release_id),
+    )
+
+
+def _thresholds_dict(payload: SearchHarnessReleaseGateThresholds) -> dict:
+    return {
+        "max_total_regressed_count": payload.max_total_regressed_count,
+        "max_mrr_drop": payload.max_mrr_drop,
+        "max_zero_result_count_increase": payload.max_zero_result_count_increase,
+        "max_foreign_top_result_count_increase": (
+            payload.max_foreign_top_result_count_increase
+        ),
+        "min_total_shared_query_count": payload.min_total_shared_query_count,
+    }
+
+
+def _payload_sha256(payload: dict) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    ).hexdigest()
+
+
+def _to_release_summary(row: SearchHarnessRelease) -> SearchHarnessReleaseSummaryResponse:
+    return SearchHarnessReleaseSummaryResponse(
+        release_id=row.id,
+        evaluation_id=row.search_harness_evaluation_id,
+        outcome=row.outcome,
+        baseline_harness_name=row.baseline_harness_name,
+        candidate_harness_name=row.candidate_harness_name,
+        limit=row.limit,
+        source_types=list(row.source_types_json or []),
+        thresholds=row.thresholds_json or {},
+        metrics=row.metrics_json or {},
+        reasons=list(row.reasons_json or []),
+        release_package_sha256=row.release_package_sha256,
+        requested_by=row.requested_by,
+        review_note=row.review_note,
+        created_at=row.created_at,
+    )
+
+
+def _to_release_response(row: SearchHarnessRelease) -> SearchHarnessReleaseResponse:
+    return SearchHarnessReleaseResponse(
+        **_to_release_summary(row).model_dump(),
+        details=row.details_json or {},
+        evaluation_snapshot=row.evaluation_snapshot_json or {},
+    )
 
 
 def _rank_metrics(row: SearchReplayRun) -> dict:
@@ -48,7 +122,7 @@ def _load_replay_run(
 def evaluate_search_harness_release_gate(
     session: Session,
     evaluation: SearchHarnessEvaluationResponse,
-    payload: VerifySearchHarnessEvaluationTaskInput,
+    payload: SearchHarnessReleaseGateThresholds,
 ) -> SearchHarnessReleaseGateOutcome:
     reasons: list[str] = []
     per_source: dict[str, dict] = {}
@@ -161,7 +235,7 @@ def evaluate_search_harness_release_gate(
         "candidate_harness_name": evaluation.candidate_harness_name,
         "baseline_harness_name": evaluation.baseline_harness_name,
         "per_source": per_source,
-        "thresholds": payload.model_dump(mode="json"),
+        "thresholds": _thresholds_dict(payload),
     }
     outcome = (
         AgentTaskVerificationOutcome.PASSED.value
@@ -174,3 +248,98 @@ def evaluate_search_harness_release_gate(
         reasons=reasons,
         details=details,
     )
+
+
+def record_search_harness_release_gate(
+    session: Session,
+    evaluation: SearchHarnessEvaluationResponse,
+    payload: SearchHarnessReleaseGateThresholds,
+    *,
+    requested_by: str | None = None,
+    review_note: str | None = None,
+) -> SearchHarnessReleaseResponse:
+    if evaluation.evaluation_id is None:
+        raise api_error(
+            status.HTTP_400_BAD_REQUEST,
+            "search_harness_evaluation_missing_id",
+            "Cannot create a release gate for an evaluation without a durable evaluation_id.",
+        )
+
+    gate = evaluate_search_harness_release_gate(session, evaluation, payload)
+    thresholds = _thresholds_dict(payload)
+    evaluation_snapshot = evaluation.model_dump(mode="json")
+    release_package = {
+        "schema_name": "search_harness_release_package",
+        "schema_version": "1.0",
+        "evaluation": evaluation_snapshot,
+        "gate": {
+            "outcome": gate.outcome,
+            "metrics": gate.metrics,
+            "reasons": gate.reasons,
+            "details": gate.details,
+        },
+        "thresholds": thresholds,
+    }
+    release = SearchHarnessRelease(
+        id=uuid.uuid4(),
+        search_harness_evaluation_id=evaluation.evaluation_id,
+        outcome=gate.outcome,
+        baseline_harness_name=evaluation.baseline_harness_name,
+        candidate_harness_name=evaluation.candidate_harness_name,
+        limit=evaluation.limit,
+        source_types_json=list(evaluation.source_types),
+        thresholds_json=thresholds,
+        metrics_json=gate.metrics,
+        reasons_json=list(gate.reasons),
+        details_json=gate.details,
+        evaluation_snapshot_json=evaluation_snapshot,
+        release_package_sha256=_payload_sha256(release_package),
+        requested_by=requested_by,
+        review_note=review_note,
+        created_at=utcnow(),
+    )
+    session.add(release)
+    session.flush()
+    return _to_release_response(release)
+
+
+def create_search_harness_release_gate(
+    session: Session,
+    payload: SearchHarnessReleaseGateRequest,
+) -> SearchHarnessReleaseResponse:
+    evaluation = get_search_harness_evaluation_detail(session, payload.evaluation_id)
+    return record_search_harness_release_gate(
+        session,
+        evaluation,
+        payload,
+        requested_by=payload.requested_by,
+        review_note=payload.review_note,
+    )
+
+
+def list_search_harness_releases(
+    session: Session,
+    *,
+    limit: int = 20,
+    candidate_harness_name: str | None = None,
+    outcome: str | None = None,
+) -> list[SearchHarnessReleaseSummaryResponse]:
+    statement = select(SearchHarnessRelease).order_by(SearchHarnessRelease.created_at.desc())
+    if candidate_harness_name:
+        statement = statement.where(
+            SearchHarnessRelease.candidate_harness_name == candidate_harness_name
+        )
+    if outcome:
+        statement = statement.where(SearchHarnessRelease.outcome == outcome)
+    rows = session.execute(statement.limit(limit)).scalars().all()
+    return [_to_release_summary(row) for row in rows]
+
+
+def get_search_harness_release_detail(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseResponse:
+    release = session.get(SearchHarnessRelease, release_id)
+    if release is None:
+        raise _search_harness_release_not_found(release_id)
+    return _to_release_response(release)

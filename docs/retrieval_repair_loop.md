@@ -23,6 +23,7 @@ The loop improves search harnesses without giving an agent open-ended control ov
 
 - `search_request_explanation`: returned by the explain route and embeddable in repair evidence.
 - `search_harness_evaluation`: persisted DB resource returned by `GET /search/harness-evaluations/{evaluation_id}`.
+- `search_harness_release_gate`: persisted release decision returned by `GET /search/harness-releases/{release_id}`.
 - `repair_case.json`: written by `triage_replay_regression`.
 - `harness_config_draft.json`: written by `draft_harness_config_update`.
 - `harness_config_draft_verification.json`: written by `verify_draft_harness_config`.
@@ -50,6 +51,29 @@ Inspection surfaces:
 Agent tasks should carry the `evaluation_id` forward in task output and context refs.
 Verification gates reload the durable evaluation when present so the DB record, replay
 runs, task context, and operator API all describe the same evidence.
+
+## Durable Release Gates
+
+Harness release checks are persisted as first-class gate records. `POST
+/search/harness-releases` evaluates one durable `search_harness_evaluation` against
+operator thresholds and writes a `search_harness_release_gate` record with:
+
+- the candidate and baseline harness names
+- the source types and replay thresholds used by the decision
+- pass/fail outcome, aggregate metrics, per-source details, and failure reasons
+- an evaluation snapshot captured at decision time
+- `release_package_sha256`, a stable hash over the evaluation snapshot and gate package
+
+Inspection surfaces:
+
+- `GET /search/harness-releases`
+- `GET /search/harness-releases/{release_id}`
+- `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
+  prints both the evaluation and persisted release gate
+
+Passing a release gate is evidence that the candidate met the configured retrieval
+guardrails. It does not mutate corpus truth, weaken evaluation fixtures, or silently
+promote parser behavior.
 
 ## Comprehension Gate
 

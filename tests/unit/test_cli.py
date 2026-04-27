@@ -717,12 +717,19 @@ def test_gate_search_harness_release_cli_prints_passed_gate(monkeypatch, capsys)
         ),
     )
     monkeypatch.setattr(
-        "app.cli.evaluate_search_harness_verification",
-        lambda session, evaluation, payload: SimpleNamespace(
+        "app.cli.record_search_harness_release_gate",
+        lambda session, evaluation, payload, requested_by=None, review_note=None: SimpleNamespace(
             outcome="passed",
             metrics={"total_shared_query_count": 5},
             reasons=[],
             details={"thresholds": payload.model_dump(mode="json")},
+            model_dump=lambda mode="json": {
+                "release_id": str(uuid4()),
+                "outcome": "passed",
+                "metrics": {"total_shared_query_count": 5},
+                "reasons": [],
+                "details": {"thresholds": payload.model_dump(mode="json")},
+            },
         ),
     )
 
@@ -768,12 +775,19 @@ def test_gate_search_harness_release_cli_exits_nonzero_on_failed_gate(monkeypatc
         ),
     )
     monkeypatch.setattr(
-        "app.cli.evaluate_search_harness_verification",
-        lambda session, evaluation, payload: SimpleNamespace(
+        "app.cli.record_search_harness_release_gate",
+        lambda session, evaluation, payload, requested_by=None, review_note=None: SimpleNamespace(
             outcome="failed",
             metrics={"total_shared_query_count": 0},
             reasons=["no shared queries"],
             details={"thresholds": payload.model_dump(mode="json")},
+            model_dump=lambda mode="json": {
+                "release_id": str(uuid4()),
+                "outcome": "failed",
+                "metrics": {"total_shared_query_count": 0},
+                "reasons": ["no shared queries"],
+                "details": {"thresholds": payload.model_dump(mode="json")},
+            },
         ),
     )
 

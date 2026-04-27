@@ -28,6 +28,9 @@ from app.schemas.search import (
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSummaryResponse,
+    SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseResponse,
+    SearchHarnessReleaseSummaryResponse,
     SearchHarnessResponse,
     SearchReplayComparisonResponse,
     SearchReplayResponse,
@@ -61,6 +64,9 @@ get_search_harness_descriptor = retrieval.get_search_harness_descriptor
 list_search_harness_evaluations = retrieval.list_search_harness_evaluations
 evaluate_search_harness = retrieval.evaluate_search_harness
 get_search_harness_evaluation_detail = retrieval.get_search_harness_evaluation_detail
+create_search_harness_release_gate = retrieval.create_search_harness_release_gate
+list_search_harness_releases = retrieval.list_search_harness_releases
+get_search_harness_release_detail = retrieval.get_search_harness_release_detail
 explain_search_harness_evaluation = evaluation.explain_search_harness_evaluation
 answer_question = retrieval.answer_question
 record_chat_answer_feedback = retrieval.record_chat_answer_feedback
@@ -313,6 +319,57 @@ def explain_search_harness_evaluation_route(
     session: DbSession,
 ) -> dict:
     return explain_search_harness_evaluation(session, evaluation_id)
+
+
+@router.get(
+    "/search/harness-releases",
+    response_model=list[SearchHarnessReleaseSummaryResponse],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_search_harness_releases(
+    session: DbSession,
+    limit: HarnessEvaluationLimitQuery = 20,
+    candidate_harness_name: str | None = None,
+    outcome: str | None = Query(default=None, pattern="^(passed|failed|error)$"),
+) -> list[SearchHarnessReleaseSummaryResponse]:
+    return list_search_harness_releases(
+        session,
+        limit=limit,
+        candidate_harness_name=candidate_harness_name,
+        outcome=outcome,
+    )
+
+
+@router.post(
+    "/search/harness-releases",
+    response_model=SearchHarnessReleaseResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_search_harness_release(
+    response: Response,
+    payload: SearchHarnessReleaseGateRequest,
+    session: DbSession,
+) -> SearchHarnessReleaseResponse:
+    release_response = create_search_harness_release_gate(session, payload)
+    session.commit()
+    release_id = response_field(release_response, "release_id")
+    response.headers["Location"] = f"/search/harness-releases/{release_id}"
+    return release_response
+
+
+@router.get(
+    "/search/harness-releases/{release_id}",
+    response_model=SearchHarnessReleaseResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_search_harness_release(
+    release_id: UUID,
+    session: DbSession,
+) -> SearchHarnessReleaseResponse:
+    return get_search_harness_release_detail(session, release_id)
 
 
 @router.post(

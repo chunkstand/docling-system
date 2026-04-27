@@ -1976,6 +1976,88 @@ class SearchHarnessEvaluationSource(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SearchHarnessRelease(Base):
+    __tablename__ = "search_harness_releases"
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('passed', 'failed', 'error')",
+            name="ck_search_harness_releases_outcome",
+        ),
+        Index("ix_search_harness_releases_created_at", "created_at"),
+        Index(
+            "ix_search_harness_releases_candidate_created_at",
+            "candidate_harness_name",
+            "created_at",
+        ),
+        Index(
+            "ix_search_harness_releases_evaluation_id",
+            "search_harness_evaluation_id",
+        ),
+        Index(
+            "ix_search_harness_releases_outcome_created_at",
+            "outcome",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_harness_evaluation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_evaluations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    outcome: Mapped[str] = mapped_column(Text, nullable=False)
+    baseline_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_harness_name: Mapped[str] = mapped_column(Text, nullable=False)
+    limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_types_json: Mapped[list] = mapped_column(
+        "source_types",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    thresholds_json: Mapped[dict] = mapped_column(
+        "thresholds",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    metrics_json: Mapped[dict] = mapped_column(
+        "metrics",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    reasons_json: Mapped[list] = mapped_column(
+        "reasons",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    details_json: Mapped[dict] = mapped_column(
+        "details",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    evaluation_snapshot_json: Mapped[dict] = mapped_column(
+        "evaluation_snapshot",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    release_package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    requested_by: Mapped[str | None] = mapped_column(Text)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ChatAnswerRecord(Base):
     __tablename__ = "chat_answer_records"
     __table_args__ = (

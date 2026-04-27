@@ -380,6 +380,41 @@ class SearchHarnessEvaluationSummaryResponse(BaseModel):
     completed_at: datetime | None = None
 
 
+class SearchHarnessReleaseGateRequest(BaseModel):
+    evaluation_id: UUID
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=0)
+    requested_by: str | None = Field(default=None, min_length=1)
+    review_note: str | None = None
+
+
+class SearchHarnessReleaseSummaryResponse(BaseModel):
+    schema_name: str = "search_harness_release_gate"
+    schema_version: str = "1.0"
+    release_id: UUID
+    evaluation_id: UUID
+    outcome: str
+    baseline_harness_name: str
+    candidate_harness_name: str
+    limit: int
+    source_types: list[str] = Field(default_factory=list)
+    thresholds: dict = Field(default_factory=dict)
+    metrics: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    release_package_sha256: str
+    requested_by: str | None = None
+    review_note: str | None = None
+    created_at: datetime
+
+
+class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
+    details: dict = Field(default_factory=dict)
+    evaluation_snapshot: dict = Field(default_factory=dict)
+
+
 class SearchHarnessOptimizationRequest(BaseModel):
     base_harness_name: str = "default_v1"
     baseline_harness_name: str = "default_v1"

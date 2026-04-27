@@ -18,6 +18,9 @@ from app.schemas.search import (
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSummaryResponse,
+    SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseResponse,
+    SearchHarnessReleaseSummaryResponse,
     SearchHarnessResponse,
     SearchReplayComparisonResponse,
     SearchReplayResponse,
@@ -36,6 +39,7 @@ from app.services import (
     search_harness_evaluations,
     search_history,
     search_legibility,
+    search_release_gate,
     search_replays,
 )
 
@@ -140,6 +144,27 @@ class RetrievalCapability(Protocol):
         session: Session,
         evaluation_id: UUID,
     ) -> SearchHarnessEvaluationResponse: ...
+
+    def create_search_harness_release_gate(
+        self,
+        session: Session,
+        payload: SearchHarnessReleaseGateRequest,
+    ) -> SearchHarnessReleaseResponse: ...
+
+    def list_search_harness_releases(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        candidate_harness_name: str | None = None,
+        outcome: str | None = None,
+    ) -> list[SearchHarnessReleaseSummaryResponse]: ...
+
+    def get_search_harness_release_detail(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseResponse: ...
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse: ...
 
@@ -285,6 +310,35 @@ class ServicesRetrievalCapability:
             session,
             evaluation_id,
         )
+
+    def create_search_harness_release_gate(
+        self,
+        session: Session,
+        payload: SearchHarnessReleaseGateRequest,
+    ) -> SearchHarnessReleaseResponse:
+        return search_release_gate.create_search_harness_release_gate(session, payload)
+
+    def list_search_harness_releases(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        candidate_harness_name: str | None = None,
+        outcome: str | None = None,
+    ) -> list[SearchHarnessReleaseSummaryResponse]:
+        return search_release_gate.list_search_harness_releases(
+            session,
+            limit=limit,
+            candidate_harness_name=candidate_harness_name,
+            outcome=outcome,
+        )
+
+    def get_search_harness_release_detail(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseResponse:
+        return search_release_gate.get_search_harness_release_detail(session, release_id)
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse:
         return chat.answer_question(session, request)

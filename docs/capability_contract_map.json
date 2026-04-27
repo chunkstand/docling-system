@@ -460,7 +460,7 @@
     },
     {
       "exported_instance": "retrieval",
-      "function_count": 18,
+      "function_count": 21,
       "functions": [
         {
           "name": "answer_question",
@@ -484,7 +484,7 @@
             }
           ],
           "returns": "ChatResponse",
-          "source_lineno": 144
+          "source_lineno": 169
         },
         {
           "name": "compare_search_replay_runs",
@@ -515,7 +515,31 @@
             }
           ],
           "returns": "SearchReplayComparisonResponse",
-          "source_lineno": 97
+          "source_lineno": 101
+        },
+        {
+          "name": "create_search_harness_release_gate",
+          "operation_kind": "write",
+          "owner_module": "app.services.search_release_gate",
+          "owner_symbol": "create_search_harness_release_gate",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "SearchHarnessReleaseGateRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            }
+          ],
+          "returns": "SearchHarnessReleaseResponse",
+          "source_lineno": 148
         },
         {
           "name": "evaluate_search_harness",
@@ -539,7 +563,7 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 132
+          "source_lineno": 136
         },
         {
           "name": "execute_search",
@@ -591,7 +615,7 @@
             }
           ],
           "returns": "search.SearchExecution",
-          "source_lineno": 44
+          "source_lineno": 48
         },
         {
           "name": "explain_search_replay_run",
@@ -615,7 +639,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 111
+          "source_lineno": 115
         },
         {
           "name": "get_search_evidence_package",
@@ -639,7 +663,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 67
+          "source_lineno": 71
         },
         {
           "name": "get_search_harness_descriptor",
@@ -656,7 +680,7 @@
             }
           ],
           "returns": "SearchHarnessDescriptorResponse",
-          "source_lineno": 119
+          "source_lineno": 123
         },
         {
           "name": "get_search_harness_evaluation_detail",
@@ -680,7 +704,31 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 138
+          "source_lineno": 142
+        },
+        {
+          "name": "get_search_harness_release_detail",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_release_gate",
+          "owner_symbol": "get_search_harness_release_detail",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "release_id",
+              "required": true
+            }
+          ],
+          "returns": "SearchHarnessReleaseResponse",
+          "source_lineno": 163
         },
         {
           "name": "get_search_replay_run_detail",
@@ -704,7 +752,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 105
+          "source_lineno": 109
         },
         {
           "name": "get_search_request_detail",
@@ -728,7 +776,7 @@
             }
           ],
           "returns": "SearchRequestDetailResponse",
-          "source_lineno": 55
+          "source_lineno": 59
         },
         {
           "name": "get_search_request_explanation",
@@ -752,7 +800,7 @@
             }
           ],
           "returns": "SearchRequestExplanationResponse",
-          "source_lineno": 61
+          "source_lineno": 65
         },
         {
           "name": "list_search_harness_definitions",
@@ -761,7 +809,7 @@
           "owner_symbol": "list_search_harness_definitions",
           "parameters": [],
           "returns": "list[SearchHarnessResponse]",
-          "source_lineno": 117
+          "source_lineno": 121
         },
         {
           "name": "list_search_harness_evaluations",
@@ -792,7 +840,45 @@
             }
           ],
           "returns": "list[SearchHarnessEvaluationSummaryResponse]",
-          "source_lineno": 124
+          "source_lineno": 128
+        },
+        {
+          "name": "list_search_harness_releases",
+          "operation_kind": "read",
+          "owner_module": "app.services.search_release_gate",
+          "owner_symbol": "list_search_harness_releases",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "int",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "limit",
+              "required": true
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "candidate_harness_name",
+              "required": false
+            },
+            {
+              "annotation": "str | None",
+              "default": "None",
+              "kind": "keyword_only",
+              "name": "outcome",
+              "required": false
+            }
+          ],
+          "returns": "list[SearchHarnessReleaseSummaryResponse]",
+          "source_lineno": 154
         },
         {
           "name": "list_search_replay_runs",
@@ -809,7 +895,7 @@
             }
           ],
           "returns": "list[SearchReplayRunSummaryResponse]",
-          "source_lineno": 86
+          "source_lineno": 90
         },
         {
           "name": "record_chat_answer_feedback",
@@ -840,7 +926,7 @@
             }
           ],
           "returns": "ChatAnswerFeedbackResponse",
-          "source_lineno": 146
+          "source_lineno": 171
         },
         {
           "name": "record_search_feedback",
@@ -871,7 +957,7 @@
             }
           ],
           "returns": "SearchFeedbackResponse",
-          "source_lineno": 73
+          "source_lineno": 77
         },
         {
           "name": "replay_search_request",
@@ -895,7 +981,7 @@
             }
           ],
           "returns": "SearchReplayResponse",
-          "source_lineno": 80
+          "source_lineno": 84
         },
         {
           "name": "run_search_replay_suite",
@@ -919,7 +1005,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 91
+          "source_lineno": 95
         }
       ],
       "implementation": "ServicesRetrievalCapability",
@@ -933,6 +1019,7 @@
         "app.services.search_harness_evaluations",
         "app.services.search_history",
         "app.services.search_legibility",
+        "app.services.search_release_gate",
         "app.services.search_replays"
       ],
       "protocol": "RetrievalCapability",
@@ -2436,7 +2523,7 @@
       "source": "app/services/capabilities/system_governance.py"
     }
   ],
-  "function_count": 85,
+  "function_count": 88,
   "schema_name": "capability_contract_map",
   "schema_version": "1.0"
 }

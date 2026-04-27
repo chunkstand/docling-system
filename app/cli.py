@@ -162,6 +162,13 @@ def evaluate_search_harness_release_gate(*args, **kwargs):
     )(*args, **kwargs)
 
 
+def record_search_harness_release_gate(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.search_release_gate",
+        "record_search_harness_release_gate",
+    )(*args, **kwargs)
+
+
 def evaluate_search_harness_verification(*args, **kwargs):
     return evaluate_search_harness_release_gate(*args, **kwargs)
 
@@ -856,6 +863,8 @@ def run_gate_search_harness_release() -> None:
         default=1,
         help="Minimum number of shared replay queries required for a valid gate.",
     )
+    parser.add_argument("--requested-by", default=None, help="Optional release gate requester.")
+    parser.add_argument("--review-note", default=None, help="Optional release gate review note.")
     args = parser.parse_args()
 
     request = SearchHarnessEvaluationRequest(
@@ -882,7 +891,13 @@ def run_gate_search_harness_release() -> None:
     session_factory = get_session_factory()
     with session_factory() as session:
         evaluation = evaluate_search_harness(session, request)
-        gate = evaluate_search_harness_verification(session, evaluation, gate_request)
+        release = record_search_harness_release_gate(
+            session,
+            evaluation,
+            gate_request,
+            requested_by=args.requested_by,
+            review_note=args.review_note,
+        )
         session.commit()
 
     print(
@@ -891,16 +906,17 @@ def run_gate_search_harness_release() -> None:
                 "candidate_harness_name": request.candidate_harness_name,
                 "baseline_harness_name": request.baseline_harness_name,
                 "evaluation": evaluation.model_dump(mode="json"),
+                "release": release.model_dump(mode="json"),
                 "gate": {
-                    "outcome": gate.outcome,
-                    "metrics": gate.metrics,
-                    "reasons": gate.reasons,
-                    "details": gate.details,
+                    "outcome": release.outcome,
+                    "metrics": release.metrics,
+                    "reasons": release.reasons,
+                    "details": release.details,
                 },
             }
         )
     )
-    if gate.outcome != "passed":
+    if release.outcome != "passed":
         raise SystemExit(1)
 
 
