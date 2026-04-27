@@ -947,3 +947,32 @@ def test_search_audit_bundle_detail_route_returns_machine_readable_error(
     assert response.status_code == 404
     assert response.json()["error_code"] == "audit_bundle_export_not_found"
     assert response.json()["error_context"]["bundle_id"] == str(bundle_id)
+
+
+def test_search_audit_bundle_create_route_returns_machine_readable_signing_key_error(
+    monkeypatch,
+) -> None:
+    release_id = uuid4()
+
+    def raise_signing_key_missing(session, lookup_release_id, payload, *, storage_service):
+        raise api_error(
+            409,
+            "audit_bundle_signing_key_missing",
+            "DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY is required to export signed audit bundles.",
+            release_id=str(lookup_release_id),
+        )
+
+    monkeypatch.setattr(
+        "app.api.routers.search.create_search_harness_release_audit_bundle",
+        raise_signing_key_missing,
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/search/harness-releases/{release_id}/audit-bundles",
+        json={"created_by": "operator"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "audit_bundle_signing_key_missing"
+    assert response.json()["error_context"]["release_id"] == str(release_id)

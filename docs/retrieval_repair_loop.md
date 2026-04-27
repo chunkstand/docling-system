@@ -85,7 +85,9 @@ promote parser behavior.
 Audit bundles are stored under `storage/audit_bundles/`, persisted in
 `audit_bundle_exports`, and include a PROV-style graph plus HMAC-SHA256 signature
 metadata. `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY` must be configured before
-creating a signed bundle.
+creating a signed bundle. The database treats audit bundle exports as append-only:
+`audit_bundle_exports` has a Postgres trigger that rejects row updates and deletes,
+so corrections require a new signed bundle instead of mutating the prior record.
 
 ## Comprehension Gate
 

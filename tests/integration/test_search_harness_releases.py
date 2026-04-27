@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
@@ -182,3 +184,18 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         assert row is not None
         assert row.bundle_sha256 == audit_bundle["bundle_sha256"]
         assert row.search_harness_release_id == UUID(audit_bundle["source_id"])
+        storage_path = Path(row.storage_path)
+
+    stored_bundle = json.loads(storage_path.read_text())
+    stored_bundle["payload"]["release"]["outcome"] = "tampered"
+    storage_path.write_text(json.dumps(stored_bundle))
+
+    tampered_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}"
+    )
+    assert tampered_response.status_code == 200
+    tampered_integrity = tampered_response.json()["integrity"]
+    assert tampered_integrity["complete"] is False
+    assert tampered_integrity["payload_hash_matches_row"] is False
+    assert tampered_integrity["bundle_hash_matches_row"] is False
+    assert tampered_integrity["stored_payload_matches_file"] is False
