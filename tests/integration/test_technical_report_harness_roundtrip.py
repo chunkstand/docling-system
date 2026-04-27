@@ -445,6 +445,16 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert provenance["retrieval_evaluation"]["complete"] is True
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
     assert provenance["prov_integrity"]["complete"] is True
+    assert provenance["prov_integrity"]["hash_policy"] == (
+        "sha256 over canonical JSON excluding prov_integrity"
+    )
+    assert "prov_integrity" not in provenance["prov_integrity"]["hash_basis_fields"]
+    assert provenance["prov_integrity"]["prov_sha256"]
+    assert provenance["prov_integrity"]["all_relation_references_declared"] is True
+    assert provenance["prov_integrity"]["missing_relation_reference_count"] == 0
+    assert provenance["prov_integrity"]["relation_count"] == provenance["prov_summary"][
+        "relation_count"
+    ]
     assert provenance["entity"]
     assert provenance["activity"]
     assert provenance["agent"]["docling:agent/technical-report-gate"]["prov:type"] == (
