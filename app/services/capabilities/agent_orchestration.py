@@ -37,6 +37,7 @@ from app.services import (
     agent_task_context,
     agent_task_verifications,
     agent_tasks,
+    evidence,
 )
 from app.services import agent_task_worker as worker_service
 
@@ -61,6 +62,8 @@ class AgentOrchestrationCapability(Protocol):
     def get_agent_task_detail(self, session: Session, task_id: UUID) -> AgentTaskDetailResponse: ...
 
     def get_agent_task_context(self, session: Session, task_id: UUID) -> TaskContextEnvelope: ...
+
+    def get_agent_task_audit_bundle(self, session: Session, task_id: UUID) -> dict: ...
 
     def list_agent_task_outcomes(
         self,
@@ -249,6 +252,9 @@ class ServicesAgentOrchestrationCapability:
 
     def get_agent_task_context(self, session: Session, task_id: UUID) -> TaskContextEnvelope:
         return agent_task_context.get_agent_task_context(session, task_id)
+
+    def get_agent_task_audit_bundle(self, session: Session, task_id: UUID) -> dict:
+        return evidence.get_agent_task_audit_bundle(session, task_id)
 
     def list_agent_task_outcomes(
         self,

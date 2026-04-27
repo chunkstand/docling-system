@@ -24,6 +24,7 @@ from app.schemas.agent_tasks import (
     TechnicalReportSkillContract,
     TechnicalReportToolContract,
 )
+from app.services.evidence import apply_technical_report_derivation_links
 from app.services.semantic_generation import prepare_semantic_generation_brief
 
 
@@ -935,6 +936,7 @@ def draft_technical_report(
         "markdown": markdown,
         "warnings": warnings,
     }
+    derivation_package = apply_technical_report_derivation_links(draft)
     draft["success_metrics"] = [
         _success_metric(
             "claim_binding_preserved",
@@ -956,6 +958,17 @@ def draft_technical_report(
             bool(harness.llm_adapter_contract),
             "The draft records the harness contract an external LLM adapter must consume.",
             {"generator_mode": generator_mode},
+        ),
+        _success_metric(
+            "claim_derivations_frozen",
+            "Nicolas Figay",
+            bool(derivation_package.get("package_sha256"))
+            and all(claim.get("derivation_sha256") for claim in draft["claims"]),
+            "Each rendered claim is bound to a frozen derivation package hash.",
+            {
+                "evidence_package_sha256": derivation_package.get("package_sha256"),
+                "claim_derivation_count": len(draft.get("claim_derivations") or []),
+            },
         ),
     ]
     return TechnicalReportDraftPayload.model_validate(draft).model_dump(mode="json")
@@ -1018,6 +1031,21 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 "evidence_card_count": summary["evidence_card_count"],
             },
         ),
+        _success_metric(
+            "frozen_evidence_package",
+            "Nicolas Figay",
+            summary["claims_with_derivation_hash_count"] == summary["claim_count"]
+            and summary["claims_with_evidence_package_hash_count"] == summary["claim_count"],
+            "Every claim is tied to a frozen evidence package and derivation hash.",
+            {
+                "claims_with_derivation_hash_count": summary[
+                    "claims_with_derivation_hash_count"
+                ],
+                "claims_with_evidence_package_hash_count": summary[
+                    "claims_with_evidence_package_hash_count"
+                ],
+            },
+        ),
     ]
 
 
@@ -1040,6 +1068,9 @@ def verify_technical_report(
     unapproved_graph_claim_count = 0
     unresolved_evidence_card_ref_count = 0
     unresolved_graph_edge_ref_count = 0
+    missing_evidence_package_hash_count = 0
+    missing_derivation_hash_count = 0
+    evidence_package_mismatch_count = 0
     reasons: list[str] = []
     stale_context_count = 0
     context_blocker_count = 0
@@ -1059,6 +1090,20 @@ def verify_technical_report(
             stale_context_count += 1
 
     for claim in draft.claims:
+        if not claim.evidence_package_sha256:
+            missing_evidence_package_hash_count += 1
+            reasons.append(f"{claim.claim_id} is missing a frozen evidence package hash.")
+        elif (
+            draft.evidence_package_sha256
+            and claim.evidence_package_sha256 != draft.evidence_package_sha256
+        ):
+            evidence_package_mismatch_count += 1
+            reasons.append(
+                f"{claim.claim_id} evidence package hash does not match the draft package hash."
+            )
+        if not claim.derivation_sha256:
+            missing_derivation_hash_count += 1
+            reasons.append(f"{claim.claim_id} is missing a derivation hash.")
         missing_evidence_card_ids = [
             card_id for card_id in claim.evidence_card_ids if card_id not in card_ids
         ]
@@ -1113,6 +1158,8 @@ def verify_technical_report(
         else 1.0
     )
     graph_claim_count = sum(1 for claim in draft.claims if claim.graph_edge_ids)
+    claims_with_evidence_package_hash_count = claim_count - missing_evidence_package_hash_count
+    claims_with_derivation_hash_count = claim_count - missing_derivation_hash_count
     if unsupported_claim_count > max_unsupported_claim_count:
         reasons.append(
             f"Unsupported claim count {unsupported_claim_count} exceeds the allowed maximum "
@@ -1126,6 +1173,14 @@ def verify_technical_report(
         reasons.append("The report used missing or schema-mismatched wake-up context.")
     if missing_wake_context_count:
         reasons.append("The report draft does not carry refreshed wake-up context refs.")
+    if require_full_claim_traceability and (
+        missing_evidence_package_hash_count
+        or missing_derivation_hash_count
+        or evidence_package_mismatch_count
+    ):
+        reasons.append(
+            "Frozen evidence package and derivation hashes are required for all claims."
+        )
     if block_stale_context and stale_context_count:
         reasons.append("The report used stale wake-up context while stale blocking was enabled.")
 
@@ -1137,6 +1192,11 @@ def verify_technical_report(
         "graph_claim_count": graph_claim_count,
         "resolved_claim_count": resolved_claim_count,
         "unsupported_claim_count": unsupported_claim_count,
+        "claims_with_evidence_package_hash_count": claims_with_evidence_package_hash_count,
+        "claims_with_derivation_hash_count": claims_with_derivation_hash_count,
+        "missing_evidence_package_hash_count": missing_evidence_package_hash_count,
+        "missing_derivation_hash_count": missing_derivation_hash_count,
+        "evidence_package_mismatch_count": evidence_package_mismatch_count,
         "traceable_claim_ratio": traceable_claim_ratio,
         "required_concept_count": required_concept_count,
         "covered_required_concept_count": covered_required_concept_count,

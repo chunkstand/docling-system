@@ -1089,6 +1089,9 @@ class TechnicalReportEvidenceCard(BaseModel):
     support_level: str | None = None
     review_status: str | None = None
     relation_key: str | None = None
+    evidence_package_export_id: UUID | None = None
+    evidence_package_sha256: str | None = None
+    source_snapshot_sha256s: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
 
 
@@ -1183,6 +1186,11 @@ class TechnicalReportClaim(BaseModel):
     support_level: str | None = None
     review_policy_status: str | None = None
     disclosure_note: str | None = None
+    derivation_rule: str | None = None
+    evidence_package_export_id: UUID | None = None
+    evidence_package_sha256: str | None = None
+    derivation_sha256: str | None = None
+    source_snapshot_sha256s: list[str] = Field(default_factory=list)
 
 
 class TechnicalReportDraftPayload(BaseModel):
@@ -1203,6 +1211,10 @@ class TechnicalReportDraftPayload(BaseModel):
     blocked_claims: list[dict] = Field(default_factory=list)
     evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
     graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
+    evidence_package_export_id: UUID | None = None
+    evidence_package_sha256: str | None = None
+    source_snapshot_sha256s: list[str] = Field(default_factory=list)
+    claim_derivations: list[dict] = Field(default_factory=list)
     markdown: str
     markdown_path: str | None = None
     warnings: list[str] = Field(default_factory=list)
@@ -1224,6 +1236,8 @@ class DraftTechnicalReportTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+    evidence_package_export_id: UUID | None = None
+    evidence_package_sha256: str | None = None
     operator_run_id: UUID | None = None
 
 

@@ -2575,6 +2575,158 @@ class KnowledgeOperatorOutput(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class EvidencePackageExport(Base):
+    __tablename__ = "evidence_package_exports"
+    __table_args__ = (
+        CheckConstraint(
+            "package_kind IN ('search_request', 'technical_report_claims')",
+            name="ck_evidence_package_exports_package_kind",
+        ),
+        CheckConstraint(
+            "export_status IN ('completed', 'failed')",
+            name="ck_evidence_package_exports_export_status",
+        ),
+        Index("ix_evidence_package_exports_created_at", "created_at"),
+        Index("ix_evidence_package_exports_search_request_id", "search_request_id"),
+        Index("ix_evidence_package_exports_agent_task_id", "agent_task_id"),
+        Index("ix_evidence_package_exports_package_sha256", "package_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    package_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    agent_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    agent_task_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_artifacts.id", ondelete="SET NULL"),
+    )
+    package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    package_payload_json: Mapped[dict] = mapped_column(
+        "package_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    source_snapshot_sha256s_json: Mapped[list] = mapped_column(
+        "source_snapshot_sha256s",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    operator_run_ids_json: Mapped[list] = mapped_column(
+        "operator_run_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    document_ids_json: Mapped[list] = mapped_column(
+        "document_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    run_ids_json: Mapped[list] = mapped_column(
+        "run_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    claim_ids_json: Mapped[list] = mapped_column(
+        "claim_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    export_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="completed",
+        server_default=sql_text("'completed'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ClaimEvidenceDerivation(Base):
+    __tablename__ = "claim_evidence_derivations"
+    __table_args__ = (
+        Index("ix_claim_evidence_derivations_export_id", "evidence_package_export_id"),
+        Index("ix_claim_evidence_derivations_agent_task_id", "agent_task_id"),
+        Index("ix_claim_evidence_derivations_claim_id", "claim_id"),
+        Index("ix_claim_evidence_derivations_derivation_sha256", "derivation_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    evidence_package_export_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_package_exports.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    agent_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    claim_id: Mapped[str] = mapped_column(Text, nullable=False)
+    claim_text: Mapped[str | None] = mapped_column(Text)
+    derivation_rule: Mapped[str] = mapped_column(Text, nullable=False)
+    evidence_card_ids_json: Mapped[list] = mapped_column(
+        "evidence_card_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    graph_edge_ids_json: Mapped[list] = mapped_column(
+        "graph_edge_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    fact_ids_json: Mapped[list] = mapped_column(
+        "fact_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    assertion_ids_json: Mapped[list] = mapped_column(
+        "assertion_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_document_ids_json: Mapped[list] = mapped_column(
+        "source_document_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_snapshot_sha256s_json: Mapped[list] = mapped_column(
+        "source_snapshot_sha256s",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    evidence_package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    derivation_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
     __table_args__ = (

@@ -263,12 +263,21 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
 
     draft = draft_technical_report(harness, harness_task_id=uuid4())
     assert draft["claims"][0]["evidence_card_ids"]
+    assert draft["evidence_package_sha256"]
+    assert draft["claims"][0]["evidence_package_sha256"] == draft["evidence_package_sha256"]
+    assert draft["claims"][0]["derivation_sha256"]
+    assert draft["claim_derivations"][0]["derivation_rule"] == "technical_report_claim_contract_v1"
     assert "Evidence Cards" in draft["markdown"]
 
     verification = verify_technical_report(draft)
     assert verification.verification_outcome == "passed"
     assert verification.summary["context_ref_count"] == 1
+    assert verification.summary["missing_derivation_hash_count"] == 0
     assert any(metric["stakeholder"] == "Joshua Yu" for metric in verification.success_metrics)
+    assert any(
+        metric["metric_key"] == "frozen_evidence_package"
+        for metric in verification.success_metrics
+    )
 
 
 def test_fact_backed_claims_bind_to_source_evidence_without_label(monkeypatch) -> None:

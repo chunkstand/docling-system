@@ -8,7 +8,12 @@ import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db.models import AgentTask, KnowledgeOperatorRun
+from app.db.models import (
+    AgentTask,
+    ClaimEvidenceDerivation,
+    EvidencePackageExport,
+    KnowledgeOperatorRun,
+)
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import create_agent_task
@@ -179,6 +184,11 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         markdown_path = Path(draft_task_row.result_json["payload"]["draft"]["markdown_path"])
         assert markdown_path.exists()
         assert "Evidence Cards" in markdown_path.read_text()
+        draft_payload = draft_task_row.result_json["payload"]["draft"]
+        assert draft_payload["evidence_package_sha256"]
+        assert draft_payload["evidence_package_export_id"]
+        assert draft_payload["claim_derivations"]
+        assert all(claim["derivation_sha256"] for claim in draft_payload["claims"])
         draft_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -187,6 +197,24 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
             )
         )
         assert [row.operator_kind for row in draft_operator_rows] == ["generate"]
+        export_rows = list(
+            session.scalars(
+                select(EvidencePackageExport).where(
+                    EvidencePackageExport.agent_task_id == draft_task_id
+                )
+            )
+        )
+        assert [row.package_kind for row in export_rows] == ["technical_report_claims"]
+        assert export_rows[0].package_sha256 == draft_payload["evidence_package_sha256"]
+        derivation_rows = list(
+            session.scalars(
+                select(ClaimEvidenceDerivation).where(
+                    ClaimEvidenceDerivation.evidence_package_export_id == export_rows[0].id
+                )
+            )
+        )
+        assert len(derivation_rows) == len(draft_payload["claims"])
+        assert all(row.derivation_sha256 for row in derivation_rows)
 
         verify_task_row = session.get(AgentTask, verify_task_id)
         assert verify_task_row is not None
@@ -194,6 +222,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["outcome"] == "passed"
         assert verification["metrics"]["context_ref_count"] >= 1
         assert verification["metrics"]["unsupported_claim_count"] == 0
+        assert verification["metrics"]["missing_derivation_hash_count"] == 0
+        assert verification["metrics"]["missing_evidence_package_hash_count"] == 0
         verify_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -207,3 +237,19 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
     assert verify_context_response.json()["summary"]["verification_state"] == "passed"
+
+    audit_response = client.get(f"/agent-tasks/{verify_task_id}/audit-bundle")
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    assert audit_bundle["schema_name"] == "technical_report_audit_bundle"
+    assert audit_bundle["audit_checklist"]["has_frozen_evidence_package"] is True
+    assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
+    assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
+    assert audit_bundle["audit_checklist"]["has_verification_operator_run"] is True
+    assert audit_bundle["audit_checklist"]["verification_passed"] is True
+    assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
+    assert audit_bundle["evidence_package_exports"][0]["package_sha256"] == draft_payload[
+        "evidence_package_sha256"
+    ]
+    assert len(audit_bundle["claim_derivations"]) == len(draft_payload["claims"])
+    assert audit_bundle["audit_bundle_sha256"]

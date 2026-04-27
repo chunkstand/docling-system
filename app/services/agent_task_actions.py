@@ -127,7 +127,12 @@ from app.services.eval_workbench import (
     refresh_eval_failure_cases,
     triage_eval_failure_case,
 )
-from app.services.evidence import record_knowledge_operator_run
+from app.services.evidence import (
+    attach_artifact_to_evidence_export,
+    attach_operator_run_to_evidence_export,
+    persist_technical_report_evidence_export,
+    record_knowledge_operator_run,
+)
 from app.services.quality import list_quality_eval_candidates
 from app.services.search import get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
@@ -708,6 +713,11 @@ def _draft_technical_report_executor(
     markdown_path = storage_service.get_agent_task_dir(task.id) / "technical_report_draft.md"
     markdown_path.write_text(draft_payload["markdown"])
     draft_payload["markdown_path"] = str(markdown_path)
+    evidence_export = persist_technical_report_evidence_export(
+        session,
+        draft_payload=draft_payload,
+        agent_task_id=task.id,
+    )
     artifact = create_agent_task_artifact(
         session,
         task_id=task.id,
@@ -715,6 +725,11 @@ def _draft_technical_report_executor(
         payload=draft_payload,
         storage_service=storage_service,
         filename="technical_report_draft.json",
+    )
+    attach_artifact_to_evidence_export(
+        session,
+        evidence_package_export_id=evidence_export.id,
+        agent_task_artifact_id=artifact.id,
     )
     operator_run = record_knowledge_operator_run(
         session,
@@ -740,14 +755,18 @@ def _draft_technical_report_executor(
             "artifact_path": artifact.storage_path,
             "claim_count": len(draft_payload.get("claims") or []),
             "blocked_claim_count": len(draft_payload.get("blocked_claims") or []),
+            "evidence_package_export_id": str(evidence_export.id),
+            "evidence_package_sha256": evidence_export.package_sha256,
         },
         metrics={
             "claim_count": len(draft_payload.get("claims") or []),
             "blocked_claim_count": len(draft_payload.get("blocked_claims") or []),
             "evidence_card_count": len(draft_payload.get("evidence_cards") or []),
+            "claim_derivation_count": len(draft_payload.get("claim_derivations") or []),
         },
         metadata={
             "audit_role": "records the report generation activity and its source harness",
+            "evidence_package_export_id": str(evidence_export.id),
         },
         inputs=[
             {
@@ -766,15 +785,24 @@ def _draft_technical_report_executor(
                 "payload": {
                     "claim_count": len(draft_payload.get("claims") or []),
                     "markdown_path": draft_payload.get("markdown_path"),
+                    "evidence_package_sha256": evidence_export.package_sha256,
                 },
             }
         ],
     )
+    if operator_run is not None:
+        attach_operator_run_to_evidence_export(
+            session,
+            evidence_package_export_id=evidence_export.id,
+            operator_run_id=operator_run.id,
+        )
     return {
         "draft": draft_payload,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
+        "evidence_package_export_id": str(evidence_export.id),
+        "evidence_package_sha256": evidence_export.package_sha256,
         "operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
 
