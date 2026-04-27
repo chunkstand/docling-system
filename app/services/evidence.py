@@ -992,6 +992,72 @@ def _change_impact_payload(
     }
 
 
+def _technical_report_integrity_payload(
+    draft_payload: dict[str, Any],
+    exports: list[EvidencePackageExport],
+    derivations: list[ClaimEvidenceDerivation],
+) -> dict:
+    from app.schemas.agent_tasks import TechnicalReportDraftPayload
+
+    canonical_draft_payload = (
+        TechnicalReportDraftPayload.model_validate(draft_payload).model_dump(mode="json")
+        if draft_payload
+        else {}
+    )
+    recomputed_package = build_technical_report_derivation_package(canonical_draft_payload)
+    expected_package_sha256 = str(recomputed_package.get("package_sha256") or "")
+    expected_derivations_by_claim_id = {
+        str(row.get("claim_id")): row
+        for row in recomputed_package.get("claim_derivations", [])
+        if row.get("claim_id")
+    }
+    draft_package_sha256 = draft_payload.get("evidence_package_sha256")
+    draft_package_hash_matches = bool(draft_package_sha256) and (
+        draft_package_sha256 == expected_package_sha256
+    )
+    export_package_hash_mismatch_count = sum(
+        1 for row in exports if row.package_sha256 != expected_package_sha256
+    )
+    export_package_hash_matches = bool(exports) and export_package_hash_mismatch_count == 0
+    stored_claim_ids = {row.claim_id for row in derivations}
+    missing_claim_derivation_ids = sorted(
+        claim_id
+        for claim_id in expected_derivations_by_claim_id
+        if claim_id not in stored_claim_ids
+    )
+    mismatched_claim_ids: list[str] = []
+    package_mismatched_claim_ids: list[str] = []
+    for row in derivations:
+        expected_derivation = expected_derivations_by_claim_id.get(str(row.claim_id))
+        expected_derivation_sha256 = (
+            str(expected_derivation.get("derivation_sha256") or "")
+            if expected_derivation is not None
+            else ""
+        )
+        if row.derivation_sha256 != expected_derivation_sha256:
+            mismatched_claim_ids.append(str(row.claim_id))
+        if row.evidence_package_sha256 != expected_package_sha256:
+            package_mismatched_claim_ids.append(str(row.claim_id))
+
+    return {
+        "expected_evidence_package_sha256": expected_package_sha256,
+        "draft_evidence_package_sha256": draft_package_sha256,
+        "draft_package_hash_matches": draft_package_hash_matches,
+        "export_package_hash_matches": export_package_hash_matches,
+        "export_package_hash_mismatch_count": export_package_hash_mismatch_count,
+        "expected_claim_derivation_count": len(expected_derivations_by_claim_id),
+        "stored_claim_derivation_count": len(derivations),
+        "claim_derivation_count_matches": len(derivations)
+        == len(expected_derivations_by_claim_id),
+        "claim_derivation_hash_mismatch_count": len(mismatched_claim_ids),
+        "claim_package_hash_mismatch_count": len(package_mismatched_claim_ids),
+        "missing_claim_derivation_count": len(missing_claim_derivation_ids),
+        "mismatched_claim_ids": sorted(mismatched_claim_ids),
+        "package_mismatched_claim_ids": sorted(package_mismatched_claim_ids),
+        "missing_claim_derivation_ids": missing_claim_derivation_ids,
+    }
+
+
 def _draft_task_id_for_audit(task: AgentTask) -> UUID:
     if task.task_type == "draft_technical_report":
         return task.id
@@ -1064,6 +1130,15 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         else None
     )
     change_impact = _change_impact_payload(session, exports)
+    integrity = _technical_report_integrity_payload(draft_payload, exports, derivations)
+    hash_integrity_verified = (
+        integrity["draft_package_hash_matches"]
+        and integrity["export_package_hash_matches"]
+        and integrity["claim_derivation_count_matches"]
+        and integrity["claim_derivation_hash_mismatch_count"] == 0
+        and integrity["claim_package_hash_mismatch_count"] == 0
+        and integrity["missing_claim_derivation_count"] == 0
+    )
     audit_bundle = {
         "schema_name": "technical_report_audit_bundle",
         "schema_version": "1.0",
@@ -1078,10 +1153,12 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         "claim_derivations": [_claim_derivation_payload(row) for row in derivations],
         "operator_runs": [_operator_run_summary(row) for row in operator_runs],
         "change_impact": change_impact,
+        "integrity": integrity,
         "audit_checklist": {
             "has_frozen_evidence_package": bool(exports),
             "all_claims_have_derivations": len(derivations)
             == len(draft_payload.get("claims") or []),
+            "hash_integrity_verified": hash_integrity_verified,
             "has_generation_operator_run": any(
                 row.operator_kind == "generate" for row in operator_runs
             ),

@@ -273,10 +273,50 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert verification.verification_outcome == "passed"
     assert verification.summary["context_ref_count"] == 1
     assert verification.summary["missing_derivation_hash_count"] == 0
+    assert verification.summary["evidence_package_integrity_mismatch_count"] == 0
+    assert verification.summary["derivation_integrity_mismatch_count"] == 0
     assert any(metric["stakeholder"] == "Joshua Yu" for metric in verification.success_metrics)
     assert any(
         metric["metric_key"] == "frozen_evidence_package"
         for metric in verification.success_metrics
+    )
+
+
+def test_verification_fails_when_claim_derivation_hash_is_stale(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    draft["claims"][0]["rendered_text"] = (
+        f"{draft['claims'][0]['rendered_text']} Tampered after the hash was frozen."
+    )
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["evidence_package_integrity_mismatch_count"] > 0
+    assert verification.summary["derivation_integrity_mismatch_count"] > 0
+    assert any(
+        "derivation hash does not match recomputed" in reason
+        for reason in verification.verification_reasons
+    )
+    frozen_metric = next(
+        metric
+        for metric in verification.success_metrics
+        if metric["metric_key"] == "frozen_evidence_package"
+    )
+    assert frozen_metric["passed"] is False
+
+
+def test_verification_fails_when_draft_package_hash_is_tampered(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    draft["evidence_package_sha256"] = "0" * 64
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["evidence_package_integrity_mismatch_count"] == 1
+    assert verification.summary["derivation_integrity_mismatch_count"] == 0
+    assert any(
+        "Draft evidence package hash does not match recomputed" in reason
+        for reason in verification.verification_reasons
     )
 
 

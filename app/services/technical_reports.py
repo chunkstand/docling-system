@@ -24,7 +24,10 @@ from app.schemas.agent_tasks import (
     TechnicalReportSkillContract,
     TechnicalReportToolContract,
 )
-from app.services.evidence import apply_technical_report_derivation_links
+from app.services.evidence import (
+    apply_technical_report_derivation_links,
+    build_technical_report_derivation_package,
+)
 from app.services.semantic_generation import prepare_semantic_generation_brief
 
 
@@ -1035,14 +1038,29 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
             "frozen_evidence_package",
             "Nicolas Figay",
             summary["claims_with_derivation_hash_count"] == summary["claim_count"]
-            and summary["claims_with_evidence_package_hash_count"] == summary["claim_count"],
-            "Every claim is tied to a frozen evidence package and derivation hash.",
+            and summary["claims_with_evidence_package_hash_count"] == summary["claim_count"]
+            and summary["draft_evidence_package_hash_present"]
+            and summary["evidence_package_integrity_mismatch_count"] == 0
+            and summary["derivation_integrity_mismatch_count"] == 0,
+            (
+                "Every claim is tied to a frozen evidence package and the frozen hashes "
+                "match recomputation."
+            ),
             {
                 "claims_with_derivation_hash_count": summary[
                     "claims_with_derivation_hash_count"
                 ],
                 "claims_with_evidence_package_hash_count": summary[
                     "claims_with_evidence_package_hash_count"
+                ],
+                "draft_evidence_package_hash_present": summary[
+                    "draft_evidence_package_hash_present"
+                ],
+                "evidence_package_integrity_mismatch_count": summary[
+                    "evidence_package_integrity_mismatch_count"
+                ],
+                "derivation_integrity_mismatch_count": summary[
+                    "derivation_integrity_mismatch_count"
                 ],
             },
         ),
@@ -1059,6 +1077,17 @@ def verify_technical_report(
     block_stale_context: bool = False,
 ) -> TechnicalReportVerificationOutcome:
     draft = TechnicalReportDraftPayload.model_validate(draft_payload)
+    recomputed_derivation_package = build_technical_report_derivation_package(
+        draft.model_dump(mode="json")
+    )
+    expected_package_sha256 = str(
+        recomputed_derivation_package.get("package_sha256") or ""
+    )
+    expected_derivations_by_claim_id = {
+        str(row.get("claim_id")): row
+        for row in recomputed_derivation_package.get("claim_derivations", [])
+        if row.get("claim_id")
+    }
     card_ids = {card.evidence_card_id for card in draft.evidence_cards}
     graph_edges = {edge.edge_id: edge for edge in draft.graph_context}
     required_concept_keys = set(draft.required_concept_keys)
@@ -1071,6 +1100,8 @@ def verify_technical_report(
     missing_evidence_package_hash_count = 0
     missing_derivation_hash_count = 0
     evidence_package_mismatch_count = 0
+    evidence_package_integrity_mismatch_count = 0
+    derivation_integrity_mismatch_count = 0
     reasons: list[str] = []
     stale_context_count = 0
     context_blocker_count = 0
@@ -1089,6 +1120,14 @@ def verify_technical_report(
         elif status == ContextFreshnessStatus.STALE.value:
             stale_context_count += 1
 
+    if not draft.evidence_package_sha256:
+        reasons.append("The report draft is missing a frozen evidence package hash.")
+    elif draft.evidence_package_sha256 != expected_package_sha256:
+        evidence_package_integrity_mismatch_count += 1
+        reasons.append(
+            "Draft evidence package hash does not match recomputed derivation package hash."
+        )
+
     for claim in draft.claims:
         if not claim.evidence_package_sha256:
             missing_evidence_package_hash_count += 1
@@ -1101,9 +1140,30 @@ def verify_technical_report(
             reasons.append(
                 f"{claim.claim_id} evidence package hash does not match the draft package hash."
             )
+        if (
+            claim.evidence_package_sha256
+            and claim.evidence_package_sha256 != expected_package_sha256
+        ):
+            evidence_package_integrity_mismatch_count += 1
+            reasons.append(
+                f"{claim.claim_id} evidence package hash does not match recomputed package hash."
+            )
         if not claim.derivation_sha256:
             missing_derivation_hash_count += 1
             reasons.append(f"{claim.claim_id} is missing a derivation hash.")
+        else:
+            expected_derivation = expected_derivations_by_claim_id.get(claim.claim_id)
+            expected_derivation_sha256 = (
+                str(expected_derivation.get("derivation_sha256") or "")
+                if expected_derivation is not None
+                else ""
+            )
+            if claim.derivation_sha256 != expected_derivation_sha256:
+                derivation_integrity_mismatch_count += 1
+                reasons.append(
+                    f"{claim.claim_id} derivation hash does not match recomputed "
+                    "claim derivation."
+                )
         missing_evidence_card_ids = [
             card_id for card_id in claim.evidence_card_ids if card_id not in card_ids
         ]
@@ -1177,9 +1237,12 @@ def verify_technical_report(
         missing_evidence_package_hash_count
         or missing_derivation_hash_count
         or evidence_package_mismatch_count
+        or evidence_package_integrity_mismatch_count
+        or derivation_integrity_mismatch_count
     ):
         reasons.append(
-            "Frozen evidence package and derivation hashes are required for all claims."
+            "Frozen evidence package and derivation hashes are required and must "
+            "match recomputation."
         )
     if block_stale_context and stale_context_count:
         reasons.append("The report used stale wake-up context while stale blocking was enabled.")
@@ -1194,9 +1257,13 @@ def verify_technical_report(
         "unsupported_claim_count": unsupported_claim_count,
         "claims_with_evidence_package_hash_count": claims_with_evidence_package_hash_count,
         "claims_with_derivation_hash_count": claims_with_derivation_hash_count,
+        "draft_evidence_package_hash_present": bool(draft.evidence_package_sha256),
+        "expected_evidence_package_sha256": expected_package_sha256,
         "missing_evidence_package_hash_count": missing_evidence_package_hash_count,
         "missing_derivation_hash_count": missing_derivation_hash_count,
         "evidence_package_mismatch_count": evidence_package_mismatch_count,
+        "evidence_package_integrity_mismatch_count": evidence_package_integrity_mismatch_count,
+        "derivation_integrity_mismatch_count": derivation_integrity_mismatch_count,
         "traceable_claim_ratio": traceable_claim_ratio,
         "required_concept_count": required_concept_count,
         "covered_required_concept_count": covered_required_concept_count,

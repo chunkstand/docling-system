@@ -224,6 +224,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["metrics"]["unsupported_claim_count"] == 0
         assert verification["metrics"]["missing_derivation_hash_count"] == 0
         assert verification["metrics"]["missing_evidence_package_hash_count"] == 0
+        assert verification["metrics"]["evidence_package_integrity_mismatch_count"] == 0
+        assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
         verify_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -244,10 +246,16 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert audit_bundle["schema_name"] == "technical_report_audit_bundle"
     assert audit_bundle["audit_checklist"]["has_frozen_evidence_package"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
+    assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
     assert audit_bundle["audit_checklist"]["has_verification_operator_run"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
+    assert audit_bundle["integrity"]["draft_package_hash_matches"] is True
+    assert audit_bundle["integrity"]["export_package_hash_matches"] is True
+    assert audit_bundle["integrity"]["claim_derivation_count_matches"] is True
+    assert audit_bundle["integrity"]["claim_derivation_hash_mismatch_count"] == 0
+    assert audit_bundle["integrity"]["claim_package_hash_mismatch_count"] == 0
     assert audit_bundle["evidence_package_exports"][0]["package_sha256"] == draft_payload[
         "evidence_package_sha256"
     ]
