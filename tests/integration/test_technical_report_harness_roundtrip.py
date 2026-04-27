@@ -14,6 +14,8 @@ from app.db.models import (
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,
+    EvidenceTraceEdge,
+    EvidenceTraceNode,
     KnowledgeOperatorRun,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
@@ -286,6 +288,7 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert manifest["schema_name"] == "technical_report_evidence_manifest"
     assert manifest["manifest_kind"] == "technical_report_court_evidence"
     assert manifest["manifest_sha256"]
+    assert manifest["trace_sha256"]
     assert manifest["audit_checklist"]["complete"] is True
     assert manifest["audit_checklist"]["all_source_documents_hashed"] is True
     assert manifest["audit_checklist"]["all_document_runs_validation_passed"] is True
@@ -301,6 +304,77 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
     assert manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is True
+
+    trace_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-trace")
+    assert trace_response.status_code == 200
+    trace = trace_response.json()
+    assert trace["schema_name"] == "technical_report_evidence_trace"
+    assert trace["manifest_sha256"] == manifest["manifest_sha256"]
+    assert trace["trace_sha256"] == manifest["trace_sha256"]
+    assert trace["manifest_provenance_edge_count"] == len(manifest["provenance_edges"])
+    assert trace["trace_integrity"]["complete"] is True
+    assert trace["trace_integrity"]["persisted_trace_hash_matches"] is True
+    assert trace["trace_integrity"]["recomputed_trace_hash_matches"] is True
+    assert trace["trace_integrity"]["persisted_trace_matches_recomputed"] is True
+    assert trace["trace_integrity"]["node_payload_hash_mismatch_count"] == 0
+    assert trace["trace_integrity"]["edge_payload_hash_mismatch_count"] == 0
+    node_kinds = {node["node_kind"] for node in trace["nodes"]}
+    assert {
+        "source_document",
+        "document_run",
+        "semantic_assertion_evidence",
+        "evidence_card",
+        "technical_report_claim",
+        "claim_derivation",
+        "operator_run",
+        "verification_record",
+        "evidence_manifest",
+    }.issubset(node_kinds)
+    assert any(
+        edge["payload"].get("source") == "manifest_provenance_edges"
+        for edge in trace["edges"]
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        manifest_row = session.scalar(
+            select(EvidenceManifest).where(EvidenceManifest.verification_task_id == verify_task_id)
+        )
+        assert manifest_row is not None
+        trace_nodes = list(
+            session.scalars(
+                select(EvidenceTraceNode).where(
+                    EvidenceTraceNode.evidence_manifest_id == manifest_row.id
+                )
+            )
+        )
+        trace_edges = list(
+            session.scalars(
+                select(EvidenceTraceEdge).where(
+                    EvidenceTraceEdge.evidence_manifest_id == manifest_row.id
+                )
+            )
+        )
+        assert len(trace_nodes) == trace["node_count"]
+        assert len(trace_edges) == trace["edge_count"]
+        assert sum(
+            1
+            for edge in trace_edges
+            if (edge.payload_json or {}).get("source") == "manifest_provenance_edges"
+        ) == len(manifest["provenance_edges"])
+        tampered_node = next(node for node in trace_nodes if node.node_kind == "source_document")
+        tampered_trace_payload = deepcopy(tampered_node.payload_json)
+        tampered_trace_payload["sha256"] = "tampered-trace-source-checksum"
+        tampered_node.payload_json = tampered_trace_payload
+        session.commit()
+
+    tampered_trace_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-trace")
+    assert tampered_trace_response.status_code == 200
+    tampered_trace = tampered_trace_response.json()
+    assert tampered_trace["trace_integrity"]["complete"] is False
+    assert tampered_trace["trace_integrity"]["node_payload_hash_mismatch_count"] == 1
+    assert tampered_trace["trace_integrity"]["persisted_trace_hash_matches"] is False
+    assert tampered_trace["trace_integrity"]["recomputed_trace_hash_matches"] is True
+    assert tampered_trace["trace_integrity"]["persisted_trace_matches_recomputed"] is False
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(

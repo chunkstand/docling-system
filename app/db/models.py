@@ -2679,6 +2679,7 @@ class EvidenceManifest(Base):
         Index("ix_evidence_manifests_verification_task_id", "verification_task_id"),
         Index("ix_evidence_manifests_export_id", "evidence_package_export_id"),
         Index("ix_evidence_manifests_manifest_sha256", "manifest_sha256"),
+        Index("ix_evidence_manifests_trace_sha256", "trace_sha256"),
         Index("ix_evidence_manifests_created_at", "created_at"),
     )
 
@@ -2703,6 +2704,7 @@ class EvidenceManifest(Base):
         ForeignKey("evidence_package_exports.id", ondelete="SET NULL"),
     )
     manifest_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    trace_sha256: Mapped[str | None] = mapped_column(Text)
     manifest_payload_json: Mapped[dict] = mapped_column(
         "manifest_payload",
         JSONB,
@@ -2757,6 +2759,91 @@ class EvidenceManifest(Base):
         nullable=False,
         default="completed",
         server_default=sql_text("'completed'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class EvidenceTraceNode(Base):
+    __tablename__ = "evidence_trace_nodes"
+    __table_args__ = (
+        UniqueConstraint(
+            "evidence_manifest_id",
+            "node_key",
+            name="uq_evidence_trace_nodes_manifest_node_key",
+        ),
+        Index("ix_evidence_trace_nodes_manifest_id", "evidence_manifest_id"),
+        Index("ix_evidence_trace_nodes_node_kind", "node_kind"),
+        Index("ix_evidence_trace_nodes_source", "source_table", "source_id"),
+        Index("ix_evidence_trace_nodes_source_ref", "source_table", "source_ref"),
+        Index("ix_evidence_trace_nodes_content_sha256", "content_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    evidence_manifest_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_manifests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    node_key: Mapped[str] = mapped_column(Text, nullable=False)
+    node_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_table: Mapped[str | None] = mapped_column(Text)
+    source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    source_ref: Mapped[str | None] = mapped_column(Text)
+    content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class EvidenceTraceEdge(Base):
+    __tablename__ = "evidence_trace_edges"
+    __table_args__ = (
+        UniqueConstraint(
+            "evidence_manifest_id",
+            "edge_key",
+            name="uq_evidence_trace_edges_manifest_edge_key",
+        ),
+        Index("ix_evidence_trace_edges_manifest_id", "evidence_manifest_id"),
+        Index("ix_evidence_trace_edges_edge_kind", "edge_kind"),
+        Index("ix_evidence_trace_edges_from_node_id", "from_node_id"),
+        Index("ix_evidence_trace_edges_to_node_id", "to_node_id"),
+        Index("ix_evidence_trace_edges_derivation_sha256", "derivation_sha256"),
+        Index("ix_evidence_trace_edges_content_sha256", "content_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    evidence_manifest_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_manifests.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    edge_key: Mapped[str] = mapped_column(Text, nullable=False)
+    edge_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    from_node_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_trace_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    to_node_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_trace_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    from_node_key: Mapped[str] = mapped_column(Text, nullable=False)
+    to_node_key: Mapped[str] = mapped_column(Text, nullable=False)
+    derivation_sha256: Mapped[str | None] = mapped_column(Text)
+    content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_json: Mapped[dict] = mapped_column(
+        "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

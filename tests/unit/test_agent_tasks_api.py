@@ -917,6 +917,49 @@ def test_agent_task_evidence_manifest_route_returns_structured_404(monkeypatch) 
     assert response.json()["error_context"]["task_id"] == str(task_id)
 
 
+def test_agent_task_evidence_trace_route_uses_trace_service(monkeypatch) -> None:
+    task_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_evidence_trace",
+        lambda session, incoming_task_id: {
+            "schema_name": "technical_report_evidence_trace",
+            "evidence_manifest_id": str(uuid4()),
+            "manifest_sha256": "abc",
+            "trace_sha256": "def",
+            "node_count": 1,
+            "edge_count": 1,
+            "trace_integrity": {"complete": True},
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/evidence-trace")
+
+    assert response.status_code == 200
+    assert response.json()["schema_name"] == "technical_report_evidence_trace"
+    assert response.json()["trace_integrity"]["complete"] is True
+
+
+def test_agent_task_evidence_trace_route_returns_structured_404(monkeypatch) -> None:
+    task_id = uuid4()
+
+    def raise_not_found(session, incoming_task_id):
+        raise ValueError(f"Agent task '{incoming_task_id}' was not found.")
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_evidence_trace",
+        raise_not_found,
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/evidence-trace")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_evidence_trace_not_found"
+    assert response.json()["error_context"]["task_id"] == str(task_id)
+
+
 def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:
     task_id = uuid4()
     monkeypatch.setattr(
