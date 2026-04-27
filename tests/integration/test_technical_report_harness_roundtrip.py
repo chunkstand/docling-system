@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from copy import deepcopy
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import delete, select
@@ -261,12 +261,24 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
         assert verification["metrics"]["source_evidence_closure_complete"] is True
         assert verification["metrics"]["source_evidence_package_trace_incomplete_count"] == 0
+        assert verification["metrics"]["source_record_recall"] == 1.0
         assert (
             verification["metrics"][
                 "cited_cards_without_acceptable_source_evidence_match_count"
             ]
             == 0
         )
+        assert (
+            verification["metrics"]["cited_cards_without_recomputed_source_coverage_count"]
+            == 0
+        )
+        assert (
+            verification["metrics"][
+                "cited_cards_with_expected_record_without_recomputed_record_match_count"
+            ]
+            == 0
+        )
+        assert verification["metrics"]["reported_recomputed_match_mismatch_count"] == 0
         assert (
             verification["metrics"]["cited_cards_with_document_run_fallback_match_count"]
             == 0
@@ -334,9 +346,17 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert search_exports
     search_export_id = UUID(search_exports[0]["evidence_package_export_id"])
     assert audit_bundle["source_evidence_closure"]["complete"] is True
+    assert audit_bundle["source_evidence_closure"]["source_record_recall"] == 1.0
+    assert audit_bundle["source_evidence_closure"]["card_source_coverage"]
     assert (
         audit_bundle["source_evidence_closure"][
             "cited_cards_without_acceptable_source_evidence_match_count"
+        ]
+        == 0
+    )
+    assert (
+        audit_bundle["source_evidence_closure"][
+            "cited_cards_without_recomputed_source_coverage_count"
         ]
         == 0
     )
@@ -372,6 +392,7 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     ] is True
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
+    assert manifest["retrieval_trace"]["source_evidence_closure"]["source_record_recall"] == 1.0
     assert (
         manifest["retrieval_trace"]["source_evidence_closure"][
             "cited_cards_without_acceptable_source_evidence_match_count"
@@ -414,6 +435,23 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         edge["payload"].get("source") == "manifest_provenance_edges"
         for edge in trace["edges"]
     )
+
+    provenance_response = client.get(f"/agent-tasks/{verify_task_id}/provenance")
+    assert provenance_response.status_code == 200
+    provenance = provenance_response.json()
+    assert provenance["schema_name"] == "technical_report_prov_export"
+    assert provenance["prefix"]["prov"] == "http://www.w3.org/ns/prov#"
+    assert provenance["prov_summary"]["source_record_recall"] == 1.0
+    assert provenance["retrieval_evaluation"]["complete"] is True
+    assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
+    assert provenance["prov_integrity"]["complete"] is True
+    assert provenance["entity"]
+    assert provenance["activity"]
+    assert provenance["agent"]["docling:agent/technical-report-gate"]["prov:type"] == (
+        "prov:SoftwareAgent"
+    )
+    assert provenance["wasDerivedFrom"]
+    assert provenance["used"]
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(
@@ -521,6 +559,86 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert tampered_manifest["manifest_integrity"]["stored_payload_hash_matches"] is False
     assert tampered_manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert tampered_manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        original_draft_result = deepcopy(draft_task_row.result_json)
+        draft_context_row = session.scalar(
+            select(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.task_id == draft_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+            .order_by(AgentTaskArtifact.created_at.desc())
+            .limit(1)
+        )
+        assert draft_context_row is not None
+        original_draft_context = deepcopy(draft_context_row.payload_json)
+        uncovered_context = deepcopy(original_draft_context)
+        uncovered_draft = uncovered_context["output"]["draft"]
+        uncovered_card = next(
+            card
+            for card in uncovered_draft["evidence_cards"]
+            if card["evidence_kind"] == "source_evidence"
+            and card["source_evidence_match_status"] == "matched_source_record"
+        )
+        bogus_source_id = str(uuid4())
+        uncovered_card["source_locator"] = bogus_source_id
+        if uncovered_card["source_type"] == "chunk":
+            uncovered_card["chunk_id"] = bogus_source_id
+        elif uncovered_card["source_type"] == "table":
+            uncovered_card["table_id"] = bogus_source_id
+        uncovered_card["metadata"]["source_locator"] = bogus_source_id
+        uncovered_card["metadata"]["source_record_keys"] = [
+            f"source:{uncovered_card['source_type']}:{bogus_source_id}"
+        ]
+        uncovered_result = deepcopy(original_draft_result)
+        uncovered_result["payload"]["draft"] = deepcopy(uncovered_draft)
+        draft_task_row.result_json = uncovered_result
+        draft_context_row.payload_json = uncovered_context
+        uncovered_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_technical_report",
+                input={"target_task_id": str(draft_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        uncovered_verify_task_id = uncovered_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        uncovered_verify_task_row = session.get(AgentTask, uncovered_verify_task_id)
+        assert uncovered_verify_task_row is not None
+        uncovered_verification = uncovered_verify_task_row.result_json["payload"][
+            "verification"
+        ]
+        assert uncovered_verification["outcome"] == "failed"
+        assert uncovered_verification["metrics"]["source_evidence_closure_complete"] is False
+        assert (
+            uncovered_verification["metrics"][
+                "cited_cards_with_expected_record_without_recomputed_record_match_count"
+            ]
+            == 1
+        )
+        assert uncovered_verification["metrics"]["reported_recomputed_match_mismatch_count"] == 1
+        assert uncovered_verification["metrics"]["source_record_recall"] < 1.0
+        draft_task_row = session.get(AgentTask, draft_task_id)
+        assert draft_task_row is not None
+        draft_task_row.result_json = original_draft_result
+        draft_context_row = session.scalar(
+            select(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.task_id == draft_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+            .order_by(AgentTaskArtifact.created_at.desc())
+            .limit(1)
+        )
+        assert draft_context_row is not None
+        draft_context_row.payload_json = original_draft_context
 
     with postgres_integration_harness.session_factory() as session:
         draft_task_row = session.get(AgentTask, draft_task_id)

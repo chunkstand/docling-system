@@ -973,6 +973,183 @@ _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES = {
 }
 
 
+def _source_record_key(source_type: Any, source_id: Any) -> str | None:
+    if source_type is None or source_id is None or source_id == "":
+        return None
+    source_type_value = str(source_type).strip().lower()
+    if source_type_value not in {"chunk", "table"}:
+        return None
+    return f"source:{source_type_value}:{source_id}"
+
+
+def _int_or_none(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _source_page_span(
+    *,
+    document_id: Any,
+    run_id: Any,
+    page_from: Any,
+    page_to: Any,
+) -> dict[str, Any] | None:
+    page_from_value = _int_or_none(page_from)
+    if page_from_value is None or document_id is None or run_id is None:
+        return None
+    page_to_value = _int_or_none(page_to) or page_from_value
+    return {
+        "document_id": str(document_id),
+        "run_id": str(run_id),
+        "page_from": page_from_value,
+        "page_to": page_to_value,
+        "key": f"page:{document_id}:{run_id}:{page_from_value}:{page_to_value}",
+    }
+
+
+def _page_spans_overlap(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    if left.get("document_id") != right.get("document_id"):
+        return False
+    if left.get("run_id") != right.get("run_id"):
+        return False
+    return int(left["page_from"]) <= int(right["page_to"]) and int(right["page_from"]) <= int(
+        left["page_to"]
+    )
+
+
+def _card_source_record_keys(card: dict[str, Any]) -> list[str]:
+    metadata = card.get("metadata") or {}
+    source_type = str(card.get("source_type") or "").strip().lower()
+    source_record_keys = [
+        _source_record_key("chunk", card.get("chunk_id") or metadata.get("chunk_id")),
+        _source_record_key("table", card.get("table_id") or metadata.get("table_id")),
+    ]
+    if source_type in {"chunk", "table"}:
+        source_record_keys.append(
+            _source_record_key(
+                source_type,
+                card.get("source_locator") or metadata.get("source_locator"),
+            )
+        )
+    return _string_values(source_record_keys)
+
+
+def _card_page_span(card: dict[str, Any]) -> dict[str, Any] | None:
+    return _source_page_span(
+        document_id=card.get("document_id"),
+        run_id=card.get("run_id"),
+        page_from=card.get("page_from"),
+        page_to=card.get("page_to"),
+    )
+
+
+def _search_export_source_coverage(export: EvidencePackageExport) -> dict[str, Any]:
+    source_record_keys: list[str] = []
+    source_page_spans: list[dict[str, Any]] = []
+    package = export.package_payload_json or {}
+    for source_item in package.get("source_evidence") or []:
+        document = source_item.get("document") or {}
+        run = source_item.get("run") or {}
+        source_record_keys.append(
+            _source_record_key(source_item.get("result_type"), source_item.get("source_id"))
+        )
+        for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
+            source_payload = source_item.get(payload_key) or {}
+            source_record_keys.append(
+                _source_record_key(source_type, source_payload.get("id"))
+            )
+            source_page_spans.append(
+                _source_page_span(
+                    document_id=source_payload.get("document_id") or document.get("id"),
+                    run_id=source_payload.get("run_id") or run.get("id"),
+                    page_from=source_payload.get("page_from"),
+                    page_to=source_payload.get("page_to"),
+                )
+            )
+        for span in source_item.get("retrieval_evidence_spans") or []:
+            source_record_keys.append(
+                _source_record_key(span.get("source_type"), span.get("source_id"))
+            )
+            source_page_spans.append(
+                _source_page_span(
+                    document_id=document.get("id"),
+                    run_id=run.get("id"),
+                    page_from=span.get("page_from"),
+                    page_to=span.get("page_to"),
+                )
+            )
+    return {
+        "source_record_keys": set(_string_values(source_record_keys)),
+        "source_page_spans": [
+            span
+            for span in {
+                span["key"]: span
+                for span in source_page_spans
+                if span and span.get("key")
+            }.values()
+        ],
+        "source_result_count": len(package.get("source_evidence") or []),
+    }
+
+
+def _recomputed_card_source_coverage(
+    card: dict[str, Any],
+    exports_by_id: dict[UUID, EvidencePackageExport],
+) -> dict[str, Any]:
+    expected_record_keys = set(_card_source_record_keys(card))
+    expected_page_span = _card_page_span(card)
+    linked_export_ids = _uuid_values(card.get("source_evidence_package_export_ids") or [])
+    matched_record_keys: set[str] = set()
+    matched_page_span_keys: set[str] = set()
+    matching_export_ids: set[str] = set()
+    linked_export_count = 0
+    for export_id in linked_export_ids:
+        export = exports_by_id.get(export_id)
+        if export is None or export.package_kind != "search_request":
+            continue
+        linked_export_count += 1
+        coverage = _search_export_source_coverage(export)
+        record_overlap = expected_record_keys & coverage["source_record_keys"]
+        if record_overlap:
+            matched_record_keys.update(record_overlap)
+            matching_export_ids.add(str(export.id))
+        if expected_page_span is not None:
+            overlapping_spans = [
+                span
+                for span in coverage["source_page_spans"]
+                if _page_spans_overlap(expected_page_span, span)
+            ]
+            if overlapping_spans:
+                matched_page_span_keys.update(span["key"] for span in overlapping_spans)
+                matching_export_ids.add(str(export.id))
+
+    if expected_record_keys and matched_record_keys == expected_record_keys:
+        recomputed_status = "matched_source_record"
+    elif expected_page_span is not None and matched_page_span_keys:
+        recomputed_status = "matched_page_span"
+    else:
+        recomputed_status = "missing"
+    return {
+        "evidence_card_id": str(card.get("evidence_card_id")),
+        "reported_match_status": card.get("source_evidence_match_status"),
+        "recomputed_match_status": recomputed_status,
+        "expected_source_record_keys": sorted(expected_record_keys),
+        "matched_source_record_keys": sorted(matched_record_keys),
+        "expected_page_span": expected_page_span,
+        "matched_page_span_keys": sorted(matched_page_span_keys),
+        "linked_source_evidence_package_export_ids": [
+            str(export_id) for export_id in linked_export_ids
+        ],
+        "matching_source_evidence_package_export_ids": sorted(matching_export_ids),
+        "linked_search_export_count": linked_export_count,
+        "complete": recomputed_status in _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES,
+    }
+
+
 def _report_card_requires_source_match(card: dict[str, Any]) -> bool:
     source_type = str(card.get("source_type") or "").strip().lower()
     evidence_kind = str(card.get("evidence_kind") or "").strip().lower()
@@ -1054,6 +1231,9 @@ def technical_report_search_evidence_closure_payload(
         if str(card.get("evidence_card_id")) in cited_card_ids
         and _report_card_requires_source_match(card)
     ]
+    card_source_coverages = [
+        _recomputed_card_source_coverage(card, exports_by_id) for card in cited_source_cards
+    ]
     cited_cards_missing_source_exports = sorted(
         str(card.get("evidence_card_id"))
         for card in cited_source_cards
@@ -1075,12 +1255,49 @@ def technical_report_search_evidence_closure_payload(
         for card in cited_source_cards
         if card.get("source_evidence_match_status") == "matched_document_run_fallback"
     )
+    cited_cards_without_recomputed_source_coverage = sorted(
+        row["evidence_card_id"]
+        for row in card_source_coverages
+        if row["recomputed_match_status"] not in _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES
+    )
+    cited_cards_with_expected_record_without_recomputed_record_match = sorted(
+        row["evidence_card_id"]
+        for row in card_source_coverages
+        if row["expected_source_record_keys"]
+        and row["recomputed_match_status"] != "matched_source_record"
+    )
+    reported_recomputed_match_mismatches = sorted(
+        row["evidence_card_id"]
+        for row in card_source_coverages
+        if row["reported_match_status"] != row["recomputed_match_status"]
+    )
     source_evidence_match_status_counts: dict[str, int] = {}
     for card in cited_source_cards:
         status = str(card.get("source_evidence_match_status") or "missing")
         source_evidence_match_status_counts[status] = (
             source_evidence_match_status_counts.get(status, 0) + 1
         )
+    recomputed_source_evidence_match_status_counts: dict[str, int] = {}
+    for coverage in card_source_coverages:
+        status = str(coverage["recomputed_match_status"] or "missing")
+        recomputed_source_evidence_match_status_counts[status] = (
+            recomputed_source_evidence_match_status_counts.get(status, 0) + 1
+        )
+    expected_source_record_keys = {
+        key
+        for coverage in card_source_coverages
+        for key in coverage["expected_source_record_keys"]
+    }
+    matched_source_record_keys = {
+        key
+        for coverage in card_source_coverages
+        for key in coverage["matched_source_record_keys"]
+    }
+    source_record_recall = (
+        round(len(matched_source_record_keys) / len(expected_source_record_keys), 4)
+        if expected_source_record_keys
+        else 1.0
+    )
     complete = (
         bool(claims)
         and bool(expected_export_ids)
@@ -1090,6 +1307,9 @@ def technical_report_search_evidence_closure_payload(
         and not claims_missing_source_exports
         and not cited_cards_missing_source_exports
         and not cited_cards_without_acceptable_source_match
+        and not cited_cards_without_recomputed_source_coverage
+        and not cited_cards_with_expected_record_without_recomputed_record_match
+        and not reported_recomputed_match_mismatches
     )
     return {
         "schema_name": "technical_report_search_evidence_closure",
@@ -1097,11 +1317,15 @@ def technical_report_search_evidence_closure_payload(
         "complete": complete,
         "claim_count": len(claims),
         "cited_source_card_count": len(cited_source_cards),
+        "card_source_coverage": card_source_coverages,
         "expected_source_evidence_package_export_count": len(expected_export_ids),
         "persisted_source_evidence_package_export_count": len(trace_summaries),
         "trace_complete_count": sum(
             1 for row in trace_summaries if row["trace_integrity"]["complete"]
         ),
+        "expected_source_record_key_count": len(expected_source_record_keys),
+        "matched_source_record_key_count": len(matched_source_record_keys),
+        "source_record_recall": source_record_recall,
         "missing_source_evidence_package_export_count": len(missing_export_ids),
         "non_search_source_evidence_package_export_count": len(non_search_export_ids),
         "incomplete_trace_count": len(incomplete_trace_export_ids),
@@ -1120,7 +1344,19 @@ def technical_report_search_evidence_closure_payload(
         "cited_cards_with_document_run_fallback_match_count": len(
             cited_cards_with_document_run_fallback
         ),
+        "cited_cards_without_recomputed_source_coverage_count": len(
+            cited_cards_without_recomputed_source_coverage
+        ),
+        "cited_cards_with_expected_record_without_recomputed_record_match_count": len(
+            cited_cards_with_expected_record_without_recomputed_record_match
+        ),
+        "reported_recomputed_match_mismatch_count": len(
+            reported_recomputed_match_mismatches
+        ),
         "source_evidence_match_status_counts": source_evidence_match_status_counts,
+        "recomputed_source_evidence_match_status_counts": (
+            recomputed_source_evidence_match_status_counts
+        ),
         "expected_source_evidence_package_export_ids": [
             str(export_id) for export_id in expected_export_ids
         ],
@@ -1138,6 +1374,13 @@ def technical_report_search_evidence_closure_payload(
         "cited_cards_with_document_run_fallback_match_ids": (
             cited_cards_with_document_run_fallback
         ),
+        "cited_cards_without_recomputed_source_coverage_ids": (
+            cited_cards_without_recomputed_source_coverage
+        ),
+        "cited_cards_with_expected_record_without_recomputed_record_match_ids": (
+            cited_cards_with_expected_record_without_recomputed_record_match
+        ),
+        "reported_recomputed_match_mismatch_ids": reported_recomputed_match_mismatches,
         "trace_summaries": trace_summaries,
     }
 
@@ -3715,6 +3958,437 @@ def get_agent_task_evidence_trace(session: Session, task_id: UUID) -> dict[str, 
         "edges": [_trace_edge_row_payload(edge) for edge in edges],
         "trace_integrity": _evidence_trace_integrity_payload(session, row, nodes, edges),
     }
+
+
+def _prov_identifier(table: str | None, value: Any) -> str | None:
+    if table is None or value is None or value == "":
+        return None
+    normalized_table = str(table).replace("_", "-")
+    return f"docling:{normalized_table}/{value}"
+
+
+def _prov_entity(
+    entities: dict[str, dict[str, Any]],
+    entity_id: str | None,
+    *,
+    label: str,
+    entity_type: str,
+    **attrs: Any,
+) -> None:
+    if entity_id is None:
+        return
+    payload = {
+        "prov:label": label,
+        "prov:type": entity_type,
+        **{key: value for key, value in attrs.items() if value is not None and value != []},
+    }
+    existing = entities.get(entity_id)
+    if existing is None:
+        entities[entity_id] = payload
+        return
+    existing.update({key: value for key, value in payload.items() if value is not None})
+
+
+def _prov_activity(
+    activities: dict[str, dict[str, Any]],
+    activity_id: str | None,
+    *,
+    label: str,
+    activity_type: str,
+    started_at: Any = None,
+    ended_at: Any = None,
+    **attrs: Any,
+) -> None:
+    if activity_id is None:
+        return
+    payload = {
+        "prov:label": label,
+        "prov:type": activity_type,
+        "prov:startTime": started_at,
+        "prov:endTime": ended_at,
+        **{key: value for key, value in attrs.items() if value is not None and value != []},
+    }
+    activities[activity_id] = {key: value for key, value in payload.items() if value is not None}
+
+
+def _prov_relation(
+    relations: dict[str, dict[str, Any]],
+    relation_prefix: str,
+    *,
+    sequence: int,
+    **attrs: Any,
+) -> None:
+    relations[f"docling:{relation_prefix}/{sequence:06d}"] = {
+        key: value for key, value in attrs.items() if value is not None
+    }
+
+
+def get_agent_task_provenance_export(session: Session, task_id: UUID) -> dict[str, Any]:
+    manifest = get_agent_task_evidence_manifest(session, task_id)
+    trace = get_agent_task_evidence_trace(session, task_id)
+    retrieval_evaluation = dict(
+        (manifest.get("retrieval_trace") or {}).get("source_evidence_closure") or {}
+    )
+
+    entities: dict[str, dict[str, Any]] = {}
+    activities: dict[str, dict[str, Any]] = {}
+    agents: dict[str, dict[str, Any]] = {
+        "docling:agent/docling-system": {
+            "prov:type": "prov:SoftwareAgent",
+            "prov:label": "Docling System",
+        },
+        "docling:agent/technical-report-gate": {
+            "prov:type": "prov:SoftwareAgent",
+            "prov:label": "Technical report verification gate",
+        },
+    }
+    was_generated_by: dict[str, dict[str, Any]] = {}
+    used: dict[str, dict[str, Any]] = {}
+    was_derived_from: dict[str, dict[str, Any]] = {}
+    was_associated_with: dict[str, dict[str, Any]] = {}
+    was_attributed_to: dict[str, dict[str, Any]] = {}
+
+    manifest_entity_id = _prov_identifier(
+        "evidence_manifests",
+        manifest.get("evidence_manifest_id"),
+    )
+    _prov_entity(
+        entities,
+        manifest_entity_id,
+        label="Technical report evidence manifest",
+        entity_type="docling:TechnicalReportEvidenceManifest",
+        **{
+            "docling:manifest_sha256": manifest.get("manifest_sha256"),
+            "docling:trace_sha256": manifest.get("trace_sha256"),
+            "docling:manifest_kind": manifest.get("manifest_kind"),
+        },
+    )
+    trace_entity_id = _prov_identifier("evidence_traces", manifest.get("evidence_manifest_id"))
+    _prov_entity(
+        entities,
+        trace_entity_id,
+        label="Technical report evidence trace",
+        entity_type="docling:TechnicalReportEvidenceTrace",
+        **{"docling:trace_sha256": trace.get("trace_sha256")},
+    )
+
+    for task_key in ("task", "draft_task", "verification_task"):
+        task = manifest.get(task_key) or {}
+        task_id_value = task.get("task_id")
+        activity_id = _prov_identifier("agent_tasks", task_id_value)
+        _prov_activity(
+            activities,
+            activity_id,
+            label=str(task.get("task_type") or task_key),
+            activity_type="docling:AgentTask",
+            started_at=task.get("created_at"),
+            ended_at=task.get("completed_at") or task.get("updated_at"),
+            **{
+                "docling:task_type": task.get("task_type"),
+                "docling:status": task.get("status"),
+                "docling:workflow_version": task.get("workflow_version"),
+            },
+        )
+        _prov_relation(
+            was_associated_with,
+            "was-associated-with",
+            sequence=len(was_associated_with) + 1,
+            **{"prov:activity": activity_id, "prov:agent": "docling:agent/docling-system"},
+        )
+
+    verification_activity_id = _prov_identifier(
+        "agent_tasks",
+        (manifest.get("verification_task") or {}).get("task_id"),
+    )
+    _prov_relation(
+        was_generated_by,
+        "was-generated-by",
+        sequence=len(was_generated_by) + 1,
+        **{"prov:entity": manifest_entity_id, "prov:activity": verification_activity_id},
+    )
+    _prov_relation(
+        was_generated_by,
+        "was-generated-by",
+        sequence=len(was_generated_by) + 1,
+        **{"prov:entity": trace_entity_id, "prov:activity": verification_activity_id},
+    )
+    _prov_relation(
+        was_associated_with,
+        "was-associated-with",
+        sequence=len(was_associated_with) + 1,
+        **{
+            "prov:activity": verification_activity_id,
+            "prov:agent": "docling:agent/technical-report-gate",
+        },
+    )
+
+    for document in manifest.get("source_documents") or []:
+        entity_id = _prov_identifier("documents", document.get("id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(document.get("source_filename") or "source document"),
+            entity_type="docling:SourceDocument",
+            **{
+                "docling:sha256": document.get("sha256"),
+                "docling:source_filename": document.get("source_filename"),
+                "docling:title": document.get("title"),
+            },
+        )
+        _prov_relation(
+            was_attributed_to,
+            "was-attributed-to",
+            sequence=len(was_attributed_to) + 1,
+            **{"prov:entity": entity_id, "prov:agent": "docling:agent/docling-system"},
+        )
+
+    for run in manifest.get("document_runs") or []:
+        entity_id = _prov_identifier("document_runs", run.get("id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label="Document run",
+            entity_type="docling:DocumentRun",
+            **{
+                "docling:document_id": run.get("document_id"),
+                "docling:validation_status": run.get("validation_status"),
+                "docling:docling_json_sha256": (run.get("artifact_hashes") or {}).get(
+                    "docling_json_sha256"
+                ),
+                "docling:document_yaml_sha256": (run.get("artifact_hashes") or {}).get(
+                    "document_yaml_sha256"
+                ),
+            },
+        )
+
+    for source_record in manifest.get("source_records") or []:
+        entity_id = _prov_identifier(source_record.get("source_table"), source_record.get("id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(source_record.get("source_type") or source_record.get("source_table")),
+            entity_type="docling:SourceRecord",
+            **{
+                "docling:document_id": source_record.get("document_id"),
+                "docling:run_id": source_record.get("run_id"),
+                "docling:source_type": source_record.get("source_type"),
+                "docling:source_snapshot_sha256": source_record.get(
+                    "source_snapshot_sha256"
+                ),
+            },
+        )
+
+    report_trace = manifest.get("report_trace") or {}
+    for export in report_trace.get("evidence_package_exports") or []:
+        entity_id = _prov_identifier(
+            "evidence_package_exports",
+            export.get("evidence_package_export_id"),
+        )
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(export.get("package_kind") or "evidence package export"),
+            entity_type="docling:EvidencePackageExport",
+            **{
+                "docling:package_kind": export.get("package_kind"),
+                "docling:package_sha256": export.get("package_sha256"),
+                "docling:trace_sha256": export.get("trace_sha256"),
+                "docling:search_request_id": export.get("search_request_id"),
+            },
+        )
+        if export.get("search_request_id"):
+            search_activity_id = _prov_identifier(
+                "search_requests",
+                export.get("search_request_id"),
+            )
+            _prov_activity(
+                activities,
+                search_activity_id,
+                label="Search request",
+                activity_type="docling:SearchRequest",
+            )
+            _prov_relation(
+                was_generated_by,
+                "was-generated-by",
+                sequence=len(was_generated_by) + 1,
+                **{"prov:entity": entity_id, "prov:activity": search_activity_id},
+            )
+
+    for card in report_trace.get("evidence_cards") or []:
+        entity_id = _prov_identifier(
+            "technical_report_evidence_cards",
+            card.get("evidence_card_id"),
+        )
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(card.get("evidence_card_id") or "evidence card"),
+            entity_type="docling:TechnicalReportEvidenceCard",
+            **{
+                "docling:evidence_kind": card.get("evidence_kind"),
+                "docling:source_type": card.get("source_type"),
+                "docling:source_evidence_match_status": card.get(
+                    "source_evidence_match_status"
+                ),
+            },
+        )
+
+    for claim in report_trace.get("claims") or []:
+        entity_id = _prov_identifier("technical_report_claims", claim.get("claim_id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(claim.get("claim_id") or "technical report claim"),
+            entity_type="docling:TechnicalReportClaim",
+            **{
+                "docling:claim_text": claim.get("rendered_text"),
+                "docling:source_evidence_match_status": claim.get(
+                    "source_evidence_match_status"
+                ),
+            },
+        )
+
+    for derivation in report_trace.get("claim_derivations") or []:
+        entity_id = _prov_identifier(
+            "claim_evidence_derivations",
+            derivation.get("claim_evidence_derivation_id"),
+        )
+        _prov_entity(
+            entities,
+            entity_id,
+            label=str(derivation.get("claim_id") or "claim derivation"),
+            entity_type="docling:ClaimEvidenceDerivation",
+            **{"docling:derivation_sha256": derivation.get("derivation_sha256")},
+        )
+
+    for operator_run in report_trace.get("operator_runs") or []:
+        activity_id = _prov_identifier(
+            "knowledge_operator_runs",
+            operator_run.get("operator_run_id"),
+        )
+        _prov_activity(
+            activities,
+            activity_id,
+            label=str(operator_run.get("operator_name") or operator_run.get("operator_kind")),
+            activity_type="docling:KnowledgeOperatorRun",
+            started_at=operator_run.get("created_at"),
+            **{
+                "docling:operator_kind": operator_run.get("operator_kind"),
+                "docling:operator_name": operator_run.get("operator_name"),
+                "docling:operator_version": operator_run.get("operator_version"),
+                "docling:status": operator_run.get("status"),
+                "docling:config_sha256": operator_run.get("config_sha256"),
+                "docling:input_sha256": operator_run.get("input_sha256"),
+                "docling:output_sha256": operator_run.get("output_sha256"),
+            },
+        )
+        _prov_relation(
+            was_associated_with,
+            "was-associated-with",
+            sequence=len(was_associated_with) + 1,
+            **{"prov:activity": activity_id, "prov:agent": "docling:agent/docling-system"},
+        )
+
+    for edge in manifest.get("provenance_edges") or []:
+        from_ref = edge.get("from") or {}
+        to_ref = edge.get("to") or {}
+        from_id = _prov_identifier(
+            from_ref.get("table"),
+            from_ref.get("id") or from_ref.get("sha256"),
+        )
+        to_id = _prov_identifier(to_ref.get("table"), to_ref.get("id") or to_ref.get("sha256"))
+        _prov_entity(
+            entities,
+            from_id,
+            label=str(from_ref.get("table") or "provenance source"),
+            entity_type="docling:ProvenanceEndpoint",
+            **{"docling:table": from_ref.get("table")},
+        )
+        _prov_entity(
+            entities,
+            to_id,
+            label=str(to_ref.get("table") or "provenance target"),
+            entity_type="docling:ProvenanceEndpoint",
+            **{"docling:table": to_ref.get("table")},
+        )
+        _prov_relation(
+            was_derived_from,
+            "was-derived-from",
+            sequence=len(was_derived_from) + 1,
+            **{
+                "prov:generatedEntity": to_id,
+                "prov:usedEntity": from_id,
+                "docling:edge_type": edge.get("edge_type"),
+            },
+        )
+        if verification_activity_id and from_id:
+            _prov_relation(
+                used,
+                "used",
+                sequence=len(used) + 1,
+                **{"prov:activity": verification_activity_id, "prov:entity": from_id},
+            )
+
+    retrieval_complete = bool(retrieval_evaluation.get("complete"))
+    prov_export = {
+        "schema_name": "technical_report_prov_export",
+        "schema_version": "1.0",
+        "prov_compatibility": {
+            "model": "W3C PROV-compatible JSON",
+            "profile": "docling-system-technical-report-audit-v1",
+        },
+        "prefix": {
+            "prov": "http://www.w3.org/ns/prov#",
+            "docling": "https://docling-system.local/prov#",
+            "xsd": "http://www.w3.org/2001/XMLSchema#",
+        },
+        "entity": entities,
+        "activity": activities,
+        "agent": agents,
+        "wasGeneratedBy": was_generated_by,
+        "used": used,
+        "wasDerivedFrom": was_derived_from,
+        "wasAssociatedWith": was_associated_with,
+        "wasAttributedTo": was_attributed_to,
+        "retrieval_evaluation": retrieval_evaluation,
+        "source_evidence_closure": retrieval_evaluation,
+        "audit": {
+            "manifest_sha256": manifest.get("manifest_sha256"),
+            "trace_sha256": trace.get("trace_sha256"),
+            "manifest_integrity": manifest.get("manifest_integrity"),
+            "trace_integrity": trace.get("trace_integrity"),
+            "audit_checklist": manifest.get("audit_checklist"),
+        },
+        "prov_summary": {
+            "entity_count": len(entities),
+            "activity_count": len(activities),
+            "agent_count": len(agents),
+            "was_generated_by_count": len(was_generated_by),
+            "used_count": len(used),
+            "was_derived_from_count": len(was_derived_from),
+            "was_associated_with_count": len(was_associated_with),
+            "was_attributed_to_count": len(was_attributed_to),
+            "retrieval_evaluation_complete": retrieval_complete,
+            "source_record_recall": retrieval_evaluation.get("source_record_recall"),
+        },
+    }
+    prov_export["prov_integrity"] = {
+        "prov_sha256": payload_sha256(prov_export),
+        "manifest_integrity_complete": bool(
+            (manifest.get("manifest_integrity") or {}).get("complete")
+        ),
+        "trace_integrity_complete": bool((trace.get("trace_integrity") or {}).get("complete")),
+        "retrieval_evaluation_complete": retrieval_complete,
+        "complete": bool(
+            (manifest.get("manifest_integrity") or {}).get("complete")
+            and (trace.get("trace_integrity") or {}).get("complete")
+            and retrieval_complete
+            and entities
+            and activities
+            and was_derived_from
+        ),
+    }
+    return _json_payload(prov_export)
 
 
 def _draft_task_id_for_audit(task: AgentTask) -> UUID:

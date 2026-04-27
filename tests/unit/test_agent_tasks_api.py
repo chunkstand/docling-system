@@ -960,6 +960,48 @@ def test_agent_task_evidence_trace_route_returns_structured_404(monkeypatch) -> 
     assert response.json()["error_context"]["task_id"] == str(task_id)
 
 
+def test_agent_task_provenance_route_uses_provenance_service(monkeypatch) -> None:
+    task_id = uuid4()
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_provenance_export",
+        lambda session, incoming_task_id: {
+            "schema_name": "technical_report_prov_export",
+            "task_id": str(incoming_task_id),
+            "entity": {"docling:documents/1": {"prov:type": "docling:SourceDocument"}},
+            "activity": {"docling:agent-tasks/1": {"prov:type": "docling:AgentTask"}},
+            "prov_integrity": {"complete": True},
+        },
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/provenance")
+
+    assert response.status_code == 200
+    assert response.json()["schema_name"] == "technical_report_prov_export"
+    assert response.json()["task_id"] == str(task_id)
+    assert response.json()["prov_integrity"]["complete"] is True
+
+
+def test_agent_task_provenance_route_returns_structured_404(monkeypatch) -> None:
+    task_id = uuid4()
+
+    def raise_not_found(session, incoming_task_id):
+        raise ValueError(f"Agent task '{incoming_task_id}' was not found.")
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_agent_task_provenance_export",
+        raise_not_found,
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/agent-tasks/{task_id}/provenance")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "agent_task_provenance_not_found"
+    assert response.json()["error_context"]["task_id"] == str(task_id)
+
+
 def test_agent_task_failure_artifact_route_returns_404_when_missing(monkeypatch) -> None:
     task_id = uuid4()
     monkeypatch.setattr(

@@ -1269,6 +1269,18 @@ def _verify_technical_report_executor(
         "cited_cards_with_document_run_fallback_match_count": source_evidence_closure[
             "cited_cards_with_document_run_fallback_match_count"
         ],
+        "cited_cards_without_recomputed_source_coverage_count": source_evidence_closure[
+            "cited_cards_without_recomputed_source_coverage_count"
+        ],
+        "cited_cards_with_expected_record_without_recomputed_record_match_count": (
+            source_evidence_closure[
+                "cited_cards_with_expected_record_without_recomputed_record_match_count"
+            ]
+        ),
+        "reported_recomputed_match_mismatch_count": source_evidence_closure[
+            "reported_recomputed_match_mismatch_count"
+        ],
+        "source_record_recall": source_evidence_closure["source_record_recall"],
         "source_evidence_closure_complete": source_evidence_closure["complete"],
     }
     reasons = list(outcome.verification_reasons)
@@ -1298,6 +1310,10 @@ def _verify_technical_report_executor(
                 "weak_source_match_count": source_evidence_closure[
                     "cited_cards_without_acceptable_source_evidence_match_count"
                 ],
+                "recomputed_source_coverage_gap_count": source_evidence_closure[
+                    "cited_cards_without_recomputed_source_coverage_count"
+                ],
+                "source_record_recall": source_evidence_closure["source_record_recall"],
             },
         },
     ]
