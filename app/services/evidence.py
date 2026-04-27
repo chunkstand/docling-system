@@ -906,6 +906,8 @@ def persist_search_evidence_package_export(
     session: Session,
     *,
     search_request_id: UUID,
+    agent_task_id: UUID | None = None,
+    agent_task_artifact_id: UUID | None = None,
 ) -> EvidencePackageExport:
     package = get_search_evidence_package(session, search_request_id)
     export_values = _search_evidence_export_values(package)
@@ -915,6 +917,8 @@ def persist_search_evidence_package_export(
         id=uuid.uuid4(),
         package_kind="search_request",
         search_request_id=search_request_id,
+        agent_task_id=agent_task_id,
+        agent_task_artifact_id=agent_task_artifact_id,
         package_sha256=str(package["package_sha256"]),
         trace_sha256=trace_graph.get("trace_sha256"),
         package_payload_json=_json_payload(package),
@@ -961,6 +965,119 @@ def get_search_evidence_package_export_trace(
     _ensure_search_evidence_package_trace_graph(session, export)
     nodes, edges = _search_evidence_trace_rows(session, export.id)
     return _search_evidence_package_trace_response(session, export, nodes, edges)
+
+
+def technical_report_search_evidence_closure_payload(
+    session: Session,
+    draft_payload: dict[str, Any],
+) -> dict[str, Any]:
+    claims = list(draft_payload.get("claims") or [])
+    evidence_cards = list(draft_payload.get("evidence_cards") or [])
+    package_exports = list(draft_payload.get("source_evidence_package_exports") or [])
+    expected_export_ids = _uuid_values(
+        [
+            *(row.get("evidence_package_export_id") for row in package_exports),
+            *(
+                value
+                for card in evidence_cards
+                for value in (card.get("source_evidence_package_export_ids") or [])
+            ),
+            *(
+                value
+                for claim in claims
+                for value in (claim.get("source_evidence_package_export_ids") or [])
+            ),
+        ]
+    )
+    exports_by_id = _select_by_ids(session, EvidencePackageExport, set(expected_export_ids))
+    missing_export_ids = [
+        str(export_id) for export_id in expected_export_ids if export_id not in exports_by_id
+    ]
+    non_search_export_ids: list[str] = []
+    trace_summaries: list[dict[str, Any]] = []
+    incomplete_trace_export_ids: list[str] = []
+    for export_id in expected_export_ids:
+        export = exports_by_id.get(export_id)
+        if export is None:
+            continue
+        if export.package_kind != "search_request":
+            non_search_export_ids.append(str(export.id))
+            continue
+        _ensure_search_evidence_package_trace_graph(session, export)
+        nodes, edges = _search_evidence_trace_rows(session, export.id)
+        integrity = _search_evidence_trace_integrity_payload(session, export, nodes, edges)
+        if not integrity["complete"]:
+            incomplete_trace_export_ids.append(str(export.id))
+        trace_summaries.append(
+            {
+                "evidence_package_export_id": str(export.id),
+                "search_request_id": str(export.search_request_id)
+                if export.search_request_id
+                else None,
+                "package_sha256": export.package_sha256,
+                "trace_sha256": export.trace_sha256,
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+                "trace_integrity": integrity,
+            }
+        )
+
+    claims_missing_source_exports = sorted(
+        str(claim.get("claim_id"))
+        for claim in claims
+        if not claim.get("source_evidence_package_export_ids")
+    )
+    cited_card_ids = {
+        str(card_id)
+        for claim in claims
+        for card_id in (claim.get("evidence_card_ids") or [])
+    }
+    cited_cards_missing_source_exports = sorted(
+        str(card.get("evidence_card_id"))
+        for card in evidence_cards
+        if str(card.get("evidence_card_id")) in cited_card_ids
+        and not card.get("source_evidence_package_export_ids")
+    )
+    complete = (
+        bool(claims)
+        and bool(expected_export_ids)
+        and not missing_export_ids
+        and not non_search_export_ids
+        and not incomplete_trace_export_ids
+        and not claims_missing_source_exports
+        and not cited_cards_missing_source_exports
+    )
+    return {
+        "schema_name": "technical_report_search_evidence_closure",
+        "schema_version": "1.0",
+        "complete": complete,
+        "claim_count": len(claims),
+        "expected_source_evidence_package_export_count": len(expected_export_ids),
+        "persisted_source_evidence_package_export_count": len(trace_summaries),
+        "trace_complete_count": sum(
+            1 for row in trace_summaries if row["trace_integrity"]["complete"]
+        ),
+        "missing_source_evidence_package_export_count": len(missing_export_ids),
+        "non_search_source_evidence_package_export_count": len(non_search_export_ids),
+        "incomplete_trace_count": len(incomplete_trace_export_ids),
+        "claims_missing_source_evidence_package_export_count": len(
+            claims_missing_source_exports
+        ),
+        "cited_cards_missing_source_evidence_package_export_count": len(
+            cited_cards_missing_source_exports
+        ),
+        "expected_source_evidence_package_export_ids": [
+            str(export_id) for export_id in expected_export_ids
+        ],
+        "missing_source_evidence_package_export_ids": missing_export_ids,
+        "non_search_source_evidence_package_export_ids": non_search_export_ids,
+        "incomplete_trace_export_ids": sorted(incomplete_trace_export_ids),
+        "claims_missing_source_evidence_package_export_ids": claims_missing_source_exports,
+        "cited_cards_missing_source_evidence_package_export_ids": (
+            cited_cards_missing_source_exports
+        ),
+        "trace_summaries": trace_summaries,
+    }
 
 
 _DERIVATION_MUTABLE_FIELDS = {
@@ -1759,12 +1876,25 @@ def _technical_report_provenance_edges(
     *,
     source_documents: list[dict],
     document_runs: list[dict],
+    evidence_exports: list[dict],
     evidence_cards: list[dict],
     claims: list[dict],
     claim_derivations: list[dict],
     semantic_trace: dict[str, Any],
 ) -> list[dict[str, Any]]:
     edges: list[dict[str, Any]] = []
+    for export in evidence_exports:
+        if export.get("package_kind") == "search_request" and export.get("search_request_id"):
+            edges.append(
+                {
+                    "edge_type": "search_request_to_evidence_package_export",
+                    "from": {"table": "search_requests", "id": export.get("search_request_id")},
+                    "to": {
+                        "table": "evidence_package_exports",
+                        "id": export.get("evidence_package_export_id"),
+                    },
+                }
+            )
     for run in document_runs:
         if run.get("document_id"):
             edges.append(
@@ -1788,6 +1918,17 @@ def _technical_report_provenance_edges(
                 }
             )
     for card in evidence_cards:
+        for export_id in card.get("source_evidence_package_export_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "search_evidence_export_to_report_card",
+                    "from": {"table": "evidence_package_exports", "id": export_id},
+                    "to": {
+                        "table": "technical_report_evidence_cards",
+                        "id": card.get("evidence_card_id"),
+                    },
+                }
+            )
         for evidence_id in card.get("evidence_ids") or []:
             edges.append(
                 {
@@ -1800,6 +1941,14 @@ def _technical_report_provenance_edges(
                 }
             )
     for claim in claims:
+        for export_id in claim.get("source_evidence_package_export_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "search_evidence_export_to_claim",
+                    "from": {"table": "evidence_package_exports", "id": export_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
         for card_id in claim.get("evidence_card_ids") or []:
             edges.append(
                 {
@@ -1847,6 +1996,7 @@ def build_technical_report_evidence_manifest_payload(
     evidence_cards = list(draft_payload.get("evidence_cards") or [])
     claims = list(draft_payload.get("claims") or [])
     evidence_exports = list(audit_bundle.get("evidence_package_exports") or [])
+    source_evidence_closure = dict(audit_bundle.get("source_evidence_closure") or {})
     claim_derivations = list(audit_bundle.get("claim_derivations") or [])
     operator_runs = list(audit_bundle.get("operator_runs") or [])
     document_ids = _uuid_values(
@@ -1924,7 +2074,16 @@ def build_technical_report_evidence_manifest_payload(
             *[row.get("search_request_id") for row in evidence_exports],
         ]
     )
-    operator_run_ids = _string_values(row.get("operator_run_id") for row in operator_runs)
+    operator_run_ids = _string_values(
+        [
+            *(row.get("operator_run_id") for row in operator_runs),
+            *[
+                operator_run_id
+                for export in evidence_exports
+                for operator_run_id in (export.get("operator_run_ids") or [])
+            ],
+        ]
+    )
     source_snapshot_sha256s = _string_values(
         [
             *(draft_payload.get("source_snapshot_sha256s") or []),
@@ -1939,6 +2098,7 @@ def build_technical_report_evidence_manifest_payload(
     provenance_edges = _technical_report_provenance_edges(
         source_documents=source_documents,
         document_runs=document_runs,
+        evidence_exports=evidence_exports,
         evidence_cards=evidence_cards,
         claims=claims,
         claim_derivations=claim_derivations,
@@ -1975,6 +2135,18 @@ def build_technical_report_evidence_manifest_payload(
             "hash_integrity_verified",
             False,
         ),
+        "has_frozen_source_evidence_packages": audit_bundle["audit_checklist"].get(
+            "has_frozen_source_evidence_packages",
+            False,
+        ),
+        "source_evidence_trace_integrity_verified": audit_bundle["audit_checklist"].get(
+            "source_evidence_trace_integrity_verified",
+            False,
+        ),
+        "generation_evidence_closed": audit_bundle["audit_checklist"].get(
+            "generation_evidence_closed",
+            False,
+        ),
         "change_impact_clear": audit_bundle["audit_checklist"].get(
             "change_impact_clear",
             False,
@@ -2003,6 +2175,10 @@ def build_technical_report_evidence_manifest_payload(
             "search_evidence_package_exports": [
                 row for row in evidence_exports if row.get("package_kind") == "search_request"
             ],
+            "search_evidence_package_trace_summaries": list(
+                audit_bundle.get("search_evidence_package_traces") or []
+            ),
+            "source_evidence_closure": source_evidence_closure,
         },
         "report_trace": {
             "evidence_cards": evidence_cards,
@@ -3493,6 +3669,40 @@ def _draft_task_id_for_audit(task: AgentTask) -> UUID:
     raise ValueError("Audit bundles are currently supported for technical report tasks only.")
 
 
+def _technical_report_upstream_task_ids(
+    session: Session,
+    draft_payload: dict[str, Any],
+) -> list[UUID]:
+    related_task_ids: list[UUID] = []
+    harness_task_id = _uuid_or_none_safe(draft_payload.get("harness_task_id"))
+    if harness_task_id is not None:
+        related_task_ids.append(harness_task_id)
+        harness_task = session.get(AgentTask, harness_task_id)
+        harness_payload = (
+            ((harness_task.result_json or {}).get("payload") or {}).get("harness", {})
+            if harness_task is not None
+            else {}
+        )
+        evidence_task_id = _uuid_or_none_safe(
+            (harness_payload.get("workflow_state") or {}).get("evidence_task_id")
+        )
+        if evidence_task_id is not None:
+            related_task_ids.append(evidence_task_id)
+            evidence_task = session.get(AgentTask, evidence_task_id)
+            evidence_payload = (
+                ((evidence_task.result_json or {}).get("payload") or {}).get(
+                    "evidence_bundle",
+                    {},
+                )
+                if evidence_task is not None
+                else {}
+            )
+            plan_task_id = _uuid_or_none_safe(evidence_payload.get("plan_task_id"))
+            if plan_task_id is not None:
+                related_task_ids.append(plan_task_id)
+    return list(dict.fromkeys(related_task_ids))
+
+
 def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
     task = session.get(AgentTask, task_id)
     if task is None:
@@ -3511,9 +3721,14 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             )
         )
 
-    related_task_ids = [draft_task.id]
+    draft_payload = ((draft_task.result_json or {}).get("payload") or {}).get("draft") or {}
+    related_task_ids = [
+        draft_task.id,
+        *_technical_report_upstream_task_ids(session, draft_payload),
+    ]
     if verification_task is not None:
         related_task_ids.append(verification_task.id)
+    related_task_ids = list(dict.fromkeys(related_task_ids))
 
     artifacts = list(
         session.scalars(
@@ -3525,17 +3740,19 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
     exports = list(
         session.scalars(
             select(EvidencePackageExport)
-            .where(EvidencePackageExport.agent_task_id == draft_task.id)
+            .where(EvidencePackageExport.agent_task_id.in_(related_task_ids))
             .order_by(EvidencePackageExport.created_at.asc())
         )
     )
-    export_ids = [row.id for row in exports]
+    report_exports = [row for row in exports if row.package_kind == "technical_report_claims"]
+    search_exports = [row for row in exports if row.package_kind == "search_request"]
+    report_export_ids = [row.id for row in report_exports]
     derivations: list[ClaimEvidenceDerivation] = []
-    if export_ids:
+    if report_export_ids:
         derivations = list(
             session.scalars(
                 select(ClaimEvidenceDerivation)
-                .where(ClaimEvidenceDerivation.evidence_package_export_id.in_(export_ids))
+                .where(ClaimEvidenceDerivation.evidence_package_export_id.in_(report_export_ids))
                 .order_by(ClaimEvidenceDerivation.claim_id.asc())
             )
         )
@@ -3546,14 +3763,17 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             .order_by(KnowledgeOperatorRun.created_at.asc())
         )
     )
-    draft_payload = ((draft_task.result_json or {}).get("payload") or {}).get("draft") or {}
     verification_payload = (
         ((verification_task.result_json or {}).get("payload") or {})
         if verification_task is not None
         else None
     )
     change_impact = _change_impact_payload(session, exports)
-    integrity = _technical_report_integrity_payload(draft_payload, exports, derivations)
+    integrity = _technical_report_integrity_payload(draft_payload, report_exports, derivations)
+    source_evidence_closure = technical_report_search_evidence_closure_payload(
+        session,
+        draft_payload,
+    )
     hash_integrity_verified = (
         integrity["draft_package_hash_matches"]
         and integrity["export_package_hash_matches"]
@@ -3562,6 +3782,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and integrity["claim_package_hash_mismatch_count"] == 0
         and integrity["missing_claim_derivation_count"] == 0
     )
+    source_evidence_trace_integrity_verified = source_evidence_closure["complete"]
     audit_bundle = {
         "schema_name": "technical_report_audit_bundle",
         "schema_version": "1.0",
@@ -3573,6 +3794,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         "verification_record": _verification_payload(verification_row),
         "artifacts": [_artifact_payload(row) for row in artifacts],
         "evidence_package_exports": [_evidence_export_payload(row) for row in exports],
+        "search_evidence_package_traces": source_evidence_closure["trace_summaries"],
+        "source_evidence_closure": source_evidence_closure,
         "claim_derivations": [_claim_derivation_payload(row) for row in derivations],
         "operator_runs": [_operator_run_summary(row) for row in operator_runs],
         "change_impact": change_impact,
@@ -3582,6 +3805,13 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "all_claims_have_derivations": len(derivations)
             == len(draft_payload.get("claims") or []),
             "hash_integrity_verified": hash_integrity_verified,
+            "has_frozen_source_evidence_packages": bool(search_exports),
+            "source_evidence_trace_integrity_verified": (
+                source_evidence_trace_integrity_verified
+            ),
+            "generation_evidence_closed": (
+                hash_integrity_verified and source_evidence_trace_integrity_verified
+            ),
             "has_generation_operator_run": any(
                 row.operator_kind == "generate" for row in operator_runs
             ),
@@ -3594,5 +3824,12 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "change_impact_clear": not change_impact["impacted"],
         },
     }
+    audit_bundle["audit_checklist"]["complete"] = (
+        audit_bundle["audit_checklist"]["generation_evidence_closed"]
+        and audit_bundle["audit_checklist"]["has_generation_operator_run"]
+        and audit_bundle["audit_checklist"]["has_verification_operator_run"]
+        and audit_bundle["audit_checklist"]["verification_passed"]
+        and audit_bundle["audit_checklist"]["change_impact_clear"]
+    )
     audit_bundle["audit_bundle_sha256"] = payload_sha256(audit_bundle)
     return audit_bundle

@@ -1090,6 +1090,10 @@ class TechnicalReportEvidenceCard(BaseModel):
     support_level: str | None = None
     review_status: str | None = None
     relation_key: str | None = None
+    source_search_request_ids: list[UUID] = Field(default_factory=list)
+    source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
+    source_evidence_package_sha256s: list[str] = Field(default_factory=list)
+    source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
     source_snapshot_sha256s: list[str] = Field(default_factory=list)
@@ -1103,6 +1107,7 @@ class TechnicalReportEvidenceBundlePayload(BaseModel):
     evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
     claim_evidence_map: list[dict] = Field(default_factory=list)
     retrieval_index: list[dict] = Field(default_factory=list)
+    search_evidence_package_exports: list[dict] = Field(default_factory=list)
     graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     expert_alignment: list[dict] = Field(default_factory=list)
@@ -1118,6 +1123,7 @@ class BuildReportEvidenceCardsTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+    search_evidence_package_export_count: int = 0
 
 
 class TechnicalReportToolContract(BaseModel):
@@ -1145,6 +1151,7 @@ class ReportAgentHarnessPayload(BaseModel):
     required_skills: list[TechnicalReportSkillContract] = Field(default_factory=list)
     retrieval_plan: list[dict] = Field(default_factory=list)
     evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    search_evidence_package_exports: list[dict] = Field(default_factory=list)
     graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
     claim_contract: list[dict] = Field(default_factory=list)
     failure_policy: dict = Field(default_factory=dict)
@@ -1187,6 +1194,10 @@ class TechnicalReportClaim(BaseModel):
     support_level: str | None = None
     review_policy_status: str | None = None
     disclosure_note: str | None = None
+    source_search_request_ids: list[UUID] = Field(default_factory=list)
+    source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
+    source_evidence_package_sha256s: list[str] = Field(default_factory=list)
+    source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
     derivation_rule: str | None = None
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
@@ -1211,6 +1222,7 @@ class TechnicalReportDraftPayload(BaseModel):
     claims: list[TechnicalReportClaim] = Field(default_factory=list)
     blocked_claims: list[dict] = Field(default_factory=list)
     evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    source_evidence_package_exports: list[dict] = Field(default_factory=list)
     graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
@@ -1248,6 +1260,7 @@ class VerifyTechnicalReportTaskInput(BaseModel):
     require_full_claim_traceability: bool = True
     require_full_concept_coverage: bool = True
     require_graph_edges_approved: bool = True
+    require_frozen_source_evidence: bool = True
     block_stale_context: bool = False
 
 

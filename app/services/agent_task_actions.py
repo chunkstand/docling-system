@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -95,9 +97,11 @@ from app.schemas.agent_tasks import (
     VerifyTechnicalReportTaskOutput,
 )
 from app.schemas.search import (
+    SearchFilters,
     SearchHarnessEvaluationRequest,
     SearchHarnessOptimizationRequest,
     SearchReplayRunRequest,
+    SearchRequest,
 )
 from app.services.agent_actions.manifest import (
     AgentActionContractIssue,
@@ -130,12 +134,14 @@ from app.services.eval_workbench import (
 from app.services.evidence import (
     attach_artifact_to_evidence_export,
     attach_operator_run_to_evidence_export,
+    persist_search_evidence_package_export,
     persist_technical_report_evidence_export,
     persist_technical_report_evidence_manifest,
     record_knowledge_operator_run,
+    technical_report_search_evidence_closure_payload,
 )
 from app.services.quality import list_quality_eval_candidates
-from app.services.search import get_search_harness, list_search_harnesses
+from app.services.search import execute_search, get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_harness_optimization import run_search_harness_optimization_loop
 from app.services.search_harness_overrides import upsert_applied_search_harness_override
@@ -581,6 +587,151 @@ def _plan_technical_report_executor(
     }
 
 
+def _unique_strings(values) -> list[str]:
+    return [str(value) for value in dict.fromkeys(values) if value is not None and value != ""]
+
+
+def _source_export_summary(export) -> dict:
+    package_payload = export.package_payload_json or {}
+    search_request = package_payload.get("search_request") or {}
+    source_document_run_keys = _unique_strings(
+        f"{document_id}:{run_id}"
+        for document_id in (export.document_ids_json or [])
+        for run_id in (export.run_ids_json or [])
+    )
+    return {
+        "evidence_package_export_id": str(export.id),
+        "search_request_id": str(export.search_request_id) if export.search_request_id else None,
+        "package_sha256": export.package_sha256,
+        "trace_sha256": export.trace_sha256,
+        "query_text": search_request.get("query_text"),
+        "mode": search_request.get("mode"),
+        "document_ids": [str(value) for value in export.document_ids_json or []],
+        "run_ids": [str(value) for value in export.run_ids_json or []],
+        "source_document_run_keys": source_document_run_keys,
+    }
+
+
+def _card_document_run_keys(card: dict) -> list[str]:
+    document_ids = _unique_strings(
+        [card.get("document_id"), *(card.get("source_document_ids") or [])]
+    )
+    run_ids = _unique_strings([card.get("run_id")])
+    if not run_ids:
+        return []
+    return [f"{document_id}:{run_id}" for document_id in document_ids for run_id in run_ids]
+
+
+def _attach_source_exports_to_evidence_bundle(
+    evidence_bundle: dict,
+    search_export_summaries: list[dict],
+) -> None:
+    summaries_by_document_run_key: dict[str, list[dict]] = {}
+    summaries_by_document_id: dict[str, list[dict]] = {}
+    for summary in search_export_summaries:
+        for key in summary.get("source_document_run_keys") or []:
+            summaries_by_document_run_key.setdefault(str(key), []).append(summary)
+        for document_id in summary.get("document_ids") or []:
+            summaries_by_document_id.setdefault(str(document_id), []).append(summary)
+
+    cards_by_id: dict[str, dict] = {}
+    for card in evidence_bundle.get("evidence_cards") or []:
+        matched_summaries: list[dict] = []
+        for key in _card_document_run_keys(card):
+            matched_summaries.extend(summaries_by_document_run_key.get(key, []))
+        if not matched_summaries:
+            for document_id in _unique_strings(
+                [card.get("document_id"), *(card.get("source_document_ids") or [])]
+            ):
+                matched_summaries.extend(summaries_by_document_id.get(document_id, []))
+        matched_summaries = list(
+            {
+                summary["evidence_package_export_id"]: summary
+                for summary in matched_summaries
+            }.values()
+        )
+        card["source_search_request_ids"] = _unique_strings(
+            summary.get("search_request_id") for summary in matched_summaries
+        )
+        card["source_evidence_package_export_ids"] = _unique_strings(
+            summary.get("evidence_package_export_id") for summary in matched_summaries
+        )
+        card["source_evidence_package_sha256s"] = _unique_strings(
+            summary.get("package_sha256") for summary in matched_summaries
+        )
+        card["source_evidence_trace_sha256s"] = _unique_strings(
+            summary.get("trace_sha256") for summary in matched_summaries
+        )
+        cards_by_id[str(card.get("evidence_card_id"))] = card
+
+    for claim in evidence_bundle.get("claim_evidence_map") or []:
+        claim_cards = [
+            cards_by_id[card_id]
+            for card_id in _unique_strings(claim.get("evidence_card_ids") or [])
+            if card_id in cards_by_id
+        ]
+        claim["source_search_request_ids"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_search_request_ids") or [])
+        )
+        claim["source_evidence_package_export_ids"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_evidence_package_export_ids") or [])
+        )
+        claim["source_evidence_package_sha256s"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_evidence_package_sha256s") or [])
+        )
+        claim["source_evidence_trace_sha256s"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_evidence_trace_sha256s") or [])
+        )
+
+    evidence_bundle["search_evidence_package_exports"] = search_export_summaries
+
+
+def _freeze_report_retrieval_evidence(
+    session: Session,
+    *,
+    task_id: UUID,
+    evidence_bundle: dict,
+) -> list[dict]:
+    summaries: list[dict] = []
+    seen_search_keys: set[tuple[str, str | None]] = set()
+    for retrieval_row in evidence_bundle.get("retrieval_index") or []:
+        document_ids = _unique_strings(retrieval_row.get("document_ids") or [])
+        for query in _unique_strings(retrieval_row.get("queries") or []):
+            for document_id in document_ids:
+                search_key = (query, document_id)
+                if search_key in seen_search_keys:
+                    continue
+                seen_search_keys.add(search_key)
+                execution = execute_search(
+                    session,
+                    SearchRequest(
+                        query=query,
+                        mode="keyword",
+                        filters=SearchFilters(document_id=UUID(document_id)),
+                        limit=5,
+                    ),
+                    origin="agent_task_report_retrieval",
+                )
+                if execution.request_id is None:
+                    continue
+                export = persist_search_evidence_package_export(
+                    session,
+                    search_request_id=execution.request_id,
+                    agent_task_id=task_id,
+                )
+                summaries.append(_source_export_summary(export))
+    _attach_source_exports_to_evidence_bundle(evidence_bundle, summaries)
+    return summaries
+
+
 def _build_report_evidence_cards_executor(
     session: Session,
     task: AgentTask,
@@ -607,6 +758,11 @@ def _build_report_evidence_cards_executor(
         plan_output.plan.model_dump(mode="json"),
         plan_task_id=payload.target_task_id,
     )
+    search_evidence_exports = _freeze_report_retrieval_evidence(
+        session,
+        task_id=task.id,
+        evidence_bundle=evidence_bundle,
+    )
     artifact = create_agent_task_artifact(
         session,
         task_id=task.id,
@@ -620,6 +776,7 @@ def _build_report_evidence_cards_executor(
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
+        "search_evidence_package_export_count": len(search_evidence_exports),
     }
 
 
@@ -843,25 +1000,72 @@ def _verify_technical_report_executor(
         require_graph_edges_approved=payload.require_graph_edges_approved,
         block_stale_context=payload.block_stale_context,
     )
+    source_evidence_closure = technical_report_search_evidence_closure_payload(
+        session,
+        draft_payload,
+    )
+    summary = {
+        **outcome.summary,
+        "source_evidence_package_export_count": source_evidence_closure[
+            "expected_source_evidence_package_export_count"
+        ],
+        "source_evidence_package_trace_complete_count": source_evidence_closure[
+            "trace_complete_count"
+        ],
+        "source_evidence_package_trace_incomplete_count": source_evidence_closure[
+            "incomplete_trace_count"
+        ],
+        "claims_missing_source_evidence_package_export_count": source_evidence_closure[
+            "claims_missing_source_evidence_package_export_count"
+        ],
+        "source_evidence_closure_complete": source_evidence_closure["complete"],
+    }
+    reasons = list(outcome.verification_reasons)
+    if payload.require_frozen_source_evidence and not source_evidence_closure["complete"]:
+        reasons.append(
+            "Every generated claim must be backed by frozen search evidence packages "
+            "with complete persisted trace integrity."
+        )
+    verification_outcome = "failed" if reasons else "passed"
+    success_metrics = [
+        *outcome.success_metrics,
+        {
+            "metric_key": "source_evidence_closure",
+            "stakeholder": "Luc Moreau / James Cheney",
+            "passed": source_evidence_closure["complete"],
+            "summary": (
+                "Every generated claim is linked to frozen retrieval evidence with "
+                "persisted trace integrity."
+            ),
+            "details": {
+                "source_evidence_package_export_count": source_evidence_closure[
+                    "expected_source_evidence_package_export_count"
+                ],
+                "trace_complete_count": source_evidence_closure["trace_complete_count"],
+                "incomplete_trace_count": source_evidence_closure["incomplete_trace_count"],
+            },
+        },
+    ]
     details = {
         **outcome.verification_details,
         "target_task_id": str(draft_context.task_id),
         "target_task_type": draft_context.task_type,
+        "source_evidence_closure": source_evidence_closure,
     }
     record = create_agent_task_verification_record(
         session,
         target_task_id=draft_context.task_id,
         verification_task_id=task.id,
         verifier_type="technical_report_gate",
-        outcome=outcome.verification_outcome,
-        metrics=outcome.verification_metrics,
-        reasons=outcome.verification_reasons,
+        outcome=verification_outcome,
+        metrics=summary,
+        reasons=reasons,
         details=details,
     )
     result = {
         "draft": draft_payload,
-        "summary": outcome.summary,
-        "success_metrics": outcome.success_metrics,
+        "summary": summary,
+        "success_metrics": success_metrics,
         "verification": record.model_dump(mode="json"),
     }
     artifact = create_agent_task_artifact(
@@ -878,22 +1082,25 @@ def _verify_technical_report_executor(
         operator_name="technical_report_gate",
         operator_version="v1",
         agent_task_id=task.id,
-        config=outcome.verification_details.get("thresholds", {}),
+        config={
+            **outcome.verification_details.get("thresholds", {}),
+            "require_frozen_source_evidence": payload.require_frozen_source_evidence,
+        },
         input_payload={
             "target_task_id": str(payload.target_task_id),
             "draft_task_type": draft_context.task_type,
-            "claim_count": outcome.summary.get("claim_count", 0),
+            "claim_count": summary.get("claim_count", 0),
         },
         output_payload={
             "verification_id": str(record.verification_id),
-            "verification_outcome": outcome.verification_outcome,
+            "verification_outcome": verification_outcome,
             "artifact_id": str(artifact.id),
             "artifact_kind": artifact.artifact_kind,
             "artifact_path": artifact.storage_path,
         },
-        metrics=outcome.verification_metrics,
+        metrics=summary,
         metadata={
-            "verification_outcome": outcome.verification_outcome,
+            "verification_outcome": verification_outcome,
             "audit_role": "records the verifier gate for a generated technical report",
         },
         inputs=[
@@ -913,8 +1120,8 @@ def _verify_technical_report_executor(
                 "target_table": "agent_task_verifications",
                 "target_id": record.verification_id,
                 "payload": {
-                    "outcome": outcome.verification_outcome,
-                    "reasons": outcome.verification_reasons,
+                    "outcome": verification_outcome,
+                    "reasons": reasons,
                 },
             },
             {
@@ -927,7 +1134,7 @@ def _verify_technical_report_executor(
         ],
     )
     evidence_manifest = None
-    if outcome.verification_outcome == "passed":
+    if verification_outcome == "passed":
         evidence_manifest = persist_technical_report_evidence_manifest(
             session,
             task_id=task.id,

@@ -721,6 +721,7 @@ def prepare_report_agent_harness(
         "evidence_cards": [
             card.model_dump(mode="json") for card in evidence_bundle.evidence_cards
         ],
+        "search_evidence_package_exports": list(evidence_bundle.search_evidence_package_exports),
         "graph_context": [
             edge.model_dump(mode="json") for edge in evidence_bundle.graph_context
         ],
@@ -738,6 +739,7 @@ def prepare_report_agent_harness(
             "require_full_claim_traceability": True,
             "require_full_concept_coverage": True,
             "require_graph_edges_approved": True,
+            "require_frozen_source_evidence": True,
             "block_stale_context": False,
         },
         "llm_adapter_contract": {
@@ -750,6 +752,8 @@ def prepare_report_agent_harness(
                 "section_id",
                 "evidence_card_ids",
                 "graph_edge_ids",
+                "source_evidence_package_export_ids",
+                "source_search_request_ids",
                 "fact_ids",
                 "assertion_ids",
                 "source_document_ids",
@@ -818,6 +822,7 @@ def draft_technical_report(
     harness = ReportAgentHarnessPayload.model_validate(harness_payload)
     sections_by_id = {section.section_id: section for section in harness.source_plan.sections}
     section_claim_ids: dict[str, list[str]] = {section_id: [] for section_id in sections_by_id}
+    cards_by_id = {card.evidence_card_id: card for card in harness.evidence_cards}
     claims: list[dict[str, Any]] = []
     blocked_claims: list[dict[str, Any]] = []
 
@@ -847,6 +852,37 @@ def draft_technical_report(
         rendered_text = str(claim_contract.get("summary") or "").strip()
         if claim_contract.get("disclosure_note"):
             rendered_text = f"{rendered_text} {claim_contract['disclosure_note']}"
+        claim_cards = [
+            cards_by_id[card_id] for card_id in evidence_card_ids if card_id in cards_by_id
+        ]
+        source_search_request_ids = _unique_uuids(
+            [
+                search_request_id
+                for card in claim_cards
+                for search_request_id in card.source_search_request_ids
+            ]
+        )
+        source_evidence_package_export_ids = _unique_uuids(
+            [
+                export_id
+                for card in claim_cards
+                for export_id in card.source_evidence_package_export_ids
+            ]
+        )
+        source_evidence_package_sha256s = _unique_strings(
+            [
+                sha256
+                for card in claim_cards
+                for sha256 in card.source_evidence_package_sha256s
+            ]
+        )
+        source_evidence_trace_sha256s = _unique_strings(
+            [
+                sha256
+                for card in claim_cards
+                for sha256 in card.source_evidence_trace_sha256s
+            ]
+        )
         claims.append(
             {
                 "claim_id": claim_contract["claim_id"],
@@ -861,6 +897,10 @@ def draft_technical_report(
                 "support_level": claim_contract.get("support_level"),
                 "review_policy_status": claim_contract.get("review_policy_status"),
                 "disclosure_note": claim_contract.get("disclosure_note"),
+                "source_search_request_ids": source_search_request_ids,
+                "source_evidence_package_export_ids": source_evidence_package_export_ids,
+                "source_evidence_package_sha256s": source_evidence_package_sha256s,
+                "source_evidence_trace_sha256s": source_evidence_trace_sha256s,
             }
         )
         section_claim_ids.setdefault(claim_contract["section_id"], []).append(
@@ -933,6 +973,7 @@ def draft_technical_report(
         "evidence_cards": [
             card.model_dump(mode="json") for card in harness.evidence_cards
         ],
+        "source_evidence_package_exports": list(harness.search_evidence_package_exports),
         "graph_context": [
             edge.model_dump(mode="json") for edge in harness.graph_context
         ],

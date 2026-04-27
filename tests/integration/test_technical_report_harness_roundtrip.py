@@ -143,6 +143,7 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     }
     assert harness_output["evidence_cards"]
     assert harness_output["claim_contract"]
+    assert harness_output["search_evidence_package_exports"]
     assert harness_output["llm_adapter_contract"]["harness_context_refs"]
 
     harness_artifact_ref = next(
@@ -191,8 +192,12 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         draft_payload = draft_task_row.result_json["payload"]["draft"]
         assert draft_payload["evidence_package_sha256"]
         assert draft_payload["evidence_package_export_id"]
+        assert draft_payload["source_evidence_package_exports"]
         assert draft_payload["claim_derivations"]
         assert all(claim["derivation_sha256"] for claim in draft_payload["claims"])
+        assert all(
+            claim["source_evidence_package_export_ids"] for claim in draft_payload["claims"]
+        )
         draft_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -230,6 +235,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert verification["metrics"]["missing_evidence_package_hash_count"] == 0
         assert verification["metrics"]["evidence_package_integrity_mismatch_count"] == 0
         assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
+        assert verification["metrics"]["source_evidence_closure_complete"] is True
+        assert verification["metrics"]["source_evidence_package_trace_incomplete_count"] == 0
         verify_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -267,6 +274,9 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert audit_bundle["audit_checklist"]["has_frozen_evidence_package"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
     assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
+    assert audit_bundle["audit_checklist"]["has_frozen_source_evidence_packages"] is True
+    assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
+    assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
     assert audit_bundle["audit_checklist"]["has_verification_operator_run"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
@@ -276,9 +286,25 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert audit_bundle["integrity"]["claim_derivation_count_matches"] is True
     assert audit_bundle["integrity"]["claim_derivation_hash_mismatch_count"] == 0
     assert audit_bundle["integrity"]["claim_package_hash_mismatch_count"] == 0
-    assert audit_bundle["evidence_package_exports"][0]["package_sha256"] == draft_payload[
-        "evidence_package_sha256"
+    report_export = next(
+        row
+        for row in audit_bundle["evidence_package_exports"]
+        if row["package_kind"] == "technical_report_claims"
+    )
+    search_exports = [
+        row
+        for row in audit_bundle["evidence_package_exports"]
+        if row["package_kind"] == "search_request"
     ]
+    assert report_export["package_sha256"] == draft_payload["evidence_package_sha256"]
+    assert search_exports
+    search_export_id = UUID(search_exports[0]["evidence_package_export_id"])
+    assert audit_bundle["source_evidence_closure"]["complete"] is True
+    assert audit_bundle["search_evidence_package_traces"]
+    assert all(
+        row["trace_integrity"]["complete"]
+        for row in audit_bundle["search_evidence_package_traces"]
+    )
     assert len(audit_bundle["claim_derivations"]) == len(draft_payload["claims"])
     assert audit_bundle["audit_bundle_sha256"]
 
@@ -299,6 +325,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         "draft_package_hash_matches"
     ] is True
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
+    assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
+    assert manifest["retrieval_trace"]["search_evidence_package_trace_summaries"]
     assert manifest["provenance_edges"]
     assert manifest["manifest_integrity"]["complete"] is True
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
@@ -441,3 +469,47 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert tampered_manifest["manifest_integrity"]["stored_payload_hash_matches"] is False
     assert tampered_manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert tampered_manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        source_trace_node = session.scalar(
+            select(EvidenceTraceNode)
+            .where(EvidenceTraceNode.evidence_package_export_id == search_export_id)
+            .limit(1)
+        )
+        assert source_trace_node is not None
+        tampered_source_payload = deepcopy(source_trace_node.payload_json)
+        tampered_source_payload["tampered_for_verification_gate"] = True
+        source_trace_node.payload_json = tampered_source_payload
+        tampered_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_technical_report",
+                input={"target_task_id": str(draft_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        tampered_verify_task_id = tampered_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_verify_task_row = session.get(AgentTask, tampered_verify_task_id)
+        assert tampered_verify_task_row is not None
+        tampered_verification = tampered_verify_task_row.result_json["payload"][
+            "verification"
+        ]
+        assert tampered_verification["outcome"] == "failed"
+        assert (
+            tampered_verification["metrics"]["source_evidence_closure_complete"]
+            is False
+        )
+        assert (
+            tampered_verification["metrics"][
+                "source_evidence_package_trace_incomplete_count"
+            ]
+            == 1
+        )
+        assert any(
+            "frozen search evidence packages" in reason
+            for reason in tampered_verification["reasons"]
+        )
