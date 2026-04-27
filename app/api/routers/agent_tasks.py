@@ -427,7 +427,9 @@ def read_agent_task_evidence_manifest_route(
     session: DbSession,
 ) -> dict:
     try:
-        return get_agent_task_evidence_manifest(session, task_id)
+        response = get_agent_task_evidence_manifest(session, task_id)
+        session.commit()
+        return response
     except ValueError as exc:
         raise api_error(
             status.HTTP_404_NOT_FOUND,
@@ -446,7 +448,9 @@ def read_agent_task_evidence_trace_route(
     session: DbSession,
 ) -> dict:
     try:
-        return get_agent_task_evidence_trace(session, task_id)
+        response = get_agent_task_evidence_trace(session, task_id)
+        session.commit()
+        return response
     except ValueError as exc:
         raise api_error(
             status.HTTP_404_NOT_FOUND,

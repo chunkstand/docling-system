@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.core.config import get_settings
 from app.db.models import (
@@ -334,6 +334,53 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         edge["payload"].get("source") == "manifest_provenance_edges"
         for edge in trace["edges"]
     )
+
+    with postgres_integration_harness.session_factory() as session:
+        manifest_row = session.scalar(
+            select(EvidenceManifest).where(EvidenceManifest.verification_task_id == verify_task_id)
+        )
+        assert manifest_row is not None
+        session.execute(
+            delete(EvidenceTraceEdge).where(
+                EvidenceTraceEdge.evidence_manifest_id == manifest_row.id
+            )
+        )
+        session.execute(
+            delete(EvidenceTraceNode).where(
+                EvidenceTraceNode.evidence_manifest_id == manifest_row.id
+            )
+        )
+        manifest_row.trace_sha256 = None
+        session.commit()
+
+    legacy_trace_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-trace")
+    assert legacy_trace_response.status_code == 200
+    legacy_trace = legacy_trace_response.json()
+    assert legacy_trace["trace_sha256"] == trace["trace_sha256"]
+    assert legacy_trace["trace_integrity"]["complete"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        manifest_row = session.scalar(
+            select(EvidenceManifest).where(EvidenceManifest.verification_task_id == verify_task_id)
+        )
+        assert manifest_row is not None
+        assert manifest_row.trace_sha256 == trace["trace_sha256"]
+        assert (
+            session.scalar(
+                select(EvidenceTraceNode).where(
+                    EvidenceTraceNode.evidence_manifest_id == manifest_row.id
+                )
+            )
+            is not None
+        )
+        assert (
+            session.scalar(
+                select(EvidenceTraceEdge).where(
+                    EvidenceTraceEdge.evidence_manifest_id == manifest_row.id
+                )
+            )
+            is not None
+        )
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(

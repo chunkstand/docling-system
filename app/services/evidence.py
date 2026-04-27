@@ -2562,13 +2562,30 @@ def refresh_technical_report_evidence_manifest(
     return row
 
 
+def _ensure_evidence_trace_graph(
+    session: Session,
+    row: EvidenceManifest,
+) -> EvidenceManifest:
+    if row.trace_sha256:
+        return row
+    _persist_evidence_trace_graph(
+        session,
+        manifest_row=row,
+        manifest_payload=row.manifest_payload_json or {},
+    )
+    session.flush()
+    return row
+
+
 def get_agent_task_evidence_manifest(session: Session, task_id: UUID) -> dict[str, Any]:
     row = persist_technical_report_evidence_manifest(session, task_id=task_id)
+    _ensure_evidence_trace_graph(session, row)
     return _evidence_manifest_response(session, row)
 
 
 def get_agent_task_evidence_trace(session: Session, task_id: UUID) -> dict[str, Any]:
     row = persist_technical_report_evidence_manifest(session, task_id=task_id)
+    _ensure_evidence_trace_graph(session, row)
     nodes, edges = _evidence_trace_rows(session, row.id)
     return {
         "schema_name": "technical_report_evidence_trace",
