@@ -1853,6 +1853,8 @@ def test_improvement_case_import_cli_delegates_to_service(
             "5",
             "--workflow-version",
             "improvement_v2",
+            "--source-path",
+            "build/architecture-governance/architecture_governance_report.json",
             "--dry-run",
         ],
     )
@@ -1865,6 +1867,7 @@ def test_improvement_case_import_cli_delegates_to_service(
         "limit": 5,
         "workflow_version": "improvement_v2",
         "path": str(registry_path),
+        "source_path": "build/architecture-governance/architecture_governance_report.json",
         "dry_run": True,
     }
     assert output["imported_count"] == 1

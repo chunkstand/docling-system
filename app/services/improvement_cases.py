@@ -54,6 +54,7 @@ IMPROVEMENT_SOURCE_TYPES = frozenset(
     {
         "agent_task",
         "agent_verification",
+        "architecture_governance",
         "bad_diff",
         "eval_failure",
         "flaky_test",
@@ -62,8 +63,7 @@ IMPROVEMENT_SOURCE_TYPES = frozenset(
         "operator_note",
         "review_comment",
         "runtime_failure",
-        "tool_confusion",
-        "other",
+        "tool_confusion", "other",
     }
 )
 DEPLOYED_IMPROVEMENT_STATUSES = frozenset({"deployed", "measured", "closed"})

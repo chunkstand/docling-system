@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,34 @@ def _observation(
     )
 
 
+def _write_architecture_governance_report(
+    path: Path,
+    *,
+    valid: bool = True,
+    recording_required: bool = False,
+    violations: list[dict] | None = None,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": "architecture_governance_report",
+                "schema_version": "1.0",
+                "valid": valid,
+                "violation_count": len(violations or []),
+                "current_commit_sha": "current-sha",
+                "latest_recorded_commit_sha": (
+                    "old-sha" if recording_required else "current-sha"
+                ),
+                "recording_required": recording_required,
+                "inspection": {
+                    "violations": violations or [],
+                },
+            }
+        )
+    )
+
+
 def test_collect_import_observations_keeps_hygiene_source_out_of_db(
     monkeypatch,
 ) -> None:
@@ -49,6 +78,84 @@ def test_collect_import_observations_keeps_hygiene_source_out_of_db(
 
     assert observations[0].source_type == "hygiene_finding"
     assert observations[0].workflow_version == "improvement_v2"
+
+
+def test_collect_architecture_governance_report_observations_from_invalid_report(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(
+        report_path,
+        valid=False,
+        violations=[
+            {
+                "rule_id": "api-route-capability-contracts",
+                "contract": "api_route_capabilities",
+                "field": "capability",
+                "relative_path": "app/api/routers/documents.py",
+                "lineno": 42,
+                "severity": "error",
+                "message": "Route is missing a capability dependency.",
+            }
+        ],
+    )
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="architecture-governance-report",
+        source_path=report_path,
+        limit=10,
+    )
+
+    assert len(observations) == 1
+    assert observations[0].source_type == "architecture_governance"
+    assert observations[0].source_ref == (
+        "architecture-governance:api-route-capability-contracts:"
+        "app/api/routers/documents.py:42"
+    )
+    assert observations[0].cause_class == "missing_constraint"
+    assert "Route is missing a capability dependency" in observations[0].observed_failure
+
+
+def test_collect_architecture_governance_report_observations_from_stale_report(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(report_path, recording_required=True)
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="architecture-governance-report",
+        source_path=report_path,
+        limit=10,
+    )
+
+    assert len(observations) == 1
+    assert observations[0].source_ref == "architecture-governance:measurement-freshness:current-sha"
+    assert observations[0].cause_class == "missing_context"
+    assert "old-sha" in observations[0].observed_failure
+
+
+def test_collect_architecture_governance_report_observations_skips_clean_report(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(report_path)
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="architecture-governance-report",
+        source_path=report_path,
+    )
+
+    assert observations == []
+
+
+def test_collect_architecture_governance_report_requires_explicit_existing_path(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="Architecture governance report not found"):
+        intake.collect_improvement_case_import_observations(
+            source="architecture-governance-report",
+            source_path=tmp_path / "missing.json",
+        )
 
 
 def test_collect_import_observations_routes_db_sources_through_one_session(
@@ -124,6 +231,45 @@ def test_run_import_facade_writes_and_dedupes_cases(monkeypatch, tmp_path) -> No
     assert registry.cases[0].source.source_ref == "hygiene:test"
 
 
+def test_run_import_facade_writes_architecture_governance_cases(tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(
+        report_path,
+        valid=False,
+        violations=[
+            {
+                "rule_id": "architecture-contract-map-drift",
+                "contract": "architecture_contract_map",
+                "field": "persisted_map",
+                "relative_path": "docs/architecture_contract_map.json",
+                "message": "Committed architecture contract map is stale.",
+            }
+        ],
+    )
+
+    first = intake.run_improvement_case_import(
+        source="architecture-governance-report",
+        source_path=report_path,
+        path=registry_path,
+    )
+    second = intake.run_improvement_case_import(
+        source="architecture-governance-report",
+        source_path=report_path,
+        path=registry_path,
+    )
+    registry = load_improvement_case_registry(registry_path)
+
+    assert first.imported_count == 1
+    assert second.imported_count == 0
+    assert second.skipped[0].reason == "already_imported"
+    assert registry.cases[0].source.source_type == "architecture_governance"
+    assert registry.cases[0].source.source_ref == (
+        "architecture-governance:architecture-contract-map-drift:"
+        "docs/architecture_contract_map.json"
+    )
+
+
 def test_run_import_facade_accepts_typed_request(monkeypatch, tmp_path) -> None:
     registry_path = tmp_path / "improvement_cases.yaml"
     monkeypatch.setattr(
@@ -156,6 +302,10 @@ def test_collect_import_observations_rejects_unknown_source() -> None:
 def test_import_request_rejects_unknown_source() -> None:
     with pytest.raises(ValueError, match="Unknown improvement case import source"):
         intake.ImprovementCaseImportRequest(source="mystery")
+
+
+def test_import_sources_include_architecture_governance_report() -> None:
+    assert "architecture-governance-report" in intake.list_improvement_case_import_sources()
 
 
 def test_cli_import_boundary_does_not_call_low_level_collectors() -> None:

@@ -499,8 +499,9 @@ measure stages with `docling-system-improvement-case-update`, which validates th
 whole registry before writing lifecycle changes. `docling-system-hygiene-check` validates
 the registry alongside the repo's existing lint, dead-code, duplicate-helper, and
 file-budget gates. `docling-system-improvement-case-import` can also observe
-hygiene findings, unresolved eval failure cases, failed agent tasks, and failed
-agent verifications, then write deduped open cases keyed by source reference.
+hygiene findings, architecture governance reports, unresolved eval failure
+cases, failed agent tasks, and failed agent verifications, then write deduped
+open cases keyed by source reference.
 `docling-system-architecture-inspect` emits the machine-readable architecture
 map and validates boundary contracts as a Brown/Structurizr-style inspection;
 the hygiene command runs that inspection by default. The committed map is
@@ -521,6 +522,11 @@ GitHub Actions workflow at `.github/workflows/architecture-governance.yml` write
 that report to `build/architecture-governance/architecture_governance_report.json`
 and uploads the `build/architecture-governance/` directory as the
 `architecture-governance-report` artifact before running the architecture gates.
+The same report can be fed back into the improvement loop with
+`docling-system-improvement-case-import --source architecture-governance-report
+--source-path build/architecture-governance/architecture_governance_report.json`
+so CI architecture failures become tracked improvement cases instead of
+remaining only workflow output.
 `docling-system-capability-contracts --write-map` maintains
 `docs/capability_contract_map.json`, the machine-readable surface map for the
 service capability facades.

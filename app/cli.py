@@ -1591,16 +1591,12 @@ def run_improvement_case_import() -> None:
         description="Import observed failures into the improvement case registry."
     )
     _add_improvement_case_path_arg(parser)
-    parser.add_argument(
-        "--source",
-        default="hygiene",
-        help=(
-            "Import source: all, hygiene, eval-failure-cases, "
-            "failed-agent-tasks, or failed-agent-verifications."
-        ),
-    )
+    parser.add_argument("--source", default="hygiene", help="Import source.")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--workflow-version", default="improvement_v1")
+    parser.add_argument(
+        "--source-path", default=None, help="Optional file-backed import source path."
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -1610,6 +1606,7 @@ def run_improvement_case_import() -> None:
             limit=args.limit,
             workflow_version=args.workflow_version,
             path=args.path,
+            source_path=args.source_path,
             dry_run=args.dry_run,
         )
     except ValueError as exc:

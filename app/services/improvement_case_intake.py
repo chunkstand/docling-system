@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.architecture_measurement_contracts import DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
 from app.core.files import repo_root
 from app.db.session import get_session_factory
 from app.hygiene import (
@@ -30,6 +32,7 @@ IMPROVEMENT_CASE_IMPORT_SOURCES = frozenset(
     {
         "all",
         "hygiene",
+        "architecture-governance-report",
         "eval-failure-cases",
         "failed-agent-tasks",
         "failed-agent-verifications",
@@ -57,6 +60,7 @@ class ImprovementCaseImportRequest(BaseModel):
     limit: int = Field(default=50, ge=0)
     workflow_version: str = "improvement_v1"
     path: str | Path | None = None
+    source_path: str | Path | None = None
     dry_run: bool = False
 
     @field_validator("source")
@@ -118,11 +122,168 @@ def collect_hygiene_import_observations(
     )
 
 
+def resolve_architecture_governance_report_path(
+    source_path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    raw_path = (
+        Path(source_path)
+        if source_path is not None
+        else DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
+    )
+    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
+
+
+def _architecture_governance_source_notes(
+    *,
+    report_path: Path,
+    current_commit_sha: object,
+    latest_recorded_commit_sha: object,
+    extra: str | None = None,
+) -> str:
+    parts = [
+        f"report_path={report_path.as_posix()}",
+        f"current_commit_sha={current_commit_sha or 'unknown'}",
+        f"latest_recorded_commit_sha={latest_recorded_commit_sha or 'none'}",
+    ]
+    if extra:
+        parts.append(extra)
+    return "; ".join(parts)
+
+
+def _architecture_violation_source_ref(violation: dict) -> str:
+    rule_id = str(violation.get("rule_id") or "unattributed")
+    locator = (
+        violation.get("relative_path")
+        or violation.get("symbol")
+        or violation.get("field")
+        or "global"
+    )
+    lineno = violation.get("lineno")
+    if lineno is not None:
+        locator = f"{locator}:{lineno}"
+    return f"architecture-governance:{rule_id}:{locator}"
+
+
+def collect_architecture_governance_report_observations(
+    *,
+    source_path: str | Path | None = None,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+    project_root: Path | None = None,
+    require_existing: bool = False,
+) -> list[ImprovementCaseObservation]:
+    report_path = resolve_architecture_governance_report_path(
+        source_path,
+        project_root=project_root,
+    )
+    if not report_path.exists():
+        if require_existing:
+            raise ValueError(f"Architecture governance report not found: {report_path}")
+        return []
+
+    try:
+        report = json.loads(report_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid architecture governance report JSON: {exc}") from exc
+
+    inspection = report.get("inspection") if isinstance(report, dict) else None
+    violations = (
+        inspection.get("violations", [])
+        if isinstance(inspection, dict) and isinstance(inspection.get("violations", []), list)
+        else []
+    )
+    current_commit_sha = report.get("current_commit_sha") if isinstance(report, dict) else None
+    latest_recorded_commit_sha = (
+        report.get("latest_recorded_commit_sha") if isinstance(report, dict) else None
+    )
+    observations: list[ImprovementCaseObservation] = []
+
+    for violation in violations:
+        if not isinstance(violation, dict):
+            continue
+        rule_id = str(violation.get("rule_id") or "unattributed")
+        contract = str(violation.get("contract") or "architecture")
+        field = str(violation.get("field") or "contract")
+        severity = str(violation.get("severity") or "error")
+        message = str(violation.get("message") or "Architecture governance violation.")
+        observations.append(
+            ImprovementCaseObservation(
+                title=f"Architecture governance violation: {rule_id}",
+                observed_failure=(
+                    f"Architecture governance report failed rule '{rule_id}' for "
+                    f"contract '{contract}' field '{field}': {message}"
+                ),
+                cause_class="missing_constraint",
+                source_type="architecture_governance",
+                source_ref=_architecture_violation_source_ref(violation),
+                source_notes=_architecture_governance_source_notes(
+                    report_path=report_path,
+                    current_commit_sha=current_commit_sha,
+                    latest_recorded_commit_sha=latest_recorded_commit_sha,
+                    extra=f"severity={severity}; contract={contract}; field={field}",
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+
+    if isinstance(report, dict) and report.get("valid") is False and not observations:
+        observations.append(
+            ImprovementCaseObservation(
+                title="Architecture governance report is invalid",
+                observed_failure=(
+                    "Architecture governance report is invalid but did not expose "
+                    "rule-level violations for import."
+                ),
+                cause_class="missing_context",
+                source_type="architecture_governance",
+                source_ref=(
+                    "architecture-governance:invalid-report:"
+                    f"{current_commit_sha or 'unknown'}"
+                ),
+                source_notes=_architecture_governance_source_notes(
+                    report_path=report_path,
+                    current_commit_sha=current_commit_sha,
+                    latest_recorded_commit_sha=latest_recorded_commit_sha,
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+
+    if isinstance(report, dict) and report.get("recording_required") is True:
+        observations.append(
+            ImprovementCaseObservation(
+                title="Architecture measurement history is stale",
+                observed_failure=(
+                    "Architecture governance report indicates the latest recorded "
+                    f"measurement commit '{latest_recorded_commit_sha or 'none'}' does "
+                    f"not match current commit '{current_commit_sha or 'unknown'}'."
+                ),
+                cause_class="missing_context",
+                source_type="architecture_governance",
+                source_ref=(
+                    "architecture-governance:measurement-freshness:"
+                    f"{current_commit_sha or 'unknown'}"
+                ),
+                source_notes=_architecture_governance_source_notes(
+                    report_path=report_path,
+                    current_commit_sha=current_commit_sha,
+                    latest_recorded_commit_sha=latest_recorded_commit_sha,
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+
+    return observations[:limit]
+
+
 def collect_improvement_case_import_observations(
     *,
     source: str = "hygiene",
     limit: int = 50,
     workflow_version: str = "improvement_v1",
+    source_path: str | Path | None = None,
     session_factory: Callable | None = None,
     project_root: Path | None = None,
 ) -> list[ImprovementCaseObservation]:
@@ -134,6 +295,17 @@ def collect_improvement_case_import_observations(
                 limit=limit,
                 workflow_version=workflow_version,
                 project_root=project_root,
+            )
+        )
+
+    if source in {"all", "architecture-governance-report"}:
+        observations.extend(
+            collect_architecture_governance_report_observations(
+                source_path=source_path,
+                limit=limit,
+                workflow_version=workflow_version,
+                project_root=project_root,
+                require_existing=source_path is not None,
             )
         )
 
@@ -174,6 +346,7 @@ def run_improvement_case_import(
     limit: int | None = None,
     workflow_version: str | None = None,
     path: str | Path | None = None,
+    source_path: str | Path | None = None,
     dry_run: bool | None = None,
     session_factory: Callable | None = None,
     project_root: Path | None = None,
@@ -187,6 +360,8 @@ def run_improvement_case_import(
         request_payload["workflow_version"] = workflow_version
     if path is not None:
         request_payload["path"] = path
+    if source_path is not None:
+        request_payload["source_path"] = source_path
     if dry_run is not None:
         request_payload["dry_run"] = dry_run
     import_request = ImprovementCaseImportRequest.model_validate(request_payload)
@@ -195,6 +370,7 @@ def run_improvement_case_import(
         source=import_request.source,
         limit=import_request.limit,
         workflow_version=import_request.workflow_version,
+        source_path=import_request.source_path,
         session_factory=session_factory,
         project_root=project_root,
     )

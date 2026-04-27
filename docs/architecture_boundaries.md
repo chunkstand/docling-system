@@ -117,7 +117,8 @@ accidental string addition in one registry entry.
 Improvement-case intake is owned by `app.services.improvement_case_intake`.
 CLI, API, worker, or UI callers should delegate source selection, observation
 collection, and deduped import to that service facade instead of branching over
-hygiene, eval-workbench, and agent-task tables at the boundary.
+hygiene findings, architecture governance reports, eval-workbench tables, and
+agent-task tables at the boundary.
 
 The facade exposes `ImprovementCaseImportRequest` and
 `ImprovementCaseImportResult` as the reusable machine contract. Boundary callers

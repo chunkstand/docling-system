@@ -46,6 +46,9 @@ uv run docling-system-improvement-case-validate
 uv run docling-system-improvement-case-summary
 uv run docling-system-improvement-case-list
 uv run docling-system-improvement-case-import --source hygiene --dry-run
+uv run docling-system-improvement-case-import \
+  --source architecture-governance-report \
+  --source-path build/architecture-governance/architecture_governance_report.json
 uv run docling-system-improvement-case-import --source all
 uv run docling-system-improvement-case-update \
   --case-id IC-20260424-hygiene-gate \
@@ -72,6 +75,8 @@ cases keyed by `source_type` and `source_ref`. Supported sources are:
 
 - `hygiene`: Ruff regressions, duplicate-helper findings, file-budget findings,
   and improvement-case contract findings
+- `architecture-governance-report`: architecture inspection violations and stale
+  measurement freshness from a JSON governance report
 - `eval-failure-cases`: unresolved DB-backed evaluation failure cases
 - `failed-agent-tasks`: failed DB-backed agent tasks
 - `failed-agent-verifications`: failed or errored agent verification rows
