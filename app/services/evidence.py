@@ -4,6 +4,7 @@ import hashlib
 import json
 import uuid
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -18,15 +19,21 @@ from app.db.models import (
     ClaimEvidenceDerivation,
     Document,
     DocumentChunk,
+    DocumentFigure,
     DocumentRun,
     DocumentTable,
     DocumentTableSegment,
+    EvidenceManifest,
     EvidencePackageExport,
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
     SearchRequestRecord,
     SearchRequestResult,
+    SemanticAssertion,
+    SemanticAssertionEvidence,
+    SemanticFact,
+    SemanticFactEvidence,
 )
 
 
@@ -58,6 +65,33 @@ def _uuid_or_none(value: Any | None) -> UUID | None:
     if isinstance(value, UUID):
         return value
     return UUID(str(value))
+
+
+def _uuid_values(values: Iterable[Any]) -> list[UUID]:
+    result: list[UUID] = []
+    seen: set[UUID] = set()
+    for value in values:
+        try:
+            uuid_value = _uuid_or_none(value)
+        except (TypeError, ValueError):
+            continue
+        if uuid_value is not None and uuid_value not in seen:
+            result.append(uuid_value)
+            seen.add(uuid_value)
+    return result
+
+
+def _file_sha256(path: str | None) -> str | None:
+    if not path:
+        return None
+    file_path = Path(path)
+    if not file_path.exists() or not file_path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with file_path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _record_inputs(
@@ -278,6 +312,17 @@ def _run_payload(row: DocumentRun | None) -> dict | None:
     }
 
 
+def _manifest_run_payload(row: DocumentRun | None) -> dict | None:
+    payload = _run_payload(row)
+    if payload is None:
+        return None
+    payload["artifact_hashes"] = {
+        "docling_json_sha256": _file_sha256(row.docling_json_path),
+        "document_yaml_sha256": _file_sha256(row.yaml_path),
+    }
+    return payload
+
+
 def _chunk_payload(row: DocumentChunk | None) -> dict | None:
     if row is None:
         return None
@@ -345,6 +390,30 @@ def _table_payload(
     }
     payload["search_text_sha256"] = payload_sha256({"search_text": row.search_text})
     payload["preview_text_sha256"] = payload_sha256({"preview_text": row.preview_text})
+    return payload
+
+
+def _figure_payload(row: DocumentFigure | None) -> dict | None:
+    if row is None:
+        return None
+    payload = {
+        "id": row.id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "figure_index": row.figure_index,
+        "source_figure_ref": row.source_figure_ref,
+        "caption": row.caption,
+        "heading": row.heading,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "confidence": row.confidence,
+        "status": row.status,
+        "metadata": row.metadata_json or {},
+        "json_path": row.json_path,
+        "yaml_path": row.yaml_path,
+        "created_at": row.created_at,
+    }
+    payload["caption_sha256"] = payload_sha256({"caption": row.caption})
     return payload
 
 
@@ -914,6 +983,77 @@ def _operator_run_summary(row: KnowledgeOperatorRun) -> dict:
     }
 
 
+def _semantic_assertion_payload(row: SemanticAssertion) -> dict:
+    return {
+        "assertion_id": row.id,
+        "semantic_pass_id": row.semantic_pass_id,
+        "concept_id": row.concept_id,
+        "assertion_kind": row.assertion_kind,
+        "epistemic_status": row.epistemic_status,
+        "context_scope": row.context_scope,
+        "review_status": row.review_status,
+        "matched_terms": row.matched_terms_json or [],
+        "source_types": row.source_types_json or [],
+        "evidence_count": row.evidence_count,
+        "confidence": row.confidence,
+        "details": row.details_json or {},
+        "created_at": row.created_at,
+    }
+
+
+def _semantic_assertion_evidence_payload(row: SemanticAssertionEvidence) -> dict:
+    return {
+        "evidence_id": row.id,
+        "assertion_id": row.assertion_id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "source_type": row.source_type,
+        "source_locator": row.source_locator,
+        "chunk_id": row.chunk_id,
+        "table_id": row.table_id,
+        "figure_id": row.figure_id,
+        "page_from": row.page_from,
+        "page_to": row.page_to,
+        "matched_terms": row.matched_terms_json or [],
+        "excerpt": row.excerpt,
+        "source_label": row.source_label,
+        "source_artifact_path": row.source_artifact_path,
+        "source_artifact_sha256": row.source_artifact_sha256,
+        "details": row.details_json or {},
+        "created_at": row.created_at,
+    }
+
+
+def _semantic_fact_payload(row: SemanticFact) -> dict:
+    return {
+        "fact_id": row.id,
+        "document_id": row.document_id,
+        "run_id": row.run_id,
+        "semantic_pass_id": row.semantic_pass_id,
+        "ontology_snapshot_id": row.ontology_snapshot_id,
+        "subject_entity_id": row.subject_entity_id,
+        "relation_key": row.relation_key,
+        "relation_label": row.relation_label,
+        "object_entity_id": row.object_entity_id,
+        "object_value_text": row.object_value_text,
+        "source_assertion_id": row.source_assertion_id,
+        "review_status": row.review_status,
+        "confidence": row.confidence,
+        "details": row.details_json or {},
+        "created_at": row.created_at,
+    }
+
+
+def _semantic_fact_evidence_payload(row: SemanticFactEvidence) -> dict:
+    return {
+        "fact_evidence_id": row.id,
+        "fact_id": row.fact_id,
+        "assertion_id": row.assertion_id,
+        "assertion_evidence_id": row.assertion_evidence_id,
+        "created_at": row.created_at,
+    }
+
+
 def _export_document_run_map(export: EvidencePackageExport) -> dict[str, set[str]]:
     mapping: dict[str, set[str]] = {}
     payload = export.package_payload_json or {}
@@ -1058,6 +1198,569 @@ def _technical_report_integrity_payload(
     }
 
 
+TECHNICAL_REPORT_EVIDENCE_MANIFEST_KIND = "technical_report_court_evidence"
+
+
+def _passed_technical_report_verification(
+    session: Session,
+    verification_task_id: UUID,
+) -> AgentTaskVerification | None:
+    return session.scalar(
+        select(AgentTaskVerification)
+        .where(
+            AgentTaskVerification.verification_task_id == verification_task_id,
+            AgentTaskVerification.verifier_type == "technical_report_gate",
+            AgentTaskVerification.outcome == "passed",
+        )
+        .order_by(AgentTaskVerification.created_at.desc())
+    )
+
+
+def _latest_passed_technical_report_verification_task_id(
+    session: Session,
+    draft_task_id: UUID,
+) -> UUID | None:
+    row = session.scalar(
+        select(AgentTaskVerification)
+        .where(
+            AgentTaskVerification.target_task_id == draft_task_id,
+            AgentTaskVerification.verifier_type == "technical_report_gate",
+            AgentTaskVerification.outcome == "passed",
+        )
+        .order_by(AgentTaskVerification.created_at.desc())
+    )
+    return row.verification_task_id if row is not None else None
+
+
+def _verification_task_id_for_manifest(session: Session, task: AgentTask) -> UUID:
+    if task.task_type == "verify_technical_report":
+        if _passed_technical_report_verification(session, task.id) is None:
+            raise ValueError(
+                "Evidence manifests require a passed technical report verification task."
+            )
+        return task.id
+    if task.task_type == "draft_technical_report":
+        verification_task_id = _latest_passed_technical_report_verification_task_id(
+            session,
+            task.id,
+        )
+        if verification_task_id is None:
+            raise ValueError(
+                "Evidence manifests require a passed technical report verification task."
+            )
+        return verification_task_id
+    raise ValueError("Evidence manifests are supported for technical report tasks only.")
+
+
+def _existing_evidence_manifest(
+    session: Session,
+    verification_task_id: UUID,
+) -> EvidenceManifest | None:
+    return session.scalar(
+        select(EvidenceManifest)
+        .where(
+            EvidenceManifest.verification_task_id == verification_task_id,
+            EvidenceManifest.manifest_kind == TECHNICAL_REPORT_EVIDENCE_MANIFEST_KIND,
+        )
+        .order_by(EvidenceManifest.created_at.desc())
+    )
+
+
+def _semantic_trace_payload(
+    session: Session,
+    *,
+    assertion_ids: list[UUID],
+    fact_ids: list[UUID],
+    evidence_ids: list[UUID],
+) -> dict[str, Any]:
+    assertions_by_id = _select_by_ids(session, SemanticAssertion, assertion_ids)
+    facts_by_id = _select_by_ids(session, SemanticFact, fact_ids)
+    assertion_evidence_by_id: dict[UUID, SemanticAssertionEvidence] = {}
+    if evidence_ids:
+        assertion_evidence_by_id.update(
+            {
+                row.id: row
+                for row in session.scalars(
+                    select(SemanticAssertionEvidence)
+                    .where(SemanticAssertionEvidence.id.in_(evidence_ids))
+                    .order_by(SemanticAssertionEvidence.created_at, SemanticAssertionEvidence.id)
+                )
+            }
+        )
+    if assertion_ids:
+        assertion_evidence_by_id.update(
+            {
+                row.id: row
+                for row in session.scalars(
+                    select(SemanticAssertionEvidence)
+                    .where(SemanticAssertionEvidence.assertion_id.in_(assertion_ids))
+                    .order_by(SemanticAssertionEvidence.created_at, SemanticAssertionEvidence.id)
+                )
+            }
+        )
+
+    fact_evidence_by_id: dict[UUID, SemanticFactEvidence] = {}
+    if fact_ids:
+        fact_evidence_by_id.update(
+            {
+                row.id: row
+                for row in session.scalars(
+                    select(SemanticFactEvidence)
+                    .where(SemanticFactEvidence.fact_id.in_(fact_ids))
+                    .order_by(SemanticFactEvidence.created_at, SemanticFactEvidence.id)
+                )
+            }
+        )
+    if assertion_ids:
+        fact_evidence_by_id.update(
+            {
+                row.id: row
+                for row in session.scalars(
+                    select(SemanticFactEvidence)
+                    .where(SemanticFactEvidence.assertion_id.in_(assertion_ids))
+                    .order_by(SemanticFactEvidence.created_at, SemanticFactEvidence.id)
+                )
+            }
+        )
+    if evidence_ids:
+        fact_evidence_by_id.update(
+            {
+                row.id: row
+                for row in session.scalars(
+                    select(SemanticFactEvidence)
+                    .where(SemanticFactEvidence.assertion_evidence_id.in_(evidence_ids))
+                    .order_by(SemanticFactEvidence.created_at, SemanticFactEvidence.id)
+                )
+            }
+        )
+
+    return {
+        "assertions": [
+            _semantic_assertion_payload(row)
+            for row in sorted(assertions_by_id.values(), key=lambda item: str(item.id))
+        ],
+        "facts": [
+            _semantic_fact_payload(row)
+            for row in sorted(facts_by_id.values(), key=lambda item: str(item.id))
+        ],
+        "assertion_evidence": [
+            _semantic_assertion_evidence_payload(row)
+            for row in sorted(assertion_evidence_by_id.values(), key=lambda item: str(item.id))
+        ],
+        "fact_evidence": [
+            _semantic_fact_evidence_payload(row)
+            for row in sorted(fact_evidence_by_id.values(), key=lambda item: str(item.id))
+        ],
+    }
+
+
+def _source_record_payloads_from_semantic_trace(
+    session: Session,
+    assertion_evidence: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    chunk_ids = _uuid_values(row.get("chunk_id") for row in assertion_evidence)
+    table_ids = _uuid_values(row.get("table_id") for row in assertion_evidence)
+    figure_ids = _uuid_values(row.get("figure_id") for row in assertion_evidence)
+    chunks_by_id = _select_by_ids(session, DocumentChunk, chunk_ids)
+    tables_by_id = _select_by_ids(session, DocumentTable, table_ids)
+    figures_by_id = _select_by_ids(session, DocumentFigure, figure_ids)
+    segments_by_table_id: dict[UUID, list[DocumentTableSegment]] = {
+        table_id: [] for table_id in tables_by_id
+    }
+    if table_ids:
+        for segment in session.scalars(
+            select(DocumentTableSegment)
+            .where(DocumentTableSegment.table_id.in_(table_ids))
+            .order_by(
+                DocumentTableSegment.table_id.asc(),
+                DocumentTableSegment.segment_order.asc(),
+                DocumentTableSegment.segment_index.asc(),
+            )
+        ):
+            segments_by_table_id.setdefault(segment.table_id, []).append(segment)
+
+    records: list[dict[str, Any]] = []
+    for evidence in assertion_evidence:
+        chunk_id = _uuid_or_none(evidence.get("chunk_id"))
+        table_id = _uuid_or_none(evidence.get("table_id"))
+        figure_id = _uuid_or_none(evidence.get("figure_id"))
+        table_payload = (
+            _table_payload(
+                tables_by_id.get(table_id),
+                segments=segments_by_table_id.get(table_id, []),
+            )
+            if table_id is not None
+            else None
+        )
+        records.append(
+            {
+                "record_kind": "semantic_assertion_source",
+                "evidence_id": evidence.get("evidence_id"),
+                "source_type": evidence.get("source_type"),
+                "source_locator": evidence.get("source_locator"),
+                "source_artifact_sha256": evidence.get("source_artifact_sha256"),
+                "chunk": _chunk_payload(chunks_by_id.get(chunk_id)) if chunk_id else None,
+                "table": table_payload,
+                "figure": _figure_payload(figures_by_id.get(figure_id)) if figure_id else None,
+            }
+        )
+    return records
+
+
+def _report_evidence_card_source_records(evidence_cards: list[dict[str, Any]]) -> list[dict]:
+    return [
+        {
+            "record_kind": "technical_report_evidence_card",
+            "evidence_card_id": card.get("evidence_card_id"),
+            "evidence_kind": card.get("evidence_kind"),
+            "source_type": card.get("source_type"),
+            "document_id": card.get("document_id"),
+            "run_id": card.get("run_id"),
+            "page_from": card.get("page_from"),
+            "page_to": card.get("page_to"),
+            "source_artifact_api_path": card.get("source_artifact_api_path"),
+            "evidence_card_sha256": _evidence_card_snapshot(dict(card)).get(
+                "evidence_card_sha256"
+            ),
+            "source_snapshot_sha256s": card.get("source_snapshot_sha256s") or [],
+        }
+        for card in evidence_cards
+    ]
+
+
+def _technical_report_provenance_edges(
+    *,
+    source_documents: list[dict],
+    document_runs: list[dict],
+    evidence_cards: list[dict],
+    claims: list[dict],
+    claim_derivations: list[dict],
+    semantic_trace: dict[str, Any],
+) -> list[dict[str, Any]]:
+    edges: list[dict[str, Any]] = []
+    for run in document_runs:
+        if run.get("document_id"):
+            edges.append(
+                {
+                    "edge_type": "source_document_to_document_run",
+                    "from": {"table": "documents", "id": run.get("document_id")},
+                    "to": {"table": "document_runs", "id": run.get("id")},
+                }
+            )
+    for evidence in semantic_trace["assertion_evidence"]:
+        target_id = evidence.get(f"{evidence.get('source_type')}_id")
+        if target_id:
+            edges.append(
+                {
+                    "edge_type": "document_run_to_source_record",
+                    "from": {"table": "document_runs", "id": evidence.get("run_id")},
+                    "to": {
+                        "table": f"document_{evidence.get('source_type')}s",
+                        "id": target_id,
+                    },
+                }
+            )
+    for card in evidence_cards:
+        for evidence_id in card.get("evidence_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "semantic_evidence_to_report_card",
+                    "from": {"table": "semantic_assertion_evidence", "id": evidence_id},
+                    "to": {
+                        "table": "technical_report_evidence_cards",
+                        "id": card.get("evidence_card_id"),
+                    },
+                }
+            )
+    for claim in claims:
+        for card_id in claim.get("evidence_card_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "report_card_to_claim",
+                    "from": {"table": "technical_report_evidence_cards", "id": card_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+    for derivation in claim_derivations:
+        edges.append(
+            {
+                "edge_type": "claim_to_derivation_hash",
+                "from": {
+                    "table": "technical_report_claims",
+                    "id": derivation.get("claim_id"),
+                },
+                "to": {
+                    "table": "claim_evidence_derivations",
+                    "id": derivation.get("claim_evidence_derivation_id"),
+                },
+                "derivation_sha256": derivation.get("derivation_sha256"),
+            }
+        )
+    for document in source_documents:
+        edges.append(
+            {
+                "edge_type": "source_pdf_checksum",
+                "from": {"table": "source_pdf", "sha256": document.get("sha256")},
+                "to": {"table": "documents", "id": document.get("id")},
+            }
+        )
+    return edges
+
+
+def build_technical_report_evidence_manifest_payload(
+    session: Session,
+    task_id: UUID,
+) -> dict[str, Any]:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise ValueError(f"Agent task '{task_id}' was not found.")
+    verification_task_id = _verification_task_id_for_manifest(session, task)
+    audit_bundle = get_agent_task_audit_bundle(session, verification_task_id)
+    draft_payload = audit_bundle["draft"]
+    evidence_cards = list(draft_payload.get("evidence_cards") or [])
+    claims = list(draft_payload.get("claims") or [])
+    evidence_exports = list(audit_bundle.get("evidence_package_exports") or [])
+    claim_derivations = list(audit_bundle.get("claim_derivations") or [])
+    operator_runs = list(audit_bundle.get("operator_runs") or [])
+    document_ids = _uuid_values(
+        [
+            *[row.get("document_id") for row in draft_payload.get("document_refs") or []],
+            *[card.get("document_id") for card in evidence_cards],
+            *[
+                document_id
+                for claim in claims
+                for document_id in (claim.get("source_document_ids") or [])
+            ],
+            *[
+                document_id
+                for export in evidence_exports
+                for document_id in (export.get("document_ids") or [])
+            ],
+        ]
+    )
+    run_ids = _uuid_values(
+        [
+            *[row.get("run_id") for row in draft_payload.get("document_refs") or []],
+            *[card.get("run_id") for card in evidence_cards],
+            *[run_id for export in evidence_exports for run_id in (export.get("run_ids") or [])],
+        ]
+    )
+    assertion_ids = _uuid_values(
+        [
+            *[
+                assertion_id
+                for card in evidence_cards
+                for assertion_id in (card.get("assertion_ids") or [])
+            ],
+            *[
+                assertion_id
+                for claim in claims
+                for assertion_id in (claim.get("assertion_ids") or [])
+            ],
+        ]
+    )
+    fact_ids = _uuid_values(
+        [
+            *[fact_id for card in evidence_cards for fact_id in (card.get("fact_ids") or [])],
+            *[fact_id for claim in claims for fact_id in (claim.get("fact_ids") or [])],
+        ]
+    )
+    evidence_ids = _uuid_values(
+        evidence_id
+        for card in evidence_cards
+        for evidence_id in (card.get("evidence_ids") or [])
+    )
+    documents_by_id = _select_by_ids(session, Document, document_ids)
+    runs_by_id = _select_by_ids(session, DocumentRun, run_ids)
+    semantic_trace = _semantic_trace_payload(
+        session,
+        assertion_ids=assertion_ids,
+        fact_ids=fact_ids,
+        evidence_ids=evidence_ids,
+    )
+    source_documents = [
+        _document_payload(row)
+        for row in sorted(documents_by_id.values(), key=lambda item: str(item.id))
+    ]
+    document_runs = [
+        _manifest_run_payload(row)
+        for row in sorted(runs_by_id.values(), key=lambda item: str(item.id))
+    ]
+    source_records = [
+        *_report_evidence_card_source_records(evidence_cards),
+        *_source_record_payloads_from_semantic_trace(
+            session,
+            semantic_trace["assertion_evidence"],
+        ),
+    ]
+    search_request_ids = _string_values(
+        [
+            *[row.get("search_request_id") for row in operator_runs],
+            *[row.get("search_request_id") for row in evidence_exports],
+        ]
+    )
+    operator_run_ids = _string_values(row.get("operator_run_id") for row in operator_runs)
+    source_snapshot_sha256s = _string_values(
+        [
+            *(draft_payload.get("source_snapshot_sha256s") or []),
+            *[
+                value
+                for claim in claims
+                for value in (claim.get("source_snapshot_sha256s") or [])
+            ],
+            *[
+                value
+                for export in evidence_exports
+                for value in (export.get("source_snapshot_sha256s") or [])
+            ],
+        ]
+    )
+    provenance_edges = _technical_report_provenance_edges(
+        source_documents=source_documents,
+        document_runs=document_runs,
+        evidence_cards=evidence_cards,
+        claims=claims,
+        claim_derivations=claim_derivations,
+        semantic_trace=semantic_trace,
+    )
+    checklist = {
+        "has_source_documents": bool(source_documents),
+        "all_source_documents_hashed": bool(source_documents)
+        and all(document.get("sha256") for document in source_documents),
+        "has_document_runs": bool(document_runs),
+        "all_document_runs_validation_passed": bool(document_runs)
+        and all(run.get("validation_status") == "passed" for run in document_runs),
+        "has_evidence_cards": bool(evidence_cards),
+        "has_claims": bool(claims),
+        "has_claim_derivations": len(claim_derivations) == len(claims) and bool(claims),
+        "has_semantic_trace": bool(
+            semantic_trace["assertions"]
+            or semantic_trace["facts"]
+            or draft_payload.get("graph_context")
+        ),
+        "has_generation_operator_run": audit_bundle["audit_checklist"].get(
+            "has_generation_operator_run",
+            False,
+        ),
+        "has_verification_operator_run": audit_bundle["audit_checklist"].get(
+            "has_verification_operator_run",
+            False,
+        ),
+        "verification_passed": audit_bundle["audit_checklist"].get(
+            "verification_passed",
+            False,
+        ),
+        "hash_integrity_verified": audit_bundle["audit_checklist"].get(
+            "hash_integrity_verified",
+            False,
+        ),
+        "change_impact_clear": audit_bundle["audit_checklist"].get(
+            "change_impact_clear",
+            False,
+        ),
+        "has_provenance_edges": bool(provenance_edges),
+    }
+    checklist["complete"] = all(checklist.values())
+    return {
+        "schema_name": "technical_report_evidence_manifest",
+        "schema_version": "1.0",
+        "manifest_kind": TECHNICAL_REPORT_EVIDENCE_MANIFEST_KIND,
+        "task": audit_bundle["task"],
+        "draft_task": audit_bundle["draft_task"],
+        "verification_task": audit_bundle["verification_task"],
+        "source_documents": source_documents,
+        "document_runs": document_runs,
+        "source_records": source_records,
+        "semantic_trace": semantic_trace,
+        "retrieval_trace": {
+            "search_request_ids": search_request_ids,
+            "ranking_operator_runs": [
+                row
+                for row in operator_runs
+                if row.get("operator_kind") in {"retrieve", "rerank", "judge"}
+            ],
+            "search_evidence_package_exports": [
+                row for row in evidence_exports if row.get("package_kind") == "search_request"
+            ],
+        },
+        "report_trace": {
+            "evidence_cards": evidence_cards,
+            "claims": claims,
+            "claim_derivations": claim_derivations,
+            "evidence_package_exports": evidence_exports,
+            "evidence_package_integrity": audit_bundle["integrity"],
+            "verification": audit_bundle["verification_record"],
+            "operator_runs": operator_runs,
+        },
+        "provenance_edges": provenance_edges,
+        "change_impact": audit_bundle["change_impact"],
+        "audit_checklist": checklist,
+        "source_snapshot_sha256s": source_snapshot_sha256s,
+        "document_ids": _string_values(document_ids),
+        "run_ids": _string_values(run_ids),
+        "claim_ids": _string_values(claim.get("claim_id") for claim in claims),
+        "search_request_ids": search_request_ids,
+        "operator_run_ids": operator_run_ids,
+    }
+
+
+def _evidence_manifest_response(row: EvidenceManifest) -> dict[str, Any]:
+    return {
+        **(row.manifest_payload_json or {}),
+        "evidence_manifest_id": str(row.id),
+        "manifest_sha256": row.manifest_sha256,
+        "manifest_status": row.manifest_status,
+        "created_at": row.created_at,
+    }
+
+
+def persist_technical_report_evidence_manifest(
+    session: Session,
+    *,
+    task_id: UUID,
+) -> EvidenceManifest:
+    task = session.get(AgentTask, task_id)
+    if task is None:
+        raise ValueError(f"Agent task '{task_id}' was not found.")
+    verification_task_id = _verification_task_id_for_manifest(session, task)
+    existing = _existing_evidence_manifest(session, verification_task_id)
+    if existing is not None:
+        return existing
+    payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
+    manifest_sha256 = str(payload_sha256(payload))
+    evidence_exports = payload["report_trace"]["evidence_package_exports"]
+    row = EvidenceManifest(
+        id=uuid.uuid4(),
+        manifest_kind=TECHNICAL_REPORT_EVIDENCE_MANIFEST_KIND,
+        agent_task_id=verification_task_id,
+        draft_task_id=_uuid_or_none(payload["draft_task"].get("task_id")),
+        verification_task_id=verification_task_id,
+        evidence_package_export_id=(
+            _uuid_or_none(evidence_exports[0].get("evidence_package_export_id"))
+            if evidence_exports
+            else None
+        ),
+        manifest_sha256=manifest_sha256,
+        manifest_payload_json=_json_payload(payload),
+        source_snapshot_sha256s_json=list(payload["source_snapshot_sha256s"]),
+        document_ids_json=list(payload["document_ids"]),
+        run_ids_json=list(payload["run_ids"]),
+        claim_ids_json=list(payload["claim_ids"]),
+        search_request_ids_json=list(payload["search_request_ids"]),
+        operator_run_ids_json=list(payload["operator_run_ids"]),
+        manifest_status="completed",
+        created_at=utcnow(),
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def get_agent_task_evidence_manifest(session: Session, task_id: UUID) -> dict[str, Any]:
+    row = persist_technical_report_evidence_manifest(session, task_id=task_id)
+    return _evidence_manifest_response(row)
+
+
 def _draft_task_id_for_audit(task: AgentTask) -> UUID:
     if task.task_type == "draft_technical_report":
         return task.id
@@ -1065,6 +1768,8 @@ def _draft_task_id_for_audit(task: AgentTask) -> UUID:
         payload = (task.result_json or {}).get("payload") or {}
         verification = payload.get("verification") or {}
         target_task_id = verification.get("target_task_id")
+        if not target_task_id:
+            target_task_id = (task.input_json or {}).get("target_task_id")
         if target_task_id:
             return UUID(str(target_task_id))
     raise ValueError("Audit bundles are currently supported for technical report tasks only.")

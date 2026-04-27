@@ -2658,6 +2658,109 @@ class EvidencePackageExport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class EvidenceManifest(Base):
+    __tablename__ = "evidence_manifests"
+    __table_args__ = (
+        CheckConstraint(
+            "manifest_kind IN ('technical_report_court_evidence')",
+            name="ck_evidence_manifests_manifest_kind",
+        ),
+        CheckConstraint(
+            "manifest_status IN ('completed', 'failed')",
+            name="ck_evidence_manifests_manifest_status",
+        ),
+        UniqueConstraint(
+            "verification_task_id",
+            "manifest_kind",
+            name="uq_evidence_manifests_verification_task_kind",
+        ),
+        Index("ix_evidence_manifests_agent_task_id", "agent_task_id"),
+        Index("ix_evidence_manifests_draft_task_id", "draft_task_id"),
+        Index("ix_evidence_manifests_verification_task_id", "verification_task_id"),
+        Index("ix_evidence_manifests_export_id", "evidence_package_export_id"),
+        Index("ix_evidence_manifests_manifest_sha256", "manifest_sha256"),
+        Index("ix_evidence_manifests_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    manifest_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    agent_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    draft_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    verification_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    evidence_package_export_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_package_exports.id", ondelete="SET NULL"),
+    )
+    manifest_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    manifest_payload_json: Mapped[dict] = mapped_column(
+        "manifest_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    source_snapshot_sha256s_json: Mapped[list] = mapped_column(
+        "source_snapshot_sha256s",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    document_ids_json: Mapped[list] = mapped_column(
+        "document_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    run_ids_json: Mapped[list] = mapped_column(
+        "run_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    claim_ids_json: Mapped[list] = mapped_column(
+        "claim_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    search_request_ids_json: Mapped[list] = mapped_column(
+        "search_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    operator_run_ids_json: Mapped[list] = mapped_column(
+        "operator_run_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    manifest_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="completed",
+        server_default=sql_text("'completed'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ClaimEvidenceDerivation(Base):
     __tablename__ = "claim_evidence_derivations"
     __table_args__ = (

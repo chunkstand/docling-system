@@ -131,6 +131,7 @@ from app.services.evidence import (
     attach_artifact_to_evidence_export,
     attach_operator_run_to_evidence_export,
     persist_technical_report_evidence_export,
+    persist_technical_report_evidence_manifest,
     record_knowledge_operator_run,
 )
 from app.services.quality import list_quality_eval_candidates
@@ -925,12 +926,24 @@ def _verify_technical_report_executor(
             },
         ],
     )
+    evidence_manifest = None
+    if outcome.verification_outcome == "passed":
+        evidence_manifest = persist_technical_report_evidence_manifest(
+            session,
+            task_id=task.id,
+        )
     return {
         **result,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
         "operator_run_id": str(operator_run.id) if operator_run is not None else None,
+        "evidence_manifest_id": str(evidence_manifest.id)
+        if evidence_manifest is not None
+        else None,
+        "evidence_manifest_sha256": evidence_manifest.manifest_sha256
+        if evidence_manifest is not None
+        else None,
     }
 
 

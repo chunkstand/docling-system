@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.models import (
     AgentTask,
     ClaimEvidenceDerivation,
+    EvidenceManifest,
     EvidencePackageExport,
     KnowledgeOperatorRun,
 )
@@ -235,6 +236,22 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         )
         assert [row.operator_kind for row in verify_operator_rows] == ["verify"]
         assert verify_operator_rows[0].output_sha256
+        manifest_rows = list(
+            session.scalars(
+                select(EvidenceManifest).where(
+                    EvidenceManifest.verification_task_id == verify_task_id
+                )
+            )
+        )
+        assert len(manifest_rows) == 1
+        assert manifest_rows[0].manifest_kind == "technical_report_court_evidence"
+        assert manifest_rows[0].manifest_sha256
+        assert manifest_rows[0].document_ids_json == [str(document_id)]
+        assert manifest_rows[0].run_ids_json == [str(run_id)]
+        assert manifest_rows[0].manifest_payload_json["audit_checklist"]["complete"] is True
+        assert manifest_rows[0].manifest_payload_json["audit_checklist"][
+            "hash_integrity_verified"
+        ] is True
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -261,3 +278,21 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     ]
     assert len(audit_bundle["claim_derivations"]) == len(draft_payload["claims"])
     assert audit_bundle["audit_bundle_sha256"]
+
+    manifest_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-manifest")
+    assert manifest_response.status_code == 200
+    manifest = manifest_response.json()
+    assert manifest["schema_name"] == "technical_report_evidence_manifest"
+    assert manifest["manifest_kind"] == "technical_report_court_evidence"
+    assert manifest["manifest_sha256"]
+    assert manifest["audit_checklist"]["complete"] is True
+    assert manifest["audit_checklist"]["all_source_documents_hashed"] is True
+    assert manifest["audit_checklist"]["all_document_runs_validation_passed"] is True
+    assert manifest["audit_checklist"]["hash_integrity_verified"] is True
+    assert manifest["source_documents"][0]["sha256"]
+    assert manifest["document_runs"][0]["artifact_hashes"]["docling_json_sha256"]
+    assert manifest["report_trace"]["evidence_package_integrity"][
+        "draft_package_hash_matches"
+    ] is True
+    assert manifest["report_trace"]["verification"]["outcome"] == "passed"
+    assert manifest["provenance_edges"]

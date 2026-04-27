@@ -1259,6 +1259,8 @@ class VerifyTechnicalReportTaskOutput(BaseModel):
     artifact_kind: str
     artifact_path: str | None = None
     operator_run_id: UUID | None = None
+    evidence_manifest_id: UUID | None = None
+    evidence_manifest_sha256: str | None = None
 
 
 class SemanticSupervisionCorpusRow(BaseModel):

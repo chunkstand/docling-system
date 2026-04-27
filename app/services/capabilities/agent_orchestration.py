@@ -65,6 +65,8 @@ class AgentOrchestrationCapability(Protocol):
 
     def get_agent_task_audit_bundle(self, session: Session, task_id: UUID) -> dict: ...
 
+    def get_agent_task_evidence_manifest(self, session: Session, task_id: UUID) -> dict: ...
+
     def list_agent_task_outcomes(
         self,
         session: Session,
@@ -255,6 +257,9 @@ class ServicesAgentOrchestrationCapability:
 
     def get_agent_task_audit_bundle(self, session: Session, task_id: UUID) -> dict:
         return evidence.get_agent_task_audit_bundle(session, task_id)
+
+    def get_agent_task_evidence_manifest(self, session: Session, task_id: UUID) -> dict:
+        return evidence.get_agent_task_evidence_manifest(session, task_id)
 
     def list_agent_task_outcomes(
         self,

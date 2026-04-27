@@ -57,6 +57,7 @@ create_agent_task = agent_orchestration.create_agent_task
 get_agent_task_detail = agent_orchestration.get_agent_task_detail
 get_agent_task_context = agent_orchestration.get_agent_task_context
 get_agent_task_audit_bundle = agent_orchestration.get_agent_task_audit_bundle
+get_agent_task_evidence_manifest = agent_orchestration.get_agent_task_evidence_manifest
 list_agent_task_outcomes = agent_orchestration.list_agent_task_outcomes
 create_agent_task_outcome = agent_orchestration.create_agent_task_outcome
 list_agent_task_artifacts = agent_orchestration.list_agent_task_artifacts
@@ -411,6 +412,25 @@ def read_agent_task_audit_bundle_route(
         raise api_error(
             status.HTTP_404_NOT_FOUND,
             "agent_task_audit_bundle_not_found",
+            str(exc),
+            task_id=str(task_id),
+        ) from exc
+
+
+@router.get(
+    "/agent-tasks/{task_id}/evidence-manifest",
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_agent_task_evidence_manifest_route(
+    task_id: UUID,
+    session: DbSession,
+) -> dict:
+    try:
+        return get_agent_task_evidence_manifest(session, task_id)
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_evidence_manifest_not_found",
             str(exc),
             task_id=str(task_id),
         ) from exc
