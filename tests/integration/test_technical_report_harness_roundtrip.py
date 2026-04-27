@@ -378,6 +378,12 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["has_frozen_prov_export"] is True
     assert audit_bundle["audit_checklist"]["has_prov_export_receipt"] is True
     assert audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"] is True
+    assert audit_bundle["audit_checklist"][
+        "prov_export_receipts_integrity_verified"
+    ] is True
+    assert audit_bundle["audit_checklist"][
+        "prov_export_receipt_signature_verified"
+    ] is True
     assert audit_bundle["audit_checklist"]["no_prov_export_immutability_events"] is True
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
@@ -433,6 +439,12 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["provenance_export_receipts"][0]["export_receipt"][
         "signature_status"
     ] == "signed"
+    assert audit_bundle["provenance_export_receipts"][0]["receipt_integrity"][
+        "complete"
+    ] is True
+    assert audit_bundle["provenance_export_receipts"][0]["receipt_integrity"][
+        "signature_verification_status"
+    ] == "verified"
     assert audit_bundle["provenance_export_immutability_events"] == []
     assert all(
         row["trace_integrity"]["complete"]

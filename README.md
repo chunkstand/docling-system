@@ -457,7 +457,7 @@ Current task guarantees:
 - migrated context refs track `observed_sha256`, `source_updated_at`, `checked_at`, and `freshness_status`; `missing` and `schema_mismatch` block migrated consumers, while `stale` remains advisory in v1
 - migrated consumers do not fall back to legacy nested payload reads; pre-context upstream tasks must be rerun into the migrated path before they can be consumed
 - the full task context surface is available through `GET /agent-tasks/{task_id}/context?format=json|yaml`
-- technical-report draft and verification tasks expose a frozen claim/evidence audit bundle through `GET /agent-tasks/{task_id}/audit-bundle`
+- technical-report draft and verification tasks expose a frozen claim/evidence audit bundle through `GET /agent-tasks/{task_id}/audit-bundle`; court-grade completeness requires a signed, hash-chained PROV export receipt, so configure `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY` and `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY_ID`
 - verifier outcomes are persisted separately from task results and can be inspected through `GET /agent-tasks/{task_id}/verifications`
 - task outcome labels can be inspected through `GET /agent-tasks/{task_id}/outcomes`
 - failed tasks expose a direct failure-artifact endpoint through `GET /agent-tasks/{task_id}/failure-artifact`

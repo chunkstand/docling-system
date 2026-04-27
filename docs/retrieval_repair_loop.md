@@ -96,6 +96,10 @@ metadata. `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY` must be configured before
 creating a signed bundle. The database treats audit bundle exports as append-only:
 `audit_bundle_exports` has a Postgres trigger that rejects row updates and deletes,
 so corrections require a new signed bundle instead of mutating the prior record.
+Technical-report verification uses the same signing key for frozen PROV export
+receipts. A report audit bundle is complete only when the receipt hash chain and
+HMAC signature verify against the stored evidence manifest, trace, and frozen
+PROV payload.
 
 ## Comprehension Gate
 

@@ -1713,6 +1713,7 @@ def _artifact_payload(row: AgentTaskArtifact) -> dict:
 def _provenance_export_receipt_payload(row: AgentTaskArtifact) -> dict:
     payload = _json_payload(row.payload_json or {})
     frozen_export = payload.get("frozen_export") or {}
+    receipt = _frozen_export_receipt(payload)
     return {
         "artifact_id": row.id,
         "task_id": row.task_id,
@@ -1720,7 +1721,8 @@ def _provenance_export_receipt_payload(row: AgentTaskArtifact) -> dict:
         "storage_path": row.storage_path,
         "export_payload_sha256": frozen_export.get("export_payload_sha256"),
         "prov_hash_basis_sha256": frozen_export.get("prov_hash_basis_sha256"),
-        "export_receipt": _frozen_export_receipt(payload),
+        "export_receipt": receipt,
+        "receipt_integrity": _prov_export_receipt_integrity(payload),
     }
 
 
@@ -4602,17 +4604,20 @@ def _prov_export_receipt_signature(receipt_sha256: str) -> dict[str, Any]:
             "signing_key_id": None,
         }
     signing_key_id = getattr(settings, "audit_bundle_signing_key_id", None) or "local"
-    signature = hmac.new(
-        str(signing_key).encode("utf-8"),
-        receipt_sha256.encode("ascii"),
-        hashlib.sha256,
-    ).hexdigest()
     return {
         "signature_status": "signed",
-        "signature": signature,
+        "signature": _prov_export_receipt_signature_value(receipt_sha256, str(signing_key)),
         "signature_algorithm": PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM,
         "signing_key_id": str(signing_key_id),
     }
+
+
+def _prov_export_receipt_signature_value(receipt_sha256: str, signing_key: str) -> str:
+    return hmac.new(
+        signing_key.encode("utf-8"),
+        receipt_sha256.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
 
 
 def _prov_export_receipt(
@@ -4723,6 +4728,111 @@ def _frozen_export_receipt(payload: dict[str, Any] | None) -> dict[str, Any]:
     frozen_export = (payload or {}).get("frozen_export") or {}
     receipt = frozen_export.get("export_receipt")
     return receipt if isinstance(receipt, dict) else {}
+
+
+def _receipt_hash_basis(receipt: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in receipt.items()
+        if key
+        not in {
+            "receipt_sha256",
+            "signature",
+            "signature_algorithm",
+            "signature_status",
+            "signing_key_id",
+        }
+    }
+
+
+def _receipt_hash_chain_sha256(receipt: dict[str, Any], name: str) -> str | None:
+    for item in receipt.get("hash_chain") or []:
+        if item.get("name") == name:
+            return item.get("sha256")
+    return None
+
+
+def _prov_export_receipt_integrity(payload: dict[str, Any] | None) -> dict[str, Any]:
+    frozen_payload = _json_payload(payload or {})
+    frozen_export = frozen_payload.get("frozen_export") or {}
+    receipt = _frozen_export_receipt(frozen_payload)
+    receipt_hash_basis = _receipt_hash_basis(receipt)
+    expected_receipt_sha256 = (
+        str(payload_sha256(receipt_hash_basis)) if receipt_hash_basis else None
+    )
+    stored_receipt_sha256 = receipt.get("receipt_sha256")
+    receipt_hash_matches = bool(
+        expected_receipt_sha256 and expected_receipt_sha256 == stored_receipt_sha256
+    )
+
+    signature_status = receipt.get("signature_status") or "missing"
+    signature_algorithm_matches = (
+        receipt.get("signature_algorithm") == PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM
+    )
+    signature_present = bool(receipt.get("signature")) and signature_status == "signed"
+    signature_valid = False
+    signature_verification_status = signature_status
+    if signature_status == "signed" and stored_receipt_sha256 and signature_present:
+        settings = get_settings()
+        signing_key = getattr(settings, "audit_bundle_signing_key", None)
+        if signing_key:
+            signature_valid = hmac.compare_digest(
+                str(receipt.get("signature")),
+                _prov_export_receipt_signature_value(stored_receipt_sha256, str(signing_key)),
+            )
+            signature_verification_status = "verified" if signature_valid else "mismatch"
+        else:
+            signature_verification_status = "signing_key_missing"
+
+    hash_chain_values = [
+        item.get("sha256") for item in receipt.get("hash_chain") or []
+    ]
+    hash_chain_complete = bool(receipt.get("hash_chain_complete")) and all(hash_chain_values)
+    export_payload_hash_matches = (
+        _receipt_hash_chain_sha256(receipt, "technical_report_prov_export")
+        == frozen_export.get("export_payload_sha256")
+    )
+    prov_hash_basis_matches = (
+        _receipt_hash_chain_sha256(receipt, "prov_hash_basis")
+        == frozen_export.get("prov_hash_basis_sha256")
+    )
+    checks = {
+        "has_receipt": bool(receipt),
+        "receipt_hash_matches": receipt_hash_matches,
+        "expected_receipt_sha256": expected_receipt_sha256,
+        "stored_receipt_sha256": stored_receipt_sha256,
+        "hash_chain_complete": hash_chain_complete,
+        "artifact_id_matches": receipt.get("artifact_id") == frozen_export.get("artifact_id"),
+        "artifact_kind_matches": receipt.get("artifact_kind")
+        == frozen_export.get("artifact_kind"),
+        "task_id_matches": receipt.get("task_id") == frozen_export.get("task_id"),
+        "storage_path_matches": receipt.get("storage_path") == frozen_export.get("storage_path"),
+        "export_payload_hash_matches": export_payload_hash_matches,
+        "prov_hash_basis_matches": prov_hash_basis_matches,
+        "signature_status": signature_status,
+        "signature_algorithm_matches": signature_algorithm_matches,
+        "signature_present": signature_present,
+        "signature_valid": signature_valid,
+        "signature_verification_status": signature_verification_status,
+    }
+    checks["complete"] = all(
+        bool(checks[key])
+        for key in (
+            "has_receipt",
+            "receipt_hash_matches",
+            "hash_chain_complete",
+            "artifact_id_matches",
+            "artifact_kind_matches",
+            "task_id_matches",
+            "storage_path_matches",
+            "export_payload_hash_matches",
+            "prov_hash_basis_matches",
+            "signature_algorithm_matches",
+            "signature_present",
+            "signature_valid",
+        )
+    )
+    return checks
 
 
 def _record_prov_export_supersession_attempt(
@@ -4992,6 +5102,15 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and integrity["missing_claim_derivation_count"] == 0
     )
     source_evidence_trace_integrity_verified = source_evidence_closure["complete"]
+    prov_export_receipts_integrity_verified = bool(prov_export_receipts) and all(
+        (row.get("receipt_integrity") or {}).get("complete")
+        for row in prov_export_receipts
+    )
+    prov_export_receipt_signature_verified = bool(prov_export_receipts) and all(
+        (row.get("receipt_integrity") or {}).get("signature_verification_status")
+        == "verified"
+        for row in prov_export_receipts
+    )
     audit_bundle = {
         "schema_name": "technical_report_audit_bundle",
         "schema_version": "1.0",
@@ -5029,6 +5148,12 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
                 (row.get("export_receipt") or {}).get("signature_status") == "signed"
                 for row in prov_export_receipts
             ),
+            "prov_export_receipts_integrity_verified": (
+                prov_export_receipts_integrity_verified
+            ),
+            "prov_export_receipt_signature_verified": (
+                prov_export_receipt_signature_verified
+            ),
             "no_prov_export_immutability_events": not prov_export_immutability_events,
             "source_evidence_trace_integrity_verified": (
                 source_evidence_trace_integrity_verified
@@ -5054,6 +5179,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
+        and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]
+        and audit_bundle["audit_checklist"]["prov_export_receipts_integrity_verified"]
+        and audit_bundle["audit_checklist"]["prov_export_receipt_signature_verified"]
         and audit_bundle["audit_checklist"]["no_prov_export_immutability_events"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]

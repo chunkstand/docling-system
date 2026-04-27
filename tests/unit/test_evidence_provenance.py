@@ -2,7 +2,11 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.services.evidence import _frozen_prov_export_payload, _prov_export_integrity_payload
+from app.services.evidence import (
+    _frozen_prov_export_payload,
+    _prov_export_integrity_payload,
+    _prov_export_receipt_integrity,
+)
 
 
 def _base_prov_export() -> dict:
@@ -128,3 +132,67 @@ def test_frozen_prov_export_includes_signed_hash_chain_receipt(monkeypatch) -> N
     assert receipt["signing_key_id"] == "receipt-key"
     assert receipt["receipt_sha256"]
     assert receipt["signature"]
+
+    integrity = _prov_export_receipt_integrity(frozen_payload)
+    assert integrity["complete"] is True
+    assert integrity["receipt_hash_matches"] is True
+    assert integrity["hash_chain_complete"] is True
+    assert integrity["signature_verification_status"] == "verified"
+
+
+def test_prov_export_receipt_integrity_fails_without_signature_key(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.evidence.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key=None,
+            audit_bundle_signing_key_id="missing-key",
+        ),
+    )
+    prov_export = _base_prov_export()
+    prov_export["audit"]["manifest_sha256"] = "manifest-sha"
+    prov_export["audit"]["trace_sha256"] = "trace-sha"
+    prov_export["prov_integrity"] = _prov_export_integrity_payload(prov_export)
+
+    frozen_payload = _frozen_prov_export_payload(
+        prov_export,
+        artifact_id=uuid4(),
+        task_id=uuid4(),
+        created_at=datetime(2026, 4, 27, tzinfo=UTC),
+        storage_path="storage/agent_tasks/task/technical_report_prov_export.json",
+    )
+
+    integrity = _prov_export_receipt_integrity(frozen_payload)
+    assert integrity["complete"] is False
+    assert integrity["receipt_hash_matches"] is True
+    assert integrity["signature_status"] == "unsigned"
+    assert integrity["signature_present"] is False
+    assert integrity["signature_valid"] is False
+
+
+def test_prov_export_receipt_integrity_fails_for_hash_chain_tamper(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.evidence.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="receipt-secret",
+            audit_bundle_signing_key_id="receipt-key",
+        ),
+    )
+    prov_export = _base_prov_export()
+    prov_export["audit"]["manifest_sha256"] = "manifest-sha"
+    prov_export["audit"]["trace_sha256"] = "trace-sha"
+    prov_export["prov_integrity"] = _prov_export_integrity_payload(prov_export)
+    frozen_payload = _frozen_prov_export_payload(
+        prov_export,
+        artifact_id=uuid4(),
+        task_id=uuid4(),
+        created_at=datetime(2026, 4, 27, tzinfo=UTC),
+        storage_path="storage/agent_tasks/task/technical_report_prov_export.json",
+    )
+    frozen_payload["frozen_export"]["export_receipt"]["hash_chain"][-1][
+        "sha256"
+    ] = "tampered"
+
+    integrity = _prov_export_receipt_integrity(frozen_payload)
+    assert integrity["complete"] is False
+    assert integrity["receipt_hash_matches"] is False
+    assert integrity["export_payload_hash_matches"] is False
