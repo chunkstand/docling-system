@@ -13,7 +13,10 @@ from app.db.models import (
     RetrievalEvidenceSpanMultiVector,
     SearchRequestResultSpan,
 )
-from app.services.retrieval_spans import rebuild_retrieval_evidence_spans
+from app.services.retrieval_spans import (
+    rebuild_retrieval_evidence_span_multivectors,
+    rebuild_retrieval_evidence_spans,
+)
 from tests.integration.pdf_fixtures import valid_test_pdf_bytes
 from tests.integration.test_postgres_roundtrip import StubParser, _build_parsed_document
 
@@ -42,6 +45,13 @@ class DeterministicMultiVectorProvider:
         if not any(vector):
             vector[3] = 1.0
         return vector
+
+
+class FailingMultiVectorProvider:
+    model = "failing-multivector-test"
+
+    def embed_texts(self, _texts: list[str]) -> list[list[float]]:
+        raise RuntimeError("forced multivector failure")
 
 
 def test_multivector_harness_persists_late_interaction_trace(
@@ -203,3 +213,78 @@ def test_multivector_harness_persists_late_interaction_trace(
     assert "multivector_generation_output" in trace_edge_kinds
     assert "span_vector_matched_selected_span" in trace_edge_kinds
     assert evidence_package["trace_graph"]["trace_sha256"]
+
+
+def test_multivector_rebuild_failure_preserves_existing_vectors(
+    postgres_integration_harness,
+) -> None:
+    provider = DeterministicMultiVectorProvider()
+    parsed = _build_parsed_document()
+    parsed.chunks[0].text = (
+        "integration threshold "
+        + " ".join(f"stable context {index}" for index in range(20))
+    )
+
+    create_response = postgres_integration_harness.client.post(
+        "/documents",
+        files={
+            "file": (
+                "multivector-preserve.pdf",
+                valid_test_pdf_bytes(),
+                "application/pdf",
+            )
+        },
+    )
+    assert create_response.status_code == 202
+    run_id = UUID(create_response.json()["run_id"])
+    processed_run_id = postgres_integration_harness.process_next_run(StubParser(parsed))
+    assert processed_run_id == run_id
+
+    with postgres_integration_harness.session_factory() as session:
+        run = session.get(DocumentRun, run_id)
+        assert run is not None
+        completed_summary = rebuild_retrieval_evidence_spans(
+            session,
+            run,
+            embedding_provider=provider,
+        )
+        session.commit()
+
+    assert completed_summary["multivector_summary"]["embedding_status"] == "completed"
+    with postgres_integration_harness.session_factory() as session:
+        before_hashes = set(
+            session.scalars(
+                select(RetrievalEvidenceSpanMultiVector.content_sha256).where(
+                    RetrievalEvidenceSpanMultiVector.run_id == run_id
+                )
+            )
+        )
+        assert before_hashes
+        run = session.get(DocumentRun, run_id)
+        assert run is not None
+        failed_summary = rebuild_retrieval_evidence_span_multivectors(
+            session,
+            run,
+            embedding_provider=FailingMultiVectorProvider(),
+        )
+        session.commit()
+
+    assert failed_summary["embedding_status"] == "embedding_failed"
+    assert failed_summary["generation_operator_run_id"]
+    with postgres_integration_harness.session_factory() as session:
+        after_hashes = set(
+            session.scalars(
+                select(RetrievalEvidenceSpanMultiVector.content_sha256).where(
+                    RetrievalEvidenceSpanMultiVector.run_id == run_id
+                )
+            )
+        )
+        failed_operator = session.get(
+            KnowledgeOperatorRun,
+            UUID(failed_summary["generation_operator_run_id"]),
+        )
+
+    assert after_hashes == before_hashes
+    assert failed_operator is not None
+    assert failed_operator.status == "failed"
+    assert failed_operator.operator_name == "retrieval_evidence_span_multivector_generation"

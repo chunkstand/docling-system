@@ -401,12 +401,12 @@ def rebuild_retrieval_evidence_span_multivectors(
     )
     specs = [spec for span in spans for spec in build_span_multivector_specs(span)]
     spans_by_id = {span.id: span for span in spans}
-    session.execute(
-        delete(RetrievalEvidenceSpanMultiVector).where(
-            RetrievalEvidenceSpanMultiVector.run_id == run.id
-        )
-    )
     if not specs:
+        session.execute(
+            delete(RetrievalEvidenceSpanMultiVector).where(
+                RetrievalEvidenceSpanMultiVector.run_id == run.id
+            )
+        )
         session.flush()
         return {
             "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
@@ -426,6 +426,22 @@ def rebuild_retrieval_evidence_span_multivectors(
     try:
         raw_embeddings = embedding_provider.embed_texts([spec.vector_text for spec in specs])
         embeddings = [list(embedding) for embedding in raw_embeddings]
+        if len(embeddings) != len(specs):
+            raise ValueError(
+                f"Embedding provider returned {len(embeddings)} vectors for {len(specs)} specs."
+            )
+        invalid_dims = sorted(
+            {
+                len(embedding)
+                for embedding in embeddings
+                if len(embedding) != 1536
+            }
+        )
+        if invalid_dims:
+            raise ValueError(
+                "Embedding provider returned invalid multivector dimensions: "
+                f"{invalid_dims}; expected 1536."
+            )
     except Exception as exc:
         embedding_status = "embedding_failed"
         embedding_error = str(exc)
@@ -435,7 +451,7 @@ def rebuild_retrieval_evidence_span_multivectors(
             document_id=str(run.document_id),
             error=str(exc),
         )
-        record_knowledge_operator_run(
+        operator_run = record_knowledge_operator_run(
             session,
             operator_kind="embed",
             operator_name="retrieval_evidence_span_multivector_generation",
@@ -494,11 +510,19 @@ def rebuild_retrieval_evidence_span_multivectors(
             "source_span_count": len(spans),
             "embedding_status": embedding_status,
             "embedding_error": embedding_error,
+            "generation_operator_run_id": (
+                str(operator_run.id) if operator_run is not None else None
+            ),
         }
 
     now = utcnow()
     embedding_model = str(getattr(embedding_provider, "model", "unknown"))
     vector_rows: list[RetrievalEvidenceSpanMultiVector] = []
+    session.execute(
+        delete(RetrievalEvidenceSpanMultiVector).where(
+            RetrievalEvidenceSpanMultiVector.run_id == run.id
+        )
+    )
     for spec, embedding in zip(specs, embeddings, strict=True):
         embedding_sha256 = _embedding_sha256(embedding)
         row = RetrievalEvidenceSpanMultiVector(

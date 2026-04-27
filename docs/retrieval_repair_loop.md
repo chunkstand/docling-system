@@ -88,6 +88,8 @@ promote parser behavior.
 
 Repair agents may tune whether a derived harness enables late interaction and its candidate limits through descriptor-listed retrieval-profile overrides. They must still verify against durable replay or evaluation evidence. A late-interaction improvement is auditable only when the resulting search request retains the per-span max-sim trace in persisted result-span metadata, the evidence package materializes the referenced span-vector rows with content and embedding hashes, and the multivector generation operator is present in the package trace graph.
 
+Failed multivector regeneration must not erase the last valid vector set for a run. The system records the failed generation attempt as an `embed` operator run, preserves existing `retrieval_evidence_span_multivectors`, and only swaps vectors after replacement embeddings pass count and dimension validation.
+
 Audit bundles are stored under `storage/audit_bundles/`, persisted in
 `audit_bundle_exports`, and include a PROV-style graph plus HMAC-SHA256 signature
 metadata. `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY` must be configured before
