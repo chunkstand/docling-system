@@ -68,14 +68,24 @@ Inspection surfaces:
 
 - `GET /search/harness-releases`
 - `GET /search/harness-releases/{release_id}`
+- `POST /search/harness-releases/{release_id}/audit-bundles`
+- `GET /search/harness-releases/{release_id}/audit-bundles/latest`
+- `GET /search/audit-bundles/{bundle_id}`
 - `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
   prints both the evaluation and persisted release gate
+- `docling-system-search-harness-release-audit-bundle <release_id>`, which exports a
+  signed immutable audit bundle for a persisted release gate
 - `verify_search_harness_evaluation`, which writes a release gate when the target
   evaluation is durable and links the `release_id` in verifier details
 
 Passing a release gate is evidence that the candidate met the configured retrieval
 guardrails. It does not mutate corpus truth, weaken evaluation fixtures, or silently
 promote parser behavior.
+
+Audit bundles are stored under `storage/audit_bundles/`, persisted in
+`audit_bundle_exports`, and include a PROV-style graph plus HMAC-SHA256 signature
+metadata. `DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY` must be configured before
+creating a signed bundle.
 
 ## Comprehension Gate
 

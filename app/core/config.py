@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     semantic_evaluation_corpus_path: Path = Field(
         default=Path("./docs/semantic_evaluation_corpus.yaml")
     )
+    audit_bundle_signing_key: str | None = None
+    audit_bundle_signing_key_id: str = "local"
 
 
 def default_local_ingest_roots() -> list[Path]:

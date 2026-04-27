@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from types import SimpleNamespace
+from uuid import UUID, uuid4
 
 from app.db.models import (
+    AuditBundleExport,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchReplayRun,
@@ -35,7 +37,14 @@ def _replay_run(*, replay_run_id, harness_name: str) -> SearchReplayRun:
     )
 
 
-def test_search_harness_release_gate_roundtrip(postgres_integration_harness) -> None:
+def test_search_harness_release_gate_roundtrip(postgres_integration_harness, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.audit_bundles.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="integration-secret",
+            audit_bundle_signing_key_id="integration-key",
+        ),
+    )
     now = datetime.now(UTC)
     evaluation_id = uuid4()
     baseline_replay_run_id = uuid4()
@@ -136,3 +145,40 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness) -> 
     assert detail_response.json()["details"]["per_source"]["evaluation_queries"][
         "shared_query_count"
     ] == 4
+
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    assert audit_response.headers["Location"] == (
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}"
+    )
+    assert audit_bundle["bundle_kind"] == "search_harness_release_provenance"
+    assert audit_bundle["integrity"]["complete"] is True
+    assert audit_bundle["integrity"]["signature_valid"] is True
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "release_package_hash_matches"
+    ] is True
+    assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
+    assert audit_bundle["signing_key_id"] == "integration-key"
+
+    latest_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/audit-bundles/latest"
+    )
+    assert latest_response.status_code == 200
+    assert latest_response.json()["bundle_id"] == audit_bundle["bundle_id"]
+
+    audit_detail_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}"
+    )
+    assert audit_detail_response.status_code == 200
+    assert audit_detail_response.json()["integrity"]["bundle_hash_matches_row"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        row = session.get(AuditBundleExport, audit_bundle["bundle_id"])
+        assert row is not None
+        assert row.bundle_sha256 == audit_bundle["bundle_sha256"]
+        assert row.search_harness_release_id == UUID(audit_bundle["source_id"])

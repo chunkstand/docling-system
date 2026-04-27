@@ -2058,6 +2058,70 @@ class SearchHarnessRelease(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AuditBundleExport(Base):
+    __tablename__ = "audit_bundle_exports"
+    __table_args__ = (
+        CheckConstraint(
+            "bundle_kind IN ('search_harness_release_provenance')",
+            name="ck_audit_bundle_exports_bundle_kind",
+        ),
+        CheckConstraint(
+            "source_table IN ('search_harness_releases')",
+            name="ck_audit_bundle_exports_source_table",
+        ),
+        CheckConstraint(
+            "export_status IN ('completed', 'failed')",
+            name="ck_audit_bundle_exports_status",
+        ),
+        Index("ix_audit_bundle_exports_bundle_kind_created_at", "bundle_kind", "created_at"),
+        Index("ix_audit_bundle_exports_source", "source_table", "source_id"),
+        Index(
+            "ix_audit_bundle_exports_release_created_at",
+            "search_harness_release_id",
+            "created_at",
+        ),
+        Index("ix_audit_bundle_exports_payload_sha256", "payload_sha256"),
+        Index("ix_audit_bundle_exports_bundle_sha256", "bundle_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    bundle_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_table: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    search_harness_release_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_releases.id", ondelete="RESTRICT"),
+    )
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    bundle_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    signature_algorithm: Mapped[str] = mapped_column(Text, nullable=False)
+    signing_key_id: Mapped[str] = mapped_column(Text, nullable=False)
+    bundle_payload_json: Mapped[dict] = mapped_column(
+        "bundle_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    integrity_json: Mapped[dict] = mapped_column(
+        "integrity",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_by: Mapped[str | None] = mapped_column(Text)
+    export_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="completed",
+        server_default=sql_text("'completed'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ChatAnswerRecord(Base):
     __tablename__ = "chat_answer_records"
     __table_args__ = (

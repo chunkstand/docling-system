@@ -78,6 +78,21 @@ class StorageService:
             path.mkdir(parents=True, exist_ok=True)
         return path
 
+    def _audit_bundle_dir(
+        self,
+        bundle_kind: str,
+        bundle_id: uuid.UUID,
+        *,
+        create: bool,
+    ) -> Path:
+        safe_kind = "".join(
+            char if char.isalnum() or char in {"-", "_"} else "_" for char in bundle_kind
+        )
+        path = self.storage_root / "audit_bundles" / safe_kind / str(bundle_id)
+        if create:
+            path.mkdir(parents=True, exist_ok=True)
+        return path
+
     def stage_upload(
         self,
         upload: UploadFile,
@@ -330,6 +345,12 @@ class StorageService:
 
     def build_agent_task_failure_artifact_path(self, task_id: uuid.UUID) -> Path:
         return self.build_agent_task_dir(task_id) / "failure.json"
+
+    def get_audit_bundle_json_path(self, bundle_kind: str, bundle_id: uuid.UUID) -> Path:
+        return self._audit_bundle_dir(bundle_kind, bundle_id, create=True) / "bundle.json"
+
+    def build_audit_bundle_json_path(self, bundle_kind: str, bundle_id: uuid.UUID) -> Path:
+        return self._audit_bundle_dir(bundle_kind, bundle_id, create=False) / "bundle.json"
 
     def resolve_existing_path(self, path_value: str | Path | None) -> Path | None:
         if path_value is None:

@@ -12,12 +12,14 @@ from app.schemas.chat import (
     ChatResponse,
 )
 from app.schemas.search import (
+    AuditBundleExportResponse,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSummaryResponse,
+    SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
@@ -32,6 +34,7 @@ from app.schemas.search import (
     SearchRequestExplanationResponse,
 )
 from app.services import (
+    audit_bundles,
     chat,
     eval_workbench,
     evidence,
@@ -42,6 +45,7 @@ from app.services import (
     search_release_gate,
     search_replays,
 )
+from app.services.storage import StorageService
 
 
 class RetrievalCapability(Protocol):
@@ -165,6 +169,31 @@ class RetrievalCapability(Protocol):
         session: Session,
         release_id: UUID,
     ) -> SearchHarnessReleaseResponse: ...
+
+    def create_search_harness_release_audit_bundle(
+        self,
+        session: Session,
+        release_id: UUID,
+        payload: SearchHarnessReleaseAuditBundleRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse: ...
+
+    def get_latest_search_harness_release_audit_bundle(
+        self,
+        session: Session,
+        release_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse: ...
+
+    def get_audit_bundle_export(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse: ...
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse: ...
 
@@ -339,6 +368,47 @@ class ServicesRetrievalCapability:
         release_id: UUID,
     ) -> SearchHarnessReleaseResponse:
         return search_release_gate.get_search_harness_release_detail(session, release_id)
+
+    def create_search_harness_release_audit_bundle(
+        self,
+        session: Session,
+        release_id: UUID,
+        payload: SearchHarnessReleaseAuditBundleRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse:
+        return audit_bundles.create_search_harness_release_audit_bundle(
+            session,
+            release_id,
+            payload,
+            storage_service=storage_service,
+        )
+
+    def get_latest_search_harness_release_audit_bundle(
+        self,
+        session: Session,
+        release_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse:
+        return audit_bundles.get_latest_search_harness_release_audit_bundle(
+            session,
+            release_id,
+            storage_service=storage_service,
+        )
+
+    def get_audit_bundle_export(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse:
+        return audit_bundles.get_audit_bundle_export(
+            session,
+            bundle_id,
+            storage_service=storage_service,
+        )
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse:
         return chat.answer_question(session, request)

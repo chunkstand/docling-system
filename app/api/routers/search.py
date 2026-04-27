@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 import app.api.capabilities as api_capabilities
 from app.api.deps import (
     enforce_search_rate_limit,
+    get_storage_service,
     require_api_capability,
     require_api_key_for_mutations,
     response_field,
@@ -22,12 +23,14 @@ from app.schemas.chat import (
     ChatResponse,
 )
 from app.schemas.search import (
+    AuditBundleExportResponse,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSummaryResponse,
+    SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
@@ -43,9 +46,11 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.services.capabilities import evaluation, retrieval
+from app.services.storage import StorageService
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db_session)]
+StorageDep = Annotated[StorageService, Depends(get_storage_service)]
 HarnessEvaluationLimitQuery = Annotated[int, Query(ge=1, le=200)]
 
 execute_search = retrieval.execute_search
@@ -67,6 +72,13 @@ get_search_harness_evaluation_detail = retrieval.get_search_harness_evaluation_d
 create_search_harness_release_gate = retrieval.create_search_harness_release_gate
 list_search_harness_releases = retrieval.list_search_harness_releases
 get_search_harness_release_detail = retrieval.get_search_harness_release_detail
+create_search_harness_release_audit_bundle = (
+    retrieval.create_search_harness_release_audit_bundle
+)
+get_latest_search_harness_release_audit_bundle = (
+    retrieval.get_latest_search_harness_release_audit_bundle
+)
+get_audit_bundle_export = retrieval.get_audit_bundle_export
 explain_search_harness_evaluation = evaluation.explain_search_harness_evaluation
 answer_question = retrieval.answer_question
 record_chat_answer_feedback = retrieval.record_chat_answer_feedback
@@ -370,6 +382,63 @@ def read_search_harness_release(
     session: DbSession,
 ) -> SearchHarnessReleaseResponse:
     return get_search_harness_release_detail(session, release_id)
+
+
+@router.post(
+    "/search/harness-releases/{release_id}/audit-bundles",
+    response_model=AuditBundleExportResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_search_harness_release_audit_bundle_route(
+    response: Response,
+    release_id: UUID,
+    payload: SearchHarnessReleaseAuditBundleRequest,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleExportResponse:
+    bundle = create_search_harness_release_audit_bundle(
+        session,
+        release_id,
+        payload,
+        storage_service=storage_service,
+    )
+    session.commit()
+    bundle_id = response_field(bundle, "bundle_id")
+    response.headers["Location"] = f"/search/audit-bundles/{bundle_id}"
+    return bundle
+
+
+@router.get(
+    "/search/harness-releases/{release_id}/audit-bundles/latest",
+    response_model=AuditBundleExportResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_latest_search_harness_release_audit_bundle(
+    release_id: UUID,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleExportResponse:
+    return get_latest_search_harness_release_audit_bundle(
+        session,
+        release_id,
+        storage_service=storage_service,
+    )
+
+
+@router.get(
+    "/search/audit-bundles/{bundle_id}",
+    response_model=AuditBundleExportResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_audit_bundle_export(
+    bundle_id: UUID,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleExportResponse:
+    return get_audit_bundle_export(session, bundle_id, storage_service=storage_service)
 
 
 @router.post(

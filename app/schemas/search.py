@@ -415,6 +415,32 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
     evaluation_snapshot: dict = Field(default_factory=dict)
 
 
+class SearchHarnessReleaseAuditBundleRequest(BaseModel):
+    created_by: str | None = Field(default=None, min_length=1)
+
+
+class AuditBundleExportSummaryResponse(BaseModel):
+    schema_name: str = "audit_bundle_export"
+    schema_version: str = "1.0"
+    bundle_id: UUID
+    bundle_kind: str
+    source_table: str
+    source_id: UUID
+    payload_sha256: str
+    bundle_sha256: str
+    signature: str
+    signature_algorithm: str
+    signing_key_id: str
+    created_by: str | None = None
+    export_status: str
+    created_at: datetime
+
+
+class AuditBundleExportResponse(AuditBundleExportSummaryResponse):
+    bundle: dict = Field(default_factory=dict)
+    integrity: dict = Field(default_factory=dict)
+
+
 class SearchHarnessOptimizationRequest(BaseModel):
     base_harness_name: str = "default_v1"
     baseline_harness_name: str = "default_v1"

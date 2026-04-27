@@ -98,6 +98,7 @@ def postgres_integration_harness(
 
     monkeypatch.setattr("app.api.deps.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.api.routers.documents.get_storage_service", lambda: storage_service)
+    monkeypatch.setattr("app.api.routers.search.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.api.routers.semantics.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.api.routers.agent_tasks.get_storage_service", lambda: storage_service)
     monkeypatch.setattr("app.services.evaluations.get_settings", lambda: settings_stub)

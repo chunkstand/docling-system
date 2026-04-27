@@ -709,6 +709,31 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "review_note": "release gate",
         "created_at": "2026-04-21T00:00:02Z",
     }
+    audit_bundle_id = uuid4()
+    audit_bundle_payload = {
+        "schema_name": "audit_bundle_export",
+        "schema_version": "1.0",
+        "bundle_id": str(audit_bundle_id),
+        "bundle_kind": "search_harness_release_provenance",
+        "source_table": "search_harness_releases",
+        "source_id": str(release_id),
+        "payload_sha256": "payload-sha",
+        "bundle_sha256": "bundle-sha",
+        "signature": "sig",
+        "signature_algorithm": "hmac-sha256",
+        "signing_key_id": "test-key",
+        "created_by": "operator",
+        "export_status": "completed",
+        "created_at": "2026-04-21T00:00:03Z",
+        "bundle": {
+            "schema_name": "audit_bundle_export",
+            "payload": {
+                "schema_name": "search_harness_release_audit_payload",
+                "prov": {"wasDerivedFrom": []},
+            },
+        },
+        "integrity": {"complete": True},
+    }
     monkeypatch.setattr(
         "app.api.routers.search.create_search_harness_release_gate",
         lambda session, payload: release_payload,
@@ -722,6 +747,21 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         lambda session, lookup_release_id: {
             **release_payload,
             "release_id": str(lookup_release_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.create_search_harness_release_audit_bundle",
+        lambda session, lookup_release_id, payload, *, storage_service: audit_bundle_payload,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_latest_search_harness_release_audit_bundle",
+        lambda session, lookup_release_id, *, storage_service: audit_bundle_payload,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_audit_bundle_export",
+        lambda session, lookup_bundle_id, *, storage_service: {
+            **audit_bundle_payload,
+            "bundle_id": str(lookup_bundle_id),
         },
     )
     monkeypatch.setattr(
@@ -805,6 +845,24 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         evaluation_id
     )
 
+    audit_response = client.post(
+        f"/search/harness-releases/{release_id}/audit-bundles",
+        json={"created_by": "operator"},
+    )
+    assert audit_response.status_code == 200
+    assert audit_response.headers["Location"] == f"/search/audit-bundles/{audit_bundle_id}"
+    assert audit_response.json()["bundle_kind"] == "search_harness_release_provenance"
+
+    latest_audit_response = client.get(
+        f"/search/harness-releases/{release_id}/audit-bundles/latest"
+    )
+    assert latest_audit_response.status_code == 200
+    assert latest_audit_response.json()["integrity"]["complete"] is True
+
+    audit_detail_response = client.get(f"/search/audit-bundles/{audit_bundle_id}")
+    assert audit_detail_response.status_code == 200
+    assert audit_detail_response.json()["bundle_id"] == str(audit_bundle_id)
+
 
 def test_search_harness_descriptor_route_returns_machine_readable_error(monkeypatch) -> None:
     monkeypatch.setattr(
@@ -865,3 +923,27 @@ def test_search_harness_release_detail_route_returns_machine_readable_error(
     assert response.status_code == 404
     assert response.json()["error_code"] == "search_harness_release_not_found"
     assert response.json()["error_context"]["release_id"] == str(release_id)
+
+
+def test_search_audit_bundle_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    bundle_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_audit_bundle_export",
+        lambda session, lookup_bundle_id, *, storage_service: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "audit_bundle_export_not_found",
+                "Audit bundle export not found.",
+                bundle_id=str(lookup_bundle_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/audit-bundles/{bundle_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "audit_bundle_export_not_found"
+    assert response.json()["error_context"]["bundle_id"] == str(bundle_id)
