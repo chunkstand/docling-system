@@ -2263,6 +2263,7 @@ class RetrievalJudgment(Base):
         Index("ix_retrieval_judgments_feedback", "search_feedback_id"),
         Index("ix_retrieval_judgments_replay_query", "search_replay_query_id"),
         Index("ix_retrieval_judgments_result", "result_type", "result_id"),
+        Index("ix_retrieval_judgments_source_payload_sha", "source_payload_sha256"),
         Index("ix_retrieval_judgments_created_at", "created_at"),
     )
 
@@ -2347,6 +2348,7 @@ class RetrievalJudgment(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    source_payload_sha256: Mapped[str | None] = mapped_column(Text)
     deduplication_key: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
@@ -2382,9 +2384,11 @@ class RetrievalHardNegative(Base):
         Index("ix_retrieval_hard_negatives_source", "source_type", "source_ref_id"),
         Index("ix_retrieval_hard_negatives_feedback", "search_feedback_id"),
         Index("ix_retrieval_hard_negatives_replay_query", "search_replay_query_id"),
+        Index("ix_retrieval_hard_negatives_source_request", "source_search_request_id"),
         Index("ix_retrieval_hard_negatives_request", "search_request_id"),
         Index("ix_retrieval_hard_negatives_search_result", "search_request_result_id"),
         Index("ix_retrieval_hard_negatives_result", "result_type", "result_id"),
+        Index("ix_retrieval_hard_negatives_source_payload_sha", "source_payload_sha256"),
         Index("ix_retrieval_hard_negatives_created_at", "created_at"),
     )
 
@@ -2413,6 +2417,18 @@ class RetrievalHardNegative(Base):
     search_replay_query_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("search_replay_queries.id", ondelete="SET NULL"),
+    )
+    search_replay_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_replay_runs.id", ondelete="SET NULL"),
+    )
+    evaluation_query_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("document_run_evaluation_queries.id", ondelete="SET NULL"),
+    )
+    source_search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
     )
     search_request_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
@@ -2444,6 +2460,15 @@ class RetrievalHardNegative(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    expected_result_type: Mapped[str | None] = mapped_column(Text)
+    expected_top_n: Mapped[int | None] = mapped_column(Integer)
+    evidence_refs_json: Mapped[list] = mapped_column(
+        "evidence_refs",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     details_json: Mapped[dict] = mapped_column(
         "details",
@@ -2452,6 +2477,7 @@ class RetrievalHardNegative(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    source_payload_sha256: Mapped[str | None] = mapped_column(Text)
     deduplication_key: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

@@ -106,6 +106,6 @@ Use this export to:
 This export is a derived operator artifact, not a source of truth. The durable source of truth remains the persisted search request, feedback, replay, evaluation, and retrieval-learning ledger tables in Postgres:
 
 - `retrieval_judgment_sets` records the source mix, criteria, counts, and canonical payload hash.
-- `retrieval_judgments` stores positive, negative, and missing judgments with query, harness, result, rerank feature, and evidence-span references.
-- `retrieval_hard_negatives` stores explicit and mined hard negatives for reranker training.
-- `retrieval_training_runs` stores the canonical training payload and links it to `semantic_governance_events` for auditability.
+- `retrieval_judgments` stores positive, negative, and missing judgments with query, harness, result, rerank feature, evidence-span references, and stable source payload hashes.
+- `retrieval_hard_negatives` stores explicit and mined hard negatives for reranker training, including direct source request/replay references, evidence-span refs, stable source payload hashes, and optional positive judgment pair links.
+- `retrieval_training_runs` stores the canonical training payload, total training example count, and a link to `semantic_governance_events` for auditability.

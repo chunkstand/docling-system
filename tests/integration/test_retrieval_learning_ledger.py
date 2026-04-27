@@ -236,13 +236,21 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
     assert response["summary"]["negative_count"] == 2
     assert response["summary"]["missing_count"] == 1
     assert response["summary"]["hard_negative_count"] == 3
+    assert response["summary"]["training_example_count"] == 7
     assert {row.judgment_kind for row in judgments} == {"positive", "negative", "missing"}
     assert {row.hard_negative_kind for row in hard_negatives} >= {
         "explicit_irrelevant",
         "wrong_result_type",
     }
     assert any(row.evidence_refs_json for row in judgments if row.result_type == "chunk")
+    assert all(row.source_payload_sha256 for row in judgments)
+    assert all(row.source_payload_sha256 for row in hard_negatives)
+    assert any(row.evidence_refs_json for row in hard_negatives)
+    assert any(row.positive_judgment_id is not None for row in hard_negatives)
+    assert all(row.source_search_request_id == row.search_request_id for row in hard_negatives)
     assert training_runs[0].training_dataset_sha256 == response["training_dataset_sha256"]
+    assert training_runs[0].example_count == 7
+    assert training_runs[0].training_payload_json["summary"]["training_example_count"] == 7
     assert training_runs[0].semantic_governance_event_id == governance_events[0].id
     assert governance_events[0].event_kind == "retrieval_training_run_materialized"
     assert (

@@ -254,6 +254,7 @@ def _judgment_payload(row: dict[str, Any]) -> dict[str, Any]:
     return _json_payload(
         {
             "judgment_id": row["id"],
+            "source_payload_sha256": row.get("source_payload_sha256"),
             "judgment_kind": row["judgment_kind"],
             "judgment_label": row["judgment_label"],
             "source": {
@@ -301,6 +302,7 @@ def _hard_negative_payload(row: dict[str, Any]) -> dict[str, Any]:
     return _json_payload(
         {
             "hard_negative_id": row["id"],
+            "source_payload_sha256": row.get("source_payload_sha256"),
             "judgment_id": row["judgment_id"],
             "positive_judgment_id": row.get("positive_judgment_id"),
             "hard_negative_kind": row["hard_negative_kind"],
@@ -309,6 +311,9 @@ def _hard_negative_payload(row: dict[str, Any]) -> dict[str, Any]:
                 "source_ref_id": row.get("source_ref_id"),
                 "search_feedback_id": row.get("search_feedback_id"),
                 "search_replay_query_id": row.get("search_replay_query_id"),
+                "search_replay_run_id": row.get("search_replay_run_id"),
+                "evaluation_query_id": row.get("evaluation_query_id"),
+                "source_search_request_id": row.get("source_search_request_id"),
                 "search_request_id": row.get("search_request_id"),
                 "search_request_result_id": row.get("search_request_result_id"),
             },
@@ -316,6 +321,8 @@ def _hard_negative_payload(row: dict[str, Any]) -> dict[str, Any]:
                 "query_text": row["query_text"],
                 "mode": row["mode"],
                 "filters": row["filters_json"],
+                "expected_result_type": row.get("expected_result_type"),
+                "expected_top_n": row.get("expected_top_n"),
             },
             "result": {
                 "rank": row.get("result_rank"),
@@ -325,12 +332,90 @@ def _hard_negative_payload(row: dict[str, Any]) -> dict[str, Any]:
                 "run_id": row.get("run_id"),
                 "score": row.get("score"),
                 "rerank_features": row.get("rerank_features_json") or {},
+                "evidence_refs": row.get("evidence_refs_json") or [],
             },
             "reason": row["reason"],
             "details": row.get("details_json") or {},
             "deduplication_key": row["deduplication_key"],
         }
     )
+
+
+def _judgment_source_payload(row: dict[str, Any]) -> dict[str, Any]:
+    payload = _judgment_payload(row)
+    payload.pop("judgment_id", None)
+    payload.pop("source_payload_sha256", None)
+    payload.pop("deduplication_key", None)
+    if isinstance(payload.get("details"), dict):
+        payload["details"].pop("source_payload_sha256", None)
+    return payload
+
+
+def _hard_negative_source_payload(row: dict[str, Any]) -> dict[str, Any]:
+    payload = _hard_negative_payload(row)
+    payload.pop("hard_negative_id", None)
+    payload.pop("source_payload_sha256", None)
+    payload.pop("judgment_id", None)
+    payload.pop("positive_judgment_id", None)
+    payload.pop("deduplication_key", None)
+    if isinstance(payload.get("details"), dict):
+        payload["details"].pop("source_payload_sha256", None)
+    return payload
+
+
+def _query_signature(row: dict[str, Any]) -> str:
+    return json.dumps(
+        _json_payload(
+            {
+                "query_text": row["query_text"],
+                "mode": row["mode"],
+                "filters": row.get("filters_json") or {},
+            }
+        ),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _finalize_judgment_source_hashes(judgments: list[dict[str, Any]]) -> None:
+    for row in judgments:
+        row["source_payload_sha256"] = _payload_sha256(_judgment_source_payload(row))
+        row["payload_json"] = {
+            **(row.get("payload_json") or {}),
+            "source_payload_sha256": row["source_payload_sha256"],
+        }
+
+
+def _pair_hard_negatives_with_positive_judgments(
+    judgments: list[dict[str, Any]],
+    hard_negatives: list[dict[str, Any]],
+) -> None:
+    positives_by_query: dict[str, dict[str, Any]] = {}
+    for judgment in judgments:
+        if judgment["judgment_kind"] != RetrievalJudgmentKind.POSITIVE.value:
+            continue
+        positives_by_query.setdefault(_query_signature(judgment), judgment)
+
+    for hard_negative in hard_negatives:
+        positive = positives_by_query.get(_query_signature(hard_negative))
+        if positive is None:
+            continue
+        hard_negative["positive_judgment_id"] = positive["id"]
+        hard_negative["details_json"] = {
+            **(hard_negative.get("details_json") or {}),
+            "positive_source_payload_sha256": positive.get("source_payload_sha256"),
+            "positive_result_type": positive.get("result_type"),
+            "positive_result_id": _uuid_text(positive.get("result_id")),
+        }
+
+
+def _finalize_hard_negative_source_hashes(hard_negatives: list[dict[str, Any]]) -> None:
+    for row in hard_negatives:
+        row["source_payload_sha256"] = _payload_sha256(_hard_negative_source_payload(row))
+        row["details_json"] = {
+            **(row.get("details_json") or {}),
+            "source_payload_sha256": row["source_payload_sha256"],
+        }
 
 
 def _make_judgment_row(
@@ -425,12 +510,9 @@ def _make_judgment_row(
                 "harness_config": query.get("harness_config") or {},
             }
         ),
+        "source_payload_sha256": None,
         "deduplication_key": deduplication_key,
         "created_at": created_at,
-    }
-    row["payload_json"] = {
-        **row["payload_json"],
-        "judgment_payload_sha256": _payload_sha256(_judgment_payload(row)),
     }
     return row
 
@@ -448,6 +530,12 @@ def _make_hard_negative_row(
     reason: str,
     search_feedback_id: UUID | None = None,
     search_replay_query_id: UUID | None = None,
+    search_replay_run_id: UUID | None = None,
+    evaluation_query_id: UUID | None = None,
+    source_search_request_id: UUID | None = None,
+    expected_result_type: str | None = None,
+    expected_top_n: int | None = None,
+    evidence_refs: list[dict[str, Any]] | None = None,
     details: dict[str, Any] | None = None,
     positive_judgment_id: UUID | None = None,
 ) -> dict[str, Any]:
@@ -473,6 +561,9 @@ def _make_hard_negative_row(
         "source_ref_id": source_ref_id,
         "search_feedback_id": search_feedback_id,
         "search_replay_query_id": search_replay_query_id,
+        "search_replay_run_id": search_replay_run_id,
+        "evaluation_query_id": evaluation_query_id,
+        "source_search_request_id": source_search_request_id,
         "search_request_id": result.search_request_id,
         "search_request_result_id": result_data["search_request_result_id"],
         "result_rank": result_data["result_rank"],
@@ -485,6 +576,9 @@ def _make_hard_negative_row(
         "mode": query["mode"],
         "filters_json": query["filters"],
         "rerank_features_json": result_data["rerank_features"],
+        "expected_result_type": expected_result_type,
+        "expected_top_n": expected_top_n,
+        "evidence_refs_json": evidence_refs or [],
         "reason": reason,
         "details_json": _json_payload(
             {
@@ -507,6 +601,7 @@ def _make_hard_negative_row(
                 "harness_config": query.get("harness_config") or {},
             }
         ),
+        "source_payload_sha256": None,
         "deduplication_key": deduplication_key,
         "created_at": created_at,
     }
@@ -535,7 +630,15 @@ def _collect_feedback_sources(
     requests_by_id = _load_by_ids(session, SearchRequestRecord, request_ids)
     results_by_id = _load_by_ids(session, SearchRequestResult, result_ids)
     results_by_request_id = _group_results_by_request(session, request_ids)
-    evidence_by_result_id = _evidence_refs_by_result_id(session, result_ids)
+    evidence_by_result_id = _evidence_refs_by_result_id(
+        session,
+        result_ids
+        | {
+            result.id
+            for results in results_by_request_id.values()
+            for result in results
+        },
+    )
 
     judgments: list[dict[str, Any]] = []
     hard_negatives: list[dict[str, Any]] = []
@@ -601,6 +704,8 @@ def _collect_feedback_sources(
                     created_at=created_at,
                     reason="Operator explicitly marked the result irrelevant.",
                     search_feedback_id=feedback.id,
+                    source_search_request_id=feedback.search_request_id,
+                    evidence_refs=evidence_by_result_id.get(result.id, []),
                     details={"feedback_type": feedback.feedback_type, "note": feedback.note},
                 )
             )
@@ -624,6 +729,9 @@ def _collect_feedback_sources(
                         created_at=created_at,
                         reason=f"Expected {expected_type} evidence was missing before this result.",
                         search_feedback_id=feedback.id,
+                        source_search_request_id=feedback.search_request_id,
+                        expected_result_type=expected_type,
+                        evidence_refs=evidence_by_result_id.get(candidate.id, []),
                         details={
                             "feedback_type": feedback.feedback_type,
                             "note": feedback.note,
@@ -645,6 +753,8 @@ def _collect_feedback_sources(
                         created_at=created_at,
                         reason="Operator indicated the query should not have returned an answer.",
                         search_feedback_id=feedback.id,
+                        source_search_request_id=feedback.search_request_id,
+                        evidence_refs=evidence_by_result_id.get(candidate.id, []),
                         details={"feedback_type": feedback.feedback_type, "note": feedback.note},
                     )
                 )
@@ -839,6 +949,12 @@ def _collect_replay_sources(
                 reason="Replay failure selected the top ranked result as a hard negative.",
                 search_feedback_id=replay_query.feedback_id,
                 search_replay_query_id=replay_query.id,
+                search_replay_run_id=replay_query.replay_run_id,
+                evaluation_query_id=replay_query.evaluation_query_id,
+                source_search_request_id=replay_query.source_search_request_id,
+                expected_result_type=replay_query.expected_result_type,
+                expected_top_n=replay_query.expected_top_n,
+                evidence_refs=evidence_by_result_id.get(result.id, []),
                 details=source_details,
             )
         )
@@ -916,12 +1032,19 @@ def materialize_retrieval_learning_dataset(
 
     judgments.sort(key=lambda row: row["deduplication_key"])
     hard_negatives.sort(key=lambda row: row["deduplication_key"])
+    _finalize_judgment_source_hashes(judgments)
+    _pair_hard_negatives_with_positive_judgments(judgments, hard_negatives)
+    _finalize_hard_negative_source_hashes(hard_negatives)
     summary = _summary(
         source_types=normalized_source_types,
         limit=limit,
         judgments=judgments,
         hard_negatives=hard_negatives,
     )
+    summary = {
+        **summary,
+        "training_example_count": summary["judgment_count"] + summary["hard_negative_count"],
+    }
     training_payload = _json_payload(
         {
             "schema_name": RETRIEVAL_LEARNING_DATASET_SCHEMA,
@@ -985,7 +1108,7 @@ def materialize_retrieval_learning_dataset(
         training_dataset_sha256=dataset_sha256,
         training_payload_json=training_payload,
         summary_json=summary,
-        example_count=summary["judgment_count"],
+        example_count=summary["training_example_count"],
         positive_count=summary["positive_count"],
         negative_count=summary["negative_count"],
         missing_count=summary["missing_count"],
