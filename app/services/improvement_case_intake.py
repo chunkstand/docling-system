@@ -441,6 +441,22 @@ def _select_import_source_specs(source: str) -> tuple[ImprovementCaseImportSourc
     return (_IMPORT_SOURCE_REGISTRY[source],)
 
 
+def _validate_source_path_support(
+    source_specs: tuple[ImprovementCaseImportSourceSpec, ...],
+    source_path: str | Path | None,
+) -> None:
+    if source_path is None or any(spec.accepts_source_path for spec in source_specs):
+        return
+    supported_sources = ", ".join(
+        spec.source for spec in _IMPORT_SOURCE_SPECS if spec.accepts_source_path
+    )
+    selected_sources = ", ".join(spec.source for spec in source_specs)
+    raise ValueError(
+        f"source_path is not supported for import source '{selected_sources}'. "
+        f"Sources that accept source_path: {supported_sources}."
+    )
+
+
 def collect_improvement_case_import_observations(
     *,
     source: str = "hygiene",
@@ -451,6 +467,7 @@ def collect_improvement_case_import_observations(
     project_root: Path | None = None,
 ) -> list[ImprovementCaseObservation]:
     source_specs = _select_import_source_specs(source)
+    _validate_source_path_support(source_specs, source_path)
     observations: list[ImprovementCaseObservation] = []
     base_context = ImprovementCaseImportSourceContext(
         limit=limit,

@@ -1848,7 +1848,7 @@ def test_improvement_case_import_cli_delegates_to_service(
             "--path",
             str(registry_path),
             "--source",
-            "hygiene",
+            "architecture-governance-report",
             "--limit",
             "5",
             "--workflow-version",
@@ -1863,7 +1863,7 @@ def test_improvement_case_import_cli_delegates_to_service(
 
     output = json.loads(capsys.readouterr().out.strip())
     assert captured == {
-        "source": "hygiene",
+        "source": "architecture-governance-report",
         "limit": 5,
         "workflow_version": "improvement_v2",
         "path": str(registry_path),

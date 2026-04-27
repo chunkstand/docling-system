@@ -180,6 +180,16 @@ def test_collect_architecture_governance_report_rejects_wrong_schema(
         )
 
 
+def test_collect_import_observations_rejects_source_path_for_unsupported_source(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="source_path is not supported"):
+        intake.collect_improvement_case_import_observations(
+            source="hygiene",
+            source_path=tmp_path / "architecture_governance_report.json",
+        )
+
+
 def test_collect_import_observations_routes_db_sources_through_one_session(
     monkeypatch,
 ) -> None:
@@ -231,6 +241,49 @@ def test_collect_import_observations_routes_db_sources_through_one_session(
         "agent_task",
         "agent_verification",
     ]
+
+
+def test_collect_import_observations_all_accepts_source_path_for_file_source(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(report_path)
+    monkeypatch.setattr(
+        intake,
+        "collect_hygiene_import_observations",
+        lambda *, limit, workflow_version, project_root=None: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_eval_failure_case_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_task_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_verification_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="all",
+        source_path=report_path,
+        session_factory=lambda: FakeSession(),
+    )
+
+    assert observations == []
 
 
 def test_run_import_facade_writes_and_dedupes_cases(monkeypatch, tmp_path) -> None:
