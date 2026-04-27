@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from copy import deepcopy
@@ -7,12 +8,13 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text, update
 
 from app.core.config import get_settings
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskArtifactImmutabilityEvent,
     ClaimEvidenceDerivation,
     EvidenceManifest,
     EvidencePackageExport,
@@ -38,6 +40,21 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _load_revision_0044():
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "alembic"
+        / "versions"
+        / "0044_prov_artifact_immutability.py"
+    )
+    spec = importlib.util.spec_from_file_location("revision_0044_prov_artifact_immutability", path)
+    if spec is None or spec.loader is None:
+        raise AssertionError("Failed to load 0044 migration module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _process_next_task(postgres_integration_harness) -> UUID:
     with postgres_integration_harness.session_factory() as session:
         task = claim_next_agent_task(session, "technical-report-worker")
@@ -46,13 +63,20 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         return task.id
 
 
-def test_technical_report_harness_roundtrip(postgres_integration_harness, monkeypatch, tmp_path):
+def test_technical_report_harness_roundtrip(
+    postgres_integration_harness,
+    postgres_schema_engine,
+    monkeypatch,
+    tmp_path,
+):
     registry_path = tmp_path / "config" / "semantic_registry.yaml"
     eval_corpus_path = tmp_path / "docs" / "semantic_evaluation_corpus.yaml"
     _write_registry(registry_path)
     _write_semantic_eval_corpus(eval_corpus_path)
     monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
     monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH", str(eval_corpus_path))
+    monkeypatch.setenv("DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY", "technical-report-secret")
+    monkeypatch.setenv("DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY_ID", "technical-report-key")
     get_settings.cache_clear()
     clear_semantic_registry_cache()
 
@@ -328,6 +352,14 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         assert stored_prov_export["frozen_export"]["artifact_id"] == str(prov_artifact.id)
         assert stored_prov_export["frozen_export"]["storage_path"] == prov_artifact.storage_path
         assert stored_prov_export["frozen_export"]["export_payload_sha256"]
+        receipt = stored_prov_export["frozen_export"]["export_receipt"]
+        assert receipt["schema_name"] == "technical_report_prov_export_receipt"
+        assert receipt["hash_chain_complete"] is True
+        assert receipt["signature_status"] == "signed"
+        assert receipt["signature_algorithm"] == "hmac-sha256"
+        assert receipt["signing_key_id"] == "technical-report-key"
+        assert receipt["receipt_sha256"]
+        assert receipt["signature"]
         prov_artifact_id = prov_artifact.id
         prov_artifact_sha256 = stored_prov_export["frozen_export"]["export_payload_sha256"]
 
@@ -344,6 +376,9 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_source_evidence_packages"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_prov_export"] is True
+    assert audit_bundle["audit_checklist"]["has_prov_export_receipt"] is True
+    assert audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"] is True
+    assert audit_bundle["audit_checklist"]["no_prov_export_immutability_events"] is True
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
@@ -394,6 +429,11 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
         row["artifact_kind"] == "technical_report_prov_export"
         for row in audit_bundle["artifacts"]
     )
+    assert len(audit_bundle["provenance_export_receipts"]) == 1
+    assert audit_bundle["provenance_export_receipts"][0]["export_receipt"][
+        "signature_status"
+    ] == "signed"
+    assert audit_bundle["provenance_export_immutability_events"] == []
     assert all(
         row["trace_integrity"]["complete"]
         for row in audit_bundle["search_evidence_package_traces"]
@@ -481,6 +521,8 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     assert provenance["frozen_export"]["artifact_id"] == str(prov_artifact_id)
     assert provenance["frozen_export"]["artifact_kind"] == "technical_report_prov_export"
     assert provenance["frozen_export"]["export_payload_sha256"] == prov_artifact_sha256
+    assert provenance["frozen_export"]["export_receipt"]["signature_status"] == "signed"
+    assert provenance["frozen_export"]["export_receipt"]["hash_chain_complete"] is True
     assert provenance["prov_integrity"]["all_relation_references_declared"] is True
     assert provenance["prov_integrity"]["missing_relation_reference_count"] == 0
     assert provenance["prov_integrity"]["relation_count"] == provenance["prov_summary"][
@@ -530,6 +572,67 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
             )
         )
     assert prov_artifact_count == 1
+
+    revision_0044 = _load_revision_0044()
+    _engine, schema_name = postgres_schema_engine
+    with postgres_integration_harness.session_factory() as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+        session.execute(
+            text(
+                revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_FUNCTION_SQL
+            )
+        )
+        session.execute(
+            text(
+                revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_TRIGGER_SQL
+            )
+        )
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+        session.execute(
+            update(AgentTaskArtifact)
+            .where(AgentTaskArtifact.id == prov_artifact_id)
+            .values(payload_json={"tampered": True})
+        )
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        prov_artifact = session.get(AgentTaskArtifact, prov_artifact_id)
+        assert prov_artifact is not None
+        assert prov_artifact.payload_json["frozen_export"]["artifact_id"] == str(
+            prov_artifact_id
+        )
+        mutation_events = list(
+            session.scalars(
+                select(AgentTaskArtifactImmutabilityEvent).where(
+                    AgentTaskArtifactImmutabilityEvent.artifact_id == prov_artifact_id
+                )
+            )
+        )
+        assert len(mutation_events) == 1
+        assert mutation_events[0].event_kind == "mutation_blocked"
+        assert mutation_events[0].mutation_operation == "UPDATE"
+        assert mutation_events[0].attempted_payload_sha256 is None
+
+    with postgres_integration_harness.session_factory() as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+        session.execute(
+            delete(AgentTaskArtifact).where(AgentTaskArtifact.id == prov_artifact_id)
+        )
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        assert session.get(AgentTaskArtifact, prov_artifact_id) is not None
+        mutation_events = list(
+            session.scalars(
+                select(AgentTaskArtifactImmutabilityEvent)
+                .where(AgentTaskArtifactImmutabilityEvent.artifact_id == prov_artifact_id)
+                .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+            )
+        )
+        assert [row.mutation_operation for row in mutation_events] == ["UPDATE", "DELETE"]
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(

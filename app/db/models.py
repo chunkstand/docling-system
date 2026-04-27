@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     Text,
@@ -2710,6 +2711,55 @@ class AgentTaskArtifact(Base):
     storage_path: Mapped[str | None] = mapped_column(Text)
     payload_json: Mapped[dict] = mapped_column(
         "payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class AgentTaskArtifactImmutabilityEvent(Base):
+    __tablename__ = "agent_task_artifact_immutability_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_kind IN ('mutation_blocked', 'supersession_attempt')",
+            name="ck_agent_artifact_immut_events_event_kind",
+        ),
+        CheckConstraint(
+            "mutation_operation IN ('UPDATE', 'DELETE', 'FREEZE_REUSE')",
+            name="ck_agent_artifact_immut_events_mutation_op",
+        ),
+        Index(
+            "ix_agent_artifact_immut_events_artifact_created",
+            "artifact_id",
+            "created_at",
+        ),
+        Index("ix_agent_artifact_immut_events_task_created", "task_id", "created_at"),
+        Index("ix_agent_artifact_immut_events_kind", "event_kind"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, Identity(), primary_key=True)
+    artifact_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_artifacts.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    event_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    mutation_operation: Mapped[str] = mapped_column(Text, nullable=False)
+    frozen_artifact_kind: Mapped[str | None] = mapped_column(Text)
+    attempted_artifact_kind: Mapped[str | None] = mapped_column(Text)
+    frozen_storage_path: Mapped[str | None] = mapped_column(Text)
+    attempted_storage_path: Mapped[str | None] = mapped_column(Text)
+    frozen_payload_sha256: Mapped[str | None] = mapped_column(Text)
+    attempted_payload_sha256: Mapped[str | None] = mapped_column(Text)
+    details_json: Mapped[dict] = mapped_column(
+        "details",
         JSONB,
         nullable=False,
         default=dict,

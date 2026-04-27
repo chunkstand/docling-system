@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import uuid
 from collections.abc import Iterable
@@ -11,10 +12,12 @@ from uuid import UUID
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskArtifactImmutabilityEvent,
     AgentTaskVerification,
     ClaimEvidenceDerivation,
     Document,
@@ -43,6 +46,8 @@ from app.services.storage import StorageService
 
 TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
 TECHNICAL_REPORT_PROV_EXPORT_FILENAME = "technical_report_prov_export.json"
+TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA = "technical_report_prov_export_receipt"
+PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM = "hmac-sha256"
 _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
 
 
@@ -1701,6 +1706,38 @@ def _artifact_payload(row: AgentTaskArtifact) -> dict:
         "task_id": row.task_id,
         "artifact_kind": row.artifact_kind,
         "storage_path": row.storage_path,
+        "created_at": row.created_at,
+    }
+
+
+def _provenance_export_receipt_payload(row: AgentTaskArtifact) -> dict:
+    payload = _json_payload(row.payload_json or {})
+    frozen_export = payload.get("frozen_export") or {}
+    return {
+        "artifact_id": row.id,
+        "task_id": row.task_id,
+        "artifact_kind": row.artifact_kind,
+        "storage_path": row.storage_path,
+        "export_payload_sha256": frozen_export.get("export_payload_sha256"),
+        "prov_hash_basis_sha256": frozen_export.get("prov_hash_basis_sha256"),
+        "export_receipt": _frozen_export_receipt(payload),
+    }
+
+
+def _immutability_event_payload(row: AgentTaskArtifactImmutabilityEvent) -> dict:
+    return {
+        "event_id": row.id,
+        "artifact_id": row.artifact_id,
+        "task_id": row.task_id,
+        "event_kind": row.event_kind,
+        "mutation_operation": row.mutation_operation,
+        "frozen_artifact_kind": row.frozen_artifact_kind,
+        "attempted_artifact_kind": row.attempted_artifact_kind,
+        "frozen_storage_path": row.frozen_storage_path,
+        "attempted_storage_path": row.attempted_storage_path,
+        "frozen_payload_sha256": row.frozen_payload_sha256,
+        "attempted_payload_sha256": row.attempted_payload_sha256,
+        "details": row.details_json or {},
         "created_at": row.created_at,
     }
 
@@ -4554,6 +4591,91 @@ def _existing_prov_export_artifact(
     )
 
 
+def _prov_export_receipt_signature(receipt_sha256: str) -> dict[str, Any]:
+    settings = get_settings()
+    signing_key = getattr(settings, "audit_bundle_signing_key", None)
+    if not signing_key:
+        return {
+            "signature_status": "unsigned",
+            "signature": None,
+            "signature_algorithm": PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM,
+            "signing_key_id": None,
+        }
+    signing_key_id = getattr(settings, "audit_bundle_signing_key_id", None) or "local"
+    signature = hmac.new(
+        str(signing_key).encode("utf-8"),
+        receipt_sha256.encode("ascii"),
+        hashlib.sha256,
+    ).hexdigest()
+    return {
+        "signature_status": "signed",
+        "signature": signature,
+        "signature_algorithm": PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM,
+        "signing_key_id": str(signing_key_id),
+    }
+
+
+def _prov_export_receipt(
+    prov_export: dict[str, Any],
+    *,
+    artifact_id: UUID,
+    task_id: UUID,
+    created_at: Any,
+    storage_path: str | None,
+    export_payload_sha256: str | None,
+    prov_hash_basis_sha256: str | None,
+) -> dict[str, Any]:
+    audit = prov_export.get("audit") or {}
+    frozen_at = created_at.isoformat() if hasattr(created_at, "isoformat") else created_at
+    receipt_core = {
+        "schema_name": TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA,
+        "schema_version": "1.0",
+        "artifact_id": str(artifact_id),
+        "artifact_kind": TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND,
+        "task_id": str(task_id),
+        "storage_path": storage_path,
+        "frozen_at": frozen_at,
+        "receipt_policy": (
+            "Hash-chain receipt for the immutable technical-report PROV export. "
+            "The receipt links the evidence manifest, evidence trace, PROV hash basis, "
+            "and frozen export payload."
+        ),
+        "hash_chain": [
+            {
+                "position": 1,
+                "name": "evidence_manifest",
+                "sha256": audit.get("manifest_sha256"),
+            },
+            {
+                "position": 2,
+                "name": "evidence_trace",
+                "sha256": audit.get("trace_sha256"),
+            },
+            {
+                "position": 3,
+                "name": "prov_hash_basis",
+                "sha256": prov_hash_basis_sha256,
+                "derived_from": ["evidence_manifest", "evidence_trace"],
+            },
+            {
+                "position": 4,
+                "name": "technical_report_prov_export",
+                "sha256": export_payload_sha256,
+                "derived_from": ["prov_hash_basis"],
+            },
+        ],
+    }
+    receipt_core["hash_chain_complete"] = all(
+        bool(item.get("sha256")) for item in receipt_core["hash_chain"]
+    )
+    receipt_sha256 = str(payload_sha256(receipt_core))
+    return {
+        **receipt_core,
+        "receipt_sha256": receipt_sha256,
+        **_prov_export_receipt_signature(receipt_sha256),
+    }
+
+
 def _frozen_prov_export_payload(
     prov_export: dict[str, Any],
     *,
@@ -4563,6 +4685,8 @@ def _frozen_prov_export_payload(
     storage_path: str | None,
 ) -> dict[str, Any]:
     frozen_payload = _json_payload(prov_export)
+    export_payload_sha256 = payload_sha256(prov_export)
+    prov_hash_basis_sha256 = (prov_export.get("prov_integrity") or {}).get("prov_sha256")
     frozen_payload["frozen_export"] = {
         "schema_name": "technical_report_prov_export_freeze",
         "schema_version": "1.0",
@@ -4575,12 +4699,82 @@ def _frozen_prov_export_payload(
             "The first completed technical-report PROV export is persisted as an "
             "agent-task artifact and reused for subsequent reads."
         ),
-        "export_payload_sha256": payload_sha256(prov_export),
-        "prov_hash_basis_sha256": (prov_export.get("prov_integrity") or {}).get(
-            "prov_sha256"
+        "export_payload_sha256": export_payload_sha256,
+        "prov_hash_basis_sha256": prov_hash_basis_sha256,
+        "export_receipt": _prov_export_receipt(
+            prov_export,
+            artifact_id=artifact_id,
+            task_id=task_id,
+            created_at=created_at,
+            storage_path=storage_path,
+            export_payload_sha256=export_payload_sha256,
+            prov_hash_basis_sha256=prov_hash_basis_sha256,
         ),
     }
     return _json_payload(frozen_payload)
+
+
+def _frozen_export_sha256(payload: dict[str, Any] | None) -> str | None:
+    frozen_export = (payload or {}).get("frozen_export") or {}
+    return frozen_export.get("export_payload_sha256")
+
+
+def _frozen_export_receipt(payload: dict[str, Any] | None) -> dict[str, Any]:
+    frozen_export = (payload or {}).get("frozen_export") or {}
+    receipt = frozen_export.get("export_receipt")
+    return receipt if isinstance(receipt, dict) else {}
+
+
+def _record_prov_export_supersession_attempt(
+    session: Session,
+    *,
+    existing: AgentTaskArtifact,
+    attempted_prov_export: dict[str, Any],
+) -> AgentTaskArtifactImmutabilityEvent | None:
+    existing_payload = _json_payload(existing.payload_json or {})
+    existing_sha256 = _frozen_export_sha256(existing_payload)
+    attempted_sha256 = payload_sha256(attempted_prov_export)
+    if existing_sha256 == attempted_sha256:
+        return None
+
+    duplicate = session.scalar(
+        select(AgentTaskArtifactImmutabilityEvent)
+        .where(
+            AgentTaskArtifactImmutabilityEvent.artifact_id == existing.id,
+            AgentTaskArtifactImmutabilityEvent.event_kind == "supersession_attempt",
+            AgentTaskArtifactImmutabilityEvent.frozen_payload_sha256 == existing_sha256,
+            AgentTaskArtifactImmutabilityEvent.attempted_payload_sha256 == attempted_sha256,
+        )
+        .limit(1)
+    )
+    if duplicate is not None:
+        return duplicate
+
+    existing_receipt = _frozen_export_receipt(existing_payload)
+    event = AgentTaskArtifactImmutabilityEvent(
+        artifact_id=existing.id,
+        task_id=existing.task_id,
+        event_kind="supersession_attempt",
+        mutation_operation="FREEZE_REUSE",
+        frozen_artifact_kind=existing.artifact_kind,
+        attempted_artifact_kind=TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND,
+        frozen_storage_path=existing.storage_path,
+        attempted_storage_path=existing.storage_path,
+        frozen_payload_sha256=existing_sha256,
+        attempted_payload_sha256=attempted_sha256,
+        details_json={
+            "reason": "A new PROV export was computed after the frozen artifact already existed.",
+            "action": "kept_existing_frozen_artifact",
+            "existing_receipt_sha256": existing_receipt.get("receipt_sha256"),
+            "attempted_prov_hash_basis_sha256": (
+                attempted_prov_export.get("prov_integrity") or {}
+            ).get("prov_sha256"),
+        },
+        created_at=utcnow(),
+    )
+    session.add(event)
+    session.flush()
+    return event
 
 
 def persist_agent_task_provenance_export(
@@ -4595,6 +4789,12 @@ def persist_agent_task_provenance_export(
     verification_task_id = _verification_task_id_for_manifest(session, task)
     existing = _existing_prov_export_artifact(session, verification_task_id)
     if existing is not None:
+        attempted_prov_export = _build_agent_task_provenance_export(session, verification_task_id)
+        _record_prov_export_supersession_attempt(
+            session,
+            existing=existing,
+            attempted_prov_export=attempted_prov_export,
+        )
         return existing
 
     artifact_id = uuid.uuid4()
@@ -4731,6 +4931,21 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         for row in artifacts
         if row.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
     ]
+    prov_export_artifact_ids = [row.id for row in prov_export_artifacts]
+    prov_export_receipts = [
+        _provenance_export_receipt_payload(row) for row in prov_export_artifacts
+    ]
+    prov_export_immutability_events = (
+        list(
+            session.scalars(
+                select(AgentTaskArtifactImmutabilityEvent)
+                .where(AgentTaskArtifactImmutabilityEvent.artifact_id.in_(prov_export_artifact_ids))
+                .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+            )
+        )
+        if prov_export_artifact_ids
+        else []
+    )
     exports = list(
         session.scalars(
             select(EvidencePackageExport)
@@ -4787,6 +5002,10 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         "verification": verification_payload,
         "verification_record": _verification_payload(verification_row),
         "artifacts": [_artifact_payload(row) for row in artifacts],
+        "provenance_export_receipts": prov_export_receipts,
+        "provenance_export_immutability_events": [
+            _immutability_event_payload(row) for row in prov_export_immutability_events
+        ],
         "evidence_package_exports": [_evidence_export_payload(row) for row in exports],
         "search_evidence_package_traces": source_evidence_closure["trace_summaries"],
         "source_evidence_closure": source_evidence_closure,
@@ -4801,6 +5020,16 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "hash_integrity_verified": hash_integrity_verified,
             "has_frozen_source_evidence_packages": bool(search_exports),
             "has_frozen_prov_export": bool(prov_export_artifacts),
+            "has_prov_export_receipt": bool(prov_export_receipts)
+            and all(
+                (row.get("export_receipt") or {}).get("receipt_sha256")
+                for row in prov_export_receipts
+            ),
+            "has_signed_prov_export_receipt": any(
+                (row.get("export_receipt") or {}).get("signature_status") == "signed"
+                for row in prov_export_receipts
+            ),
+            "no_prov_export_immutability_events": not prov_export_immutability_events,
             "source_evidence_trace_integrity_verified": (
                 source_evidence_trace_integrity_verified
             ),
@@ -4824,6 +5053,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
+        and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
+        and audit_bundle["audit_checklist"]["no_prov_export_immutability_events"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
     )
