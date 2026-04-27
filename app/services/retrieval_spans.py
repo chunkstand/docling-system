@@ -5,6 +5,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
+from time import perf_counter
 from uuid import UUID
 
 import structlog
@@ -21,6 +22,7 @@ from app.db.models import (
     RetrievalEvidenceSpanMultiVector,
 )
 from app.services.embeddings import EmbeddingProvider
+from app.services.evidence import record_knowledge_operator_run
 
 logger = structlog.get_logger(__name__)
 
@@ -398,6 +400,7 @@ def rebuild_retrieval_evidence_span_multivectors(
         )
     )
     specs = [spec for span in spans for spec in build_span_multivector_specs(span)]
+    spans_by_id = {span.id: span for span in spans}
     session.execute(
         delete(RetrievalEvidenceSpanMultiVector).where(
             RetrievalEvidenceSpanMultiVector.run_id == run.id
@@ -418,6 +421,8 @@ def rebuild_retrieval_evidence_span_multivectors(
 
     embedding_status = "completed"
     embedding_error: str | None = None
+    embedding_start = utcnow()
+    embedding_timer_start = perf_counter()
     try:
         raw_embeddings = embedding_provider.embed_texts([spec.vector_text for spec in specs])
         embeddings = [list(embedding) for embedding in raw_embeddings]
@@ -429,6 +434,55 @@ def rebuild_retrieval_evidence_span_multivectors(
             run_id=str(run.id),
             document_id=str(run.document_id),
             error=str(exc),
+        )
+        record_knowledge_operator_run(
+            session,
+            operator_kind="embed",
+            operator_name="retrieval_evidence_span_multivector_generation",
+            operator_version=MULTIVECTOR_SCHEMA_VERSION,
+            status="failed",
+            document_id=run.document_id,
+            run_id=run.id,
+            model_name=str(getattr(embedding_provider, "model", "unknown")),
+            config={
+                "schema_name": MULTIVECTOR_SCHEMA_VERSION,
+                "word_window": MULTIVECTOR_WORD_WINDOW,
+                "word_overlap": MULTIVECTOR_WORD_OVERLAP,
+                "min_trailing_words": MULTIVECTOR_MIN_TRAILING_WORDS,
+            },
+            input_payload={
+                "run_id": str(run.id),
+                "source_span_count": len(spans),
+                "requested_multivector_count": len(specs),
+            },
+            output_payload={
+                "embedding_status": embedding_status,
+                "embedding_error": embedding_error,
+            },
+            metrics={
+                "source_span_count": len(spans),
+                "requested_multivector_count": len(specs),
+                "multivector_count": 0,
+            },
+            metadata={"embedding_error": embedding_error},
+            inputs=[
+                {
+                    "input_kind": "retrieval_evidence_span",
+                    "source_table": "retrieval_evidence_spans",
+                    "source_id": span.id,
+                    "payload": {
+                        "source_type": span.source_type,
+                        "source_id": str(span.source_id),
+                        "span_index": span.span_index,
+                        "content_sha256": span.content_sha256,
+                        "source_snapshot_sha256": span.source_snapshot_sha256,
+                    },
+                }
+                for span in spans
+            ],
+            started_at=embedding_start,
+            completed_at=utcnow(),
+            duration_ms=round((perf_counter() - embedding_timer_start) * 1000, 3),
         )
         session.flush()
         return {
@@ -444,34 +498,124 @@ def rebuild_retrieval_evidence_span_multivectors(
 
     now = utcnow()
     embedding_model = str(getattr(embedding_provider, "model", "unknown"))
+    vector_rows: list[RetrievalEvidenceSpanMultiVector] = []
     for spec, embedding in zip(specs, embeddings, strict=True):
         embedding_sha256 = _embedding_sha256(embedding)
-        session.add(
-            RetrievalEvidenceSpanMultiVector(
-                id=uuid.uuid4(),
-                retrieval_evidence_span_id=spec.retrieval_evidence_span_id,
-                document_id=spec.document_id,
-                run_id=spec.run_id,
-                source_type=spec.source_type,
-                source_id=spec.source_id,
-                vector_index=spec.vector_index,
-                token_start=spec.token_start,
-                token_end=spec.token_end,
-                vector_text=spec.vector_text,
-                content_sha256=spec.content_sha256,
-                embedding_model=embedding_model,
-                embedding_dim=len(embedding),
-                embedding_sha256=embedding_sha256,
-                embedding=embedding,
-                metadata_json={
-                    **spec.metadata,
-                    "embedding_status": embedding_status,
-                    "embedding_model": embedding_model,
-                    "embedding_sha256": embedding_sha256,
-                },
-                created_at=now,
-            )
+        row = RetrievalEvidenceSpanMultiVector(
+            id=uuid.uuid4(),
+            retrieval_evidence_span_id=spec.retrieval_evidence_span_id,
+            document_id=spec.document_id,
+            run_id=spec.run_id,
+            source_type=spec.source_type,
+            source_id=spec.source_id,
+            vector_index=spec.vector_index,
+            token_start=spec.token_start,
+            token_end=spec.token_end,
+            vector_text=spec.vector_text,
+            content_sha256=spec.content_sha256,
+            embedding_model=embedding_model,
+            embedding_dim=len(embedding),
+            embedding_sha256=embedding_sha256,
+            embedding=embedding,
+            metadata_json={
+                **spec.metadata,
+                "embedding_status": embedding_status,
+                "embedding_model": embedding_model,
+                "embedding_sha256": embedding_sha256,
+            },
+            created_at=now,
         )
+        vector_rows.append(row)
+        session.add(row)
+    session.flush()
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="embed",
+        operator_name="retrieval_evidence_span_multivector_generation",
+        operator_version=MULTIVECTOR_SCHEMA_VERSION,
+        document_id=run.document_id,
+        run_id=run.id,
+        model_name=embedding_model,
+        config={
+            "schema_name": MULTIVECTOR_SCHEMA_VERSION,
+            "word_window": MULTIVECTOR_WORD_WINDOW,
+            "word_overlap": MULTIVECTOR_WORD_OVERLAP,
+            "min_trailing_words": MULTIVECTOR_MIN_TRAILING_WORDS,
+            "embedding_dim": 1536,
+        },
+        input_payload={
+            "run_id": str(run.id),
+            "source_span_count": len(spans),
+            "source_span_content_sha256s": [span.content_sha256 for span in spans],
+        },
+        output_payload={
+            "embedding_status": embedding_status,
+            "embedding_model": embedding_model,
+            "multivector_count": len(vector_rows),
+            "multivector_content_sha256s": [row.content_sha256 for row in vector_rows],
+            "embedding_sha256s": [row.embedding_sha256 for row in vector_rows],
+        },
+        metrics={
+            "source_span_count": len(spans),
+            "multivector_count": len(vector_rows),
+            "chunk_multivector_count": sum(1 for row in vector_rows if row.source_type == "chunk"),
+            "table_multivector_count": sum(1 for row in vector_rows if row.source_type == "table"),
+        },
+        metadata={
+            "audit_role": (
+                "records source retrieval spans and generated span multivectors for "
+                "late-interaction retrieval"
+            ),
+            "embedding_status": embedding_status,
+        },
+        inputs=[
+            {
+                "input_kind": "retrieval_evidence_span",
+                "source_table": "retrieval_evidence_spans",
+                "source_id": span.id,
+                "payload": {
+                    "source_type": span.source_type,
+                    "source_id": str(span.source_id),
+                    "span_index": span.span_index,
+                    "content_sha256": span.content_sha256,
+                    "source_snapshot_sha256": span.source_snapshot_sha256,
+                },
+            }
+            for span in spans
+        ],
+        outputs=[
+            {
+                "output_kind": "retrieval_evidence_span_multivector",
+                "target_table": "retrieval_evidence_span_multivectors",
+                "target_id": row.id,
+                "payload": {
+                    "retrieval_evidence_span_id": str(row.retrieval_evidence_span_id),
+                    "source_span_content_sha256": spans_by_id[
+                        row.retrieval_evidence_span_id
+                    ].content_sha256,
+                    "source_type": row.source_type,
+                    "source_id": str(row.source_id),
+                    "vector_index": row.vector_index,
+                    "token_start": row.token_start,
+                    "token_end": row.token_end,
+                    "content_sha256": row.content_sha256,
+                    "embedding_model": row.embedding_model,
+                    "embedding_dim": row.embedding_dim,
+                    "embedding_sha256": row.embedding_sha256,
+                },
+            }
+            for row in vector_rows
+        ],
+        started_at=embedding_start,
+        completed_at=utcnow(),
+        duration_ms=round((perf_counter() - embedding_timer_start) * 1000, 3),
+    )
+    if operator_run is not None:
+        for row in vector_rows:
+            row.metadata_json = {
+                **(row.metadata_json or {}),
+                "generation_operator_run_id": str(operator_run.id),
+            }
     session.flush()
     return {
         "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
@@ -483,6 +627,7 @@ def rebuild_retrieval_evidence_span_multivectors(
         "embedding_status": embedding_status,
         "embedding_error": embedding_error,
         "embedding_model": embedding_model,
+        "generation_operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
 
 

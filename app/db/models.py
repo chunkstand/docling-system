@@ -1613,7 +1613,7 @@ class RetrievalEvidenceSpanMultiVector(Base):
     content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_model: Mapped[str] = mapped_column(Text, nullable=False)
     embedding_dim: Mapped[int] = mapped_column(Integer, nullable=False)
-    embedding_sha256: Mapped[str | None] = mapped_column(Text)
+    embedding_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
     metadata_json: Mapped[dict] = mapped_column(
         "metadata",

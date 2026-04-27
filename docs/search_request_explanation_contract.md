@@ -45,6 +45,6 @@ Span candidate counts are derived from persisted search telemetry and result-spa
 
 If an active legacy run is missing retrieval evidence spans, search may rebuild the span index before candidate generation and record `details.retrieval_span_backfill`. That backfill is additive and derived from canonical chunk/table rows.
 
-For `multivector_v1`, persisted request details and result-span metadata include the late-interaction max-sim trace. The compact explanation should summarize candidate counts and fallback status, while the detailed request surfaces retain query-vector hashes, span-vector ids, vector text, token ranges, and similarity scores. `/search/requests/{id}/evidence-package` also materializes the referenced span-vector rows with content, embedding, and snapshot hashes.
+For `multivector_v1`, persisted request details and result-span metadata include the late-interaction max-sim trace. The compact explanation should summarize candidate counts and fallback status, while the detailed request surfaces retain query-vector hashes, span-vector ids, vector text, token ranges, and similarity scores. `/search/requests/{id}/evidence-package` also materializes the referenced span-vector rows with content, embedding, and snapshot hashes, plus a search evidence trace graph linking source span -> multivector generation operator -> span vector -> selected result span.
 
 YAML renderings may be added as derived artifacts, but JSON remains the machine-facing contract.

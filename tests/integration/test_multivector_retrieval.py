@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 
 from app.db.models import (
     DocumentRun,
+    KnowledgeOperatorOutput,
+    KnowledgeOperatorRun,
     RetrievalEvidenceSpanMultiVector,
     SearchRequestResultSpan,
 )
@@ -81,6 +83,7 @@ def test_multivector_harness_persists_late_interaction_trace(
     multivector_summary = summary["multivector_summary"]
     assert multivector_summary["embedding_status"] == "completed"
     assert multivector_summary["multivector_count"] >= 1
+    assert multivector_summary["generation_operator_run_id"]
 
     monkeypatch.setattr("app.services.search.get_embedding_provider", lambda: provider)
     response = postgres_integration_harness.client.post(
@@ -122,10 +125,31 @@ def test_multivector_harness_persists_late_interaction_trace(
             .select_from(RetrievalEvidenceSpanMultiVector)
             .where(RetrievalEvidenceSpanMultiVector.run_id == run_id)
         )
-        stored_vector_hash = session.scalar(
-            select(RetrievalEvidenceSpanMultiVector.embedding_sha256)
-            .where(RetrievalEvidenceSpanMultiVector.run_id == run_id)
-            .limit(1)
+        stored_vector_hashes = set(
+            session.scalars(
+                select(RetrievalEvidenceSpanMultiVector.embedding_sha256).where(
+                    RetrievalEvidenceSpanMultiVector.run_id == run_id
+                )
+            )
+        )
+        generation_operator = session.scalar(
+            select(KnowledgeOperatorRun).where(
+                KnowledgeOperatorRun.id == UUID(
+                    multivector_summary["generation_operator_run_id"]
+                )
+            )
+        )
+        generation_output_count = session.scalar(
+            select(func.count())
+            .select_from(KnowledgeOperatorOutput)
+            .where(
+                KnowledgeOperatorOutput.operator_run_id
+                == UUID(multivector_summary["generation_operator_run_id"])
+            )
+            .where(
+                KnowledgeOperatorOutput.target_table
+                == "retrieval_evidence_span_multivectors"
+            )
         )
         stored_trace_span = session.scalar(
             select(SearchRequestResultSpan)
@@ -135,7 +159,14 @@ def test_multivector_harness_persists_late_interaction_trace(
         )
 
     assert stored_vector_count and stored_vector_count >= 1
-    assert stored_vector_hash
+    assert stored_vector_hashes
+    assert generation_operator is not None
+    assert generation_operator.operator_kind == "embed"
+    assert generation_operator.operator_name == "retrieval_evidence_span_multivector_generation"
+    assert generation_operator.config_sha256
+    assert generation_operator.input_sha256
+    assert generation_operator.output_sha256
+    assert generation_output_count == stored_vector_count
     assert stored_trace_span is not None
     assert stored_trace_span.metadata_json["late_interaction"]["maxsim_matches"]
 
@@ -145,6 +176,8 @@ def test_multivector_harness_persists_late_interaction_trace(
     assert evidence_response.status_code == 200
     evidence_package = evidence_response.json()
     assert evidence_package["audit_checklist"]["late_interaction_trace_count"] >= 1
+    assert evidence_package["audit_checklist"]["has_multivector_generation_run"] is True
+    assert evidence_package["audit_checklist"]["late_interaction_generation_operator_count"] == 1
     assert (
         evidence_package["audit_checklist"]["all_late_interaction_vectors_materialized"]
         is True
@@ -158,5 +191,15 @@ def test_multivector_harness_persists_late_interaction_trace(
     ]
     assert evidence_late_spans
     evidence_vector = evidence_late_spans[0]["late_interaction_multivectors"][0]
-    assert evidence_vector["embedding_sha256"] == stored_vector_hash
+    assert evidence_vector["embedding_sha256"] in stored_vector_hashes
     assert evidence_vector["span_vector_snapshot_sha256"]
+    assert evidence_vector["generation_operator_runs"][0]["generation_operator_run_id"] == str(
+        generation_operator.id
+    )
+    trace_edge_kinds = {
+        edge["edge_kind"] for edge in evidence_package["trace_graph"]["edges"]
+    }
+    assert "source_span_input_to_multivector_generation" in trace_edge_kinds
+    assert "multivector_generation_output" in trace_edge_kinds
+    assert "span_vector_matched_selected_span" in trace_edge_kinds
+    assert evidence_package["trace_graph"]["trace_sha256"]

@@ -39,7 +39,7 @@ The stage stores one or more vectors per retrieval evidence span in Postgres, co
 
 Those traces make a late-interaction hit explainable without treating the vector index as a black box.
 
-The evidence package materializes each referenced span-vector row, including token range, vector text, content hash, embedding model, embedding dimension, embedding hash, and a span-vector snapshot hash. The trace therefore points to durable DB evidence instead of only naming an opaque vector id.
+The evidence package materializes each referenced span-vector row, including token range, vector text, content hash, embedding model, embedding dimension, embedding hash, and a span-vector snapshot hash. It also links the vector back to the `retrieval_evidence_span_multivector_generation` operator run that produced it, so the trace points to durable DB evidence instead of only naming an opaque vector id.
 
 ## Repair Use
 

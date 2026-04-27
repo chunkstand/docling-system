@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
@@ -453,15 +453,63 @@ def _span_multivector_payload(row: RetrievalEvidenceSpanMultiVector) -> dict:
     return payload
 
 
+def _load_multivector_generation_links(
+    session: Session,
+    vector_ids: Iterable[UUID],
+) -> dict[UUID, list[dict]]:
+    unique_vector_ids = {value for value in vector_ids if value is not None}
+    if not unique_vector_ids:
+        return {}
+
+    rows = session.execute(
+        select(KnowledgeOperatorOutput, KnowledgeOperatorRun)
+        .join(
+            KnowledgeOperatorRun,
+            KnowledgeOperatorRun.id == KnowledgeOperatorOutput.operator_run_id,
+        )
+        .where(
+            KnowledgeOperatorOutput.target_table == "retrieval_evidence_span_multivectors",
+            KnowledgeOperatorOutput.target_id.in_(unique_vector_ids),
+            KnowledgeOperatorRun.operator_name
+            == "retrieval_evidence_span_multivector_generation",
+        )
+        .order_by(
+            KnowledgeOperatorOutput.target_id.asc(),
+            KnowledgeOperatorRun.created_at.asc(),
+            KnowledgeOperatorOutput.output_index.asc(),
+        )
+    ).all()
+    links_by_vector_id: dict[UUID, list[dict]] = {}
+    for output_row, operator_run in rows:
+        if output_row.target_id is None:
+            continue
+        links_by_vector_id.setdefault(output_row.target_id, []).append(
+            {
+                "generation_operator_run_id": operator_run.id,
+                "generation_operator_name": operator_run.operator_name,
+                "generation_operator_version": operator_run.operator_version,
+                "generation_operator_status": operator_run.status,
+                "generation_output_id": output_row.id,
+                "generation_output_sha256": payload_sha256(output_row.payload_json or {}),
+            }
+        )
+    return links_by_vector_id
+
+
 def _search_result_span_payload(
     row: SearchRequestResultSpan,
     *,
     span_vectors_by_id: dict[UUID, RetrievalEvidenceSpanMultiVector] | None = None,
+    generation_links_by_vector_id: dict[UUID, list[dict]] | None = None,
 ) -> dict:
     metadata = row.metadata_json or {}
     span_vectors_by_id = span_vectors_by_id or {}
+    generation_links_by_vector_id = generation_links_by_vector_id or {}
     vector_payloads = [
-        _span_multivector_payload(vector_row)
+        {
+            **_span_multivector_payload(vector_row),
+            "generation_operator_runs": generation_links_by_vector_id.get(vector_row.id, []),
+        }
         for vector_id in _late_interaction_span_vector_ids(metadata)
         if (vector_row := span_vectors_by_id.get(vector_id)) is not None
     ]
@@ -576,6 +624,10 @@ def _source_evidence_payloads(
             for vector_id in _late_interaction_span_vector_ids(span.metadata_json or {})
         ),
     )
+    generation_links_by_vector_id = _load_multivector_generation_links(
+        session,
+        span_vectors_by_id,
+    )
 
     payloads: list[dict] = []
     for result in result_rows:
@@ -603,6 +655,7 @@ def _source_evidence_payloads(
                 _search_result_span_payload(
                     span,
                     span_vectors_by_id=span_vectors_by_id,
+                    generation_links_by_vector_id=generation_links_by_vector_id,
                 )
                 for span in spans_by_result_id.get(result.id, [])
             ],
@@ -624,11 +677,32 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             .order_by(SearchRequestResult.rank.asc())
         )
     )
+    source_evidence = _source_evidence_payloads(session, result_rows)
+    source_evidence_by_result_id = {
+        str(row["search_request_result_id"]): row for row in source_evidence
+    }
+    multivector_generation_operator_ids = _uuid_values(
+        link.get("generation_operator_run_id")
+        for item in source_evidence
+        for span in item.get("retrieval_evidence_spans", [])
+        for vector in span.get("late_interaction_multivectors", [])
+        for link in vector.get("generation_operator_runs", [])
+    )
+
+    operator_filter = KnowledgeOperatorRun.search_request_id == search_request_id
+    if multivector_generation_operator_ids:
+        operator_filter = or_(
+            operator_filter,
+            KnowledgeOperatorRun.id.in_(multivector_generation_operator_ids),
+        )
     operator_rows = list(
         session.scalars(
             select(KnowledgeOperatorRun)
-            .where(KnowledgeOperatorRun.search_request_id == search_request_id)
-            .order_by(KnowledgeOperatorRun.created_at.asc(), KnowledgeOperatorRun.id.asc())
+            .where(operator_filter)
+            .order_by(
+                KnowledgeOperatorRun.created_at.asc(),
+                KnowledgeOperatorRun.id.asc(),
+            )
         )
     )
     operator_ids = [row.id for row in operator_rows]
@@ -662,10 +736,6 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
     for row in output_rows:
         outputs_by_run.setdefault(row.operator_run_id, []).append(row)
 
-    source_evidence = _source_evidence_payloads(session, result_rows)
-    source_evidence_by_result_id = {
-        str(row["search_request_result_id"]): row for row in source_evidence
-    }
     late_interaction_span_payloads = [
         span
         for item in source_evidence
@@ -677,6 +747,10 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
         for span in late_interaction_span_payloads
         for vector in span.get("late_interaction_multivectors", [])
     ]
+    provenance_edges = _search_evidence_provenance_edges(
+        search_request_id=search_request_id,
+        source_evidence=source_evidence,
+    )
     package = {
         "schema_name": "search_evidence_package",
         "schema_version": "1.0",
@@ -721,14 +795,19 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             for row in result_rows
         ],
         "source_evidence": source_evidence,
+        "provenance_edges": provenance_edges,
         "audit_checklist": {
             "has_retrieve_run": any(row.operator_kind == "retrieve" for row in operator_rows),
             "has_rerank_run": any(row.operator_kind == "rerank" for row in operator_rows),
             "has_judge_run": any(row.operator_kind == "judge" for row in operator_rows),
+            "has_multivector_generation_run": any(
+                row.operator_name == "retrieval_evidence_span_multivector_generation"
+                for row in operator_rows
+            ),
             "has_config_hashes": all(
                 row.config_sha256
                 for row in operator_rows
-                if row.operator_kind in {"retrieve", "rerank"}
+                if row.operator_kind in {"retrieve", "rerank", "embed"}
             ),
             "result_count_matches": len(result_rows) == request_row.result_count,
             "has_source_snapshots": bool(source_evidence),
@@ -762,6 +841,9 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             ),
             "late_interaction_trace_count": len(late_interaction_span_payloads),
             "late_interaction_span_vector_count": len(late_interaction_vector_payloads),
+            "late_interaction_generation_operator_count": len(
+                set(multivector_generation_operator_ids)
+            ),
             "all_late_interaction_vectors_materialized": all(
                 len(span.get("late_interaction_multivectors", []))
                 == len(_late_interaction_matches(span.get("metadata") or {}))
@@ -779,6 +861,7 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
             ),
         },
     }
+    package["trace_graph"] = _build_search_evidence_trace_graph(package)
     package["package_sha256"] = payload_sha256(package)
     return package
 
@@ -1863,6 +1946,10 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "agent_tasks": "agent_task",
     "agent_task_verifications": "verification_record",
     "search_requests": "search_request",
+    "search_request_results": "search_result",
+    "search_request_result_spans": "selected_retrieval_span",
+    "retrieval_evidence_spans": "retrieval_evidence_span",
+    "retrieval_evidence_span_multivectors": "retrieval_evidence_span_multivector",
     "evidence_manifests": "evidence_manifest",
 }
 
@@ -2026,6 +2113,256 @@ def _trace_graph_sha256(
     edges: Iterable[dict[str, Any]],
 ) -> str:
     return str(payload_sha256(_trace_graph_canonical_payload(nodes, edges)))
+
+
+def _search_evidence_provenance_edges(
+    *,
+    search_request_id: UUID,
+    source_evidence: list[dict],
+) -> list[dict]:
+    edges: list[dict] = []
+    for item in source_evidence:
+        search_result_id = item.get("search_request_result_id")
+        if search_result_id:
+            edge_payload = {
+                "edge_type": "search_request_selected_result",
+                "search_request_id": str(search_request_id),
+                "search_request_result_id": str(search_result_id),
+            }
+            edges.append(
+                {
+                    **edge_payload,
+                    "from": {"table": "search_requests", "id": str(search_request_id)},
+                    "to": {"table": "search_request_results", "id": str(search_result_id)},
+                    "derivation_sha256": payload_sha256(edge_payload),
+                }
+            )
+        for span in item.get("retrieval_evidence_spans", []):
+            result_span_id = span.get("search_request_result_span_id")
+            source_span_id = span.get("retrieval_evidence_span_id")
+            if search_result_id and result_span_id:
+                edge_payload = {
+                    "edge_type": "selected_span_supports_search_result",
+                    "search_request_result_span_id": str(result_span_id),
+                    "search_request_result_id": str(search_result_id),
+                    "score_kind": span.get("score_kind"),
+                }
+                edges.append(
+                    {
+                        **edge_payload,
+                        "from": {
+                            "table": "search_request_result_spans",
+                            "id": str(result_span_id),
+                        },
+                        "to": {"table": "search_request_results", "id": str(search_result_id)},
+                        "derivation_sha256": payload_sha256(edge_payload),
+                    }
+                )
+            if source_span_id and result_span_id:
+                edge_payload = {
+                    "edge_type": "retrieval_span_cited_as_selected_span",
+                    "retrieval_evidence_span_id": str(source_span_id),
+                    "search_request_result_span_id": str(result_span_id),
+                    "content_sha256": span.get("content_sha256"),
+                }
+                edges.append(
+                    {
+                        **edge_payload,
+                        "from": {"table": "retrieval_evidence_spans", "id": str(source_span_id)},
+                        "to": {
+                            "table": "search_request_result_spans",
+                            "id": str(result_span_id),
+                        },
+                        "derivation_sha256": payload_sha256(edge_payload),
+                    }
+                )
+            for vector in span.get("late_interaction_multivectors", []):
+                span_vector_id = vector.get("span_vector_id")
+                if span_vector_id and result_span_id:
+                    edge_payload = {
+                        "edge_type": "span_vector_matched_selected_span",
+                        "span_vector_id": str(span_vector_id),
+                        "search_request_result_span_id": str(result_span_id),
+                        "content_sha256": vector.get("content_sha256"),
+                        "embedding_sha256": vector.get("embedding_sha256"),
+                    }
+                    edges.append(
+                        {
+                            **edge_payload,
+                            "from": {
+                                "table": "retrieval_evidence_span_multivectors",
+                                "id": str(span_vector_id),
+                            },
+                            "to": {
+                                "table": "search_request_result_spans",
+                                "id": str(result_span_id),
+                            },
+                            "derivation_sha256": payload_sha256(edge_payload),
+                        }
+                    )
+                for link in vector.get("generation_operator_runs", []):
+                    generation_operator_run_id = link.get("generation_operator_run_id")
+                    if source_span_id and generation_operator_run_id:
+                        edge_payload = {
+                            "edge_type": "source_span_input_to_multivector_generation",
+                            "retrieval_evidence_span_id": str(source_span_id),
+                            "generation_operator_run_id": str(generation_operator_run_id),
+                            "content_sha256": span.get("content_sha256"),
+                        }
+                        edges.append(
+                            {
+                                **edge_payload,
+                                "from": {
+                                    "table": "retrieval_evidence_spans",
+                                    "id": str(source_span_id),
+                                },
+                                "to": {
+                                    "table": "knowledge_operator_runs",
+                                    "id": str(generation_operator_run_id),
+                                },
+                                "derivation_sha256": payload_sha256(edge_payload),
+                            }
+                        )
+                    if generation_operator_run_id and span_vector_id:
+                        edge_payload = {
+                            "edge_type": "multivector_generation_output",
+                            "generation_operator_run_id": str(generation_operator_run_id),
+                            "span_vector_id": str(span_vector_id),
+                            "generation_output_id": str(link.get("generation_output_id")),
+                            "generation_output_sha256": link.get("generation_output_sha256"),
+                        }
+                        edges.append(
+                            {
+                                **edge_payload,
+                                "from": {
+                                    "table": "knowledge_operator_runs",
+                                    "id": str(generation_operator_run_id),
+                                },
+                                "to": {
+                                    "table": "retrieval_evidence_span_multivectors",
+                                    "id": str(span_vector_id),
+                                },
+                                "derivation_sha256": payload_sha256(edge_payload),
+                            }
+                        )
+    return edges
+
+
+def _search_trace_graph_payload(
+    nodes: Iterable[dict[str, Any]],
+    edges: Iterable[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "schema_name": "search_evidence_trace_graph",
+        "schema_version": "1.0",
+        "nodes": [
+            {
+                "node_key": node["node_key"],
+                "node_kind": node["node_kind"],
+                "source_table": node.get("source_table"),
+                "source_id": str(node["source_id"]) if node.get("source_id") else None,
+                "source_ref": node.get("source_ref"),
+                "content_sha256": node["content_sha256"],
+                "payload": _json_payload(node.get("payload")),
+            }
+            for node in sorted(nodes, key=lambda item: item["node_key"])
+        ],
+        "edges": [
+            {
+                "edge_key": edge["edge_key"],
+                "edge_kind": edge["edge_kind"],
+                "from_node_key": edge["from_node_key"],
+                "to_node_key": edge["to_node_key"],
+                "derivation_sha256": edge.get("derivation_sha256"),
+                "content_sha256": edge["content_sha256"],
+                "payload": _json_payload(edge.get("payload")),
+            }
+            for edge in sorted(edges, key=lambda item: item["edge_key"])
+        ],
+    }
+
+
+def _build_search_evidence_trace_graph(package: dict[str, Any]) -> dict[str, Any]:
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: list[dict[str, Any]] = []
+    search_request = package.get("search_request") or {}
+    search_request_id = search_request.get("id")
+    _put_trace_node_from_id(
+        nodes,
+        source_table="search_requests",
+        source_id=search_request_id,
+        payload=search_request,
+    )
+    for operator_run in package.get("operator_runs") or []:
+        _put_trace_node_from_id(
+            nodes,
+            source_table="knowledge_operator_runs",
+            source_id=operator_run.get("operator_run_id"),
+            payload=operator_run,
+        )
+    for item in package.get("source_evidence") or []:
+        result_id = item.get("search_request_result_id")
+        _put_trace_node_from_id(
+            nodes,
+            source_table="search_request_results",
+            source_id=result_id,
+            payload={
+                "search_request_result_id": str(result_id),
+                "rank": item.get("rank"),
+                "result_type": item.get("result_type"),
+            },
+        )
+        for span in item.get("retrieval_evidence_spans", []):
+            _put_trace_node_from_id(
+                nodes,
+                source_table="search_request_result_spans",
+                source_id=span.get("search_request_result_span_id"),
+                payload=span,
+            )
+            _put_trace_node_from_id(
+                nodes,
+                source_table="retrieval_evidence_spans",
+                source_id=span.get("retrieval_evidence_span_id"),
+                payload={
+                    "retrieval_evidence_span_id": str(
+                        span.get("retrieval_evidence_span_id")
+                    ),
+                    "source_type": span.get("source_type"),
+                    "source_id": str(span.get("source_id")),
+                    "span_index": span.get("span_index"),
+                    "content_sha256": span.get("content_sha256"),
+                    "source_snapshot_sha256": span.get("source_snapshot_sha256"),
+                },
+            )
+            for vector in span.get("late_interaction_multivectors", []):
+                _put_trace_node_from_id(
+                    nodes,
+                    source_table="retrieval_evidence_span_multivectors",
+                    source_id=vector.get("span_vector_id"),
+                    payload=vector,
+                )
+    for index, provenance_edge in enumerate(package.get("provenance_edges") or []):
+        from_node_key = _put_trace_node_from_ref(nodes, provenance_edge.get("from") or {})
+        to_node_key = _put_trace_node_from_ref(nodes, provenance_edge.get("to") or {})
+        _put_trace_edge(
+            edges,
+            edge_key=f"search_evidence:{index}:{provenance_edge.get('edge_type')}",
+            edge_kind=str(provenance_edge.get("edge_type") or "provenance_edge"),
+            from_node_key=from_node_key,
+            to_node_key=to_node_key,
+            derivation_sha256=provenance_edge.get("derivation_sha256"),
+            payload={
+                "source": "search_evidence_package",
+                "provenance_edge_index": index,
+                "provenance_edge": provenance_edge,
+            },
+        )
+
+    node_specs = sorted(nodes.values(), key=lambda item: item["node_key"])
+    edge_specs = sorted(edges, key=lambda item: item["edge_key"])
+    graph = _search_trace_graph_payload(node_specs, edge_specs)
+    graph["trace_sha256"] = payload_sha256(graph)
+    return graph
 
 
 def _build_evidence_trace_graph_specs(
