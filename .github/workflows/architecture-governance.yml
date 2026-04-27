@@ -47,7 +47,7 @@ jobs:
         run: >
           uv run docling-system-improvement-case-import
           --source architecture-governance-report
-          --source-path build/architecture-governance/architecture_governance_report.json
+          --source-path-for architecture-governance-report=build/architecture-governance/architecture_governance_report.json
           --dry-run
 
       - name: Ruff

@@ -504,7 +504,9 @@ cases, failed agent tasks, and failed agent verifications, then write deduped
 open cases keyed by source reference.
 Those import sources are declared in an intake adapter registry with explicit
 source kind, DB-session, and source-path metadata before the public facade routes
-them.
+them. File-backed imports now use keyed `source_paths` so each adapter receives
+only its own report path; the legacy `source_path` shortcut remains for the
+current single file-backed source case.
 `docling-system-architecture-inspect` emits the machine-readable architecture
 map and validates boundary contracts as a Brown/Structurizr-style inspection;
 the hygiene command runs that inspection by default. The committed map is
@@ -530,7 +532,7 @@ the uploaded governance artifact is continuously checked as a consumable
 feedback source for the self-improvement loop.
 The same report can be fed back into the improvement loop with
 `docling-system-improvement-case-import --source architecture-governance-report
---source-path build/architecture-governance/architecture_governance_report.json`
+--source-path-for architecture-governance-report=build/architecture-governance/architecture_governance_report.json`
 so CI architecture failures become tracked improvement cases instead of
 remaining only workflow output.
 `docling-system-capability-contracts --write-map` maintains

@@ -21,6 +21,7 @@ from app.schemas.search import (
     SearchHarnessOptimizationRequest,
     SearchReplayRunRequest,
 )
+from app.services.improvement_case_intake import parse_improvement_case_source_paths
 from app.services.improvement_cases import (
     IMPROVEMENT_ARTIFACT_TYPES,
     IMPROVEMENT_CASE_STATUSES,
@@ -1587,15 +1588,15 @@ def run_improvement_case_record() -> None:
 
 
 def run_improvement_case_import() -> None:
-    parser = argparse.ArgumentParser(
-        description="Import observed failures into the improvement case registry."
-    )
+    parser = argparse.ArgumentParser(description="Import observed failures into the registry.")
     _add_improvement_case_path_arg(parser)
     parser.add_argument("--source", default="hygiene", help="Import source.")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--workflow-version", default="improvement_v1")
+    parser.add_argument("--source-path", default=None, help="Optional file-backed source path.")
     parser.add_argument(
-        "--source-path", default=None, help="Optional file-backed import source path."
+        "--source-path-for", action="append", default=[], metavar="SOURCE=PATH",
+        help="Per-source file-backed import source path.",
     )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -1607,6 +1608,7 @@ def run_improvement_case_import() -> None:
             workflow_version=args.workflow_version,
             path=args.path,
             source_path=args.source_path,
+            source_paths=parse_improvement_case_source_paths(args.source_path_for),
             dry_run=args.dry_run,
         )
     except ValueError as exc:

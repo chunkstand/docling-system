@@ -54,9 +54,7 @@ def _write_architecture_governance_report(
     }
     if include_top_level_measurement_fields:
         payload.update(measurement_summary)
-    path.write_text(
-        json.dumps(payload)
-    )
+    path.write_text(json.dumps(payload))
 
 
 def test_collect_import_observations_keeps_hygiene_source_out_of_db(
@@ -157,6 +155,20 @@ def test_collect_architecture_governance_report_observations_skips_clean_report(
     assert observations == []
 
 
+def test_collect_architecture_governance_report_accepts_keyed_source_path(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(report_path)
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="architecture-governance-report",
+        source_paths={"architecture-governance-report": report_path},
+    )
+
+    assert observations == []
+
+
 def test_collect_architecture_governance_report_requires_explicit_existing_path(
     tmp_path: Path,
 ) -> None:
@@ -187,6 +199,49 @@ def test_collect_import_observations_rejects_source_path_for_unsupported_source(
         intake.collect_improvement_case_import_observations(
             source="hygiene",
             source_path=tmp_path / "architecture_governance_report.json",
+        )
+
+
+def test_collect_import_observations_rejects_unknown_source_path_key(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="unknown import source"):
+        intake.collect_improvement_case_import_observations(
+            source="all",
+            source_paths={"unknown-source": tmp_path / "report.json"},
+        )
+
+
+def test_collect_import_observations_rejects_unselected_source_path_key(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="unselected import source"):
+        intake.collect_improvement_case_import_observations(
+            source="hygiene",
+            source_paths={
+                "architecture-governance-report": tmp_path / "architecture_report.json"
+            },
+        )
+
+
+def test_collect_import_observations_rejects_unsupported_source_path_key(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="source_paths is not supported"):
+        intake.collect_improvement_case_import_observations(
+            source="all",
+            source_paths={"hygiene": tmp_path / "hygiene.json"},
+        )
+
+
+def test_collect_import_observations_rejects_legacy_and_keyed_paths(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="Use source_path or source_paths"):
+        intake.collect_improvement_case_import_observations(
+            source="architecture-governance-report",
+            source_path=tmp_path / "legacy.json",
+            source_paths={"architecture-governance-report": tmp_path / "keyed.json"},
         )
 
 
@@ -286,6 +341,49 @@ def test_collect_import_observations_all_accepts_source_path_for_file_source(
     assert observations == []
 
 
+def test_collect_import_observations_routes_keyed_source_paths(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(report_path)
+    monkeypatch.setattr(
+        intake,
+        "collect_hygiene_import_observations",
+        lambda *, limit, workflow_version, project_root=None: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_eval_failure_case_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_task_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_verification_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="all",
+        source_paths={"architecture-governance-report": report_path},
+        session_factory=lambda: FakeSession(),
+    )
+
+    assert observations == []
+
+
 def test_run_import_facade_writes_and_dedupes_cases(monkeypatch, tmp_path) -> None:
     registry_path = tmp_path / "improvement_cases.yaml"
     monkeypatch.setattr(
@@ -342,6 +440,37 @@ def test_run_import_facade_writes_architecture_governance_cases(tmp_path) -> Non
     assert registry.cases[0].source.source_ref == (
         "architecture-governance:architecture-contract-map-drift:"
         "docs/architecture_contract_map.json"
+    )
+
+
+def test_run_import_facade_accepts_keyed_source_paths(tmp_path) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    report_path = tmp_path / "architecture_governance_report.json"
+    _write_architecture_governance_report(
+        report_path,
+        valid=False,
+        violations=[
+            {
+                "rule_id": "source-path-contract",
+                "contract": "improvement_case_intake",
+                "field": "source_paths",
+                "relative_path": "app/services/improvement_case_intake.py",
+                "message": "File-backed import source lost its keyed source path.",
+            }
+        ],
+    )
+
+    result = intake.run_improvement_case_import(
+        source="architecture-governance-report",
+        source_paths={"architecture-governance-report": report_path},
+        path=registry_path,
+    )
+    registry = load_improvement_case_registry(registry_path)
+
+    assert result.imported_count == 1
+    assert registry.cases[0].source.source_ref == (
+        "architecture-governance:source-path-contract:"
+        "app/services/improvement_case_intake.py"
     )
 
 

@@ -1853,8 +1853,8 @@ def test_improvement_case_import_cli_delegates_to_service(
             "5",
             "--workflow-version",
             "improvement_v2",
-            "--source-path",
-            "build/architecture-governance/architecture_governance_report.json",
+            "--source-path-for",
+            "architecture-governance-report=build/architecture-governance/architecture_governance_report.json",
             "--dry-run",
         ],
     )
@@ -1867,11 +1867,52 @@ def test_improvement_case_import_cli_delegates_to_service(
         "limit": 5,
         "workflow_version": "improvement_v2",
         "path": str(registry_path),
-        "source_path": "build/architecture-governance/architecture_governance_report.json",
+        "source_path": None,
+        "source_paths": {
+            "architecture-governance-report": (
+                "build/architecture-governance/architecture_governance_report.json"
+            )
+        },
         "dry_run": True,
     }
     assert output["imported_count"] == 1
     assert output["imported"][0]["source_type"] == "hygiene_finding"
+
+
+def test_improvement_case_import_cli_rejects_malformed_source_path_for(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-import",
+            "--source-path-for",
+            "architecture-governance-report",
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="--source-path-for must use SOURCE=PATH"):
+        run_improvement_case_import()
+
+
+def test_improvement_case_import_cli_rejects_duplicate_source_path_for(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-improvement-case-import",
+            "--source-path-for",
+            "architecture-governance-report=first.json",
+            "--source-path-for",
+            "architecture-governance-report=second.json",
+        ],
+    )
+
+    with pytest.raises(SystemExit, match="Duplicate --source-path-for source"):
+        run_improvement_case_import()
 
 
 def test_improvement_case_summary_cli_prints_counts(monkeypatch, capsys, tmp_path) -> None:

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -80,12 +80,27 @@ def _validate_import_source(source: str) -> None:
         )
 
 
+def parse_improvement_case_source_paths(raw_values: list[str]) -> dict[str, str]:
+    source_paths: dict[str, str] = {}
+    for raw_value in raw_values:
+        if "=" not in raw_value:
+            raise ValueError("--source-path-for must use SOURCE=PATH.")
+        source, path = raw_value.split("=", 1)
+        if not source or not path:
+            raise ValueError("--source-path-for must use SOURCE=PATH.")
+        if source in source_paths:
+            raise ValueError(f"Duplicate --source-path-for source: {source}.")
+        source_paths[source] = path
+    return source_paths
+
+
 class ImprovementCaseImportRequest(BaseModel):
     source: str = "hygiene"
     limit: int = Field(default=50, ge=0)
     workflow_version: str = "improvement_v1"
     path: str | Path | None = None
     source_path: str | Path | None = None
+    source_paths: dict[str, str | Path] = Field(default_factory=dict)
     dry_run: bool = False
 
     @field_validator("source")
@@ -457,28 +472,67 @@ def _validate_source_path_support(
     )
 
 
+def _validate_source_paths(
+    source_specs: tuple[ImprovementCaseImportSourceSpec, ...],
+    source_paths: Mapping[str, str | Path],
+) -> None:
+    selected_sources = {spec.source for spec in source_specs}
+    for source in source_paths:
+        if source not in _IMPORT_SOURCE_REGISTRY:
+            raise ValueError(f"source_paths contains unknown import source '{source}'.")
+        spec = _IMPORT_SOURCE_REGISTRY[source]
+        if source not in selected_sources:
+            raise ValueError(f"source_paths contains unselected import source '{source}'.")
+        if not spec.accepts_source_path:
+            raise ValueError(f"source_paths is not supported for import source '{source}'.")
+
+
+def _resolve_source_paths(
+    source_specs: tuple[ImprovementCaseImportSourceSpec, ...],
+    *,
+    source_path: str | Path | None,
+    source_paths: Mapping[str, str | Path] | None,
+) -> dict[str, str | Path]:
+    keyed_paths = dict(source_paths or {})
+    if source_path is not None and keyed_paths:
+        raise ValueError("Use source_path or source_paths, not both.")
+    _validate_source_paths(source_specs, keyed_paths)
+    if source_path is None:
+        return keyed_paths
+    _validate_source_path_support(source_specs, source_path)
+    path_specs = [spec for spec in source_specs if spec.accepts_source_path]
+    if len(path_specs) != 1:
+        raise ValueError("source_path is ambiguous; use source_paths instead.")
+    return {path_specs[0].source: source_path}
+
+
 def collect_improvement_case_import_observations(
     *,
     source: str = "hygiene",
     limit: int = 50,
     workflow_version: str = "improvement_v1",
     source_path: str | Path | None = None,
+    source_paths: Mapping[str, str | Path] | None = None,
     session_factory: Callable | None = None,
     project_root: Path | None = None,
 ) -> list[ImprovementCaseObservation]:
     source_specs = _select_import_source_specs(source)
-    _validate_source_path_support(source_specs, source_path)
+    resolved_source_paths = _resolve_source_paths(
+        source_specs,
+        source_path=source_path,
+        source_paths=source_paths,
+    )
     observations: list[ImprovementCaseObservation] = []
     base_context = ImprovementCaseImportSourceContext(
         limit=limit,
         workflow_version=workflow_version,
         project_root=project_root,
-        source_path=source_path,
     )
 
     for spec in source_specs:
         if not spec.requires_db_session:
-            observations.extend(spec.collector(base_context))
+            context = replace(base_context, source_path=resolved_source_paths.get(spec.source))
+            observations.extend(spec.collector(context))
 
     db_source_specs = [spec for spec in source_specs if spec.requires_db_session]
     if db_source_specs:
@@ -488,11 +542,11 @@ def collect_improvement_case_import_observations(
                 limit=limit,
                 workflow_version=workflow_version,
                 project_root=project_root,
-                source_path=source_path,
                 session=session,
             )
             for spec in db_source_specs:
-                observations.extend(spec.collector(db_context))
+                context = replace(db_context, source_path=resolved_source_paths.get(spec.source))
+                observations.extend(spec.collector(context))
     return observations
 
 
@@ -504,6 +558,7 @@ def run_improvement_case_import(
     workflow_version: str | None = None,
     path: str | Path | None = None,
     source_path: str | Path | None = None,
+    source_paths: Mapping[str, str | Path] | None = None,
     dry_run: bool | None = None,
     session_factory: Callable | None = None,
     project_root: Path | None = None,
@@ -519,6 +574,8 @@ def run_improvement_case_import(
         request_payload["path"] = path
     if source_path is not None:
         request_payload["source_path"] = source_path
+    if source_paths is not None:
+        request_payload["source_paths"] = dict(source_paths)
     if dry_run is not None:
         request_payload["dry_run"] = dry_run
     import_request = ImprovementCaseImportRequest.model_validate(request_payload)
@@ -528,6 +585,7 @@ def run_improvement_case_import(
         limit=import_request.limit,
         workflow_version=import_request.workflow_version,
         source_path=import_request.source_path,
+        source_paths=import_request.source_paths,
         session_factory=session_factory,
         project_root=project_root,
     )

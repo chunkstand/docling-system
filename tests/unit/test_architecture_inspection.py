@@ -145,6 +145,7 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert measurement_contract["ci_history_path"] in workflow_text
     assert "docling-system-improvement-case-import" in workflow_text
     assert "--source architecture-governance-report" in workflow_text
+    assert "--source-path-for architecture-governance-report=" in workflow_text
     assert "--dry-run" in workflow_text
     assert all(rule["contract"] for rule in contract_map["inspection_rules"])
     assert all(rule["description"] for rule in contract_map["inspection_rules"])

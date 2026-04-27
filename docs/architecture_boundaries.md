@@ -126,9 +126,12 @@ should pass that typed request, or the equivalent keyword arguments, and render
 the typed result without reconstructing import payloads themselves.
 The intake service also owns the closed source-adapter registry. Each registered
 source declares whether it reads workspace files, an explicit report file, or
-the database, and whether it accepts `source_path`; the architecture contract
-map publishes that metadata for agents and CI checks. The facade rejects
-`source_path` for selected sources that do not declare file-path support.
+the database, and whether it accepts path input; the architecture contract map
+publishes that metadata for agents and CI checks. Boundary callers should pass
+file inputs with keyed `source_paths` so path ownership stays attached to a
+specific source. The legacy `source_path` shortcut is accepted only when the
+selected source set has exactly one file-backed source, and the facade rejects
+path input for selected sources that do not declare file-path support.
 
 Improvement-case lifecycle transitions are owned by
 `app.services.improvement_case_lifecycle`. CLI, API, worker, or UI callers
@@ -148,8 +151,8 @@ fresh report to
 `build/architecture-governance/architecture_governance_report.json`, uploads the
 build-scoped governance directory for future agents, dry-runs
 `docling-system-improvement-case-import --source architecture-governance-report`
-against the report, and then runs the architecture, capability, lint, focused
-test, and hygiene gates.
+against the report with keyed `--source-path-for` input, and then runs the
+architecture, capability, lint, focused test, and hygiene gates.
 
 The read-only API surface is owned by the `system_governance` service capability
 facade and exposed through `GET /architecture/inspection` and

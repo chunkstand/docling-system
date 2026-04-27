@@ -48,7 +48,8 @@ uv run docling-system-improvement-case-list
 uv run docling-system-improvement-case-import --source hygiene --dry-run
 uv run docling-system-improvement-case-import \
   --source architecture-governance-report \
-  --source-path build/architecture-governance/architecture_governance_report.json
+  --source-path-for \
+  architecture-governance-report=build/architecture-governance/architecture_governance_report.json
 uv run docling-system-improvement-case-import --source all
 uv run docling-system-improvement-case-update \
   --case-id IC-20260424-hygiene-gate \
@@ -92,10 +93,12 @@ behind that service facade so later API, worker, or UI surfaces can reuse the
 same source selection and dedupe path. The facade owns an internal source
 registry that records each source's kind, DB-session requirement, and
 source-path support, so adding a source means declaring its operational
-contract before routing it. The facade rejects `source_path` for sources whose
-registry entry does not declare file-path support. The `all` source accepts
-`source_path` because it includes the file-backed architecture-governance report
-source. The facade accepts
+contract before routing it. The facade accepts keyed `source_paths` so each
+file-backed source receives only its own input path; the CLI exposes that as
+repeatable `--source-path-for SOURCE=PATH`. The legacy `source_path` shortcut is
+still accepted only when the selected source set has exactly one file-backed
+source, and the facade rejects path input for sources whose registry entry does
+not declare file-path support. The facade accepts
 `ImprovementCaseImportRequest` and returns `ImprovementCaseImportResult`, so new
 boundary surfaces can reuse a typed import contract instead of copying CLI
 payload shape.
@@ -116,8 +119,9 @@ uv run docling-system-architecture-governance-report \
 
 The architecture-governance CI workflow dry-runs
 `docling-system-improvement-case-import --source architecture-governance-report`
-against the generated report before the architecture gates, which proves the
-report remains a valid self-improvement intake source.
+against the generated report with keyed `--source-path-for` input before the
+architecture gates, which proves the report remains a valid self-improvement
+intake source.
 
 The default history path is `storage/architecture_inspections/history.jsonl`.
 That local JSONL history gives future agents a stable trend signal instead of
