@@ -20,6 +20,7 @@ from app.db.models import (
     WorkspaceSemanticGraphState,
 )
 from app.services.semantic_candidates import cosine_similarity, embedding_vector, tokenize
+from app.services.semantic_governance import record_semantic_graph_snapshot_governance_events
 from app.services.semantic_registry import (
     canonicalize_semantic_relation_endpoints,
     get_active_semantic_ontology_snapshot,
@@ -1726,6 +1727,11 @@ def persist_semantic_graph_snapshot(
             state.active_graph_snapshot_id = snapshot.id
             state.updated_at = now
         snapshot.activated_at = now
+    record_semantic_graph_snapshot_governance_events(
+        session,
+        snapshot,
+        activated=activate,
+    )
     session.flush()
     return snapshot
 

@@ -21,6 +21,7 @@ from app.db.models import (
     EvidenceTraceEdge,
     EvidenceTraceNode,
     KnowledgeOperatorRun,
+    SemanticGovernanceEvent,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
@@ -362,6 +363,16 @@ def test_technical_report_harness_roundtrip(
         assert receipt["signature"]
         prov_artifact_id = prov_artifact.id
         prov_artifact_sha256 = stored_prov_export["frozen_export"]["export_payload_sha256"]
+        governance_events = list(
+            session.scalars(
+                select(SemanticGovernanceEvent).where(
+                    SemanticGovernanceEvent.agent_task_artifact_id == prov_artifact.id
+                )
+            )
+        )
+        assert len(governance_events) == 1
+        assert governance_events[0].event_kind == "technical_report_prov_export_frozen"
+        assert governance_events[0].receipt_sha256 == receipt["receipt_sha256"]
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -385,6 +396,13 @@ def test_technical_report_harness_roundtrip(
         "prov_export_receipt_signature_verified"
     ] is True
     assert audit_bundle["audit_checklist"]["no_prov_export_immutability_events"] is True
+    assert audit_bundle["audit_checklist"]["has_semantic_governance_chain"] is True
+    assert audit_bundle["audit_checklist"][
+        "semantic_governance_chain_integrity_verified"
+    ] is True
+    assert audit_bundle["audit_checklist"][
+        "semantic_governance_chain_links_prov_receipt"
+    ] is True
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
@@ -446,6 +464,16 @@ def test_technical_report_harness_roundtrip(
         "signature_verification_status"
     ] == "verified"
     assert audit_bundle["provenance_export_immutability_events"] == []
+    assert audit_bundle["semantic_governance_chain"]["integrity"]["complete"] is True
+    assert audit_bundle["semantic_governance_chain"]["integrity"][
+        "has_technical_report_prov_export_event"
+    ] is True
+    assert any(
+        row["event_kind"] == "technical_report_prov_export_frozen"
+        and row["receipt_sha256"]
+        == audit_bundle["provenance_export_receipts"][0]["export_receipt"]["receipt_sha256"]
+        for row in audit_bundle["semantic_governance_chain"]["events"]
+    )
     assert all(
         row["trace_integrity"]["complete"]
         for row in audit_bundle["search_evidence_package_traces"]

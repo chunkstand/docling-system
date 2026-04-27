@@ -42,6 +42,10 @@ from app.db.models import (
     SemanticFact,
     SemanticFactEvidence,
 )
+from app.services.semantic_governance import (
+    record_technical_report_prov_export_governance_event,
+    semantic_governance_chain_for_audit,
+)
 from app.services.storage import StorageService
 
 TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
@@ -4905,6 +4909,11 @@ def persist_agent_task_provenance_export(
             existing=existing,
             attempted_prov_export=attempted_prov_export,
         )
+        record_technical_report_prov_export_governance_event(
+            session,
+            artifact=existing,
+            evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+        )
         return existing
 
     artifact_id = uuid.uuid4()
@@ -4937,6 +4946,11 @@ def persist_agent_task_provenance_export(
     )
     session.add(row)
     session.flush()
+    record_technical_report_prov_export_governance_event(
+        session,
+        artifact=row,
+        evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+    )
     return row
 
 
@@ -5056,6 +5070,29 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         if prov_export_artifact_ids
         else []
     )
+    evidence_manifests = list(
+        session.scalars(
+            select(EvidenceManifest)
+            .where(
+                or_(
+                    EvidenceManifest.agent_task_id.in_(related_task_ids),
+                    EvidenceManifest.draft_task_id.in_(related_task_ids),
+                    EvidenceManifest.verification_task_id.in_(related_task_ids),
+                )
+            )
+            .order_by(EvidenceManifest.created_at.asc())
+        )
+    )
+    semantic_governance_chain = semantic_governance_chain_for_audit(
+        session,
+        task_ids=related_task_ids,
+        artifact_ids=prov_export_artifact_ids,
+        evidence_manifest_ids=[row.id for row in evidence_manifests],
+        receipt_sha256s=[
+            (row.get("export_receipt") or {}).get("receipt_sha256")
+            for row in prov_export_receipts
+        ],
+    )
     exports = list(
         session.scalars(
             select(EvidencePackageExport)
@@ -5125,6 +5162,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         "provenance_export_immutability_events": [
             _immutability_event_payload(row) for row in prov_export_immutability_events
         ],
+        "semantic_governance_chain": semantic_governance_chain,
         "evidence_package_exports": [_evidence_export_payload(row) for row in exports],
         "search_evidence_package_traces": source_evidence_closure["trace_summaries"],
         "source_evidence_closure": source_evidence_closure,
@@ -5155,6 +5193,15 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
                 prov_export_receipt_signature_verified
             ),
             "no_prov_export_immutability_events": not prov_export_immutability_events,
+            "has_semantic_governance_chain": semantic_governance_chain["integrity"][
+                "has_events"
+            ],
+            "semantic_governance_chain_integrity_verified": semantic_governance_chain[
+                "integrity"
+            ]["complete"],
+            "semantic_governance_chain_links_prov_receipt": semantic_governance_chain[
+                "integrity"
+            ]["links_requested_prov_receipt"],
             "source_evidence_trace_integrity_verified": (
                 source_evidence_trace_integrity_verified
             ),
@@ -5183,6 +5230,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["prov_export_receipts_integrity_verified"]
         and audit_bundle["audit_checklist"]["prov_export_receipt_signature_verified"]
         and audit_bundle["audit_checklist"]["no_prov_export_immutability_events"]
+        and audit_bundle["audit_checklist"]["has_semantic_governance_chain"]
+        and audit_bundle["audit_checklist"]["semantic_governance_chain_integrity_verified"]
+        and audit_bundle["audit_checklist"]["semantic_governance_chain_links_prov_receipt"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
     )

@@ -52,6 +52,9 @@ class FakeSession:
             return self.replay_runs.get(key)
         raise AssertionError(f"Unexpected model lookup: {model.__name__}")
 
+    def scalar(self, statement):
+        return None
+
     def add(self, row):
         self.added.append(row)
 

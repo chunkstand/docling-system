@@ -21,6 +21,7 @@ from app.schemas.search import (
     SearchHarnessReleaseSummaryResponse,
 )
 from app.services.search_harness_evaluations import get_search_harness_evaluation_detail
+from app.services.semantic_governance import record_search_harness_release_governance_event
 
 
 @dataclass(frozen=True)
@@ -346,6 +347,7 @@ def record_search_harness_release_gate(
     )
     session.add(release)
     session.flush()
+    record_search_harness_release_governance_event(session, release)
     return _to_release_response(release)
 
 

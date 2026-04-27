@@ -21,6 +21,7 @@ from app.db.models import (
     SemanticOntologySourceKind,
     WorkspaceSemanticState,
 )
+from app.services.semantic_governance import record_ontology_snapshot_governance_events
 
 NORMALIZE_PATTERN = re.compile(r"[^a-z0-9]+")
 WORKSPACE_SEMANTIC_STATE_KEY = "default"
@@ -672,6 +673,11 @@ def persist_semantic_ontology_snapshot(
             state.updated_at = now
         snapshot.activated_at = now
         clear_semantic_registry_cache()
+    record_ontology_snapshot_governance_events(
+        session,
+        snapshot,
+        activated=activate,
+    )
     session.flush()
     return snapshot
 
