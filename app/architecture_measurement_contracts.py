@@ -6,8 +6,12 @@ ARCHITECTURE_MEASUREMENT_SCHEMA_NAME = "architecture_inspection_measurement"
 ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME = "architecture_measurement_record"
 ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME = "architecture_measurement_history"
 ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME = "architecture_measurement_summary"
+ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME = "architecture_governance_report"
 DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH = (
     Path("storage") / "architecture_inspections" / "history.jsonl"
+)
+DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH = (
+    Path("build") / "architecture-governance" / "architecture_governance_report.json"
 )
 
 ARCHITECTURE_MEASUREMENT_FIELDS = (
@@ -47,4 +51,17 @@ ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS = (
     "latest_rule_violation_counts",
     "latest_contract_violation_counts",
     "deltas",
+)
+ARCHITECTURE_GOVERNANCE_REPORT_FIELDS = (
+    "schema_name",
+    "schema_version",
+    "generated_at",
+    "valid",
+    "violation_count",
+    "current_commit_sha",
+    "latest_recorded_commit_sha",
+    "is_current",
+    "recording_required",
+    "inspection",
+    "measurement_summary",
 )

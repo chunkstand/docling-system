@@ -27,6 +27,8 @@ from app.architecture_inspection_types import (
     ArchitectureViolation,
 )
 from app.architecture_measurement_contracts import (
+    ARCHITECTURE_GOVERNANCE_REPORT_FIELDS,
+    ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_DELTA_FIELDS,
     ARCHITECTURE_MEASUREMENT_FIELDS,
     ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
@@ -34,6 +36,7 @@ from app.architecture_measurement_contracts import (
     ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS,
     ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH,
     DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH,
 )
 from app.capability_contracts import (
@@ -203,9 +206,13 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "record_schema_name": ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
                 "measurement_schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
                 "summary_schema_name": ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+                "report_schema_name": ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
                 "measurement_fields": list(ARCHITECTURE_MEASUREMENT_FIELDS),
                 "summary_fields": list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS),
                 "delta_fields": list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS),
+                "report_fields": list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS),
+                "ci_report_path": DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH.as_posix(),
+                "ci_workflow": ".github/workflows/architecture-governance.yml",
                 "decision_ids": decision_ids_by_contract.get(
                     "architecture_measurement_history",
                     [],

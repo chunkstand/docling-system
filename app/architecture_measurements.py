@@ -10,9 +10,11 @@ from app.architecture_inspection import (
     build_architecture_inspection_report,
 )
 from app.architecture_measurement_contracts import (
+    ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+    DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH,
     DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH,
 )
 from app.core.files import repo_root
@@ -223,3 +225,58 @@ def summarize_architecture_measurements(
             ),
         },
     }
+
+
+def build_architecture_governance_report(
+    *,
+    history_path: str | Path | None = None,
+    project_root: Path | None = None,
+    policy_path: str | Path | None = None,
+    map_path: str | Path | None = None,
+) -> dict[str, Any]:
+    root = project_root or repo_root()
+    inspection = build_architecture_inspection_report(
+        root,
+        policy_path=policy_path,
+        map_path=map_path,
+    )
+    measurement_summary = summarize_architecture_measurements(
+        history_path,
+        project_root=root,
+    )
+    return {
+        "schema_name": ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
+        "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+        "generated_at": utcnow().isoformat(),
+        "valid": inspection["valid"],
+        "violation_count": inspection["violation_count"],
+        "current_commit_sha": measurement_summary["current_commit_sha"],
+        "latest_recorded_commit_sha": measurement_summary["latest_recorded_commit_sha"],
+        "is_current": measurement_summary["is_current"],
+        "recording_required": measurement_summary["recording_required"],
+        "inspection": inspection,
+        "measurement_summary": measurement_summary,
+    }
+
+
+def write_architecture_governance_report(
+    path: str | Path | None = None,
+    *,
+    report: dict[str, Any] | None = None,
+    history_path: str | Path | None = None,
+    project_root: Path | None = None,
+    policy_path: str | Path | None = None,
+    map_path: str | Path | None = None,
+) -> Path:
+    root = project_root or repo_root()
+    raw_path = Path(path) if path is not None else DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
+    resolved_path = raw_path if raw_path.is_absolute() else root / raw_path
+    payload = report or build_architecture_governance_report(
+        history_path=history_path,
+        project_root=root,
+        policy_path=policy_path,
+        map_path=map_path,
+    )
+    resolved_path.parent.mkdir(parents=True, exist_ok=True)
+    resolved_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    return resolved_path

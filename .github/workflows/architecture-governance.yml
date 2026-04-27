@@ -1,0 +1,65 @@
+name: Architecture Governance
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  architecture-governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+
+      - name: Build architecture governance report
+        run: |
+          mkdir -p build/architecture-governance
+          uv run docling-system-architecture-governance-report \
+            --output-path build/architecture-governance/architecture_governance_report.json
+
+      - name: Upload architecture governance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: architecture-governance-report
+          path: build/architecture-governance/architecture_governance_report.json
+          if-no-files-found: warn
+
+      - name: Ruff
+        run: uv run ruff check
+
+      - name: Architecture inspection
+        run: uv run docling-system-architecture-inspect
+
+      - name: Architecture decisions
+        run: uv run docling-system-architecture-decisions
+
+      - name: Capability contracts
+        run: uv run docling-system-capability-contracts
+
+      - name: Focused architecture tests
+        run: >
+          uv run pytest -q
+          tests/unit/test_architecture_inspection.py
+          tests/unit/test_architecture_measurements.py
+          tests/unit/test_capability_contracts.py
+          tests/unit/test_api_route_contracts.py
+
+      - name: Hygiene
+        run: uv run docling-system-hygiene-check

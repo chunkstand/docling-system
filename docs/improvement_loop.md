@@ -97,6 +97,8 @@ with:
 ```bash
 uv run docling-system-architecture-measure-record
 uv run docling-system-architecture-measure-summary
+uv run docling-system-architecture-governance-report \
+  --output-path build/architecture-governance/architecture_governance_report.json
 ```
 
 The default history path is `storage/architecture_inspections/history.jsonl`.
@@ -112,7 +114,10 @@ architecture inspection report and measurement trend through
 both endpoints are read-only and require the `system:read` API capability in
 remote mode. The summary endpoint includes `current_commit_sha`,
 `latest_recorded_commit_sha`, `is_current`, and `recording_required` so stale
-measurement histories are explicit instead of silently looking current.
+measurement histories are explicit instead of silently looking current. The
+governance report command packages that inspection and freshness state as a
+CI-uploaded JSON artifact, so GitHub and future agents can observe architecture
+health without relying on ignored local `storage/` history.
 
 ## Non-Goals
 

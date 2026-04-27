@@ -132,8 +132,15 @@ changes always pass the registry contract before being written.
 Architecture measurement history is owned by `app.architecture_measurements`.
 The history is local JSONL runtime data under
 `storage/architecture_inspections/history.jsonl`; source control versions the
-recording and summary mechanism, while `storage/` tracks local executions. The
-read-only API surface is owned by the `system_governance` service capability
+recording, summary, and governance-report mechanism, while `storage/` tracks
+local executions. `docling-system-architecture-governance-report` produces the
+CI artifact shape without appending to local measurement history. The GitHub
+workflow at `.github/workflows/architecture-governance.yml` writes that report to
+`build/architecture-governance/architecture_governance_report.json`, uploads it
+for future agents, and then runs the architecture, capability, lint, focused
+test, and hygiene gates.
+
+The read-only API surface is owned by the `system_governance` service capability
 facade and exposed through `GET /architecture/inspection` and
 `GET /architecture/measurements/summary` under the `system:read` capability.
 The summary response includes commit freshness fields so agents can distinguish

@@ -26,6 +26,8 @@ from app.architecture_inspection_types import (
     ArchitectureViolation,
 )
 from app.architecture_measurement_contracts import (
+    ARCHITECTURE_GOVERNANCE_REPORT_FIELDS,
+    ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_DELTA_FIELDS,
     ARCHITECTURE_MEASUREMENT_FIELDS,
     ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
@@ -109,6 +111,16 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     assert measurement_contract["measurement_fields"] == list(ARCHITECTURE_MEASUREMENT_FIELDS)
     assert measurement_contract["summary_fields"] == list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS)
     assert measurement_contract["delta_fields"] == list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS)
+    assert measurement_contract["report_schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
+    assert measurement_contract["report_fields"] == list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS)
+    assert (
+        measurement_contract["ci_report_path"]
+        == "build/architecture-governance/architecture_governance_report.json"
+    )
+    assert measurement_contract["ci_workflow"] == ".github/workflows/architecture-governance.yml"
+    workflow_path = Path(measurement_contract["ci_workflow"])
+    assert workflow_path.is_file()
+    assert "docling-system-architecture-governance-report" in workflow_path.read_text()
     assert all(rule["contract"] for rule in contract_map["inspection_rules"])
     assert all(rule["description"] for rule in contract_map["inspection_rules"])
     assert all(

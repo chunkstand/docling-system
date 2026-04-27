@@ -6,13 +6,16 @@ from pathlib import Path
 import pytest
 
 from app.architecture_inspection import ARCHITECTURE_MEASUREMENT_SCHEMA_NAME
-from app.architecture_measurement_cli import run_summary
+from app.architecture_measurement_cli import run_report, run_summary
+from app.architecture_measurement_contracts import ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
 from app.architecture_measurements import (
     ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
     ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+    build_architecture_governance_report,
     load_architecture_measurement_history,
     record_architecture_measurement,
     summarize_architecture_measurements,
+    write_architecture_governance_report,
 )
 
 
@@ -206,3 +209,122 @@ def test_architecture_measurement_summary_cli_prints_payload(
     assert payload["record_count"] == 1
     assert payload["is_current"] is True
     assert payload["recording_required"] is False
+
+
+def test_architecture_governance_report_wraps_inspection_and_summary(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "abc123",
+    )
+    monkeypatch.setattr(
+        "app.architecture_measurements.build_architecture_inspection_report",
+        lambda *_args, **_kwargs: {
+            "schema_name": "architecture_inspection",
+            **_report(),
+        },
+    )
+    history_path = tmp_path / "history.jsonl"
+    record_architecture_measurement(_report(), history_path=history_path, commit_sha="abc123")
+
+    report = build_architecture_governance_report(history_path=history_path)
+
+    assert report["schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
+    assert report["valid"] is True
+    assert report["violation_count"] == 0
+    assert report["current_commit_sha"] == "abc123"
+    assert report["latest_recorded_commit_sha"] == "abc123"
+    assert report["is_current"] is True
+    assert report["recording_required"] is False
+    assert report["inspection"]["schema_name"] == "architecture_inspection"
+    assert report["measurement_summary"]["record_count"] == 1
+
+
+def test_architecture_governance_report_cli_writes_json(
+    capsys,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "abc123",
+    )
+    monkeypatch.setattr(
+        "app.architecture_measurements.build_architecture_inspection_report",
+        lambda *_args, **_kwargs: {
+            "schema_name": "architecture_inspection",
+            **_report(),
+        },
+    )
+    history_path = tmp_path / "history.jsonl"
+    output_path = tmp_path / "architecture_governance_report.json"
+    record_architecture_measurement(_report(), history_path=history_path, commit_sha="abc123")
+
+    exit_code = run_report(
+        [
+            "--history-path",
+            str(history_path),
+            "--output-path",
+            str(output_path),
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 0
+    assert payload["schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
+    assert json.loads(output_path.read_text()) == payload
+
+
+def test_architecture_governance_report_cli_can_gate_invalid_inspection(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "abc123",
+    )
+    monkeypatch.setattr(
+        "app.architecture_measurements.build_architecture_inspection_report",
+        lambda *_args, **_kwargs: {
+            "schema_name": "architecture_inspection",
+            **_report(error_count=1),
+        },
+    )
+    history_path = tmp_path / "history.jsonl"
+    output_path = tmp_path / "architecture_governance_report.json"
+    record_architecture_measurement(_report(), history_path=history_path, commit_sha="abc123")
+
+    exit_code = run_report(
+        [
+            "--history-path",
+            str(history_path),
+            "--output-path",
+            str(output_path),
+            "--fail-on-invalid",
+        ]
+    )
+
+    assert exit_code == 1
+    assert json.loads(output_path.read_text())["valid"] is False
+
+
+def test_write_architecture_governance_report_uses_default_build_path(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    monkeypatch.setattr(
+        "app.architecture_measurements.build_architecture_governance_report",
+        lambda **_kwargs: {
+            "schema_name": ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
+            "valid": True,
+        },
+    )
+
+    path = write_architecture_governance_report(project_root=tmp_path)
+
+    assert path == tmp_path / "build/architecture-governance/architecture_governance_report.json"
+    assert json.loads(path.read_text())["schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
