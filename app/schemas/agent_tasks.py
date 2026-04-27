@@ -19,6 +19,7 @@ from app.schemas.search import (
     SearchHarnessDescriptorResponse,
     SearchHarnessEvaluationResponse,
     SearchHarnessOptimizationResponse,
+    SearchHarnessReleaseResponse,
     SearchReplayResponse,
     SearchReplayRunDetailResponse,
     SearchRequestExplanationResponse,
@@ -1953,6 +1954,7 @@ class EvaluateSearchHarnessTaskOutput(BaseModel):
 class VerifySearchHarnessEvaluationTaskOutput(BaseModel):
     evaluation: SearchHarnessEvaluationResponse
     verification: AgentTaskVerificationResponse
+    release: SearchHarnessReleaseResponse | None = None
 
 
 class TriageRecommendationPayload(BaseModel):

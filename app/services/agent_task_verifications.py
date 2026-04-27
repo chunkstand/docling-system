@@ -43,6 +43,7 @@ from app.services.search_legibility import get_search_harness_descriptor
 from app.services.search_release_gate import (
     SearchHarnessReleaseGateOutcome,
     evaluate_search_harness_release_gate,
+    record_search_harness_release_gate,
 )
 from app.services.semantic_generation import verify_semantic_grounded_document
 from app.services.semantic_orchestration import (
@@ -198,12 +199,30 @@ def verify_search_harness_evaluation_task(
     evaluation = output.evaluation
     if evaluation.evaluation_id is not None:
         evaluation = get_search_harness_evaluation_detail(session, evaluation.evaluation_id)
-    outcome = evaluate_search_harness_verification(session, evaluation, payload)
+        release = record_search_harness_release_gate(
+            session,
+            evaluation,
+            payload,
+            requested_by=f"agent_task:{verification_task.id}",
+            review_note="verify_search_harness_evaluation",
+        )
+        outcome = SearchHarnessReleaseGateOutcome(
+            outcome=release.outcome,
+            metrics=release.metrics,
+            reasons=release.reasons,
+            details=release.details,
+        )
+    else:
+        release = None
+        outcome = evaluate_search_harness_verification(session, evaluation, payload)
     details = {
         **outcome.details,
         "target_task_id": str(target_context.task_id),
         "target_task_type": target_context.task_type,
     }
+    if release is not None:
+        details["search_harness_release_id"] = str(release.release_id)
+        details["release_package_sha256"] = release.release_package_sha256
     record = create_agent_task_verification_record(
         session,
         target_task_id=target_context.task_id,
@@ -217,6 +236,7 @@ def verify_search_harness_evaluation_task(
     verified_output = VerifySearchHarnessEvaluationTaskOutput(
         evaluation=evaluation,
         verification=record,
+        release=release,
     )
     return verified_output.model_dump(mode="json")
 

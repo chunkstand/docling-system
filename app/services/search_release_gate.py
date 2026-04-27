@@ -66,6 +66,49 @@ def _payload_sha256(payload: dict) -> str:
     ).hexdigest()
 
 
+def _error_detail(exc: HTTPException) -> dict:
+    detail = exc.detail if isinstance(exc.detail, dict) else {"message": str(exc.detail)}
+    return {
+        "status_code": exc.status_code,
+        "code": detail.get("code") or detail.get("error_code") or "search_harness_release_error",
+        "message": detail.get("message") or detail.get("detail") or str(exc.detail),
+        "context": detail.get("context") or detail.get("error_context") or {},
+    }
+
+
+def _error_release_gate_outcome(
+    evaluation: SearchHarnessEvaluationResponse,
+    payload: SearchHarnessReleaseGateThresholds,
+    exc: HTTPException,
+) -> SearchHarnessReleaseGateOutcome:
+    error = _error_detail(exc)
+    metrics = {
+        "source_count": len(evaluation.sources),
+        "total_shared_query_count": evaluation.total_shared_query_count,
+        "total_improved_count": evaluation.total_improved_count,
+        "total_regressed_count": evaluation.total_regressed_count,
+        "total_unchanged_count": evaluation.total_unchanged_count,
+        "max_observed_mrr_drop": 0.0,
+        "max_observed_zero_result_count_increase": 0,
+        "max_observed_foreign_top_result_count_increase": 0,
+    }
+    details = {
+        "evaluation_id": str(evaluation.evaluation_id) if evaluation.evaluation_id else None,
+        "evaluation_status": evaluation.status,
+        "candidate_harness_name": evaluation.candidate_harness_name,
+        "baseline_harness_name": evaluation.baseline_harness_name,
+        "per_source": {},
+        "thresholds": _thresholds_dict(payload),
+        "error": error,
+    }
+    return SearchHarnessReleaseGateOutcome(
+        outcome=AgentTaskVerificationOutcome.ERROR.value,
+        metrics=metrics,
+        reasons=[error["message"]],
+        details=details,
+    )
+
+
 def _to_release_summary(row: SearchHarnessRelease) -> SearchHarnessReleaseSummaryResponse:
     return SearchHarnessReleaseSummaryResponse(
         release_id=row.id,
@@ -265,7 +308,10 @@ def record_search_harness_release_gate(
             "Cannot create a release gate for an evaluation without a durable evaluation_id.",
         )
 
-    gate = evaluate_search_harness_release_gate(session, evaluation, payload)
+    try:
+        gate = evaluate_search_harness_release_gate(session, evaluation, payload)
+    except HTTPException as exc:
+        gate = _error_release_gate_outcome(evaluation, payload, exc)
     thresholds = _thresholds_dict(payload)
     evaluation_snapshot = evaluation.model_dump(mode="json")
     release_package = {

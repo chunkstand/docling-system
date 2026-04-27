@@ -20,6 +20,7 @@ from app.db.models import (
     DocumentRunEvaluation,
     DocumentRunEvaluationQuery,
     SearchHarnessEvaluation,
+    SearchHarnessRelease,
 )
 from app.schemas.agent_tasks import (
     AgentTaskApprovalRequest,
@@ -529,10 +530,24 @@ def test_verify_search_harness_evaluation_context_roundtrip(postgres_integration
         verify_context_payload = json.loads(verify_context_path.read_text())
         assert verify_context_payload["summary"]["verification_state"] in {"passed", "failed"}
         assert verify_context_payload["summary"]["metrics"]["max_total_regressed_count"] == 0
+        assert verify_context_payload["output"]["release"]["release_package_sha256"]
         assert {row["ref_key"] for row in verify_context_payload["refs"]} >= {
             "target_task_output",
             "verification_record",
         }
+        release_rows = (
+            session.execute(
+                select(SearchHarnessRelease)
+                .where(SearchHarnessRelease.requested_by == f"agent_task:{verify_task_id}")
+                .order_by(SearchHarnessRelease.created_at.desc())
+            )
+            .scalars()
+            .all()
+        )
+        assert len(release_rows) == 1
+        assert release_rows[0].search_harness_evaluation_id == UUID(
+            verify_context_payload["output"]["evaluation"]["evaluation_id"]
+        )
 
     context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert context_response.status_code == 200
@@ -540,6 +555,10 @@ def test_verify_search_harness_evaluation_context_roundtrip(postgres_integration
     assert (
         context_json["output"]["verification"]["details"]["thresholds"]["max_total_regressed_count"]
         == 0
+    )
+    assert context_json["output"]["release"]["release_id"]
+    assert context_json["output"]["verification"]["details"]["search_harness_release_id"] == (
+        context_json["output"]["release"]["release_id"]
     )
     assert context_json["refs"][0]["ref_key"] == "target_task_output"
 

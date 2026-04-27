@@ -198,3 +198,53 @@ def test_release_gate_records_durable_release_package() -> None:
     assert release.requested_by == "operator"
     assert release.release_package_sha256
     assert release.evaluation_snapshot["evaluation_id"] == str(evaluation_id)
+
+
+def test_release_gate_records_error_package_for_incomplete_replay_run() -> None:
+    evaluation_id = uuid4()
+    baseline_replay_run_id = uuid4()
+    candidate_replay_run_id = uuid4()
+    evaluation = SearchHarnessEvaluationResponse(
+        evaluation_id=evaluation_id,
+        baseline_harness_name="default_v1",
+        candidate_harness_name="wide_v2",
+        limit=3,
+        source_types=["evaluation_queries"],
+        total_shared_query_count=4,
+        total_improved_count=1,
+        total_regressed_count=0,
+        total_unchanged_count=3,
+        sources=[
+            SearchHarnessEvaluationSourceResponse(
+                source_type="evaluation_queries",
+                baseline_replay_run_id=baseline_replay_run_id,
+                candidate_replay_run_id=candidate_replay_run_id,
+                shared_query_count=4,
+                improved_count=1,
+                regressed_count=0,
+                unchanged_count=3,
+            )
+        ],
+    )
+    payload = VerifySearchHarnessEvaluationTaskInput(target_task_id=uuid4())
+    session = FakeSession(
+        {
+            baseline_replay_run_id: _build_replay_run(
+                replay_run_id=baseline_replay_run_id,
+                status="processing",
+            ),
+            candidate_replay_run_id: _build_replay_run(replay_run_id=candidate_replay_run_id),
+        }
+    )
+
+    release = record_search_harness_release_gate(session, evaluation, payload)
+
+    rows = [row for row in session.added if isinstance(row, SearchHarnessRelease)]
+    assert len(rows) == 1
+    assert rows[0].outcome == "error"
+    assert release.outcome == "error"
+    assert release.reasons == [
+        f"evaluation_queries baseline replay run {baseline_replay_run_id} is not completed."
+    ]
+    assert release.details["error"]["code"] == "search_replay_run_not_completed"
+    assert release.release_package_sha256

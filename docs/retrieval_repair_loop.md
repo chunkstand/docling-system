@@ -60,7 +60,7 @@ operator thresholds and writes a `search_harness_release_gate` record with:
 
 - the candidate and baseline harness names
 - the source types and replay thresholds used by the decision
-- pass/fail outcome, aggregate metrics, per-source details, and failure reasons
+- pass/fail/error outcome, aggregate metrics, per-source details, and failure reasons
 - an evaluation snapshot captured at decision time
 - `release_package_sha256`, a stable hash over the evaluation snapshot and gate package
 
@@ -70,6 +70,8 @@ Inspection surfaces:
 - `GET /search/harness-releases/{release_id}`
 - `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
   prints both the evaluation and persisted release gate
+- `verify_search_harness_evaluation`, which writes a release gate when the target
+  evaluation is durable and links the `release_id` in verifier details
 
 Passing a release gate is evidence that the candidate met the configured retrieval
 guardrails. It does not mutate corpus truth, weaken evaluation fixtures, or silently
