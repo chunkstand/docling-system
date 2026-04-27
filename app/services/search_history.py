@@ -91,6 +91,7 @@ def _to_logged_result(
                 text_excerpt=span.text_excerpt,
                 content_sha256=span.content_sha256,
                 source_snapshot_sha256=span.source_snapshot_sha256,
+                metadata=span.metadata_json or {},
             )
             for span in (spans or [])
         ],

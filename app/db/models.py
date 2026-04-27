@@ -1540,6 +1540,86 @@ class RetrievalEvidenceSpan(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class RetrievalEvidenceSpanMultiVector(Base):
+    __tablename__ = "retrieval_evidence_span_multivectors"
+    __table_args__ = (
+        CheckConstraint(
+            "source_type IN ('chunk', 'table')",
+            name="ck_retrieval_span_multivectors_source_type",
+        ),
+        CheckConstraint(
+            "token_start >= 0 AND token_end > token_start",
+            name="ck_retrieval_span_multivectors_token_range",
+        ),
+        CheckConstraint(
+            "embedding_dim = 1536",
+            name="ck_retrieval_span_multivectors_embedding_dim",
+        ),
+        UniqueConstraint(
+            "retrieval_evidence_span_id",
+            "vector_index",
+            name="uq_retrieval_span_multivectors_span_vector",
+        ),
+        Index(
+            "ix_retrieval_span_multivectors_span_id",
+            "retrieval_evidence_span_id",
+        ),
+        Index("ix_retrieval_span_multivectors_document_id", "document_id"),
+        Index("ix_retrieval_span_multivectors_run_id", "run_id"),
+        Index(
+            "ix_retrieval_span_multivectors_source",
+            "source_type",
+            "source_id",
+        ),
+        Index(
+            "ix_retrieval_span_multivectors_model",
+            "embedding_model",
+        ),
+        Index(
+            "ix_retrieval_span_multivectors_content_sha256",
+            "content_sha256",
+        ),
+        Index(
+            "ix_retrieval_span_multivectors_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    retrieval_evidence_span_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("retrieval_evidence_spans.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    document_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("document_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    source_type: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    vector_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    token_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    vector_text: Mapped[str] = mapped_column(Text, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_model: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_dim: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class SearchRequestResultSpan(Base):
     __tablename__ = "search_request_result_spans"
     __table_args__ = (

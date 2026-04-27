@@ -22,6 +22,7 @@ Required interpretation rules:
 - `harness_config` is the captured config snapshot from request execution, not a live lookup.
 - `span_candidate_count` reports how many final candidates carried persisted retrieval evidence span citations.
 - `selected_result_span_count` appears in `details` and reports how many selected results have span citations after final citation attachment.
+- `late_interaction_candidate_count` reports how many final candidates came from the opt-in multivector late-interaction path when that harness stage ran.
 - `top_result_snapshot` is a compact result summary for review, not a replacement for `/search/requests/{id}`.
 - `diagnosis.category` is a bounded system classification, not a human judgment.
 - `recommended_next_action` is advisory and must not mutate runtime state.
@@ -43,5 +44,7 @@ Explanations must be reconstructable from persisted state. If a future explanati
 Span candidate counts are derived from persisted search telemetry and result-span citation rows. The full span text/hash evidence belongs in `/search/requests/{id}` and `/search/requests/{id}/evidence-package`, not in the compact explanation snapshot.
 
 If an active legacy run is missing retrieval evidence spans, search may rebuild the span index before candidate generation and record `details.retrieval_span_backfill`. That backfill is additive and derived from canonical chunk/table rows.
+
+For `multivector_v1`, persisted request details and result-span metadata include the late-interaction max-sim trace. The compact explanation should summarize candidate counts and fallback status, while the detailed request surfaces retain query-vector hashes, span-vector ids, vector text, token ranges, and similarity scores.
 
 YAML renderings may be added as derived artifacts, but JSON remains the machine-facing contract.

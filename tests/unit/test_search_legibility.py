@@ -134,3 +134,16 @@ def test_search_harness_descriptor_is_self_describing() -> None:
     assert descriptor.is_default is True
     assert "keyword_candidate_multiplier" in descriptor.tunable_knobs["retrieval_profile_overrides"]
     assert descriptor.config_fingerprint
+
+
+def test_multivector_harness_descriptor_discloses_late_interaction_stage() -> None:
+    descriptor = get_search_harness_descriptor("multivector_v1")
+
+    assert descriptor.harness_name == "multivector_v1"
+    assert (
+        "multivector_late_interaction_candidates_when_span_vectors_exist"
+        in descriptor.retrieval_stages
+    )
+    assert (
+        descriptor.harness_config["retrieval_profile"]["late_interaction_enabled"] is True
+    )

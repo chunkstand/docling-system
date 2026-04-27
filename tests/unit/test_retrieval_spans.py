@@ -3,10 +3,12 @@ from __future__ import annotations
 import uuid
 
 from app.core.time import utcnow
-from app.db.models import DocumentChunk, DocumentTable
+from app.db.models import DocumentChunk, DocumentTable, RetrievalEvidenceSpan
 from app.services.retrieval_spans import (
+    MULTIVECTOR_WORD_WINDOW,
     SPAN_WORD_WINDOW,
     build_chunk_span_specs,
+    build_span_multivector_specs,
     build_table_span_specs,
 )
 
@@ -74,3 +76,36 @@ def test_build_table_span_specs_carry_lineage_metadata() -> None:
     assert spans[0].heading == "Threshold Matrix Section 2"
     assert spans[0].metadata["source_table_index"] == 2
     assert spans[0].metadata["logical_table_key"] == "logical-key"
+
+
+def test_build_span_multivector_specs_are_windowed_and_traceable() -> None:
+    span = RetrievalEvidenceSpan(
+        id=uuid.uuid4(),
+        document_id=uuid.uuid4(),
+        run_id=uuid.uuid4(),
+        source_type="chunk",
+        source_id=uuid.uuid4(),
+        chunk_id=uuid.uuid4(),
+        table_id=None,
+        span_index=0,
+        span_text=" ".join(f"signal{i}" for i in range(MULTIVECTOR_WORD_WINDOW + 8)),
+        heading="Evidence",
+        page_from=1,
+        page_to=1,
+        content_sha256="span-sha",
+        source_snapshot_sha256="snapshot-sha",
+        metadata_json={},
+        embedding=None,
+        created_at=utcnow(),
+    )
+
+    vectors = build_span_multivector_specs(span)
+
+    assert len(vectors) == 2
+    assert vectors[0].retrieval_evidence_span_id == span.id
+    assert vectors[0].source_type == "chunk"
+    assert vectors[0].token_start == 0
+    assert vectors[0].token_end == MULTIVECTOR_WORD_WINDOW
+    assert vectors[0].content_sha256 != vectors[1].content_sha256
+    assert vectors[0].metadata["source_span_content_sha256"] == "span-sha"
+    assert vectors[0].metadata["source_snapshot_sha256"] == "snapshot-sha"

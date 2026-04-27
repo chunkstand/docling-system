@@ -12,7 +12,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import Document, DocumentChunk, DocumentRun, DocumentTable, RetrievalEvidenceSpan
+from app.db.models import (
+    Document,
+    DocumentChunk,
+    DocumentRun,
+    DocumentTable,
+    RetrievalEvidenceSpan,
+    RetrievalEvidenceSpanMultiVector,
+)
 from app.services.embeddings import EmbeddingProvider
 
 logger = structlog.get_logger(__name__)
@@ -21,6 +28,10 @@ SPAN_SCHEMA_VERSION = "retrieval_evidence_span_v1"
 SPAN_WORD_WINDOW = 80
 SPAN_WORD_OVERLAP = 20
 SPAN_MIN_TRAILING_WORDS = 20
+MULTIVECTOR_SCHEMA_VERSION = "retrieval_evidence_span_multivector_v1"
+MULTIVECTOR_WORD_WINDOW = 16
+MULTIVECTOR_WORD_OVERLAP = 8
+MULTIVECTOR_MIN_TRAILING_WORDS = 6
 
 
 @dataclass(frozen=True)
@@ -39,6 +50,21 @@ class SourceSpanSpec:
     metadata: dict
 
 
+@dataclass(frozen=True)
+class SpanMultiVectorSpec:
+    retrieval_evidence_span_id: UUID
+    document_id: UUID
+    run_id: UUID
+    source_type: str
+    source_id: UUID
+    vector_index: int
+    token_start: int
+    token_end: int
+    vector_text: str
+    content_sha256: str
+    metadata: dict
+
+
 def _payload_sha256(payload: dict) -> str:
     encoded = json.dumps(
         payload,
@@ -53,29 +79,47 @@ def _normalize_span_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
 
 
-def _window_text(value: str) -> list[tuple[int, str]]:
+def _window_word_ranges(
+    value: str,
+    *,
+    word_window: int,
+    word_overlap: int,
+    min_trailing_words: int,
+) -> list[tuple[int, int, str]]:
     normalized = _normalize_span_text(value)
     if not normalized:
         return []
 
     words = normalized.split()
-    if len(words) <= SPAN_WORD_WINDOW:
-        return [(0, normalized)]
+    if len(words) <= word_window:
+        return [(0, len(words), normalized)]
 
-    windows: list[tuple[int, str]] = []
-    step = SPAN_WORD_WINDOW - SPAN_WORD_OVERLAP
+    windows: list[tuple[int, int, str]] = []
+    step = max(word_window - word_overlap, 1)
     start = 0
     while start < len(words):
-        end = min(start + SPAN_WORD_WINDOW, len(words))
-        if end == len(words) and windows and end - start < SPAN_MIN_TRAILING_WORDS:
-            previous_start, _ = windows[-1]
-            windows[-1] = (previous_start, " ".join(words[previous_start:end]))
+        end = min(start + word_window, len(words))
+        if end == len(words) and windows and end - start < min_trailing_words:
+            previous_start, _previous_end, _ = windows[-1]
+            windows[-1] = (previous_start, end, " ".join(words[previous_start:end]))
             break
-        windows.append((start, " ".join(words[start:end])))
+        windows.append((start, end, " ".join(words[start:end])))
         if end == len(words):
             break
         start += step
     return windows
+
+
+def _window_text(value: str) -> list[tuple[int, str]]:
+    return [
+        (start, text)
+        for start, _end, text in _window_word_ranges(
+            value,
+            word_window=SPAN_WORD_WINDOW,
+            word_overlap=SPAN_WORD_OVERLAP,
+            min_trailing_words=SPAN_MIN_TRAILING_WORDS,
+        )
+    ]
 
 
 def _chunk_source_snapshot(chunk: DocumentChunk) -> dict:
@@ -135,6 +179,31 @@ def _span_content_sha256(
             "source_id": source_id,
             "span_index": span_index,
             "span_text": span_text,
+            "source_snapshot_sha256": source_snapshot_sha256,
+        }
+    )
+
+
+def _span_multivector_content_sha256(
+    *,
+    retrieval_evidence_span_id: UUID,
+    vector_index: int,
+    token_start: int,
+    token_end: int,
+    vector_text: str,
+    span_content_sha256: str,
+    source_snapshot_sha256: str,
+) -> str:
+    return _payload_sha256(
+        {
+            "schema_name": "retrieval_evidence_span_multivector_content",
+            "schema_version": "1.0",
+            "retrieval_evidence_span_id": retrieval_evidence_span_id,
+            "vector_index": vector_index,
+            "token_start": token_start,
+            "token_end": token_end,
+            "vector_text": vector_text,
+            "span_content_sha256": span_content_sha256,
             "source_snapshot_sha256": source_snapshot_sha256,
         }
     )
@@ -210,6 +279,49 @@ def build_table_span_specs(table: DocumentTable) -> list[SourceSpanSpec]:
     return specs
 
 
+def build_span_multivector_specs(span: RetrievalEvidenceSpan) -> list[SpanMultiVectorSpec]:
+    specs: list[SpanMultiVectorSpec] = []
+    for vector_index, (token_start, token_end, vector_text) in enumerate(
+        _window_word_ranges(
+            span.span_text,
+            word_window=MULTIVECTOR_WORD_WINDOW,
+            word_overlap=MULTIVECTOR_WORD_OVERLAP,
+            min_trailing_words=MULTIVECTOR_MIN_TRAILING_WORDS,
+        )
+    ):
+        specs.append(
+            SpanMultiVectorSpec(
+                retrieval_evidence_span_id=span.id,
+                document_id=span.document_id,
+                run_id=span.run_id,
+                source_type=span.source_type,
+                source_id=span.source_id,
+                vector_index=vector_index,
+                token_start=token_start,
+                token_end=token_end,
+                vector_text=vector_text,
+                content_sha256=_span_multivector_content_sha256(
+                    retrieval_evidence_span_id=span.id,
+                    vector_index=vector_index,
+                    token_start=token_start,
+                    token_end=token_end,
+                    vector_text=vector_text,
+                    span_content_sha256=span.content_sha256,
+                    source_snapshot_sha256=span.source_snapshot_sha256,
+                ),
+                metadata={
+                    "schema_name": MULTIVECTOR_SCHEMA_VERSION,
+                    "source_span_content_sha256": span.content_sha256,
+                    "source_snapshot_sha256": span.source_snapshot_sha256,
+                    "word_window": MULTIVECTOR_WORD_WINDOW,
+                    "word_overlap": MULTIVECTOR_WORD_OVERLAP,
+                    "token_count": token_end - token_start,
+                },
+            )
+        )
+    return specs
+
+
 def _build_span_specs(session: Session, run_id: UUID) -> list[SourceSpanSpec]:
     session.flush()
     chunk_rows = list(
@@ -232,6 +344,133 @@ def _build_span_specs(session: Session, run_id: UUID) -> list[SourceSpanSpec]:
     for table in table_rows:
         specs.extend(build_table_span_specs(table))
     return specs
+
+
+def rebuild_retrieval_evidence_span_multivectors(
+    session: Session,
+    run: DocumentRun,
+    *,
+    embedding_provider: EmbeddingProvider | None = None,
+) -> dict:
+    if not isinstance(session, Session):
+        return {
+            "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
+            "schema_version": "1.0",
+            "run_id": str(run.id),
+            "document_id": str(run.document_id),
+            "multivector_count": 0,
+            "source_span_count": 0,
+            "embedding_status": "skipped_non_sqlalchemy_session",
+            "embedding_error": None,
+        }
+
+    if embedding_provider is None:
+        return {
+            "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
+            "schema_version": "1.0",
+            "run_id": str(run.id),
+            "document_id": str(run.document_id),
+            "multivector_count": 0,
+            "source_span_count": 0,
+            "embedding_status": "skipped_no_embedding_provider",
+            "embedding_error": None,
+        }
+
+    spans = list(
+        session.scalars(
+            select(RetrievalEvidenceSpan)
+            .where(RetrievalEvidenceSpan.run_id == run.id)
+            .order_by(
+                RetrievalEvidenceSpan.source_type.asc(),
+                RetrievalEvidenceSpan.source_id.asc(),
+                RetrievalEvidenceSpan.span_index.asc(),
+            )
+        )
+    )
+    specs = [spec for span in spans for spec in build_span_multivector_specs(span)]
+    session.execute(
+        delete(RetrievalEvidenceSpanMultiVector).where(
+            RetrievalEvidenceSpanMultiVector.run_id == run.id
+        )
+    )
+    if not specs:
+        session.flush()
+        return {
+            "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
+            "schema_version": "1.0",
+            "run_id": str(run.id),
+            "document_id": str(run.document_id),
+            "multivector_count": 0,
+            "source_span_count": len(spans),
+            "embedding_status": "skipped_no_spans",
+            "embedding_error": None,
+        }
+
+    embedding_status = "completed"
+    embedding_error: str | None = None
+    try:
+        raw_embeddings = embedding_provider.embed_texts([spec.vector_text for spec in specs])
+        embeddings = [list(embedding) for embedding in raw_embeddings]
+    except Exception as exc:
+        embedding_status = "embedding_failed"
+        embedding_error = str(exc)
+        logger.warning(
+            "retrieval_evidence_span_multivector_embedding_failed",
+            run_id=str(run.id),
+            document_id=str(run.document_id),
+            error=str(exc),
+        )
+        session.flush()
+        return {
+            "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
+            "schema_version": "1.0",
+            "run_id": str(run.id),
+            "document_id": str(run.document_id),
+            "multivector_count": 0,
+            "source_span_count": len(spans),
+            "embedding_status": embedding_status,
+            "embedding_error": embedding_error,
+        }
+
+    now = utcnow()
+    embedding_model = str(getattr(embedding_provider, "model", "unknown"))
+    for spec, embedding in zip(specs, embeddings, strict=True):
+        session.add(
+            RetrievalEvidenceSpanMultiVector(
+                id=uuid.uuid4(),
+                retrieval_evidence_span_id=spec.retrieval_evidence_span_id,
+                document_id=spec.document_id,
+                run_id=spec.run_id,
+                source_type=spec.source_type,
+                source_id=spec.source_id,
+                vector_index=spec.vector_index,
+                token_start=spec.token_start,
+                token_end=spec.token_end,
+                vector_text=spec.vector_text,
+                content_sha256=spec.content_sha256,
+                embedding_model=embedding_model,
+                embedding_dim=len(embedding),
+                embedding=embedding,
+                metadata_json={
+                    **spec.metadata,
+                    "embedding_status": embedding_status,
+                    "embedding_model": embedding_model,
+                },
+                created_at=now,
+            )
+        )
+    session.flush()
+    return {
+        "schema_name": "retrieval_evidence_span_multivector_rebuild_summary",
+        "schema_version": "1.0",
+        "run_id": str(run.id),
+        "document_id": str(run.document_id),
+        "multivector_count": len(specs),
+        "source_span_count": len(spans),
+        "embedding_status": embedding_status,
+        "embedding_error": embedding_error,
+        "embedding_model": embedding_model,
+    }
 
 
 def rebuild_retrieval_evidence_spans(
@@ -303,6 +542,11 @@ def rebuild_retrieval_evidence_spans(
             )
         )
     session.flush()
+    multivector_summary = rebuild_retrieval_evidence_span_multivectors(
+        session,
+        run,
+        embedding_provider=embedding_provider if embedding_status == "completed" else None,
+    )
     return {
         "schema_name": "retrieval_evidence_span_rebuild_summary",
         "schema_version": "1.0",
@@ -313,6 +557,7 @@ def rebuild_retrieval_evidence_spans(
         "table_span_count": sum(1 for spec in specs if spec.source_type == "table"),
         "embedding_status": embedding_status,
         "embedding_error": embedding_error,
+        "multivector_summary": multivector_summary,
     }
 
 

@@ -288,6 +288,32 @@ def get_search_harness_descriptor(
 ) -> SearchHarnessDescriptorResponse:
     harness = get_search_harness(harness_name, harness_overrides)
     config = harness.config_snapshot
+    retrieval_stages = [
+        "keyword_candidates",
+        "span_level_keyword_candidates",
+        "semantic_candidates_when_embedding_available",
+        "span_level_semantic_candidates_when_embedding_available",
+        "metadata_supplement_for_selected_prose_queries",
+        "adjacent_context_expansion",
+        "linear_feature_reranking",
+    ]
+    known_tradeoffs = [
+        "Increasing candidate multipliers improves recall but raises latency.",
+        "Table bonuses can improve tabular retrieval while risking prose-result demotion.",
+        (
+            "Metadata supplements can recover document-level prose lookups but may bias "
+            "toward titles or filenames."
+        ),
+    ]
+    if harness.retrieval_profile.late_interaction_enabled:
+        retrieval_stages.insert(
+            4,
+            "multivector_late_interaction_candidates_when_span_vectors_exist",
+        )
+        known_tradeoffs.append(
+            "Late-interaction multivectors improve recall and traceability but add "
+            "embedding storage and vector-search cost."
+        )
     return SearchHarnessDescriptorResponse(
         harness_name=harness.name,
         base_harness_name=harness.base_harness_name,
@@ -296,15 +322,7 @@ def get_search_harness_descriptor(
         reranker_name=harness.reranker_name,
         reranker_version=harness.reranker_version,
         retrieval_profile_name=harness.retrieval_profile_name,
-        retrieval_stages=[
-            "keyword_candidates",
-            "span_level_keyword_candidates",
-            "semantic_candidates_when_embedding_available",
-            "span_level_semantic_candidates_when_embedding_available",
-            "metadata_supplement_for_selected_prose_queries",
-            "adjacent_context_expansion",
-            "linear_feature_reranking",
-        ],
+        retrieval_stages=retrieval_stages,
         tunable_knobs={
             "retrieval_profile_overrides": sorted(SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS),
             "reranker_overrides": sorted(SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS),
@@ -321,14 +339,7 @@ def get_search_harness_descriptor(
             "live_search_gaps",
             "cross_document_prose_regressions",
         ],
-        known_tradeoffs=[
-            "Increasing candidate multipliers improves recall but raises latency.",
-            "Table bonuses can improve tabular retrieval while risking prose-result demotion.",
-            (
-                "Metadata supplements can recover document-level prose lookups but may bias "
-                "toward titles or filenames."
-            ),
-        ],
+        known_tradeoffs=known_tradeoffs,
         harness_config=config,
         metadata=harness.metadata,
     )

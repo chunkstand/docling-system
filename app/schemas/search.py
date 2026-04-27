@@ -43,6 +43,7 @@ class SearchEvidenceSpan(BaseModel):
     text_excerpt: str
     content_sha256: str
     source_snapshot_sha256: str | None = None
+    metadata: dict = Field(default_factory=dict)
 
 
 class SearchResult(BaseModel):

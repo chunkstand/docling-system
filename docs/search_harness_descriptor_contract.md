@@ -19,10 +19,25 @@ Important fields:
 - `config_fingerprint`: SHA-256 over the normalized harness config snapshot.
 - `retrieval_stages`: readable execution stages enabled by the harness family.
 - Span-level keyword and semantic stages mean candidate generation can use persisted retrieval evidence spans in addition to whole chunks and tables.
+- `multivector_late_interaction_candidates_when_span_vectors_exist` means the harness can run a ColBERT-style max-sim retrieval pass over persisted span sub-vectors when embeddings are available.
 - `tunable_knobs`: allowed override fields grouped by `retrieval_profile_overrides` and `reranker_overrides`.
 - `constraints`: invariants a draft must respect before apply.
 - `known_tradeoffs`: expected risks when tuning the harness.
 - `harness_config`: the full current config snapshot used by runtime execution.
+
+## Multivector Harness
+
+`multivector_v1` is an opt-in harness family. It preserves the existing keyword, semantic, span-level, table-first, and reranking stages, then adds a late-interaction candidate stage when retrieval evidence span multivectors exist.
+
+The stage stores one or more vectors per retrieval evidence span in Postgres, computes query-window vectors at request time, and scores candidates by average query-window max similarity. Search telemetry records:
+
+- `details.late_interaction.status`
+- `details.late_interaction.query_vector_count`
+- `details.late_interaction.match_count`
+- `details.late_interaction.candidate_count`
+- per-span `metadata.late_interaction.maxsim_matches`
+
+Those traces make a late-interaction hit explainable without treating the vector index as a black box.
 
 ## Repair Use
 

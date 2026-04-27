@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import uuid
 from collections import Counter
@@ -19,6 +21,7 @@ from app.db.models import (
     DocumentChunk,
     DocumentTable,
     RetrievalEvidenceSpan,
+    RetrievalEvidenceSpanMultiVector,
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
@@ -49,6 +52,9 @@ PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
 PROSE_ADJACENT_EXPANSION_LIMIT = 12
 PROSE_ADJACENT_SEED_LIMIT = 6
 SEARCH_RESULT_SPAN_LIMIT = 5
+LATE_INTERACTION_QUERY_WORD_WINDOW = 6
+LATE_INTERACTION_QUERY_WORD_OVERLAP = 3
+LATE_INTERACTION_FETCH_MULTIPLIER = 4
 TABULAR_REFERENCE_PATTERN = re.compile(r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b")
 
 
@@ -65,6 +71,7 @@ class RankedEvidenceSpan:
     text_excerpt: str
     content_sha256: str
     source_snapshot_sha256: str | None
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -150,6 +157,9 @@ class SearchRetrievalProfile:
     keyword_candidate_multiplier: int
     semantic_candidate_multiplier: int
     min_candidate_limit: int
+    late_interaction_enabled: bool = False
+    late_interaction_candidate_multiplier: int = 6
+    late_interaction_min_candidate_limit: int = 24
 
     def snapshot(self) -> dict:
         return asdict(self)
@@ -236,6 +246,15 @@ PROSE_RETRIEVAL_PROFILE = SearchRetrievalProfile(
     semantic_candidate_multiplier=10,
     min_candidate_limit=40,
 )
+MULTIVECTOR_RETRIEVAL_PROFILE = SearchRetrievalProfile(
+    name="multivector_v1",
+    keyword_candidate_multiplier=7,
+    semantic_candidate_multiplier=7,
+    min_candidate_limit=28,
+    late_interaction_enabled=True,
+    late_interaction_candidate_multiplier=8,
+    late_interaction_min_candidate_limit=32,
+)
 
 METADATA_SUPPLEMENT_DIRECT_CHUNK_MULTIPLIER = 4
 METADATA_SUPPLEMENT_DOCUMENT_LIMIT = 8
@@ -246,6 +265,9 @@ SEARCH_HARNESS_RETRIEVAL_OVERRIDE_FIELDS = {
     "keyword_candidate_multiplier",
     "semantic_candidate_multiplier",
     "min_candidate_limit",
+    "late_interaction_enabled",
+    "late_interaction_candidate_multiplier",
+    "late_interaction_min_candidate_limit",
 }
 
 SEARCH_HARNESS_RERANKER_OVERRIDE_FIELDS = {
@@ -342,6 +364,38 @@ _HARNESS_REGISTRY: dict[str, SearchHarness] = {
             result_type_priority_bonus=0.008,
         ),
     ),
+    "multivector_v1": SearchHarness(
+        name="multivector_v1",
+        retrieval_profile=MULTIVECTOR_RETRIEVAL_PROFILE,
+        reranker_config=LinearRerankerConfig(
+            harness_name="multivector_v1",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v4",
+            retrieval_profile_name=MULTIVECTOR_RETRIEVAL_PROFILE.name,
+            tabular_table_bonus=0.08,
+            title_exact_match_bonus=0.05,
+            title_token_coverage_bonus=0.03,
+            source_filename_exact_match_bonus=4.0,
+            source_filename_token_coverage_bonus=0.045,
+            document_title_exact_match_bonus=2.25,
+            document_title_token_coverage_bonus=0.04,
+            prose_document_cluster_bonus=0.04,
+            heading_token_coverage_bonus=0.03,
+            phrase_overlap_bonus=0.03,
+            rare_token_overlap_bonus=0.04,
+            adjacent_chunk_context_bonus=0.0,
+            prose_table_penalty=0.0,
+            exact_filter_bonus=0.02,
+            result_type_priority_bonus=0.008,
+        ),
+        metadata={
+            "retrieval_family": "multivector_late_interaction",
+            "audit_note": (
+                "Uses retrieval evidence span multivectors and records query-to-span "
+                "max-sim traces when embeddings are available."
+            ),
+        },
+    ),
 }
 
 
@@ -426,6 +480,9 @@ class LinearFeatureSearchReranker:
                 prose_match_features["adjacent_chunk_context_signal"]
                 * self.config.adjacent_chunk_context_bonus
             )
+            late_interaction_signal = float(
+                "multivector_late_interaction" in item.retrieval_sources
+            )
             tabular_boost = tabular_table_signal * self.config.tabular_table_bonus
             prose_table_penalty = (
                 self.config.prose_table_penalty
@@ -498,6 +555,7 @@ class LinearFeatureSearchReranker:
                             "adjacent_chunk_context_signal"
                         ],
                         "adjacent_chunk_context_boost": adjacent_chunk_context_boost,
+                        "late_interaction_signal": late_interaction_signal,
                         "prose_table_penalty": prose_table_penalty,
                         "exact_filter_priority": exact_filter_priority,
                         "exact_filter_boost": exact_filter_boost,
@@ -860,6 +918,7 @@ def _span_evidence_payload(
     *,
     score_kind: str,
     score: float | None,
+    metadata: dict | None = None,
 ) -> RankedEvidenceSpan:
     return RankedEvidenceSpan(
         retrieval_evidence_span_id=span.id,
@@ -873,6 +932,7 @@ def _span_evidence_payload(
         text_excerpt=span.span_text,
         content_sha256=span.content_sha256,
         source_snapshot_sha256=span.source_snapshot_sha256,
+        metadata=metadata or {},
     )
 
 
@@ -1331,6 +1391,298 @@ def _run_semantic_span_table_search(
     )
 
 
+def _payload_sha256(payload: dict) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _query_multivector_windows(query: str) -> list[dict]:
+    normalized = re.sub(r"\s+", " ", query or "").strip()
+    if not normalized:
+        return []
+    words = normalized.split()
+    if len(words) <= LATE_INTERACTION_QUERY_WORD_WINDOW:
+        return [
+            {
+                "query_vector_index": 0,
+                "token_start": 0,
+                "token_end": len(words),
+                "text": normalized,
+                "text_sha256": _payload_sha256({"query_vector_text": normalized}),
+            }
+        ]
+
+    windows: list[dict] = []
+    step = max(LATE_INTERACTION_QUERY_WORD_WINDOW - LATE_INTERACTION_QUERY_WORD_OVERLAP, 1)
+    start = 0
+    while start < len(words):
+        end = min(start + LATE_INTERACTION_QUERY_WORD_WINDOW, len(words))
+        text = " ".join(words[start:end])
+        windows.append(
+            {
+                "query_vector_index": len(windows),
+                "token_start": start,
+                "token_end": end,
+                "text": text,
+                "text_sha256": _payload_sha256(
+                    {
+                        "query_vector_index": len(windows),
+                        "query_vector_text": text,
+                    }
+                ),
+            }
+        )
+        if end == len(words):
+            break
+        start += step
+    return windows
+
+
+def _multivector_span_query(
+    run_id: UUID | None = None,
+) -> Select[tuple[RetrievalEvidenceSpanMultiVector, RetrievalEvidenceSpan]]:
+    statement = select(RetrievalEvidenceSpanMultiVector, RetrievalEvidenceSpan).join(
+        RetrievalEvidenceSpan,
+        RetrievalEvidenceSpanMultiVector.retrieval_evidence_span_id == RetrievalEvidenceSpan.id,
+    )
+    if run_id is None:
+        return statement.join(
+            Document,
+            and_(
+                Document.id == RetrievalEvidenceSpanMultiVector.document_id,
+                Document.active_run_id == RetrievalEvidenceSpanMultiVector.run_id,
+            ),
+        )
+    return statement.join(
+        Document,
+        Document.id == RetrievalEvidenceSpanMultiVector.document_id,
+    ).where(RetrievalEvidenceSpanMultiVector.run_id == run_id)
+
+
+def _late_interaction_match_trace(
+    *,
+    query_windows: list[dict],
+    query_matches: dict[int, dict],
+    score: float,
+) -> dict:
+    ordered_matches = [
+        query_matches[index]
+        for index in sorted(query_matches)
+    ]
+    return {
+        "schema_name": "late_interaction_maxsim_trace",
+        "schema_version": "1.0",
+        "score_policy": "average_query_window_max_similarity",
+        "score": score,
+        "query_vector_count": len(query_windows),
+        "matched_query_vector_count": len(ordered_matches),
+        "query_vectors": [
+            {
+                "query_vector_index": item["query_vector_index"],
+                "token_start": item["token_start"],
+                "token_end": item["token_end"],
+                "text": item["text"],
+                "text_sha256": item["text_sha256"],
+            }
+            for item in query_windows
+        ],
+        "maxsim_matches": ordered_matches,
+    }
+
+
+def _hydrate_late_interaction_results(
+    session: Session,
+    *,
+    span_scores: dict[UUID, dict],
+    limit: int,
+    run_id: UUID | None,
+) -> list[RankedResult]:
+    ordered_span_ids = [
+        span_id
+        for span_id, _state in sorted(
+            span_scores.items(),
+            key=lambda item: (
+                -float(item[1]["score"]),
+                str(item[0]),
+            ),
+        )
+    ][:limit]
+    if not ordered_span_ids:
+        return []
+
+    chunk_rows = (
+        session.execute(
+            _span_chunk_query(run_id).where(RetrievalEvidenceSpan.id.in_(ordered_span_ids))
+        )
+        .all()
+    )
+    table_rows = (
+        session.execute(
+            _span_table_query(run_id).where(RetrievalEvidenceSpan.id.in_(ordered_span_ids))
+        )
+        .all()
+    )
+    hydrated_by_span_id: dict[UUID, RankedResult] = {}
+    for span, chunk, document in chunk_rows:
+        state = span_scores[span.id]
+        score = float(state["score"])
+        hydrated_by_span_id[span.id] = RankedResult(
+            result_type="chunk",
+            result_id=chunk.id,
+            document_id=chunk.document_id,
+            run_id=chunk.run_id,
+            source_filename=document.source_filename,
+            document_title=document.title,
+            page_from=chunk.page_from,
+            page_to=chunk.page_to,
+            chunk_index=chunk.chunk_index,
+            chunk_text=chunk.text,
+            heading=chunk.heading,
+            semantic_score=score,
+            retrieval_sources=("multivector_late_interaction",),
+            evidence_spans=(
+                _span_evidence_payload(
+                    span,
+                    score_kind="late_interaction_maxsim",
+                    score=score,
+                    metadata={"late_interaction": state["trace"]},
+                ),
+            ),
+        )
+    for span, table, document in table_rows:
+        state = span_scores[span.id]
+        score = float(state["score"])
+        hydrated_by_span_id[span.id] = RankedResult(
+            result_type="table",
+            result_id=table.id,
+            document_id=table.document_id,
+            run_id=table.run_id,
+            source_filename=document.source_filename,
+            document_title=document.title,
+            page_from=table.page_from,
+            page_to=table.page_to,
+            table_index=table.table_index,
+            table_title=table.title,
+            table_heading=table.heading,
+            table_preview=table.preview_text,
+            row_count=table.row_count,
+            col_count=table.col_count,
+            semantic_score=score,
+            retrieval_sources=("multivector_late_interaction",),
+            evidence_spans=(
+                _span_evidence_payload(
+                    span,
+                    score_kind="late_interaction_maxsim",
+                    score=score,
+                    metadata={"late_interaction": state["trace"]},
+                ),
+            ),
+        )
+    return [
+        hydrated_by_span_id[span_id]
+        for span_id in ordered_span_ids
+        if span_id in hydrated_by_span_id
+    ]
+
+
+def _run_late_interaction_search(
+    session: Session,
+    request: SearchRequest,
+    *,
+    query_windows: list[dict],
+    query_vectors: list[list[float]],
+    candidate_limit: int,
+    run_id: UUID | None,
+) -> tuple[list[RankedResult], dict]:
+    if not _supports_retrieval_span_search(session) or not query_vectors:
+        return [], {
+            "status": "skipped",
+            "query_vector_count": len(query_vectors),
+            "match_count": 0,
+            "candidate_count": 0,
+        }
+
+    span_states: dict[UUID, dict] = {}
+    vector_fetch_limit = max(
+        candidate_limit * LATE_INTERACTION_FETCH_MULTIPLIER,
+        candidate_limit + len(query_vectors),
+    )
+    for query_vector_index, query_vector in enumerate(query_vectors):
+        distance = RetrievalEvidenceSpanMultiVector.embedding.cosine_distance(query_vector)
+        similarity = cast(1 - distance, Float)
+        statement = (
+            _apply_span_filters(_multivector_span_query(run_id), request.filters)
+            .add_columns(similarity.label("score"))
+            .where(RetrievalEvidenceSpanMultiVector.embedding.is_not(None))
+            .order_by(
+                distance.asc(),
+                RetrievalEvidenceSpanMultiVector.vector_index.asc(),
+                RetrievalEvidenceSpan.id.asc(),
+            )
+            .limit(vector_fetch_limit)
+        )
+        for vector_row, span, score in session.execute(statement).all():
+            state = span_states.setdefault(
+                span.id,
+                {
+                    "span": span,
+                    "query_matches": {},
+                },
+            )
+            current = state["query_matches"].get(query_vector_index)
+            score_value = float(score)
+            if current is not None and score_value <= float(current["score"]):
+                continue
+            state["query_matches"][query_vector_index] = {
+                "query_vector_index": query_vector_index,
+                "score": score_value,
+                "span_vector_id": str(vector_row.id),
+                "span_vector_index": vector_row.vector_index,
+                "token_start": vector_row.token_start,
+                "token_end": vector_row.token_end,
+                "vector_text": vector_row.vector_text,
+                "vector_content_sha256": vector_row.content_sha256,
+                "embedding_model": vector_row.embedding_model,
+            }
+
+    scored_states: dict[UUID, dict] = {}
+    for span_id, state in span_states.items():
+        query_matches = state["query_matches"]
+        score = sum(
+            float(query_matches[index]["score"]) if index in query_matches else 0.0
+            for index in range(len(query_vectors))
+        ) / len(query_vectors)
+        scored_states[span_id] = {
+            **state,
+            "score": score,
+            "trace": _late_interaction_match_trace(
+                query_windows=query_windows,
+                query_matches=query_matches,
+                score=score,
+            ),
+        }
+
+    results = _hydrate_late_interaction_results(
+        session,
+        span_scores=scored_states,
+        limit=candidate_limit,
+        run_id=run_id,
+    )
+    return results, {
+        "status": "completed" if results else "no_candidates",
+        "query_vector_count": len(query_vectors),
+        "match_count": sum(len(state["query_matches"]) for state in span_states.values()),
+        "candidate_count": len(results),
+        "candidate_limit": candidate_limit,
+        "score_policy": "average_query_window_max_similarity",
+    }
+
+
 def _reciprocal_rank(rank: int) -> float:
     return 1.0 / (60 + rank)
 
@@ -1729,6 +2081,7 @@ def _to_search_result(item: RankedResult, score: float) -> SearchResult:
                 text_excerpt=span.text_excerpt,
                 content_sha256=span.content_sha256,
                 source_snapshot_sha256=span.source_snapshot_sha256,
+                metadata=span.metadata,
             )
             for span in item.evidence_spans
         ],
@@ -2159,6 +2512,7 @@ def _ranked_result_evidence_payload(item: RankedResult, index: int) -> dict:
                 "text_excerpt": span.text_excerpt,
                 "content_sha256": span.content_sha256,
                 "source_snapshot_sha256": span.source_snapshot_sha256,
+                "metadata": span.metadata,
             }
             for span in item.evidence_spans
         ],
@@ -2197,6 +2551,7 @@ def _reranked_result_evidence_payload(
                 "text_excerpt": span.text_excerpt,
                 "content_sha256": span.content_sha256,
                 "source_snapshot_sha256": span.source_snapshot_sha256,
+                "metadata": span.metadata,
             }
             for span in candidate.item.evidence_spans
         ],
@@ -2423,6 +2778,7 @@ def _persist_search_result_spans(
                     metadata_json={
                         "retrieval_source_count": len(candidate.item.retrieval_sources),
                         "retrieval_sources": list(candidate.item.retrieval_sources),
+                        **(span.metadata or {}),
                     },
                     created_at=created_at,
                 )
@@ -2765,6 +3121,7 @@ def _build_search_execution_details(
     harness: SearchHarness,
     fallback_reason: str | None,
     semantic_augmented_with_keyword_context: bool,
+    late_interaction_details: dict | None,
 ) -> dict:
     details = {
         "keyword_candidate_count": len(keyword_results),
@@ -2780,6 +3137,11 @@ def _build_search_execution_details(
         "context_expansion_count": sum(
             1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
         ),
+        "late_interaction_candidate_count": (
+            int(late_interaction_details.get("candidate_count") or 0)
+            if late_interaction_details
+            else 0
+        ),
         "requested_mode": requested_mode,
         "served_mode": served_mode,
         "harness_name": harness.name,
@@ -2789,6 +3151,8 @@ def _build_search_execution_details(
     }
     if semantic_augmented_with_keyword_context:
         details["semantic_augmented_with_keyword_context"] = True
+    if late_interaction_details is not None:
+        details["late_interaction"] = late_interaction_details
     if fallback_reason is not None:
         details["fallback_reason"] = fallback_reason
     return details
@@ -2837,6 +3201,7 @@ def execute_search(
     embedding_error: str | None = None
     fallback_reason: str | None = None
     semantic_results: list[RankedResult] = []
+    late_interaction_details: dict | None = None
     adjacent_candidates: list[RankedResult] = []
     for stage in execution_plan.stages:
         if stage == SearchStage.STRICT_KEYWORD:
@@ -2904,6 +3269,39 @@ def execute_search(
                     candidate_limit=semantic_candidate_limit,
                     run_id=run_id,
                 )
+                if harness.retrieval_profile.late_interaction_enabled:
+                    try:
+                        query_windows = _query_multivector_windows(request.query)
+                        query_vectors = provider.embed_texts(
+                            [window["text"] for window in query_windows]
+                        )
+                        late_interaction_candidate_limit = max(
+                            request.limit
+                            * harness.retrieval_profile.late_interaction_candidate_multiplier,
+                            harness.retrieval_profile.late_interaction_min_candidate_limit,
+                        )
+                        late_interaction_results, late_interaction_details = (
+                            _run_late_interaction_search(
+                                session,
+                                request,
+                                query_windows=query_windows,
+                                query_vectors=query_vectors,
+                                candidate_limit=late_interaction_candidate_limit,
+                                run_id=run_id,
+                            )
+                        )
+                        semantic_results = _sort_ranked_candidates_by_score(
+                            _dedupe_ranked_results(
+                                [*semantic_results, *late_interaction_results]
+                            ),
+                            score_getter=_semantic_score,
+                        )
+                    except Exception as exc:
+                        late_interaction_details = {
+                            "status": "failed",
+                            "error": str(exc),
+                            "candidate_count": 0,
+                        }
             except Exception as exc:
                 embedding_status = "embedding_failed"
                 embedding_error = str(exc)
@@ -2954,6 +3352,7 @@ def execute_search(
         harness=harness,
         fallback_reason=fallback_reason,
         semantic_augmented_with_keyword_context=semantic_augmented_with_keyword_context,
+        late_interaction_details=late_interaction_details,
     )
     if span_backfill_summary.get("rebuilt_run_count"):
         details["retrieval_span_backfill"] = span_backfill_summary
