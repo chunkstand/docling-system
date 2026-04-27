@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -1177,6 +1178,59 @@ def test_agent_task_artifact_route_does_not_serve_paths_outside_storage_root(
 
     assert response.status_code == 200
     assert response.json() == {"fallback": True}
+
+
+def test_agent_task_prov_artifact_route_rejects_tampered_storage_file(
+    monkeypatch, tmp_path: Path
+) -> None:
+    task_id = uuid4()
+    artifact_id = uuid4()
+    storage_service = StorageService(storage_root=tmp_path / "storage")
+    artifact_path = (
+        storage_service.get_agent_task_dir(task_id) / "technical_report_prov_export.json"
+    )
+    frozen_payload = {
+        "schema_name": "technical_report_prov_export",
+        "frozen_export": {
+            "artifact_id": str(artifact_id),
+            "artifact_kind": "technical_report_prov_export",
+            "task_id": str(task_id),
+            "export_payload_sha256": "expected",
+        },
+        "prov_integrity": {"complete": True},
+    }
+    artifact_path.write_text(json.dumps({**frozen_payload, "tampered": True}))
+
+    def fake_get_artifact(_session, incoming_task_id, incoming_artifact_id):
+        return type(
+            "ArtifactRow",
+            (),
+            {
+                "id": incoming_artifact_id,
+                "task_id": incoming_task_id,
+                "artifact_kind": "technical_report_prov_export",
+                "storage_path": str(artifact_path),
+                "payload_json": frozen_payload,
+            },
+        )()
+
+    try:
+        monkeypatch.setattr(
+            "app.api.routers.agent_tasks.get_storage_service",
+            lambda: storage_service,
+        )
+        monkeypatch.setattr(
+            "app.api.routers.agent_tasks.get_agent_task_artifact",
+            fake_get_artifact,
+        )
+        client = TestClient(app)
+        response = client.get(f"/agent-tasks/{task_id}/artifacts/{artifact_id}")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "agent_task_artifact_integrity_mismatch"
+    assert response.json()["error_context"]["artifact_id"] == str(artifact_id)
 
 
 def test_agent_task_list_route_accepts_repeated_status_query(monkeypatch) -> None:

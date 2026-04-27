@@ -498,6 +498,20 @@ def test_technical_report_harness_roundtrip(postgres_integration_harness, monkey
     )
     assert artifact_response.status_code == 200
     assert artifact_response.json()["frozen_export"]["artifact_id"] == str(prov_artifact_id)
+    prov_storage_path = Path(provenance["frozen_export"]["storage_path"])
+    original_prov_file = prov_storage_path.read_text()
+    try:
+        prov_storage_path.write_text(json.dumps({**provenance, "tampered": True}))
+        tampered_artifact_response = client.get(
+            f"/agent-tasks/{verify_task_id}/artifacts/{prov_artifact_id}"
+        )
+        assert tampered_artifact_response.status_code == 409
+        assert (
+            tampered_artifact_response.json()["error_code"]
+            == "agent_task_artifact_integrity_mismatch"
+        )
+    finally:
+        prov_storage_path.write_text(original_prov_file)
 
     second_provenance_response = client.get(f"/agent-tasks/{verify_task_id}/provenance")
     assert second_provenance_response.status_code == 200

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Annotated
 from uuid import UUID
 
@@ -50,8 +52,8 @@ from app.services.storage import StorageService
 
 router = APIRouter()
 DbSession = Annotated[Session, Depends(get_db_session)]
-StorageDep = Annotated[StorageService, Depends(get_storage_service)]
 TaskStatusQuery = Annotated[list[str] | None, Query(alias="status")]
+TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
 
 list_agent_task_action_definitions = agent_orchestration.list_agent_task_action_definitions
 list_agent_tasks = agent_orchestration.list_agent_tasks
@@ -83,6 +85,72 @@ get_agent_task_value_density = agent_orchestration.get_agent_task_value_density
 get_agent_task_decision_signals = agent_orchestration.get_agent_task_decision_signals
 list_agent_task_workflow_summaries = agent_orchestration.list_agent_task_workflow_summaries
 export_agent_task_traces = agent_orchestration.export_agent_task_traces
+
+
+def _storage_service_dep() -> StorageService:
+    return get_storage_service()
+
+
+StorageDep = Annotated[StorageService, Depends(_storage_service_dep)]
+
+
+def _artifact_payload_sha256(payload: dict) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _canonical_artifact_payload(payload: dict | None) -> dict:
+    return json.loads(json.dumps(payload or {}, sort_keys=True, default=str))
+
+
+def _frozen_prov_artifact_response(artifact, storage_service: StorageService):
+    storage_path = getattr(artifact, "storage_path", None)
+    if not storage_path:
+        return JSONResponse(artifact.payload_json or {})
+    resolved_path = storage_service.resolve_existing_path(storage_path)
+    if resolved_path is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "agent_task_artifact_file_not_found",
+            "Agent task artifact file was not found under the configured storage root.",
+            task_id=str(artifact.task_id),
+            artifact_id=str(artifact.id),
+            artifact_kind=artifact.artifact_kind,
+            storage_path=storage_path,
+        )
+    try:
+        storage_payload = json.loads(resolved_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "agent_task_artifact_storage_invalid_json",
+            "Agent task artifact file is not valid JSON.",
+            task_id=str(artifact.task_id),
+            artifact_id=str(artifact.id),
+            artifact_kind=artifact.artifact_kind,
+            storage_path=str(resolved_path),
+        ) from exc
+
+    database_payload = _canonical_artifact_payload(artifact.payload_json)
+    storage_payload = _canonical_artifact_payload(storage_payload)
+    if storage_payload != database_payload:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "agent_task_artifact_integrity_mismatch",
+            "Agent task artifact file does not match the frozen database payload.",
+            task_id=str(artifact.task_id),
+            artifact_id=str(artifact.id),
+            artifact_kind=artifact.artifact_kind,
+            storage_path=str(resolved_path),
+            database_payload_sha256=_artifact_payload_sha256(database_payload),
+            storage_payload_sha256=_artifact_payload_sha256(storage_payload),
+        )
+    return JSONResponse(storage_payload)
 
 
 @router.get(
@@ -539,8 +607,11 @@ def read_agent_task_artifact_route(
     task_id: UUID,
     artifact_id: UUID,
     session: DbSession,
+    storage_service: StorageDep,
 ):
     artifact = get_agent_task_artifact(session, task_id, artifact_id)
+    if getattr(artifact, "artifact_kind", None) == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND:
+        return _frozen_prov_artifact_response(artifact, storage_service)
     file_response = storage_file_response(artifact.storage_path, media_type="application/json")
     if file_response.status_code != 404:
         return file_response
