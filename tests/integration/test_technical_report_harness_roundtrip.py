@@ -373,6 +373,7 @@ def test_technical_report_harness_roundtrip(
         assert len(governance_events) == 1
         assert governance_events[0].event_kind == "technical_report_prov_export_frozen"
         assert governance_events[0].receipt_sha256 == receipt["receipt_sha256"]
+        assert governance_events[0].event_payload_json["change_impact"]["impacted"] is False
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -402,6 +403,9 @@ def test_technical_report_harness_roundtrip(
     ] is True
     assert audit_bundle["audit_checklist"][
         "semantic_governance_chain_links_prov_receipt"
+    ] is True
+    assert audit_bundle["audit_checklist"][
+        "semantic_governance_chain_change_impact_evaluated"
     ] is True
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
@@ -468,10 +472,17 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["semantic_governance_chain"]["integrity"][
         "has_technical_report_prov_export_event"
     ] is True
+    assert audit_bundle["semantic_governance_chain"]["integrity"][
+        "change_impact_evaluated"
+    ] is True
+    assert audit_bundle["semantic_governance_chain"]["integrity"][
+        "change_impact_clear"
+    ] is True
     assert any(
         row["event_kind"] == "technical_report_prov_export_frozen"
         and row["receipt_sha256"]
         == audit_bundle["provenance_export_receipts"][0]["export_receipt"]["receipt_sha256"]
+        and row["event_payload"]["change_impact"]["impacted"] is False
         for row in audit_bundle["semantic_governance_chain"]["events"]
     )
     assert all(

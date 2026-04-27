@@ -20,7 +20,11 @@ from app.db.models import (
     SemanticGraphSourceKind,
     SemanticOntologySourceKind,
 )
-from app.services.semantic_governance import semantic_governance_event_integrity
+from app.services.semantic_governance import (
+    record_semantic_governance_event,
+    semantic_governance_chain_for_audit,
+    semantic_governance_event_integrity,
+)
 from app.services.semantic_graph import persist_semantic_graph_snapshot
 from app.services.semantic_registry import (
     clear_semantic_registry_cache,
@@ -297,3 +301,72 @@ def test_semantic_governance_ledger_records_lifecycle_events_and_is_append_only(
             )
             session.commit()
         session.rollback()
+
+
+def test_semantic_governance_chain_expands_previous_event_closure(
+    postgres_integration_harness,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    registry_path = tmp_path / "config" / "semantic_registry.yaml"
+    _write_registry(registry_path)
+    monkeypatch.setenv("DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH", str(registry_path))
+    get_settings.cache_clear()
+    clear_semantic_registry_cache()
+
+    task_scope_id = uuid4()
+    with postgres_integration_harness.session_factory() as session:
+        ensure_workspace_semantic_registry(session)
+        ontology_snapshot = get_active_semantic_ontology_snapshot(session)
+        anchor = record_semantic_governance_event(
+            session,
+            event_kind="ontology_snapshot_recorded",
+            governance_scope=f"agent_task:{task_scope_id}",
+            subject_table="semantic_ontology_snapshots",
+            subject_id=ontology_snapshot.id,
+            ontology_snapshot_id=ontology_snapshot.id,
+            event_payload={
+                "ontology_snapshot": {
+                    "ontology_snapshot_id": str(ontology_snapshot.id),
+                    "sha256": ontology_snapshot.sha256,
+                }
+            },
+            deduplication_key=f"test-anchor:{task_scope_id}",
+            created_by="test",
+        )
+        matched = record_semantic_governance_event(
+            session,
+            event_kind="technical_report_prov_export_frozen",
+            governance_scope=f"agent_task:{task_scope_id}",
+            subject_table="agent_task_artifacts",
+            subject_id=uuid4(),
+            receipt_sha256="receipt-closure-test",
+            event_payload={
+                "technical_report_prov_export": {
+                    "artifact_id": str(uuid4()),
+                    "receipt_sha256": "receipt-closure-test",
+                },
+                "change_impact": {"impacted": False, "impact_count": 0, "impacts": []},
+            },
+            deduplication_key=f"test-report:{task_scope_id}",
+            created_by="test",
+        )
+        anchor_id = anchor.id
+        matched_id = matched.id
+        matched_previous_event_id = matched.previous_event_id
+        session.commit()
+        chain = semantic_governance_chain_for_audit(
+            session,
+            task_ids=[],
+            artifact_ids=[],
+            evidence_manifest_ids=[],
+            receipt_sha256s=["receipt-closure-test"],
+        )
+
+    assert matched_previous_event_id == anchor_id
+    assert chain["event_count"] == 2
+    assert {row["event_id"] for row in chain["events"]} == {str(anchor_id), str(matched_id)}
+    assert chain["integrity"]["external_previous_event_count"] == 0
+    assert chain["integrity"]["hash_links_verified"] is True
+    assert chain["integrity"]["change_impact_evaluated"] is True
+    assert chain["integrity"]["complete"] is True

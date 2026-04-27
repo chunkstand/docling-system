@@ -4891,6 +4891,45 @@ def _record_prov_export_supersession_attempt(
     return event
 
 
+def _technical_report_change_impact_for_governance(
+    session: Session,
+    verification_task_id: UUID,
+) -> dict[str, Any]:
+    verification_task = session.get(AgentTask, verification_task_id)
+    if verification_task is None:
+        return {
+            "impacted": True,
+            "impact_count": 1,
+            "impacts": [
+                {
+                    "impact_type": "verification_task_missing",
+                    "verification_task_id": str(verification_task_id),
+                }
+            ],
+        }
+    draft_task_id = _draft_task_id_for_audit(verification_task)
+    draft_task = session.get(AgentTask, draft_task_id)
+    draft_payload = (
+        ((draft_task.result_json or {}).get("payload") or {}).get("draft") or {}
+        if draft_task is not None
+        else {}
+    )
+    related_task_ids = [
+        draft_task_id,
+        *_technical_report_upstream_task_ids(session, draft_payload),
+        verification_task_id,
+    ]
+    related_task_ids = list(dict.fromkeys(related_task_ids))
+    exports = list(
+        session.scalars(
+            select(EvidencePackageExport)
+            .where(EvidencePackageExport.agent_task_id.in_(related_task_ids))
+            .order_by(EvidencePackageExport.created_at.asc())
+        )
+    )
+    return _change_impact_payload(session, exports)
+
+
 def persist_agent_task_provenance_export(
     session: Session,
     *,
@@ -4901,6 +4940,10 @@ def persist_agent_task_provenance_export(
     if task is None:
         raise ValueError(f"Agent task '{task_id}' was not found.")
     verification_task_id = _verification_task_id_for_manifest(session, task)
+    governance_change_impact = _technical_report_change_impact_for_governance(
+        session,
+        verification_task_id,
+    )
     existing = _existing_prov_export_artifact(session, verification_task_id)
     if existing is not None:
         attempted_prov_export = _build_agent_task_provenance_export(session, verification_task_id)
@@ -4913,6 +4956,7 @@ def persist_agent_task_provenance_export(
             session,
             artifact=existing,
             evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+            change_impact=governance_change_impact,
         )
         return existing
 
@@ -4950,6 +4994,7 @@ def persist_agent_task_provenance_export(
         session,
         artifact=row,
         evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+        change_impact=governance_change_impact,
     )
     return row
 
@@ -5202,6 +5247,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "semantic_governance_chain_links_prov_receipt": semantic_governance_chain[
                 "integrity"
             ]["links_requested_prov_receipt"],
+            "semantic_governance_chain_change_impact_evaluated": (
+                semantic_governance_chain["integrity"]["change_impact_evaluated"]
+            ),
             "source_evidence_trace_integrity_verified": (
                 source_evidence_trace_integrity_verified
             ),
@@ -5233,6 +5281,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_semantic_governance_chain"]
         and audit_bundle["audit_checklist"]["semantic_governance_chain_integrity_verified"]
         and audit_bundle["audit_checklist"]["semantic_governance_chain_links_prov_receipt"]
+        and audit_bundle["audit_checklist"][
+            "semantic_governance_chain_change_impact_evaluated"
+        ]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
     )

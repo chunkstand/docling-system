@@ -628,6 +628,37 @@ def _event_sort_key(row: SemanticGovernanceEvent) -> tuple[str, int, str]:
     )
 
 
+def _expand_with_previous_events(
+    session: Session,
+    events: Iterable[SemanticGovernanceEvent],
+) -> list[SemanticGovernanceEvent]:
+    events_by_id = {row.id: row for row in events}
+    pending_ids = {
+        row.previous_event_id
+        for row in events_by_id.values()
+        if row.previous_event_id is not None and row.previous_event_id not in events_by_id
+    }
+    while pending_ids:
+        previous_events = list(
+            session.scalars(
+                select(SemanticGovernanceEvent).where(
+                    SemanticGovernanceEvent.id.in_(pending_ids)
+                )
+            )
+        )
+        fetched_ids = {row.id for row in previous_events}
+        for row in previous_events:
+            events_by_id.setdefault(row.id, row)
+        pending_ids = {
+            row.previous_event_id
+            for row in previous_events
+            if row.previous_event_id is not None and row.previous_event_id not in events_by_id
+        }
+        if not fetched_ids:
+            break
+    return sorted(events_by_id.values(), key=_event_sort_key)
+
+
 def _referenced_ids(events: list[SemanticGovernanceEvent]) -> dict[str, set[UUID]]:
     ontology_ids = {row.ontology_snapshot_id for row in events if row.ontology_snapshot_id}
     graph_ids = {row.semantic_graph_snapshot_id for row in events if row.semantic_graph_snapshot_id}
@@ -729,6 +760,7 @@ def semantic_governance_chain_for_audit(
         for row in extra_events:
             events_by_id.setdefault(row.id, row)
         events = sorted(events_by_id.values(), key=_event_sort_key)
+    events = _expand_with_previous_events(session, events)
 
     event_payloads = [semantic_governance_event_payload(row) for row in events]
     event_ids = {row.id for row in events}
@@ -753,6 +785,17 @@ def semantic_governance_chain_for_audit(
         row.event_kind == SemanticGovernanceEventKind.TECHNICAL_REPORT_PROV_EXPORT_FROZEN.value
         for row in events
     )
+    report_change_impacts = [
+        (row.event_payload_json or {}).get("change_impact") or {}
+        for row in events
+        if row.event_kind == SemanticGovernanceEventKind.TECHNICAL_REPORT_PROV_EXPORT_FROZEN.value
+    ]
+    evaluated_change_impact_count = sum(
+        1 for row in report_change_impacts if isinstance(row.get("impacted"), bool)
+    )
+    impacted_report_event_count = sum(
+        1 for row in report_change_impacts if row.get("impacted") is True
+    )
     links_requested_receipt = bool(receipt_sha256_list) and any(
         row.receipt_sha256 in receipt_sha256_list for row in events
     )
@@ -760,18 +803,33 @@ def semantic_governance_chain_for_audit(
         "has_events": bool(events),
         "has_technical_report_prov_export_event": has_report_prov_event,
         "links_requested_prov_receipt": links_requested_receipt,
+        "change_impact_evaluated": (
+            has_report_prov_event
+            and evaluated_change_impact_count == len(report_change_impacts)
+        ),
+        "change_impact_clear": (
+            has_report_prov_event
+            and evaluated_change_impact_count == len(report_change_impacts)
+            and impacted_report_event_count == 0
+        ),
+        "report_event_count": len(report_change_impacts),
+        "evaluated_change_impact_count": evaluated_change_impact_count,
+        "impacted_report_event_count": impacted_report_event_count,
         "payload_hash_mismatch_count": payload_hash_mismatch_count,
         "event_hash_mismatch_count": event_hash_mismatch_count,
         "hash_link_mismatch_count": hash_link_mismatch_count,
         "external_previous_event_count": external_previous_event_count,
         "payload_hashes_verified": payload_hash_mismatch_count == 0,
         "event_hashes_verified": event_hash_mismatch_count == 0,
-        "hash_links_verified": hash_link_mismatch_count == 0,
+        "hash_links_verified": (
+            hash_link_mismatch_count == 0 and external_previous_event_count == 0
+        ),
     }
     integrity["complete"] = (
         integrity["has_events"]
         and integrity["has_technical_report_prov_export_event"]
         and integrity["links_requested_prov_receipt"]
+        and integrity["change_impact_evaluated"]
         and integrity["payload_hashes_verified"]
         and integrity["event_hashes_verified"]
         and integrity["hash_links_verified"]
