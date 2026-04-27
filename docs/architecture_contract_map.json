@@ -130,6 +130,7 @@
       "source": "docs/architecture_decisions.yaml"
     },
     {
+      "ci_history_path": "build/architecture-governance/architecture_measurement_history.jsonl",
       "ci_report_path": "build/architecture-governance/architecture_governance_report.json",
       "ci_workflow": ".github/workflows/architecture-governance.yml",
       "decision_ids": [
@@ -169,8 +170,10 @@
         "violation_count",
         "current_commit_sha",
         "latest_recorded_commit_sha",
+        "measurement_history_path",
         "is_current",
         "recording_required",
+        "recorded_current_measurement",
         "inspection",
         "measurement_summary"
       ],

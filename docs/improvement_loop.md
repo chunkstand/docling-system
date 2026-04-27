@@ -98,6 +98,8 @@ with:
 uv run docling-system-architecture-measure-record
 uv run docling-system-architecture-measure-summary
 uv run docling-system-architecture-governance-report \
+  --record-current \
+  --history-path build/architecture-governance/architecture_measurement_history.jsonl \
   --output-path build/architecture-governance/architecture_governance_report.json
 ```
 
@@ -116,7 +118,8 @@ remote mode. The summary endpoint includes `current_commit_sha`,
 `latest_recorded_commit_sha`, `is_current`, and `recording_required` so stale
 measurement histories are explicit instead of silently looking current. The
 governance report command packages that inspection and freshness state as a
-CI-uploaded JSON artifact, so GitHub and future agents can observe architecture
+CI-uploaded JSON artifact. In CI, `--record-current` writes only to the
+build-scoped history file, so GitHub and future agents can observe architecture
 health without relying on ignored local `storage/` history.
 
 ## Non-Goals

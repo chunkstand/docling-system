@@ -212,6 +212,9 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "delta_fields": list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS),
                 "report_fields": list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS),
                 "ci_report_path": DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH.as_posix(),
+                "ci_history_path": (
+                    "build/architecture-governance/architecture_measurement_history.jsonl"
+                ),
                 "ci_workflow": ".github/workflows/architecture-governance.yml",
                 "decision_ids": decision_ids_by_contract.get(
                     "architecture_measurement_history",

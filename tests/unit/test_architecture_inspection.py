@@ -117,10 +117,17 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         measurement_contract["ci_report_path"]
         == "build/architecture-governance/architecture_governance_report.json"
     )
+    assert (
+        measurement_contract["ci_history_path"]
+        == "build/architecture-governance/architecture_measurement_history.jsonl"
+    )
     assert measurement_contract["ci_workflow"] == ".github/workflows/architecture-governance.yml"
     workflow_path = Path(measurement_contract["ci_workflow"])
+    workflow_text = workflow_path.read_text()
     assert workflow_path.is_file()
-    assert "docling-system-architecture-governance-report" in workflow_path.read_text()
+    assert "docling-system-architecture-governance-report" in workflow_text
+    assert "--record-current" in workflow_text
+    assert measurement_contract["ci_history_path"] in workflow_text
     assert all(rule["contract"] for rule in contract_map["inspection_rules"])
     assert all(rule["description"] for rule in contract_map["inspection_rules"])
     assert all(

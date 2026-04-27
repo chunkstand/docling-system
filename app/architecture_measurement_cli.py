@@ -70,12 +70,21 @@ def run_report(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Return a non-zero exit code when the embedded inspection is invalid.",
     )
+    parser.add_argument(
+        "--record-current",
+        action="store_true",
+        help=(
+            "Append the current inspection measurement to the selected history path "
+            "before building the report."
+        ),
+    )
     args = parser.parse_args(argv)
 
     payload = build_architecture_governance_report(
         history_path=args.history_path,
         policy_path=args.policy_path,
         map_path=args.map_path,
+        record_current=args.record_current,
     )
     if args.output_path:
         write_architecture_governance_report(args.output_path, report=payload)

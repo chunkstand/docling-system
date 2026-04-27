@@ -134,11 +134,14 @@ The history is local JSONL runtime data under
 `storage/architecture_inspections/history.jsonl`; source control versions the
 recording, summary, and governance-report mechanism, while `storage/` tracks
 local executions. `docling-system-architecture-governance-report` produces the
-CI artifact shape without appending to local measurement history. The GitHub
-workflow at `.github/workflows/architecture-governance.yml` writes that report to
-`build/architecture-governance/architecture_governance_report.json`, uploads it
-for future agents, and then runs the architecture, capability, lint, focused
-test, and hygiene gates.
+CI artifact shape without appending to local measurement history unless
+`--record-current` is explicit. The GitHub workflow at
+`.github/workflows/architecture-governance.yml` uses `--record-current` with
+`build/architecture-governance/architecture_measurement_history.jsonl`, writes the
+fresh report to
+`build/architecture-governance/architecture_governance_report.json`, uploads the
+build-scoped governance directory for future agents, and then runs the
+architecture, capability, lint, focused test, and hygiene gates.
 
 The read-only API surface is owned by the `system_governance` service capability
 facade and exposed through `GET /architecture/inspection` and

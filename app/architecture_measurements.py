@@ -233,6 +233,7 @@ def build_architecture_governance_report(
     project_root: Path | None = None,
     policy_path: str | Path | None = None,
     map_path: str | Path | None = None,
+    record_current: bool = False,
 ) -> dict[str, Any]:
     root = project_root or repo_root()
     inspection = build_architecture_inspection_report(
@@ -240,6 +241,12 @@ def build_architecture_governance_report(
         policy_path=policy_path,
         map_path=map_path,
     )
+    if record_current:
+        record_architecture_measurement(
+            inspection,
+            history_path=history_path,
+            project_root=root,
+        )
     measurement_summary = summarize_architecture_measurements(
         history_path,
         project_root=root,
@@ -252,8 +259,10 @@ def build_architecture_governance_report(
         "violation_count": inspection["violation_count"],
         "current_commit_sha": measurement_summary["current_commit_sha"],
         "latest_recorded_commit_sha": measurement_summary["latest_recorded_commit_sha"],
+        "measurement_history_path": measurement_summary["history_path"],
         "is_current": measurement_summary["is_current"],
         "recording_required": measurement_summary["recording_required"],
+        "recorded_current_measurement": record_current,
         "inspection": inspection,
         "measurement_summary": measurement_summary,
     }
@@ -267,6 +276,7 @@ def write_architecture_governance_report(
     project_root: Path | None = None,
     policy_path: str | Path | None = None,
     map_path: str | Path | None = None,
+    record_current: bool = False,
 ) -> Path:
     root = project_root or repo_root()
     raw_path = Path(path) if path is not None else DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH
@@ -276,6 +286,7 @@ def write_architecture_governance_report(
         project_root=root,
         policy_path=policy_path,
         map_path=map_path,
+        record_current=record_current,
     )
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     resolved_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")

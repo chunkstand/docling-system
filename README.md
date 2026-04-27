@@ -514,11 +514,13 @@ behind the `system:read` API capability. The measurement summary reports the
 current Git commit, the latest recorded measurement commit, and whether a new
 measurement record is required. `docling-system-architecture-governance-report`
 builds a CI-friendly JSON report that combines the current inspection report and
-measurement freshness summary without mutating local history. The GitHub Actions
-workflow at `.github/workflows/architecture-governance.yml` writes that report to
-`build/architecture-governance/architecture_governance_report.json` and uploads it
-as the `architecture-governance-report` artifact before running the architecture
-gates.
+measurement freshness summary. By default it does not mutate local history; CI
+passes `--record-current` with a build-scoped history path so the uploaded report
+is fresh for the current commit without touching ignored runtime storage. The
+GitHub Actions workflow at `.github/workflows/architecture-governance.yml` writes
+that report to `build/architecture-governance/architecture_governance_report.json`
+and uploads the `build/architecture-governance/` directory as the
+`architecture-governance-report` artifact before running the architecture gates.
 `docling-system-capability-contracts --write-map` maintains
 `docs/capability_contract_map.json`, the machine-readable surface map for the
 service capability facades.

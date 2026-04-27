@@ -236,10 +236,43 @@ def test_architecture_governance_report_wraps_inspection_and_summary(
     assert report["violation_count"] == 0
     assert report["current_commit_sha"] == "abc123"
     assert report["latest_recorded_commit_sha"] == "abc123"
+    assert report["measurement_history_path"] == history_path.as_posix()
     assert report["is_current"] is True
     assert report["recording_required"] is False
+    assert report["recorded_current_measurement"] is False
     assert report["inspection"]["schema_name"] == "architecture_inspection"
     assert report["measurement_summary"]["record_count"] == 1
+
+
+def test_architecture_governance_report_can_record_current_measurement(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "abc123",
+    )
+    monkeypatch.setattr(
+        "app.architecture_measurements.build_architecture_inspection_report",
+        lambda *_args, **_kwargs: {
+            "schema_name": "architecture_inspection",
+            **_report(),
+        },
+    )
+    history_path = tmp_path / "ci-history.jsonl"
+
+    report = build_architecture_governance_report(
+        history_path=history_path,
+        record_current=True,
+    )
+
+    assert report["recorded_current_measurement"] is True
+    assert report["current_commit_sha"] == "abc123"
+    assert report["latest_recorded_commit_sha"] == "abc123"
+    assert report["is_current"] is True
+    assert report["recording_required"] is False
+    assert report["measurement_summary"]["record_count"] == 1
+    assert load_architecture_measurement_history(history_path)[0]["commit_sha"] == "abc123"
 
 
 def test_architecture_governance_report_cli_writes_json(
@@ -268,12 +301,15 @@ def test_architecture_governance_report_cli_writes_json(
             str(history_path),
             "--output-path",
             str(output_path),
+            "--record-current",
         ]
     )
     payload = json.loads(capsys.readouterr().out)
 
     assert exit_code == 0
     assert payload["schema_name"] == ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME
+    assert payload["recorded_current_measurement"] is True
+    assert payload["measurement_summary"]["record_count"] == 2
     assert json.loads(output_path.read_text()) == payload
 
 

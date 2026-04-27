@@ -60,8 +60,10 @@ ARCHITECTURE_GOVERNANCE_REPORT_FIELDS = (
     "violation_count",
     "current_commit_sha",
     "latest_recorded_commit_sha",
+    "measurement_history_path",
     "is_current",
     "recording_required",
+    "recorded_current_measurement",
     "inspection",
     "measurement_summary",
 )
