@@ -2962,6 +2962,7 @@ class EvidencePackageExport(Base):
         Index("ix_evidence_package_exports_search_request_id", "search_request_id"),
         Index("ix_evidence_package_exports_agent_task_id", "agent_task_id"),
         Index("ix_evidence_package_exports_package_sha256", "package_sha256"),
+        Index("ix_evidence_package_exports_trace_sha256", "trace_sha256"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -2979,6 +2980,7 @@ class EvidencePackageExport(Base):
         ForeignKey("agent_task_artifacts.id", ondelete="SET NULL"),
     )
     package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    trace_sha256: Mapped[str | None] = mapped_column(Text)
     package_payload_json: Mapped[dict] = mapped_column(
         "package_payload",
         JSONB,
@@ -3138,12 +3140,23 @@ class EvidenceManifest(Base):
 class EvidenceTraceNode(Base):
     __tablename__ = "evidence_trace_nodes"
     __table_args__ = (
+        CheckConstraint(
+            "(evidence_manifest_id IS NOT NULL AND evidence_package_export_id IS NULL) "
+            "OR (evidence_manifest_id IS NULL AND evidence_package_export_id IS NOT NULL)",
+            name="ck_evidence_trace_nodes_single_owner",
+        ),
         UniqueConstraint(
             "evidence_manifest_id",
             "node_key",
             name="uq_evidence_trace_nodes_manifest_node_key",
         ),
+        UniqueConstraint(
+            "evidence_package_export_id",
+            "node_key",
+            name="uq_evidence_trace_nodes_export_node_key",
+        ),
         Index("ix_evidence_trace_nodes_manifest_id", "evidence_manifest_id"),
+        Index("ix_evidence_trace_nodes_export_id", "evidence_package_export_id"),
         Index("ix_evidence_trace_nodes_node_kind", "node_kind"),
         Index("ix_evidence_trace_nodes_source", "source_table", "source_id"),
         Index("ix_evidence_trace_nodes_source_ref", "source_table", "source_ref"),
@@ -3151,10 +3164,13 @@ class EvidenceTraceNode(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    evidence_manifest_id: Mapped[uuid.UUID] = mapped_column(
+    evidence_manifest_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("evidence_manifests.id", ondelete="CASCADE"),
-        nullable=False,
+    )
+    evidence_package_export_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_package_exports.id", ondelete="CASCADE"),
     )
     node_key: Mapped[str] = mapped_column(Text, nullable=False)
     node_kind: Mapped[str] = mapped_column(Text, nullable=False)
@@ -3175,12 +3191,23 @@ class EvidenceTraceNode(Base):
 class EvidenceTraceEdge(Base):
     __tablename__ = "evidence_trace_edges"
     __table_args__ = (
+        CheckConstraint(
+            "(evidence_manifest_id IS NOT NULL AND evidence_package_export_id IS NULL) "
+            "OR (evidence_manifest_id IS NULL AND evidence_package_export_id IS NOT NULL)",
+            name="ck_evidence_trace_edges_single_owner",
+        ),
         UniqueConstraint(
             "evidence_manifest_id",
             "edge_key",
             name="uq_evidence_trace_edges_manifest_edge_key",
         ),
+        UniqueConstraint(
+            "evidence_package_export_id",
+            "edge_key",
+            name="uq_evidence_trace_edges_export_edge_key",
+        ),
         Index("ix_evidence_trace_edges_manifest_id", "evidence_manifest_id"),
+        Index("ix_evidence_trace_edges_export_id", "evidence_package_export_id"),
         Index("ix_evidence_trace_edges_edge_kind", "edge_kind"),
         Index("ix_evidence_trace_edges_from_node_id", "from_node_id"),
         Index("ix_evidence_trace_edges_to_node_id", "to_node_id"),
@@ -3189,10 +3216,13 @@ class EvidenceTraceEdge(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    evidence_manifest_id: Mapped[uuid.UUID] = mapped_column(
+    evidence_manifest_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("evidence_manifests.id", ondelete="CASCADE"),
-        nullable=False,
+    )
+    evidence_package_export_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_package_exports.id", ondelete="CASCADE"),
     )
     edge_key: Mapped[str] = mapped_column(Text, nullable=False)
     edge_kind: Mapped[str] = mapped_column(Text, nullable=False)

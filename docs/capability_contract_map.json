@@ -460,7 +460,7 @@
     },
     {
       "exported_instance": "retrieval",
-      "function_count": 24,
+      "function_count": 26,
       "functions": [
         {
           "name": "answer_question",
@@ -484,7 +484,7 @@
             }
           ],
           "returns": "ChatResponse",
-          "source_lineno": 198
+          "source_lineno": 210
         },
         {
           "name": "compare_search_replay_runs",
@@ -515,7 +515,7 @@
             }
           ],
           "returns": "SearchReplayComparisonResponse",
-          "source_lineno": 105
+          "source_lineno": 117
         },
         {
           "name": "create_search_harness_release_audit_bundle",
@@ -553,7 +553,7 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 173
+          "source_lineno": 185
         },
         {
           "name": "create_search_harness_release_gate",
@@ -577,7 +577,7 @@
             }
           ],
           "returns": "SearchHarnessReleaseResponse",
-          "source_lineno": 152
+          "source_lineno": 164
         },
         {
           "name": "evaluate_search_harness",
@@ -601,7 +601,7 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 140
+          "source_lineno": 152
         },
         {
           "name": "execute_search",
@@ -677,7 +677,31 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 119
+          "source_lineno": 131
+        },
+        {
+          "name": "export_search_evidence_package",
+          "operation_kind": "orchestration",
+          "owner_module": "app.services.evidence",
+          "owner_symbol": "export_search_evidence_package",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "search_request_id",
+              "required": true
+            }
+          ],
+          "returns": "dict",
+          "source_lineno": 81
         },
         {
           "name": "get_audit_bundle_export",
@@ -708,7 +732,7 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 190
+          "source_lineno": 202
         },
         {
           "name": "get_latest_search_harness_release_audit_bundle",
@@ -739,7 +763,7 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 182
+          "source_lineno": 194
         },
         {
           "name": "get_search_evidence_package",
@@ -766,6 +790,30 @@
           "source_lineno": 75
         },
         {
+          "name": "get_search_evidence_package_export_trace",
+          "operation_kind": "read",
+          "owner_module": "app.services.evidence",
+          "owner_symbol": "get_search_evidence_package_export_trace",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "evidence_package_export_id",
+              "required": true
+            }
+          ],
+          "returns": "dict",
+          "source_lineno": 87
+        },
+        {
           "name": "get_search_harness_descriptor",
           "operation_kind": "read",
           "owner_module": "app.services.search_legibility",
@@ -780,7 +828,7 @@
             }
           ],
           "returns": "SearchHarnessDescriptorResponse",
-          "source_lineno": 127
+          "source_lineno": 139
         },
         {
           "name": "get_search_harness_evaluation_detail",
@@ -804,7 +852,7 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 146
+          "source_lineno": 158
         },
         {
           "name": "get_search_harness_release_detail",
@@ -828,7 +876,7 @@
             }
           ],
           "returns": "SearchHarnessReleaseResponse",
-          "source_lineno": 167
+          "source_lineno": 179
         },
         {
           "name": "get_search_replay_run_detail",
@@ -852,7 +900,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 113
+          "source_lineno": 125
         },
         {
           "name": "get_search_request_detail",
@@ -909,7 +957,7 @@
           "owner_symbol": "list_search_harness_definitions",
           "parameters": [],
           "returns": "list[SearchHarnessResponse]",
-          "source_lineno": 125
+          "source_lineno": 137
         },
         {
           "name": "list_search_harness_evaluations",
@@ -940,7 +988,7 @@
             }
           ],
           "returns": "list[SearchHarnessEvaluationSummaryResponse]",
-          "source_lineno": 132
+          "source_lineno": 144
         },
         {
           "name": "list_search_harness_releases",
@@ -978,7 +1026,7 @@
             }
           ],
           "returns": "list[SearchHarnessReleaseSummaryResponse]",
-          "source_lineno": 158
+          "source_lineno": 170
         },
         {
           "name": "list_search_replay_runs",
@@ -995,7 +1043,7 @@
             }
           ],
           "returns": "list[SearchReplayRunSummaryResponse]",
-          "source_lineno": 94
+          "source_lineno": 106
         },
         {
           "name": "record_chat_answer_feedback",
@@ -1026,7 +1074,7 @@
             }
           ],
           "returns": "ChatAnswerFeedbackResponse",
-          "source_lineno": 200
+          "source_lineno": 212
         },
         {
           "name": "record_search_feedback",
@@ -1057,7 +1105,7 @@
             }
           ],
           "returns": "SearchFeedbackResponse",
-          "source_lineno": 81
+          "source_lineno": 93
         },
         {
           "name": "replay_search_request",
@@ -1081,7 +1129,7 @@
             }
           ],
           "returns": "SearchReplayResponse",
-          "source_lineno": 88
+          "source_lineno": 100
         },
         {
           "name": "run_search_replay_suite",
@@ -1105,7 +1153,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 99
+          "source_lineno": 111
         }
       ],
       "implementation": "ServicesRetrievalCapability",
@@ -2624,7 +2672,7 @@
       "source": "app/services/capabilities/system_governance.py"
     }
   ],
-  "function_count": 91,
+  "function_count": 93,
   "schema_name": "capability_contract_map",
   "schema_version": "1.0"
 }

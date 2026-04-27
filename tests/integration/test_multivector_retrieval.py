@@ -8,6 +8,9 @@ from sqlalchemy import func, select
 
 from app.db.models import (
     DocumentRun,
+    EvidencePackageExport,
+    EvidenceTraceEdge,
+    EvidenceTraceNode,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
     RetrievalEvidenceSpanMultiVector,
@@ -213,6 +216,59 @@ def test_multivector_harness_persists_late_interaction_trace(
     assert "multivector_generation_output" in trace_edge_kinds
     assert "span_vector_matched_selected_span" in trace_edge_kinds
     assert evidence_package["trace_graph"]["trace_sha256"]
+
+    export_response = postgres_integration_harness.client.post(
+        f"/search/requests/{search_request_id}/evidence-package/export"
+    )
+    assert export_response.status_code == 200
+    export_payload = export_response.json()
+    export_id = UUID(export_payload["evidence_package_export_id"])
+    assert export_payload["schema_name"] == "search_evidence_package_export"
+    assert export_payload["package_kind"] == "search_request"
+    assert export_payload["search_request_id"] == str(search_request_id)
+    assert export_payload["package_sha256"] == evidence_package["package_sha256"]
+    assert export_payload["trace_sha256"] == evidence_package["trace_graph"]["trace_sha256"]
+    assert export_payload["node_count"] >= 1
+    assert export_payload["edge_count"] >= 1
+    assert export_payload["trace_integrity"]["complete"] is True
+
+    trace_response = postgres_integration_harness.client.get(
+        f"/search/evidence-package-exports/{export_id}/trace-graph"
+    )
+    assert trace_response.status_code == 200
+    persisted_trace = trace_response.json()
+    assert persisted_trace["schema_name"] == "search_evidence_package_trace"
+    assert persisted_trace["evidence_package_export_id"] == str(export_id)
+    assert persisted_trace["trace_sha256"] == evidence_package["trace_graph"]["trace_sha256"]
+    assert persisted_trace["trace_integrity"]["complete"] is True
+    assert persisted_trace["trace_integrity"]["persisted_trace_hash_matches"] is True
+    assert persisted_trace["trace_integrity"]["recomputed_trace_hash_matches"] is True
+    assert persisted_trace["trace_integrity"]["persisted_trace_matches_recomputed"] is True
+    assert persisted_trace["trace_integrity"]["node_payload_hash_mismatch_count"] == 0
+    assert persisted_trace["trace_integrity"]["edge_payload_hash_mismatch_count"] == 0
+    persisted_trace_edge_kinds = {edge["edge_kind"] for edge in persisted_trace["edges"]}
+    assert "source_span_input_to_multivector_generation" in persisted_trace_edge_kinds
+    assert "multivector_generation_output" in persisted_trace_edge_kinds
+    assert "span_vector_matched_selected_span" in persisted_trace_edge_kinds
+
+    with postgres_integration_harness.session_factory() as session:
+        export_row = session.get(EvidencePackageExport, export_id)
+        trace_node_count = session.scalar(
+            select(func.count())
+            .select_from(EvidenceTraceNode)
+            .where(EvidenceTraceNode.evidence_package_export_id == export_id)
+            .where(EvidenceTraceNode.evidence_manifest_id.is_(None))
+        )
+        trace_edge_count = session.scalar(
+            select(func.count())
+            .select_from(EvidenceTraceEdge)
+            .where(EvidenceTraceEdge.evidence_package_export_id == export_id)
+            .where(EvidenceTraceEdge.evidence_manifest_id.is_(None))
+        )
+    assert export_row is not None
+    assert export_row.trace_sha256 == evidence_package["trace_graph"]["trace_sha256"]
+    assert trace_node_count == persisted_trace["node_count"]
+    assert trace_edge_count == persisted_trace["edge_count"]
 
 
 def test_multivector_rebuild_failure_preserves_existing_vectors(

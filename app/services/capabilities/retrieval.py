@@ -78,6 +78,18 @@ class RetrievalCapability(Protocol):
         search_request_id: UUID,
     ) -> dict: ...
 
+    def export_search_evidence_package(
+        self,
+        session: Session,
+        search_request_id: UUID,
+    ) -> dict: ...
+
+    def get_search_evidence_package_export_trace(
+        self,
+        session: Session,
+        evidence_package_export_id: UUID,
+    ) -> dict: ...
+
     def record_search_feedback(
         self,
         session: Session,
@@ -245,6 +257,26 @@ class ServicesRetrievalCapability:
         search_request_id: UUID,
     ) -> dict:
         return evidence.get_search_evidence_package(session, search_request_id)
+
+    def export_search_evidence_package(
+        self,
+        session: Session,
+        search_request_id: UUID,
+    ) -> dict:
+        return evidence.export_search_evidence_package(
+            session,
+            search_request_id=search_request_id,
+        )
+
+    def get_search_evidence_package_export_trace(
+        self,
+        session: Session,
+        evidence_package_export_id: UUID,
+    ) -> dict:
+        return evidence.get_search_evidence_package_export_trace(
+            session,
+            evidence_package_export_id,
+        )
 
     def record_search_feedback(
         self,

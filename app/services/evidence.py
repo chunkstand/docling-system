@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
@@ -866,6 +866,103 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
     return package
 
 
+def _search_evidence_export_values(package: dict[str, Any]) -> dict[str, list[str]]:
+    source_evidence = list(package.get("source_evidence") or [])
+    retrieval_spans = [
+        span
+        for item in source_evidence
+        for span in item.get("retrieval_evidence_spans", [])
+    ]
+    late_interaction_vectors = [
+        vector
+        for span in retrieval_spans
+        for vector in span.get("late_interaction_multivectors", [])
+    ]
+    operator_runs = list(package.get("operator_runs") or [])
+    return {
+        "source_snapshot_sha256s": _string_values(
+            [
+                *(item.get("source_snapshot_sha256") for item in source_evidence),
+                *(span.get("source_snapshot_sha256") for span in retrieval_spans),
+                *(
+                    vector.get("span_vector_snapshot_sha256")
+                    for vector in late_interaction_vectors
+                ),
+            ]
+        ),
+        "operator_run_ids": _string_values(
+            run.get("operator_run_id") for run in operator_runs
+        ),
+        "document_ids": _string_values(
+            (item.get("document") or {}).get("id") for item in source_evidence
+        ),
+        "run_ids": _string_values(
+            (item.get("run") or {}).get("id") for item in source_evidence
+        ),
+    }
+
+
+def persist_search_evidence_package_export(
+    session: Session,
+    *,
+    search_request_id: UUID,
+) -> EvidencePackageExport:
+    package = get_search_evidence_package(session, search_request_id)
+    export_values = _search_evidence_export_values(package)
+    trace_graph = package.get("trace_graph") or {}
+    now = utcnow()
+    export = EvidencePackageExport(
+        id=uuid.uuid4(),
+        package_kind="search_request",
+        search_request_id=search_request_id,
+        package_sha256=str(package["package_sha256"]),
+        trace_sha256=trace_graph.get("trace_sha256"),
+        package_payload_json=_json_payload(package),
+        source_snapshot_sha256s_json=export_values["source_snapshot_sha256s"],
+        operator_run_ids_json=export_values["operator_run_ids"],
+        document_ids_json=export_values["document_ids"],
+        run_ids_json=export_values["run_ids"],
+        claim_ids_json=[],
+        export_status="completed",
+        created_at=now,
+    )
+    session.add(export)
+    session.flush()
+    _persist_search_evidence_package_trace_graph(
+        session,
+        export_row=export,
+        package_payload=package,
+    )
+    return export
+
+
+def export_search_evidence_package(
+    session: Session,
+    *,
+    search_request_id: UUID,
+) -> dict[str, Any]:
+    export = persist_search_evidence_package_export(
+        session,
+        search_request_id=search_request_id,
+    )
+    nodes, edges = _search_evidence_trace_rows(session, export.id)
+    return _search_evidence_package_export_response(session, export, nodes, edges)
+
+
+def get_search_evidence_package_export_trace(
+    session: Session,
+    evidence_package_export_id: UUID,
+) -> dict[str, Any]:
+    export = session.get(EvidencePackageExport, evidence_package_export_id)
+    if export is None or export.package_kind != "search_request":
+        raise ValueError(
+            f"Search evidence package export '{evidence_package_export_id}' was not found."
+        )
+    _ensure_search_evidence_package_trace_graph(session, export)
+    nodes, edges = _search_evidence_trace_rows(session, export.id)
+    return _search_evidence_package_trace_response(session, export, nodes, edges)
+
+
 _DERIVATION_MUTABLE_FIELDS = {
     "derivation_rule",
     "evidence_package_export_id",
@@ -1126,6 +1223,7 @@ def _evidence_export_payload(row: EvidencePackageExport) -> dict:
         "agent_task_id": row.agent_task_id,
         "agent_task_artifact_id": row.agent_task_artifact_id,
         "package_sha256": row.package_sha256,
+        "trace_sha256": row.trace_sha256,
         "source_snapshot_sha256s": row.source_snapshot_sha256s_json or [],
         "operator_run_ids": row.operator_run_ids_json or [],
         "document_ids": row.document_ids_json or [],
@@ -2282,6 +2380,13 @@ def _search_trace_graph_payload(
     }
 
 
+def _search_trace_graph_sha256(
+    nodes: Iterable[dict[str, Any]],
+    edges: Iterable[dict[str, Any]],
+) -> str:
+    return str(payload_sha256(_search_trace_graph_payload(nodes, edges)))
+
+
 def _build_search_evidence_trace_graph(package: dict[str, Any]) -> dict[str, Any]:
     nodes: dict[str, dict[str, Any]] = {}
     edges: list[dict[str, Any]] = []
@@ -2361,7 +2466,7 @@ def _build_search_evidence_trace_graph(package: dict[str, Any]) -> dict[str, Any
     node_specs = sorted(nodes.values(), key=lambda item: item["node_key"])
     edge_specs = sorted(edges, key=lambda item: item["edge_key"])
     graph = _search_trace_graph_payload(node_specs, edge_specs)
-    graph["trace_sha256"] = payload_sha256(graph)
+    graph["trace_sha256"] = _search_trace_graph_sha256(node_specs, edge_specs)
     return graph
 
 
@@ -2712,6 +2817,106 @@ def _persist_evidence_trace_graph(
     session.flush()
 
 
+def _search_trace_specs_from_package(
+    package_payload: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+    graph = package_payload.get("trace_graph")
+    if not isinstance(graph, dict):
+        graph = _build_search_evidence_trace_graph(package_payload)
+    node_specs = [
+        {
+            "node_key": str(node["node_key"]),
+            "node_kind": str(node["node_kind"]),
+            "source_table": node.get("source_table"),
+            "source_id": _uuid_or_none_safe(node.get("source_id")),
+            "source_ref": node.get("source_ref"),
+            "content_sha256": str(node["content_sha256"]),
+            "payload": _json_payload(node.get("payload")),
+        }
+        for node in graph.get("nodes", [])
+    ]
+    edge_specs = [
+        {
+            "edge_key": str(edge["edge_key"]),
+            "edge_kind": str(edge["edge_kind"]),
+            "from_node_key": str(edge["from_node_key"]),
+            "to_node_key": str(edge["to_node_key"]),
+            "derivation_sha256": edge.get("derivation_sha256"),
+            "content_sha256": str(edge["content_sha256"]),
+            "payload": _json_payload(edge.get("payload")),
+        }
+        for edge in graph.get("edges", [])
+    ]
+    return node_specs, edge_specs, str(
+        graph.get("trace_sha256") or _search_trace_graph_sha256(node_specs, edge_specs)
+    )
+
+
+def _persist_search_evidence_package_trace_graph(
+    session: Session,
+    *,
+    export_row: EvidencePackageExport,
+    package_payload: dict[str, Any],
+) -> None:
+    node_specs, edge_specs, trace_sha256 = _search_trace_specs_from_package(package_payload)
+    session.execute(
+        delete(EvidenceTraceEdge).where(
+            EvidenceTraceEdge.evidence_package_export_id == export_row.id
+        )
+    )
+    session.execute(
+        delete(EvidenceTraceNode).where(
+            EvidenceTraceNode.evidence_package_export_id == export_row.id
+        )
+    )
+    session.flush()
+
+    now = utcnow()
+    node_rows_by_key: dict[str, EvidenceTraceNode] = {}
+    for spec in node_specs:
+        row = EvidenceTraceNode(
+            id=uuid.uuid4(),
+            evidence_manifest_id=None,
+            evidence_package_export_id=export_row.id,
+            node_key=spec["node_key"],
+            node_kind=spec["node_kind"],
+            source_table=spec.get("source_table"),
+            source_id=spec.get("source_id"),
+            source_ref=spec.get("source_ref"),
+            content_sha256=spec["content_sha256"],
+            payload_json=_json_payload(spec["payload"]),
+            created_at=now,
+        )
+        node_rows_by_key[row.node_key] = row
+        session.add(row)
+    session.flush()
+
+    for spec in edge_specs:
+        from_node = node_rows_by_key.get(spec["from_node_key"])
+        to_node = node_rows_by_key.get(spec["to_node_key"])
+        if from_node is None or to_node is None:
+            continue
+        session.add(
+            EvidenceTraceEdge(
+                id=uuid.uuid4(),
+                evidence_manifest_id=None,
+                evidence_package_export_id=export_row.id,
+                edge_key=spec["edge_key"],
+                edge_kind=spec["edge_kind"],
+                from_node_id=from_node.id,
+                to_node_id=to_node.id,
+                from_node_key=spec["from_node_key"],
+                to_node_key=spec["to_node_key"],
+                derivation_sha256=spec.get("derivation_sha256"),
+                content_sha256=spec["content_sha256"],
+                payload_json=_json_payload(spec["payload"]),
+                created_at=now,
+            )
+        )
+    export_row.trace_sha256 = trace_sha256
+    session.flush()
+
+
 def _evidence_trace_rows(
     session: Session,
     manifest_id: UUID,
@@ -2727,6 +2932,27 @@ def _evidence_trace_rows(
         session.scalars(
             select(EvidenceTraceEdge)
             .where(EvidenceTraceEdge.evidence_manifest_id == manifest_id)
+            .order_by(EvidenceTraceEdge.edge_key.asc())
+        )
+    )
+    return nodes, edges
+
+
+def _search_evidence_trace_rows(
+    session: Session,
+    evidence_package_export_id: UUID,
+) -> tuple[list[EvidenceTraceNode], list[EvidenceTraceEdge]]:
+    nodes = list(
+        session.scalars(
+            select(EvidenceTraceNode)
+            .where(EvidenceTraceNode.evidence_package_export_id == evidence_package_export_id)
+            .order_by(EvidenceTraceNode.node_key.asc())
+        )
+    )
+    edges = list(
+        session.scalars(
+            select(EvidenceTraceEdge)
+            .where(EvidenceTraceEdge.evidence_package_export_id == evidence_package_export_id)
             .order_by(EvidenceTraceEdge.edge_key.asc())
         )
     )
@@ -2857,6 +3083,187 @@ def _evidence_trace_integrity_payload(
             and persisted_trace_hash_matches
             and recomputed_trace_hash_matches
             and persisted_trace_matches_recomputed
+        ),
+    }
+
+
+def _search_evidence_trace_integrity_payload(
+    session: Session,
+    row: EvidencePackageExport,
+    nodes: list[EvidenceTraceNode],
+    edges: list[EvidenceTraceEdge],
+) -> dict[str, Any]:
+    stored_payload = row.package_payload_json or {}
+    stored_payload_hash_basis = _clean_mapping(
+        stored_payload,
+        drop_fields={"package_sha256"},
+    )
+    stored_payload_sha256 = payload_sha256(stored_payload_hash_basis)
+    stored_payload_trace_sha256 = (
+        stored_payload.get("trace_graph", {}).get("trace_sha256")
+        if isinstance(stored_payload.get("trace_graph"), dict)
+        else None
+    )
+    persisted_trace_sha256 = _search_trace_graph_sha256(
+        (_trace_node_spec_from_row(node) for node in nodes),
+        (_trace_edge_spec_from_row(edge) for edge in edges),
+    )
+    node_payload_hash_mismatch_count = sum(
+        1 for node in nodes if _trace_payload_sha256(node.payload_json or {}) != node.content_sha256
+    )
+    edge_payload_hash_mismatch_count = sum(
+        1 for edge in edges if _trace_payload_sha256(edge.payload_json or {}) != edge.content_sha256
+    )
+    recomputed_package_sha256 = None
+    recomputed_trace_sha256 = None
+    recomputation_error = None
+    recomputed_nodes: list[dict[str, Any]] = []
+    recomputed_edges: list[dict[str, Any]] = []
+    try:
+        if row.search_request_id is None:
+            raise ValueError("Search evidence package export is missing search_request_id.")
+        recomputed_package = get_search_evidence_package(session, row.search_request_id)
+        recomputed_package_sha256 = str(recomputed_package["package_sha256"])
+        recomputed_nodes, recomputed_edges, recomputed_trace_sha256 = (
+            _search_trace_specs_from_package(recomputed_package)
+        )
+    except ValueError as exc:
+        recomputation_error = str(exc)
+
+    stored_payload_hash_matches = stored_payload_sha256 == row.package_sha256
+    stored_payload_trace_hash_matches = bool(row.trace_sha256) and (
+        stored_payload_trace_sha256 == row.trace_sha256
+    )
+    persisted_trace_hash_matches = bool(row.trace_sha256) and (
+        persisted_trace_sha256 == row.trace_sha256
+    )
+    recomputed_package_hash_matches = bool(recomputed_package_sha256) and (
+        recomputed_package_sha256 == row.package_sha256
+    )
+    recomputed_trace_hash_matches = bool(row.trace_sha256) and (
+        recomputed_trace_sha256 == row.trace_sha256
+    )
+    persisted_trace_matches_recomputed = (
+        persisted_trace_sha256 == recomputed_trace_sha256
+        if recomputed_trace_sha256 is not None
+        else False
+    )
+    return {
+        "stored_package_sha256": row.package_sha256,
+        "stored_payload_sha256": stored_payload_sha256,
+        "stored_trace_sha256": row.trace_sha256,
+        "stored_payload_trace_sha256": stored_payload_trace_sha256,
+        "persisted_trace_sha256": persisted_trace_sha256,
+        "recomputed_package_sha256": recomputed_package_sha256,
+        "recomputed_trace_sha256": recomputed_trace_sha256,
+        "stored_payload_hash_matches": stored_payload_hash_matches,
+        "stored_payload_trace_hash_matches": stored_payload_trace_hash_matches,
+        "persisted_trace_hash_matches": persisted_trace_hash_matches,
+        "recomputed_package_hash_matches": recomputed_package_hash_matches,
+        "recomputed_trace_hash_matches": recomputed_trace_hash_matches,
+        "persisted_trace_matches_recomputed": persisted_trace_matches_recomputed,
+        "node_payload_hash_mismatch_count": node_payload_hash_mismatch_count,
+        "edge_payload_hash_mismatch_count": edge_payload_hash_mismatch_count,
+        "node_count_matches_recomputed": (
+            len(nodes) == len(recomputed_nodes) if recomputed_trace_sha256 else False
+        ),
+        "edge_count_matches_recomputed": (
+            len(edges) == len(recomputed_edges) if recomputed_trace_sha256 else False
+        ),
+        "recomputation_error": recomputation_error,
+        "complete": (
+            row.export_status == "completed"
+            and bool(nodes)
+            and bool(edges)
+            and node_payload_hash_mismatch_count == 0
+            and edge_payload_hash_mismatch_count == 0
+            and stored_payload_hash_matches
+            and stored_payload_trace_hash_matches
+            and persisted_trace_hash_matches
+            and recomputed_package_hash_matches
+            and recomputed_trace_hash_matches
+            and persisted_trace_matches_recomputed
+        ),
+    }
+
+
+def _ensure_search_evidence_package_trace_graph(
+    session: Session,
+    row: EvidencePackageExport,
+) -> EvidencePackageExport:
+    node_count = session.scalar(
+        select(func.count())
+        .select_from(EvidenceTraceNode)
+        .where(EvidenceTraceNode.evidence_package_export_id == row.id)
+    )
+    if row.trace_sha256 and node_count:
+        return row
+    _persist_search_evidence_package_trace_graph(
+        session,
+        export_row=row,
+        package_payload=row.package_payload_json or {},
+    )
+    session.flush()
+    return row
+
+
+def _search_evidence_package_export_response(
+    session: Session,
+    row: EvidencePackageExport,
+    nodes: list[EvidenceTraceNode],
+    edges: list[EvidenceTraceEdge],
+) -> dict[str, Any]:
+    return {
+        "schema_name": "search_evidence_package_export",
+        "schema_version": "1.0",
+        **_evidence_export_payload(row),
+        "trace_api_path": f"/search/evidence-package-exports/{row.id}/trace-graph",
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+        "trace_integrity": _search_evidence_trace_integrity_payload(
+            session,
+            row,
+            nodes,
+            edges,
+        ),
+    }
+
+
+def _search_evidence_package_trace_response(
+    session: Session,
+    row: EvidencePackageExport,
+    nodes: list[EvidenceTraceNode],
+    edges: list[EvidenceTraceEdge],
+) -> dict[str, Any]:
+    return {
+        "schema_name": "search_evidence_package_trace",
+        "schema_version": "1.0",
+        "evidence_package_export_id": str(row.id),
+        "search_request_id": str(row.search_request_id) if row.search_request_id else None,
+        "package_kind": row.package_kind,
+        "package_sha256": row.package_sha256,
+        "trace_sha256": row.trace_sha256,
+        "export_status": row.export_status,
+        "created_at": row.created_at,
+        "node_count": len(nodes),
+        "edge_count": len(edges),
+        "multivector_edge_count": sum(
+            1
+            for edge in edges
+            if edge.edge_kind
+            in {
+                "source_span_input_to_multivector_generation",
+                "multivector_generation_output",
+                "span_vector_matched_selected_span",
+            }
+        ),
+        "nodes": [_trace_node_row_payload(node) for node in nodes],
+        "edges": [_trace_edge_row_payload(edge) for edge in edges],
+        "trace_integrity": _search_evidence_trace_integrity_payload(
+            session,
+            row,
+            nodes,
+            edges,
         ),
     }
 
