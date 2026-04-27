@@ -58,8 +58,18 @@ def test_api_route_manifest_covers_capabilities_and_public_exemptions() -> None:
         == api_capabilities.SYSTEM_READ
     )
     assert (
+        route_by_method_path[("GET", "/architecture/inspection")].response_model
+        == "ArchitectureInspectionResponse"
+    )
+    assert (
         route_by_method_path[("GET", "/architecture/measurements/summary")].capability
         == api_capabilities.SYSTEM_READ
+    )
+    assert (
+        route_by_method_path[
+            ("GET", "/architecture/measurements/summary")
+        ].response_model
+        == "ArchitectureMeasurementSummaryResponse"
     )
     assert api_capabilities.API_CAPABILITIES <= manifest_capabilities
 

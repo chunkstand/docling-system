@@ -110,7 +110,9 @@ records across commits. Operators and agents can also read the latest
 architecture inspection report and measurement trend through
 `GET /architecture/inspection` and `GET /architecture/measurements/summary`;
 both endpoints are read-only and require the `system:read` API capability in
-remote mode.
+remote mode. The summary endpoint includes `current_commit_sha`,
+`latest_recorded_commit_sha`, `is_current`, and `recording_required` so stale
+measurement histories are explicit instead of silently looking current.
 
 ## Non-Goals
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import FileResponse
@@ -9,6 +8,10 @@ from fastapi.responses import FileResponse
 import app.api.capabilities as api_capabilities
 from app.api.deps import UI_DIR, api_mode_metadata, require_api_capability
 from app.api.errors import api_error
+from app.schemas.architecture_governance import (
+    ArchitectureInspectionResponse,
+    ArchitectureMeasurementSummaryResponse,
+)
 from app.services.capabilities import system_governance
 
 router = APIRouter()
@@ -48,11 +51,14 @@ def metrics() -> dict[str, float]:
 
 @router.get(
     "/architecture/inspection",
+    response_model=ArchitectureInspectionResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.SYSTEM_READ))],
 )
-def architecture_inspection() -> dict[str, Any]:
+def architecture_inspection() -> ArchitectureInspectionResponse:
     try:
-        return get_architecture_inspection_report()
+        return ArchitectureInspectionResponse.model_validate(
+            get_architecture_inspection_report()
+        )
     except ValueError as exc:
         raise api_error(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -63,11 +69,14 @@ def architecture_inspection() -> dict[str, Any]:
 
 @router.get(
     "/architecture/measurements/summary",
+    response_model=ArchitectureMeasurementSummaryResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.SYSTEM_READ))],
 )
-def architecture_measurement_summary() -> dict[str, Any]:
+def architecture_measurement_summary() -> ArchitectureMeasurementSummaryResponse:
     try:
-        return summarize_architecture_measurements()
+        return ArchitectureMeasurementSummaryResponse.model_validate(
+            summarize_architecture_measurements()
+        )
     except ValueError as exc:
         raise api_error(
             status.HTTP_500_INTERNAL_SERVER_ERROR,

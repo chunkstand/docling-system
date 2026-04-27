@@ -58,7 +58,14 @@ def test_architecture_measurement_history_records_jsonl(tmp_path: Path) -> None:
     assert json.loads(history_path.read_text()) == record
 
 
-def test_architecture_measurement_summary_reports_latest_and_deltas(tmp_path: Path) -> None:
+def test_architecture_measurement_summary_reports_latest_and_deltas(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "second",
+    )
     history_path = tmp_path / "history.jsonl"
     record_architecture_measurement(
         _report(error_count=2, contract_count=4),
@@ -75,6 +82,11 @@ def test_architecture_measurement_summary_reports_latest_and_deltas(tmp_path: Pa
 
     assert summary["schema_name"] == ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME
     assert summary["record_count"] == 2
+    assert summary["current_commit_sha"] == "second"
+    assert summary["latest_recorded_commit_sha"] == "second"
+    assert summary["latest_recorded_at"] is not None
+    assert summary["is_current"] is True
+    assert summary["recording_required"] is False
     assert summary["latest"]["commit_sha"] == "second"
     assert summary["previous"]["commit_sha"] == "first"
     assert summary["deltas"]["non_ignored_violation_count"] == -2
@@ -95,9 +107,37 @@ def test_architecture_measurement_summary_reports_latest_and_deltas(tmp_path: Pa
     }
 
 
-def test_architecture_measurement_summary_handles_legacy_records(
+def test_architecture_measurement_summary_reports_stale_history(
+    monkeypatch,
     tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "current",
+    )
+    history_path = tmp_path / "history.jsonl"
+    record_architecture_measurement(
+        _report(),
+        history_path=history_path,
+        commit_sha="old",
+    )
+
+    summary = summarize_architecture_measurements(history_path)
+
+    assert summary["current_commit_sha"] == "current"
+    assert summary["latest_recorded_commit_sha"] == "old"
+    assert summary["is_current"] is False
+    assert summary["recording_required"] is True
+
+
+def test_architecture_measurement_summary_handles_legacy_records(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "current",
+    )
     history_path = tmp_path / "history.jsonl"
     legacy_report = _report(error_count=1)
     legacy_report["measurement"].pop("inspection_rule_count")
@@ -117,6 +157,8 @@ def test_architecture_measurement_summary_handles_legacy_records(
     summary = summarize_architecture_measurements(history_path)
 
     assert summary["record_count"] == 2
+    assert summary["is_current"] is True
+    assert summary["recording_required"] is False
     assert summary["deltas"]["error_count"] == 1
     assert summary["deltas"]["rule_violation_counts"] == {
         "rule-a": 2,
@@ -146,8 +188,13 @@ def test_architecture_measurement_summary_rejects_non_numeric_count_maps(
 
 def test_architecture_measurement_summary_cli_prints_payload(
     capsys,
+    monkeypatch,
     tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(
+        "app.architecture_measurements.current_git_commit_sha",
+        lambda _project_root=None: "abc123",
+    )
     history_path = tmp_path / "history.jsonl"
     record_architecture_measurement(_report(), history_path=history_path, commit_sha="abc123")
 
@@ -157,3 +204,5 @@ def test_architecture_measurement_summary_cli_prints_payload(
     assert exit_code == 0
     assert payload["schema_name"] == ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME
     assert payload["record_count"] == 1
+    assert payload["is_current"] is True
+    assert payload["recording_required"] is False

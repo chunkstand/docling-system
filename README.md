@@ -510,7 +510,9 @@ persists inspection measurements under `storage/architecture_inspections/history
 and `docling-system-architecture-measure-summary` reports the latest trend. The
 same read-only governance surface is available through
 `GET /architecture/inspection` and `GET /architecture/measurements/summary`
-behind the `system:read` API capability.
+behind the `system:read` API capability. The measurement summary reports the
+current Git commit, the latest recorded measurement commit, and whether a new
+measurement record is required.
 `docling-system-capability-contracts --write-map` maintains
 `docs/capability_contract_map.json`, the machine-readable surface map for the
 service capability facades.

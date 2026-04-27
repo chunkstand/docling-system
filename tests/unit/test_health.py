@@ -142,9 +142,12 @@ def test_architecture_inspection_endpoint(monkeypatch) -> None:
         "app.api.routers.system.get_architecture_inspection_report",
         lambda: {
             "schema_name": "architecture_inspection",
+            "schema_version": "1.0",
             "valid": True,
             "violation_count": 0,
+            "violations": [],
             "measurement": {"non_ignored_violation_count": 0},
+            "architecture_map": {"schema_name": "architecture_contract_map"},
         },
     )
     client = TestClient(app)
@@ -161,7 +164,17 @@ def test_architecture_measurement_summary_endpoint(monkeypatch) -> None:
         "app.api.routers.system.summarize_architecture_measurements",
         lambda: {
             "schema_name": "architecture_measurement_summary",
+            "schema_version": "1.0",
+            "history_schema_name": "architecture_measurement_history",
+            "history_path": "/tmp/history.jsonl",
             "record_count": 1,
+            "current_commit_sha": "current",
+            "latest_recorded_commit_sha": "current",
+            "latest_recorded_at": "2026-04-26T00:00:00+00:00",
+            "is_current": True,
+            "recording_required": False,
+            "latest": {"commit_sha": "current"},
+            "previous": None,
             "latest_rule_violation_counts": {"architecture-contract-map-drift": 0},
             "latest_contract_violation_counts": {"architecture_contract_map": 0},
             "deltas": {"rule_violation_counts": {"architecture-contract-map-drift": 0}},
@@ -174,6 +187,26 @@ def test_architecture_measurement_summary_endpoint(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["schema_name"] == "architecture_measurement_summary"
     assert response.json()["record_count"] == 1
+    assert response.json()["is_current"] is True
+    assert response.json()["recording_required"] is False
+
+
+def test_architecture_inspection_endpoint_uses_structured_errors(
+    monkeypatch,
+) -> None:
+    def raise_failed_inspection() -> dict:
+        raise ValueError("inspection failed")
+
+    monkeypatch.setattr(
+        "app.api.routers.system.get_architecture_inspection_report",
+        raise_failed_inspection,
+    )
+    client = TestClient(app)
+
+    response = client.get("/architecture/inspection")
+
+    assert response.status_code == 500
+    assert response.json()["error_code"] == "architecture_inspection_failed"
 
 
 def test_architecture_measurement_summary_endpoint_uses_structured_errors(
@@ -218,6 +251,40 @@ def test_architecture_endpoints_require_remote_system_read_capability(monkeypatc
     client = TestClient(app)
 
     response = client.get("/architecture/inspection", headers={"X-API-Key": "secret"})
+
+    assert response.status_code == 403
+    assert response.json()["error_code"] == "capability_not_allowed"
+
+
+def test_architecture_summary_endpoint_requires_remote_system_read_capability(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "app.api.deps.get_settings",
+        lambda: type(
+            "Settings",
+            (),
+            {
+                "api_mode": "remote",
+                "api_host": "0.0.0.0",
+                "api_port": 8000,
+                "api_key": "secret",
+                "remote_api_capabilities": None,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.api.routers.system.summarize_architecture_measurements",
+        lambda: (_ for _ in ()).throw(
+            AssertionError("capability gate should block architecture summary")
+        ),
+    )
+    client = TestClient(app)
+
+    response = client.get(
+        "/architecture/measurements/summary",
+        headers={"X-API-Key": "secret"},
+    )
 
     assert response.status_code == 403
     assert response.json()["error_code"] == "capability_not_allowed"

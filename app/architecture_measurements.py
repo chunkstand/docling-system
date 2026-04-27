@@ -159,16 +159,38 @@ def summarize_architecture_measurements(
     *,
     project_root: Path | None = None,
 ) -> dict[str, Any]:
-    resolved_path = resolve_architecture_measurement_history_path(path, project_root=project_root)
+    root = project_root or repo_root()
+    resolved_path = resolve_architecture_measurement_history_path(path, project_root=root)
     records = load_architecture_measurement_history(resolved_path)
     latest = records[-1] if records else None
     previous = records[-2] if len(records) > 1 else None
+    current_commit_sha = current_git_commit_sha(root)
+    latest_recorded_commit_sha = (
+        str(latest["commit_sha"])
+        if latest is not None and latest.get("commit_sha") is not None
+        else None
+    )
+    latest_recorded_at = (
+        str(latest["recorded_at"])
+        if latest is not None and latest.get("recorded_at") is not None
+        else None
+    )
+    is_current = (
+        current_commit_sha is not None
+        and latest_recorded_commit_sha is not None
+        and latest_recorded_commit_sha == current_commit_sha
+    )
     return {
         "schema_name": ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
         "history_schema_name": ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
         "history_path": resolved_path.as_posix(),
         "record_count": len(records),
+        "current_commit_sha": current_commit_sha,
+        "latest_recorded_commit_sha": latest_recorded_commit_sha,
+        "latest_recorded_at": latest_recorded_at,
+        "is_current": is_current,
+        "recording_required": not is_current,
         "latest": latest,
         "previous": previous,
         "latest_rule_violation_counts": _metric_mapping(

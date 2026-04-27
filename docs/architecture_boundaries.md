@@ -136,3 +136,5 @@ recording and summary mechanism, while `storage/` tracks local executions. The
 read-only API surface is owned by the `system_governance` service capability
 facade and exposed through `GET /architecture/inspection` and
 `GET /architecture/measurements/summary` under the `system:read` capability.
+The summary response includes commit freshness fields so agents can distinguish
+current inspection status from stale local measurement history.
