@@ -125,10 +125,25 @@ def record_replay_alert_fixture_coverage_waiver_ledger(
     stale_rows = _waiver_stale_escalation_rows(waiver_payload)
     rows_by_id = {str(row.get("event_id")): row for row in stale_rows if row.get("event_id")}
     stale_event_ids = stale_unconverted_escalation_event_ids_from_waiver(waiver_payload)
+    event_payloads_by_id = {
+        event_id: _event_payload_for_escalation(session, event_id)
+        for event_id in stale_event_ids
+    }
     source_change_impact_ids = _string_list(
-        row.get("change_impact_id") for row in rows_by_id.values()
+        (rows_by_id.get(event_id) or {}).get("change_impact_id")
+        or event_payloads_by_id.get(event_id, {}).get("change_impact_id")
+        for event_id in stale_event_ids
     )
-    source_verification_task_ids = _string_list([waiver_payload.get("verification_task_id")])
+    source_verification_task_ids = _string_list(
+        [
+            waiver_payload.get("verification_task_id"),
+            *[
+                task_id
+                for event_payload in event_payloads_by_id.values()
+                for task_id in (event_payload.get("affected_verification_task_ids") or [])
+            ],
+        ]
+    )
     now = utcnow()
     ledger_basis = {
         "schema_name": "claim_support_replay_alert_fixture_coverage_waiver_ledger",
@@ -175,13 +190,16 @@ def record_replay_alert_fixture_coverage_waiver_ledger(
 
     for event_id in stale_event_ids:
         row = rows_by_id.get(event_id) or {}
-        event_payload = _event_payload_for_escalation(session, event_id)
+        event_payload = event_payloads_by_id.get(event_id, {})
+        change_impact_id = row.get("change_impact_id") or event_payload.get(
+            "change_impact_id"
+        )
         session.add(
             ClaimSupportReplayAlertFixtureCoverageWaiverEscalation(
                 ledger_id=ledger.id,
                 waiver_artifact_id=waiver_artifact.id,
                 escalation_event_id=UUID(str(event_id)),
-                change_impact_id=_uuid_or_none(row.get("change_impact_id")),
+                change_impact_id=_uuid_or_none(change_impact_id),
                 escalation_event_hash=row.get("event_hash"),
                 escalation_receipt_sha256=row.get("receipt_sha256"),
                 alert_kind=row.get("alert_kind") or event_payload.get("alert_kind"),

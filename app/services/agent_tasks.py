@@ -212,9 +212,18 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
     covered_event_ids = {
         str(value) for value in closure_payload.get("covered_escalation_event_ids") or []
     }
-    coverage_promotion_artifact_ids = set(
-        _uuid_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
+    raw_coverage_promotion_artifact_ids = _string_values(
+        closure_payload.get("coverage_promotion_artifact_ids") or []
     )
+    coverage_promotion_artifact_ids = set(
+        _uuid_values(raw_coverage_promotion_artifact_ids)
+    )
+    if (
+        raw_coverage_promotion_artifact_ids
+        and len(coverage_promotion_artifact_ids)
+        != len(raw_coverage_promotion_artifact_ids)
+    ):
+        return None
     if coverage_promotion_artifact_ids:
         coverage_promotion_artifact_ids.add(promotion_artifact_id)
         source_promotion_event_ids: set[str] = set()
@@ -241,6 +250,39 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
                 if value
             )
         if coverage_receipt_sha256s and coverage_receipt_sha256s != actual_receipt_sha256s:
+            return None
+        raw_coverage_promotion_event_ids = _string_values(
+            closure_payload.get("coverage_promotion_event_ids") or []
+        )
+        coverage_promotion_event_ids = set(
+            _uuid_values(raw_coverage_promotion_event_ids)
+        )
+        if (
+            raw_coverage_promotion_event_ids
+            and len(coverage_promotion_event_ids)
+            != len(raw_coverage_promotion_event_ids)
+        ):
+            return None
+        if not coverage_promotion_event_ids:
+            coverage_promotion_event_ids.add(promotion_event_id)
+        event_artifact_ids: set[UUID] = set()
+        event_receipt_sha256s: set[str] = set()
+        for event_id in sorted(coverage_promotion_event_ids, key=str):
+            coverage_event = session.get(SemanticGovernanceEvent, event_id)
+            if (
+                coverage_event is None
+                or coverage_event.event_kind
+                != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
+                or coverage_event.agent_task_artifact_id is None
+                or coverage_event.receipt_sha256 not in actual_receipt_sha256s
+            ):
+                return None
+            event_artifact_ids.add(coverage_event.agent_task_artifact_id)
+            if coverage_event.receipt_sha256:
+                event_receipt_sha256s.add(str(coverage_event.receipt_sha256))
+        if event_artifact_ids != coverage_promotion_artifact_ids:
+            return None
+        if coverage_receipt_sha256s and coverage_receipt_sha256s != event_receipt_sha256s:
             return None
     else:
         source_promotion_event_ids = {

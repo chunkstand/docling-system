@@ -24,6 +24,7 @@ from app.db.models import (
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
     ClaimSupportPolicyChangeImpact,
+    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
     Document,
     DocumentChunk,
@@ -2888,9 +2889,21 @@ def _waiver_closure_event_integrity(
         )
     except (TypeError, ValueError):
         promotion_artifact_uuid = None
+    promotion_event_id = closure_payload.get("promotion_event_id")
+    try:
+        promotion_event_uuid = (
+            UUID(str(promotion_event_id)) if promotion_event_id else None
+        )
+    except (TypeError, ValueError):
+        promotion_event_uuid = None
     promotion_artifact = (
         session.get(AgentTaskArtifact, promotion_artifact_uuid)
         if promotion_artifact_uuid
+        else None
+    )
+    promotion_event = (
+        session.get(SemanticGovernanceEvent, promotion_event_uuid)
+        if promotion_event_uuid
         else None
     )
     if promotion_artifact is None:
@@ -2904,6 +2917,14 @@ def _waiver_closure_event_integrity(
         "promotion_receipt_sha256"
     ):
         failures.append("promotion_artifact_receipt_mismatch")
+    if promotion_event is None:
+        failures.append("promotion_event_missing")
+    elif promotion_event.event_kind != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND:
+        failures.append("promotion_event_kind_mismatch")
+    elif promotion_event.agent_task_artifact_id != promotion_artifact_uuid:
+        failures.append("promotion_event_artifact_mismatch")
+    elif promotion_event.receipt_sha256 != closure_payload.get("promotion_receipt_sha256"):
+        failures.append("promotion_event_receipt_mismatch")
 
     waived_event_ids = set(
         _string_values(closure_payload.get("waived_escalation_event_ids") or [])
@@ -2918,9 +2939,18 @@ def _waiver_closure_event_integrity(
     if waived_event_ids and not waived_event_ids.issubset(covered_event_ids):
         failures.append("covered_escalation_event_set_incomplete")
 
-    coverage_promotion_artifact_ids = set(
-        _uuid_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
+    raw_coverage_promotion_artifact_ids = set(
+        _string_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
     )
+    coverage_promotion_artifact_ids = set(
+        _uuid_values(raw_coverage_promotion_artifact_ids)
+    )
+    if (
+        raw_coverage_promotion_artifact_ids
+        and len(coverage_promotion_artifact_ids)
+        != len(raw_coverage_promotion_artifact_ids)
+    ):
+        failures.append("coverage_promotion_artifact_id_invalid")
     if promotion_artifact_uuid is not None:
         coverage_promotion_artifact_ids.add(promotion_artifact_uuid)
     promotion_source_escalation_event_ids: set[str] = set()
@@ -2954,6 +2984,50 @@ def _waiver_closure_event_integrity(
         promotion_source_escalation_event_ids
     ):
         failures.append("covered_escalation_event_not_in_promotion")
+    raw_coverage_promotion_event_ids = set(
+        _string_values(closure_payload.get("coverage_promotion_event_ids") or [])
+    )
+    declared_coverage_event_ids = set(_uuid_values(raw_coverage_promotion_event_ids))
+    if (
+        raw_coverage_promotion_event_ids
+        and len(declared_coverage_event_ids) != len(raw_coverage_promotion_event_ids)
+    ):
+        failures.append("coverage_promotion_event_id_invalid")
+    if not declared_coverage_event_ids and promotion_event_uuid is not None:
+        declared_coverage_event_ids.add(promotion_event_uuid)
+    coverage_event_artifact_ids: set[UUID] = set()
+    coverage_event_receipt_sha256s: set[str] = set()
+    for coverage_event_id in sorted(declared_coverage_event_ids, key=str):
+        coverage_event = session.get(SemanticGovernanceEvent, coverage_event_id)
+        if coverage_event is None:
+            failures.append("coverage_promotion_event_missing")
+            continue
+        if (
+            coverage_event.event_kind
+            != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
+        ):
+            failures.append("coverage_promotion_event_kind_mismatch")
+            continue
+        if coverage_event.agent_task_artifact_id is None:
+            failures.append("coverage_promotion_event_artifact_missing")
+            continue
+        coverage_event_artifact_ids.add(coverage_event.agent_task_artifact_id)
+        receipt_sha = str(coverage_event.receipt_sha256 or "")
+        if receipt_sha:
+            coverage_event_receipt_sha256s.add(receipt_sha)
+        if receipt_sha and receipt_sha not in actual_coverage_receipt_sha256s:
+            failures.append("coverage_promotion_event_receipt_mismatch")
+    if (
+        coverage_event_artifact_ids
+        and coverage_event_artifact_ids != coverage_promotion_artifact_ids
+    ):
+        failures.append("coverage_promotion_event_artifact_set_mismatch")
+    if (
+        declared_coverage_receipt_sha256s
+        and coverage_event_receipt_sha256s
+        and declared_coverage_receipt_sha256s != coverage_event_receipt_sha256s
+    ):
+        failures.append("coverage_promotion_event_receipt_set_mismatch")
     return not failures, failures
 
 
@@ -3011,6 +3085,16 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
     waiver_closure_events_by_row: dict[UUID, list[SemanticGovernanceEvent]],
 ) -> dict[str, Any]:
     row_ids = {str(row.id) for row in matching_rows}
+    row_uuids = [row.id for row in matching_rows]
+    ledger_ids_from_escalations = set(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.ledger_id).where(
+                ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.change_impact_id.in_(
+                    row_uuids
+                )
+            )
+        )
+    )
     related_ledgers = [
         ledger
         for ledger in session.scalars(
@@ -3025,6 +3109,7 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
             for value in (ledger.source_change_impact_ids_json or [])
             if value
         }
+        or ledger.id in ledger_ids_from_escalations
     ]
     closure_events_by_id = {
         event.id: event

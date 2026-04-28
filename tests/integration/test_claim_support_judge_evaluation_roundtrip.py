@@ -50,6 +50,9 @@ from app.services.claim_support_policy_governance import (
     claim_support_policy_change_impact_payload_sha256,
     persist_claim_support_policy_change_impact,
 )
+from app.services.claim_support_replay_alert_waivers import (
+    record_replay_alert_fixture_coverage_waiver_ledger,
+)
 from app.services.evidence import (
     get_agent_task_audit_bundle,
     get_agent_task_evidence_manifest,
@@ -3130,6 +3133,146 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             == "claim_support_replay_alert_fixture_coverage_waiver_closure_invalid"
             for impact in tampered_audit_bundle["change_impact"]["impacts"]
         )
+
+
+def test_replay_alert_waiver_ledger_derives_sparse_waiver_sources(
+    postgres_integration_harness,
+):
+    with postgres_integration_harness.session_factory() as session:
+        now = utcnow() - timedelta(hours=30)
+        task = AgentTask(
+            id=uuid4(),
+            task_type="verify_claim_support_calibration_policy",
+            status=AgentTaskStatus.COMPLETED.value,
+            priority=100,
+            side_effect_level="read_only",
+            requires_approval=False,
+            input_json={},
+            result_json={},
+            workflow_version="claim_support_policy_replay_alert_coverage",
+            model_settings_json={},
+            created_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+        session.add(task)
+        change_impact_id = uuid4()
+        impact_payload = {
+            "schema_name": "claim_support_policy_change_impact",
+            "schema_version": "1.0",
+            "change_impact_id": str(change_impact_id),
+        }
+        session.add(
+            ClaimSupportPolicyChangeImpact(
+                id=change_impact_id,
+                activation_task_id=task.id,
+                activated_policy_id=None,
+                previous_policy_id=None,
+                semantic_governance_event_id=None,
+                governance_artifact_id=None,
+                impact_scope="claim_support_policy:unit",
+                policy_name="claim_support_judge_calibration_policy",
+                policy_version="v_sparse_waiver",
+                activated_policy_sha256="policy-sha",
+                previous_policy_sha256=None,
+                affected_support_judgment_count=1,
+                affected_generated_document_count=1,
+                affected_verification_count=1,
+                replay_recommended_count=1,
+                replay_status="blocked",
+                impacted_claim_derivation_ids_json=[],
+                impacted_task_ids_json=[],
+                impacted_verification_task_ids_json=[str(task.id)],
+                impact_payload_json=impact_payload,
+                impact_payload_sha256=payload_sha256(impact_payload),
+                replay_task_ids_json=[],
+                replay_task_plan_json={},
+                replay_closure_json={},
+                replay_status_updated_at=now,
+                created_at=now,
+            )
+        )
+        escalation_receipt = {
+            "schema_name": "claim_support_policy_impact_replay_escalation_receipt",
+            "schema_version": "1.0",
+            "change_impact_id": str(change_impact_id),
+            "alert_kind": "blocked",
+            "replay_status": "blocked",
+            "affected_verification_task_ids": [str(task.id)],
+            "receipt_sha256": "escalation-receipt-sha",
+        }
+        escalation_event = SemanticGovernanceEvent(
+            id=uuid4(),
+            event_kind="claim_support_policy_impact_replay_escalated",
+            governance_scope="claim_support_policy:unit",
+            subject_table="claim_support_policy_change_impacts",
+            subject_id=change_impact_id,
+            task_id=task.id,
+            agent_task_artifact_id=None,
+            receipt_sha256=escalation_receipt["receipt_sha256"],
+            payload_sha256=payload_sha256(escalation_receipt),
+            event_hash="escalation-event-sha",
+            deduplication_key=f"sparse-waiver-escalation:{change_impact_id}",
+            event_payload_json={
+                "claim_support_policy_impact_replay_escalation": escalation_receipt,
+            },
+            created_by="unit-test",
+            created_at=now,
+        )
+        session.add(escalation_event)
+        session.flush()
+        waiver_basis = {
+            "schema_name": "claim_support_replay_alert_fixture_coverage_waiver",
+            "schema_version": "1.1",
+            "verification_task_id": str(task.id),
+            "target_task_id": str(task.id),
+            "waived_by": "claim-support-operator@example.com",
+            "waiver_reason": "Sparse payload still carries event IDs.",
+            "waiver_severity": "high",
+            "waiver_expires_at": (utcnow() + timedelta(hours=4)).isoformat(),
+            "waiver_review_due_at": (utcnow() + timedelta(hours=2)).isoformat(),
+            "waiver_status": "active",
+            "waived_at": utcnow().isoformat(),
+            "stale_unconverted_escalation_event_count": 1,
+            "stale_unconverted_escalation_event_ids": [str(escalation_event.id)],
+            "replay_alert_fixture_summary": {
+                "has_more_unconverted_escalations": True,
+                "stale_unconverted_escalation_event_count": 1,
+            },
+        }
+        waiver_payload = {
+            **waiver_basis,
+            "waiver_sha256": payload_sha256(waiver_basis),
+        }
+        waiver_artifact = AgentTaskArtifact(
+            task_id=task.id,
+            artifact_kind="claim_support_replay_alert_fixture_coverage_waiver",
+            storage_path=None,
+            payload_json=waiver_payload,
+            created_at=utcnow(),
+        )
+        session.add(waiver_artifact)
+        session.flush()
+
+        ledger = record_replay_alert_fixture_coverage_waiver_ledger(
+            session,
+            waiver_artifact=waiver_artifact,
+            waiver_payload=waiver_payload,
+        )
+
+        assert ledger.source_change_impact_ids_json == [str(change_impact_id)]
+        assert str(task.id) in ledger.source_verification_task_ids_json
+        ledger_rows = list(
+            session.scalars(
+                select(ClaimSupportReplayAlertFixtureCoverageWaiverEscalation).where(
+                    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.ledger_id
+                    == ledger.id
+                )
+            )
+        )
+        assert len(ledger_rows) == 1
+        assert ledger_rows[0].change_impact_id == change_impact_id
+        assert ledger_rows[0].alert_kind == "blocked"
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(
