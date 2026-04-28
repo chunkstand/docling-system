@@ -3200,14 +3200,22 @@ def _build_evaluate_claim_support_judge_context(
         approval_state="not_required",
         verification_state=gate_outcome,
         problem="; ".join(output.reasons) if output.reasons else None,
-        evidence=f"Fixture set sha256: {output.fixture_set_sha256}",
+        evidence=(
+            f"Fixture set sha256: {output.fixture_set_sha256}; "
+            f"policy sha256: {output.policy_sha256 or 'unknown'}"
+        ),
         metrics={
             "gate_outcome": gate_outcome,
             "case_count": output.summary.get("case_count"),
             "passed_case_count": output.summary.get("passed_case_count"),
             "failed_case_count": output.summary.get("failed_case_count"),
             "overall_accuracy": output.summary.get("overall_accuracy"),
+            "fixture_set_id": str(output.fixture_set_id) if output.fixture_set_id else None,
             "fixture_set_sha256": output.fixture_set_sha256,
+            "policy_id": str(output.policy_id) if output.policy_id else None,
+            "policy_name": output.policy_name,
+            "policy_version": output.policy_version,
+            "policy_sha256": output.policy_sha256,
             "judge_version": output.judge_version,
         },
     )

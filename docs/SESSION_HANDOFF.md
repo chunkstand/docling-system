@@ -68,12 +68,12 @@ The support-judge calibration path is now first-class:
 
 - task type: `evaluate_claim_support_judge`
 - service: `app.services.claim_support_evaluations`
-- persisted tables: `claim_support_evaluations` and `claim_support_evaluation_cases`
+- persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`
 - artifact kind: `claim_support_judge_evaluation`
 - operator run: `technical_report_claim_support_judge_evaluation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays fixed hard-case fixtures against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, and typed context summary for review.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review.
 
 ## Current Agent-Task Catalog Notes
 

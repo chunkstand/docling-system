@@ -10,15 +10,21 @@ from sqlalchemy import select
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    ClaimSupportCalibrationPolicy,
     ClaimSupportEvaluation,
     ClaimSupportEvaluationCase,
+    ClaimSupportFixtureSet,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
 from app.services.agent_tasks import create_agent_task
-from app.services.claim_support_evaluations import default_claim_support_evaluation_fixtures
+from app.services.claim_support_evaluations import (
+    build_claim_support_calibration_policy_payload,
+    default_claim_support_evaluation_fixtures,
+    ensure_claim_support_calibration_policy,
+)
 from app.services.evidence import payload_sha256
 
 pytestmark = pytest.mark.skipif(
@@ -66,17 +72,29 @@ def test_claim_support_judge_evaluation_task_persists_replay_rows(
         assert payload["summary"]["gate_outcome"] == "passed"
         assert payload["summary"]["overall_accuracy"] == 1.0
         assert payload["fixture_set_sha256"]
+        assert payload["fixture_set_id"]
+        assert payload["fixture_set_version"] == "v1"
+        assert payload["policy_id"]
+        assert payload["policy_name"] == "claim_support_judge_calibration_policy"
+        assert payload["policy_version"] == "v1"
+        assert payload["policy_sha256"]
         assert payload["operator_run_id"]
 
         evaluation_row = session.get(ClaimSupportEvaluation, evaluation_id)
         assert evaluation_row is not None
         assert evaluation_row.agent_task_id == task_id
         assert str(evaluation_row.operator_run_id) == payload["operator_run_id"]
+        assert str(evaluation_row.fixture_set_id) == payload["fixture_set_id"]
+        assert str(evaluation_row.policy_id) == payload["policy_id"]
         assert evaluation_row.gate_outcome == "passed"
+        assert evaluation_row.fixture_set_version == "v1"
         assert evaluation_row.fixture_set_sha256 == payload["fixture_set_sha256"]
+        assert evaluation_row.policy_sha256 == payload["policy_sha256"]
         assert evaluation_row.evaluation_payload_sha256 == payload_sha256(
             evaluation_row.evaluation_payload_json
         )
+        assert session.get(ClaimSupportFixtureSet, UUID(payload["fixture_set_id"])) is not None
+        assert session.get(ClaimSupportCalibrationPolicy, UUID(payload["policy_id"])) is not None
 
         case_rows = list(
             session.scalars(
@@ -99,6 +117,7 @@ def test_claim_support_judge_evaluation_task_persists_replay_rows(
         assert operator_run is not None
         assert operator_run.operator_kind == "judge"
         assert operator_run.operator_name == "technical_report_claim_support_judge_evaluation"
+        assert operator_run.metrics_json["policy_sha256"] == payload["policy_sha256"]
         assert operator_run.output_sha256
 
         artifacts = list(
@@ -150,14 +169,20 @@ def test_claim_support_judge_evaluation_task_fails_single_fixture_coverage_gate(
         assert payload["summary"]["overall_accuracy"] == 1.0
         assert payload["summary"]["failed_case_count"] == 0
         assert payload["summary"]["hard_case_kind_count"] == 1
-        assert "Support-judge quality is measured by reusable hard-case fixtures." in payload[
+        assert "Support-judge quality satisfies the governed hard-case policy." in payload[
             "reasons"
         ]
+        assert payload["fixture_set_id"]
+        assert payload["policy_id"]
+        assert payload["policy_sha256"]
 
         evaluation_row = session.get(ClaimSupportEvaluation, evaluation_id)
         assert evaluation_row is not None
         assert evaluation_row.gate_outcome == "failed"
+        assert str(evaluation_row.fixture_set_id) == payload["fixture_set_id"]
+        assert str(evaluation_row.policy_id) == payload["policy_id"]
         assert evaluation_row.metrics_json["gate_outcome"] == "failed"
+        assert evaluation_row.metrics_json["policy_sha256"] == payload["policy_sha256"]
         assert evaluation_row.reasons_json == payload["reasons"]
 
         operator_run = session.get(KnowledgeOperatorRun, UUID(payload["operator_run_id"]))
@@ -172,6 +197,71 @@ def test_claim_support_judge_evaluation_task_fails_single_fixture_coverage_gate(
         )
         assert operator_output is not None
         assert operator_output.payload_json["gate_outcome"] == "failed"
+        assert operator_output.payload_json["policy_sha256"] == payload["policy_sha256"]
+
+
+def test_claim_support_judge_evaluation_task_uses_persisted_custom_policy(
+    postgres_integration_harness,
+):
+    fixture = deepcopy(default_claim_support_evaluation_fixtures()[0])
+    fixture["case_id"] = "custom_policy_missing_kind"
+    policy_payload = build_claim_support_calibration_policy_payload(
+        policy_name="strict_claim_support_policy",
+        policy_version="v1",
+        min_hard_case_kind_count=1,
+        required_hard_case_kinds=["required_kind_not_in_fixture"],
+        required_verdicts=["supported"],
+        source="integration_test",
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        policy_row = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=policy_payload,
+        )
+        task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_claim_support_judge",
+                input={
+                    "evaluation_name": "claim_support_judge_custom_policy",
+                    "fixture_set_name": "custom_policy_fixture_set",
+                    "fixture_set_version": "v1",
+                    "policy_name": "strict_claim_support_policy",
+                    "policy_version": "v1",
+                    "fixtures": [fixture],
+                    "min_support_score": 0.34,
+                    "min_overall_accuracy": 1.0,
+                    "min_verdict_precision": 1.0,
+                    "min_verdict_recall": 1.0,
+                },
+                workflow_version="claim_support_judge_eval_custom_policy_integration",
+            ),
+        )
+        policy_id = policy_row.id
+        task_id = task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        task_row = session.get(AgentTask, task_id)
+        assert task_row is not None
+        payload = task_row.result_json["payload"]
+        evaluation_id = UUID(payload["evaluation_id"])
+        assert payload["summary"]["gate_outcome"] == "failed"
+        assert payload["summary"]["overall_accuracy"] == 1.0
+        assert payload["summary"]["missing_hard_case_kinds"] == [
+            "required_kind_not_in_fixture"
+        ]
+        assert payload["policy_id"] == str(policy_id)
+        assert payload["policy_sha256"] == policy_payload["policy_sha256"]
+
+        evaluation_row = session.get(ClaimSupportEvaluation, evaluation_id)
+        assert evaluation_row is not None
+        assert evaluation_row.gate_outcome == "failed"
+        assert evaluation_row.policy_id == policy_id
+        assert evaluation_row.policy_name == "strict_claim_support_policy"
+        assert evaluation_row.policy_sha256 == policy_payload["policy_sha256"]
 
 
 def test_claim_support_judge_evaluation_task_persists_failed_gate(

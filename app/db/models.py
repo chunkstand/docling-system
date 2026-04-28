@@ -4499,6 +4499,133 @@ class ClaimEvidenceDerivation(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ClaimSupportFixtureSet(Base):
+    __tablename__ = "claim_support_fixture_sets"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'active', 'retired')",
+            name="ck_claim_support_fixture_sets_status",
+        ),
+        UniqueConstraint(
+            "fixture_set_name",
+            "fixture_set_version",
+            "fixture_set_sha256",
+            name="uq_claim_support_fixture_sets_identity",
+        ),
+        Index(
+            "ix_claim_support_fixture_sets_name_version",
+            "fixture_set_name",
+            "fixture_set_version",
+        ),
+        Index("ix_claim_support_fixture_sets_status", "status"),
+        Index("ix_claim_support_fixture_sets_sha", "fixture_set_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fixture_set_name: Mapped[str] = mapped_column(Text, nullable=False)
+    fixture_set_version: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    fixture_set_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    fixture_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    hard_case_kinds_json: Mapped[list] = mapped_column(
+        "hard_case_kinds",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    verdicts_json: Mapped[list] = mapped_column(
+        "verdicts",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    fixtures_json: Mapped[list] = mapped_column(
+        "fixtures",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ClaimSupportCalibrationPolicy(Base):
+    __tablename__ = "claim_support_calibration_policies"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('draft', 'active', 'retired')",
+            name="ck_claim_support_calibration_policies_status",
+        ),
+        UniqueConstraint(
+            "policy_name",
+            "policy_version",
+            "policy_sha256",
+            name="uq_claim_support_calibration_policies_identity",
+        ),
+        Index(
+            "ix_claim_support_calibration_policies_name_version",
+            "policy_name",
+            "policy_version",
+        ),
+        Index("ix_claim_support_calibration_policies_status", "status"),
+        Index("ix_claim_support_calibration_policies_sha", "policy_sha256"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    policy_name: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_version: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    owner: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str | None] = mapped_column(Text)
+    min_hard_case_kind_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    required_hard_case_kinds_json: Mapped[list] = mapped_column(
+        "required_hard_case_kinds",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    required_verdicts_json: Mapped[list] = mapped_column(
+        "required_verdicts",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    thresholds_json: Mapped[dict] = mapped_column(
+        "thresholds",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    policy_payload_json: Mapped[dict] = mapped_column(
+        "policy_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    metadata_json: Mapped[dict] = mapped_column(
+        "metadata",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ClaimSupportEvaluation(Base):
     __tablename__ = "claim_support_evaluations"
     __table_args__ = (
@@ -4515,6 +4642,9 @@ class ClaimSupportEvaluation(Base):
         Index("ix_claim_support_evaluations_created_at", "created_at"),
         Index("ix_claim_support_evaluations_gate_created", "gate_outcome", "created_at"),
         Index("ix_claim_support_evaluations_fixture_sha", "fixture_set_sha256"),
+        Index("ix_claim_support_evaluations_fixture_set_id", "fixture_set_id"),
+        Index("ix_claim_support_evaluations_policy_id", "policy_id"),
+        Index("ix_claim_support_evaluations_policy_sha", "policy_sha256"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -4526,9 +4656,21 @@ class ClaimSupportEvaluation(Base):
         UUID(as_uuid=True),
         ForeignKey("knowledge_operator_runs.id", ondelete="SET NULL"),
     )
+    fixture_set_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("claim_support_fixture_sets.id", ondelete="SET NULL"),
+    )
+    policy_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("claim_support_calibration_policies.id", ondelete="SET NULL"),
+    )
     evaluation_name: Mapped[str] = mapped_column(Text, nullable=False)
     fixture_set_name: Mapped[str] = mapped_column(Text, nullable=False)
+    fixture_set_version: Mapped[str | None] = mapped_column(Text)
     fixture_set_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    policy_name: Mapped[str | None] = mapped_column(Text)
+    policy_version: Mapped[str | None] = mapped_column(Text)
+    policy_sha256: Mapped[str | None] = mapped_column(Text)
     judge_name: Mapped[str] = mapped_column(Text, nullable=False)
     judge_version: Mapped[str] = mapped_column(Text, nullable=False)
     min_support_score: Mapped[float] = mapped_column(Float, nullable=False)

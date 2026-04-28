@@ -4,10 +4,16 @@ import uuid
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.time import utcnow
-from app.db.models import ClaimSupportEvaluation, ClaimSupportEvaluationCase
+from app.db.models import (
+    ClaimSupportCalibrationPolicy,
+    ClaimSupportEvaluation,
+    ClaimSupportEvaluationCase,
+    ClaimSupportFixtureSet,
+)
 from app.services.evidence import payload_sha256
 from app.services.technical_reports import judge_technical_report_claim_support
 
@@ -15,7 +21,24 @@ CLAIM_SUPPORT_JUDGE_NAME = "technical_report_claim_support_judge"
 CLAIM_SUPPORT_JUDGE_VERSION = "deterministic_claim_support_v1"
 CLAIM_SUPPORT_EVALUATION_SCHEMA_NAME = "claim_support_judge_evaluation"
 CLAIM_SUPPORT_EVALUATION_SCHEMA_VERSION = "1.0"
+CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_NAME = "claim_support_fixture_set"
+CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_VERSION = "1.0"
+CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_NAME = "claim_support_calibration_policy"
+CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_VERSION = "1.0"
+DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_NAME = "default_claim_support_v1"
+DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_VERSION = "v1"
+DEFAULT_CLAIM_SUPPORT_POLICY_NAME = "claim_support_judge_calibration_policy"
+DEFAULT_CLAIM_SUPPORT_POLICY_VERSION = "v1"
 CLAIM_SUPPORT_VERDICTS = ("supported", "unsupported", "insufficient_evidence")
+DEFAULT_REQUIRED_HARD_CASE_KINDS = (
+    "exact_source_support",
+    "weak_wording_support",
+    "wrong_evidence",
+    "lexical_overlap_wrong_evidence",
+    "missing_traceable_evidence",
+    "graph_only_support",
+)
+DEFAULT_MIN_HARD_CASE_KIND_COUNT = 4
 _FIXTURE_NAMESPACE = uuid.UUID("1adfc8cf-07de-41fa-b58f-a7b8df90b452")
 
 
@@ -320,6 +343,200 @@ def _thresholds_payload(
     }
 
 
+def _normalize_string_list(values: Any) -> list[str]:
+    if not values:
+        return []
+    return sorted({str(value) for value in values if str(value)})
+
+
+def _fixture_set_payload(
+    *,
+    fixture_set_name: str,
+    fixture_set_version: str,
+    fixtures: list[dict[str, Any]],
+    status: str = "active",
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    hard_case_kinds = _normalize_string_list(
+        fixture.get("hard_case_kind") for fixture in fixtures if fixture.get("hard_case_kind")
+    )
+    verdicts = _normalize_string_list(
+        fixture.get("expected_verdict") for fixture in fixtures if fixture.get("expected_verdict")
+    )
+    payload = {
+        "schema_name": CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_NAME,
+        "schema_version": CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_VERSION,
+        "fixture_set_name": fixture_set_name,
+        "fixture_set_version": fixture_set_version,
+        "status": status,
+        "judge_name": CLAIM_SUPPORT_JUDGE_NAME,
+        "judge_version": CLAIM_SUPPORT_JUDGE_VERSION,
+        "fixture_count": len(fixtures),
+        "hard_case_kinds": hard_case_kinds,
+        "verdicts": verdicts,
+        "fixtures": fixtures,
+        "metadata": metadata or {},
+    }
+    return {**payload, "fixture_set_sha256": str(payload_sha256(payload))}
+
+
+def build_claim_support_calibration_policy_payload(
+    *,
+    policy_name: str = DEFAULT_CLAIM_SUPPORT_POLICY_NAME,
+    policy_version: str = DEFAULT_CLAIM_SUPPORT_POLICY_VERSION,
+    status: str = "active",
+    thresholds: dict[str, Any] | None = None,
+    min_hard_case_kind_count: int = DEFAULT_MIN_HARD_CASE_KIND_COUNT,
+    required_hard_case_kinds: list[str] | tuple[str, ...] | None = None,
+    required_verdicts: list[str] | tuple[str, ...] | None = None,
+    owner: str = "docling-system",
+    source: str = "built_in_default",
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    policy_thresholds = dict(
+        thresholds
+        or _thresholds_payload(
+            min_overall_accuracy=1.0,
+            min_verdict_precision=1.0,
+            min_verdict_recall=1.0,
+            min_support_score=0.34,
+        )
+    )
+    payload = {
+        "schema_name": CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_NAME,
+        "schema_version": CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_VERSION,
+        "policy_name": policy_name,
+        "policy_version": policy_version,
+        "status": status,
+        "owner": owner,
+        "source": source,
+        "judge_name": CLAIM_SUPPORT_JUDGE_NAME,
+        "judge_version": CLAIM_SUPPORT_JUDGE_VERSION,
+        "thresholds": policy_thresholds,
+        "min_hard_case_kind_count": int(min_hard_case_kind_count),
+        "required_hard_case_kinds": _normalize_string_list(
+            required_hard_case_kinds or DEFAULT_REQUIRED_HARD_CASE_KINDS
+        ),
+        "required_verdicts": _normalize_string_list(required_verdicts or CLAIM_SUPPORT_VERDICTS),
+        "metadata": metadata or {},
+    }
+    return {**payload, "policy_sha256": str(payload_sha256(payload))}
+
+
+def ensure_claim_support_fixture_set(
+    session: Session,
+    *,
+    fixture_set_name: str,
+    fixture_set_version: str = DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_VERSION,
+    fixtures: list[dict[str, Any]] | None = None,
+    status: str = "active",
+    metadata: dict[str, Any] | None = None,
+) -> ClaimSupportFixtureSet:
+    fixture_rows = list(fixtures or default_claim_support_evaluation_fixtures())
+    payload = _fixture_set_payload(
+        fixture_set_name=fixture_set_name,
+        fixture_set_version=fixture_set_version,
+        fixtures=fixture_rows,
+        status=status,
+        metadata=metadata,
+    )
+    existing = session.scalar(
+        select(ClaimSupportFixtureSet).where(
+            ClaimSupportFixtureSet.fixture_set_name == fixture_set_name,
+            ClaimSupportFixtureSet.fixture_set_version == fixture_set_version,
+            ClaimSupportFixtureSet.fixture_set_sha256 == payload["fixture_set_sha256"],
+        )
+    )
+    if existing is not None:
+        return existing
+    row = ClaimSupportFixtureSet(
+        id=uuid.uuid4(),
+        fixture_set_name=fixture_set_name,
+        fixture_set_version=fixture_set_version,
+        status=status,
+        fixture_set_sha256=str(payload["fixture_set_sha256"]),
+        fixture_count=int(payload["fixture_count"]),
+        hard_case_kinds_json=list(payload["hard_case_kinds"]),
+        verdicts_json=list(payload["verdicts"]),
+        fixtures_json=fixture_rows,
+        metadata_json=dict(payload["metadata"]),
+        created_at=utcnow(),
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def ensure_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_payload: dict[str, Any] | None = None,
+    thresholds: dict[str, Any] | None = None,
+) -> ClaimSupportCalibrationPolicy:
+    payload = dict(
+        policy_payload
+        or build_claim_support_calibration_policy_payload(thresholds=thresholds)
+    )
+    policy_sha256 = str(payload.get("policy_sha256") or payload_sha256(payload))
+    existing = session.scalar(
+        select(ClaimSupportCalibrationPolicy).where(
+            ClaimSupportCalibrationPolicy.policy_name == str(payload["policy_name"]),
+            ClaimSupportCalibrationPolicy.policy_version == str(payload["policy_version"]),
+            ClaimSupportCalibrationPolicy.policy_sha256 == policy_sha256,
+        )
+    )
+    if existing is not None:
+        return existing
+    row = ClaimSupportCalibrationPolicy(
+        id=uuid.uuid4(),
+        policy_name=str(payload["policy_name"]),
+        policy_version=str(payload["policy_version"]),
+        status=str(payload.get("status") or "active"),
+        policy_sha256=policy_sha256,
+        owner=payload.get("owner"),
+        source=payload.get("source"),
+        min_hard_case_kind_count=int(payload.get("min_hard_case_kind_count") or 0),
+        required_hard_case_kinds_json=list(payload.get("required_hard_case_kinds") or []),
+        required_verdicts_json=list(payload.get("required_verdicts") or []),
+        thresholds_json=dict(payload.get("thresholds") or {}),
+        policy_payload_json={**payload, "policy_sha256": policy_sha256},
+        metadata_json=dict(payload.get("metadata") or {}),
+        created_at=utcnow(),
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def resolve_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_name: str = DEFAULT_CLAIM_SUPPORT_POLICY_NAME,
+    policy_version: str = DEFAULT_CLAIM_SUPPORT_POLICY_VERSION,
+    thresholds: dict[str, Any] | None = None,
+) -> ClaimSupportCalibrationPolicy:
+    if (
+        policy_name == DEFAULT_CLAIM_SUPPORT_POLICY_NAME
+        and policy_version == DEFAULT_CLAIM_SUPPORT_POLICY_VERSION
+    ):
+        return ensure_claim_support_calibration_policy(session, thresholds=thresholds)
+    row = session.scalar(
+        select(ClaimSupportCalibrationPolicy)
+        .where(
+            ClaimSupportCalibrationPolicy.policy_name == policy_name,
+            ClaimSupportCalibrationPolicy.policy_version == policy_version,
+            ClaimSupportCalibrationPolicy.status == "active",
+        )
+        .order_by(ClaimSupportCalibrationPolicy.created_at.desc())
+    )
+    if row is None:
+        raise ValueError(
+            f"No active claim support calibration policy found for {policy_name} "
+            f"version {policy_version}."
+        )
+    return row
+
+
 def _verdict_metrics(case_results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     metrics: dict[str, dict[str, Any]] = {}
     for verdict in CLAIM_SUPPORT_VERDICTS:
@@ -358,8 +575,12 @@ def evaluate_claim_support_judge_fixture_set(
     *,
     evaluation_id: UUID | None = None,
     evaluation_name: str = "claim_support_judge_calibration",
-    fixture_set_name: str = "default_claim_support_v1",
+    fixture_set_name: str = DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_NAME,
+    fixture_set_version: str = DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_VERSION,
     fixtures: list[dict[str, Any]] | None = None,
+    calibration_policy: dict[str, Any] | None = None,
+    fixture_set_id: UUID | None = None,
+    policy_id: UUID | None = None,
     min_support_score: float = 0.34,
     min_overall_accuracy: float = 1.0,
     min_verdict_precision: float = 1.0,
@@ -367,23 +588,29 @@ def evaluate_claim_support_judge_fixture_set(
 ) -> dict[str, Any]:
     evaluation_id = evaluation_id or uuid.uuid4()
     fixture_rows = list(fixtures or default_claim_support_evaluation_fixtures())
-    thresholds = _thresholds_payload(
+    requested_thresholds = _thresholds_payload(
         min_overall_accuracy=min_overall_accuracy,
         min_verdict_precision=min_verdict_precision,
         min_verdict_recall=min_verdict_recall,
         min_support_score=min_support_score,
     )
-    fixture_set_sha256 = str(
-        payload_sha256(
-            {
-                "fixture_set_name": fixture_set_name,
-                "fixtures": fixture_rows,
-                "judge_name": CLAIM_SUPPORT_JUDGE_NAME,
-                "judge_version": CLAIM_SUPPORT_JUDGE_VERSION,
-                "thresholds": thresholds,
-            }
-        )
+    policy_payload = dict(
+        calibration_policy
+        or build_claim_support_calibration_policy_payload(thresholds=requested_thresholds)
     )
+    policy_sha256 = str(policy_payload.get("policy_sha256") or payload_sha256(policy_payload))
+    policy_payload = {**policy_payload, "policy_sha256": policy_sha256}
+    thresholds = dict(policy_payload.get("thresholds") or requested_thresholds)
+    min_support_score = float(thresholds["min_support_score"])
+    min_overall_accuracy = float(thresholds["min_overall_accuracy"])
+    min_verdict_precision = float(thresholds["min_verdict_precision"])
+    min_verdict_recall = float(thresholds["min_verdict_recall"])
+    fixture_set_payload = _fixture_set_payload(
+        fixture_set_name=fixture_set_name,
+        fixture_set_version=fixture_set_version,
+        fixtures=fixture_rows,
+    )
+    fixture_set_sha256 = str(fixture_set_payload["fixture_set_sha256"])
     case_results: list[dict[str, Any]] = []
     for index, fixture in enumerate(fixture_rows):
         support_payload = judge_technical_report_claim_support(
@@ -427,6 +654,16 @@ def evaluate_claim_support_judge_fixture_set(
     hard_case_kinds = sorted(
         {str(row.get("hard_case_kind")) for row in case_results if row.get("hard_case_kind")}
     )
+    expected_verdicts = sorted({str(row["expected_verdict"]) for row in case_results})
+    required_hard_case_kinds = _normalize_string_list(
+        policy_payload.get("required_hard_case_kinds") or []
+    )
+    required_verdicts = _normalize_string_list(policy_payload.get("required_verdicts") or [])
+    min_hard_case_kind_count = int(
+        policy_payload.get("min_hard_case_kind_count") or DEFAULT_MIN_HARD_CASE_KIND_COUNT
+    )
+    missing_hard_case_kinds = sorted(set(required_hard_case_kinds) - set(hard_case_kinds))
+    missing_verdicts = sorted(set(required_verdicts) - set(expected_verdicts))
     reasons: list[str] = []
     if overall_accuracy < min_overall_accuracy:
         reasons.append(
@@ -452,7 +689,21 @@ def evaluate_claim_support_judge_fixture_set(
         "gate_outcome": "pending",
         "hard_case_kind_count": len(hard_case_kinds),
         "hard_case_kinds": hard_case_kinds,
+        "required_hard_case_kinds": required_hard_case_kinds,
+        "missing_hard_case_kinds": missing_hard_case_kinds,
+        "expected_verdicts": expected_verdicts,
+        "required_verdicts": required_verdicts,
+        "missing_verdicts": missing_verdicts,
+        "policy_name": str(policy_payload["policy_name"]),
+        "policy_version": str(policy_payload["policy_version"]),
+        "policy_sha256": policy_sha256,
     }
+    hard_case_coverage_passed = (
+        summary["hard_case_kind_count"] >= min_hard_case_kind_count
+        and not missing_hard_case_kinds
+    )
+    verdict_coverage_passed = not missing_verdicts
+    auditability_passed = bool(fixture_set_sha256 and policy_sha256)
     success_metrics = [
         {
             "metric_key": "claim_support_judge_accuracy_gate",
@@ -467,19 +718,36 @@ def evaluate_claim_support_judge_fixture_set(
         {
             "metric_key": "claim_support_hard_case_coverage",
             "stakeholder": "Rich Sutton / Bitter Lesson",
-            "passed": summary["hard_case_kind_count"] >= 4,
-            "summary": "Support-judge quality is measured by reusable hard-case fixtures.",
+            "passed": hard_case_coverage_passed,
+            "summary": "Support-judge quality satisfies the governed hard-case policy.",
             "details": {
                 "hard_case_kinds": hard_case_kinds,
                 "hard_case_kind_count": len(hard_case_kinds),
+                "min_hard_case_kind_count": min_hard_case_kind_count,
+                "required_hard_case_kinds": required_hard_case_kinds,
+                "missing_hard_case_kinds": missing_hard_case_kinds,
+            },
+        },
+        {
+            "metric_key": "claim_support_verdict_coverage",
+            "stakeholder": "Omar Khattab / Jerry Liu",
+            "passed": verdict_coverage_passed,
+            "summary": "Support-judge fixtures cover every governed verdict class.",
+            "details": {
+                "expected_verdicts": expected_verdicts,
+                "required_verdicts": required_verdicts,
+                "missing_verdicts": missing_verdicts,
             },
         },
         {
             "metric_key": "claim_support_eval_auditability",
             "stakeholder": "Luc Moreau / James Cheney",
-            "passed": bool(fixture_set_sha256),
-            "summary": "The evaluated fixture set is content-addressed for audit replay.",
-            "details": {"fixture_set_sha256": fixture_set_sha256},
+            "passed": auditability_passed,
+            "summary": "The evaluated fixture set and calibration policy are content-addressed.",
+            "details": {
+                "fixture_set_sha256": fixture_set_sha256,
+                "policy_sha256": policy_sha256,
+            },
         },
     ]
     if not all(metric["passed"] for metric in success_metrics):
@@ -491,8 +759,15 @@ def evaluate_claim_support_judge_fixture_set(
         "schema_version": CLAIM_SUPPORT_EVALUATION_SCHEMA_VERSION,
         "evaluation_id": str(evaluation_id),
         "evaluation_name": evaluation_name,
+        "fixture_set_id": str(fixture_set_id) if fixture_set_id else None,
         "fixture_set_name": fixture_set_name,
+        "fixture_set_version": fixture_set_version,
         "fixture_set_sha256": fixture_set_sha256,
+        "policy_id": str(policy_id) if policy_id else None,
+        "policy_name": str(policy_payload["policy_name"]),
+        "policy_version": str(policy_payload["policy_version"]),
+        "policy_sha256": policy_sha256,
+        "calibration_policy": policy_payload,
         "judge_name": CLAIM_SUPPORT_JUDGE_NAME,
         "judge_version": CLAIM_SUPPORT_JUDGE_VERSION,
         "thresholds": thresholds,
@@ -517,13 +792,23 @@ def persist_claim_support_judge_evaluation(
         **evaluation_payload,
         "operator_run_id": str(operator_run_id) if operator_run_id else None,
     }
+    fixture_set_id = (
+        UUID(str(payload["fixture_set_id"])) if payload.get("fixture_set_id") else None
+    )
+    policy_id = UUID(str(payload["policy_id"])) if payload.get("policy_id") else None
     row = ClaimSupportEvaluation(
         id=evaluation_id,
         agent_task_id=agent_task_id,
         operator_run_id=operator_run_id,
+        fixture_set_id=fixture_set_id,
+        policy_id=policy_id,
         evaluation_name=str(payload["evaluation_name"]),
         fixture_set_name=str(payload["fixture_set_name"]),
+        fixture_set_version=payload.get("fixture_set_version"),
         fixture_set_sha256=str(payload["fixture_set_sha256"]),
+        policy_name=payload.get("policy_name"),
+        policy_version=payload.get("policy_version"),
+        policy_sha256=payload.get("policy_sha256"),
         judge_name=str(payload["judge_name"]),
         judge_version=str(payload["judge_version"]),
         min_support_score=float(payload["thresholds"]["min_support_score"]),

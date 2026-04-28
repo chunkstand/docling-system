@@ -127,8 +127,10 @@ from app.services.agent_task_verifications import (
     verify_semantic_grounded_document_task,
 )
 from app.services.claim_support_evaluations import (
+    ensure_claim_support_fixture_set,
     evaluate_claim_support_judge_fixture_set,
     persist_claim_support_judge_evaluation,
+    resolve_claim_support_calibration_policy,
 )
 from app.services.documents import (
     get_latest_document_evaluation_detail,
@@ -1841,10 +1843,34 @@ def _evaluate_claim_support_judge_executor(
     task: AgentTask,
     payload: EvaluateClaimSupportJudgeTaskInput,
 ) -> dict:
+    fixture_rows = [fixture.model_dump(mode="json") for fixture in payload.fixtures]
+    fixture_set_record = ensure_claim_support_fixture_set(
+        session,
+        fixture_set_name=payload.fixture_set_name,
+        fixture_set_version=payload.fixture_set_version,
+        fixtures=fixture_rows or None,
+        metadata={"source": "evaluate_claim_support_judge"},
+    )
+    requested_thresholds = {
+        "min_overall_accuracy": payload.min_overall_accuracy,
+        "min_verdict_precision": payload.min_verdict_precision,
+        "min_verdict_recall": payload.min_verdict_recall,
+        "min_support_score": payload.min_support_score,
+    }
+    policy_record = resolve_claim_support_calibration_policy(
+        session,
+        policy_name=payload.policy_name,
+        policy_version=payload.policy_version,
+        thresholds=requested_thresholds,
+    )
     evaluation_payload = evaluate_claim_support_judge_fixture_set(
         evaluation_name=payload.evaluation_name,
         fixture_set_name=payload.fixture_set_name,
-        fixtures=[fixture.model_dump(mode="json") for fixture in payload.fixtures] or None,
+        fixture_set_version=payload.fixture_set_version,
+        fixtures=fixture_rows or None,
+        calibration_policy=policy_record.policy_payload_json,
+        fixture_set_id=fixture_set_record.id,
+        policy_id=policy_record.id,
         min_support_score=payload.min_support_score,
         min_overall_accuracy=payload.min_overall_accuracy,
         min_verdict_precision=payload.min_verdict_precision,
@@ -1859,10 +1885,19 @@ def _evaluate_claim_support_judge_executor(
         config={
             "evaluation_name": payload.evaluation_name,
             "fixture_set_name": payload.fixture_set_name,
+            "fixture_set_version": payload.fixture_set_version,
+            "fixture_set_id": str(fixture_set_record.id),
+            "policy_id": str(policy_record.id),
+            "policy_name": payload.policy_name,
+            "policy_version": payload.policy_version,
+            "policy_sha256": policy_record.policy_sha256,
             "thresholds": evaluation_payload.get("thresholds") or {},
         },
         input_payload={
             "fixture_set_name": payload.fixture_set_name,
+            "fixture_set_version": payload.fixture_set_version,
+            "policy_name": payload.policy_name,
+            "policy_version": payload.policy_version,
             "custom_fixture_count": len(payload.fixtures),
             "min_support_score": payload.min_support_score,
         },
@@ -1880,6 +1915,8 @@ def _evaluate_claim_support_judge_executor(
                     "gate_outcome": evaluation_payload["summary"]["gate_outcome"],
                     "case_count": evaluation_payload["summary"]["case_count"],
                     "overall_accuracy": evaluation_payload["summary"]["overall_accuracy"],
+                    "fixture_set_sha256": evaluation_payload["fixture_set_sha256"],
+                    "policy_sha256": evaluation_payload["policy_sha256"],
                 },
             }
         ],
@@ -3941,6 +3978,9 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         input_example={
             "evaluation_name": "claim_support_judge_calibration",
             "fixture_set_name": "default_claim_support_v1",
+            "fixture_set_version": "v1",
+            "policy_name": "claim_support_judge_calibration_policy",
+            "policy_version": "v1",
             "min_support_score": 0.34,
             "min_overall_accuracy": 1.0,
             "min_verdict_precision": 1.0,

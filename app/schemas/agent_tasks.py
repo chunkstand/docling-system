@@ -1420,6 +1420,9 @@ class ClaimSupportEvaluationCaseResult(BaseModel):
 class EvaluateClaimSupportJudgeTaskInput(BaseModel):
     evaluation_name: str = Field(default="claim_support_judge_calibration", min_length=1)
     fixture_set_name: str = Field(default="default_claim_support_v1", min_length=1)
+    fixture_set_version: str = Field(default="v1", min_length=1)
+    policy_name: str = Field(default="claim_support_judge_calibration_policy", min_length=1)
+    policy_version: str = Field(default="v1", min_length=1)
     fixtures: list[ClaimSupportEvaluationFixture] = Field(default_factory=list, max_length=100)
     min_support_score: float = Field(default=0.34, ge=0.0, le=1.0)
     min_overall_accuracy: float = Field(default=1.0, ge=0.0, le=1.0)
@@ -1430,8 +1433,15 @@ class EvaluateClaimSupportJudgeTaskInput(BaseModel):
 class EvaluateClaimSupportJudgeTaskOutput(BaseModel):
     evaluation_id: UUID
     evaluation_name: str
+    fixture_set_id: UUID | None = None
     fixture_set_name: str
+    fixture_set_version: str = "v1"
     fixture_set_sha256: str
+    policy_id: UUID | None = None
+    policy_name: str | None = None
+    policy_version: str | None = None
+    policy_sha256: str | None = None
+    calibration_policy: dict = Field(default_factory=dict)
     judge_name: str
     judge_version: str
     thresholds: dict = Field(default_factory=dict)
