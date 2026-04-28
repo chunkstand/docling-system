@@ -3492,7 +3492,7 @@ function renderClaimSupportReplaySummary(worklist) {
     {
       label: "Listed rows",
       value: worklist.item_count || 0,
-      detail: `generated ${formatDateTime(worklist.generated_at)}`,
+      detail: `${formatInteger(worklist.matching_count || worklist.item_count || 0)} matching · generated ${formatDateTime(worklist.generated_at)}`,
     },
   ]
     .map(
@@ -3532,7 +3532,7 @@ function renderClaimSupportReplayWorkbench(state) {
   setNote(
     "claim-support-replay-note",
     worklist
-      ? `${formatInteger(worklist.item_count || 0)} replay impact rows loaded.`
+      ? `${formatInteger(worklist.item_count || 0)} of ${formatInteger(worklist.matching_count || worklist.item_count || 0)} replay impact rows loaded.`
       : "Replay impact rows are unavailable.",
     !worklist,
   );
@@ -3607,7 +3607,9 @@ function renderClaimSupportReplayWorkbench(state) {
             </button>
           `
           : "",
-        links.detail ? internalLink(links.detail, "Open row JSON") : "",
+        links.detail
+          ? downloadButton("Impact JSON", links.detail, `${changeImpactId}-impact.json`)
+          : "",
         links.closure_artifact
           ? downloadButton(
               "Closure receipt",
@@ -3666,7 +3668,7 @@ async function refreshClaimSupportReplayWorkbench({ announce = false } = {}) {
   if (announce && !state.error) {
     recordActivity(
       "Claim-support replay worklist refreshed",
-      `${formatInteger(state.data?.item_count || 0)} replay impact rows loaded.`,
+      `${formatInteger(state.data?.item_count || 0)} of ${formatInteger(state.data?.matching_count || state.data?.item_count || 0)} replay impact rows loaded.`,
       "success",
     );
   }
@@ -4014,6 +4016,7 @@ async function loadAgentsPage() {
   const activeStatuses = ["processing", "queued", "retry_wait", "blocked", "awaiting_approval"]
     .map((status) => `status=${encodeURIComponent(status)}`)
     .join("&");
+  syncClaimSupportReplayControls();
   const [
     activeTasksState,
     recommendationSummaryState,
@@ -4061,7 +4064,6 @@ async function loadAgentsPage() {
   setText("agent-signal-count", formatInteger(decisionSignalsState.data?.length || 0));
 
   renderAgentTaskCollections();
-  syncClaimSupportReplayControls();
   renderClaimSupportReplayWorkbench(claimSupportReplayWorklistState);
   renderReportHarnessContract(actionDefinitionsState, workflowVersionsState);
   renderReportHarnessRuns({

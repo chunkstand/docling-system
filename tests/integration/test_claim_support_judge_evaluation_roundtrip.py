@@ -1787,56 +1787,60 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         impacted = _seed_impacted_technical_report_records(session)
         now = utcnow() - timedelta(hours=48)
         change_impact_id = uuid4()
-        impact_payload = {
-            "schema_name": "claim_support_policy_change_impact",
-            "schema_version": "1.0",
-            "change_impact_id": str(change_impact_id),
-            "replay_recommendations": [
-                {
-                    "action": "rerun_draft_technical_report",
-                    "target_task_id": str(impacted["draft_task_id"]),
-                    "reason": "valid source should not be queued before all work validates",
-                    "priority": "high",
-                },
-                {
-                    "action": "rerun_verify_technical_report",
-                    "target_task_id": str(impacted["draft_task_id"]),
-                    "prior_verification_task_id": str(uuid4()),
-                    "reason": "missing verifier task should fail prevalidation",
-                    "priority": "high",
-                },
-            ],
-        }
-        session.add(
-            ClaimSupportPolicyChangeImpact(
-                id=change_impact_id,
-                activation_task_id=None,
-                activated_policy_id=policy.id,
-                previous_policy_id=None,
-                semantic_governance_event_id=None,
-                governance_artifact_id=None,
-                impact_scope="claim_support_policy:claim_support_judge_calibration_policy",
-                policy_name=policy.policy_name,
-                policy_version=policy.policy_version,
-                activated_policy_sha256=policy.policy_sha256,
-                previous_policy_sha256=None,
-                affected_support_judgment_count=1,
-                affected_generated_document_count=1,
-                affected_verification_count=1,
-                replay_recommended_count=2,
-                replay_status="pending",
-                impacted_claim_derivation_ids_json=[str(impacted["derivation_id"])],
-                impacted_task_ids_json=[str(impacted["draft_task_id"])],
-                impacted_verification_task_ids_json=[str(impacted["verify_task_id"])],
-                impact_payload_json=impact_payload,
-                impact_payload_sha256=payload_sha256(impact_payload),
-                replay_task_ids_json=[],
-                replay_task_plan_json={},
-                replay_closure_json={},
-                replay_status_updated_at=now,
-                created_at=now,
+        extra_change_impact_id = uuid4()
+        for row_change_impact_id in [change_impact_id, extra_change_impact_id]:
+            impact_payload = {
+                "schema_name": "claim_support_policy_change_impact",
+                "schema_version": "1.0",
+                "change_impact_id": str(row_change_impact_id),
+                "replay_recommendations": [
+                    {
+                        "action": "rerun_draft_technical_report",
+                        "target_task_id": str(impacted["draft_task_id"]),
+                        "reason": "valid source should not be queued before all work validates",
+                        "priority": "high",
+                    },
+                    {
+                        "action": "rerun_verify_technical_report",
+                        "target_task_id": str(impacted["draft_task_id"]),
+                        "prior_verification_task_id": str(uuid4()),
+                        "reason": "missing verifier task should fail prevalidation",
+                        "priority": "high",
+                    },
+                ],
+            }
+            session.add(
+                ClaimSupportPolicyChangeImpact(
+                    id=row_change_impact_id,
+                    activation_task_id=None,
+                    activated_policy_id=policy.id,
+                    previous_policy_id=None,
+                    semantic_governance_event_id=None,
+                    governance_artifact_id=None,
+                    impact_scope="claim_support_policy:claim_support_judge_calibration_policy",
+                    policy_name=policy.policy_name,
+                    policy_version=policy.policy_version,
+                    activated_policy_sha256=policy.policy_sha256,
+                    previous_policy_sha256=None,
+                    affected_support_judgment_count=1,
+                    affected_generated_document_count=1,
+                    affected_verification_count=1,
+                    replay_recommended_count=2,
+                    replay_status="pending",
+                    impacted_claim_derivation_ids_json=[str(impacted["derivation_id"])],
+                    impacted_task_ids_json=[str(impacted["draft_task_id"])],
+                    impacted_verification_task_ids_json=[
+                        str(impacted["verify_task_id"])
+                    ],
+                    impact_payload_json=impact_payload,
+                    impact_payload_sha256=payload_sha256(impact_payload),
+                    replay_task_ids_json=[],
+                    replay_task_plan_json={},
+                    replay_closure_json={},
+                    replay_status_updated_at=now,
+                    created_at=now,
+                )
             )
-        )
         session.commit()
 
     response = postgres_integration_harness.client.post(
@@ -1871,12 +1875,23 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
 
     worklist_response = postgres_integration_harness.client.get(
         "/agent-tasks/claim-support-policy-change-impacts/worklist"
-        "?limit=5&stale_after_hours=24"
+        "?limit=1&stale_after_hours=24"
     )
     assert worklist_response.status_code == 200
+    worklist_payload = worklist_response.json()
+    assert worklist_payload["limit"] == 1
+    assert worklist_payload["matching_count"] == 2
+    assert worklist_payload["item_count"] == 1
+    assert worklist_payload["has_more"] is True
+
+    full_worklist_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?limit=5&stale_after_hours=24"
+    )
+    assert full_worklist_response.status_code == 200
     worklist_item = next(
         row
-        for row in worklist_response.json()["items"]
+        for row in full_worklist_response.json()["items"]
         if row["change_impact"]["change_impact_id"] == str(change_impact_id)
     )
     assert worklist_item["is_stale"] is True

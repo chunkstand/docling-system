@@ -1627,7 +1627,10 @@ class ClaimSupportPolicyChangeImpactWorklistResponse(BaseModel):
     summary: ClaimSupportPolicyChangeImpactSummaryResponse
     generated_at: datetime
     stale_after_hours: int
+    limit: int = 50
+    matching_count: int = 0
     item_count: int
+    has_more: bool = False
     items: list[ClaimSupportPolicyChangeImpactWorklistItemResponse] = Field(
         default_factory=list
     )

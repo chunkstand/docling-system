@@ -104,7 +104,10 @@ def test_claim_support_policy_change_impact_worklist_route_uses_service(
             },
             "generated_at": now,
             "stale_after_hours": stale_after_hours,
+            "limit": limit,
+            "matching_count": 3,
             "item_count": 0,
+            "has_more": True,
             "items": [],
         }
 
@@ -122,6 +125,9 @@ def test_claim_support_policy_change_impact_worklist_route_uses_service(
 
     assert response.status_code == 200
     assert response.json()["summary"]["open_count"] == 1
+    assert response.json()["limit"] == 2
+    assert response.json()["matching_count"] == 3
+    assert response.json()["has_more"] is True
     assert captured == {
         "policy_name": "claim_support_judge_calibration_policy",
         "stale_after_hours": 12,

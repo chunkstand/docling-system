@@ -538,7 +538,10 @@ def claim_support_policy_change_impact_worklist(
             summary=summary,
             generated_at=generated_at,
             stale_after_hours=stale_after_hours,
+            limit=limit,
+            matching_count=0,
             item_count=0,
+            has_more=False,
             items=[],
         )
 
@@ -696,12 +699,16 @@ def claim_support_policy_change_impact_worklist(
             str(item.change_impact.change_impact_id),
         )
     )
+    matching_count = len(items)
     limited_items = items[:limit]
     return ClaimSupportPolicyChangeImpactWorklistResponse(
         summary=summary,
         generated_at=generated_at,
         stale_after_hours=stale_after_hours,
+        limit=limit,
+        matching_count=matching_count,
         item_count=len(limited_items),
+        has_more=matching_count > len(limited_items),
         items=limited_items,
     )
 
