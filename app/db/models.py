@@ -4576,6 +4576,12 @@ class ClaimSupportCalibrationPolicy(Base):
             "policy_name",
             "policy_version",
         ),
+        Index(
+            "uq_claim_support_calibration_policies_active_name",
+            "policy_name",
+            unique=True,
+            postgresql_where=sql_text("status = 'active'"),
+        ),
         Index("ix_claim_support_calibration_policies_status", "status"),
         Index("ix_claim_support_calibration_policies_sha", "policy_sha256"),
     )

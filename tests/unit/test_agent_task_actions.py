@@ -12,6 +12,8 @@ from pydantic import ValidationError
 
 from app.db.models import AgentTask
 from app.schemas.agent_tasks import (
+    ApplyClaimSupportCalibrationPolicyTaskInput,
+    ApplyClaimSupportCalibrationPolicyTaskOutput,
     ApplyGraphPromotionsTaskInput,
     ApplyHarnessConfigUpdateTaskInput,
     ApplyOntologyExtensionTaskInput,
@@ -19,6 +21,8 @@ from app.schemas.agent_tasks import (
     BuildDocumentFactGraphTaskInput,
     BuildShadowSemanticGraphTaskInput,
     DiscoverSemanticBootstrapCandidatesTaskInput,
+    DraftClaimSupportCalibrationPolicyTaskInput,
+    DraftClaimSupportCalibrationPolicyTaskOutput,
     DraftGraphPromotionsTaskInput,
     DraftHarnessConfigFromOptimizationTaskInput,
     DraftHarnessConfigUpdateTaskInput,
@@ -39,6 +43,8 @@ from app.schemas.agent_tasks import (
     TriageSemanticCandidateDisagreementsTaskInput,
     TriageSemanticGraphDisagreementsTaskInput,
     TriageSemanticPassTaskInput,
+    VerifyClaimSupportCalibrationPolicyTaskInput,
+    VerifyClaimSupportCalibrationPolicyTaskOutput,
     VerifyDraftGraphPromotionsTaskInput,
     VerifyDraftHarnessConfigTaskInput,
     VerifyDraftOntologyExtensionTaskInput,
@@ -2448,6 +2454,39 @@ def test_get_agent_task_action_exposes_claim_support_judge_eval_metadata() -> No
     assert action.output_schema_version == "1.0"
     assert action.context_builder_name == "evaluate_claim_support_judge"
     assert action.output_model is not None
+
+
+def test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata() -> None:
+    draft_action = get_agent_task_action("draft_claim_support_calibration_policy")
+    verify_action = get_agent_task_action("verify_claim_support_calibration_policy")
+    apply_action = get_agent_task_action("apply_claim_support_calibration_policy")
+
+    assert draft_action.capability == "technical_reports"
+    assert draft_action.definition_kind == "draft"
+    assert draft_action.side_effect_level == "draft_change"
+    assert draft_action.requires_approval is False
+    assert draft_action.payload_model is DraftClaimSupportCalibrationPolicyTaskInput
+    assert draft_action.output_model is DraftClaimSupportCalibrationPolicyTaskOutput
+    assert draft_action.output_schema_name == "draft_claim_support_calibration_policy_output"
+    assert draft_action.output_schema_version == "1.0"
+
+    assert verify_action.capability == "technical_reports"
+    assert verify_action.definition_kind == "verifier"
+    assert verify_action.side_effect_level == "read_only"
+    assert verify_action.requires_approval is False
+    assert verify_action.payload_model is VerifyClaimSupportCalibrationPolicyTaskInput
+    assert verify_action.output_model is VerifyClaimSupportCalibrationPolicyTaskOutput
+    assert verify_action.output_schema_name == "verify_claim_support_calibration_policy_output"
+    assert verify_action.output_schema_version == "1.0"
+
+    assert apply_action.capability == "technical_reports"
+    assert apply_action.definition_kind == "promotion"
+    assert apply_action.side_effect_level == "promotable"
+    assert apply_action.requires_approval is True
+    assert apply_action.payload_model is ApplyClaimSupportCalibrationPolicyTaskInput
+    assert apply_action.output_model is ApplyClaimSupportCalibrationPolicyTaskOutput
+    assert apply_action.output_schema_name == "apply_claim_support_calibration_policy_output"
+    assert apply_action.output_schema_version == "1.0"
 
 
 def test_get_agent_task_action_exposes_context_pack_eval_metadata() -> None:

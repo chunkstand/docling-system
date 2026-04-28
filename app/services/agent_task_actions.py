@@ -7,8 +7,15 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskSideEffectLevel, AgentTaskVerification
+from app.db.models import (
+    AgentTask,
+    AgentTaskSideEffectLevel,
+    AgentTaskVerification,
+    ClaimSupportCalibrationPolicy,
+)
 from app.schemas.agent_tasks import (
+    ApplyClaimSupportCalibrationPolicyTaskInput,
+    ApplyClaimSupportCalibrationPolicyTaskOutput,
     ApplyGraphPromotionsTaskInput,
     ApplyGraphPromotionsTaskOutput,
     ApplyHarnessConfigUpdateTaskInput,
@@ -25,6 +32,8 @@ from app.schemas.agent_tasks import (
     BuildShadowSemanticGraphTaskOutput,
     DiscoverSemanticBootstrapCandidatesTaskInput,
     DiscoverSemanticBootstrapCandidatesTaskOutput,
+    DraftClaimSupportCalibrationPolicyTaskInput,
+    DraftClaimSupportCalibrationPolicyTaskOutput,
     DraftGraphPromotionsTaskInput,
     DraftGraphPromotionsTaskOutput,
     DraftHarnessConfigFromOptimizationTaskInput,
@@ -86,6 +95,8 @@ from app.schemas.agent_tasks import (
     TriageSemanticGraphDisagreementsTaskOutput,
     TriageSemanticPassTaskInput,
     TriageSemanticPassTaskOutput,
+    VerifyClaimSupportCalibrationPolicyTaskInput,
+    VerifyClaimSupportCalibrationPolicyTaskOutput,
     VerifyDraftGraphPromotionsTaskInput,
     VerifyDraftGraphPromotionsTaskOutput,
     VerifyDraftHarnessConfigTaskInput,
@@ -127,8 +138,11 @@ from app.services.agent_task_verifications import (
     verify_semantic_grounded_document_task,
 )
 from app.services.claim_support_evaluations import (
+    activate_claim_support_calibration_policy,
+    draft_claim_support_calibration_policy,
     ensure_claim_support_fixture_set,
     evaluate_claim_support_judge_fixture_set,
+    get_active_claim_support_calibration_policy,
     persist_claim_support_judge_evaluation,
     resolve_claim_support_calibration_policy,
 )
@@ -1838,6 +1852,354 @@ def _verify_technical_report_executor(
     }
 
 
+def _claim_support_thresholds_payload(payload) -> dict:
+    return {
+        "min_overall_accuracy": payload.min_overall_accuracy,
+        "min_verdict_precision": payload.min_verdict_precision,
+        "min_verdict_recall": payload.min_verdict_recall,
+        "min_support_score": payload.min_support_score,
+    }
+
+
+def _draft_claim_support_calibration_policy_executor(
+    session: Session,
+    task: AgentTask,
+    payload: DraftClaimSupportCalibrationPolicyTaskInput,
+) -> dict:
+    active_policy = get_active_claim_support_calibration_policy(
+        session,
+        policy_name=payload.policy_name,
+    )
+    policy_row = draft_claim_support_calibration_policy(
+        session,
+        policy_name=payload.policy_name,
+        policy_version=payload.policy_version,
+        thresholds=_claim_support_thresholds_payload(payload),
+        min_hard_case_kind_count=payload.min_hard_case_kind_count,
+        required_hard_case_kinds=list(payload.required_hard_case_kinds),
+        required_verdicts=list(payload.required_verdicts),
+        owner=payload.owner,
+        source=payload.source,
+        rationale=payload.rationale,
+    )
+    draft_payload = {
+        "policy_id": str(policy_row.id),
+        "policy_name": policy_row.policy_name,
+        "policy_version": policy_row.policy_version,
+        "policy_sha256": policy_row.policy_sha256,
+        "policy_payload": policy_row.policy_payload_json,
+        "active_policy_id": str(active_policy.id) if active_policy is not None else None,
+        "active_policy_sha256": active_policy.policy_sha256 if active_policy is not None else None,
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="claim_support_calibration_policy_draft",
+        payload=draft_payload,
+        storage_service=StorageService(),
+        filename="claim_support_calibration_policy_draft.json",
+    )
+    return {
+        **draft_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _verify_claim_support_calibration_policy_executor(
+    session: Session,
+    task: AgentTask,
+    payload: VerifyClaimSupportCalibrationPolicyTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="draft_claim_support_calibration_policy",
+        expected_schema_name="draft_claim_support_calibration_policy_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Claim-support policy verification must declare the requested policy draft "
+            "as a target_task dependency."
+        ),
+        rerun_message=(
+            "Target claim-support policy draft must be rerun after the context migration "
+            "before verification."
+        ),
+    )
+    draft_output = DraftClaimSupportCalibrationPolicyTaskOutput.model_validate(
+        draft_context.output
+    )
+    policy_row = session.get(ClaimSupportCalibrationPolicy, draft_output.policy_id)
+    if policy_row is None:
+        raise ValueError(f"Claim support calibration policy not found: {draft_output.policy_id}")
+    if policy_row.status != "draft":
+        raise ValueError("Only draft claim support calibration policies can be verified.")
+
+    fixture_rows = [fixture.model_dump(mode="json") for fixture in payload.fixtures]
+    fixture_set_record = ensure_claim_support_fixture_set(
+        session,
+        fixture_set_name=payload.fixture_set_name,
+        fixture_set_version=payload.fixture_set_version,
+        fixtures=fixture_rows or None,
+        metadata={"source": "verify_claim_support_calibration_policy"},
+    )
+    evaluation_payload = evaluate_claim_support_judge_fixture_set(
+        evaluation_name="claim_support_calibration_policy_verification",
+        fixture_set_name=payload.fixture_set_name,
+        fixture_set_version=payload.fixture_set_version,
+        fixtures=fixture_rows or None,
+        calibration_policy=policy_row.policy_payload_json,
+        fixture_set_id=fixture_set_record.id,
+        policy_id=policy_row.id,
+    )
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="judge",
+        operator_name="claim_support_calibration_policy_verification",
+        operator_version="v1",
+        agent_task_id=task.id,
+        config={
+            "policy_id": str(policy_row.id),
+            "policy_sha256": policy_row.policy_sha256,
+            "fixture_set_id": str(fixture_set_record.id),
+            "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
+        },
+        input_payload={
+            "target_task_id": str(payload.target_task_id),
+            "policy_payload": policy_row.policy_payload_json,
+            "fixture_set_name": payload.fixture_set_name,
+            "fixture_set_version": payload.fixture_set_version,
+        },
+        output_payload=evaluation_payload,
+        metrics=evaluation_payload.get("summary") or {},
+        metadata={"audit_role": "verifies a draft claim support calibration policy"},
+        outputs=[
+            {
+                "output_kind": "claim_support_policy_verification",
+                "target_table": "claim_support_calibration_policies",
+                "target_id": str(policy_row.id),
+                "payload": {
+                    "gate_outcome": evaluation_payload["summary"]["gate_outcome"],
+                    "policy_sha256": policy_row.policy_sha256,
+                    "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
+                },
+            }
+        ],
+    )
+    evaluation_row = persist_claim_support_judge_evaluation(
+        session,
+        evaluation_payload,
+        agent_task_id=task.id,
+        operator_run_id=operator_run.id if operator_run is not None else None,
+    )
+    result_evaluation = {
+        **evaluation_row.evaluation_payload_json,
+        "operator_run_id": str(operator_run.id) if operator_run is not None else None,
+    }
+    outcome = str(result_evaluation["summary"]["gate_outcome"])
+    reasons = list(result_evaluation.get("reasons") or [])
+    record = create_agent_task_verification_record(
+        session,
+        target_task_id=draft_context.task_id,
+        verification_task_id=task.id,
+        verifier_type="claim_support_calibration_policy_gate",
+        outcome=outcome,
+        metrics=dict(result_evaluation.get("summary") or {}),
+        reasons=reasons,
+        details={
+            "policy_id": str(policy_row.id),
+            "policy_sha256": policy_row.policy_sha256,
+            "fixture_set_id": str(fixture_set_record.id),
+            "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
+            "evaluation_id": result_evaluation["evaluation_id"],
+        },
+    )
+    result = {
+        "draft_policy": policy_row.policy_payload_json,
+        "evaluation": result_evaluation,
+        "verification": record.model_dump(mode="json"),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="claim_support_calibration_policy_verification",
+        payload=result,
+        storage_service=StorageService(),
+        filename="claim_support_calibration_policy_verification.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
+def _apply_claim_support_calibration_policy_executor(
+    session: Session,
+    task: AgentTask,
+    payload: ApplyClaimSupportCalibrationPolicyTaskInput,
+) -> dict:
+    draft_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.draft_task_id,
+        dependency_kind="draft_task",
+        expected_task_type="draft_claim_support_calibration_policy",
+        expected_schema_name="draft_claim_support_calibration_policy_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Policy apply task must declare the requested claim-support policy draft "
+            "as a draft_task dependency."
+        ),
+        rerun_message=(
+            "Claim-support policy draft must be rerun after the context migration "
+            "before it can be applied."
+        ),
+    )
+    verification_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=payload.verification_task_id,
+        dependency_kind="verification_task",
+        expected_task_type="verify_claim_support_calibration_policy",
+        expected_schema_name="verify_claim_support_calibration_policy_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Policy apply task must declare the requested claim-support policy verification "
+            "as a verification_task dependency."
+        ),
+        rerun_message=(
+            "Claim-support policy verification must be rerun after the context migration "
+            "before it can be applied."
+        ),
+    )
+    draft_output = DraftClaimSupportCalibrationPolicyTaskOutput.model_validate(
+        draft_context.output
+    )
+    verification_output = VerifyClaimSupportCalibrationPolicyTaskOutput.model_validate(
+        verification_context.output
+    )
+    verification = verification_output.verification
+    if verification.outcome != "passed":
+        raise ValueError(
+            "Only passed claim-support calibration policy verifications can be applied."
+        )
+    if verification.target_task_id != payload.draft_task_id:
+        raise ValueError(
+            "Verification task does not target the requested claim-support policy draft."
+        )
+    if str(draft_output.policy_id) != str(verification_output.evaluation.get("policy_id")):
+        raise ValueError("Verification did not evaluate the requested claim-support policy draft.")
+
+    previous_active = get_active_claim_support_calibration_policy(
+        session,
+        policy_name=draft_output.policy_name,
+    )
+    activated_policy, retired_policies = activate_claim_support_calibration_policy(
+        session,
+        policy_id=draft_output.policy_id,
+        activation_metadata={
+            "activated_by_task_id": str(task.id),
+            "verification_task_id": str(payload.verification_task_id),
+            "reason": payload.reason,
+        },
+    )
+    apply_payload = {
+        "draft_task_id": str(payload.draft_task_id),
+        "verification_task_id": str(payload.verification_task_id),
+        "reason": payload.reason,
+        "previous_active_policy_id": (
+            str(previous_active.id) if previous_active is not None else None
+        ),
+        "previous_active_policy_sha256": (
+            previous_active.policy_sha256 if previous_active is not None else None
+        ),
+        "activated_policy_id": str(activated_policy.id),
+        "activated_policy_sha256": activated_policy.policy_sha256,
+        "policy_name": activated_policy.policy_name,
+        "policy_version": activated_policy.policy_version,
+        "success_metrics": [
+            {
+                "metric_key": "claim_support_policy_verification_passed",
+                "stakeholder": "Luc Moreau / James Cheney",
+                "passed": True,
+                "summary": "Only a passed verifier record can activate the calibration policy.",
+                "details": {
+                    "verification_task_id": str(payload.verification_task_id),
+                    "verification_outcome": verification.outcome,
+                },
+            },
+            {
+                "metric_key": "claim_support_policy_single_active",
+                "stakeholder": "Juan Sequeda",
+                "passed": True,
+                "summary": "Prior active policies for this policy name were retired.",
+                "details": {
+                    "policy_name": activated_policy.policy_name,
+                    "retired_policy_ids": [str(row.id) for row in retired_policies],
+                },
+            },
+        ],
+    }
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="orchestrate",
+        operator_name="claim_support_calibration_policy_activation",
+        operator_version="v1",
+        agent_task_id=task.id,
+        config={
+            "draft_task_id": str(payload.draft_task_id),
+            "verification_task_id": str(payload.verification_task_id),
+        },
+        input_payload={
+            "draft_policy": draft_output.policy_payload,
+            "verification": verification.model_dump(mode="json"),
+            "reason": payload.reason,
+        },
+        output_payload=apply_payload,
+        metrics={
+            "activated_policy_id": str(activated_policy.id),
+            "retired_policy_count": len(retired_policies),
+        },
+        metadata={"audit_role": "activates a verified claim support calibration policy"},
+        outputs=[
+            {
+                "output_kind": "claim_support_calibration_policy_activation",
+                "target_table": "claim_support_calibration_policies",
+                "target_id": str(activated_policy.id),
+                "payload": {
+                    "policy_sha256": activated_policy.policy_sha256,
+                    "previous_active_policy_id": (
+                        str(previous_active.id) if previous_active is not None else None
+                    ),
+                },
+            }
+        ],
+    )
+    result = {
+        **apply_payload,
+        "operator_run_id": str(operator_run.id) if operator_run is not None else None,
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="claim_support_calibration_policy_activation",
+        payload=result,
+        storage_service=StorageService(),
+        filename="claim_support_calibration_policy_activation.json",
+    )
+    return {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
 def _evaluate_claim_support_judge_executor(
     session: Session,
     task: AgentTask,
@@ -1888,8 +2250,8 @@ def _evaluate_claim_support_judge_executor(
             "fixture_set_version": payload.fixture_set_version,
             "fixture_set_id": str(fixture_set_record.id),
             "policy_id": str(policy_record.id),
-            "policy_name": payload.policy_name,
-            "policy_version": payload.policy_version,
+            "policy_name": policy_record.policy_name,
+            "policy_version": policy_record.policy_version,
             "policy_sha256": policy_record.policy_sha256,
             "thresholds": evaluation_payload.get("thresholds") or {},
         },
@@ -1897,7 +2259,7 @@ def _evaluate_claim_support_judge_executor(
             "fixture_set_name": payload.fixture_set_name,
             "fixture_set_version": payload.fixture_set_version,
             "policy_name": payload.policy_name,
-            "policy_version": payload.policy_version,
+            "policy_version": payload.policy_version or "active",
             "custom_fixture_count": len(payload.fixtures),
             "min_support_score": payload.min_support_score,
         },
@@ -3980,13 +4342,74 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "fixture_set_name": "default_claim_support_v1",
             "fixture_set_version": "v1",
             "policy_name": "claim_support_judge_calibration_policy",
-            "policy_version": "v1",
             "min_support_score": 0.34,
             "min_overall_accuracy": 1.0,
             "min_verdict_precision": 1.0,
             "min_verdict_recall": 1.0,
         },
         context_builder_name="evaluate_claim_support_judge",
+    ),
+    "draft_claim_support_calibration_policy": AgentTaskActionDefinition(
+        task_type="draft_claim_support_calibration_policy",
+        capability="technical_reports",
+        definition_kind="draft",
+        description="Draft a claim-support calibration policy without changing the active policy.",
+        payload_model=DraftClaimSupportCalibrationPolicyTaskInput,
+        executor=_draft_claim_support_calibration_policy_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=DraftClaimSupportCalibrationPolicyTaskOutput,
+        output_schema_name="draft_claim_support_calibration_policy_output",
+        output_schema_version="1.0",
+        input_example={
+            "policy_name": "claim_support_judge_calibration_policy",
+            "policy_version": "v2",
+            "rationale": "Tighten calibration coverage before report-generation promotion.",
+            "min_hard_case_kind_count": 4,
+            "required_hard_case_kinds": [
+                "exact_source_support",
+                "wrong_evidence",
+                "lexical_overlap_wrong_evidence",
+                "missing_traceable_evidence",
+            ],
+            "required_verdicts": ["supported", "unsupported", "insufficient_evidence"],
+        },
+        context_builder_name="generic",
+    ),
+    "verify_claim_support_calibration_policy": AgentTaskActionDefinition(
+        task_type="verify_claim_support_calibration_policy",
+        capability="technical_reports",
+        definition_kind="verifier",
+        description="Verify a draft claim-support calibration policy against replay fixtures.",
+        payload_model=VerifyClaimSupportCalibrationPolicyTaskInput,
+        executor=_verify_claim_support_calibration_policy_executor,
+        output_model=VerifyClaimSupportCalibrationPolicyTaskOutput,
+        output_schema_name="verify_claim_support_calibration_policy_output",
+        output_schema_version="1.0",
+        input_example={
+            "target_task_id": "00000000-0000-0000-0000-000000000000",
+            "fixture_set_name": "default_claim_support_v1",
+            "fixture_set_version": "v1",
+        },
+        context_builder_name="generic",
+    ),
+    "apply_claim_support_calibration_policy": AgentTaskActionDefinition(
+        task_type="apply_claim_support_calibration_policy",
+        capability="technical_reports",
+        definition_kind="promotion",
+        description="Activate a verified claim-support calibration policy after approval.",
+        payload_model=ApplyClaimSupportCalibrationPolicyTaskInput,
+        executor=_apply_claim_support_calibration_policy_executor,
+        side_effect_level=AgentTaskSideEffectLevel.PROMOTABLE.value,
+        requires_approval=True,
+        output_model=ApplyClaimSupportCalibrationPolicyTaskOutput,
+        output_schema_name="apply_claim_support_calibration_policy_output",
+        output_schema_version="1.0",
+        input_example={
+            "draft_task_id": "00000000-0000-0000-0000-000000000000",
+            "verification_task_id": "00000000-0000-0000-0000-000000000000",
+            "reason": "Publish the verified claim-support calibration policy.",
+        },
+        context_builder_name="generic",
     ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",

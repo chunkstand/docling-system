@@ -513,6 +513,9 @@ The current registry includes:
 - `draft_technical_report`
 - `verify_technical_report`
 - `evaluate_claim_support_judge`
+- `draft_claim_support_calibration_policy`
+- `verify_claim_support_calibration_policy`
+- `apply_claim_support_calibration_policy`
 - `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `refresh_eval_failure_cases`
@@ -628,7 +631,8 @@ Current workflow-heavy paths include:
 - `evaluate_document_generation_context_pack`, which validates the context pack hash, traceable-claim ratio, context refs, blocked steps, source evidence package availability, and freshness blockers before any report draft has to be generated
 - `draft_technical_report`, which now refuses to render until the latest context-pack gate for the target harness has passed and its recorded context-pack hash matches the current harness
 - technical-report drafts persist a frozen claim-derivation evidence package and per-claim derivation rows; `GET /agent-tasks/{task_id}/audit-bundle` returns the draft, verification, evidence package export, claim derivations, context-pack artifact/evaluation/verifier/operator chain, operator runs, and active-run change-impact status for court-grade review
-- `evaluate_claim_support_judge`, which replays governed hard-case fixture sets against the technical-report claim-support judge, persists `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`, records a judge operator run, writes a replay artifact, and exposes a typed context summary with fixture-set and policy hashes plus the pass/fail gate outcome
+- `evaluate_claim_support_judge`, which replays governed hard-case fixture sets against the technical-report claim-support judge, persists `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`, records a judge operator run, writes a replay artifact, and exposes a typed context summary with fixture-set and active-policy hashes plus the pass/fail gate outcome
+- `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`, which governs claim-support replay policy changes through a draft row, fixture replay verifier, approval-gated activation, prior-policy retirement, and a database-enforced single active policy per policy name
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`

@@ -67,20 +67,24 @@ The workflow now preserves claim evidence at several levels:
 The support-judge calibration path is now first-class:
 
 - task type: `evaluate_claim_support_judge`
+- governed promotion path: `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`
 - service: `app.services.claim_support_evaluations`
 - persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`
-- artifact kind: `claim_support_judge_evaluation`
-- operator run: `technical_report_claim_support_judge_evaluation`
+- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
+- operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Activation records the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason; the database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
-The live action registry currently has 47 task types. The newest catalog additions are:
+The live action registry currently has 50 task types. The newest catalog additions are:
 
 - `evaluate_document_generation_context_pack`
 - `evaluate_claim_support_judge`
+- `draft_claim_support_calibration_policy`
+- `verify_claim_support_calibration_policy`
+- `apply_claim_support_calibration_policy`
 
 The durable docs have been updated to include it in the task lists and command examples. Operators can always verify the live catalog with:
 
@@ -152,5 +156,6 @@ The remaining useful next pass is not another docs update. It is an end-to-end l
 6. verify the report
 7. export and inspect the audit bundle
 8. run `evaluate_claim_support_judge`
+9. exercise `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy` when a support-judge replay policy change is needed
 
 That would validate the full document-generation audit chain against live corpus data rather than only fixtures and isolated integration tests.

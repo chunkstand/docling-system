@@ -1422,12 +1422,82 @@ class EvaluateClaimSupportJudgeTaskInput(BaseModel):
     fixture_set_name: str = Field(default="default_claim_support_v1", min_length=1)
     fixture_set_version: str = Field(default="v1", min_length=1)
     policy_name: str = Field(default="claim_support_judge_calibration_policy", min_length=1)
-    policy_version: str = Field(default="v1", min_length=1)
+    policy_version: str | None = Field(default=None, min_length=1)
     fixtures: list[ClaimSupportEvaluationFixture] = Field(default_factory=list, max_length=100)
     min_support_score: float = Field(default=0.34, ge=0.0, le=1.0)
     min_overall_accuracy: float = Field(default=1.0, ge=0.0, le=1.0)
     min_verdict_precision: float = Field(default=1.0, ge=0.0, le=1.0)
     min_verdict_recall: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class DraftClaimSupportCalibrationPolicyTaskInput(BaseModel):
+    policy_name: str = Field(default="claim_support_judge_calibration_policy", min_length=1)
+    policy_version: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+    owner: str = Field(default="docling-system", min_length=1)
+    source: str = Field(default="operator_draft", min_length=1)
+    min_support_score: float = Field(default=0.34, ge=0.0, le=1.0)
+    min_overall_accuracy: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_verdict_precision: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_verdict_recall: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_hard_case_kind_count: int = Field(default=4, ge=0, le=100)
+    required_hard_case_kinds: list[str] = Field(default_factory=list, max_length=100)
+    required_verdicts: list[str] = Field(
+        default_factory=lambda: ["supported", "unsupported", "insufficient_evidence"],
+        max_length=3,
+    )
+
+
+class DraftClaimSupportCalibrationPolicyTaskOutput(BaseModel):
+    policy_id: UUID
+    policy_name: str
+    policy_version: str
+    policy_sha256: str
+    policy_payload: dict = Field(default_factory=dict)
+    active_policy_id: UUID | None = None
+    active_policy_sha256: str | None = None
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
+    target_task_id: UUID
+    fixture_set_name: str = Field(default="default_claim_support_v1", min_length=1)
+    fixture_set_version: str = Field(default="v1", min_length=1)
+    fixtures: list[ClaimSupportEvaluationFixture] = Field(default_factory=list, max_length=100)
+
+
+class VerifyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
+    draft_policy: dict = Field(default_factory=dict)
+    evaluation: dict = Field(default_factory=dict)
+    verification: AgentTaskVerificationResponse
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
+class ApplyClaimSupportCalibrationPolicyTaskInput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    reason: str = Field(min_length=1)
+
+
+class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
+    draft_task_id: UUID
+    verification_task_id: UUID
+    reason: str
+    previous_active_policy_id: UUID | None = None
+    previous_active_policy_sha256: str | None = None
+    activated_policy_id: UUID
+    activated_policy_sha256: str
+    policy_name: str
+    policy_version: str
+    operator_run_id: UUID | None = None
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
 
 
 class EvaluateClaimSupportJudgeTaskOutput(BaseModel):

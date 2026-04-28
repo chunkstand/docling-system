@@ -65,7 +65,7 @@
       "decision_ids": [
         "ADR-0007"
       ],
-      "item_count": 47,
+      "item_count": 50,
       "name": "agent_action_catalog",
       "source": "app.services.agent_actions"
     },

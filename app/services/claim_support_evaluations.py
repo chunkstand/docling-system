@@ -476,12 +476,34 @@ def ensure_claim_support_fixture_set(
     return row
 
 
-def ensure_claim_support_calibration_policy(
-    session: Session,
+def _policy_row_from_payload(
+    payload: dict[str, Any],
     *,
-    policy_payload: dict[str, Any] | None = None,
-    thresholds: dict[str, Any] | None = None,
+    status: str,
 ) -> ClaimSupportCalibrationPolicy:
+    return ClaimSupportCalibrationPolicy(
+        id=uuid.uuid4(),
+        policy_name=str(payload["policy_name"]),
+        policy_version=str(payload["policy_version"]),
+        status=status,
+        policy_sha256=str(payload["policy_sha256"]),
+        owner=payload.get("owner"),
+        source=payload.get("source"),
+        min_hard_case_kind_count=int(payload.get("min_hard_case_kind_count") or 0),
+        required_hard_case_kinds_json=list(payload.get("required_hard_case_kinds") or []),
+        required_verdicts_json=list(payload.get("required_verdicts") or []),
+        thresholds_json=dict(payload.get("thresholds") or {}),
+        policy_payload_json=dict(payload),
+        metadata_json=dict(payload.get("metadata") or {}),
+        created_at=utcnow(),
+    )
+
+
+def _validated_policy_payload(
+    policy_payload: dict[str, Any] | None = None,
+    *,
+    thresholds: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     payload = dict(
         policy_payload
         or build_claim_support_calibration_policy_payload(thresholds=thresholds)
@@ -490,7 +512,32 @@ def ensure_claim_support_calibration_policy(
     provided_policy_sha256 = payload.get("policy_sha256")
     if provided_policy_sha256 and str(provided_policy_sha256) != policy_sha256:
         raise ValueError("Claim support calibration policy payload SHA does not match payload.")
-    payload = {**payload, "policy_sha256": policy_sha256}
+    return {**payload, "policy_sha256": policy_sha256}
+
+
+def get_active_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_name: str = DEFAULT_CLAIM_SUPPORT_POLICY_NAME,
+) -> ClaimSupportCalibrationPolicy | None:
+    return session.scalar(
+        select(ClaimSupportCalibrationPolicy)
+        .where(
+            ClaimSupportCalibrationPolicy.policy_name == policy_name,
+            ClaimSupportCalibrationPolicy.status == "active",
+        )
+        .order_by(ClaimSupportCalibrationPolicy.created_at.desc())
+    )
+
+
+def ensure_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_payload: dict[str, Any] | None = None,
+    thresholds: dict[str, Any] | None = None,
+) -> ClaimSupportCalibrationPolicy:
+    payload = _validated_policy_payload(policy_payload, thresholds=thresholds)
+    policy_sha256 = str(payload["policy_sha256"])
     existing = session.scalar(
         select(ClaimSupportCalibrationPolicy).where(
             ClaimSupportCalibrationPolicy.policy_name == str(payload["policy_name"]),
@@ -500,22 +547,62 @@ def ensure_claim_support_calibration_policy(
     )
     if existing is not None:
         return existing
-    row = ClaimSupportCalibrationPolicy(
-        id=uuid.uuid4(),
-        policy_name=str(payload["policy_name"]),
-        policy_version=str(payload["policy_version"]),
-        status=str(payload.get("status") or "active"),
-        policy_sha256=policy_sha256,
-        owner=payload.get("owner"),
-        source=payload.get("source"),
-        min_hard_case_kind_count=int(payload.get("min_hard_case_kind_count") or 0),
-        required_hard_case_kinds_json=list(payload.get("required_hard_case_kinds") or []),
-        required_verdicts_json=list(payload.get("required_verdicts") or []),
-        thresholds_json=dict(payload.get("thresholds") or {}),
-        policy_payload_json={**payload, "policy_sha256": policy_sha256},
-        metadata_json=dict(payload.get("metadata") or {}),
-        created_at=utcnow(),
+    status = str(payload.get("status") or "active")
+    if status == "active":
+        active = get_active_claim_support_calibration_policy(
+            session,
+            policy_name=str(payload["policy_name"]),
+        )
+        if active is not None and active.policy_sha256 != policy_sha256:
+            raise ValueError(
+                "An active claim support calibration policy already exists; "
+                "draft, verify, and apply a policy change instead."
+            )
+    row = _policy_row_from_payload(payload, status=status)
+    session.add(row)
+    session.flush()
+    return row
+
+
+def draft_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_name: str,
+    policy_version: str,
+    thresholds: dict[str, Any],
+    min_hard_case_kind_count: int,
+    required_hard_case_kinds: list[str],
+    required_verdicts: list[str],
+    owner: str,
+    source: str,
+    rationale: str,
+) -> ClaimSupportCalibrationPolicy:
+    payload = _validated_policy_payload(
+        build_claim_support_calibration_policy_payload(
+            policy_name=policy_name,
+            policy_version=policy_version,
+            status="active",
+            thresholds=thresholds,
+            min_hard_case_kind_count=min_hard_case_kind_count,
+            required_hard_case_kinds=required_hard_case_kinds,
+            required_verdicts=required_verdicts,
+            owner=owner,
+            source=source,
+            metadata={"rationale": rationale},
+        )
     )
+    existing = session.scalar(
+        select(ClaimSupportCalibrationPolicy).where(
+            ClaimSupportCalibrationPolicy.policy_name == policy_name,
+            ClaimSupportCalibrationPolicy.policy_version == policy_version,
+            ClaimSupportCalibrationPolicy.policy_sha256 == payload["policy_sha256"],
+        )
+    )
+    if existing is not None:
+        if existing.status == "active":
+            raise ValueError("The proposed claim support calibration policy is already active.")
+        return existing
+    row = _policy_row_from_payload(payload, status="draft")
     session.add(row)
     session.flush()
     return row
@@ -525,14 +612,16 @@ def resolve_claim_support_calibration_policy(
     session: Session,
     *,
     policy_name: str = DEFAULT_CLAIM_SUPPORT_POLICY_NAME,
-    policy_version: str = DEFAULT_CLAIM_SUPPORT_POLICY_VERSION,
+    policy_version: str | None = None,
     thresholds: dict[str, Any] | None = None,
 ) -> ClaimSupportCalibrationPolicy:
-    if (
-        policy_name == DEFAULT_CLAIM_SUPPORT_POLICY_NAME
-        and policy_version == DEFAULT_CLAIM_SUPPORT_POLICY_VERSION
-    ):
-        return ensure_claim_support_calibration_policy(session, thresholds=thresholds)
+    if policy_version is None:
+        active = get_active_claim_support_calibration_policy(session, policy_name=policy_name)
+        if active is not None:
+            return active
+        if policy_name == DEFAULT_CLAIM_SUPPORT_POLICY_NAME:
+            return ensure_claim_support_calibration_policy(session, thresholds=thresholds)
+        raise ValueError(f"No active claim support calibration policy found for {policy_name}.")
     row = session.scalar(
         select(ClaimSupportCalibrationPolicy)
         .where(
@@ -543,11 +632,59 @@ def resolve_claim_support_calibration_policy(
         .order_by(ClaimSupportCalibrationPolicy.created_at.desc())
     )
     if row is None:
+        if (
+            policy_name == DEFAULT_CLAIM_SUPPORT_POLICY_NAME
+            and policy_version == DEFAULT_CLAIM_SUPPORT_POLICY_VERSION
+        ):
+            return ensure_claim_support_calibration_policy(session, thresholds=thresholds)
         raise ValueError(
             f"No active claim support calibration policy found for {policy_name} "
             f"version {policy_version}."
         )
     return row
+
+
+def activate_claim_support_calibration_policy(
+    session: Session,
+    *,
+    policy_id: UUID,
+    activation_metadata: dict[str, Any] | None = None,
+) -> tuple[ClaimSupportCalibrationPolicy, list[ClaimSupportCalibrationPolicy]]:
+    row = session.get(ClaimSupportCalibrationPolicy, policy_id)
+    if row is None:
+        raise ValueError(f"Claim support calibration policy not found: {policy_id}")
+    if row.status == "active":
+        return row, []
+    if row.status != "draft":
+        raise ValueError("Only draft claim support calibration policies can be activated.")
+
+    active_rows = list(
+        session.scalars(
+            select(ClaimSupportCalibrationPolicy)
+            .where(
+                ClaimSupportCalibrationPolicy.policy_name == row.policy_name,
+                ClaimSupportCalibrationPolicy.status == "active",
+            )
+            .with_for_update()
+        )
+    )
+    for active_row in active_rows:
+        active_row.status = "retired"
+        active_row.metadata_json = {
+            **dict(active_row.metadata_json or {}),
+            "retired_by_policy_id": str(row.id),
+            "retired_at": utcnow().isoformat(),
+        }
+    if active_rows:
+        session.flush()
+    row.status = "active"
+    row.metadata_json = {
+        **dict(row.metadata_json or {}),
+        **dict(activation_metadata or {}),
+        "activated_at": utcnow().isoformat(),
+    }
+    session.flush()
+    return row, active_rows
 
 
 def _verdict_metrics(case_results: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
@@ -607,15 +744,11 @@ def evaluate_claim_support_judge_fixture_set(
         min_verdict_recall=min_verdict_recall,
         min_support_score=min_support_score,
     )
-    policy_payload = dict(
-        calibration_policy
-        or build_claim_support_calibration_policy_payload(thresholds=requested_thresholds)
+    policy_payload = _validated_policy_payload(
+        calibration_policy,
+        thresholds=requested_thresholds,
     )
-    policy_sha256 = _policy_payload_sha256(policy_payload)
-    provided_policy_sha256 = policy_payload.get("policy_sha256")
-    if provided_policy_sha256 and str(provided_policy_sha256) != policy_sha256:
-        raise ValueError("Claim support calibration policy payload SHA does not match payload.")
-    policy_payload = {**policy_payload, "policy_sha256": policy_sha256}
+    policy_sha256 = str(policy_payload["policy_sha256"])
     thresholds = dict(policy_payload.get("thresholds") or requested_thresholds)
     min_support_score = float(thresholds["min_support_score"])
     min_overall_accuracy = float(thresholds["min_overall_accuracy"])

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskStatus,
     ClaimSupportCalibrationPolicy,
     ClaimSupportEvaluation,
     ClaimSupportEvaluationCase,
@@ -17,9 +18,9 @@ from app.db.models import (
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
 )
-from app.schemas.agent_tasks import AgentTaskCreateRequest
+from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
-from app.services.agent_tasks import create_agent_task
+from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     default_claim_support_evaluation_fixtures,
@@ -266,6 +267,230 @@ def test_claim_support_judge_evaluation_task_uses_persisted_custom_policy(
         assert evaluation_row.policy_id == policy_id
         assert evaluation_row.policy_name == "strict_claim_support_policy"
         assert evaluation_row.policy_sha256 == policy_payload["policy_sha256"]
+
+
+def test_claim_support_policy_promotion_workflow_activates_verified_policy(
+    postgres_integration_harness,
+):
+    with postgres_integration_harness.session_factory() as session:
+        initial_policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v2",
+                    "rationale": "promote a focused one-kind calibration policy for integration",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["exact_source_support"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_promotion_integration",
+            ),
+        )
+        initial_policy_id = initial_policy.id
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_row = session.get(AgentTask, draft_task_id)
+        assert draft_row is not None
+        draft_payload = draft_row.result_json["payload"]
+        draft_policy_id = UUID(draft_payload["policy_id"])
+        draft_policy = session.get(ClaimSupportCalibrationPolicy, draft_policy_id)
+        assert draft_policy is not None
+        assert draft_policy.status == "draft"
+        assert session.get(ClaimSupportCalibrationPolicy, initial_policy_id).status == "active"
+
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                },
+                workflow_version="claim_support_policy_promotion_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        verify_payload = verify_row.result_json["payload"]
+        assert verify_payload["verification"]["outcome"] == "passed"
+        assert verify_payload["evaluation"]["policy_id"] == str(draft_policy_id)
+
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "activate the verified focused calibration policy",
+                },
+                workflow_version="claim_support_policy_promotion_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        assert apply_row.status == AgentTaskStatus.AWAITING_APPROVAL.value
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-operator@example.com",
+                approval_note="verified policy may become active",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        apply_payload = apply_row.result_json["payload"]
+        assert apply_payload["activated_policy_id"] == str(draft_policy_id)
+        assert apply_payload["previous_active_policy_id"] == str(initial_policy_id)
+        assert apply_payload["operator_run_id"]
+
+        initial_policy = session.get(ClaimSupportCalibrationPolicy, initial_policy_id)
+        activated_policy = session.get(ClaimSupportCalibrationPolicy, draft_policy_id)
+        assert initial_policy is not None
+        assert initial_policy.status == "retired"
+        assert activated_policy is not None
+        assert activated_policy.status == "active"
+
+        active_policies = list(
+            session.scalars(
+                select(ClaimSupportCalibrationPolicy).where(
+                    ClaimSupportCalibrationPolicy.policy_name
+                    == "claim_support_judge_calibration_policy",
+                    ClaimSupportCalibrationPolicy.status == "active",
+                )
+            )
+        )
+        assert [row.id for row in active_policies] == [draft_policy_id]
+
+        eval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_claim_support_judge",
+                input={
+                    "evaluation_name": "claim_support_judge_active_policy_check",
+                    "fixture_set_name": "active_policy_fixture_set",
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                },
+                workflow_version="claim_support_policy_promotion_integration",
+            ),
+        )
+        eval_task_id = eval_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        eval_row = session.get(AgentTask, eval_task_id)
+        assert eval_row is not None
+        eval_payload = eval_row.result_json["payload"]
+        assert eval_payload["summary"]["gate_outcome"] == "passed"
+        assert eval_payload["policy_id"] == str(draft_policy_id)
+        assert eval_payload["policy_version"] == "v2"
+
+
+def test_claim_support_policy_promotion_blocks_failed_verification(
+    postgres_integration_harness,
+):
+    with postgres_integration_harness.session_factory() as session:
+        ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_bad",
+                    "rationale": "prove failed verification blocks activation",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["nonexistent_hard_case_kind"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_failed_promotion_integration",
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                },
+                workflow_version="claim_support_policy_failed_promotion_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        assert verify_row.result_json["payload"]["verification"]["outcome"] == "failed"
+
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "this failed verification must not activate",
+                },
+                workflow_version="claim_support_policy_failed_promotion_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-operator@example.com",
+                approval_note="exercise failed promotion guard",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        assert apply_row.status == AgentTaskStatus.FAILED.value
+        draft_row = session.get(AgentTask, draft_task_id)
+        assert draft_row is not None
+        draft_policy = session.get(
+            ClaimSupportCalibrationPolicy,
+            UUID(draft_row.result_json["payload"]["policy_id"]),
+        )
+        assert draft_policy is not None
+        assert draft_policy.status == "draft"
 
 
 def test_claim_support_judge_evaluation_task_persists_failed_gate(
