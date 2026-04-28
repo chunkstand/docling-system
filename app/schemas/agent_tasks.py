@@ -1323,6 +1323,58 @@ class VerifyTechnicalReportTaskOutput(BaseModel):
     evidence_manifest_sha256: str | None = None
 
 
+class ClaimSupportEvaluationFixture(BaseModel):
+    case_id: str = Field(min_length=1)
+    expected_verdict: str = Field(pattern="^(supported|unsupported|insufficient_evidence)$")
+    draft_payload: dict
+    claim_id: str | None = None
+    description: str | None = None
+    hard_case_kind: str | None = None
+
+
+class ClaimSupportEvaluationCaseResult(BaseModel):
+    case_index: int
+    case_id: str
+    description: str | None = None
+    hard_case_kind: str | None = None
+    expected_verdict: str
+    predicted_verdict: str
+    support_score: float | None = None
+    passed: bool
+    failure_reasons: list[str] = Field(default_factory=list)
+    claim_payload: dict = Field(default_factory=dict)
+    support_judgment: dict = Field(default_factory=dict)
+
+
+class EvaluateClaimSupportJudgeTaskInput(BaseModel):
+    evaluation_name: str = Field(default="claim_support_judge_calibration", min_length=1)
+    fixture_set_name: str = Field(default="default_claim_support_v1", min_length=1)
+    fixtures: list[ClaimSupportEvaluationFixture] = Field(default_factory=list, max_length=100)
+    min_support_score: float = Field(default=0.34, ge=0.0, le=1.0)
+    min_overall_accuracy: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_verdict_precision: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_verdict_recall: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class EvaluateClaimSupportJudgeTaskOutput(BaseModel):
+    evaluation_id: UUID
+    evaluation_name: str
+    fixture_set_name: str
+    fixture_set_sha256: str
+    judge_name: str
+    judge_version: str
+    thresholds: dict = Field(default_factory=dict)
+    summary: dict = Field(default_factory=dict)
+    verdict_metrics: dict = Field(default_factory=dict)
+    case_results: list[ClaimSupportEvaluationCaseResult] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    operator_run_id: UUID | None = None
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+
+
 class SemanticSupervisionCorpusRow(BaseModel):
     row_id: str
     row_type: str

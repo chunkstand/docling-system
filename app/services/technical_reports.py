@@ -114,6 +114,16 @@ _CLAIM_SUPPORT_JUDGE_SCHEMA_NAME = "technical_report_claim_support_judgment"
 _CLAIM_SUPPORT_JUDGE_SCHEMA_VERSION = "1.0"
 _CLAIM_SUPPORT_JUDGE_KIND = "deterministic_claim_support_v1"
 _CLAIM_SUPPORT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_CLAIM_SUPPORT_CONTRADICTION_PHRASES = (
+    "does not",
+    "do not",
+    "is not",
+    "are not",
+    "not supported",
+    "not evidence",
+    "unrelated",
+    "contradicts",
+)
 _CLAIM_SUPPORT_STOPWORDS = {
     "about",
     "above",
@@ -220,6 +230,11 @@ def _graph_edge_support_parts(edge: Any) -> list[Any]:
     ]
 
 
+def _has_support_contradiction_cue(*values: Any) -> bool:
+    text = " ".join(_support_text(value).lower() for value in values if value is not None)
+    return any(phrase in text for phrase in _CLAIM_SUPPORT_CONTRADICTION_PHRASES)
+
+
 def _claim_support_judgment_contract_mismatches(
     claim,
     *,
@@ -312,11 +327,16 @@ def judge_technical_report_claim_support(
         score = 0.0
         reasons: list[str] = []
         unsupported_reasons: list[str] = []
+        evidence_parts = [
+            part for card in resolved_cards for part in _evidence_card_support_parts(card)
+        ]
+        graph_parts = [part for edge in graph_refs for part in _graph_edge_support_parts(edge)]
+        has_contradiction_cue = _has_support_contradiction_cue(*evidence_parts, *graph_parts)
         if resolved_cards:
-            score = max(score, 0.55)
+            score = max(score, 0.15)
             reasons.append("resolved_evidence_cards")
         if source_search_result_ids:
-            score = min(1.0, score + 0.2)
+            score = min(1.0, score + 0.1)
             reasons.append("source_search_results_present")
         elif resolved_cards:
             unsupported_reasons.append("missing_source_search_results")
@@ -326,17 +346,25 @@ def judge_technical_report_claim_support(
         elif graph_refs:
             unsupported_reasons.append("graph_edges_not_approved")
         if claim.fact_ids or claim.assertion_ids:
-            score = min(1.0, score + 0.05)
+            score = min(1.0, score + 0.1)
             reasons.append("semantic_fact_or_assertion_refs")
         if matched_tokens:
-            score = min(1.0, score + min(0.2, lexical_overlap_ratio * 0.35))
+            score = min(1.0, score + min(0.65, lexical_overlap_ratio * 0.65))
             reasons.append("claim_terms_overlap_evidence")
+        if has_contradiction_cue:
+            score = min(score, 0.2)
+            unsupported_reasons.append("evidence_contains_contradiction_cue")
 
         if not resolved_cards and not graph_refs:
             verdict = "insufficient_evidence"
             unsupported_reasons.append("no_traceable_evidence_refs")
         elif resolved_cards and not source_search_result_ids:
             verdict = "insufficient_evidence"
+        elif has_contradiction_cue:
+            verdict = "unsupported"
+        elif resolved_cards and not matched_tokens and not graph_approved:
+            verdict = "unsupported"
+            unsupported_reasons.append("no_claim_terms_overlap_evidence")
         elif score < min_claim_support_score:
             verdict = "unsupported"
             unsupported_reasons.append("support_score_below_threshold")

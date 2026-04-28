@@ -39,6 +39,8 @@ from app.schemas.agent_tasks import (
     DraftTechnicalReportTaskOutput,
     EnqueueDocumentReprocessTaskInput,
     EnqueueDocumentReprocessTaskOutput,
+    EvaluateClaimSupportJudgeTaskInput,
+    EvaluateClaimSupportJudgeTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     EvaluateSemanticCandidateExtractorTaskInput,
     EvaluateSemanticCandidateExtractorTaskOutput,
@@ -120,6 +122,10 @@ from app.services.agent_task_verifications import (
     verify_draft_semantic_registry_update_task,
     verify_search_harness_evaluation_task,
     verify_semantic_grounded_document_task,
+)
+from app.services.claim_support_evaluations import (
+    evaluate_claim_support_judge_fixture_set,
+    persist_claim_support_judge_evaluation,
 )
 from app.services.documents import (
     get_latest_document_evaluation_detail,
@@ -1570,6 +1576,80 @@ def _verify_technical_report_executor(
         "evidence_manifest_sha256": evidence_manifest.manifest_sha256
         if evidence_manifest is not None
         else None,
+    }
+
+
+def _evaluate_claim_support_judge_executor(
+    session: Session,
+    task: AgentTask,
+    payload: EvaluateClaimSupportJudgeTaskInput,
+) -> dict:
+    evaluation_payload = evaluate_claim_support_judge_fixture_set(
+        evaluation_name=payload.evaluation_name,
+        fixture_set_name=payload.fixture_set_name,
+        fixtures=[fixture.model_dump(mode="json") for fixture in payload.fixtures] or None,
+        min_support_score=payload.min_support_score,
+        min_overall_accuracy=payload.min_overall_accuracy,
+        min_verdict_precision=payload.min_verdict_precision,
+        min_verdict_recall=payload.min_verdict_recall,
+    )
+    operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="judge",
+        operator_name="technical_report_claim_support_judge_evaluation",
+        operator_version="v1",
+        agent_task_id=task.id,
+        config={
+            "evaluation_name": payload.evaluation_name,
+            "fixture_set_name": payload.fixture_set_name,
+            "thresholds": evaluation_payload.get("thresholds") or {},
+        },
+        input_payload={
+            "fixture_set_name": payload.fixture_set_name,
+            "custom_fixture_count": len(payload.fixtures),
+            "min_support_score": payload.min_support_score,
+        },
+        output_payload=evaluation_payload,
+        metrics=evaluation_payload.get("summary") or {},
+        metadata={
+            "audit_role": ("records replay evaluation of the technical report claim support judge"),
+        },
+        outputs=[
+            {
+                "output_kind": "claim_support_judge_evaluation",
+                "target_table": "claim_support_evaluations",
+                "target_id": evaluation_payload["evaluation_id"],
+                "payload": {
+                    "gate_outcome": evaluation_payload["summary"]["gate_outcome"],
+                    "case_count": evaluation_payload["summary"]["case_count"],
+                    "overall_accuracy": evaluation_payload["summary"]["overall_accuracy"],
+                },
+            }
+        ],
+    )
+    evaluation_row = persist_claim_support_judge_evaluation(
+        session,
+        evaluation_payload,
+        agent_task_id=task.id,
+        operator_run_id=operator_run.id if operator_run is not None else None,
+    )
+    result_payload = {
+        **evaluation_row.evaluation_payload_json,
+        "operator_run_id": str(operator_run.id) if operator_run is not None else None,
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="claim_support_judge_evaluation",
+        payload=result_payload,
+        storage_service=StorageService(),
+        filename="claim_support_judge_evaluation.json",
+    )
+    return {
+        **result_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
     }
 
 
@@ -3565,6 +3645,28 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "block_stale_context": False,
         },
         context_builder_name="verify_technical_report",
+    ),
+    "evaluate_claim_support_judge": AgentTaskActionDefinition(
+        task_type="evaluate_claim_support_judge",
+        capability="technical_reports",
+        definition_kind="workflow",
+        description=(
+            "Replay and persist fixed hard-case evaluations for the technical report "
+            "claim support judge."
+        ),
+        payload_model=EvaluateClaimSupportJudgeTaskInput,
+        executor=_evaluate_claim_support_judge_executor,
+        output_model=EvaluateClaimSupportJudgeTaskOutput,
+        output_schema_name="evaluate_claim_support_judge_output",
+        output_schema_version="1.0",
+        input_example={
+            "evaluation_name": "claim_support_judge_calibration",
+            "fixture_set_name": "default_claim_support_v1",
+            "min_support_score": 0.34,
+            "min_overall_accuracy": 1.0,
+            "min_verdict_precision": 1.0,
+            "min_verdict_recall": 1.0,
+        },
     ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",
