@@ -1466,6 +1466,9 @@ class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
     fixture_set_name: str = Field(default="default_claim_support_v1", min_length=1)
     fixture_set_version: str = Field(default="v1", min_length=1)
     fixtures: list[ClaimSupportEvaluationFixture] = Field(default_factory=list, max_length=100)
+    include_replay_alert_fixtures: bool = True
+    replay_alert_fixture_limit: int = Field(default=100, ge=0, le=100)
+    require_replay_alert_fixture_coverage: bool = True
     include_mined_failures: bool = True
     mined_failure_limit: int = Field(default=20, ge=0, le=100)
 
@@ -1474,6 +1477,7 @@ class VerifyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     draft_policy: dict = Field(default_factory=dict)
     evaluation: dict = Field(default_factory=dict)
     verification: AgentTaskVerificationResponse
+    replay_alert_fixture_summary: dict = Field(default_factory=dict)
     mined_failure_summary: dict = Field(default_factory=dict)
     artifact_id: UUID
     artifact_kind: str
@@ -1507,6 +1511,7 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     verification_fixture_set_id: UUID | None = None
     verification_fixture_set_sha256: str | None = None
     verification_policy_sha256: str
+    verification_replay_alert_fixture_summary: dict = Field(default_factory=dict)
     verification_mined_failure_summary: dict = Field(default_factory=dict)
     operator_run_id: UUID | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)

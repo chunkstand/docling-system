@@ -24,6 +24,7 @@ from app.db.models import (
     AgentTaskVerification,
     AgentTaskVerificationOutcome,
     ClaimSupportPolicyChangeImpact,
+    SemanticGovernanceEvent,
 )
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
@@ -63,6 +64,13 @@ from app.services.agent_task_context import get_agent_task_context, get_agent_ta
 from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
+)
+
+CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
+    "claim_support_policy_impact_replay_escalated"
+)
+CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
+    "claim_support_policy_impact_fixture_promoted"
 )
 
 
@@ -1684,6 +1692,38 @@ def get_agent_task_decision_signals(
     rows: list[AgentTaskDecisionSignalResponse] = []
     replay_open_statuses = {"pending", "queued", "in_progress", "blocked"}
     replay_stale_cutoff = utcnow() - timedelta(hours=24)
+    promoted_escalation_event_ids = [
+        UUID(str(event_id))
+        for event_payload in session.scalars(
+            select(SemanticGovernanceEvent.event_payload_json).where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
+            )
+        )
+        for event_id in (
+            (
+                (event_payload or {}).get(
+                    "claim_support_policy_impact_fixture_promotion"
+                )
+                or {}
+            ).get("source_escalation_event_ids")
+            or []
+        )
+        if event_id
+    ]
+    unconverted_replay_escalation_count = int(
+        session.scalar(
+            select(func.count())
+            .select_from(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND
+            )
+            .where(SemanticGovernanceEvent.created_at <= replay_stale_cutoff)
+            .where(~SemanticGovernanceEvent.id.in_(promoted_escalation_event_ids))
+        )
+        or 0
+    )
     blocked_replay_count = int(
         session.scalar(
             select(func.count())
@@ -1760,6 +1800,23 @@ def get_agent_task_decision_signals(
                 threshold_crossed="open_claim_support_replay_impacts>0",
                 recommended_action=(
                     "Monitor the claim-support replay worklist until all impacts close."
+                ),
+            )
+        )
+    if unconverted_replay_escalation_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_policy_change_impact_fixture_coverage",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{unconverted_replay_escalation_count} stale claim-support replay "
+                    "escalation receipt(s) have not been promoted into fixture coverage."
+                ),
+                threshold_crossed="stale_unconverted_claim_support_replay_escalations>0",
+                recommended_action=(
+                    "Run docling-system-claim-support-replay-fixtures --promote for "
+                    "stale escalated replay alerts."
                 ),
             )
         )

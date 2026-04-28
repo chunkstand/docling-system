@@ -160,6 +160,7 @@ from app.services.claim_support_policy_governance import (
     record_claim_support_policy_activation_governance_event,
 )
 from app.services.claim_support_policy_impacts import (
+    latest_claim_support_replay_alert_fixture_rows,
     queue_claim_support_policy_change_impact_replay_tasks,
 )
 from app.services.documents import (
@@ -1977,21 +1978,48 @@ def _verify_claim_support_calibration_policy_executor(
         [] if explicit_fixture_rows else default_claim_support_evaluation_fixtures()
     )
     base_fixture_rows = explicit_fixture_rows or default_fixture_rows
+    base_case_ids = {
+        str(fixture.get("case_id"))
+        for fixture in base_fixture_rows
+        if fixture.get("case_id")
+    }
+    replay_alert_fixture_rows, replay_alert_fixture_summary = (
+        latest_claim_support_replay_alert_fixture_rows(
+            session,
+            include_promoted=payload.include_replay_alert_fixtures,
+            limit=payload.replay_alert_fixture_limit,
+            exclude_case_ids=base_case_ids,
+        )
+    )
+    replay_case_ids = {
+        str(fixture.get("case_id"))
+        for fixture in replay_alert_fixture_rows
+        if fixture.get("case_id")
+    }
     mined_fixture_rows, mined_failure_manifest = mine_claim_support_failure_fixtures(
         session,
         limit=payload.mined_failure_limit if payload.include_mined_failures else 0,
-        exclude_case_ids={
-            str(fixture.get("case_id"))
-            for fixture in base_fixture_rows
-            if fixture.get("case_id")
-        },
+        exclude_case_ids=base_case_ids | replay_case_ids,
     )
-    fixture_rows = [*base_fixture_rows, *mined_fixture_rows]
+    fixture_rows = [*base_fixture_rows, *replay_alert_fixture_rows, *mined_fixture_rows]
+    replay_alert_summary_basis = {
+        **replay_alert_fixture_summary,
+        "explicit_fixture_count": len(explicit_fixture_rows),
+        "default_fixture_count": len(default_fixture_rows),
+        "base_fixture_count": len(base_fixture_rows),
+        "combined_pre_mined_fixture_count": len(base_fixture_rows)
+        + len(replay_alert_fixture_rows),
+    }
+    replay_alert_fixture_summary = {
+        **replay_alert_summary_basis,
+        "verification_summary_sha256": str(payload_sha256(replay_alert_summary_basis)),
+    }
     mined_failure_summary_basis = {
         **mined_failure_manifest,
         "enabled": payload.include_mined_failures,
         "explicit_fixture_count": len(explicit_fixture_rows),
         "default_fixture_count": len(default_fixture_rows),
+        "replay_alert_fixture_count": len(replay_alert_fixture_rows),
         "combined_fixture_count": len(fixture_rows),
     }
     mined_failure_summary = {
@@ -2006,6 +2034,7 @@ def _verify_claim_support_calibration_policy_executor(
         metadata={
             "source": "verify_claim_support_calibration_policy",
             "mined_failure_summary": mined_failure_summary,
+            "replay_alert_fixture_summary": replay_alert_fixture_summary,
         },
     )
     evaluation_payload = evaluate_claim_support_judge_fixture_set(
@@ -2017,6 +2046,69 @@ def _verify_claim_support_calibration_policy_executor(
         fixture_set_id=fixture_set_record.id,
         policy_id=policy_row.id,
     )
+    replay_alert_coverage_passed = (
+        not payload.require_replay_alert_fixture_coverage
+        or int(replay_alert_fixture_summary.get("stale_unconverted_escalation_event_count") or 0)
+        == 0
+    )
+    replay_alert_coverage_metric = {
+        "metric_key": "claim_support_replay_alert_fixture_coverage",
+        "stakeholder": "Omar Khattab / Luc Moreau / James Cheney",
+        "passed": replay_alert_coverage_passed,
+        "summary": (
+            "Stale replay escalation receipts are represented in promoted "
+            "claim-support fixture coverage."
+        ),
+        "details": {
+            "required": payload.require_replay_alert_fixture_coverage,
+            "enabled": replay_alert_fixture_summary.get("enabled"),
+            "included_replay_alert_fixture_count": replay_alert_fixture_summary.get(
+                "included_replay_alert_fixture_count"
+            ),
+            "promoted_fixture_set_count": replay_alert_fixture_summary.get(
+                "promoted_fixture_set_count"
+            ),
+            "promoted_escalation_event_count": replay_alert_fixture_summary.get(
+                "promoted_escalation_event_count"
+            ),
+            "unconverted_escalation_event_count": replay_alert_fixture_summary.get(
+                "unconverted_escalation_event_count"
+            ),
+            "stale_unconverted_escalation_event_count": replay_alert_fixture_summary.get(
+                "stale_unconverted_escalation_event_count"
+            ),
+            "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary.get(
+                "verification_summary_sha256"
+            ),
+        },
+    }
+    evaluation_payload["success_metrics"] = [
+        *list(evaluation_payload.get("success_metrics") or []),
+        replay_alert_coverage_metric,
+    ]
+    evaluation_payload["summary"] = {
+        **dict(evaluation_payload.get("summary") or {}),
+        "replay_alert_fixture_coverage_required": (
+            payload.require_replay_alert_fixture_coverage
+        ),
+        "replay_alert_fixture_coverage_passed": replay_alert_coverage_passed,
+        "included_replay_alert_fixture_count": replay_alert_fixture_summary.get(
+            "included_replay_alert_fixture_count"
+        ),
+        "stale_unconverted_escalation_event_count": replay_alert_fixture_summary.get(
+            "stale_unconverted_escalation_event_count"
+        ),
+        "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary.get(
+            "verification_summary_sha256"
+        ),
+    }
+    if not replay_alert_coverage_passed:
+        coverage_reason = replay_alert_coverage_metric["summary"]
+        existing_reasons = list(evaluation_payload.get("reasons") or [])
+        if coverage_reason not in existing_reasons:
+            existing_reasons.append(coverage_reason)
+        evaluation_payload["reasons"] = existing_reasons
+        evaluation_payload["summary"]["gate_outcome"] = "failed"
     operator_run = record_knowledge_operator_run(
         session,
         operator_kind="judge",
@@ -2031,12 +2123,24 @@ def _verify_claim_support_calibration_policy_executor(
             "mined_failure_manifest_sha256": mined_failure_summary["manifest_sha256"],
             "mined_failure_summary_sha256": mined_failure_summary["summary_sha256"],
             "mined_failure_case_count": mined_failure_summary["mined_failure_case_count"],
+            "replay_alert_fixture_count": replay_alert_fixture_summary[
+                "included_replay_alert_fixture_count"
+            ],
+            "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary[
+                "verification_summary_sha256"
+            ],
         },
         input_payload={
             "target_task_id": str(payload.target_task_id),
             "policy_payload": policy_row.policy_payload_json,
             "fixture_set_name": payload.fixture_set_name,
             "fixture_set_version": payload.fixture_set_version,
+            "include_replay_alert_fixtures": payload.include_replay_alert_fixtures,
+            "replay_alert_fixture_limit": payload.replay_alert_fixture_limit,
+            "require_replay_alert_fixture_coverage": (
+                payload.require_replay_alert_fixture_coverage
+            ),
+            "replay_alert_fixture_summary": replay_alert_fixture_summary,
             "include_mined_failures": payload.include_mined_failures,
             "mined_failure_limit": payload.mined_failure_limit,
             "mined_failure_summary": mined_failure_summary,
@@ -2083,6 +2187,7 @@ def _verify_claim_support_calibration_policy_executor(
             "fixture_set_id": str(fixture_set_record.id),
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
             "evaluation_id": result_evaluation["evaluation_id"],
+            "replay_alert_fixture_summary": replay_alert_fixture_summary,
             "mined_failure_summary": mined_failure_summary,
         },
     )
@@ -2090,6 +2195,7 @@ def _verify_claim_support_calibration_policy_executor(
         "draft_policy": policy_row.policy_payload_json,
         "evaluation": result_evaluation,
         "verification": record.model_dump(mode="json"),
+        "replay_alert_fixture_summary": replay_alert_fixture_summary,
         "mined_failure_summary": mined_failure_summary,
     }
     artifact = create_agent_task_artifact(
@@ -2192,6 +2298,11 @@ def _apply_claim_support_calibration_policy_executor(
         or verification_details.get("mined_failure_summary")
         or {}
     )
+    verification_replay_alert_fixture_summary = dict(
+        verification_output.replay_alert_fixture_summary
+        or verification_details.get("replay_alert_fixture_summary")
+        or {}
+    )
 
     previous_active = get_active_claim_support_calibration_policy(
         session,
@@ -2237,6 +2348,9 @@ def _apply_claim_support_calibration_policy_executor(
             str(verification_fixture_set_sha256) if verification_fixture_set_sha256 else None
         ),
         "verification_policy_sha256": verification_policy_sha256,
+        "verification_replay_alert_fixture_summary": (
+            verification_replay_alert_fixture_summary
+        ),
         "verification_mined_failure_summary": verification_mined_failure_summary,
         "success_metrics": [
             {
@@ -2250,6 +2364,16 @@ def _apply_claim_support_calibration_policy_executor(
                     "verification_outcome": verification.outcome,
                     "verification_policy_sha256": verification_policy_sha256,
                     "verification_fixture_set_sha256": verification_fixture_set_sha256,
+                    "replay_alert_fixture_summary_sha256": (
+                        verification_replay_alert_fixture_summary.get(
+                            "verification_summary_sha256"
+                        )
+                    ),
+                    "replay_alert_fixture_count": (
+                        verification_replay_alert_fixture_summary.get(
+                            "included_replay_alert_fixture_count"
+                        )
+                    ),
                     "mined_failure_manifest_sha256": (
                         verification_mined_failure_summary.get("manifest_sha256")
                     ),
@@ -2286,6 +2410,9 @@ def _apply_claim_support_calibration_policy_executor(
         input_payload={
             "draft_policy": draft_output.policy_payload,
             "verification": verification.model_dump(mode="json"),
+            "verification_replay_alert_fixture_summary": (
+                verification_replay_alert_fixture_summary
+            ),
             "verification_mined_failure_summary": verification_mined_failure_summary,
             "reason": payload.reason,
         },
@@ -4677,6 +4804,8 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "target_task_id": "00000000-0000-0000-0000-000000000000",
             "fixture_set_name": "default_claim_support_v1",
             "fixture_set_version": "v1",
+            "include_replay_alert_fixtures": True,
+            "require_replay_alert_fixture_coverage": True,
         },
         context_builder_name="generic",
     ),

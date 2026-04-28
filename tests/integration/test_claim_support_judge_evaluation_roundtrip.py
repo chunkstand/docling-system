@@ -51,6 +51,7 @@ from app.services.claim_support_policy_governance import (
 from app.services.evidence import (
     get_agent_task_audit_bundle,
     get_agent_task_evidence_manifest,
+    get_agent_task_evidence_trace,
     payload_sha256,
 )
 
@@ -1991,6 +1992,9 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert {event.created_by for event in escalation_events} == {
             "claim-support-operator@example.com"
         }
+        stale_escalation_created_at = utcnow() - timedelta(hours=25)
+        for event in escalation_events:
+            event.created_at = stale_escalation_created_at
         escalation_artifacts = list(
             session.scalars(
                 select(AgentTaskArtifact).where(
@@ -2024,6 +2028,81 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             "claim_support_policy_change_impacts"
         ]["impacts"]
         assert any(row["escalation_governance_events"] for row in manifest_impacts)
+        session.commit()
+
+    coverage_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert coverage_signal_response.status_code == 200
+    assert any(
+        row["task_type"] == "claim_support_policy_change_impact_fixture_coverage"
+        and row["threshold_crossed"]
+        == "stale_unconverted_claim_support_replay_escalations>0"
+        for row in coverage_signal_response.json()
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        unconverted_gate_draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_replay_alert_unconverted_gate",
+                    "rationale": (
+                        "prove stale replay escalations must become fixture coverage"
+                    ),
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        unconverted_gate_draft_task_id = unconverted_gate_draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        unconverted_gate_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(unconverted_gate_draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_unconverted_gate",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": True,
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        unconverted_gate_verify_task_id = unconverted_gate_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        unconverted_gate_verify_row = session.get(
+            AgentTask,
+            unconverted_gate_verify_task_id,
+        )
+        assert unconverted_gate_verify_row is not None
+        unconverted_gate_payload = unconverted_gate_verify_row.result_json["payload"]
+        assert unconverted_gate_payload["verification"]["outcome"] == "failed"
+        assert unconverted_gate_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_passed"
+        ] is False
+        assert unconverted_gate_payload["replay_alert_fixture_summary"][
+            "included_replay_alert_fixture_count"
+        ] == 0
+        assert unconverted_gate_payload["replay_alert_fixture_summary"][
+            "stale_unconverted_escalation_event_count"
+        ] == 2
+        assert any(
+            metric["metric_key"] == "claim_support_replay_alert_fixture_coverage"
+            and metric["passed"] is False
+            for metric in unconverted_gate_payload["evaluation"]["success_metrics"]
+        )
 
     fixture_candidate_response = postgres_integration_harness.client.get(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
@@ -2122,6 +2201,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         )
         assert fixture_set is not None
         assert fixture_set.fixture_set_name == "integration_replay_alert_promotions"
+        promoted_fixture_set_id = fixture_set.id
         assert fixture_set.fixture_count == len(
             default_claim_support_evaluation_fixtures()
         ) + 2
@@ -2160,6 +2240,113 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert all(
             row["source_payload_sha256"] for row in promotion_receipt["candidates"]
         )
+
+        audit_bundle = get_agent_task_audit_bundle(session, impacted["verify_task_id"])
+        matching_impacts = {
+            row["change_impact_id"]: row
+            for row in audit_bundle["change_impact"][
+                "claim_support_policy_change_impacts"
+            ]["impacts"]
+        }
+        assert matching_impacts[str(change_impact_id)][
+            "fixture_promotion_governance_events"
+        ]
+        manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
+        manifest_impacts = {
+            row["change_impact_id"]: row
+            for row in manifest["change_impact"][
+                "claim_support_policy_change_impacts"
+            ]["impacts"]
+        }
+        assert manifest_impacts[str(change_impact_id)][
+            "fixture_promotion_governance_events"
+        ]
+        trace = get_agent_task_evidence_trace(session, impacted["verify_task_id"])
+        assert any(
+            edge["edge_kind"] == "replay_fixture_promotion_event"
+            for edge in trace["edges"]
+        )
+
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_replay_alert_coverage",
+                    "rationale": "require promoted replay-alert fixture coverage",
+                    "min_hard_case_kind_count": 2,
+                    "required_hard_case_kinds": [
+                        "replay_alert_blocked_policy_change_impact",
+                        "replay_alert_stale_policy_change_impact",
+                    ],
+                    "required_verdicts": [
+                        "supported",
+                        "unsupported",
+                        "insufficient_evidence",
+                    ],
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_coverage_verification",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": True,
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        verify_payload = verify_row.result_json["payload"]
+        replay_summary = verify_payload["replay_alert_fixture_summary"]
+        assert verify_payload["verification"]["outcome"] == "passed"
+        assert verify_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_passed"
+        ] is True
+        assert replay_summary["included_replay_alert_fixture_count"] == 2
+        assert replay_summary["stale_unconverted_escalation_event_count"] == 0
+        assert replay_summary["latest_promoted_fixture_set"]["fixture_set_id"] == str(
+            promoted_fixture_set_id
+        )
+        assert verify_payload["mined_failure_summary"]["replay_alert_fixture_count"] == 2
+        assert verify_payload["evaluation"]["summary"]["case_count"] == (
+            len(default_claim_support_evaluation_fixtures()) + 2
+        )
+        assert set(
+            verify_payload["evaluation"]["summary"]["required_hard_case_kinds"]
+        ) == {
+            "replay_alert_blocked_policy_change_impact",
+            "replay_alert_stale_policy_change_impact",
+        }
+
+    converted_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert converted_signal_response.status_code == 200
+    assert not any(
+        row["task_type"] == "claim_support_policy_change_impact_fixture_coverage"
+        for row in converted_signal_response.json()
+    )
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

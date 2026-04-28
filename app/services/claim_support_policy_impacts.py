@@ -1143,6 +1143,35 @@ def _refresh_existing_evidence_manifests_for_alert_item(
         refresh_technical_report_evidence_manifest(session, task_id=task_id)
 
 
+def _refresh_existing_evidence_manifests_for_fixture_candidates(
+    session: Session,
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+) -> None:
+    verification_task_ids = sorted(
+        {
+            task_id
+            for candidate in candidates
+            for task_id in candidate.affected_verification_task_ids
+        },
+        key=str,
+    )
+    if not verification_task_ids:
+        return
+    existing_manifest_task_ids = list(
+        session.scalars(
+            select(EvidenceManifest.verification_task_id)
+            .where(EvidenceManifest.verification_task_id.in_(verification_task_ids))
+            .order_by(EvidenceManifest.created_at.asc())
+        )
+    )
+    if not existing_manifest_task_ids:
+        return
+    from app.services.evidence import refresh_technical_report_evidence_manifest
+
+    for task_id in dict.fromkeys(existing_manifest_task_ids):
+        refresh_technical_report_evidence_manifest(session, task_id=task_id)
+
+
 def record_claim_support_policy_change_impact_alert_escalations(
     session: Session,
     *,
@@ -1253,6 +1282,201 @@ def _fixture_promotion_events_by_candidate(
             if candidate_id:
                 refs_by_candidate.setdefault(candidate_id, []).append(event_ref)
     return refs_by_candidate
+
+
+def _fixture_promotion_summary_from_event(
+    event: SemanticGovernanceEvent,
+) -> dict[str, Any]:
+    promotion_payload = _fixture_promotion_payload(event)
+    source_change_impact_ids = _string_list(
+        promotion_payload.get("source_change_impact_ids") or []
+    )
+    source_escalation_event_ids = _string_list(
+        promotion_payload.get("source_escalation_event_ids") or []
+    )
+    candidates = list(promotion_payload.get("candidates") or [])
+    return {
+        "event_id": str(event.id),
+        "event_hash": event.event_hash,
+        "receipt_sha256": event.receipt_sha256,
+        "fixture_set_id": promotion_payload.get("fixture_set_id"),
+        "fixture_set_name": promotion_payload.get("fixture_set_name"),
+        "fixture_set_version": promotion_payload.get("fixture_set_version"),
+        "fixture_set_sha256": promotion_payload.get("fixture_set_sha256"),
+        "fixture_count": int(promotion_payload.get("fixture_count") or 0),
+        "candidate_count": int(promotion_payload.get("candidate_count") or len(candidates)),
+        "candidate_ids": [
+            str(candidate.get("candidate_id"))
+            for candidate in candidates
+            if candidate.get("candidate_id")
+        ],
+        "source_change_impact_ids": source_change_impact_ids,
+        "source_escalation_event_ids": source_escalation_event_ids,
+        "artifact_id": str(event.agent_task_artifact_id)
+        if event.agent_task_artifact_id
+        else None,
+        "created_at": event.created_at.isoformat(),
+    }
+
+
+def _fixture_promotion_event_summaries(session: Session) -> list[dict[str, Any]]:
+    events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND
+            )
+            .order_by(
+                SemanticGovernanceEvent.created_at.desc(),
+                SemanticGovernanceEvent.event_sequence.desc(),
+            )
+        )
+    )
+    return [_fixture_promotion_summary_from_event(event) for event in events]
+
+
+def _replay_escalation_event_summary(
+    event: SemanticGovernanceEvent,
+    *,
+    stale_cutoff,
+) -> dict[str, Any]:
+    event_payload = dict(event.event_payload_json or {})
+    escalation_payload = dict(
+        event_payload.get("claim_support_policy_impact_replay_escalation") or {}
+    )
+    age_hours = max((utcnow() - event.created_at).total_seconds() / 3600, 0.0)
+    return {
+        "event_id": str(event.id),
+        "event_hash": event.event_hash,
+        "receipt_sha256": event.receipt_sha256,
+        "change_impact_id": str(event.subject_id) if event.subject_id else None,
+        "artifact_id": str(event.agent_task_artifact_id)
+        if event.agent_task_artifact_id
+        else None,
+        "alert_kind": escalation_payload.get("alert_kind"),
+        "replay_status": escalation_payload.get("replay_status"),
+        "created_at": event.created_at.isoformat(),
+        "age_hours": round(age_hours, 4),
+        "is_stale": event.created_at <= stale_cutoff,
+    }
+
+
+def claim_support_replay_alert_fixture_coverage_summary(
+    session: Session,
+    *,
+    stale_after_hours: int = 24,
+    limit: int = 50,
+) -> dict[str, Any]:
+    stale_after_hours = max(1, stale_after_hours)
+    limit = max(1, limit)
+    promotion_summaries = _fixture_promotion_event_summaries(session)
+    promoted_escalation_event_ids = {
+        str(event_id)
+        for promotion in promotion_summaries
+        for event_id in promotion.get("source_escalation_event_ids") or []
+    }
+    escalation_events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_IMPACT_REPLAY_ESCALATION_EVENT_KIND
+            )
+            .order_by(
+                SemanticGovernanceEvent.created_at.asc(),
+                SemanticGovernanceEvent.event_sequence.asc(),
+            )
+        )
+    )
+    stale_cutoff = utcnow() - timedelta(hours=stale_after_hours)
+    unconverted_escalations = [
+        _replay_escalation_event_summary(event, stale_cutoff=stale_cutoff)
+        for event in escalation_events
+        if str(event.id) not in promoted_escalation_event_ids
+    ]
+    stale_unconverted = [row for row in unconverted_escalations if row["is_stale"]]
+    summary_basis = {
+        "schema_name": "claim_support_replay_alert_fixture_coverage_summary",
+        "schema_version": "1.0",
+        "promoted_fixture_set_count": len(promotion_summaries),
+        "promoted_candidate_count": sum(
+            int(row.get("candidate_count") or 0) for row in promotion_summaries
+        ),
+        "promoted_escalation_event_count": len(promoted_escalation_event_ids),
+        "unconverted_escalation_event_count": len(unconverted_escalations),
+        "stale_unconverted_escalation_event_count": len(stale_unconverted),
+        "stale_after_hours": stale_after_hours,
+        "latest_promoted_fixture_set": promotion_summaries[0]
+        if promotion_summaries
+        else None,
+    }
+    return {
+        **summary_basis,
+        "summary_sha256": payload_sha256(summary_basis),
+        "generated_at": utcnow().isoformat(),
+        "limit": limit,
+        "has_more_unconverted_escalations": len(unconverted_escalations) > limit,
+        "promoted_fixture_sets": promotion_summaries[:limit],
+        "unconverted_escalation_events": unconverted_escalations[:limit],
+    }
+
+
+def latest_claim_support_replay_alert_fixture_rows(
+    session: Session,
+    *,
+    include_promoted: bool = True,
+    limit: int = 100,
+    exclude_case_ids: set[str] | None = None,
+    stale_after_hours: int = 24,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    coverage_summary = claim_support_replay_alert_fixture_coverage_summary(
+        session,
+        stale_after_hours=stale_after_hours,
+        limit=limit or 1,
+    )
+    exclude_case_ids = set(exclude_case_ids or set())
+    limit = max(0, limit)
+    if not include_promoted or limit == 0:
+        return [], {
+            **coverage_summary,
+            "enabled": include_promoted,
+            "included_replay_alert_fixture_count": 0,
+            "replay_alert_fixture_count": 0,
+            "excluded_case_ids": sorted(exclude_case_ids),
+            "fixture_source": "disabled",
+        }
+    latest = coverage_summary.get("latest_promoted_fixture_set") or {}
+    fixture_set_id = _uuid_or_none(latest.get("fixture_set_id"))
+    fixture_set = session.get(ClaimSupportFixtureSet, fixture_set_id) if fixture_set_id else None
+    replay_alert_fixtures = [
+        dict(fixture)
+        for fixture in (fixture_set.fixtures_json if fixture_set is not None else []) or []
+        if isinstance(fixture, dict) and fixture.get("replay_alert_source")
+    ]
+    selected: list[dict[str, Any]] = []
+    for fixture in replay_alert_fixtures:
+        case_id = str(fixture.get("case_id") or "")
+        if case_id and case_id in exclude_case_ids:
+            continue
+        selected.append(fixture)
+        if len(selected) >= limit:
+            break
+    return selected, {
+        **coverage_summary,
+        "enabled": include_promoted,
+        "fixture_source": "latest_promoted_fixture_set" if fixture_set is not None else "none",
+        "included_replay_alert_fixture_count": len(selected),
+        "replay_alert_fixture_count": len(replay_alert_fixtures),
+        "excluded_case_ids": sorted(exclude_case_ids),
+        "has_more_replay_alert_fixtures": len(selected) < len(
+            [
+                fixture
+                for fixture in replay_alert_fixtures
+                if str(fixture.get("case_id") or "") not in exclude_case_ids
+            ]
+        ),
+    }
 
 
 def _looks_like_technical_report_draft(payload: Any) -> bool:
@@ -1869,6 +2093,7 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         requested_by=requested_by,
         storage_service=storage_service,
     )
+    _refresh_existing_evidence_manifests_for_fixture_candidates(session, candidates)
     if commit:
         session.commit()
     else:
