@@ -28,6 +28,7 @@ const TECHNICAL_REPORT_TASK_TYPES = [
   "plan_technical_report",
   "build_report_evidence_cards",
   "prepare_report_agent_harness",
+  "evaluate_document_generation_context_pack",
   "draft_technical_report",
   "verify_technical_report",
 ];
@@ -35,6 +36,7 @@ const TECHNICAL_REPORT_TASK_LABELS = {
   plan_technical_report: "Plan",
   build_report_evidence_cards: "Evidence cards",
   prepare_report_agent_harness: "Agent harness",
+  evaluate_document_generation_context_pack: "Context pack eval",
   draft_technical_report: "Draft",
   verify_technical_report: "Verification gate",
 };
@@ -3254,6 +3256,13 @@ function reportPayloadFromTask(detail, context) {
     plan: result.plan || output.plan || null,
     evidenceBundle: result.evidence_bundle || output.evidence_bundle || null,
     harness: result.harness || output.harness || null,
+    contextPack:
+      result.context_pack ||
+      output.context_pack ||
+      result.harness?.document_generation_context_pack ||
+      output.harness?.document_generation_context_pack ||
+      null,
+    contextPackEvaluation: result.evaluation || output.evaluation || null,
     draft: result.draft || output.draft || null,
     verification: result.verification || output.verification || null,
     verificationSummary: result.summary || output.summary || null,
@@ -3300,6 +3309,12 @@ function renderReportHarnessContract(actionsState, workflowVersionsState) {
           {
             label: "wake harness",
             state: actionsByType.has("prepare_report_agent_harness") ? "passed" : "failed",
+          },
+          {
+            label: "context pack",
+            state: actionsByType.has("evaluate_document_generation_context_pack")
+              ? "passed"
+              : "failed",
           },
           {
             label: "draft",
@@ -3409,6 +3424,8 @@ function renderReportHarnessPacket(detailState, contextState) {
 
   const payload = reportPayloadFromTask(detail, context);
   const harness = payload.harness;
+  const contextPack = payload.contextPack;
+  const contextPackEvaluation = payload.contextPackEvaluation;
   const draft = payload.draft;
   const verification = payload.verification || (detail.verifications || []).find(
     (row) => row.verifier_type === "technical_report_gate",
@@ -3433,7 +3450,13 @@ function renderReportHarnessPacket(detailState, contextState) {
   const allowedTools = harness?.allowed_tools || [];
   const requiredSkills = harness?.required_skills || [];
   const blockedSteps = harness?.workflow_state?.blocked_steps || [];
-  const successMetrics = harness?.success_metrics || draft?.success_metrics || detail.result?.success_metrics || [];
+  const successMetrics =
+    contextPackEvaluation?.success_metrics ||
+    contextPack?.success_metrics ||
+    harness?.success_metrics ||
+    draft?.success_metrics ||
+    detail.result?.success_metrics ||
+    [];
   const failedMetricCount = successMetrics.filter((row) => row.passed === false).length;
 
   const cards = [
@@ -3470,6 +3493,23 @@ function renderReportHarnessPacket(detailState, contextState) {
         ])}
       </article>
     `,
+    contextPack
+      ? `
+        <article class="stack-card">
+          <header>
+            <strong>Generation context pack</strong>
+            <span class="meta-pill">${escapeHtml(contextPackEvaluation?.gate_outcome || "packaged")}</span>
+          </header>
+          <div class="status-meta">
+            <span>${formatInteger(contextPack.claim_contract?.length || 0)} claims</span>
+            <span>${formatInteger(contextPack.evidence_cards?.length || 0)} cards</span>
+            <span>${formatInteger(contextPack.search_evidence_package_exports?.length || 0)} source packages</span>
+            <span>${formatInteger(contextPackEvaluation?.summary?.failed_check_count || 0)} failed checks</span>
+          </div>
+          <p>${escapeHtml(contextPack.context_pack_sha256 || "No context-pack hash recorded.")}</p>
+        </article>
+      `
+      : "",
     `
       <article class="stack-card">
         <header>

@@ -185,6 +185,11 @@ def _derive_attempt_cost(task: AgentTask, result: dict) -> dict:
         harness = payload.get("harness") or {}
         evaluation_query_count = int(len(harness.get("claim_contract") or []))
         call_count = 1
+    elif task.task_type == "evaluate_document_generation_context_pack":
+        evaluation = payload.get("evaluation") or {}
+        summary = evaluation.get("summary") or {}
+        evaluation_query_count = int(summary.get("check_count") or 0)
+        call_count = 1 if evaluation else 0
     elif task.task_type == "initialize_workspace_ontology":
         snapshot = payload.get("snapshot") or {}
         evaluation_query_count = int(snapshot.get("concept_count") or 0)

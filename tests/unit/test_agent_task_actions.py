@@ -27,6 +27,7 @@ from app.schemas.agent_tasks import (
     DraftSemanticRegistryUpdateTaskInput,
     EnqueueDocumentReprocessTaskInput,
     EvaluateClaimSupportJudgeTaskInput,
+    EvaluateDocumentGenerationContextPackTaskInput,
     EvaluateSemanticCandidateExtractorTaskInput,
     EvaluateSemanticRelationExtractorTaskInput,
     ExportSemanticSupervisionCorpusTaskInput,
@@ -2446,6 +2447,18 @@ def test_get_agent_task_action_exposes_claim_support_judge_eval_metadata() -> No
     assert action.output_schema_name == "evaluate_claim_support_judge_output"
     assert action.output_schema_version == "1.0"
     assert action.context_builder_name == "evaluate_claim_support_judge"
+    assert action.output_model is not None
+
+
+def test_get_agent_task_action_exposes_context_pack_eval_metadata() -> None:
+    action = get_agent_task_action("evaluate_document_generation_context_pack")
+
+    assert action.capability == "technical_reports"
+    assert action.definition_kind == "verifier"
+    assert action.payload_model is EvaluateDocumentGenerationContextPackTaskInput
+    assert action.output_schema_name == "evaluate_document_generation_context_pack_output"
+    assert action.output_schema_version == "1.0"
+    assert action.context_builder_name == "evaluate_document_generation_context_pack"
     assert action.output_model is not None
 
 

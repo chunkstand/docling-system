@@ -14,6 +14,8 @@ from app.core.time import utcnow
 from app.schemas.agent_tasks import (
     ContextFreshnessStatus,
     ContextRef,
+    DocumentGenerationContextPackEvaluationPayload,
+    DocumentGenerationContextPackPayload,
     ReportAgentHarnessPayload,
     SemanticGenerationBriefPayload,
     SemanticGenerationClaimCandidate,
@@ -496,34 +498,51 @@ def _card_requires_source_match(card: TechnicalReportEvidenceCard) -> bool:
 def _expert_alignment() -> list[dict[str, str]]:
     return [
         {
-            "expert": "Joshua Yu",
+            "expert": "Jon Bratseth",
+            "principle": (
+                "Retrieval architecture should expose candidate generation, ranking, "
+                "and serving contracts as production artifacts."
+            ),
+        },
+        {
+            "expert": "Omar Khattab",
+            "principle": (
+                "High-accuracy RAG requires explicit evidence binding, retriever "
+                "evaluation, and reranker-replaceable interfaces."
+            ),
+        },
+        {
+            "expert": "Juan Sequeda",
+            "principle": (
+                "Semantic access should keep ontology and governed fact context "
+                "visible to the data layer."
+            ),
+        },
+        {
+            "expert": "Luc Moreau / James Cheney",
+            "principle": (
+                "Generated claims need replayable provenance, immutable evidence refs, "
+                "and auditable trace structure."
+            ),
+        },
+        {
+            "expert": "Joshua Yu + Nicolas Figay",
             "principle": (
                 "Graph memory is a governed semantic control plane, not a source-of-truth shortcut."
             ),
         },
         {
-            "expert": "Steve Yegge",
+            "expert": "Rich Sutton",
             "principle": (
-                "The report loop is a reusable platform primitive with compact, durable artifacts."
+                "Accuracy work should improve scalable data, compute, evaluation, "
+                "and learning loops over fixed hand-coded rules."
             ),
         },
         {
-            "expert": "Armin Ronacher",
+            "expert": "Jerry Liu",
             "principle": (
-                "Control flow, schemas, tools, and failure modes are explicit "
-                "instead of prompt-hidden."
-            ),
-        },
-        {
-            "expert": "Ryan Lopopolo",
-            "principle": (
-                "The harness is agent-legible: one typed packet carries task, context, and checks."
-            ),
-        },
-        {
-            "expert": "Nate B. Jones",
-            "principle": (
-                "Context ownership, freshness, and trust boundaries are visible at wake-up time."
+                "Document-generation agents should consume a reusable, observable "
+                "context pack rather than hidden prompt-only state."
             ),
         },
     ]
@@ -670,21 +689,21 @@ def plan_technical_report(
     plan["success_metrics"] = [
         _success_metric(
             "semantic_plan_available",
-            "Joshua Yu",
+            "Joshua Yu + Nicolas Figay",
             bool(semantic_brief.claim_candidates),
             "The report plan is derived from the evidence-backed semantic brief.",
             {"claim_count": len(semantic_brief.claim_candidates)},
         ),
         _success_metric(
             "section_contract_available",
-            "Ryan Lopopolo",
+            "Jerry Liu",
             bool(sections),
             "The plan exposes an agent-legible section and claim contract.",
             {"section_count": len(sections)},
         ),
         _success_metric(
             "graph_requirements_explicit",
-            "Armin Ronacher",
+            "Juan Sequeda",
             True,
             "Graph requirements are explicit even when no approved graph edges are in scope.",
             {"expected_graph_edge_count": len(expected_graph_edge_ids)},
@@ -954,14 +973,14 @@ def build_report_evidence_cards(
     bundle["success_metrics"] = [
         _success_metric(
             "evidence_cards_available",
-            "Ryan Lopopolo",
+            "Jerry Liu",
             bool(evidence_cards),
             "The report has stable evidence cards for agent-legible claim binding.",
             {"evidence_card_count": len(evidence_cards)},
         ),
         _success_metric(
             "table_evidence_preserved",
-            "Joshua Yu",
+            "Omar Khattab",
             sum(1 for row in brief.evidence_pack if row.source_type == "table")
             == sum(1 for card in evidence_cards if card.get("source_type") == "table"),
             "Typed table evidence remains distinguishable from prose evidence.",
@@ -977,7 +996,7 @@ def build_report_evidence_cards(
         ),
         _success_metric(
             "claim_contract_bound",
-            "Nate B. Jones",
+            "Luc Moreau / James Cheney",
             all(
                 (row["evidence_card_ids"] or row["graph_edge_ids"])
                 and not row["missing_evidence_labels"]
@@ -1082,6 +1101,346 @@ def _default_required_skills() -> list[dict[str, Any]]:
     ]
 
 
+def _context_ref_freshness_summary(context_refs: list[dict[str, Any]]) -> dict[str, Any]:
+    status_counts = {
+        ContextFreshnessStatus.FRESH.value: 0,
+        ContextFreshnessStatus.STALE.value: 0,
+        ContextFreshnessStatus.MISSING.value: 0,
+        ContextFreshnessStatus.SCHEMA_MISMATCH.value: 0,
+        "unknown": 0,
+    }
+    for ref in context_refs:
+        status = str(ref.get("freshness_status") or "unknown")
+        status_counts[status if status in status_counts else "unknown"] += 1
+    return {
+        "context_ref_count": len(context_refs),
+        "fresh_context_ref_count": status_counts[ContextFreshnessStatus.FRESH.value],
+        "stale_context_ref_count": status_counts[ContextFreshnessStatus.STALE.value],
+        "missing_context_ref_count": status_counts[ContextFreshnessStatus.MISSING.value],
+        "schema_mismatch_context_ref_count": status_counts[
+            ContextFreshnessStatus.SCHEMA_MISMATCH.value
+        ],
+        "unknown_context_ref_count": status_counts["unknown"],
+    }
+
+
+def _context_pack_without_hash(payload: dict[str, Any]) -> dict[str, Any]:
+    without_hash = dict(payload)
+    without_hash.pop("context_pack_sha256", None)
+    return without_hash
+
+
+def _claim_has_traceable_support(row: dict[str, Any]) -> bool:
+    return bool(row.get("evidence_card_ids") or row.get("graph_edge_ids")) and not any(
+        row.get(key)
+        for key in (
+            "missing_evidence_labels",
+            "missing_graph_edge_ids",
+            "missing_fact_ids",
+            "missing_assertion_ids",
+        )
+    )
+
+
+def build_document_generation_context_pack(
+    harness_payload: dict[str, Any],
+) -> dict[str, Any]:
+    harness = ReportAgentHarnessPayload.model_validate(harness_payload)
+    workflow_state = dict(harness.workflow_state or {})
+    context_refs = [ref.model_dump(mode="json") for ref in harness.context_refs]
+    claim_contract = [dict(row) for row in harness.claim_contract]
+    traceable_claim_count = sum(1 for row in claim_contract if _claim_has_traceable_support(row))
+    claim_count = len(claim_contract)
+    source_evidence_package_export_ids = _unique_strings(
+        [
+            str(export.get("evidence_package_export_id"))
+            for export in harness.search_evidence_package_exports
+            if export.get("evidence_package_export_id")
+        ]
+    )
+    source_evidence_package_sha256s = _unique_strings(
+        [
+            str(export.get("package_sha256"))
+            for export in harness.search_evidence_package_exports
+            if export.get("package_sha256")
+        ]
+    )
+    source_search_request_ids = _unique_strings(
+        [
+            str(export.get("search_request_id"))
+            for export in harness.search_evidence_package_exports
+            if export.get("search_request_id")
+        ]
+    )
+    context_pack = {
+        "context_pack_id": (
+            f"document-generation-context-pack:"
+            f"{workflow_state.get('harness_task_id', 'unknown')}:v1"
+        ),
+        "harness_task_id": workflow_state["harness_task_id"],
+        "evidence_task_id": workflow_state["evidence_task_id"],
+        "plan_task_id": workflow_state["plan_task_id"],
+        "report_request": dict(harness.report_request),
+        "workflow_state": workflow_state,
+        "context_refs": context_refs,
+        "retrieval_plan": list(harness.retrieval_plan),
+        "evidence_cards": [card.model_dump(mode="json") for card in harness.evidence_cards],
+        "search_evidence_package_exports": list(harness.search_evidence_package_exports),
+        "graph_context": [edge.model_dump(mode="json") for edge in harness.graph_context],
+        "claim_contract": claim_contract,
+        "freshness_summary": _context_ref_freshness_summary(context_refs),
+        "quality_contract": {
+            "min_traceable_claim_ratio": 1.0,
+            "min_context_ref_count": 1,
+            "max_blocked_step_count": 0,
+            "require_source_evidence_packages": True,
+            "require_fresh_context": False,
+            "traceable_claim_count": traceable_claim_count,
+            "claim_count": claim_count,
+            "traceable_claim_ratio": (
+                traceable_claim_count / claim_count if claim_count else 1.0
+            ),
+            "blocked_steps": list(workflow_state.get("blocked_steps") or []),
+        },
+        "audit_refs": {
+            "source_search_request_ids": source_search_request_ids,
+            "source_evidence_package_export_ids": source_evidence_package_export_ids,
+            "source_evidence_package_sha256s": source_evidence_package_sha256s,
+            "context_ref_sha256s": _unique_strings(
+                [
+                    str(ref.get("observed_sha256"))
+                    for ref in context_refs
+                    if ref.get("observed_sha256")
+                ]
+            ),
+        },
+        "warnings": list(harness.warnings),
+        "expert_alignment": _expert_alignment(),
+    }
+    context_pack["success_metrics"] = [
+        _success_metric(
+            "context_pack_contract",
+            "Jerry Liu",
+            bool(context_refs) and bool(claim_contract) and bool(harness.evidence_cards),
+            "The generation input is packaged as reusable data, not hidden prompt state.",
+            {
+                "context_ref_count": len(context_refs),
+                "claim_contract_count": claim_count,
+                "evidence_card_count": len(harness.evidence_cards),
+            },
+        ),
+        _success_metric(
+            "retrieval_context_packaged",
+            "Jon Bratseth",
+            bool(harness.retrieval_plan) and bool(harness.search_evidence_package_exports),
+            "Retrieval plan and frozen search evidence are carried into generation together.",
+            {
+                "retrieval_plan_count": len(harness.retrieval_plan),
+                "source_evidence_package_export_count": len(
+                    harness.search_evidence_package_exports
+                ),
+            },
+        ),
+        _success_metric(
+            "claim_support_inputs_traceable",
+            "Omar Khattab",
+            traceable_claim_count == claim_count,
+            "Every planned claim has resolvable evidence-card or graph support before drafting.",
+            {
+                "traceable_claim_count": traceable_claim_count,
+                "claim_count": claim_count,
+            },
+        ),
+        _success_metric(
+            "semantic_context_attached",
+            "Juan Sequeda",
+            bool(harness.source_plan.required_concept_keys) or bool(harness.graph_context),
+            "The pack preserves ontology-facing concepts and governed graph context.",
+            {
+                "required_concept_count": len(harness.source_plan.required_concept_keys),
+                "graph_edge_count": len(harness.graph_context),
+            },
+        ),
+        _success_metric(
+            "audit_refs_packaged",
+            "Luc Moreau / James Cheney",
+            bool(source_evidence_package_sha256s),
+            "The context pack records stable evidence package hashes for later audit replay.",
+            {
+                "source_evidence_package_export_count": len(source_evidence_package_export_ids),
+                "source_evidence_package_sha256_count": len(source_evidence_package_sha256s),
+            },
+        ),
+        _success_metric(
+            "governed_graph_lifecycle_visible",
+            "Joshua Yu + Nicolas Figay",
+            all(edge.review_status == "approved" for edge in harness.graph_context),
+            "Graph context enters generation with review status visible.",
+            {"graph_edge_count": len(harness.graph_context)},
+        ),
+        _success_metric(
+            "evaluation_boundary_available",
+            "Rich Sutton",
+            True,
+            "The pack is a measurable artifact that can be evaluated before generation.",
+            {"schema_name": "document_generation_context_pack"},
+        ),
+    ]
+    validated_context_pack = DocumentGenerationContextPackPayload.model_validate(
+        context_pack
+    ).model_dump(mode="json")
+    validated_context_pack["context_pack_sha256"] = _payload_sha256(
+        _context_pack_without_hash(validated_context_pack)
+    )
+    return DocumentGenerationContextPackPayload.model_validate(
+        validated_context_pack
+    ).model_dump(mode="json")
+
+
+def evaluate_document_generation_context_pack(
+    context_pack_payload: dict[str, Any],
+    *,
+    target_task_id: UUID,
+    min_traceable_claim_ratio: float = 1.0,
+    min_context_ref_count: int = 1,
+    max_blocked_step_count: int = 0,
+    require_source_evidence_packages: bool = True,
+    require_fresh_context: bool = False,
+) -> dict[str, Any]:
+    context_pack = DocumentGenerationContextPackPayload.model_validate(context_pack_payload)
+    freshness_summary = dict(context_pack.freshness_summary or {})
+    quality_contract = dict(context_pack.quality_contract or {})
+    traceable_claim_ratio = float(quality_contract.get("traceable_claim_ratio") or 0.0)
+    context_ref_count = int(freshness_summary.get("context_ref_count") or 0)
+    blocked_steps = list(quality_contract.get("blocked_steps") or [])
+    source_package_count = len(context_pack.audit_refs.get("source_evidence_package_sha256s") or [])
+    stale_count = int(freshness_summary.get("stale_context_ref_count") or 0)
+    missing_count = int(freshness_summary.get("missing_context_ref_count") or 0)
+    schema_mismatch_count = int(freshness_summary.get("schema_mismatch_context_ref_count") or 0)
+    recomputed_sha = _payload_sha256(
+        _context_pack_without_hash(context_pack.model_dump(mode="json"))
+    )
+    checks = [
+        {
+            "check_key": "context_pack_hash_integrity",
+            "passed": context_pack.context_pack_sha256 == recomputed_sha,
+            "observed": context_pack.context_pack_sha256,
+            "expected": recomputed_sha,
+        },
+        {
+            "check_key": "traceable_claim_ratio",
+            "passed": traceable_claim_ratio >= min_traceable_claim_ratio,
+            "observed": traceable_claim_ratio,
+            "threshold": min_traceable_claim_ratio,
+        },
+        {
+            "check_key": "context_ref_count",
+            "passed": context_ref_count >= min_context_ref_count,
+            "observed": context_ref_count,
+            "threshold": min_context_ref_count,
+        },
+        {
+            "check_key": "blocked_step_count",
+            "passed": len(blocked_steps) <= max_blocked_step_count,
+            "observed": len(blocked_steps),
+            "threshold": max_blocked_step_count,
+        },
+        {
+            "check_key": "source_evidence_packages",
+            "passed": (source_package_count > 0 if require_source_evidence_packages else True),
+            "observed": source_package_count,
+            "required": require_source_evidence_packages,
+        },
+        {
+            "check_key": "freshness_blockers",
+            "passed": missing_count == 0 and schema_mismatch_count == 0,
+            "observed": {
+                "missing_context_ref_count": missing_count,
+                "schema_mismatch_context_ref_count": schema_mismatch_count,
+            },
+        },
+        {
+            "check_key": "stale_context",
+            "passed": stale_count == 0 if require_fresh_context else True,
+            "observed": stale_count,
+            "required": require_fresh_context,
+        },
+    ]
+    failed_checks = [check for check in checks if not check["passed"]]
+    reasons = [
+        f"{check['check_key']} failed: observed {check.get('observed')!r}."
+        for check in failed_checks
+    ]
+    summary = {
+        "gate_outcome": "failed" if failed_checks else "passed",
+        "check_count": len(checks),
+        "passed_check_count": len(checks) - len(failed_checks),
+        "failed_check_count": len(failed_checks),
+        "claim_count": int(quality_contract.get("claim_count") or 0),
+        "traceable_claim_count": int(quality_contract.get("traceable_claim_count") or 0),
+        "traceable_claim_ratio": traceable_claim_ratio,
+        "context_ref_count": context_ref_count,
+        "blocked_step_count": len(blocked_steps),
+        "source_evidence_package_count": source_package_count,
+        "stale_context_ref_count": stale_count,
+        "missing_context_ref_count": missing_count,
+        "schema_mismatch_context_ref_count": schema_mismatch_count,
+    }
+    payload = {
+        "target_task_id": target_task_id,
+        "context_pack_id": context_pack.context_pack_id,
+        "context_pack_sha256": context_pack.context_pack_sha256 or recomputed_sha,
+        "evaluated_at": utcnow(),
+        "gate_outcome": summary["gate_outcome"],
+        "thresholds": {
+            "min_traceable_claim_ratio": min_traceable_claim_ratio,
+            "min_context_ref_count": min_context_ref_count,
+            "max_blocked_step_count": max_blocked_step_count,
+            "require_source_evidence_packages": require_source_evidence_packages,
+            "require_fresh_context": require_fresh_context,
+        },
+        "summary": summary,
+        "checks": checks,
+        "reasons": reasons,
+        "trace": {
+            "harness_task_id": str(context_pack.harness_task_id),
+            "evidence_task_id": str(context_pack.evidence_task_id),
+            "plan_task_id": str(context_pack.plan_task_id),
+            "source_evidence_package_export_ids": list(
+                context_pack.audit_refs.get("source_evidence_package_export_ids") or []
+            ),
+            "source_search_request_ids": list(
+                context_pack.audit_refs.get("source_search_request_ids") or []
+            ),
+        },
+        "success_metrics": [
+            _success_metric(
+                "context_pack_eval_gate",
+                "Jerry Liu",
+                not failed_checks,
+                "The context pack can be evaluated before report drafting.",
+                summary,
+            ),
+            _success_metric(
+                "audit_ready_context_refs",
+                "Luc Moreau / James Cheney",
+                bool(context_pack.audit_refs.get("source_evidence_package_sha256s"))
+                and missing_count == 0
+                and schema_mismatch_count == 0,
+                "Context-pack audit refs are stable and freshness blockers are absent.",
+                {
+                    "source_evidence_package_count": source_package_count,
+                    "missing_context_ref_count": missing_count,
+                    "schema_mismatch_context_ref_count": schema_mismatch_count,
+                },
+            ),
+        ],
+    }
+    return DocumentGenerationContextPackEvaluationPayload.model_validate(payload).model_dump(
+        mode="json"
+    )
+
+
 def prepare_report_agent_harness(
     evidence_bundle_payload: dict[str, Any],
     *,
@@ -1166,8 +1525,11 @@ def prepare_report_agent_harness(
             "block_stale_context": False,
         },
         "llm_adapter_contract": {
-            "primary_context_schema": "report_agent_harness",
-            "primary_context_ref": f"agent_task:{harness_task_id}:artifact:report_agent_harness",
+            "primary_context_schema": "document_generation_context_pack",
+            "primary_context_ref": (
+                f"agent_task:{harness_task_id}:artifact:document_generation_context_pack"
+            ),
+            "source_harness_ref": f"agent_task:{harness_task_id}:artifact:report_agent_harness",
             "harness_context_refs": context_refs,
             "required_output_schema": "draft_technical_report_output",
             "must_preserve_fields": [
@@ -1198,7 +1560,7 @@ def prepare_report_agent_harness(
     harness["success_metrics"] = [
         _success_metric(
             "wake_up_packet_complete",
-            "Ryan Lopopolo",
+            "Jerry Liu",
             bool(harness["allowed_tools"])
             and bool(harness["required_skills"])
             and bool(harness["claim_contract"])
@@ -1214,25 +1576,30 @@ def prepare_report_agent_harness(
         ),
         _success_metric(
             "owned_context",
-            "Nate B. Jones",
+            "Jerry Liu",
             bool(context_refs),
             "The harness carries upstream context refs with freshness state.",
             {"context_ref_count": len(context_refs)},
         ),
         _success_metric(
             "explicit_tool_surface",
-            "Armin Ronacher",
+            "Jon Bratseth",
             all(tool.get("access_pattern") for tool in harness["allowed_tools"]),
             "Every allowed tool has an explicit access pattern and contract.",
             {"tool_names": [tool["tool_name"] for tool in harness["allowed_tools"]]},
         ),
         _success_metric(
             "platform_packet",
-            "Steve Yegge",
+            "Jerry Liu",
             harness["schema_name"] == "report_agent_harness",
             "The report workflow compacts state into a reusable harness artifact.",
             {"schema_version": harness["schema_version"]},
         ),
+    ]
+    context_pack = build_document_generation_context_pack(harness)
+    harness["document_generation_context_pack"] = context_pack
+    harness["llm_adapter_contract"]["context_pack_sha256"] = context_pack[
+        "context_pack_sha256"
     ]
     return ReportAgentHarnessPayload.model_validate(harness).model_dump(mode="json")
 
@@ -1413,28 +1780,28 @@ def draft_technical_report(
     draft["success_metrics"] = [
         _success_metric(
             "claim_binding_preserved",
-            "Ryan Lopopolo",
+            "Luc Moreau / James Cheney",
             all(claim["evidence_card_ids"] or claim["graph_edge_ids"] for claim in claims),
             "Rendered claims preserve evidence-card or graph-edge bindings.",
             {"claim_count": len(claims)},
         ),
         _success_metric(
             "unsupported_claims_blocked",
-            "Armin Ronacher",
+            "Omar Khattab",
             True,
             "Claims without support are blocked instead of rendered as supported prose.",
             {"blocked_claim_count": len(blocked_claims)},
         ),
         _success_metric(
             "llm_adapter_pluggable",
-            "Nate B. Jones",
+            "Jerry Liu",
             bool(harness.llm_adapter_contract),
             "The draft records the harness contract an external LLM adapter must consume.",
             {"generator_mode": generator_mode},
         ),
         _success_metric(
             "claim_derivations_frozen",
-            "Nicolas Figay",
+            "Luc Moreau / James Cheney",
             bool(derivation_package.get("package_sha256"))
             and all(claim.get("derivation_sha256") for claim in draft["claims"]),
             "Each rendered claim is bound to a frozen derivation package hash.",
@@ -1451,7 +1818,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
     return [
         _success_metric(
             "claim_traceability",
-            "Ryan Lopopolo",
+            "Luc Moreau / James Cheney",
             summary["traceable_claim_ratio"] == 1.0
             and summary["unresolved_evidence_card_ref_count"] == 0
             and summary["unresolved_graph_edge_ref_count"] == 0,
@@ -1464,7 +1831,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         ),
         _success_metric(
             "explicit_context_gate",
-            "Armin Ronacher",
+            "Jerry Liu",
             summary["context_blocker_count"] == 0 and summary["missing_wake_context_count"] == 0,
             "Missing and schema-mismatched wake-up context is blocked by the verifier.",
             {
@@ -1474,14 +1841,14 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         ),
         _success_metric(
             "graph_memory_governed",
-            "Joshua Yu",
+            "Joshua Yu + Nicolas Figay",
             summary["unapproved_graph_claim_count"] == 0,
             "Graph-backed claims use approved graph edges only.",
             {"graph_claim_count": summary["graph_claim_count"]},
         ),
         _success_metric(
             "owned_wake_context",
-            "Nate B. Jones",
+            "Jerry Liu",
             summary["context_ref_count"] > 0 and summary["missing_wake_context_count"] == 0,
             "The draft is verified against the harness wake-up context.",
             {
@@ -1491,7 +1858,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         ),
         _success_metric(
             "durable_platform_loop",
-            "Steve Yegge",
+            "Rich Sutton",
             summary["claim_count"] > 0 and summary["evidence_card_count"] > 0,
             "The report loop produces reusable durable artifacts rather than one-off prose.",
             {
@@ -1501,7 +1868,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
         ),
         _success_metric(
             "frozen_evidence_package",
-            "Nicolas Figay",
+            "Luc Moreau / James Cheney",
             summary["claims_with_derivation_hash_count"] == summary["claim_count"]
             and summary["claims_with_evidence_package_hash_count"] == summary["claim_count"]
             and summary["draft_evidence_package_hash_present"]

@@ -184,6 +184,39 @@ def test_technical_report_harness_roundtrip(
     artifact_payload = artifact_response.json()
     assert artifact_payload["schema_name"] == "report_agent_harness"
     assert artifact_payload["verification_gate"]["target_task_type"] == "verify_technical_report"
+    assert artifact_payload["document_generation_context_pack"]["schema_name"] == (
+        "document_generation_context_pack"
+    )
+    assert artifact_payload["llm_adapter_contract"]["primary_context_schema"] == (
+        "document_generation_context_pack"
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        context_pack_eval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_document_generation_context_pack",
+                input={"target_task_id": str(harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        context_pack_eval_task_id = context_pack_eval_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    context_pack_eval_context_response = client.get(
+        f"/agent-tasks/{context_pack_eval_task_id}/context"
+    )
+    assert context_pack_eval_context_response.status_code == 200
+    context_pack_eval_context = context_pack_eval_context_response.json()
+    assert context_pack_eval_context["summary"]["verification_state"] == "passed"
+    assert context_pack_eval_context["summary"]["metrics"]["traceable_claim_ratio"] == 1.0
+    assert context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "passed"
+    assert context_pack_eval_context["output"]["context_pack"]["context_pack_sha256"]
+    assert any(
+        ref["ref_key"] == "document_generation_context_pack_artifact"
+        for ref in context_pack_eval_context["refs"]
+    )
 
     with postgres_integration_harness.session_factory() as session:
         draft_task = create_agent_task(

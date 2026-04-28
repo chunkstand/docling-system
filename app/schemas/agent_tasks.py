@@ -1154,12 +1154,53 @@ class TechnicalReportSkillContract(BaseModel):
     instructions: list[str] = Field(default_factory=list)
 
 
+class DocumentGenerationContextPackPayload(BaseModel):
+    schema_name: str = "document_generation_context_pack"
+    schema_version: str = "1.0"
+    context_pack_id: str
+    harness_task_id: UUID
+    evidence_task_id: UUID
+    plan_task_id: UUID
+    report_request: dict = Field(default_factory=dict)
+    workflow_state: dict = Field(default_factory=dict)
+    context_refs: list[ContextRef] = Field(default_factory=list)
+    retrieval_plan: list[dict] = Field(default_factory=list)
+    evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
+    search_evidence_package_exports: list[dict] = Field(default_factory=list)
+    graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
+    claim_contract: list[dict] = Field(default_factory=list)
+    freshness_summary: dict = Field(default_factory=dict)
+    quality_contract: dict = Field(default_factory=dict)
+    audit_refs: dict = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    expert_alignment: list[dict] = Field(default_factory=list)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+    context_pack_sha256: str | None = None
+
+
+class DocumentGenerationContextPackEvaluationPayload(BaseModel):
+    schema_name: str = "document_generation_context_pack_evaluation"
+    schema_version: str = "1.0"
+    target_task_id: UUID
+    context_pack_id: str
+    context_pack_sha256: str
+    evaluated_at: datetime
+    gate_outcome: str = Field(pattern="^(passed|failed)$")
+    thresholds: dict = Field(default_factory=dict)
+    summary: dict = Field(default_factory=dict)
+    checks: list[dict] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    trace: dict = Field(default_factory=dict)
+    success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
+
+
 class ReportAgentHarnessPayload(BaseModel):
     schema_name: str = "report_agent_harness"
     schema_version: str = "1.0"
     report_request: dict = Field(default_factory=dict)
     workflow_state: dict = Field(default_factory=dict)
     context_refs: list[ContextRef] = Field(default_factory=list)
+    document_generation_context_pack: DocumentGenerationContextPackPayload | None = None
     allowed_tools: list[TechnicalReportToolContract] = Field(default_factory=list)
     required_skills: list[TechnicalReportSkillContract] = Field(default_factory=list)
     retrieval_plan: list[dict] = Field(default_factory=list)
@@ -1182,9 +1223,36 @@ class PrepareReportAgentHarnessTaskInput(BaseModel):
 
 class PrepareReportAgentHarnessTaskOutput(BaseModel):
     harness: ReportAgentHarnessPayload
+    context_pack: DocumentGenerationContextPackPayload | None = None
+    context_pack_artifact_id: UUID | None = None
+    context_pack_artifact_kind: str | None = None
+    context_pack_artifact_path: str | None = None
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+
+
+class EvaluateDocumentGenerationContextPackTaskInput(BaseModel):
+    target_task_id: UUID
+    min_traceable_claim_ratio: float = Field(default=1.0, ge=0.0, le=1.0)
+    min_context_ref_count: int = Field(default=1, ge=0)
+    max_blocked_step_count: int = Field(default=0, ge=0)
+    require_source_evidence_packages: bool = True
+    require_fresh_context: bool = False
+
+
+class EvaluateDocumentGenerationContextPackTaskOutput(BaseModel):
+    harness: ReportAgentHarnessPayload
+    context_pack: DocumentGenerationContextPackPayload
+    evaluation: DocumentGenerationContextPackEvaluationPayload
+    verification: AgentTaskVerificationResponse
+    context_pack_artifact_id: UUID | None = None
+    context_pack_artifact_kind: str | None = None
+    context_pack_artifact_path: str | None = None
+    artifact_id: UUID
+    artifact_kind: str
+    artifact_path: str | None = None
+    operator_run_id: UUID | None = None
 
 
 class TechnicalReportDraftSection(BaseModel):

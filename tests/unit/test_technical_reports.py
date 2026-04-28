@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef
 from app.services.evidence import apply_technical_report_derivation_links, payload_sha256
 from app.services.technical_reports import (
     apply_technical_report_claim_support_judgments,
+    build_document_generation_context_pack,
     build_report_evidence_cards,
     draft_technical_report,
+    evaluate_document_generation_context_pack,
     judge_technical_report_claim_support,
     plan_technical_report,
     prepare_report_agent_harness,
@@ -327,7 +329,14 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert "technical_report_planning" in {
         skill["skill_name"] for skill in harness["required_skills"]
     }
+    assert harness["llm_adapter_contract"]["primary_context_schema"] == (
+        "document_generation_context_pack"
+    )
     assert harness["llm_adapter_contract"]["harness_context_refs"][0]["freshness_status"] == "fresh"
+    assert harness["document_generation_context_pack"]["context_pack_sha256"]
+    assert harness["document_generation_context_pack"]["quality_contract"][
+        "traceable_claim_ratio"
+    ] == 1.0
 
     draft = _add_unit_provenance_locks(draft_technical_report(harness, harness_task_id=uuid4()))
     assert draft["claims"][0]["evidence_card_ids"]
@@ -347,7 +356,10 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert verification.summary["unsupported_support_judgment_count"] == 0
     assert verification.summary["evidence_package_integrity_mismatch_count"] == 0
     assert verification.summary["derivation_integrity_mismatch_count"] == 0
-    assert any(metric["stakeholder"] == "Joshua Yu" for metric in verification.success_metrics)
+    assert any(
+        metric["stakeholder"] == "Joshua Yu + Nicolas Figay"
+        for metric in verification.success_metrics
+    )
     assert any(
         metric["metric_key"] == "frozen_evidence_package" for metric in verification.success_metrics
     )
@@ -355,6 +367,65 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
         metric["metric_key"] == "court_grade_claim_support_gate"
         for metric in verification.success_metrics
     )
+
+
+def test_document_generation_context_pack_can_be_evaluated_before_drafting(
+    monkeypatch,
+) -> None:
+    plan = _plan_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=uuid4())
+    evidence_bundle["search_evidence_package_exports"] = [
+        {
+            "evidence_package_export_id": str(uuid4()),
+            "search_request_id": str(uuid4()),
+            "package_sha256": "source-package-sha",
+            "trace_sha256": "source-trace-sha",
+        }
+    ]
+    context_ref = _fresh_context_ref()
+    harness = prepare_report_agent_harness(
+        evidence_bundle,
+        harness_task_id=uuid4(),
+        evidence_task_id=context_ref.task_id,
+        upstream_context_refs=[context_ref],
+    )
+
+    context_pack = build_document_generation_context_pack(harness)
+    evaluation = evaluate_document_generation_context_pack(
+        context_pack,
+        target_task_id=UUID(str(harness["workflow_state"]["harness_task_id"])),
+    )
+
+    assert context_pack["schema_name"] == "document_generation_context_pack"
+    assert evaluation["gate_outcome"] == "passed"
+    assert evaluation["summary"]["traceable_claim_ratio"] == 1.0
+    assert evaluation["summary"]["source_evidence_package_count"] == 1
+    assert any(
+        metric["stakeholder"] == "Jerry Liu" for metric in context_pack["success_metrics"]
+    )
+
+
+def test_document_generation_context_pack_eval_fails_without_required_context(
+    monkeypatch,
+) -> None:
+    plan = _plan_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    evidence_bundle = build_report_evidence_cards(plan, plan_task_id=uuid4())
+    harness = prepare_report_agent_harness(
+        evidence_bundle,
+        harness_task_id=uuid4(),
+        evidence_task_id=uuid4(),
+        upstream_context_refs=[],
+    )
+
+    evaluation = evaluate_document_generation_context_pack(
+        harness["document_generation_context_pack"],
+        target_task_id=UUID(str(harness["workflow_state"]["harness_task_id"])),
+        require_source_evidence_packages=False,
+    )
+
+    assert evaluation["gate_outcome"] == "failed"
+    assert evaluation["summary"]["context_ref_count"] == 0
+    assert any("context_ref_count failed" in reason for reason in evaluation["reasons"])
 
 
 def test_verification_fails_when_claim_derivation_hash_is_stale(monkeypatch) -> None:

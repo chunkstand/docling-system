@@ -34,6 +34,7 @@ from app.schemas.agent_tasks import (
     DraftSemanticRegistryUpdateTaskOutput,
     DraftTechnicalReportTaskOutput,
     EvaluateClaimSupportJudgeTaskOutput,
+    EvaluateDocumentGenerationContextPackTaskOutput,
     EvaluateSearchHarnessTaskOutput,
     EvaluateSemanticCandidateExtractorTaskOutput,
     EvaluateSemanticRelationExtractorTaskOutput,
@@ -2854,6 +2855,128 @@ def _build_prepare_report_agent_harness_context(
     )
 
 
+def _build_evaluate_document_generation_context_pack_context(
+    session: Session,
+    task: AgentTask,
+    payload: dict,
+    *,
+    action,
+) -> TaskContextEnvelope:
+    output = EvaluateDocumentGenerationContextPackTaskOutput.model_validate(payload)
+    now = utcnow()
+    harness_context = resolve_required_dependency_task_output_context(
+        session,
+        task_id=task.id,
+        depends_on_task_id=output.evaluation.target_task_id,
+        dependency_kind="target_task",
+        expected_task_type="prepare_report_agent_harness",
+        expected_schema_name="prepare_report_agent_harness_output",
+        expected_schema_version="1.0",
+        dependency_error_message=(
+            "Context-pack evaluation must declare the report harness as a target_task dependency."
+        ),
+        rerun_message=(
+            "Report harness must be rerun after the context-pack migration before evaluation."
+        ),
+    )
+    refs: list[ContextRef] = [
+        task_output_context_ref(
+            ref_key="report_agent_harness_task_output",
+            summary="Typed report harness consumed by this context-pack evaluation.",
+            context=harness_context,
+            now=now,
+        )
+    ]
+    if output.context_pack_artifact_id is not None:
+        context_pack_ref = artifact_context_ref(
+            session,
+            task=session.get(AgentTask, output.evaluation.target_task_id) or task,
+            artifact_id=output.context_pack_artifact_id,
+            action=action,
+            ref_key="document_generation_context_pack_artifact",
+            summary="Reusable document-generation context pack evaluated by this task.",
+            now=now,
+        )
+        if context_pack_ref is not None:
+            context_pack_ref.schema_name = "document_generation_context_pack"
+            context_pack_ref.schema_version = output.context_pack.schema_version
+            refs.append(context_pack_ref)
+    verification_row = session.get(AgentTaskVerification, output.verification.verification_id)
+    if verification_row is not None:
+        refs.append(
+            ContextRef(
+                ref_key="verification_record",
+                ref_kind="verification_record",
+                summary="Verifier record persisted for the context-pack quality gate.",
+                task_id=output.evaluation.target_task_id,
+                verification_id=verification_row.id,
+                observed_sha256=payload_sha256(verification_payload(verification_row)),
+                source_updated_at=verification_row.completed_at or verification_row.created_at,
+                checked_at=now,
+                freshness_status=ContextFreshnessStatus.FRESH,
+            )
+        )
+    artifact_ref = artifact_context_ref(
+        session,
+        task=task,
+        artifact_id=output.artifact_id,
+        action=action,
+        ref_key="context_pack_evaluation_artifact",
+        summary="Persisted pre-generation context-pack evaluation artifact.",
+        now=now,
+    )
+    if artifact_ref is not None:
+        refs.append(artifact_ref)
+
+    gate_outcome = output.evaluation.gate_outcome
+    summary = TaskContextSummary(
+        headline=(
+            f"Context pack evaluation {gate_outcome} with "
+            f"{output.evaluation.summary.get('check_count', 0)} check(s)."
+        ),
+        goal="Evaluate the reusable generation context before any report draft is produced.",
+        decision=(
+            "The context pack is ready for draft_technical_report."
+            if gate_outcome == "passed"
+            else "The context pack has quality gaps that should be repaired before drafting."
+        ),
+        next_action=(
+            "Create draft_technical_report from the evaluated report harness."
+            if gate_outcome == "passed"
+            else "Repair the report evidence cards or harness context and rerun evaluation."
+        ),
+        approval_state="not_required",
+        verification_state=gate_outcome,
+        problem="; ".join(output.evaluation.reasons) if output.evaluation.reasons else None,
+        evidence=f"Context pack sha256: {output.evaluation.context_pack_sha256}",
+        metrics={
+            "gate_outcome": gate_outcome,
+            "check_count": output.evaluation.summary.get("check_count"),
+            "failed_check_count": output.evaluation.summary.get("failed_check_count"),
+            "traceable_claim_ratio": output.evaluation.summary.get("traceable_claim_ratio"),
+            "context_ref_count": output.evaluation.summary.get("context_ref_count"),
+            "source_evidence_package_count": output.evaluation.summary.get(
+                "source_evidence_package_count"
+            ),
+            "context_pack_sha256": output.evaluation.context_pack_sha256,
+        },
+    )
+    return TaskContextEnvelope(
+        task_id=task.id,
+        task_type=task.task_type,
+        task_status=task.status,
+        workflow_version=task.workflow_version,
+        generated_at=now,
+        task_updated_at=task.updated_at,
+        output_schema_name=action.output_schema_name,
+        output_schema_version=action.output_schema_version,
+        freshness_status=derive_freshness_status(refs) or ContextFreshnessStatus.FRESH,
+        summary=summary,
+        refs=refs,
+        output=output.model_dump(mode="json"),
+    )
+
+
 def _build_draft_technical_report_context(
     session: Session,
     task: AgentTask,
@@ -3846,6 +3969,9 @@ _CONTEXT_BUILDERS = {
     "plan_technical_report": _build_plan_technical_report_context,
     "build_report_evidence_cards": _build_build_report_evidence_cards_context,
     "prepare_report_agent_harness": _build_prepare_report_agent_harness_context,
+    "evaluate_document_generation_context_pack": (
+        _build_evaluate_document_generation_context_pack_context
+    ),
     "draft_technical_report": _build_draft_technical_report_context,
     "verify_technical_report": _build_verify_technical_report_context,
     "evaluate_claim_support_judge": _build_evaluate_claim_support_judge_context,

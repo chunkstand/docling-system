@@ -33,6 +33,7 @@ MIGRATED_TASK_TYPES = {
     "plan_technical_report",
     "build_report_evidence_cards",
     "prepare_report_agent_harness",
+    "evaluate_document_generation_context_pack",
     "draft_technical_report",
     "verify_technical_report",
     "prepare_semantic_generation_brief",

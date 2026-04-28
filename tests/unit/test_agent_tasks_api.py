@@ -60,6 +60,7 @@ def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrate
         "plan_technical_report",
         "build_report_evidence_cards",
         "prepare_report_agent_harness",
+        "evaluate_document_generation_context_pack",
         "draft_technical_report",
         "verify_technical_report",
         "prepare_semantic_generation_brief",

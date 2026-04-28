@@ -2,9 +2,9 @@
 
 Date: 2026-04-27 local / 2026-04-28 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
-Branch: `main`
+Branch: `codex/document-generation-context-pack`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this handoff update: `5f12b23` (`Harden claim support judge evaluation context`)
+Latest committed checkpoint before this implementation pass: `e75ea17` (`Align docs with claim support evaluation state`)
 
 ## Current Position
 
@@ -16,6 +16,7 @@ Latest committed checkpoint before this handoff update: `5f12b23` (`Harden claim
 - authenticated remote mode and capability-gated API surfaces
 - semantic ontology, fact-graph, and graph-memory workflows that stay additive until verified and approved
 - technical-report generation workflows with claim/evidence packaging, verification, and audit bundles
+- reusable document-generation context packs with pre-draft quality evaluation
 - claim-support judge calibration with persisted replay evaluations and per-case evidence
 - architecture, hygiene, improvement-case, and audit-bundle governance checks
 
@@ -45,13 +46,16 @@ The technical-report workflow is:
 1. `plan_technical_report`
 2. `build_report_evidence_cards`
 3. `prepare_report_agent_harness`
-4. `draft_technical_report`
-5. `verify_technical_report`
+4. `evaluate_document_generation_context_pack`
+5. `draft_technical_report`
+6. `verify_technical_report`
 
 The workflow now preserves claim evidence at several levels:
 
 - report plans and evidence cards are typed task outputs
 - the report harness is a persisted wake-up packet with evidence cards, graph context, claim contract, allowed tools, required skills, and verifier policy
+- `prepare_report_agent_harness` also writes `document_generation_context_pack.json`, a reusable generation input with context refs, retrieval plan, evidence cards, source evidence package refs, graph context, claim contract, freshness summary, quality contract, audit refs, and a stable hash
+- `evaluate_document_generation_context_pack` records a verifier row, operator run, typed context, and evaluation artifact before a draft is generated
 - draft tasks record generation operator runs and persist a frozen claim-derivation evidence package
 - claim provenance locks bind generated claims to evidence cards, search result IDs, source records, and hashes
 - claim-support judgments are applied to generated claims before verification
@@ -71,8 +75,9 @@ The evaluation task replays fixed hard-case fixtures against the technical-repor
 
 ## Current Agent-Task Catalog Notes
 
-The live action registry currently has 46 task types. The newest catalog addition is:
+The live action registry currently has 47 task types. The newest catalog additions are:
 
+- `evaluate_document_generation_context_pack`
 - `evaluate_claim_support_judge`
 
 The durable docs have been updated to include it in the task lists and command examples. Operators can always verify the live catalog with:
@@ -140,9 +145,10 @@ The remaining useful next pass is not another docs update. It is an end-to-end l
 1. create a report plan from an active ingested document
 2. build evidence cards
 3. prepare the report harness
-4. draft a technical report
-5. verify the report
-6. export and inspect the audit bundle
-7. run `evaluate_claim_support_judge`
+4. evaluate the document-generation context pack
+5. draft a technical report
+6. verify the report
+7. export and inspect the audit bundle
+8. run `evaluate_claim_support_judge`
 
 That would validate the full document-generation audit chain against live corpus data rather than only fixtures and isolated integration tests.
