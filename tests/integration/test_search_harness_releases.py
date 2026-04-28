@@ -7,8 +7,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
+
 from app.db.models import (
     AuditBundleExport,
+    AuditBundleValidationReceipt,
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -195,28 +198,45 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
                 created_at=now,
             )
         )
-        session.add(
-            RetrievalTrainingRun(
-                id=training_run_id,
-                judgment_set_id=judgment_set_id,
-                run_kind="materialized_training_dataset",
-                status="completed",
-                search_harness_evaluation_id=evaluation_id,
-                search_harness_release_id=UUID(release_id),
-                training_dataset_sha256=training_dataset_sha256,
-                training_payload_json=training_payload,
-                summary_json={"training_example_count": 2},
-                example_count=2,
-                positive_count=1,
-                negative_count=0,
-                missing_count=0,
-                hard_negative_count=1,
-                created_by="integration",
-                created_at=now,
-                completed_at=now + timedelta(seconds=3),
-            )
+        training_run = RetrievalTrainingRun(
+            id=training_run_id,
+            judgment_set_id=judgment_set_id,
+            run_kind="materialized_training_dataset",
+            status="completed",
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            training_dataset_sha256=training_dataset_sha256,
+            training_payload_json=training_payload,
+            summary_json={"training_example_count": 2},
+            example_count=2,
+            positive_count=1,
+            negative_count=0,
+            missing_count=0,
+            hard_negative_count=1,
+            created_by="integration",
+            created_at=now,
+            completed_at=now + timedelta(seconds=3),
         )
+        session.add(training_run)
         session.flush()
+        training_event = record_semantic_governance_event(
+            session,
+            event_kind="retrieval_training_run_materialized",
+            governance_scope=f"retrieval_training:{training_run_id}",
+            subject_table="retrieval_training_runs",
+            subject_id=training_run_id,
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            event_payload={
+                "retrieval_training_run": {
+                    "retrieval_training_run_id": str(training_run_id),
+                    "training_dataset_sha256": training_dataset_sha256,
+                }
+            },
+            deduplication_key=f"release-audit-training-run:{training_run_id}",
+            created_by="integration",
+        )
+        training_run.semantic_governance_event_id = training_event.id
         session.add(
             RetrievalJudgment(
                 id=judgment_id,
@@ -387,6 +407,12 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["integrity"][
         "training_audit_bundle_hashes_match_training_runs"
     ] is True
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "training_audit_bundle_validation_receipt_count"
+    ] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "training_audit_bundle_validation_receipts_complete"
+    ] is True
     assert audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
         "training_dataset_sha256"
     ] == training_dataset_sha256
@@ -406,6 +432,22 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         training_dataset_sha256
     )
     assert training_audit_bundle_ref["payload_training_dataset_hash_matches"] is True
+    training_validation_receipt_ref = audit_bundle["bundle"]["payload"][
+        "retrieval_training_audit_bundle_validation_receipts"
+    ][0]
+    assert training_validation_receipt_ref["audit_bundle_export_id"] == (
+        training_audit_bundle_ref["bundle_id"]
+    )
+    assert training_validation_receipt_ref["validation_profile"] == (
+        "audit_bundle_validation_v1"
+    )
+    assert training_validation_receipt_ref["validation_status"] == "passed"
+    assert training_validation_receipt_ref["payload_schema_valid"] is True
+    assert training_validation_receipt_ref["prov_graph_valid"] is True
+    assert training_validation_receipt_ref["bundle_integrity_valid"] is True
+    assert training_validation_receipt_ref["source_integrity_valid"] is True
+    assert training_validation_receipt_ref["receipt_sha256"]
+    assert training_validation_receipt_ref["prov_jsonld_sha256"]
     assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     assert any(
         edge["usedEntity"].startswith("docling:retrieval_training_run:")
@@ -430,6 +472,35 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_detail_response.status_code == 200
     assert audit_detail_response.json()["integrity"]["bundle_hash_matches_row"] is True
 
+    validation_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "integration"},
+    )
+    assert validation_response.status_code == 200
+    validation_receipt = validation_response.json()
+    assert validation_response.headers["Location"] == (
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts/"
+        f"{validation_receipt['receipt_id']}"
+    )
+    assert validation_receipt["validation_status"] == "passed"
+    assert validation_receipt["receipt"]["audit_bundle"]["bundle_id"] == (
+        audit_bundle["bundle_id"]
+    )
+    assert validation_receipt["receipt"]["receipt_sha256"] == (
+        validation_receipt["receipt_sha256"]
+    )
+    assert validation_receipt["prov_jsonld"]["@context"]["prov"] == (
+        "http://www.w3.org/ns/prov#"
+    )
+    assert validation_receipt["prov_jsonld"]["@graph"]
+    assert validation_receipt["integrity"]["complete"] is True
+
+    latest_validation_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts/latest"
+    )
+    assert latest_validation_response.status_code == 200
+    assert latest_validation_response.json()["receipt_id"] == validation_receipt["receipt_id"]
+
     with postgres_integration_harness.session_factory() as session:
         row = session.get(AuditBundleExport, audit_bundle["bundle_id"])
         assert row is not None
@@ -441,6 +512,13 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         )
         assert training_bundle_row is not None
         assert training_bundle_row.retrieval_training_run_id == training_run_id
+        validation_receipt_rows = (
+            session.execute(select(AuditBundleValidationReceipt)).scalars().all()
+        )
+        assert {row.audit_bundle_export_id for row in validation_receipt_rows} >= {
+            UUID(training_audit_bundle_ref["bundle_id"]),
+            UUID(audit_bundle["bundle_id"]),
+        }
         storage_path = Path(row.storage_path)
 
     stored_bundle = json.loads(storage_path.read_text())

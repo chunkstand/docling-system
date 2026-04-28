@@ -853,6 +853,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "release": release_payload,
     }
     audit_bundle_id = uuid4()
+    audit_bundle_validation_receipt_id = uuid4()
     audit_bundle_payload = {
         "schema_name": "audit_bundle_export",
         "schema_version": "1.0",
@@ -875,6 +876,38 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
                 "prov": {"wasDerivedFrom": []},
             },
         },
+        "integrity": {"complete": True},
+    }
+    audit_bundle_validation_receipt_payload = {
+        "schema_name": "audit_bundle_validation_receipt",
+        "schema_version": "1.0",
+        "receipt_id": str(audit_bundle_validation_receipt_id),
+        "audit_bundle_export_id": str(audit_bundle_id),
+        "bundle_kind": "search_harness_release_provenance",
+        "source_table": "search_harness_releases",
+        "source_id": str(release_id),
+        "validation_profile": "audit_bundle_validation_v1",
+        "validation_status": "passed",
+        "payload_schema_valid": True,
+        "prov_graph_valid": True,
+        "bundle_integrity_valid": True,
+        "source_integrity_valid": True,
+        "receipt_sha256": "receipt-sha",
+        "prov_jsonld_sha256": "prov-jsonld-sha",
+        "signature": "receipt-sig",
+        "signature_algorithm": "hmac-sha256",
+        "signing_key_id": "test-key",
+        "created_by": "operator",
+        "created_at": "2026-04-21T00:00:05Z",
+        "receipt": {
+            "schema_name": "audit_bundle_validation_receipt",
+            "validation_status": "passed",
+        },
+        "prov_jsonld": {
+            "@context": {"prov": "http://www.w3.org/ns/prov#"},
+            "@graph": [{"@id": "docling:audit_bundle_export:test"}],
+        },
+        "validation_errors": [],
         "integrity": {"complete": True},
     }
     training_audit_bundle_payload = {
@@ -958,6 +991,21 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         lambda session, lookup_bundle_id, *, storage_service: {
             **audit_bundle_payload,
             "bundle_id": str(lookup_bundle_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.create_audit_bundle_validation_receipt",
+        lambda session, lookup_bundle_id, payload, *, storage_service: {
+            **audit_bundle_validation_receipt_payload,
+            "audit_bundle_export_id": str(lookup_bundle_id),
+            "created_by": payload.created_by,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_latest_audit_bundle_validation_receipt",
+        lambda session, lookup_bundle_id, *, storage_service: {
+            **audit_bundle_validation_receipt_payload,
+            "audit_bundle_export_id": str(lookup_bundle_id),
         },
     )
     monkeypatch.setattr(
@@ -1108,6 +1156,26 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     assert audit_detail_response.status_code == 200
     assert audit_detail_response.json()["bundle_id"] == str(audit_bundle_id)
 
+    receipt_response = client.post(
+        f"/search/audit-bundles/{audit_bundle_id}/validation-receipts",
+        json={"created_by": "operator"},
+    )
+    assert receipt_response.status_code == 200
+    assert receipt_response.headers["Location"] == (
+        f"/search/audit-bundles/{audit_bundle_id}/validation-receipts/"
+        f"{audit_bundle_validation_receipt_id}"
+    )
+    assert receipt_response.json()["validation_status"] == "passed"
+    assert receipt_response.json()["created_by"] == "operator"
+
+    latest_receipt_response = client.get(
+        f"/search/audit-bundles/{audit_bundle_id}/validation-receipts/latest"
+    )
+    assert latest_receipt_response.status_code == 200
+    assert latest_receipt_response.json()["receipt_id"] == str(
+        audit_bundle_validation_receipt_id
+    )
+
 
 def test_search_harness_descriptor_route_returns_machine_readable_error(monkeypatch) -> None:
     monkeypatch.setattr(
@@ -1249,6 +1317,30 @@ def test_search_audit_bundle_create_route_returns_machine_readable_signing_key_e
     assert response.status_code == 409
     assert response.json()["error_code"] == "audit_bundle_signing_key_missing"
     assert response.json()["error_context"]["release_id"] == str(release_id)
+
+
+def test_search_audit_bundle_validation_receipt_latest_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    bundle_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_latest_audit_bundle_validation_receipt",
+        lambda session, lookup_bundle_id, *, storage_service: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "audit_bundle_validation_receipt_not_found",
+                "Audit bundle validation receipt not found.",
+                bundle_id=str(lookup_bundle_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/audit-bundles/{bundle_id}/validation-receipts/latest")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "audit_bundle_validation_receipt_not_found"
+    assert response.json()["error_context"]["bundle_id"] == str(bundle_id)
 
 
 def test_retrieval_training_audit_bundle_latest_route_returns_machine_readable_error(

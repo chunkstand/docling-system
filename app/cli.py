@@ -17,6 +17,7 @@ from app.schemas.agent_tasks import (
     VerifySearchHarnessEvaluationTaskInput,
 )
 from app.schemas.search import (
+    AuditBundleValidationReceiptRequest,
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessEvaluationRequest,
@@ -197,6 +198,13 @@ def create_retrieval_training_run_audit_bundle(*args, **kwargs):
     return _lazy_service_attr(
         "app.services.audit_bundles",
         "create_retrieval_training_run_audit_bundle",
+    )(*args, **kwargs)
+
+
+def create_audit_bundle_validation_receipt(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.audit_bundles",
+        "create_audit_bundle_validation_receipt",
     )(*args, **kwargs)
 
 
@@ -1133,6 +1141,31 @@ def run_retrieval_training_run_audit_bundle() -> None:
         )
         session.commit()
     print(json.dumps(bundle.model_dump(mode="json")))
+
+
+def run_audit_bundle_validation_receipt() -> None:
+    parser = argparse.ArgumentParser(
+        description="Validate a signed audit bundle and export a signed receipt."
+    )
+    parser.add_argument("bundle_id", help="Audit bundle export UUID.")
+    parser.add_argument(
+        "--created-by",
+        default=None,
+        help="Optional receipt creator identifier.",
+    )
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    storage_service = StorageService()
+    with session_factory() as session:
+        receipt = create_audit_bundle_validation_receipt(
+            session,
+            UUID(args.bundle_id),
+            AuditBundleValidationReceiptRequest(created_by=args.created_by),
+            storage_service=storage_service,
+        )
+        session.commit()
+    print(json.dumps(receipt.model_dump(mode="json")))
 
 
 def run_optimize_search_harness() -> None:

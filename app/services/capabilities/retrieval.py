@@ -13,6 +13,8 @@ from app.schemas.chat import (
 )
 from app.schemas.search import (
     AuditBundleExportResponse,
+    AuditBundleValidationReceiptRequest,
+    AuditBundleValidationReceiptResponse,
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
@@ -228,6 +230,23 @@ class RetrievalCapability(Protocol):
         *,
         storage_service: StorageService,
     ) -> AuditBundleExportResponse: ...
+
+    def create_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        payload: AuditBundleValidationReceiptRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse: ...
+
+    def get_latest_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse: ...
 
     def evaluate_retrieval_learning_candidate(
         self,
@@ -508,6 +527,34 @@ class ServicesRetrievalCapability:
         storage_service: StorageService,
     ) -> AuditBundleExportResponse:
         return audit_bundles.get_audit_bundle_export(
+            session,
+            bundle_id,
+            storage_service=storage_service,
+        )
+
+    def create_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        payload: AuditBundleValidationReceiptRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse:
+        return audit_bundles.create_audit_bundle_validation_receipt(
+            session,
+            bundle_id,
+            payload,
+            storage_service=storage_service,
+        )
+
+    def get_latest_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse:
+        return audit_bundles.get_latest_audit_bundle_validation_receipt(
             session,
             bundle_id,
             storage_service=storage_service,

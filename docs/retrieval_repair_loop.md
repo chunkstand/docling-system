@@ -73,12 +73,16 @@ Inspection surfaces:
 - `POST /search/retrieval-training-runs/{training_run_id}/audit-bundles`
 - `GET /search/retrieval-training-runs/{training_run_id}/audit-bundles/latest`
 - `GET /search/audit-bundles/{bundle_id}`
+- `POST /search/audit-bundles/{bundle_id}/validation-receipts`
+- `GET /search/audit-bundles/{bundle_id}/validation-receipts/latest`
 - `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
   prints both the evaluation and persisted release gate
 - `docling-system-search-harness-release-audit-bundle <release_id>`, which exports a
   signed immutable audit bundle for a persisted release gate
 - `docling-system-retrieval-training-run-audit-bundle <training_run_id>`, which
   exports a signed immutable audit bundle for a materialized retrieval training run
+- `docling-system-audit-bundle-validation-receipt <bundle_id>`, which validates a
+  signed bundle and emits a signed receipt plus a PROV JSON-LD export
 - `verify_search_harness_evaluation`, which writes a release gate when the target
   evaluation is durable and links the `release_id` in verifier details
 
@@ -118,10 +122,15 @@ PROV-style graph. Search harness release audit bundles include any linked
 sets, the associated governance events, and references to the latest signed training
 audit bundle hash for each linked training run. If a linked completed training run has
 no current matching training audit bundle, release-bundle export freezes one before
-signing the release bundle. The database enforces that audit bundle source IDs match
-their concrete release or training-run foreign keys. That keeps the signed release
-package traceable from release gate back to the exact auditable dataset that
-influenced the candidate.
+signing the release bundle. Release-bundle export also validates every linked training
+audit bundle and embeds the resulting validation-receipt references before signing.
+Validation receipts are immutable database rows with canonical `receipt.json`,
+standards-facing `prov.jsonld`, schema/source/integrity check flags, receipt hash,
+PROV export hash, and HMAC signature. The database enforces that audit bundle source
+IDs match their concrete release or training-run foreign keys. That keeps the signed
+release package traceable from release gate back to the exact auditable dataset that
+influenced the candidate, and gives downstream document-generation workflows a
+court-facing receipt they can re-check independently of the bundle payload.
 
 ## Multivector Retrieval Repair Surface
 

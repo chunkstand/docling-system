@@ -17,6 +17,7 @@ from app.core.config import get_settings
 from app.core.time import utcnow
 from app.db.models import (
     AuditBundleExport,
+    AuditBundleValidationReceipt,
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -31,6 +32,9 @@ from app.db.models import (
 from app.schemas.search import (
     AuditBundleExportResponse,
     AuditBundleExportSummaryResponse,
+    AuditBundleValidationReceiptRequest,
+    AuditBundleValidationReceiptResponse,
+    AuditBundleValidationReceiptSummaryResponse,
     RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessReleaseAuditBundleRequest,
 )
@@ -41,6 +45,7 @@ SEARCH_HARNESS_RELEASE_SOURCE_TABLE = "search_harness_releases"
 RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND = "retrieval_training_run_provenance"
 RETRIEVAL_TRAINING_RUN_SOURCE_TABLE = "retrieval_training_runs"
 SIGNATURE_ALGORITHM = "hmac-sha256"
+AUDIT_BUNDLE_VALIDATION_PROFILE = "audit_bundle_validation_v1"
 
 
 def _payload_sha256(payload: Any) -> str:
@@ -68,6 +73,15 @@ def _audit_bundle_not_found(bundle_id: UUID) -> HTTPException:
         status.HTTP_404_NOT_FOUND,
         "audit_bundle_export_not_found",
         "Audit bundle export not found.",
+        bundle_id=str(bundle_id),
+    )
+
+
+def _audit_bundle_validation_receipt_not_found(bundle_id: UUID) -> HTTPException:
+    return api_error(
+        status.HTTP_404_NOT_FOUND,
+        "audit_bundle_validation_receipt_not_found",
+        "Audit bundle validation receipt not found.",
         bundle_id=str(bundle_id),
     )
 
@@ -437,6 +451,31 @@ def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
     }
 
 
+def _validation_receipt_reference_payload(
+    row: AuditBundleValidationReceipt,
+) -> dict[str, Any]:
+    return {
+        "receipt_id": str(row.id),
+        "audit_bundle_export_id": str(row.audit_bundle_export_id),
+        "bundle_kind": row.bundle_kind,
+        "source_table": row.source_table,
+        "source_id": str(row.source_id),
+        "validation_profile": row.validation_profile,
+        "validation_status": row.validation_status,
+        "payload_schema_valid": row.payload_schema_valid,
+        "prov_graph_valid": row.prov_graph_valid,
+        "bundle_integrity_valid": row.bundle_integrity_valid,
+        "source_integrity_valid": row.source_integrity_valid,
+        "receipt_sha256": row.receipt_sha256,
+        "prov_jsonld_sha256": row.prov_jsonld_sha256,
+        "signature": row.signature,
+        "signature_algorithm": row.signature_algorithm,
+        "signing_key_id": row.signing_key_id,
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
 def _semantic_governance_event_payload(row: SemanticGovernanceEvent) -> dict[str, Any]:
     return {
         "event_id": str(row.id),
@@ -544,6 +583,439 @@ def _training_audit_bundle_matches_training_run(
             payload_integrity.get("training_dataset_hash_matches") is True,
         )
     )
+
+
+def _validation_error(code: str, message: str, path: str) -> dict[str, str]:
+    return {"code": code, "message": message, "path": path}
+
+
+def _append_missing_key_errors(
+    errors: list[dict[str, str]],
+    payload: dict[str, Any],
+    required_keys: tuple[str, ...],
+    *,
+    path: str,
+) -> None:
+    for key in required_keys:
+        if key not in payload:
+            errors.append(
+                _validation_error(
+                    "required_key_missing",
+                    f"Required key `{key}` is missing.",
+                    f"{path}.{key}",
+                )
+            )
+
+
+def _append_required_list_error(
+    errors: list[dict[str, str]],
+    payload: dict[str, Any],
+    key: str,
+    *,
+    path: str,
+) -> None:
+    if not isinstance(payload.get(key), list):
+        errors.append(
+            _validation_error(
+                "required_list_missing",
+                f"Required list `{key}` is missing.",
+                f"{path}.{key}",
+            )
+        )
+
+
+def _validate_bundle_payload_schema(
+    *,
+    row: AuditBundleExport,
+    bundle: dict[str, Any],
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    if bundle.get("schema_name") != "audit_bundle_export":
+        errors.append(
+            _validation_error(
+                "invalid_bundle_schema",
+                "Bundle schema_name must be audit_bundle_export.",
+                "bundle.schema_name",
+            )
+        )
+    export = bundle.get("bundle_export")
+    payload = bundle.get("payload")
+    if not isinstance(export, dict):
+        errors.append(
+            _validation_error(
+                "bundle_export_missing",
+                "Bundle export metadata must be present.",
+                "bundle.bundle_export",
+            )
+        )
+        export = {}
+    if not isinstance(payload, dict):
+        errors.append(
+            _validation_error(
+                "payload_missing",
+                "Bundle payload must be present.",
+                "bundle.payload",
+            )
+        )
+        payload = {}
+    for key in ("bundle_id", "bundle_kind", "source_table", "source_id", "payload_sha256"):
+        if export.get(key) is None:
+            errors.append(
+                _validation_error(
+                    "bundle_export_field_missing",
+                    f"Bundle export field `{key}` is missing.",
+                    f"bundle.bundle_export.{key}",
+                )
+            )
+    if export.get("bundle_id") != str(row.id):
+        errors.append(
+            _validation_error(
+                "bundle_id_mismatch",
+                "Bundle export id does not match the database row.",
+                "bundle.bundle_export.bundle_id",
+            )
+        )
+    if export.get("bundle_kind") != row.bundle_kind:
+        errors.append(
+            _validation_error(
+                "bundle_kind_mismatch",
+                "Bundle export kind does not match the database row.",
+                "bundle.bundle_export.bundle_kind",
+            )
+        )
+    if row.bundle_kind == SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND:
+        if payload.get("schema_name") != "search_harness_release_audit_payload":
+            errors.append(
+                _validation_error(
+                    "invalid_release_payload_schema",
+                    "Release audit payload schema_name is invalid.",
+                    "bundle.payload.schema_name",
+                )
+            )
+        _append_missing_key_errors(
+            errors,
+            payload,
+            (
+                "release",
+                "evaluation",
+                "evaluation_sources",
+                "replay_runs",
+                "retrieval_learning_candidates",
+                "retrieval_training_runs",
+                "retrieval_training_audit_bundles",
+                "retrieval_training_audit_bundle_validation_receipts",
+                "semantic_governance_events",
+                "audit_checklist",
+                "integrity",
+                "prov",
+            ),
+            path="bundle.payload",
+        )
+        for key in (
+            "evaluation_sources",
+            "replay_runs",
+            "retrieval_learning_candidates",
+            "retrieval_training_runs",
+            "retrieval_training_audit_bundles",
+            "retrieval_training_audit_bundle_validation_receipts",
+            "semantic_governance_events",
+        ):
+            _append_required_list_error(errors, payload, key, path="bundle.payload")
+        audit_checklist = payload.get("audit_checklist") or {}
+        integrity = payload.get("integrity") or {}
+        if audit_checklist.get("complete") is not True:
+            errors.append(
+                _validation_error(
+                    "audit_checklist_incomplete",
+                    "Release audit checklist is not complete.",
+                    "bundle.payload.audit_checklist.complete",
+                )
+            )
+        if integrity.get("training_audit_bundle_hashes_match_training_runs") is not True:
+            errors.append(
+                _validation_error(
+                    "training_bundle_hash_mismatch",
+                    "Training audit bundle hashes must match linked training runs.",
+                    "bundle.payload.integrity.training_audit_bundle_hashes_match_training_runs",
+                )
+            )
+    elif row.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND:
+        if payload.get("schema_name") != "retrieval_training_run_audit_payload":
+            errors.append(
+                _validation_error(
+                    "invalid_training_payload_schema",
+                    "Retrieval training audit payload schema_name is invalid.",
+                    "bundle.payload.schema_name",
+                )
+            )
+        _append_missing_key_errors(
+            errors,
+            payload,
+            (
+                "retrieval_training_run",
+                "retrieval_judgment_set",
+                "retrieval_judgments",
+                "retrieval_hard_negatives",
+                "source_payload_hashes",
+                "semantic_governance_events",
+                "audit_checklist",
+                "integrity",
+                "prov",
+            ),
+            path="bundle.payload",
+        )
+        for key in (
+            "retrieval_judgments",
+            "retrieval_hard_negatives",
+            "source_payload_hashes",
+            "semantic_governance_events",
+        ):
+            _append_required_list_error(errors, payload, key, path="bundle.payload")
+        audit_checklist = payload.get("audit_checklist") or {}
+        integrity = payload.get("integrity") or {}
+        if audit_checklist.get("complete") is not True:
+            errors.append(
+                _validation_error(
+                    "audit_checklist_incomplete",
+                    "Training audit checklist is not complete.",
+                    "bundle.payload.audit_checklist.complete",
+                )
+            )
+        if integrity.get("training_dataset_hash_matches") is not True:
+            errors.append(
+                _validation_error(
+                    "training_dataset_hash_mismatch",
+                    "Training dataset hash must match the canonical payload.",
+                    "bundle.payload.integrity.training_dataset_hash_matches",
+                )
+            )
+    else:
+        errors.append(
+            _validation_error(
+                "unsupported_bundle_kind",
+                "Audit bundle kind is not supported by the validation profile.",
+                "bundle.bundle_export.bundle_kind",
+            )
+        )
+    return errors
+
+
+def _validate_bundle_source_integrity(
+    *,
+    row: AuditBundleExport,
+    bundle: dict[str, Any],
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    export = bundle.get("bundle_export") or {}
+    payload = bundle.get("payload") or {}
+    source = payload.get("source") or {}
+    expected = {
+        "bundle_kind": row.bundle_kind,
+        "source_table": row.source_table,
+        "source_id": str(row.source_id),
+    }
+    for key, expected_value in expected.items():
+        if export.get(key) != expected_value:
+            errors.append(
+                _validation_error(
+                    "bundle_export_source_mismatch",
+                    f"Bundle export `{key}` does not match the database row.",
+                    f"bundle.bundle_export.{key}",
+                )
+            )
+    if source.get("source_table") != row.source_table:
+        errors.append(
+            _validation_error(
+                "payload_source_table_mismatch",
+                "Payload source_table does not match the database row.",
+                "bundle.payload.source.source_table",
+            )
+        )
+    if source.get("source_id") != str(row.source_id):
+        errors.append(
+            _validation_error(
+                "payload_source_id_mismatch",
+                "Payload source_id does not match the database row.",
+                "bundle.payload.source.source_id",
+            )
+        )
+    if row.bundle_kind == SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND:
+        if row.search_harness_release_id != row.source_id or row.retrieval_training_run_id:
+            errors.append(
+                _validation_error(
+                    "release_source_fk_mismatch",
+                    "Release bundle source fields do not match release foreign keys.",
+                    "audit_bundle_exports.search_harness_release_id",
+                )
+            )
+    if row.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND:
+        if row.retrieval_training_run_id != row.source_id:
+            errors.append(
+                _validation_error(
+                    "training_source_fk_mismatch",
+                    "Training bundle source fields do not match training run foreign keys.",
+                    "audit_bundle_exports.retrieval_training_run_id",
+                )
+            )
+        training_run = payload.get("retrieval_training_run") or {}
+        if training_run.get("retrieval_training_run_id") != str(row.source_id):
+            errors.append(
+                _validation_error(
+                    "training_payload_id_mismatch",
+                    "Training payload id does not match the bundle source id.",
+                    "bundle.payload.retrieval_training_run.retrieval_training_run_id",
+                )
+            )
+    return errors
+
+
+def _prov_jsonld_node(node_id: str, attrs: dict[str, Any], fallback_type: str) -> dict[str, Any]:
+    node = {"@id": node_id, "@type": attrs.get("prov:type") or fallback_type}
+    for key, value in sorted(attrs.items()):
+        if key == "prov:type":
+            continue
+        node[key] = value
+    return node
+
+
+def _edge_id(edge_type: str, edge: dict[str, Any]) -> str:
+    return "docling:edge:" + _payload_sha256({"edge_type": edge_type, "edge": edge})[:32]
+
+
+def _prov_jsonld_from_graph(prov: dict[str, Any]) -> dict[str, Any]:
+    graph: list[dict[str, Any]] = []
+    for entity_id, attrs in sorted((prov.get("entity") or {}).items()):
+        graph.append(_prov_jsonld_node(entity_id, attrs, "prov:Entity"))
+    for activity_id, attrs in sorted((prov.get("activity") or {}).items()):
+        graph.append(_prov_jsonld_node(activity_id, attrs, "prov:Activity"))
+    for agent_id, attrs in sorted((prov.get("agent") or {}).items()):
+        graph.append(_prov_jsonld_node(agent_id, attrs, "prov:Agent"))
+    edge_specs = (
+        ("wasGeneratedBy", "prov:Generation"),
+        ("used", "prov:Usage"),
+        ("wasDerivedFrom", "prov:Derivation"),
+        ("wasAssociatedWith", "prov:Association"),
+    )
+    for edge_key, edge_type in edge_specs:
+        for edge in prov.get(edge_key) or []:
+            node = {"@id": _edge_id(edge_key, edge), "@type": edge_type}
+            for key, value in sorted(edge.items()):
+                if isinstance(value, str) and key in {
+                    "entity",
+                    "activity",
+                    "agent",
+                    "generatedEntity",
+                    "usedEntity",
+                }:
+                    node[f"prov:{key}"] = {"@id": value}
+                else:
+                    node[f"prov:{key}"] = value
+            graph.append(node)
+    return {
+        "@context": {
+            "prov": "http://www.w3.org/ns/prov#",
+            "docling": "https://local.docling-system/prov#",
+        },
+        "@graph": graph,
+    }
+
+
+def _validate_prov_graph(bundle: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    errors: list[dict[str, str]] = []
+    payload = bundle.get("payload") or {}
+    prov = payload.get("prov") or {}
+    if not isinstance(prov, dict):
+        return {}, [
+            _validation_error(
+                "prov_graph_missing",
+                "PROV graph must be present.",
+                "bundle.payload.prov",
+            )
+        ]
+    entities = set((prov.get("entity") or {}).keys())
+    activities = set((prov.get("activity") or {}).keys())
+    agents = set((prov.get("agent") or {}).keys())
+    if not entities:
+        errors.append(
+            _validation_error("prov_entities_missing", "PROV graph has no entities.", "prov.entity")
+        )
+    if not activities:
+        errors.append(
+            _validation_error(
+                "prov_activities_missing",
+                "PROV graph has no activities.",
+                "prov.activity",
+            )
+        )
+    for index, edge in enumerate(prov.get("wasGeneratedBy") or []):
+        if edge.get("entity") not in entities:
+            errors.append(
+                _validation_error(
+                    "prov_generated_entity_missing",
+                    "wasGeneratedBy references a missing entity.",
+                    f"prov.wasGeneratedBy[{index}].entity",
+                )
+            )
+        if edge.get("activity") not in activities:
+            errors.append(
+                _validation_error(
+                    "prov_generation_activity_missing",
+                    "wasGeneratedBy references a missing activity.",
+                    f"prov.wasGeneratedBy[{index}].activity",
+                )
+            )
+    for index, edge in enumerate(prov.get("used") or []):
+        if edge.get("activity") not in activities:
+            errors.append(
+                _validation_error(
+                    "prov_usage_activity_missing",
+                    "used references a missing activity.",
+                    f"prov.used[{index}].activity",
+                )
+            )
+        if edge.get("entity") not in entities:
+            errors.append(
+                _validation_error(
+                    "prov_usage_entity_missing",
+                    "used references a missing entity.",
+                    f"prov.used[{index}].entity",
+                )
+            )
+    for index, edge in enumerate(prov.get("wasDerivedFrom") or []):
+        if edge.get("generatedEntity") not in entities:
+            errors.append(
+                _validation_error(
+                    "prov_derivation_generated_entity_missing",
+                    "wasDerivedFrom references a missing generated entity.",
+                    f"prov.wasDerivedFrom[{index}].generatedEntity",
+                )
+            )
+        if edge.get("usedEntity") not in entities:
+            errors.append(
+                _validation_error(
+                    "prov_derivation_used_entity_missing",
+                    "wasDerivedFrom references a missing used entity.",
+                    f"prov.wasDerivedFrom[{index}].usedEntity",
+                )
+            )
+    for index, edge in enumerate(prov.get("wasAssociatedWith") or []):
+        if edge.get("activity") not in activities:
+            errors.append(
+                _validation_error(
+                    "prov_association_activity_missing",
+                    "wasAssociatedWith references a missing activity.",
+                    f"prov.wasAssociatedWith[{index}].activity",
+                )
+            )
+        if edge.get("agent") not in agents:
+            errors.append(
+                _validation_error(
+                    "prov_association_agent_missing",
+                    "wasAssociatedWith references a missing agent.",
+                    f"prov.wasAssociatedWith[{index}].agent",
+                )
+            )
+    return _prov_jsonld_from_graph(prov), errors
 
 
 def _release_package_sha256(row: SearchHarnessRelease) -> str:
@@ -1199,6 +1671,37 @@ def _build_search_harness_release_payload(
         for training_run_id in training_run_ids
         if training_run_id in latest_training_audit_bundles_by_run_id
     ]
+    training_audit_bundle_ids = [row.id for row in ordered_training_audit_bundles]
+    validation_receipt_rows = (
+        session.execute(
+            select(AuditBundleValidationReceipt)
+            .where(
+                AuditBundleValidationReceipt.audit_bundle_export_id.in_(
+                    training_audit_bundle_ids
+                )
+            )
+            .order_by(
+                AuditBundleValidationReceipt.audit_bundle_export_id.asc(),
+                AuditBundleValidationReceipt.created_at.desc(),
+                AuditBundleValidationReceipt.id.asc(),
+            )
+        )
+        .scalars()
+        .all()
+        if training_audit_bundle_ids
+        else []
+    )
+    latest_validation_receipts_by_bundle_id: dict[UUID, AuditBundleValidationReceipt] = {}
+    for receipt in validation_receipt_rows:
+        latest_validation_receipts_by_bundle_id.setdefault(
+            receipt.audit_bundle_export_id,
+            receipt,
+        )
+    ordered_training_validation_receipts = [
+        latest_validation_receipts_by_bundle_id[bundle.id]
+        for bundle in ordered_training_audit_bundles
+        if bundle.id in latest_validation_receipts_by_bundle_id
+    ]
     training_audit_bundle_match_checks = []
     for training_run in ordered_training_runs:
         bundle = latest_training_audit_bundles_by_run_id.get(training_run.id)
@@ -1235,6 +1738,10 @@ def _build_search_harness_release_payload(
         len(training_audit_bundle_match_checks) == len(training_run_ids)
         and all(row["complete"] for row in training_audit_bundle_match_checks)
     )
+    training_audit_bundle_validation_receipts_complete = (
+        len(ordered_training_validation_receipts) == len(ordered_training_audit_bundles)
+        and all(row.validation_status == "passed" for row in ordered_training_validation_receipts)
+    )
     audit_checklist = {
         "has_release_record": True,
         "has_evaluation_record": evaluation is not None,
@@ -1248,6 +1755,9 @@ def _build_search_harness_release_payload(
         "training_audit_bundle_trace_complete": training_audit_bundle_trace_complete,
         "training_audit_bundle_hashes_match_training_runs": (
             training_audit_bundle_hashes_match_training_runs
+        ),
+        "training_audit_bundle_validation_receipts_complete": (
+            training_audit_bundle_validation_receipts_complete
         ),
         "has_prov_graph": True,
     }
@@ -1280,6 +1790,10 @@ def _build_search_harness_release_payload(
         "retrieval_training_audit_bundles": [
             _audit_bundle_reference_payload(row) for row in ordered_training_audit_bundles
         ],
+        "retrieval_training_audit_bundle_validation_receipts": [
+            _validation_receipt_reference_payload(row)
+            for row in ordered_training_validation_receipts
+        ],
         "retrieval_judgment_sets": [
             _retrieval_judgment_set_payload(row) for row in ordered_judgment_sets
         ],
@@ -1302,6 +1816,15 @@ def _build_search_harness_release_payload(
                 training_audit_bundle_hashes_match_training_runs
             ),
             "training_audit_bundle_match_checks": training_audit_bundle_match_checks,
+            "training_audit_bundle_validation_receipt_count": len(
+                ordered_training_validation_receipts
+            ),
+            "expected_training_audit_bundle_validation_receipt_count": len(
+                ordered_training_audit_bundles
+            ),
+            "training_audit_bundle_validation_receipts_complete": (
+                training_audit_bundle_validation_receipts_complete
+            ),
             "judgment_set_count": len(ordered_judgment_sets),
             "expected_judgment_set_count": len(judgment_set_ids),
             "semantic_governance_event_count": len(ordered_governance_events),
@@ -1450,6 +1973,325 @@ def _to_response(
     )
 
 
+def _receipt_core(receipt: dict[str, Any]) -> dict[str, Any]:
+    normalized = json.loads(json.dumps(receipt, default=str, sort_keys=True))
+    normalized.pop("receipt_sha256", None)
+    normalized.pop("signature", None)
+    normalized.pop("signature_algorithm", None)
+    normalized.pop("signing_key_id", None)
+    return normalized
+
+
+def _receipt_sha256(receipt: dict[str, Any]) -> str:
+    return _payload_sha256(_receipt_core(receipt))
+
+
+def _validation_receipt_matches_bundle(
+    receipt: AuditBundleValidationReceipt | None,
+    bundle: AuditBundleExport,
+) -> bool:
+    if receipt is None or receipt.validation_status != "passed":
+        return False
+    payload = receipt.receipt_payload_json or {}
+    audit_bundle = payload.get("audit_bundle") or {}
+    return all(
+        (
+            receipt.audit_bundle_export_id == bundle.id,
+            audit_bundle.get("bundle_id") == str(bundle.id),
+            audit_bundle.get("payload_sha256") == bundle.payload_sha256,
+            audit_bundle.get("bundle_sha256") == bundle.bundle_sha256,
+            payload.get("validation_status") == "passed",
+        )
+    )
+
+
+def _validate_audit_bundle(
+    *,
+    row: AuditBundleExport,
+    bundle: dict[str, Any],
+    storage_service: StorageService,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, str]]]:
+    bundle_integrity = _verify_bundle(row, bundle, storage_service)
+    schema_errors = _validate_bundle_payload_schema(row=row, bundle=bundle)
+    source_errors = _validate_bundle_source_integrity(row=row, bundle=bundle)
+    prov_jsonld, prov_errors = _validate_prov_graph(bundle)
+    errors = [*schema_errors, *source_errors, *prov_errors]
+    if not bundle_integrity.get("complete"):
+        errors.append(
+            _validation_error(
+                "bundle_integrity_failed",
+                "Stored bundle hash, file, or signature integrity failed.",
+                "audit_bundle.integrity",
+            )
+        )
+    checks = {
+        "payload_schema_valid": not schema_errors,
+        "prov_graph_valid": not prov_errors,
+        "bundle_integrity_valid": bool(bundle_integrity.get("complete")),
+        "source_integrity_valid": not source_errors,
+    }
+    checks["complete"] = all(checks.values())
+    return checks, prov_jsonld, errors
+
+
+def _to_validation_receipt_summary(
+    row: AuditBundleValidationReceipt,
+) -> AuditBundleValidationReceiptSummaryResponse:
+    return AuditBundleValidationReceiptSummaryResponse(
+        receipt_id=row.id,
+        audit_bundle_export_id=row.audit_bundle_export_id,
+        bundle_kind=row.bundle_kind,
+        source_table=row.source_table,
+        source_id=row.source_id,
+        validation_profile=row.validation_profile,
+        validation_status=row.validation_status,
+        payload_schema_valid=row.payload_schema_valid,
+        prov_graph_valid=row.prov_graph_valid,
+        bundle_integrity_valid=row.bundle_integrity_valid,
+        source_integrity_valid=row.source_integrity_valid,
+        receipt_sha256=row.receipt_sha256,
+        prov_jsonld_sha256=row.prov_jsonld_sha256,
+        signature=row.signature,
+        signature_algorithm=row.signature_algorithm,
+        signing_key_id=row.signing_key_id,
+        created_by=row.created_by,
+        created_at=row.created_at,
+    )
+
+
+def _verify_validation_receipt(
+    row: AuditBundleValidationReceipt,
+    *,
+    storage_service: StorageService,
+) -> dict[str, Any]:
+    receipt_path = storage_service.resolve_existing_path(row.receipt_storage_path)
+    prov_path = storage_service.resolve_existing_path(row.prov_jsonld_storage_path)
+    receipt_payload = (
+        json.loads(receipt_path.read_text())
+        if receipt_path is not None
+        else row.receipt_payload_json
+    )
+    prov_jsonld = (
+        json.loads(prov_path.read_text())
+        if prov_path is not None
+        else row.prov_jsonld_json
+    )
+    try:
+        signing_key, _key_id = _signing_key()
+        signature_valid = hmac.compare_digest(
+            row.signature,
+            _signature(row.receipt_sha256, signing_key),
+        )
+        signature_verification_status = "verified" if signature_valid else "mismatch"
+    except HTTPException:
+        signature_valid = False
+        signature_verification_status = "signing_key_missing"
+    checks = {
+        "receipt_file_exists": receipt_path is not None,
+        "prov_jsonld_file_exists": prov_path is not None,
+        "receipt_hash_matches_row": _receipt_sha256(receipt_payload) == row.receipt_sha256,
+        "receipt_hash_matches_payload": (
+            _receipt_sha256(receipt_payload) == receipt_payload.get("receipt_sha256")
+        ),
+        "prov_jsonld_hash_matches_row": _payload_sha256(prov_jsonld) == row.prov_jsonld_sha256,
+        "stored_receipt_matches_file": bool(row.receipt_payload_json == receipt_payload),
+        "stored_prov_jsonld_matches_file": bool(row.prov_jsonld_json == prov_jsonld),
+        "signature_valid": signature_valid,
+    }
+    checks["complete"] = all(bool(value) for value in checks.values())
+    checks["signature_verification_status"] = signature_verification_status
+    return checks
+
+
+def _to_validation_receipt_response(
+    row: AuditBundleValidationReceipt,
+    *,
+    storage_service: StorageService,
+) -> AuditBundleValidationReceiptResponse:
+    receipt_path = storage_service.resolve_existing_path(row.receipt_storage_path)
+    prov_path = storage_service.resolve_existing_path(row.prov_jsonld_storage_path)
+    receipt = (
+        json.loads(receipt_path.read_text())
+        if receipt_path is not None
+        else row.receipt_payload_json
+    )
+    prov_jsonld = (
+        json.loads(prov_path.read_text())
+        if prov_path is not None
+        else row.prov_jsonld_json
+    )
+    return AuditBundleValidationReceiptResponse(
+        **_to_validation_receipt_summary(row).model_dump(),
+        receipt=receipt,
+        prov_jsonld=prov_jsonld,
+        validation_errors=row.validation_errors_json or [],
+        integrity=_verify_validation_receipt(row, storage_service=storage_service),
+    )
+
+
+def _create_audit_bundle_validation_receipt_row(
+    session: Session,
+    *,
+    audit_bundle: AuditBundleExport,
+    created_by: str | None,
+    storage_service: StorageService,
+    signing_key: str,
+    signing_key_id: str,
+) -> AuditBundleValidationReceipt:
+    bundle_path = storage_service.resolve_existing_path(audit_bundle.storage_path)
+    bundle = (
+        json.loads(bundle_path.read_text())
+        if bundle_path is not None
+        else audit_bundle.bundle_payload_json or {}
+    )
+    validation_checks, prov_jsonld, validation_errors = _validate_audit_bundle(
+        row=audit_bundle,
+        bundle=bundle,
+        storage_service=storage_service,
+    )
+    receipt_id = uuid.uuid4()
+    created_at = utcnow()
+    validation_status = "passed" if validation_checks["complete"] else "failed"
+    prov_jsonld_sha256 = _payload_sha256(prov_jsonld)
+    receipt_core = {
+        "schema_name": "audit_bundle_validation_receipt",
+        "schema_version": "1.0",
+        "receipt_id": str(receipt_id),
+        "audit_bundle": {
+            "bundle_id": str(audit_bundle.id),
+            "bundle_kind": audit_bundle.bundle_kind,
+            "source_table": audit_bundle.source_table,
+            "source_id": str(audit_bundle.source_id),
+            "payload_sha256": audit_bundle.payload_sha256,
+            "bundle_sha256": audit_bundle.bundle_sha256,
+        },
+        "validation_profile": AUDIT_BUNDLE_VALIDATION_PROFILE,
+        "validation_status": validation_status,
+        "validation_checks": validation_checks,
+        "validation_errors": validation_errors,
+        "prov_jsonld_sha256": prov_jsonld_sha256,
+        "created_at": created_at.isoformat(),
+        "created_by": created_by,
+        "receipt_policy": (
+            "Validation receipt for immutable audit bundles. The receipt links the "
+            "signed bundle payload, signed bundle envelope, and standards-facing "
+            "PROV JSON-LD export."
+        ),
+        "hash_chain": [
+            {
+                "position": 1,
+                "name": "audit_bundle_payload",
+                "sha256": audit_bundle.payload_sha256,
+            },
+            {
+                "position": 2,
+                "name": "audit_bundle_export",
+                "sha256": audit_bundle.bundle_sha256,
+                "derived_from": ["audit_bundle_payload"],
+            },
+            {
+                "position": 3,
+                "name": "prov_jsonld_export",
+                "sha256": prov_jsonld_sha256,
+                "derived_from": ["audit_bundle_export"],
+            },
+        ],
+    }
+    receipt_core["hash_chain_complete"] = all(
+        bool(item.get("sha256")) for item in receipt_core["hash_chain"]
+    )
+    receipt_sha256 = _payload_sha256(receipt_core)
+    receipt = {
+        **receipt_core,
+        "receipt_sha256": receipt_sha256,
+        "signature": _signature(receipt_sha256, signing_key),
+        "signature_algorithm": SIGNATURE_ALGORITHM,
+        "signing_key_id": signing_key_id,
+    }
+    receipt_path = storage_service.get_audit_bundle_validation_receipt_json_path(
+        audit_bundle.bundle_kind,
+        audit_bundle.id,
+        receipt_id,
+    )
+    prov_jsonld_path = storage_service.get_audit_bundle_validation_prov_jsonld_path(
+        audit_bundle.bundle_kind,
+        audit_bundle.id,
+        receipt_id,
+    )
+    receipt_path.write_bytes(_canonical_json_bytes(receipt))
+    prov_jsonld_path.write_bytes(_canonical_json_bytes(prov_jsonld))
+    row = AuditBundleValidationReceipt(
+        id=receipt_id,
+        audit_bundle_export_id=audit_bundle.id,
+        bundle_kind=audit_bundle.bundle_kind,
+        source_table=audit_bundle.source_table,
+        source_id=audit_bundle.source_id,
+        validation_profile=AUDIT_BUNDLE_VALIDATION_PROFILE,
+        validation_status=validation_status,
+        payload_schema_valid=validation_checks["payload_schema_valid"],
+        prov_graph_valid=validation_checks["prov_graph_valid"],
+        bundle_integrity_valid=validation_checks["bundle_integrity_valid"],
+        source_integrity_valid=validation_checks["source_integrity_valid"],
+        receipt_storage_path=str(receipt_path),
+        prov_jsonld_storage_path=str(prov_jsonld_path),
+        receipt_sha256=receipt_sha256,
+        prov_jsonld_sha256=prov_jsonld_sha256,
+        signature=receipt["signature"],
+        signature_algorithm=SIGNATURE_ALGORITHM,
+        signing_key_id=signing_key_id,
+        validation_errors_json=validation_errors,
+        receipt_payload_json=receipt,
+        prov_jsonld_json=prov_jsonld,
+        created_by=created_by,
+        created_at=created_at,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def _ensure_audit_bundle_validation_receipts(
+    session: Session,
+    *,
+    audit_bundles: list[AuditBundleExport],
+    created_by: str | None,
+    storage_service: StorageService,
+    signing_key: str,
+    signing_key_id: str,
+) -> None:
+    bundle_ids = [row.id for row in audit_bundles]
+    if not bundle_ids:
+        return
+    existing_receipts = (
+        session.execute(
+            select(AuditBundleValidationReceipt)
+            .where(AuditBundleValidationReceipt.audit_bundle_export_id.in_(bundle_ids))
+            .order_by(
+                AuditBundleValidationReceipt.audit_bundle_export_id.asc(),
+                AuditBundleValidationReceipt.created_at.desc(),
+                AuditBundleValidationReceipt.id.asc(),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    receipts_by_bundle_id: dict[UUID, AuditBundleValidationReceipt] = {}
+    for receipt in existing_receipts:
+        receipts_by_bundle_id.setdefault(receipt.audit_bundle_export_id, receipt)
+    for bundle in audit_bundles:
+        receipt = receipts_by_bundle_id.get(bundle.id)
+        if _validation_receipt_matches_bundle(receipt, bundle):
+            continue
+        _create_audit_bundle_validation_receipt_row(
+            session,
+            audit_bundle=bundle,
+            created_by=created_by,
+            storage_service=storage_service,
+            signing_key=signing_key,
+            signing_key_id=signing_key_id,
+        )
+
+
 def _create_retrieval_training_run_audit_bundle_row(
     session: Session,
     *,
@@ -1524,7 +2366,7 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
     storage_service: StorageService,
     signing_key: str,
     signing_key_id: str,
-) -> None:
+) -> list[AuditBundleExport]:
     learning_candidates = (
         session.execute(
             select(RetrievalLearningCandidateEvaluation)
@@ -1546,7 +2388,7 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
         key=str,
     )
     if not training_run_ids:
-        return
+        return []
     existing_bundle_rows = (
         session.execute(
             select(AuditBundleExport)
@@ -1576,21 +2418,27 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
         .all()
     )
     training_runs_by_id = {row.id: row for row in training_runs}
+    ensured_bundles: list[AuditBundleExport] = []
     for training_run_id in training_run_ids:
         training_run = training_runs_by_id.get(training_run_id)
         if training_run is None:
             continue
         existing_bundle = existing_bundle_by_run_id.get(training_run_id)
         if _training_audit_bundle_matches_training_run(existing_bundle, training_run):
+            if existing_bundle is not None:
+                ensured_bundles.append(existing_bundle)
             continue
-        _create_retrieval_training_run_audit_bundle_row(
-            session,
-            training_run=training_run,
-            created_by=created_by,
-            storage_service=storage_service,
-            signing_key=signing_key,
-            signing_key_id=signing_key_id,
+        ensured_bundles.append(
+            _create_retrieval_training_run_audit_bundle_row(
+                session,
+                training_run=training_run,
+                created_by=created_by,
+                storage_service=storage_service,
+                signing_key=signing_key,
+                signing_key_id=signing_key_id,
+            )
         )
+    return ensured_bundles
 
 
 def create_search_harness_release_audit_bundle(
@@ -1604,9 +2452,17 @@ def create_search_harness_release_audit_bundle(
     if release is None:
         raise _release_not_found(release_id)
     signing_key, signing_key_id = _signing_key()
-    _ensure_retrieval_training_run_audit_bundles_for_release(
+    linked_training_bundles = _ensure_retrieval_training_run_audit_bundles_for_release(
         session,
         release=release,
+        created_by=payload.created_by,
+        storage_service=storage_service,
+        signing_key=signing_key,
+        signing_key_id=signing_key_id,
+    )
+    _ensure_audit_bundle_validation_receipts(
+        session,
+        audit_bundles=linked_training_bundles,
         created_by=payload.created_by,
         storage_service=storage_service,
         signing_key=signing_key,
@@ -1698,6 +2554,44 @@ def get_audit_bundle_export(
     if row is None:
         raise _audit_bundle_not_found(bundle_id)
     return _to_response(row, storage_service=storage_service)
+
+
+def create_audit_bundle_validation_receipt(
+    session: Session,
+    bundle_id: UUID,
+    payload: AuditBundleValidationReceiptRequest,
+    *,
+    storage_service: StorageService,
+) -> AuditBundleValidationReceiptResponse:
+    audit_bundle = session.get(AuditBundleExport, bundle_id)
+    if audit_bundle is None:
+        raise _audit_bundle_not_found(bundle_id)
+    signing_key, signing_key_id = _signing_key()
+    row = _create_audit_bundle_validation_receipt_row(
+        session,
+        audit_bundle=audit_bundle,
+        created_by=payload.created_by,
+        storage_service=storage_service,
+        signing_key=signing_key,
+        signing_key_id=signing_key_id,
+    )
+    return _to_validation_receipt_response(row, storage_service=storage_service)
+
+
+def get_latest_audit_bundle_validation_receipt(
+    session: Session,
+    bundle_id: UUID,
+    *,
+    storage_service: StorageService,
+) -> AuditBundleValidationReceiptResponse:
+    row = session.scalar(
+        select(AuditBundleValidationReceipt)
+        .where(AuditBundleValidationReceipt.audit_bundle_export_id == bundle_id)
+        .order_by(AuditBundleValidationReceipt.created_at.desc())
+    )
+    if row is None:
+        raise _audit_bundle_validation_receipt_not_found(bundle_id)
+    return _to_validation_receipt_response(row, storage_service=storage_service)
 
 
 def get_latest_retrieval_training_run_audit_bundle(

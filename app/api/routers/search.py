@@ -24,6 +24,8 @@ from app.schemas.chat import (
 )
 from app.schemas.search import (
     AuditBundleExportResponse,
+    AuditBundleValidationReceiptRequest,
+    AuditBundleValidationReceiptResponse,
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
@@ -91,6 +93,10 @@ get_latest_retrieval_training_run_audit_bundle = (
     retrieval.get_latest_retrieval_training_run_audit_bundle
 )
 get_audit_bundle_export = retrieval.get_audit_bundle_export
+create_audit_bundle_validation_receipt = retrieval.create_audit_bundle_validation_receipt
+get_latest_audit_bundle_validation_receipt = (
+    retrieval.get_latest_audit_bundle_validation_receipt
+)
 evaluate_retrieval_learning_candidate = retrieval.evaluate_retrieval_learning_candidate
 list_retrieval_learning_candidate_evaluations = (
     retrieval.list_retrieval_learning_candidate_evaluations
@@ -606,6 +612,52 @@ def read_audit_bundle_export(
     storage_service: StorageDep,
 ) -> AuditBundleExportResponse:
     return get_audit_bundle_export(session, bundle_id, storage_service=storage_service)
+
+
+@router.post(
+    "/search/audit-bundles/{bundle_id}/validation-receipts",
+    response_model=AuditBundleValidationReceiptResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_audit_bundle_validation_receipt_route(
+    response: Response,
+    bundle_id: UUID,
+    payload: AuditBundleValidationReceiptRequest,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleValidationReceiptResponse:
+    receipt = create_audit_bundle_validation_receipt(
+        session,
+        bundle_id,
+        payload,
+        storage_service=storage_service,
+    )
+    session.commit()
+    receipt_id = response_field(receipt, "receipt_id")
+    response.headers["Location"] = (
+        f"/search/audit-bundles/{bundle_id}/validation-receipts/{receipt_id}"
+    )
+    return receipt
+
+
+@router.get(
+    "/search/audit-bundles/{bundle_id}/validation-receipts/latest",
+    response_model=AuditBundleValidationReceiptResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_latest_audit_bundle_validation_receipt(
+    bundle_id: UUID,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleValidationReceiptResponse:
+    return get_latest_audit_bundle_validation_receipt(
+        session,
+        bundle_id,
+        storage_service=storage_service,
+    )
 
 
 @router.post(

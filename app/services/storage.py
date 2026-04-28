@@ -352,6 +352,34 @@ class StorageService:
     def build_audit_bundle_json_path(self, bundle_kind: str, bundle_id: uuid.UUID) -> Path:
         return self._audit_bundle_dir(bundle_kind, bundle_id, create=False) / "bundle.json"
 
+    def get_audit_bundle_validation_receipt_json_path(
+        self,
+        bundle_kind: str,
+        bundle_id: uuid.UUID,
+        receipt_id: uuid.UUID,
+    ) -> Path:
+        path = (
+            self._audit_bundle_dir(bundle_kind, bundle_id, create=True)
+            / "validation_receipts"
+            / str(receipt_id)
+        )
+        path.mkdir(parents=True, exist_ok=True)
+        return path / "receipt.json"
+
+    def get_audit_bundle_validation_prov_jsonld_path(
+        self,
+        bundle_kind: str,
+        bundle_id: uuid.UUID,
+        receipt_id: uuid.UUID,
+    ) -> Path:
+        path = (
+            self._audit_bundle_dir(bundle_kind, bundle_id, create=True)
+            / "validation_receipts"
+            / str(receipt_id)
+        )
+        path.mkdir(parents=True, exist_ok=True)
+        return path / "prov.jsonld"
+
     def resolve_existing_path(self, path_value: str | Path | None) -> Path | None:
         if path_value is None:
             return None

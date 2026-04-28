@@ -485,6 +485,10 @@ class RetrievalTrainingRunAuditBundleRequest(BaseModel):
     created_by: str | None = Field(default=None, min_length=1)
 
 
+class AuditBundleValidationReceiptRequest(BaseModel):
+    created_by: str | None = Field(default=None, min_length=1)
+
+
 class AuditBundleExportSummaryResponse(BaseModel):
     schema_name: str = "audit_bundle_export"
     schema_version: str = "1.0"
@@ -504,6 +508,36 @@ class AuditBundleExportSummaryResponse(BaseModel):
 
 class AuditBundleExportResponse(AuditBundleExportSummaryResponse):
     bundle: dict = Field(default_factory=dict)
+    integrity: dict = Field(default_factory=dict)
+
+
+class AuditBundleValidationReceiptSummaryResponse(BaseModel):
+    schema_name: str = "audit_bundle_validation_receipt"
+    schema_version: str = "1.0"
+    receipt_id: UUID
+    audit_bundle_export_id: UUID
+    bundle_kind: str
+    source_table: str
+    source_id: UUID
+    validation_profile: str
+    validation_status: str
+    payload_schema_valid: bool
+    prov_graph_valid: bool
+    bundle_integrity_valid: bool
+    source_integrity_valid: bool
+    receipt_sha256: str
+    prov_jsonld_sha256: str
+    signature: str
+    signature_algorithm: str
+    signing_key_id: str
+    created_by: str | None = None
+    created_at: datetime
+
+
+class AuditBundleValidationReceiptResponse(AuditBundleValidationReceiptSummaryResponse):
+    receipt: dict = Field(default_factory=dict)
+    prov_jsonld: dict = Field(default_factory=dict)
+    validation_errors: list[dict] = Field(default_factory=list)
     integrity: dict = Field(default_factory=dict)
 
 

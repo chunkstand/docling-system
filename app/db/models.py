@@ -2822,6 +2822,97 @@ class AuditBundleExport(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class AuditBundleValidationReceipt(Base):
+    __tablename__ = "audit_bundle_validation_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "bundle_kind IN ("
+            "'search_harness_release_provenance', "
+            "'retrieval_training_run_provenance'"
+            ")",
+            name="ck_audit_bundle_validation_receipts_bundle_kind",
+        ),
+        CheckConstraint(
+            "source_table IN ('search_harness_releases', 'retrieval_training_runs')",
+            name="ck_audit_bundle_validation_receipts_source_table",
+        ),
+        CheckConstraint(
+            "validation_status IN ('passed', 'failed')",
+            name="ck_audit_bundle_validation_receipts_status",
+        ),
+        Index(
+            "ix_audit_bundle_validation_receipts_bundle_created",
+            "audit_bundle_export_id",
+            "created_at",
+        ),
+        Index(
+            "ix_audit_bundle_validation_receipts_source",
+            "source_table",
+            "source_id",
+            "created_at",
+        ),
+        Index(
+            "ix_audit_bundle_validation_receipts_receipt_sha",
+            "receipt_sha256",
+        ),
+        Index(
+            "ix_audit_bundle_validation_receipts_prov_jsonld_sha",
+            "prov_jsonld_sha256",
+        ),
+        Index(
+            "ix_audit_bundle_validation_receipts_status_created",
+            "validation_status",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    audit_bundle_export_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("audit_bundle_exports.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    bundle_kind: Mapped[str] = mapped_column(Text, nullable=False)
+    source_table: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    validation_profile: Mapped[str] = mapped_column(Text, nullable=False)
+    validation_status: Mapped[str] = mapped_column(Text, nullable=False)
+    payload_schema_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    prov_graph_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    bundle_integrity_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    source_integrity_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    receipt_storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    prov_jsonld_storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    receipt_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    prov_jsonld_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    signature: Mapped[str] = mapped_column(Text, nullable=False)
+    signature_algorithm: Mapped[str] = mapped_column(Text, nullable=False)
+    signing_key_id: Mapped[str] = mapped_column(Text, nullable=False)
+    validation_errors_json: Mapped[list] = mapped_column(
+        "validation_errors",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    receipt_payload_json: Mapped[dict] = mapped_column(
+        "receipt_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    prov_jsonld_json: Mapped[dict] = mapped_column(
+        "prov_jsonld",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    created_by: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ChatAnswerRecord(Base):
     __tablename__ = "chat_answer_records"
     __table_args__ = (

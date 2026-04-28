@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.db.models import (
     AuditBundleExport,
+    AuditBundleValidationReceipt,
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -381,6 +382,27 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
     assert latest_training_audit_response.status_code == 200
     assert latest_training_audit_response.json()["bundle_id"] == training_audit_bundle["bundle_id"]
 
+    receipt_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{training_audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "integration"},
+    )
+    assert receipt_response.status_code == 200
+    training_receipt = receipt_response.json()
+    assert training_receipt["validation_profile"] == "audit_bundle_validation_v1"
+    assert training_receipt["validation_status"] == "passed"
+    assert training_receipt["receipt"]["audit_bundle"]["bundle_id"] == (
+        training_audit_bundle["bundle_id"]
+    )
+    assert training_receipt["receipt_sha256"] == training_receipt["receipt"]["receipt_sha256"]
+    assert training_receipt["prov_jsonld"]["@graph"]
+    assert training_receipt["integrity"]["complete"] is True
+
+    latest_receipt_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{training_audit_bundle['bundle_id']}/validation-receipts/latest"
+    )
+    assert latest_receipt_response.status_code == 200
+    assert latest_receipt_response.json()["receipt_id"] == training_receipt["receipt_id"]
+
     with postgres_integration_harness.session_factory() as session:
         judgment_sets = session.execute(select(RetrievalJudgmentSet)).scalars().all()
         judgments = session.execute(select(RetrievalJudgment)).scalars().all()
@@ -391,13 +413,20 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
         )
         governance_events = session.execute(select(SemanticGovernanceEvent)).scalars().all()
         audit_bundle_rows = session.execute(select(AuditBundleExport)).scalars().all()
+        validation_receipt_rows = (
+            session.execute(select(AuditBundleValidationReceipt)).scalars().all()
+        )
 
     assert len(judgment_sets) == 1
     assert len(training_runs) == 1
     assert len(candidate_rows) == 1
     assert len(audit_bundle_rows) == 1
+    assert len(validation_receipt_rows) == 1
     assert audit_bundle_rows[0].retrieval_training_run_id == UUID(training_run_id)
     assert audit_bundle_rows[0].bundle_sha256 == training_audit_bundle["bundle_sha256"]
+    assert validation_receipt_rows[0].audit_bundle_export_id == UUID(
+        training_audit_bundle["bundle_id"]
+    )
     assert response["summary"]["judgment_count"] == 4
     assert response["summary"]["positive_count"] == 1
     assert response["summary"]["negative_count"] == 2
