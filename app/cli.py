@@ -1874,6 +1874,18 @@ def _print_claim_support_replay_alert_table(payload: dict) -> None:
         )
 
 
+def _validate_claim_support_replay_alert_args(
+    parser: argparse.ArgumentParser,
+    *,
+    stale_after_hours: int,
+    limit: int,
+) -> None:
+    if stale_after_hours < 1 or stale_after_hours > 720:
+        parser.error("--stale-after-hours must be between 1 and 720.")
+    if limit < 1 or limit > 200:
+        parser.error("--limit must be between 1 and 200.")
+
+
 def run_claim_support_replay_alerts() -> None:
     parser = argparse.ArgumentParser(
         description="Report stale or blocked claim-support policy replay impacts."
@@ -1893,6 +1905,11 @@ def run_claim_support_replay_alerts() -> None:
         help="Operator identifier recorded when --record-escalations is used.",
     )
     args = parser.parse_args()
+    _validate_claim_support_replay_alert_args(
+        parser,
+        stale_after_hours=args.stale_after_hours,
+        limit=args.limit,
+    )
 
     session_factory = get_session_factory()
     with session_factory() as session:
@@ -1980,6 +1997,11 @@ def run_claim_support_replay_fixture_candidates() -> None:
         help="Operator identifier recorded when --promote is used.",
     )
     args = parser.parse_args()
+    _validate_claim_support_replay_alert_args(
+        parser,
+        stale_after_hours=args.stale_after_hours,
+        limit=args.limit,
+    )
 
     session_factory = get_session_factory()
     with session_factory() as session:

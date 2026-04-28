@@ -1345,6 +1345,42 @@ def test_claim_support_replay_fixture_candidates_cli_promotes_and_prints_table(
     assert captured_storage_service is not None
 
 
+def test_claim_support_replay_alerts_cli_rejects_invalid_limit(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["docling-system-claim-support-replay-alerts", "--limit", "0"],
+    )
+
+    with pytest.raises(SystemExit):
+        run_claim_support_replay_alerts()
+
+    assert "--limit must be between 1 and 200." in capsys.readouterr().err
+
+
+def test_claim_support_replay_fixture_candidates_cli_rejects_invalid_stale_window(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-claim-support-replay-fixtures",
+            "--stale-after-hours",
+            "0",
+        ],
+    )
+
+    with pytest.raises(SystemExit):
+        run_claim_support_replay_fixture_candidates()
+
+    assert "--stale-after-hours must be between 1 and 720." in capsys.readouterr().err
+
+
 def test_agent_task_triage_context_cli_prints_recommendation(monkeypatch, capsys) -> None:
     task_id = uuid4()
 

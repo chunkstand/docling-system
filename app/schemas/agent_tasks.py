@@ -1767,6 +1767,12 @@ class ClaimSupportPolicyChangeImpactFixturePromotionResponse(BaseModel):
     fixture_count: int = 0
     promoted_candidate_count: int = 0
     skipped_candidate_count: int = 0
+    candidate_matching_count: int = 0
+    candidate_item_count: int = 0
+    has_more_candidates: bool = False
+    candidate_summary: (
+        ClaimSupportPolicyChangeImpactFixtureCandidateSummaryResponse | None
+    ) = None
     source_change_impact_ids: list[UUID] = Field(default_factory=list)
     source_escalation_event_ids: list[UUID] = Field(default_factory=list)
     promotion_event_id: UUID | None = None

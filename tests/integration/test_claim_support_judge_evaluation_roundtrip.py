@@ -2044,6 +2044,16 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert str(fresh_change_impact_id) not in candidate_change_impact_ids
     assert all(row["escalation_event_ids"] for row in fixture_candidate_payload["items"])
     assert not any(row["already_promoted"] for row in fixture_candidate_payload["items"])
+    assert all(
+        row["candidate_id"]
+        == row["fixture"]["replay_alert_source"]["candidate_identity_sha256"]
+        for row in fixture_candidate_payload["items"]
+    )
+    assert all(
+        row["fixture"]["replay_alert_source"]["draft_source"]
+        == "reconstructed_claim_derivation"
+        for row in fixture_candidate_payload["items"]
+    )
 
     promotion_response = postgres_integration_harness.client.post(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
@@ -2063,6 +2073,11 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert promotion_payload["promotion_event_id"]
     assert promotion_payload["promotion_receipt_sha256"]
     assert promotion_payload["created"] is True
+    assert promotion_payload["candidate_matching_count"] == 2
+    assert promotion_payload["candidate_item_count"] == 2
+    assert promotion_payload["has_more_candidates"] is False
+    assert promotion_payload["candidate_summary"]["candidate_count"] == 2
+    assert promotion_payload["candidate_summary"]["source_escalation_event_count"] == 2
     assert set(promotion_payload["source_change_impact_ids"]) == {
         str(change_impact_id),
         str(extra_change_impact_id),
@@ -2138,6 +2153,13 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert {row["candidate_id"] for row in promotion_receipt["candidates"]} == {
             row["candidate_id"] for row in promotion_payload["candidates"]
         }
+        assert all(
+            row["candidate_identity_sha256"] == row["candidate_id"]
+            for row in promotion_receipt["candidates"]
+        )
+        assert all(
+            row["source_payload_sha256"] for row in promotion_receipt["candidates"]
+        )
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

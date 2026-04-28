@@ -662,6 +662,12 @@ uv run docling-system-backfill-legacy-audit
 uv run docling-system-audit
 ```
 
+Replay fixture candidate IDs are content-stable for the impacted claim derivation
+and fallback draft payload, while the candidate source payload records the current
+escalation receipts and affected verification task IDs. Promotion responses report
+candidate matching counts and `has_more_candidates` so operators can tell when a
+bounded promotion command did not cover every available candidate.
+
 ## Testing
 
 The default test path is the fast unit suite:

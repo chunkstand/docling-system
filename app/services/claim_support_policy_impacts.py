@@ -1401,23 +1401,54 @@ def _expected_verdict_for_fixture(
     return "insufficient_evidence"
 
 
+def _fixture_candidate_identity_basis(
+    *,
+    item: ClaimSupportPolicyChangeImpactAlertItemResponse,
+    derivation: ClaimEvidenceDerivation,
+    draft_source: str,
+    fixture_sha256: str,
+) -> dict[str, Any]:
+    return {
+        "schema_name": "claim_support_policy_impact_fixture_candidate_identity",
+        "schema_version": "1.0",
+        "change_impact_id": str(item.change_impact.change_impact_id),
+        "impact_payload_sha256": item.change_impact.impact_payload_sha256,
+        "alert_kind": item.alert_kind,
+        "source_claim_derivation_id": str(derivation.id),
+        "source_draft_task_id": str(derivation.agent_task_id)
+        if derivation.agent_task_id
+        else None,
+        "source_support_judgment_sha256": derivation.support_judgment_sha256,
+        "draft_source": draft_source,
+        "fixture_sha256": fixture_sha256,
+    }
+
+
 def _fixture_candidate_source_basis(
     *,
     item: ClaimSupportPolicyChangeImpactAlertItemResponse,
     derivation: ClaimEvidenceDerivation,
-    fixture: dict[str, Any],
     draft_source: str,
+    fixture_sha256: str,
+    candidate_identity_sha256: str,
 ) -> dict[str, Any]:
-    escalation_event_ids = [str(event.event_id) for event in item.escalation_events]
+    escalation_event_ids = sorted({str(event.event_id) for event in item.escalation_events})
     return {
         "schema_name": "claim_support_policy_impact_fixture_candidate_source",
         "schema_version": "1.0",
+        "candidate_identity_sha256": candidate_identity_sha256,
         "change_impact_id": str(item.change_impact.change_impact_id),
         "impact_payload_sha256": item.change_impact.impact_payload_sha256,
         "alert_kind": item.alert_kind,
         "replay_status": item.replay_status,
         "is_stale": item.is_stale,
         "escalation_event_ids": escalation_event_ids,
+        "latest_escalation_event_id": str(item.latest_escalation_event_id)
+        if item.latest_escalation_event_id
+        else None,
+        "affected_verification_task_ids": sorted(
+            {str(task_id) for task_id in item.affected_verification_task_ids}
+        ),
         "source_claim_derivation_id": str(derivation.id),
         "source_draft_task_id": str(derivation.agent_task_id)
         if derivation.agent_task_id
@@ -1425,7 +1456,7 @@ def _fixture_candidate_source_basis(
         "source_support_verdict": derivation.support_verdict,
         "source_support_judgment_sha256": derivation.support_judgment_sha256,
         "draft_source": draft_source,
-        "fixture_sha256": payload_sha256(fixture),
+        "fixture_sha256": fixture_sha256,
     }
 
 
@@ -1456,16 +1487,25 @@ def _candidate_from_derivation(
         "claim_id": derivation.claim_id,
         "draft_payload": draft_payload,
     }
+    identity_fixture_sha256 = payload_sha256(fixture)
+    identity_basis = _fixture_candidate_identity_basis(
+        item=item,
+        derivation=derivation,
+        draft_source=draft_source,
+        fixture_sha256=identity_fixture_sha256,
+    )
+    candidate_id = payload_sha256(identity_basis)
     source_basis = _fixture_candidate_source_basis(
         item=item,
         derivation=derivation,
-        fixture=fixture,
         draft_source=draft_source,
+        fixture_sha256=identity_fixture_sha256,
+        candidate_identity_sha256=candidate_id,
     )
-    candidate_id = payload_sha256(source_basis)
     fixture["replay_alert_source"] = {
         **source_basis,
         "candidate_id": candidate_id,
+        "candidate_identity": identity_basis,
         "activation_task_id": str(item.change_impact.activation_task_id)
         if item.change_impact.activation_task_id
         else None,
@@ -1671,13 +1711,26 @@ def _record_fixture_promotion_event(
     candidate_payloads = [
         {
             "candidate_id": row.candidate_id,
+            "candidate_identity_sha256": (
+                (row.fixture.get("replay_alert_source") or {}).get(
+                    "candidate_identity_sha256"
+                )
+                or row.candidate_id
+            ),
             "case_id": row.case_id,
             "fixture_sha256": row.fixture_sha256,
+            "source_payload_sha256": row.source_payload_sha256,
             "change_impact_id": str(row.change_impact_id),
             "source_claim_derivation_id": str(row.source_claim_derivation_id)
             if row.source_claim_derivation_id
             else None,
+            "source_draft_task_id": str(row.source_draft_task_id)
+            if row.source_draft_task_id
+            else None,
             "escalation_event_ids": [str(event_id) for event_id in row.escalation_event_ids],
+            "latest_escalation_event_id": str(row.latest_escalation_event_id)
+            if row.latest_escalation_event_id
+            else None,
             "hard_case_kind": row.hard_case_kind,
             "expected_verdict": row.expected_verdict,
         }
@@ -1774,6 +1827,10 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
             fixture_set_name=fixture_set_name,
             fixture_set_version=fixture_set_version,
             skipped_candidate_count=candidate_response.summary.promoted_candidate_count,
+            candidate_matching_count=candidate_response.matching_count,
+            candidate_item_count=candidate_response.item_count,
+            has_more_candidates=candidate_response.has_more,
+            candidate_summary=candidate_response.summary,
         )
 
     fixtures_by_case_id = {
@@ -1834,6 +1891,10 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         fixture_count=fixture_set.fixture_count,
         promoted_candidate_count=len(candidates),
         skipped_candidate_count=candidate_response.summary.promoted_candidate_count,
+        candidate_matching_count=candidate_response.matching_count,
+        candidate_item_count=candidate_response.item_count,
+        has_more_candidates=candidate_response.has_more,
+        candidate_summary=candidate_response.summary,
         source_change_impact_ids=source_change_impact_ids,
         source_escalation_event_ids=source_escalation_event_ids,
         promotion_event_id=event.id,
