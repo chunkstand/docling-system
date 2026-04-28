@@ -129,6 +129,9 @@ class SemanticGovernanceEventKind(StrEnum):
     CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED = (
         "claim_support_policy_impact_replay_escalated"
     )
+    CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED = (
+        "claim_support_policy_impact_fixture_promoted"
+    )
 
 
 class RetrievalJudgmentKind(StrEnum):
@@ -3686,7 +3689,8 @@ class SemanticGovernanceEvent(Base):
             "'retrieval_reranker_artifact_materialized', "
             "'claim_support_policy_activated', "
             "'claim_support_policy_impact_replay_closed', "
-            "'claim_support_policy_impact_replay_escalated'"
+            "'claim_support_policy_impact_replay_escalated', "
+            "'claim_support_policy_impact_fixture_promoted'"
             ")",
             name="ck_semantic_governance_events_event_kind",
         ),

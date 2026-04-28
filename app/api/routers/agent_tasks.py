@@ -47,6 +47,9 @@ from app.schemas.agent_tasks import (
     AgentTaskWorkflowVersionSummaryResponse,
     ClaimSupportPolicyChangeImpactAlertEscalationRequest,
     ClaimSupportPolicyChangeImpactAlertResponse,
+    ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,
+    ClaimSupportPolicyChangeImpactFixturePromotionRequest,
+    ClaimSupportPolicyChangeImpactFixturePromotionResponse,
     ClaimSupportPolicyChangeImpactReplayRequest,
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactResponse,
@@ -57,9 +60,11 @@ from app.schemas.agent_tasks import (
 from app.services.capabilities import agent_orchestration
 from app.services.claim_support_policy_impacts import (
     claim_support_policy_change_impact_alerts,
+    claim_support_policy_change_impact_fixture_candidates,
     claim_support_policy_change_impact_worklist,
     get_claim_support_policy_change_impact,
     list_claim_support_policy_change_impacts,
+    promote_claim_support_policy_change_impact_fixture_candidates,
     queue_claim_support_policy_change_impact_replay_tasks,
     record_claim_support_policy_change_impact_alert_escalations,
     refresh_claim_support_policy_change_impact_replay_status,
@@ -546,6 +551,58 @@ def record_claim_support_policy_change_impact_alert_escalations_route(
         stale_after_hours=stale_after_hours,
         limit=limit,
         requested_by=payload.requested_by,
+        storage_service=storage_service,
+    )
+
+
+@router.get(
+    "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates",
+    response_model=ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impact_fixture_candidates(
+    session: DbSession,
+    policy_name: str | None = None,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    include_unescalated: bool = False,
+    include_promoted: bool = True,
+) -> ClaimSupportPolicyChangeImpactFixtureCandidateListResponse:
+    return claim_support_policy_change_impact_fixture_candidates(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+        include_unescalated=include_unescalated,
+        include_promoted=include_promoted,
+    )
+
+
+@router.post(
+    "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions",
+    response_model=ClaimSupportPolicyChangeImpactFixturePromotionResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
+    ],
+)
+def promote_claim_support_policy_change_impact_fixture_candidates_route(
+    session: DbSession,
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+    payload: ClaimSupportPolicyChangeImpactFixturePromotionRequest,
+    policy_name: str | None = None,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ClaimSupportPolicyChangeImpactFixturePromotionResponse:
+    return promote_claim_support_policy_change_impact_fixture_candidates(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+        fixture_set_name=payload.fixture_set_name,
+        fixture_set_version=payload.fixture_set_version,
+        requested_by=payload.requested_by,
+        include_unescalated=payload.include_unescalated,
         storage_service=storage_service,
     )
 

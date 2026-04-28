@@ -2025,6 +2025,120 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         ]["impacts"]
         assert any(row["escalation_governance_events"] for row in manifest_impacts)
 
+    fixture_candidate_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
+        "?limit=5&stale_after_hours=24"
+    )
+    assert fixture_candidate_response.status_code == 200
+    fixture_candidate_payload = fixture_candidate_response.json()
+    assert fixture_candidate_payload["summary"]["candidate_count"] == 2
+    assert fixture_candidate_payload["summary"]["source_escalation_event_count"] == 2
+    assert fixture_candidate_payload["matching_count"] == 2
+    candidate_change_impact_ids = {
+        row["change_impact_id"] for row in fixture_candidate_payload["items"]
+    }
+    assert candidate_change_impact_ids == {
+        str(change_impact_id),
+        str(extra_change_impact_id),
+    }
+    assert str(fresh_change_impact_id) not in candidate_change_impact_ids
+    assert all(row["escalation_event_ids"] for row in fixture_candidate_payload["items"])
+    assert not any(row["already_promoted"] for row in fixture_candidate_payload["items"])
+
+    promotion_response = postgres_integration_harness.client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
+        "?limit=5&stale_after_hours=24",
+        json={
+            "fixture_set_name": "integration_replay_alert_promotions",
+            "fixture_set_version": "v1",
+            "requested_by": "claim-support-operator@example.com",
+        },
+    )
+    assert promotion_response.status_code == 200
+    promotion_payload = promotion_response.json()
+    assert promotion_payload["promoted_candidate_count"] == 2
+    assert promotion_payload["fixture_count"] == (
+        len(default_claim_support_evaluation_fixtures()) + 2
+    )
+    assert promotion_payload["promotion_event_id"]
+    assert promotion_payload["promotion_receipt_sha256"]
+    assert promotion_payload["created"] is True
+    assert set(promotion_payload["source_change_impact_ids"]) == {
+        str(change_impact_id),
+        str(extra_change_impact_id),
+    }
+    assert str(fresh_change_impact_id) not in promotion_payload["source_change_impact_ids"]
+    assert len(promotion_payload["source_escalation_event_ids"]) == 2
+    assert all(row["already_promoted"] for row in promotion_payload["candidates"])
+
+    duplicate_promotion_response = postgres_integration_harness.client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
+        "?limit=5&stale_after_hours=24",
+        json={
+            "fixture_set_name": "integration_replay_alert_promotions",
+            "fixture_set_version": "v1",
+            "requested_by": "claim-support-operator@example.com",
+        },
+    )
+    assert duplicate_promotion_response.status_code == 200
+    assert duplicate_promotion_response.json()["promoted_candidate_count"] == 0
+
+    promoted_candidate_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
+        "?limit=5&stale_after_hours=24"
+    )
+    assert promoted_candidate_response.status_code == 200
+    promoted_candidate_payload = promoted_candidate_response.json()
+    assert promoted_candidate_payload["summary"]["promoted_candidate_count"] == 2
+    assert promoted_candidate_payload["summary"]["unpromoted_candidate_count"] == 0
+    assert all(row["promotion_events"] for row in promoted_candidate_payload["items"])
+
+    unpromoted_candidate_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
+        "?limit=5&stale_after_hours=24&include_promoted=false"
+    )
+    assert unpromoted_candidate_response.status_code == 200
+    assert unpromoted_candidate_response.json()["matching_count"] == 0
+
+    with postgres_integration_harness.session_factory() as session:
+        fixture_set = session.get(
+            ClaimSupportFixtureSet,
+            UUID(promotion_payload["fixture_set_id"]),
+        )
+        assert fixture_set is not None
+        assert fixture_set.fixture_set_name == "integration_replay_alert_promotions"
+        assert fixture_set.fixture_count == len(
+            default_claim_support_evaluation_fixtures()
+        ) + 2
+        assert fixture_set.metadata_json["source"] == (
+            "claim_support_policy_change_impact_replay_alerts"
+        )
+
+        promotion_event = session.get(
+            SemanticGovernanceEvent,
+            UUID(promotion_payload["promotion_event_id"]),
+        )
+        assert promotion_event is not None
+        assert promotion_event.event_kind == (
+            "claim_support_policy_impact_fixture_promoted"
+        )
+        assert promotion_event.subject_table == "claim_support_fixture_sets"
+        assert promotion_event.subject_id == fixture_set.id
+        assert promotion_event.receipt_sha256 == promotion_payload[
+            "promotion_receipt_sha256"
+        ]
+        promotion_receipt = promotion_event.event_payload_json[
+            "claim_support_policy_impact_fixture_promotion"
+        ]
+        assert promotion_receipt["fixture_set_id"] == str(fixture_set.id)
+        assert promotion_receipt["candidate_count"] == 2
+        assert set(promotion_receipt["source_escalation_event_ids"]) == set(
+            promotion_payload["source_escalation_event_ids"]
+        )
+        assert {row["candidate_id"] for row in promotion_receipt["candidates"]} == {
+            row["candidate_id"] for row in promotion_payload["candidates"]
+        }
+
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(
     postgres_integration_harness,

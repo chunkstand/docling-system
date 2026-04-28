@@ -1690,6 +1690,96 @@ class ClaimSupportPolicyChangeImpactAlertEscalationRequest(BaseModel):
     requested_by: str = Field(default="docling-system", min_length=1)
 
 
+class ClaimSupportPolicyChangeImpactFixturePromotionEventRef(BaseModel):
+    event_id: UUID
+    event_hash: str
+    receipt_sha256: str | None = None
+    fixture_set_id: UUID | None = None
+    fixture_set_sha256: str | None = None
+    artifact_id: UUID | None = None
+    artifact_kind: str | None = None
+    artifact_path: str | None = None
+    created_at: datetime
+
+
+class ClaimSupportPolicyChangeImpactFixtureCandidateResponse(BaseModel):
+    candidate_id: str
+    change_impact_id: UUID
+    alert_kind: str
+    severity: str
+    replay_status: str
+    is_stale: bool
+    source_claim_derivation_id: UUID | None = None
+    source_draft_task_id: UUID | None = None
+    affected_verification_task_ids: list[UUID] = Field(default_factory=list)
+    escalation_event_ids: list[UUID] = Field(default_factory=list)
+    latest_escalation_event_id: UUID | None = None
+    case_id: str
+    hard_case_kind: str
+    expected_verdict: str
+    fixture_sha256: str
+    fixture: dict = Field(default_factory=dict)
+    source_payload_sha256: str
+    already_promoted: bool = False
+    promotion_events: list[ClaimSupportPolicyChangeImpactFixturePromotionEventRef] = Field(
+        default_factory=list
+    )
+    operator_links: dict = Field(default_factory=dict)
+
+
+class ClaimSupportPolicyChangeImpactFixtureCandidateSummaryResponse(BaseModel):
+    alert_matching_count: int
+    candidate_count: int
+    promoted_candidate_count: int = 0
+    unpromoted_candidate_count: int = 0
+    source_escalation_event_count: int = 0
+    stale_after_hours: int
+
+
+class ClaimSupportPolicyChangeImpactFixtureCandidateListResponse(BaseModel):
+    summary: ClaimSupportPolicyChangeImpactFixtureCandidateSummaryResponse
+    generated_at: datetime
+    stale_after_hours: int
+    limit: int = 50
+    matching_count: int = 0
+    item_count: int
+    has_more: bool = False
+    items: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse] = Field(
+        default_factory=list
+    )
+
+
+class ClaimSupportPolicyChangeImpactFixturePromotionRequest(BaseModel):
+    fixture_set_name: str = Field(
+        default="claim_support_replay_alert_promotions",
+        min_length=1,
+    )
+    fixture_set_version: str = Field(default="v1", min_length=1)
+    requested_by: str = Field(default="docling-system", min_length=1)
+    include_unescalated: bool = False
+
+
+class ClaimSupportPolicyChangeImpactFixturePromotionResponse(BaseModel):
+    fixture_set_id: UUID | None = None
+    fixture_set_name: str
+    fixture_set_version: str
+    fixture_set_sha256: str | None = None
+    fixture_count: int = 0
+    promoted_candidate_count: int = 0
+    skipped_candidate_count: int = 0
+    source_change_impact_ids: list[UUID] = Field(default_factory=list)
+    source_escalation_event_ids: list[UUID] = Field(default_factory=list)
+    promotion_event_id: UUID | None = None
+    promotion_receipt_sha256: str | None = None
+    artifact_id: UUID | None = None
+    artifact_kind: str | None = None
+    artifact_path: str | None = None
+    created: bool = False
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse] = Field(
+        default_factory=list
+    )
+
+
 class ClaimSupportPolicyChangeImpactReplayRequest(BaseModel):
     requested_by: str = Field(default="docling-system", min_length=1)
 

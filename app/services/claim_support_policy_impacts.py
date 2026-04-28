@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import timedelta
 from typing import Any
 from uuid import UUID
@@ -15,6 +16,8 @@ from app.db.models import (
     AgentTaskArtifact,
     AgentTaskStatus,
     AgentTaskVerification,
+    ClaimEvidenceDerivation,
+    ClaimSupportFixtureSet,
     ClaimSupportPolicyChangeImpact,
     EvidenceManifest,
     SemanticGovernanceEvent,
@@ -26,6 +29,11 @@ from app.schemas.agent_tasks import (
     ClaimSupportPolicyChangeImpactAlertItemResponse,
     ClaimSupportPolicyChangeImpactAlertResponse,
     ClaimSupportPolicyChangeImpactClosureEventRef,
+    ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,
+    ClaimSupportPolicyChangeImpactFixtureCandidateResponse,
+    ClaimSupportPolicyChangeImpactFixtureCandidateSummaryResponse,
+    ClaimSupportPolicyChangeImpactFixturePromotionEventRef,
+    ClaimSupportPolicyChangeImpactFixturePromotionResponse,
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactReplayTaskResponse,
     ClaimSupportPolicyChangeImpactResponse,
@@ -35,6 +43,10 @@ from app.schemas.agent_tasks import (
     ClaimSupportPolicyChangeImpactWorklistTaskRef,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
+from app.services.claim_support_evaluations import (
+    default_claim_support_evaluation_fixtures,
+    ensure_claim_support_fixture_set,
+)
 from app.services.evidence import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
@@ -62,6 +74,15 @@ CLAIM_SUPPORT_IMPACT_REPLAY_ESCALATION_ARTIFACT_KIND = (
 )
 CLAIM_SUPPORT_IMPACT_REPLAY_ESCALATION_EVENT_KIND = (
     SemanticGovernanceEventKind.CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED.value
+)
+CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_RECEIPT_SCHEMA = (
+    "claim_support_policy_impact_fixture_promotion_receipt"
+)
+CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
+    "claim_support_policy_impact_fixture_promotion"
+)
+CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND = (
+    SemanticGovernanceEventKind.CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED.value
 )
 REPLAY_TERMINAL_FAILURE_STATUSES = {
     AgentTaskStatus.FAILED.value,
@@ -1173,6 +1194,656 @@ def record_claim_support_policy_change_impact_alert_escalations(
         limit=limit,
     )
     return recorded_feed.model_copy(update={"recorded_escalation_count": created_count})
+
+
+def _fixture_promotion_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
+    return dict(
+        (event.event_payload_json or {}).get(
+            "claim_support_policy_impact_fixture_promotion"
+        )
+        or {}
+    )
+
+
+def _fixture_promotion_event_ref(
+    event: SemanticGovernanceEvent,
+    *,
+    artifact: AgentTaskArtifact | None,
+) -> ClaimSupportPolicyChangeImpactFixturePromotionEventRef:
+    promotion_payload = _fixture_promotion_payload(event)
+    return ClaimSupportPolicyChangeImpactFixturePromotionEventRef(
+        event_id=event.id,
+        event_hash=event.event_hash,
+        receipt_sha256=event.receipt_sha256,
+        fixture_set_id=_uuid_or_none(promotion_payload.get("fixture_set_id")),
+        fixture_set_sha256=promotion_payload.get("fixture_set_sha256"),
+        artifact_id=event.agent_task_artifact_id,
+        artifact_kind=artifact.artifact_kind if artifact is not None else None,
+        artifact_path=artifact.storage_path if artifact is not None else None,
+        created_at=event.created_at,
+    )
+
+
+def _fixture_promotion_events_by_candidate(
+    session: Session,
+) -> dict[str, list[ClaimSupportPolicyChangeImpactFixturePromotionEventRef]]:
+    events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND
+            )
+            .order_by(
+                SemanticGovernanceEvent.created_at.asc(),
+                SemanticGovernanceEvent.event_sequence.asc(),
+            )
+        )
+    )
+    artifacts_by_id = _artifact_rows_by_id(session, events)
+    refs_by_candidate: dict[str, list[ClaimSupportPolicyChangeImpactFixturePromotionEventRef]] = {}
+    for event in events:
+        event_ref = _fixture_promotion_event_ref(
+            event,
+            artifact=artifacts_by_id.get(event.agent_task_artifact_id),
+        )
+        promotion_payload = _fixture_promotion_payload(event)
+        for candidate in promotion_payload.get("candidates") or []:
+            candidate_id = str(candidate.get("candidate_id") or "")
+            if candidate_id:
+                refs_by_candidate.setdefault(candidate_id, []).append(event_ref)
+    return refs_by_candidate
+
+
+def _looks_like_technical_report_draft(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    required = {
+        "title",
+        "goal",
+        "target_length",
+        "harness_task_id",
+        "generator_mode",
+        "claims",
+        "markdown",
+    }
+    return required.issubset(payload)
+
+
+def _draft_payload_from_task(task: AgentTask | None) -> tuple[dict[str, Any] | None, str]:
+    if task is None:
+        return None, "missing_draft_task"
+    result_payload = dict(task.result_json or {})
+    candidates = [
+        ((result_payload.get("payload") or {}).get("draft") if result_payload else None),
+        result_payload.get("draft"),
+        result_payload,
+    ]
+    for candidate in candidates:
+        if _looks_like_technical_report_draft(candidate):
+            return deepcopy(candidate), "draft_task_payload"
+    return None, "draft_task_missing_valid_payload"
+
+
+def _fallback_draft_payload_from_derivation(
+    row: ClaimEvidenceDerivation,
+) -> dict[str, Any]:
+    claim_text = row.claim_text or row.claim_id
+    source_search_result_ids = _string_list(row.source_search_request_result_ids_json)
+    support_judgment = dict(row.support_judgment_json or {})
+    if not source_search_result_ids:
+        source_search_result_ids = _string_list(
+            support_judgment.get("source_search_request_result_ids") or []
+        )
+    section_id = f"section:replay_alert:{row.claim_id}"
+    return {
+        "document_kind": "technical_report",
+        "title": "Claim Support Replay Alert Fixture",
+        "goal": "Replay a claim-support policy change impact as evaluation coverage.",
+        "audience": "Evaluation",
+        "target_length": "short",
+        "harness_task_id": str(row.agent_task_id or row.evidence_package_export_id),
+        "generator_mode": "structured_fallback",
+        "generator_model": None,
+        "used_fallback": True,
+        "llm_adapter_contract": {},
+        "document_refs": [],
+        "required_concept_keys": [],
+        "sections": [
+            {
+                "section_id": section_id,
+                "title": "Replay Alert Claim",
+                "body_markdown": claim_text,
+                "claim_ids": [row.claim_id],
+            }
+        ],
+        "claims": [
+            {
+                "claim_id": row.claim_id,
+                "section_id": section_id,
+                "rendered_text": claim_text,
+                "concept_keys": [],
+                "evidence_card_ids": [],
+                "graph_edge_ids": _string_list(row.graph_edge_ids_json),
+                "fact_ids": _string_list(row.fact_ids_json),
+                "assertion_ids": _string_list(row.assertion_ids_json),
+                "source_document_ids": _string_list(row.source_document_ids_json),
+                "support_level": row.support_verdict,
+                "review_policy_status": "candidate_disclosed",
+                "source_search_request_ids": _string_list(
+                    row.source_search_request_ids_json
+                ),
+                "source_search_request_result_ids": source_search_result_ids,
+                "source_evidence_package_export_ids": _string_list(
+                    row.source_evidence_package_export_ids_json
+                ),
+                "source_evidence_package_sha256s": _string_list(
+                    row.source_evidence_package_sha256s_json
+                ),
+                "source_evidence_trace_sha256s": _string_list(
+                    row.source_evidence_trace_sha256s_json
+                ),
+                "provenance_lock": dict(row.provenance_lock_json or {}),
+                "provenance_lock_sha256": row.provenance_lock_sha256,
+                "support_verdict": row.support_verdict,
+                "support_score": row.support_score,
+                "support_judge_run_id": str(row.support_judge_run_id)
+                if row.support_judge_run_id
+                else None,
+                "support_judgment": support_judgment,
+                "support_judgment_sha256": row.support_judgment_sha256,
+                "derivation_rule": row.derivation_rule,
+                "evidence_package_export_id": str(row.evidence_package_export_id),
+                "evidence_package_sha256": row.evidence_package_sha256,
+                "derivation_sha256": row.derivation_sha256,
+                "source_snapshot_sha256s": _string_list(row.source_snapshot_sha256s_json),
+            }
+        ],
+        "blocked_claims": [],
+        "evidence_cards": [],
+        "source_evidence_package_exports": [],
+        "graph_context": [],
+        "evidence_package_export_id": str(row.evidence_package_export_id),
+        "evidence_package_sha256": row.evidence_package_sha256,
+        "source_snapshot_sha256s": _string_list(row.source_snapshot_sha256s_json),
+        "support_judge_run_id": str(row.support_judge_run_id)
+        if row.support_judge_run_id
+        else None,
+        "support_judgment_sha256s": [row.support_judgment_sha256]
+        if row.support_judgment_sha256
+        else [],
+        "claim_support_summary": {
+            "source": "claim_support_policy_change_impact_replay_alert",
+            "source_support_verdict": row.support_verdict,
+            "source_support_judgment_sha256": row.support_judgment_sha256,
+        },
+        "claim_derivations": [],
+        "markdown": claim_text,
+        "warnings": [
+            "Fixture reconstructed from claim_evidence_derivations because the "
+            "source draft task did not expose a complete technical-report draft payload."
+        ],
+        "success_metrics": [],
+    }
+
+
+def _expected_verdict_for_fixture(
+    *,
+    draft_source: str,
+    derivation: ClaimEvidenceDerivation,
+) -> str:
+    if draft_source != "draft_task_payload":
+        return "insufficient_evidence"
+    support_judgment = dict(derivation.support_judgment_json or {})
+    candidate = derivation.support_verdict or support_judgment.get("verdict")
+    if candidate in {"supported", "unsupported", "insufficient_evidence"}:
+        return str(candidate)
+    return "insufficient_evidence"
+
+
+def _fixture_candidate_source_basis(
+    *,
+    item: ClaimSupportPolicyChangeImpactAlertItemResponse,
+    derivation: ClaimEvidenceDerivation,
+    fixture: dict[str, Any],
+    draft_source: str,
+) -> dict[str, Any]:
+    escalation_event_ids = [str(event.event_id) for event in item.escalation_events]
+    return {
+        "schema_name": "claim_support_policy_impact_fixture_candidate_source",
+        "schema_version": "1.0",
+        "change_impact_id": str(item.change_impact.change_impact_id),
+        "impact_payload_sha256": item.change_impact.impact_payload_sha256,
+        "alert_kind": item.alert_kind,
+        "replay_status": item.replay_status,
+        "is_stale": item.is_stale,
+        "escalation_event_ids": escalation_event_ids,
+        "source_claim_derivation_id": str(derivation.id),
+        "source_draft_task_id": str(derivation.agent_task_id)
+        if derivation.agent_task_id
+        else None,
+        "source_support_verdict": derivation.support_verdict,
+        "source_support_judgment_sha256": derivation.support_judgment_sha256,
+        "draft_source": draft_source,
+        "fixture_sha256": payload_sha256(fixture),
+    }
+
+
+def _candidate_from_derivation(
+    item: ClaimSupportPolicyChangeImpactAlertItemResponse,
+    *,
+    derivation: ClaimEvidenceDerivation,
+    draft_task: AgentTask | None,
+) -> ClaimSupportPolicyChangeImpactFixtureCandidateResponse:
+    draft_payload, draft_source = _draft_payload_from_task(draft_task)
+    if draft_payload is None:
+        draft_payload = _fallback_draft_payload_from_derivation(derivation)
+        draft_source = "reconstructed_claim_derivation"
+    expected_verdict = _expected_verdict_for_fixture(
+        draft_source=draft_source,
+        derivation=derivation,
+    )
+    case_id = f"replay_alert_{item.change_impact.change_impact_id.hex}_{derivation.id.hex[:12]}"
+    hard_case_kind = f"replay_alert_{item.alert_kind}_policy_change_impact"
+    fixture = {
+        "case_id": case_id,
+        "description": (
+            "Claim-support policy replay alert promoted into durable judge "
+            "evaluation coverage."
+        ),
+        "hard_case_kind": hard_case_kind,
+        "expected_verdict": expected_verdict,
+        "claim_id": derivation.claim_id,
+        "draft_payload": draft_payload,
+    }
+    source_basis = _fixture_candidate_source_basis(
+        item=item,
+        derivation=derivation,
+        fixture=fixture,
+        draft_source=draft_source,
+    )
+    candidate_id = payload_sha256(source_basis)
+    fixture["replay_alert_source"] = {
+        **source_basis,
+        "candidate_id": candidate_id,
+        "activation_task_id": str(item.change_impact.activation_task_id)
+        if item.change_impact.activation_task_id
+        else None,
+        "affected_verification_task_ids": [
+            str(task_id) for task_id in item.affected_verification_task_ids
+        ],
+    }
+    fixture_sha = payload_sha256(fixture)
+    return ClaimSupportPolicyChangeImpactFixtureCandidateResponse(
+        candidate_id=candidate_id,
+        change_impact_id=item.change_impact.change_impact_id,
+        alert_kind=item.alert_kind,
+        severity=item.severity,
+        replay_status=item.replay_status,
+        is_stale=item.is_stale,
+        source_claim_derivation_id=derivation.id,
+        source_draft_task_id=derivation.agent_task_id,
+        affected_verification_task_ids=list(item.affected_verification_task_ids),
+        escalation_event_ids=[event.event_id for event in item.escalation_events],
+        latest_escalation_event_id=item.latest_escalation_event_id,
+        case_id=case_id,
+        hard_case_kind=hard_case_kind,
+        expected_verdict=expected_verdict,
+        fixture_sha256=fixture_sha,
+        fixture=fixture,
+        source_payload_sha256=payload_sha256(source_basis),
+        operator_links={
+            "source_change_impact": (
+                "/agent-tasks/claim-support-policy-change-impacts/"
+                f"{item.change_impact.change_impact_id}"
+            ),
+            "source_draft_task": f"/agent-tasks/{derivation.agent_task_id}"
+            if derivation.agent_task_id
+            else None,
+            "promote": (
+                "/agent-tasks/claim-support-policy-change-impacts/"
+                "alerts/fixture-promotions"
+            ),
+        },
+    )
+
+
+def _derivations_for_alert_item(
+    session: Session,
+    item: ClaimSupportPolicyChangeImpactAlertItemResponse,
+) -> list[ClaimEvidenceDerivation]:
+    derivation_ids = _uuid_list(item.change_impact.impacted_claim_derivation_ids)
+    if not derivation_ids:
+        return []
+    return list(
+        session.scalars(
+            select(ClaimEvidenceDerivation)
+            .where(ClaimEvidenceDerivation.id.in_(derivation_ids))
+            .order_by(
+                ClaimEvidenceDerivation.created_at.desc(),
+                ClaimEvidenceDerivation.id.desc(),
+            )
+        )
+    )
+
+
+def _draft_tasks_for_derivations(
+    session: Session,
+    derivations: list[ClaimEvidenceDerivation],
+) -> dict[UUID, AgentTask]:
+    task_ids = [row.agent_task_id for row in derivations if row.agent_task_id is not None]
+    if not task_ids:
+        return {}
+    return {
+        row.id: row
+        for row in session.scalars(select(AgentTask).where(AgentTask.id.in_(task_ids)))
+    }
+
+
+def claim_support_policy_change_impact_fixture_candidates(
+    session: Session,
+    *,
+    policy_name: str | None = None,
+    stale_after_hours: int = 24,
+    limit: int = 50,
+    include_unescalated: bool = False,
+    include_promoted: bool = True,
+) -> ClaimSupportPolicyChangeImpactFixtureCandidateListResponse:
+    limit = max(1, limit)
+    alert_feed = claim_support_policy_change_impact_alerts(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+    )
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse] = []
+    for item in alert_feed.items:
+        if not include_unescalated and not item.escalation_events:
+            continue
+        derivations = _derivations_for_alert_item(session, item)
+        draft_tasks = _draft_tasks_for_derivations(session, derivations)
+        candidates.extend(
+            _candidate_from_derivation(
+                item,
+                derivation=derivation,
+                draft_task=draft_tasks.get(derivation.agent_task_id),
+            )
+            for derivation in derivations
+        )
+
+    promotion_events_by_candidate = _fixture_promotion_events_by_candidate(session)
+    promoted_count = 0
+    annotated_candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse] = []
+    for candidate in candidates:
+        promotion_events = promotion_events_by_candidate.get(candidate.candidate_id, [])
+        already_promoted = bool(promotion_events)
+        if already_promoted:
+            promoted_count += 1
+        annotated = candidate.model_copy(
+            update={
+                "already_promoted": already_promoted,
+                "promotion_events": promotion_events,
+            }
+        )
+        if include_promoted or not already_promoted:
+            annotated_candidates.append(annotated)
+
+    matching_count = len(annotated_candidates)
+    limited_items = annotated_candidates[:limit]
+    source_escalation_ids = {
+        event_id for candidate in candidates for event_id in candidate.escalation_event_ids
+    }
+    return ClaimSupportPolicyChangeImpactFixtureCandidateListResponse(
+        summary=ClaimSupportPolicyChangeImpactFixtureCandidateSummaryResponse(
+            alert_matching_count=alert_feed.matching_count,
+            candidate_count=len(candidates),
+            promoted_candidate_count=promoted_count,
+            unpromoted_candidate_count=len(candidates) - promoted_count,
+            source_escalation_event_count=len(source_escalation_ids),
+            stale_after_hours=stale_after_hours,
+        ),
+        generated_at=alert_feed.generated_at,
+        stale_after_hours=alert_feed.stale_after_hours,
+        limit=limit,
+        matching_count=matching_count,
+        item_count=len(limited_items),
+        has_more=matching_count > len(limited_items),
+        items=limited_items,
+    )
+
+
+def _promotion_event_deduplication_key(
+    fixture_set: ClaimSupportFixtureSet,
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+) -> str:
+    basis = {
+        "fixture_set_id": str(fixture_set.id),
+        "fixture_set_sha256": fixture_set.fixture_set_sha256,
+        "candidate_ids": sorted(candidate.candidate_id for candidate in candidates),
+        "fixture_sha256s": sorted(candidate.fixture_sha256 for candidate in candidates),
+    }
+    return f"claim_support_policy_impact_fixture_promoted:{payload_sha256(basis)}"
+
+
+def _fixture_promotion_anchor_task_id(
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+) -> UUID | None:
+    for candidate in candidates:
+        activation_task_id = (
+            candidate.fixture.get("replay_alert_source") or {}
+        ).get("activation_task_id")
+        if activation_task_id:
+            return UUID(str(activation_task_id))
+    for candidate in candidates:
+        if candidate.source_draft_task_id is not None:
+            return candidate.source_draft_task_id
+    return None
+
+
+def _record_fixture_promotion_event(
+    session: Session,
+    *,
+    fixture_set: ClaimSupportFixtureSet,
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+    requested_by: str,
+    storage_service: StorageService | None,
+) -> tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool]:
+    deduplication_key = _promotion_event_deduplication_key(fixture_set, candidates)
+    existing = session.scalar(
+        select(SemanticGovernanceEvent)
+        .where(SemanticGovernanceEvent.deduplication_key == deduplication_key)
+        .limit(1)
+    )
+    if existing is not None:
+        artifact = (
+            session.get(AgentTaskArtifact, existing.agent_task_artifact_id)
+            if existing.agent_task_artifact_id is not None
+            else None
+        )
+        return existing, artifact, False
+
+    semantic_basis = active_semantic_basis(session)
+    anchor_task_id = _fixture_promotion_anchor_task_id(candidates)
+    source_change_impact_ids = sorted({str(row.change_impact_id) for row in candidates})
+    source_escalation_event_ids = sorted(
+        {str(event_id) for row in candidates for event_id in row.escalation_event_ids}
+    )
+    candidate_payloads = [
+        {
+            "candidate_id": row.candidate_id,
+            "case_id": row.case_id,
+            "fixture_sha256": row.fixture_sha256,
+            "change_impact_id": str(row.change_impact_id),
+            "source_claim_derivation_id": str(row.source_claim_derivation_id)
+            if row.source_claim_derivation_id
+            else None,
+            "escalation_event_ids": [str(event_id) for event_id in row.escalation_event_ids],
+            "hard_case_kind": row.hard_case_kind,
+            "expected_verdict": row.expected_verdict,
+        }
+        for row in candidates
+    ]
+    receipt_basis = {
+        "schema_name": CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_RECEIPT_SCHEMA,
+        "schema_version": "1.0",
+        "fixture_set_id": str(fixture_set.id),
+        "fixture_set_name": fixture_set.fixture_set_name,
+        "fixture_set_version": fixture_set.fixture_set_version,
+        "fixture_set_sha256": fixture_set.fixture_set_sha256,
+        "fixture_count": fixture_set.fixture_count,
+        "candidate_count": len(candidates),
+        "source_change_impact_ids": source_change_impact_ids,
+        "source_escalation_event_ids": source_escalation_event_ids,
+        "candidates": candidate_payloads,
+        "semantic_basis": semantic_basis,
+        "recorded_by": requested_by,
+        "recorded_at": utcnow().isoformat(),
+        "deduplication_key": deduplication_key,
+    }
+    receipt_payload = {
+        **receipt_basis,
+        "receipt_sha256": payload_sha256(receipt_basis),
+    }
+    artifact: AgentTaskArtifact | None = None
+    if anchor_task_id is not None:
+        artifact = create_agent_task_artifact(
+            session,
+            task_id=anchor_task_id,
+            artifact_kind=CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND,
+            payload=receipt_payload,
+            storage_service=storage_service,
+            filename=(
+                "claim_support_policy_impact_fixture_promotion_"
+                f"{fixture_set.id}_{receipt_payload['receipt_sha256'][:12]}.json"
+            ),
+        )
+    event = record_semantic_governance_event(
+        session,
+        event_kind=CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND,
+        governance_scope=(
+            f"claim_support_policy:{fixture_set.fixture_set_name}:"
+            f"{fixture_set.fixture_set_version}"
+        ),
+        subject_table="claim_support_fixture_sets",
+        subject_id=fixture_set.id,
+        task_id=anchor_task_id,
+        ontology_snapshot_id=_uuid_or_none(semantic_basis.get("active_ontology_snapshot_id")),
+        semantic_graph_snapshot_id=_uuid_or_none(
+            semantic_basis.get("active_semantic_graph_snapshot_id")
+        ),
+        agent_task_artifact_id=artifact.id if artifact is not None else None,
+        receipt_sha256=receipt_payload["receipt_sha256"],
+        event_payload={
+            "claim_support_policy_impact_fixture_promotion": receipt_payload,
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=deduplication_key,
+        created_by=requested_by,
+    )
+    return event, artifact, True
+
+
+def promote_claim_support_policy_change_impact_fixture_candidates(
+    session: Session,
+    *,
+    policy_name: str | None = None,
+    stale_after_hours: int = 24,
+    limit: int = 50,
+    fixture_set_name: str = "claim_support_replay_alert_promotions",
+    fixture_set_version: str = "v1",
+    requested_by: str = "docling-system",
+    include_unescalated: bool = False,
+    storage_service: StorageService | None = None,
+    commit: bool = True,
+) -> ClaimSupportPolicyChangeImpactFixturePromotionResponse:
+    candidate_response = claim_support_policy_change_impact_fixture_candidates(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+        include_unescalated=include_unescalated,
+        include_promoted=False,
+    )
+    candidates = list(candidate_response.items)
+    if not candidates:
+        if commit:
+            session.commit()
+        else:
+            session.flush()
+        return ClaimSupportPolicyChangeImpactFixturePromotionResponse(
+            fixture_set_name=fixture_set_name,
+            fixture_set_version=fixture_set_version,
+            skipped_candidate_count=candidate_response.summary.promoted_candidate_count,
+        )
+
+    fixtures_by_case_id = {
+        str(fixture.get("case_id") or ""): fixture
+        for fixture in default_claim_support_evaluation_fixtures()
+    }
+    for candidate in candidates:
+        fixtures_by_case_id[candidate.case_id] = candidate.fixture
+    source_change_impact_ids = sorted(
+        {candidate.change_impact_id for candidate in candidates},
+        key=str,
+    )
+    source_escalation_event_ids = sorted(
+        {event_id for candidate in candidates for event_id in candidate.escalation_event_ids},
+        key=str,
+    )
+    fixture_set = ensure_claim_support_fixture_set(
+        session,
+        fixture_set_name=fixture_set_name,
+        fixture_set_version=fixture_set_version,
+        fixtures=list(fixtures_by_case_id.values()),
+        metadata={
+            "source": "claim_support_policy_change_impact_replay_alerts",
+            "requested_by": requested_by,
+            "source_change_impact_ids": [str(value) for value in source_change_impact_ids],
+            "source_escalation_event_ids": [
+                str(value) for value in source_escalation_event_ids
+            ],
+            "candidate_ids": [candidate.candidate_id for candidate in candidates],
+        },
+    )
+    event, artifact, created = _record_fixture_promotion_event(
+        session,
+        fixture_set=fixture_set,
+        candidates=candidates,
+        requested_by=requested_by,
+        storage_service=storage_service,
+    )
+    if commit:
+        session.commit()
+    else:
+        session.flush()
+    event_ref = _fixture_promotion_event_ref(event, artifact=artifact)
+    promoted_candidates = [
+        candidate.model_copy(
+            update={
+                "already_promoted": True,
+                "promotion_events": [event_ref],
+            }
+        )
+        for candidate in candidates
+    ]
+    return ClaimSupportPolicyChangeImpactFixturePromotionResponse(
+        fixture_set_id=fixture_set.id,
+        fixture_set_name=fixture_set.fixture_set_name,
+        fixture_set_version=fixture_set.fixture_set_version,
+        fixture_set_sha256=fixture_set.fixture_set_sha256,
+        fixture_count=fixture_set.fixture_count,
+        promoted_candidate_count=len(candidates),
+        skipped_candidate_count=candidate_response.summary.promoted_candidate_count,
+        source_change_impact_ids=source_change_impact_ids,
+        source_escalation_event_ids=source_escalation_event_ids,
+        promotion_event_id=event.id,
+        promotion_receipt_sha256=event.receipt_sha256,
+        artifact_id=artifact.id if artifact is not None else None,
+        artifact_kind=artifact.artifact_kind if artifact is not None else None,
+        artifact_path=artifact.storage_path if artifact is not None else None,
+        created=created,
+        candidates=promoted_candidates,
+    )
 
 
 def get_claim_support_policy_change_impact(

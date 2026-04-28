@@ -103,6 +103,7 @@ docling-system-agent-task-decision-signals = "app.cli:run_agent_task_decision_si
 docling-system-agent-task-workflow-versions = "app.cli:run_agent_task_workflow_versions"
 docling-system-agent-task-export-traces = "app.cli:run_agent_task_export_traces"
 docling-system-claim-support-replay-alerts = "app.cli:run_claim_support_replay_alerts"
+docling-system-claim-support-replay-fixtures = "app.cli:run_claim_support_replay_fixture_candidates"
 docling-system-improvement-case-validate = "app.cli:run_improvement_case_validate"
 docling-system-improvement-case-list = "app.cli:run_improvement_case_list"
 docling-system-improvement-case-summary = "app.cli:run_improvement_case_summary"

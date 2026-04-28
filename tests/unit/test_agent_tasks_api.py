@@ -295,6 +295,175 @@ def test_claim_support_policy_change_impact_alert_escalation_rejects_invalid_que
     assert response.status_code == 422
 
 
+def test_claim_support_policy_change_impact_fixture_candidates_route_uses_service(
+    monkeypatch,
+) -> None:
+    captured = {}
+    now = datetime(2026, 4, 12, tzinfo=UTC)
+
+    def fake_fixture_candidates(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+        include_unescalated=False,
+        include_promoted=True,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+                "include_unescalated": include_unescalated,
+                "include_promoted": include_promoted,
+            }
+        )
+        return {
+            "summary": {
+                "alert_matching_count": 1,
+                "candidate_count": 1,
+                "promoted_candidate_count": 0,
+                "unpromoted_candidate_count": 1,
+                "source_escalation_event_count": 1,
+                "stale_after_hours": stale_after_hours,
+            },
+            "generated_at": now,
+            "stale_after_hours": stale_after_hours,
+            "limit": limit,
+            "matching_count": 1,
+            "item_count": 0,
+            "has_more": False,
+            "items": [],
+        }
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks."
+        "claim_support_policy_change_impact_fixture_candidates",
+        fake_fixture_candidates,
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
+        "?policy_name=claim_support_judge_calibration_policy"
+        "&stale_after_hours=6&limit=3&include_unescalated=true&include_promoted=false"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["candidate_count"] == 1
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 3,
+        "include_unescalated": True,
+        "include_promoted": False,
+    }
+
+
+def test_claim_support_policy_change_impact_fixture_candidates_rejects_invalid_query() -> None:
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"
+        "?limit=0"
+    )
+
+    assert response.status_code == 422
+
+
+def test_claim_support_policy_change_impact_fixture_promotion_route_uses_service(
+    monkeypatch,
+) -> None:
+    captured = {}
+
+    def fake_promote_fixture_candidates(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+        fixture_set_name="claim_support_replay_alert_promotions",
+        fixture_set_version="v1",
+        requested_by="docling-system",
+        include_unescalated=False,
+        storage_service=None,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+                "fixture_set_name": fixture_set_name,
+                "fixture_set_version": fixture_set_version,
+                "requested_by": requested_by,
+                "include_unescalated": include_unescalated,
+                "storage_service": storage_service,
+            }
+        )
+        return {
+            "fixture_set_id": uuid4(),
+            "fixture_set_name": fixture_set_name,
+            "fixture_set_version": fixture_set_version,
+            "fixture_set_sha256": "fixture-sha",
+            "fixture_count": 7,
+            "promoted_candidate_count": 1,
+            "skipped_candidate_count": 0,
+            "source_change_impact_ids": [],
+            "source_escalation_event_ids": [],
+            "promotion_event_id": uuid4(),
+            "promotion_receipt_sha256": "receipt-sha",
+            "artifact_id": None,
+            "artifact_kind": None,
+            "artifact_path": None,
+            "created": True,
+            "candidates": [],
+        }
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks."
+        "promote_claim_support_policy_change_impact_fixture_candidates",
+        fake_promote_fixture_candidates,
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
+        "?policy_name=claim_support_judge_calibration_policy"
+        "&stale_after_hours=6&limit=3",
+        json={
+            "fixture_set_name": "replay_alerts_v1",
+            "fixture_set_version": "v7",
+            "requested_by": "ops@example.com",
+            "include_unescalated": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["promoted_candidate_count"] == 1
+    captured_storage_service = captured.pop("storage_service")
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 3,
+        "fixture_set_name": "replay_alerts_v1",
+        "fixture_set_version": "v7",
+        "requested_by": "ops@example.com",
+        "include_unescalated": True,
+    }
+    assert captured_storage_service is not None
+
+
+def test_claim_support_policy_change_impact_fixture_promotion_rejects_invalid_query() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
+        "?limit=0",
+        json={"requested_by": "ops@example.com"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrated_tasks() -> None:
     client = TestClient(app)
     response = client.get("/agent-tasks/actions")

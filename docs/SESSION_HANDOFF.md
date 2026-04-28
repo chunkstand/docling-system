@@ -70,11 +70,11 @@ The support-judge calibration path is now first-class:
 - governed promotion path: `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`
 - service: `app.services.claim_support_evaluations`
 - persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, `claim_support_evaluation_cases`, and `claim_support_policy_change_impacts`
-- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, `claim_support_calibration_policy_activation`, `claim_support_policy_activation_governance`, `claim_support_policy_change_impact_replay_plan`, `claim_support_policy_impact_replay_closure`, and `claim_support_policy_impact_replay_escalation`
+- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, `claim_support_calibration_policy_activation`, `claim_support_policy_activation_governance`, `claim_support_policy_change_impact_replay_plan`, `claim_support_policy_impact_replay_closure`, `claim_support_policy_impact_replay_escalation`, and `claim_support_policy_impact_fixture_promotion`
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, inspect status counts and stale open rows through `GET /agent-tasks/claim-support-policy-change-impacts/summary`, load the remediation worklist through `GET /agent-tasks/claim-support-policy-change-impacts/worklist`, load stale/blocked alert rows through `GET /agent-tasks/claim-support-policy-change-impacts/alerts`, record idempotent escalation receipts through `POST /agent-tasks/claim-support-policy-change-impacts/alerts/escalations`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. The CLI command `docling-system-claim-support-replay-alerts` emits the same alert posture as JSON, YAML, or a tabular report and can record escalation receipts with `--record-escalations`. The Agent Workflows UI now exposes the worklist with stale-row controls, returned/matching row counts, affected audit-bundle links, replay task links, closure receipt links, and queue/refresh actions; decision signals surface open, stale, and blocked claim-support replay impacts. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or terminal closure payload hash mismatches before mutating status. Worker finalization refreshes related impact rows after replay task success or failure. Impact rows carry replay task IDs, replay plans, replay status, and immutable closure receipts; replay-required rows do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. Zero-replay `no_action_required` rows close during activation with the same closure artifact and semantic-governance event used for completed replay rows. Terminal closures must carry a row-level hash, matching payload hash, matching row status, and `replay_closed_at`; stale/blocked alert escalations write immutable `claim_support_policy_impact_replay_escalation` artifacts and `claim_support_policy_impact_replay_escalated` semantic-governance events. The alert feed is DB-filtered to blocked rows plus stale open rows, while escalation recording revalidates each target row under `FOR UPDATE` before writing a receipt. Existing technical-report evidence manifests for affected verification tasks are refreshed in the same escalation transaction, so older manifest rows do not hide newly recorded escalation evidence. Technical-report audit bundles, evidence manifests, and evidence traces surface related policy-change replay impact status and escalation evidence until replay closes. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, inspect status counts and stale open rows through `GET /agent-tasks/claim-support-policy-change-impacts/summary`, load the remediation worklist through `GET /agent-tasks/claim-support-policy-change-impacts/worklist`, load stale/blocked alert rows through `GET /agent-tasks/claim-support-policy-change-impacts/alerts`, record idempotent escalation receipts through `POST /agent-tasks/claim-support-policy-change-impacts/alerts/escalations`, mine escalated alert rows into hard-case candidates through `GET /agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates`, promote unconverted candidates into governed fixture sets through `POST /agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. The CLI commands `docling-system-claim-support-replay-alerts` and `docling-system-claim-support-replay-fixtures` emit the alert posture and alert-derived fixture coverage as JSON, YAML, or tabular reports; the alert CLI can record escalation receipts and the fixture CLI can promote unconverted candidates with `--promote`. The Agent Workflows UI now exposes the worklist with stale-row controls, returned/matching row counts, affected audit-bundle links, replay task links, closure receipt links, and queue/refresh actions; decision signals surface open, stale, and blocked claim-support replay impacts. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or terminal closure payload hash mismatches before mutating status. Worker finalization refreshes related impact rows after replay task success or failure. Impact rows carry replay task IDs, replay plans, replay status, and immutable closure receipts; replay-required rows do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. Zero-replay `no_action_required` rows close during activation with the same closure artifact and semantic-governance event used for completed replay rows. Terminal closures must carry a row-level hash, matching payload hash, matching row status, and `replay_closed_at`; stale/blocked alert escalations write immutable `claim_support_policy_impact_replay_escalation` artifacts and `claim_support_policy_impact_replay_escalated` semantic-governance events. The alert feed is DB-filtered to blocked rows plus stale open rows, while escalation recording revalidates each target row under `FOR UPDATE` before writing a receipt. Existing technical-report evidence manifests for affected verification tasks are refreshed in the same escalation transaction, so older manifest rows do not hide newly recorded escalation evidence. Fixture promotion writes immutable `claim_support_policy_impact_fixture_promotion` artifacts and `claim_support_policy_impact_fixture_promoted` semantic-governance events that connect source impact rows, escalation receipts, candidate fixtures, and the promoted fixture set. Technical-report audit bundles, evidence manifests, and evidence traces surface related policy-change replay impact status and escalation evidence until replay closes. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -106,7 +106,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-782 passed in 91.63s (0:01:31)
+788 passed in 88.11s (0:01:28)
 ```
 
 Focused claim-support verification during this implementation pass:
@@ -114,10 +114,11 @@ Focused claim-support verification during this implementation pass:
 ```bash
 uv run alembic upgrade head
 uv run docling-system-claim-support-replay-alerts --help
+uv run docling-system-claim-support-replay-fixtures --help
 node --check app/ui/app.js
 uv run ruff check .
-uv run pytest -q tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alerts_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alerts_rejects_invalid_query tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alert_escalation_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alert_escalation_rejects_invalid_query
-uv run pytest -q tests/unit/test_cli.py::test_claim_support_replay_alerts_cli_prints_table_and_records tests/unit/test_alembic_0063_claim_support_replay_escalations.py
+uv run pytest -q tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alerts_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alerts_rejects_invalid_query tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alert_escalation_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_alert_escalation_rejects_invalid_query tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_fixture_candidates_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_fixture_candidates_rejects_invalid_query tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_fixture_promotion_route_uses_service tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_fixture_promotion_rejects_invalid_query tests/unit/test_api_route_contracts.py
+uv run pytest -q tests/unit/test_cli.py::test_claim_support_replay_alerts_cli_prints_table_and_records tests/unit/test_cli.py::test_claim_support_replay_fixture_candidates_cli_promotes_and_prints_table tests/unit/test_alembic_0063_claim_support_replay_escalations.py tests/unit/test_alembic_0064_claim_support_replay_fixture_promotions.py
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_change_impact_replay_prevalidates_before_creating_tasks
 uv run docling-system-architecture-inspect
 ```
@@ -127,13 +128,14 @@ Results:
 ```text
 alembic upgrade head: passed
 claim-support replay alerts CLI help: passed
+claim-support replay fixtures CLI help: passed
 ruff: All checks passed
 node --check: passed
-claim-support alert API tests: 4 passed in 7.34s
-claim-support alert CLI/migration tests: 2 passed in 1.23s
-claim-support focused integration: 1 passed in 2.96s
+claim-support alert/fixture API and route-contract tests: 16 passed in 7.39s
+claim-support alert/fixture CLI and migration tests: 4 passed in 1.21s
+claim-support focused integration: 1 passed in 2.89s
 architecture inspection valid: true, violation_count: 0
-api_route_count: 125
+api_route_count: 127
 ```
 
 Architecture inspection during this pass:
@@ -147,7 +149,7 @@ Results:
 ```text
 valid: true
 violation_count: 0
-api_route_count: 125
+api_route_count: 127
 agent_action_count: 51
 ```
 
@@ -155,26 +157,27 @@ agent_action_count: 51
 
 - [README.md](/Users/chunkstand/Documents/docling-system/README.md)
 - [docs/SESSION_HANDOFF.md](/Users/chunkstand/Documents/docling-system/docs/SESSION_HANDOFF.md)
+- [docs/architecture_contract_map.json](/Users/chunkstand/Documents/docling-system/docs/architecture_contract_map.json)
+- [SYSTEM_PLAN.md](/Users/chunkstand/Documents/docling-system/SYSTEM_PLAN.md)
 - [pyproject.toml](/Users/chunkstand/Documents/docling-system/pyproject.toml)
-- [alembic/versions/0063_claim_support_replay_escalations.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0063_claim_support_replay_escalations.py)
+- [alembic/versions/0064_claim_support_replay_fixture_promotions.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0064_claim_support_replay_fixture_promotions.py)
 - [app/api/routers/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/api/routers/agent_tasks.py)
 - [app/cli.py](/Users/chunkstand/Documents/docling-system/app/cli.py)
 - [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
 - [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
 - [app/services/claim_support_policy_impacts.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_impacts.py)
-- [app/services/evidence.py](/Users/chunkstand/Documents/docling-system/app/services/evidence.py)
 - [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
-- [tests/unit/test_alembic_0063_claim_support_replay_escalations.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0063_claim_support_replay_escalations.py)
+- [tests/unit/test_alembic_0064_claim_support_replay_fixture_promotions.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0064_claim_support_replay_fixture_promotions.py)
 - [tests/unit/test_agent_tasks_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_agent_tasks_api.py)
 - [tests/unit/test_cli.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_cli.py)
 
 ## Next Suggested Pass
 
-The next useful pass is to feed replay-alert outcomes back into retrieval and claim-support evaluation:
+The next useful pass is to enforce replay-alert fixture coverage during policy verification and report generation:
 
-1. mine stale or blocked replay impact rows into candidate hard cases
-2. let operators promote those candidates into governed claim-support fixture sets
-3. add a replay-alert-to-fixture audit receipt so the failure path is traceable
-4. report which escalation events have been converted into durable evaluation coverage
+1. make policy verification summarize promoted replay-alert fixture sets and unconverted escalation receipts
+2. optionally include the latest promoted replay-alert fixture set in verification runs by default
+3. surface fixture-promotion events in technical-report audit bundles, evidence manifests, and evidence traces
+4. add operator posture signals for escalation receipts that remain unconverted after a configured window
 
-That would move the system from auditable replay operations into a measurable learning loop.
+That would move the system from fixture promotion into enforced coverage and court-grade reporting visibility.

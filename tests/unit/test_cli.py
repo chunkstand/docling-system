@@ -35,6 +35,7 @@ from app.cli import (
     run_audit,
     run_backfill_legacy_audit,
     run_claim_support_replay_alerts,
+    run_claim_support_replay_fixture_candidates,
     run_eval_candidates,
     run_eval_corpus,
     run_eval_reranker,
@@ -1243,6 +1244,103 @@ def test_claim_support_replay_alerts_cli_prints_table_and_records(
         "stale_after_hours": 6,
         "limit": 2,
         "requested_by": "ops@example.com",
+    }
+    assert captured_storage_service is not None
+
+
+def test_claim_support_replay_fixture_candidates_cli_promotes_and_prints_table(
+    monkeypatch,
+    capsys,
+) -> None:
+    candidate_id = "candidate-sha"
+    change_impact_id = uuid4()
+    captured = {}
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    class FakePayload:
+        def model_dump(self, mode=None):
+            return {
+                "fixture_set_id": str(uuid4()),
+                "fixture_set_name": "replay_alerts",
+                "fixture_set_version": "v1",
+                "fixture_set_sha256": "fixture-sha",
+                "fixture_count": 7,
+                "promoted_candidate_count": 1,
+                "skipped_candidate_count": 0,
+                "source_change_impact_ids": [str(change_impact_id)],
+                "source_escalation_event_ids": [str(uuid4())],
+                "promotion_event_id": str(uuid4()),
+                "promotion_receipt_sha256": "receipt-sha",
+                "artifact_id": None,
+                "artifact_kind": None,
+                "artifact_path": None,
+                "created": True,
+                "candidates": [
+                    {
+                        "candidate_id": candidate_id,
+                        "change_impact_id": str(change_impact_id),
+                        "alert_kind": "blocked",
+                        "case_id": "case-1",
+                        "expected_verdict": "supported",
+                        "already_promoted": True,
+                        "promotion_events": [{"event_id": str(uuid4())}],
+                    }
+                ],
+            }
+
+    def fake_promote(session, **kwargs):
+        captured.update(kwargs)
+        return FakePayload()
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-claim-support-replay-fixtures",
+            "--promote",
+            "--requested-by",
+            "ops@example.com",
+            "--policy-name",
+            "claim_support_judge_calibration_policy",
+            "--stale-after-hours",
+            "6",
+            "--limit",
+            "2",
+            "--fixture-set-name",
+            "replay_alerts",
+            "--fixture-set-version",
+            "v1",
+            "--format",
+            "table",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.promote_claim_support_policy_change_impact_fixture_candidates",
+        fake_promote,
+    )
+    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+
+    run_claim_support_replay_fixture_candidates()
+
+    output = capsys.readouterr().out
+    assert "candidate_id\tchange_impact_id\talert_kind" in output
+    assert f"{candidate_id}\t{change_impact_id}\tblocked" in output
+    captured_storage_service = captured.pop("storage_service")
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 2,
+        "fixture_set_name": "replay_alerts",
+        "fixture_set_version": "v1",
+        "requested_by": "ops@example.com",
+        "include_unescalated": False,
     }
     assert captured_storage_service is not None
 
