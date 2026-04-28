@@ -76,6 +76,9 @@ CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
 CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
     "claim_support_policy_impact_fixture_promoted"
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closed"
+)
 CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
     "pending",
     "queued",
@@ -2769,6 +2772,74 @@ def _fixture_promotion_event_payload(event: SemanticGovernanceEvent) -> dict[str
     }
 
 
+def _claim_support_replay_alert_waiver_closure_events_by_impact(
+    session: Session,
+    rows: list[ClaimSupportPolicyChangeImpact],
+) -> dict[UUID, list[SemanticGovernanceEvent]]:
+    row_ids = {str(row.id) for row in rows}
+    if not row_ids:
+        return {}
+    events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND
+            )
+            .order_by(
+                SemanticGovernanceEvent.created_at.asc(),
+                SemanticGovernanceEvent.event_sequence.asc(),
+            )
+        )
+    )
+    events_by_row: dict[UUID, list[SemanticGovernanceEvent]] = {}
+    rows_by_id = {str(row.id): row for row in rows}
+    for event in events:
+        closure_payload = (
+            (event.event_payload_json or {}).get(
+                "claim_support_replay_alert_fixture_coverage_waiver_closure"
+            )
+            or {}
+        )
+        source_change_impact_ids = {
+            str(value)
+            for value in closure_payload.get("source_change_impact_ids") or []
+            if value
+        }
+        for row_id in sorted(source_change_impact_ids & row_ids):
+            events_by_row.setdefault(rows_by_id[row_id].id, []).append(event)
+    return events_by_row
+
+
+def _waiver_closure_event_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
+    closure_payload = (
+        (event.event_payload_json or {}).get(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        )
+        or {}
+    )
+    return {
+        "event_id": str(event.id),
+        "event_hash": event.event_hash,
+        "receipt_sha256": event.receipt_sha256,
+        "agent_task_artifact_id": str(event.agent_task_artifact_id)
+        if event.agent_task_artifact_id
+        else None,
+        "payload_sha256": event.payload_sha256,
+        "waiver_artifact_id": closure_payload.get("waiver_artifact_id"),
+        "waiver_sha256": closure_payload.get("waiver_sha256"),
+        "closure_status": closure_payload.get("closure_status"),
+        "promotion_event_id": closure_payload.get("promotion_event_id"),
+        "promotion_receipt_sha256": closure_payload.get("promotion_receipt_sha256"),
+        "promotion_artifact_id": closure_payload.get("promotion_artifact_id"),
+        "fixture_set_id": closure_payload.get("fixture_set_id"),
+        "fixture_set_sha256": closure_payload.get("fixture_set_sha256"),
+        "covered_escalation_event_ids": list(
+            closure_payload.get("covered_escalation_event_ids") or []
+        ),
+    }
+
+
 def _claim_support_policy_change_impact_summary(
     session: Session,
     exports: list[EvidencePackageExport],
@@ -2808,6 +2879,9 @@ def _claim_support_policy_change_impact_summary(
     fixture_promotion_events_by_row = (
         _claim_support_policy_fixture_promotion_events_by_impact(session, matching_rows)
     )
+    waiver_closure_events_by_row = (
+        _claim_support_replay_alert_waiver_closure_events_by_impact(session, matching_rows)
+    )
     status_counts: dict[str, int] = {}
     impact_rows: list[dict[str, Any]] = []
     for row in matching_rows:
@@ -2816,6 +2890,7 @@ def _claim_support_policy_change_impact_summary(
         closure_events = events_by_row.get(row.id, [])
         escalation_events = escalation_events_by_row.get(row.id, [])
         fixture_promotion_events = fixture_promotion_events_by_row.get(row.id, [])
+        waiver_closure_events = waiver_closure_events_by_row.get(row.id, [])
         impact_rows.append(
             {
                 "change_impact_id": str(row.id),
@@ -2867,6 +2942,10 @@ def _claim_support_policy_change_impact_summary(
                 "fixture_promotion_governance_events": [
                     _fixture_promotion_event_payload(event)
                     for event in fixture_promotion_events
+                ],
+                "waiver_closure_governance_events": [
+                    _waiver_closure_event_payload(event)
+                    for event in waiver_closure_events
                 ],
             }
         )
@@ -4571,6 +4650,10 @@ def _build_evidence_trace_graph_specs(
             (
                 "replay_fixture_promotion_event",
                 impact.get("fixture_promotion_governance_events") or [],
+            ),
+            (
+                "replay_fixture_waiver_closure_event",
+                impact.get("waiver_closure_governance_events") or [],
             ),
         ]:
             for event in event_rows:

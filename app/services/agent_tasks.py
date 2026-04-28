@@ -75,6 +75,9 @@ CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
     "claim_support_replay_alert_fixture_coverage_waiver"
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closed"
+)
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS = 24
 
 
@@ -100,6 +103,52 @@ def _coerce_utc_datetime(value: object) -> datetime | None:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         return None
     return parsed.astimezone(UTC)
+
+
+def _closed_replay_alert_fixture_coverage_waiver_keys(
+    session: Session,
+) -> set[tuple[UUID, str]]:
+    closed: set[tuple[UUID, str]] = set()
+    for event in session.scalars(
+        select(SemanticGovernanceEvent).where(
+            SemanticGovernanceEvent.event_kind
+            == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND
+        )
+    ):
+        closure_payload = (
+            (event.event_payload_json or {}).get(
+                "claim_support_replay_alert_fixture_coverage_waiver_closure"
+            )
+            or {}
+        )
+        waiver_sha256 = str(closure_payload.get("waiver_sha256") or "")
+        waiver_artifact_id = closure_payload.get("waiver_artifact_id")
+        promotion_artifact_id = closure_payload.get("promotion_artifact_id")
+        promotion_receipt_sha256 = str(
+            closure_payload.get("promotion_receipt_sha256") or ""
+        )
+        receipt_sha256 = str(closure_payload.get("receipt_sha256") or "")
+        if (
+            not waiver_sha256
+            or not waiver_artifact_id
+            or not promotion_artifact_id
+            or not promotion_receipt_sha256
+            or not receipt_sha256
+            or receipt_sha256 != event.receipt_sha256
+            or event.agent_task_artifact_id is None
+        ):
+            continue
+        try:
+            waiver_artifact_uuid = UUID(str(waiver_artifact_id))
+            promotion_artifact_uuid = UUID(str(promotion_artifact_id))
+        except (TypeError, ValueError):
+            continue
+        if session.get(AgentTaskArtifact, promotion_artifact_uuid) is None:
+            continue
+        if session.get(AgentTaskArtifact, event.agent_task_artifact_id) is None:
+            continue
+        closed.add((waiver_artifact_uuid, waiver_sha256))
+    return closed
 
 
 def _initial_task_status(*, requires_approval: bool, has_incomplete_dependencies: bool) -> str:
@@ -1756,10 +1805,16 @@ def get_agent_task_decision_signals(
     expiring_waiver_count = 0
     expired_waiver_count = 0
     unmanaged_waiver_count = 0
+    closed_waiver_count = 0
     high_severity_active_waiver_count = 0
     promotable_waived_escalation_count = 0
+    closed_waiver_keys = _closed_replay_alert_fixture_coverage_waiver_keys(session)
     for artifact in replay_alert_fixture_coverage_waiver_artifacts:
         payload = dict(artifact.payload_json or {})
+        waiver_sha256 = str(payload.get("waiver_sha256") or "")
+        if waiver_sha256 and (artifact.id, waiver_sha256) in closed_waiver_keys:
+            closed_waiver_count += 1
+            continue
         expires_at = _coerce_utc_datetime(payload.get("waiver_expires_at"))
         severity = str(payload.get("waiver_severity") or "").strip().lower()
         try:
@@ -1987,6 +2042,25 @@ def get_agent_task_decision_signals(
                 recommended_action=(
                     "Run docling-system-claim-support-replay-fixtures --promote to "
                     "replace the waiver with promoted hard-case coverage."
+                ),
+            )
+        )
+    if closed_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver_closure",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="healthy",
+                reason=(
+                    f"{closed_waiver_count} claim-support replay-alert fixture "
+                    "coverage waiver artifact(s) are closed by fixture-promotion receipts."
+                ),
+                threshold_crossed=(
+                    "closed_claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Retain waiver-closure receipts with the promotion artifact and "
+                    "waiver hash in audit bundles."
                 ),
             )
         )

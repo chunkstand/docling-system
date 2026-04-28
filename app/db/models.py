@@ -132,6 +132,9 @@ class SemanticGovernanceEventKind(StrEnum):
     CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED = (
         "claim_support_policy_impact_fixture_promoted"
     )
+    CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED = (
+        "claim_support_replay_alert_fixture_coverage_waiver_closed"
+    )
 
 
 class RetrievalJudgmentKind(StrEnum):
@@ -3690,7 +3693,8 @@ class SemanticGovernanceEvent(Base):
             "'claim_support_policy_activated', "
             "'claim_support_policy_impact_replay_closed', "
             "'claim_support_policy_impact_replay_escalated', "
-            "'claim_support_policy_impact_fixture_promoted'"
+            "'claim_support_policy_impact_fixture_promoted', "
+            "'claim_support_replay_alert_fixture_coverage_waiver_closed'"
             ")",
             name="ck_semantic_governance_events_event_kind",
         ),

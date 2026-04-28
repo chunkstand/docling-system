@@ -84,6 +84,18 @@ CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
 CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND = (
     SemanticGovernanceEventKind.CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED.value
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_RECEIPT_SCHEMA = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closure_receipt"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closure"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND = (
+    SemanticGovernanceEventKind.CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED.value
+)
 REPLAY_TERMINAL_FAILURE_STATUSES = {
     AgentTaskStatus.FAILED.value,
     AgentTaskStatus.REJECTED.value,
@@ -2020,6 +2032,250 @@ def _record_fixture_promotion_event(
     return event, artifact, True
 
 
+def _waiver_stale_unconverted_escalation_event_ids(payload: dict[str, Any]) -> list[str]:
+    summary = dict(payload.get("replay_alert_fixture_summary") or {})
+    rows = summary.get("unconverted_escalation_events") or []
+    return sorted(
+        {
+            str(row.get("event_id"))
+            for row in rows
+            if isinstance(row, dict) and row.get("is_stale") and row.get("event_id")
+        }
+    )
+
+
+def _waiver_stale_unconverted_escalation_count(payload: dict[str, Any]) -> int:
+    try:
+        return int(payload.get("stale_unconverted_escalation_event_count") or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _waiver_has_complete_stale_escalation_set(
+    payload: dict[str, Any],
+    *,
+    stale_escalation_event_ids: list[str],
+) -> bool:
+    summary = dict(payload.get("replay_alert_fixture_summary") or {})
+    stale_count = _waiver_stale_unconverted_escalation_count(payload)
+    if stale_count <= 0:
+        return False
+    if summary.get("has_more_unconverted_escalations"):
+        return False
+    return len(stale_escalation_event_ids) == stale_count
+
+
+def _waiver_closure_event_deduplication_key(
+    *,
+    waiver_artifact_id: UUID,
+    waiver_sha256: str,
+    promotion_receipt_sha256: str,
+) -> str:
+    return (
+        "claim_support_replay_alert_fixture_coverage_waiver_closed:"
+        f"{waiver_artifact_id}:{waiver_sha256}:{promotion_receipt_sha256}"
+    )
+
+
+def _record_replay_alert_fixture_coverage_waiver_closure_event(
+    session: Session,
+    *,
+    fixture_set: ClaimSupportFixtureSet,
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+    promotion_event: SemanticGovernanceEvent,
+    promotion_artifact: AgentTaskArtifact,
+    waiver_artifact: AgentTaskArtifact,
+    waived_escalation_event_ids: list[str],
+    covered_escalation_event_ids: list[str],
+    requested_by: str,
+    storage_service: StorageService | None,
+) -> tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool] | None:
+    waiver_payload = dict(waiver_artifact.payload_json or {})
+    waiver_sha256 = str(waiver_payload.get("waiver_sha256") or "")
+    promotion_receipt_sha256 = str(promotion_event.receipt_sha256 or "")
+    if not waiver_sha256 or not promotion_receipt_sha256:
+        return None
+
+    deduplication_key = _waiver_closure_event_deduplication_key(
+        waiver_artifact_id=waiver_artifact.id,
+        waiver_sha256=waiver_sha256,
+        promotion_receipt_sha256=promotion_receipt_sha256,
+    )
+    existing = session.scalar(
+        select(SemanticGovernanceEvent)
+        .where(SemanticGovernanceEvent.deduplication_key == deduplication_key)
+        .limit(1)
+    )
+    if existing is not None:
+        artifact = (
+            session.get(AgentTaskArtifact, existing.agent_task_artifact_id)
+            if existing.agent_task_artifact_id is not None
+            else None
+        )
+        return existing, artifact, False
+
+    semantic_basis = active_semantic_basis(session)
+    promotion_payload = (
+        (promotion_event.event_payload_json or {}).get(
+            "claim_support_policy_impact_fixture_promotion"
+        )
+        or {}
+    )
+    source_change_impact_ids = list(
+        promotion_payload.get("source_change_impact_ids")
+        or sorted({str(candidate.change_impact_id) for candidate in candidates})
+    )
+    source_escalation_event_ids = list(
+        promotion_payload.get("source_escalation_event_ids")
+        or sorted(
+            {
+                str(event_id)
+                for candidate in candidates
+                for event_id in candidate.escalation_event_ids
+            }
+        )
+    )
+    receipt_basis = {
+        "schema_name": (
+            CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_RECEIPT_SCHEMA
+        ),
+        "schema_version": "1.0",
+        "closure_status": "closed_by_fixture_promotion",
+        "closed_by": requested_by,
+        "closed_at": utcnow().isoformat(),
+        "waiver_artifact_id": str(waiver_artifact.id),
+        "waiver_task_id": str(waiver_artifact.task_id),
+        "waiver_sha256": waiver_sha256,
+        "waiver_severity": waiver_payload.get("waiver_severity"),
+        "waiver_expires_at": waiver_payload.get("waiver_expires_at"),
+        "waiver_stale_unconverted_escalation_event_count": (
+            _waiver_stale_unconverted_escalation_count(waiver_payload)
+        ),
+        "waived_escalation_event_ids": waived_escalation_event_ids,
+        "covered_escalation_event_ids": covered_escalation_event_ids,
+        "source_change_impact_ids": source_change_impact_ids,
+        "source_escalation_event_ids": source_escalation_event_ids,
+        "fixture_set_id": str(fixture_set.id),
+        "fixture_set_name": fixture_set.fixture_set_name,
+        "fixture_set_version": fixture_set.fixture_set_version,
+        "fixture_set_sha256": fixture_set.fixture_set_sha256,
+        "promotion_event_id": str(promotion_event.id),
+        "promotion_receipt_sha256": promotion_receipt_sha256,
+        "promotion_artifact_id": str(promotion_artifact.id),
+        "promotion_artifact_kind": promotion_artifact.artifact_kind,
+        "promotion_artifact_path": promotion_artifact.storage_path,
+        "promotion_payload_sha256": promotion_event.payload_sha256,
+        "closure_reason": (
+            "Promoted replay-alert fixture coverage covers the stale escalation "
+            "event set waived by this verification artifact."
+        ),
+        "semantic_basis": semantic_basis,
+        "deduplication_key": deduplication_key,
+    }
+    receipt_payload = {
+        **receipt_basis,
+        "receipt_sha256": payload_sha256(receipt_basis),
+    }
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=promotion_artifact.task_id,
+        artifact_kind=(
+            CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND
+        ),
+        payload=receipt_payload,
+        storage_service=storage_service,
+        filename=(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure_"
+            f"{waiver_artifact.id}_{receipt_payload['receipt_sha256'][:12]}.json"
+        ),
+    )
+    event = record_semantic_governance_event(
+        session,
+        event_kind=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND,
+        governance_scope=(
+            f"claim_support_replay_alert_fixture_coverage_waiver:"
+            f"{fixture_set.fixture_set_name}:{fixture_set.fixture_set_version}"
+        ),
+        subject_table="agent_task_artifacts",
+        subject_id=waiver_artifact.id,
+        task_id=promotion_artifact.task_id,
+        ontology_snapshot_id=_uuid_or_none(semantic_basis.get("active_ontology_snapshot_id")),
+        semantic_graph_snapshot_id=_uuid_or_none(
+            semantic_basis.get("active_semantic_graph_snapshot_id")
+        ),
+        agent_task_artifact_id=artifact.id,
+        receipt_sha256=receipt_payload["receipt_sha256"],
+        event_payload={
+            "claim_support_replay_alert_fixture_coverage_waiver_closure": (
+                receipt_payload
+            ),
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=deduplication_key,
+        created_by=requested_by,
+    )
+    return event, artifact, True
+
+
+def _record_replay_alert_fixture_coverage_waiver_closure_events(
+    session: Session,
+    *,
+    fixture_set: ClaimSupportFixtureSet,
+    candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse],
+    promotion_event: SemanticGovernanceEvent,
+    promotion_artifact: AgentTaskArtifact | None,
+    requested_by: str,
+    storage_service: StorageService | None,
+) -> list[tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool]]:
+    if promotion_artifact is None:
+        return []
+
+    promoted_escalation_event_ids = {
+        str(event_id) for candidate in candidates for event_id in candidate.escalation_event_ids
+    }
+    if not promoted_escalation_event_ids:
+        return []
+
+    waiver_artifacts = list(
+        session.scalars(
+            select(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.artifact_kind
+                == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
+            )
+            .order_by(AgentTaskArtifact.created_at.asc(), AgentTaskArtifact.id.asc())
+        )
+    )
+    recorded: list[tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool]] = []
+    for waiver_artifact in waiver_artifacts:
+        waiver_payload = dict(waiver_artifact.payload_json or {})
+        waived_escalation_event_ids = _waiver_stale_unconverted_escalation_event_ids(
+            waiver_payload
+        )
+        if not _waiver_has_complete_stale_escalation_set(
+            waiver_payload,
+            stale_escalation_event_ids=waived_escalation_event_ids,
+        ):
+            continue
+        if not set(waived_escalation_event_ids).issubset(promoted_escalation_event_ids):
+            continue
+        event = _record_replay_alert_fixture_coverage_waiver_closure_event(
+            session,
+            fixture_set=fixture_set,
+            candidates=candidates,
+            promotion_event=promotion_event,
+            promotion_artifact=promotion_artifact,
+            waiver_artifact=waiver_artifact,
+            waived_escalation_event_ids=waived_escalation_event_ids,
+            covered_escalation_event_ids=waived_escalation_event_ids,
+            requested_by=requested_by,
+            storage_service=storage_service,
+        )
+        if event is not None:
+            recorded.append(event)
+    return recorded
+
+
 def promote_claim_support_policy_change_impact_fixture_candidates(
     session: Session,
     *,
@@ -2093,6 +2349,15 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         requested_by=requested_by,
         storage_service=storage_service,
     )
+    waiver_closure_events = _record_replay_alert_fixture_coverage_waiver_closure_events(
+        session,
+        fixture_set=fixture_set,
+        candidates=candidates,
+        promotion_event=event,
+        promotion_artifact=artifact,
+        requested_by=requested_by,
+        storage_service=storage_service,
+    )
     _refresh_existing_evidence_manifests_for_fixture_candidates(session, candidates)
     if commit:
         session.commit()
@@ -2128,6 +2393,39 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         artifact_kind=artifact.artifact_kind if artifact is not None else None,
         artifact_path=artifact.storage_path if artifact is not None else None,
         created=created,
+        waiver_closure_count=len(waiver_closure_events),
+        waiver_closure_event_ids=[event.id for event, _, _ in waiver_closure_events],
+        waiver_closure_artifact_ids=[
+            artifact.id
+            for _, artifact, _ in waiver_closure_events
+            if artifact is not None
+        ],
+        waiver_closure_receipt_sha256s=[
+            event.receipt_sha256
+            for event, _, _ in waiver_closure_events
+            if event.receipt_sha256
+        ],
+        closed_waiver_artifact_ids=[
+            UUID(
+                str(
+                    (
+                        (event.event_payload_json or {}).get(
+                            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+                        )
+                        or {}
+                    ).get("waiver_artifact_id")
+                )
+            )
+            for event, _, _ in waiver_closure_events
+            if (
+                (
+                    (event.event_payload_json or {}).get(
+                        "claim_support_replay_alert_fixture_coverage_waiver_closure"
+                    )
+                    or {}
+                ).get("waiver_artifact_id")
+            )
+        ],
         candidates=promoted_candidates,
     )
 

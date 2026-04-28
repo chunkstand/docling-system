@@ -2683,6 +2683,11 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert promotion_payload["promotion_event_id"]
     assert promotion_payload["promotion_receipt_sha256"]
     assert promotion_payload["created"] is True
+    assert promotion_payload["waiver_closure_count"] == 1
+    assert promotion_payload["waiver_closure_event_ids"]
+    assert promotion_payload["waiver_closure_artifact_ids"]
+    assert promotion_payload["waiver_closure_receipt_sha256s"]
+    assert promotion_payload["closed_waiver_artifact_ids"] == [waiver["artifact_id"]]
     assert promotion_payload["candidate_matching_count"] == 2
     assert promotion_payload["candidate_item_count"] == 2
     assert promotion_payload["has_more_candidates"] is False
@@ -2771,6 +2776,39 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert all(
             row["source_payload_sha256"] for row in promotion_receipt["candidates"]
         )
+        waiver_closure_event = session.get(
+            SemanticGovernanceEvent,
+            UUID(promotion_payload["waiver_closure_event_ids"][0]),
+        )
+        assert waiver_closure_event is not None
+        assert waiver_closure_event.event_kind == (
+            "claim_support_replay_alert_fixture_coverage_waiver_closed"
+        )
+        waiver_closure_receipt = waiver_closure_event.event_payload_json[
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        ]
+        assert waiver_closure_receipt["waiver_artifact_id"] == waiver["artifact_id"]
+        assert waiver_closure_receipt["waiver_sha256"] == waiver["waiver_sha256"]
+        assert waiver_closure_receipt["promotion_artifact_id"] == promotion_payload[
+            "artifact_id"
+        ]
+        assert waiver_closure_receipt["promotion_receipt_sha256"] == (
+            promotion_payload["promotion_receipt_sha256"]
+        )
+        assert set(waiver_closure_receipt["covered_escalation_event_ids"]) == set(
+            promotion_payload["source_escalation_event_ids"]
+        )
+        waiver_closure_artifact = session.get(
+            AgentTaskArtifact,
+            UUID(promotion_payload["waiver_closure_artifact_ids"][0]),
+        )
+        assert waiver_closure_artifact is not None
+        assert waiver_closure_artifact.artifact_kind == (
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        )
+        assert waiver_closure_artifact.payload_json["receipt_sha256"] == (
+            waiver_closure_event.receipt_sha256
+        )
 
         audit_bundle = get_agent_task_audit_bundle(session, impacted["verify_task_id"])
         matching_impacts = {
@@ -2782,6 +2820,9 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert matching_impacts[str(change_impact_id)][
             "fixture_promotion_governance_events"
         ]
+        assert matching_impacts[str(change_impact_id)][
+            "waiver_closure_governance_events"
+        ][0]["waiver_sha256"] == waiver["waiver_sha256"]
         manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
         manifest_impacts = {
             row["change_impact_id"]: row
@@ -2792,9 +2833,16 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert manifest_impacts[str(change_impact_id)][
             "fixture_promotion_governance_events"
         ]
+        assert manifest_impacts[str(change_impact_id)][
+            "waiver_closure_governance_events"
+        ][0]["promotion_artifact_id"] == promotion_payload["artifact_id"]
         trace = get_agent_task_evidence_trace(session, impacted["verify_task_id"])
         assert any(
             edge["edge_kind"] == "replay_fixture_promotion_event"
+            for edge in trace["edges"]
+        )
+        assert any(
+            edge["edge_kind"] == "replay_fixture_waiver_closure_event"
             for edge in trace["edges"]
         )
 
@@ -2874,9 +2922,32 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         "/agent-tasks/analytics/decision-signals"
     )
     assert converted_signal_response.status_code == 200
+    converted_signals = converted_signal_response.json()
     assert not any(
         row["task_type"] == "claim_support_policy_change_impact_fixture_coverage"
-        for row in converted_signal_response.json()
+        for row in converted_signals
+    )
+    assert not any(
+        row["threshold_crossed"]
+        in {
+            "active_claim_support_replay_alert_fixture_coverage_waivers>0",
+            "high_severity_active_claim_support_replay_alert_fixture_coverage_waivers>0",
+            "expiring_claim_support_replay_alert_fixture_coverage_waivers>0",
+            "waived_claim_support_replay_alert_escalations_promotable>0",
+        }
+        for row in converted_signals
+    )
+    assert any(
+        row["threshold_crossed"]
+        == "expired_claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in converted_signals
+    )
+    assert any(
+        row["task_type"]
+        == "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        and row["threshold_crossed"]
+        == "closed_claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in converted_signals
     )
 
 

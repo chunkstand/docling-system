@@ -1867,6 +1867,11 @@ class ClaimSupportPolicyChangeImpactFixturePromotionResponse(BaseModel):
     artifact_kind: str | None = None
     artifact_path: str | None = None
     created: bool = False
+    waiver_closure_count: int = 0
+    waiver_closure_event_ids: list[UUID] = Field(default_factory=list)
+    waiver_closure_artifact_ids: list[UUID] = Field(default_factory=list)
+    waiver_closure_receipt_sha256s: list[str] = Field(default_factory=list)
+    closed_waiver_artifact_ids: list[UUID] = Field(default_factory=list)
     candidates: list[ClaimSupportPolicyChangeImpactFixtureCandidateResponse] = Field(
         default_factory=list
     )
