@@ -26,6 +26,7 @@ from app.schemas.agent_tasks import (
     DraftSemanticGroundedDocumentTaskInput,
     DraftSemanticRegistryUpdateTaskInput,
     EnqueueDocumentReprocessTaskInput,
+    EvaluateClaimSupportJudgeTaskInput,
     EvaluateSemanticCandidateExtractorTaskInput,
     EvaluateSemanticRelationExtractorTaskInput,
     ExportSemanticSupervisionCorpusTaskInput,
@@ -2433,6 +2434,18 @@ def test_get_agent_task_action_exposes_triage_output_schema_metadata() -> None:
 
     assert action.output_schema_name == "triage_replay_regression_output"
     assert action.output_schema_version == "1.0"
+    assert action.output_model is not None
+
+
+def test_get_agent_task_action_exposes_claim_support_judge_eval_metadata() -> None:
+    action = get_agent_task_action("evaluate_claim_support_judge")
+
+    assert action.capability == "technical_reports"
+    assert action.definition_kind == "workflow"
+    assert action.payload_model is EvaluateClaimSupportJudgeTaskInput
+    assert action.output_schema_name == "evaluate_claim_support_judge_output"
+    assert action.output_schema_version == "1.0"
+    assert action.context_builder_name == "evaluate_claim_support_judge"
     assert action.output_model is not None
 
 

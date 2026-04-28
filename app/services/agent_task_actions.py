@@ -3667,6 +3667,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "min_verdict_precision": 1.0,
             "min_verdict_recall": 1.0,
         },
+        context_builder_name="evaluate_claim_support_judge",
     ),
     "prepare_semantic_generation_brief": AgentTaskActionDefinition(
         task_type="prepare_semantic_generation_brief",

@@ -326,6 +326,48 @@ def _candidate_evaluation_output_payload(*, document_id) -> dict:
     }
 
 
+def _claim_support_judge_evaluation_output_payload(
+    *,
+    artifact_id=None,
+    gate_outcome: str = "passed",
+    failed_case_count: int = 0,
+) -> dict:
+    evaluation_id = uuid4()
+    artifact_id = artifact_id or uuid4()
+    reasons = ["Overall accuracy 0.0000 is below 1.0000."] if gate_outcome == "failed" else []
+    return {
+        "evaluation_id": str(evaluation_id),
+        "evaluation_name": "claim_support_judge_calibration",
+        "fixture_set_name": "default_claim_support_v1",
+        "fixture_set_sha256": "fixture-set-sha",
+        "judge_name": "technical_report_claim_support_judge",
+        "judge_version": "deterministic_claim_support_v1",
+        "thresholds": {
+            "min_overall_accuracy": 1.0,
+            "min_verdict_precision": 1.0,
+            "min_verdict_recall": 1.0,
+            "min_support_score": 0.34,
+        },
+        "summary": {
+            "case_count": 1,
+            "passed_case_count": 1 - failed_case_count,
+            "failed_case_count": failed_case_count,
+            "overall_accuracy": 0.0 if gate_outcome == "failed" else 1.0,
+            "gate_outcome": gate_outcome,
+            "hard_case_kind_count": 1,
+            "hard_case_kinds": ["exact_source_support"],
+        },
+        "verdict_metrics": {},
+        "case_results": [],
+        "reasons": reasons,
+        "success_metrics": [],
+        "operator_run_id": None,
+        "artifact_id": str(artifact_id),
+        "artifact_kind": "claim_support_judge_evaluation",
+        "artifact_path": "/tmp/claim_support_judge_evaluation.json",
+    }
+
+
 def _bootstrap_discovery_output_payload(*, document_id) -> dict:
     return {
         "report": {
@@ -1673,6 +1715,87 @@ def test_build_agent_task_context_for_evaluate_semantic_candidate_extractor_arti
         "Create triage_semantic_candidate_disagreements to compact useful shadow gaps."
     )
     assert context.refs[0].artifact_kind == "semantic_candidate_evaluation"
+
+
+def test_build_agent_task_context_for_claim_support_judge_eval_includes_audit_ref() -> None:
+    now = datetime.now(UTC)
+    task_id = uuid4()
+    task = AgentTask(
+        id=task_id,
+        task_type="evaluate_claim_support_judge",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    output = _claim_support_judge_evaluation_output_payload()
+    artifact_id = UUID(output["artifact_id"])
+    artifact = AgentTaskArtifact(
+        id=artifact_id,
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="claim_support_judge_evaluation",
+        storage_path=output["artifact_path"],
+        payload_json=output,
+        created_at=now,
+    )
+
+    context = build_agent_task_context(
+        FakeSession(tasks={task_id: task}, artifacts={artifact_id: artifact}),
+        task,
+        {"payload": output},
+    )
+
+    assert context.summary.verification_state == "passed"
+    assert context.summary.next_action == (
+        "Use verify_technical_report with support judgments enabled."
+    )
+    assert context.summary.metrics["fixture_set_sha256"] == "fixture-set-sha"
+    assert context.refs[0].ref_key == "claim_support_judge_evaluation_artifact"
+    assert context.refs[0].artifact_kind == "claim_support_judge_evaluation"
+
+
+def test_build_agent_task_context_for_failed_claim_support_judge_eval_blocks_promotion() -> None:
+    now = datetime.now(UTC)
+    task_id = uuid4()
+    task = AgentTask(
+        id=task_id,
+        task_type="evaluate_claim_support_judge",
+        status="completed",
+        priority=100,
+        side_effect_level="read_only",
+        requires_approval=False,
+        input_json={},
+        result_json={},
+        workflow_version="v1",
+        model_settings_json={},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    output = _claim_support_judge_evaluation_output_payload(
+        gate_outcome="failed",
+        failed_case_count=1,
+    )
+
+    context = build_agent_task_context(
+        FakeSession(tasks={task_id: task}), task, {"payload": output}
+    )
+
+    assert context.summary.verification_state == "failed"
+    assert context.summary.problem == "Overall accuracy 0.0000 is below 1.0000."
+    assert context.summary.next_action == (
+        "Inspect failed case_results and rerun evaluate_claim_support_judge."
+    )
+    assert context.summary.metrics["failed_case_count"] == 1
+    assert context.refs == []
 
 
 def test_build_agent_task_context_for_bootstrap_discovery_includes_artifact_ref() -> None:
