@@ -65,6 +65,7 @@ from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
 )
+from app.services.evidence import payload_sha256
 
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
     "claim_support_policy_impact_replay_escalated"
@@ -77,6 +78,12 @@ CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
 )
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND = (
     "claim_support_replay_alert_fixture_coverage_waiver_closed"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closure"
+)
+CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
+    "claim_support_policy_impact_fixture_promotion"
 )
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS = 24
 
@@ -105,50 +112,127 @@ def _coerce_utc_datetime(value: object) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
+def _uuid_from_value(value: object) -> UUID | None:
+    if value in {None, ""}:
+        return None
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _hash_matches_embedded_receipt(payload: dict, *, hash_field: str) -> bool:
+    expected_hash = str(payload.get(hash_field) or "")
+    if not expected_hash:
+        return False
+    basis = dict(payload)
+    basis.pop(hash_field, None)
+    return payload_sha256(basis) == expected_hash
+
+
+def _valid_replay_alert_fixture_coverage_waiver_closure_event(
+    session: Session,
+    event: SemanticGovernanceEvent,
+) -> tuple[UUID, str] | None:
+    closure_payload = (
+        (event.event_payload_json or {}).get(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        )
+        or {}
+    )
+    if not isinstance(closure_payload, dict):
+        return None
+    receipt_sha256 = str(closure_payload.get("receipt_sha256") or "")
+    waiver_sha256 = str(closure_payload.get("waiver_sha256") or "")
+    promotion_receipt_sha256 = str(
+        closure_payload.get("promotion_receipt_sha256") or ""
+    )
+    waiver_artifact_id = _uuid_from_value(closure_payload.get("waiver_artifact_id"))
+    promotion_artifact_id = _uuid_from_value(
+        closure_payload.get("promotion_artifact_id")
+    )
+    promotion_event_id = _uuid_from_value(closure_payload.get("promotion_event_id"))
+    if (
+        not receipt_sha256
+        or not waiver_sha256
+        or not promotion_receipt_sha256
+        or waiver_artifact_id is None
+        or promotion_artifact_id is None
+        or promotion_event_id is None
+        or event.agent_task_artifact_id is None
+        or event.receipt_sha256 != receipt_sha256
+        or not _hash_matches_embedded_receipt(
+            closure_payload,
+            hash_field="receipt_sha256",
+        )
+    ):
+        return None
+
+    closure_artifact = session.get(AgentTaskArtifact, event.agent_task_artifact_id)
+    waiver_artifact = session.get(AgentTaskArtifact, waiver_artifact_id)
+    promotion_artifact = session.get(AgentTaskArtifact, promotion_artifact_id)
+    promotion_event = session.get(SemanticGovernanceEvent, promotion_event_id)
+    if (
+        closure_artifact is None
+        or closure_artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND
+        or closure_artifact.payload_json.get("receipt_sha256") != receipt_sha256
+        or waiver_artifact is None
+        or waiver_artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
+        or waiver_artifact.payload_json.get("waiver_sha256") != waiver_sha256
+        or promotion_artifact is None
+        or promotion_artifact.artifact_kind
+        != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND
+        or promotion_artifact.payload_json.get("receipt_sha256")
+        != promotion_receipt_sha256
+        or promotion_event is None
+        or promotion_event.event_kind != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
+        or promotion_event.receipt_sha256 != promotion_receipt_sha256
+        or promotion_event.agent_task_artifact_id != promotion_artifact_id
+    ):
+        return None
+
+    waived_event_ids = {
+        str(value) for value in closure_payload.get("waived_escalation_event_ids") or []
+    }
+    covered_event_ids = {
+        str(value) for value in closure_payload.get("covered_escalation_event_ids") or []
+    }
+    promotion_event_ids = {
+        str(value)
+        for value in promotion_artifact.payload_json.get("source_escalation_event_ids") or []
+    }
+    if (
+        not waived_event_ids
+        or not covered_event_ids
+        or not waived_event_ids.issubset(covered_event_ids)
+        or not covered_event_ids.issubset(promotion_event_ids)
+    ):
+        return None
+    return waiver_artifact_id, waiver_sha256
+
+
 def _closed_replay_alert_fixture_coverage_waiver_keys(
     session: Session,
-) -> set[tuple[UUID, str]]:
+) -> tuple[set[tuple[UUID, str]], int]:
     closed: set[tuple[UUID, str]] = set()
+    invalid_count = 0
     for event in session.scalars(
         select(SemanticGovernanceEvent).where(
             SemanticGovernanceEvent.event_kind
             == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND
         )
     ):
-        closure_payload = (
-            (event.event_payload_json or {}).get(
-                "claim_support_replay_alert_fixture_coverage_waiver_closure"
-            )
-            or {}
+        valid_key = _valid_replay_alert_fixture_coverage_waiver_closure_event(
+            session,
+            event,
         )
-        waiver_sha256 = str(closure_payload.get("waiver_sha256") or "")
-        waiver_artifact_id = closure_payload.get("waiver_artifact_id")
-        promotion_artifact_id = closure_payload.get("promotion_artifact_id")
-        promotion_receipt_sha256 = str(
-            closure_payload.get("promotion_receipt_sha256") or ""
-        )
-        receipt_sha256 = str(closure_payload.get("receipt_sha256") or "")
-        if (
-            not waiver_sha256
-            or not waiver_artifact_id
-            or not promotion_artifact_id
-            or not promotion_receipt_sha256
-            or not receipt_sha256
-            or receipt_sha256 != event.receipt_sha256
-            or event.agent_task_artifact_id is None
-        ):
+        if valid_key is None:
+            invalid_count += 1
             continue
-        try:
-            waiver_artifact_uuid = UUID(str(waiver_artifact_id))
-            promotion_artifact_uuid = UUID(str(promotion_artifact_id))
-        except (TypeError, ValueError):
-            continue
-        if session.get(AgentTaskArtifact, promotion_artifact_uuid) is None:
-            continue
-        if session.get(AgentTaskArtifact, event.agent_task_artifact_id) is None:
-            continue
-        closed.add((waiver_artifact_uuid, waiver_sha256))
-    return closed
+        closed.add(valid_key)
+    return closed, invalid_count
 
 
 def _initial_task_status(*, requires_approval: bool, has_incomplete_dependencies: bool) -> str:
@@ -1808,7 +1892,9 @@ def get_agent_task_decision_signals(
     closed_waiver_count = 0
     high_severity_active_waiver_count = 0
     promotable_waived_escalation_count = 0
-    closed_waiver_keys = _closed_replay_alert_fixture_coverage_waiver_keys(session)
+    closed_waiver_keys, invalid_waiver_closure_count = (
+        _closed_replay_alert_fixture_coverage_waiver_keys(session)
+    )
     for artifact in replay_alert_fixture_coverage_waiver_artifacts:
         payload = dict(artifact.payload_json or {})
         waiver_sha256 = str(payload.get("waiver_sha256") or "")
@@ -2023,6 +2109,25 @@ def get_agent_task_decision_signals(
                 recommended_action=(
                     "Review waiver lifecycle metadata and second-approval posture "
                     "before activating or relying on waived verifications."
+                ),
+            )
+        )
+    if invalid_waiver_closure_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver_closure",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{invalid_waiver_closure_count} claim-support replay-alert "
+                    "fixture coverage waiver closure receipt(s) failed integrity checks."
+                ),
+                threshold_crossed=(
+                    "invalid_claim_support_replay_alert_fixture_coverage_waiver_closures>0"
+                ),
+                recommended_action=(
+                    "Inspect waiver-closure governance events before treating waiver "
+                    "posture as closed."
                 ),
             )
         )

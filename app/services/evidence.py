@@ -2811,12 +2811,82 @@ def _claim_support_replay_alert_waiver_closure_events_by_impact(
     return events_by_row
 
 
-def _waiver_closure_event_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
+def _waiver_closure_event_integrity(
+    session: Session,
+    event: SemanticGovernanceEvent,
+    closure_payload: dict[str, Any],
+) -> tuple[bool, list[str]]:
+    failures: list[str] = []
+    receipt_sha256 = str(closure_payload.get("receipt_sha256") or "")
+    receipt_basis = dict(closure_payload)
+    receipt_basis.pop("receipt_sha256", None)
+    if not receipt_sha256 or payload_sha256(receipt_basis) != receipt_sha256:
+        failures.append("closure_receipt_hash_mismatch")
+    if event.receipt_sha256 != receipt_sha256:
+        failures.append("event_receipt_hash_mismatch")
+
+    closure_artifact = (
+        session.get(AgentTaskArtifact, event.agent_task_artifact_id)
+        if event.agent_task_artifact_id
+        else None
+    )
+    if closure_artifact is None:
+        failures.append("closure_artifact_missing")
+    elif closure_artifact.payload_json.get("receipt_sha256") != receipt_sha256:
+        failures.append("closure_artifact_receipt_mismatch")
+
+    waiver_artifact_id = closure_payload.get("waiver_artifact_id")
+    try:
+        waiver_artifact_uuid = UUID(str(waiver_artifact_id)) if waiver_artifact_id else None
+    except (TypeError, ValueError):
+        waiver_artifact_uuid = None
+    waiver_artifact = (
+        session.get(AgentTaskArtifact, waiver_artifact_uuid)
+        if waiver_artifact_uuid
+        else None
+    )
+    if waiver_artifact is None:
+        failures.append("waiver_artifact_missing")
+    elif waiver_artifact.payload_json.get("waiver_sha256") != closure_payload.get(
+        "waiver_sha256"
+    ):
+        failures.append("waiver_artifact_hash_mismatch")
+
+    promotion_artifact_id = closure_payload.get("promotion_artifact_id")
+    try:
+        promotion_artifact_uuid = (
+            UUID(str(promotion_artifact_id)) if promotion_artifact_id else None
+        )
+    except (TypeError, ValueError):
+        promotion_artifact_uuid = None
+    promotion_artifact = (
+        session.get(AgentTaskArtifact, promotion_artifact_uuid)
+        if promotion_artifact_uuid
+        else None
+    )
+    if promotion_artifact is None:
+        failures.append("promotion_artifact_missing")
+    elif promotion_artifact.payload_json.get("receipt_sha256") != closure_payload.get(
+        "promotion_receipt_sha256"
+    ):
+        failures.append("promotion_artifact_receipt_mismatch")
+    return not failures, failures
+
+
+def _waiver_closure_event_payload(
+    session: Session,
+    event: SemanticGovernanceEvent,
+) -> dict[str, Any]:
     closure_payload = (
         (event.event_payload_json or {}).get(
             "claim_support_replay_alert_fixture_coverage_waiver_closure"
         )
         or {}
+    )
+    integrity_verified, integrity_failures = _waiver_closure_event_integrity(
+        session,
+        event,
+        closure_payload,
     )
     return {
         "event_id": str(event.id),
@@ -2837,6 +2907,8 @@ def _waiver_closure_event_payload(event: SemanticGovernanceEvent) -> dict[str, A
         "covered_escalation_event_ids": list(
             closure_payload.get("covered_escalation_event_ids") or []
         ),
+        "integrity_verified": integrity_verified,
+        "integrity_failures": integrity_failures,
     }
 
 
@@ -2944,7 +3016,7 @@ def _claim_support_policy_change_impact_summary(
                     for event in fixture_promotion_events
                 ],
                 "waiver_closure_governance_events": [
-                    _waiver_closure_event_payload(event)
+                    _waiver_closure_event_payload(session, event)
                     for event in waiver_closure_events
                 ],
             }

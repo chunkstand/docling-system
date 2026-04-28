@@ -2823,6 +2823,9 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert matching_impacts[str(change_impact_id)][
             "waiver_closure_governance_events"
         ][0]["waiver_sha256"] == waiver["waiver_sha256"]
+        assert matching_impacts[str(change_impact_id)][
+            "waiver_closure_governance_events"
+        ][0]["integrity_verified"] is True
         manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
         manifest_impacts = {
             row["change_impact_id"]: row
@@ -2836,6 +2839,9 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert manifest_impacts[str(change_impact_id)][
             "waiver_closure_governance_events"
         ][0]["promotion_artifact_id"] == promotion_payload["artifact_id"]
+        assert manifest_impacts[str(change_impact_id)][
+            "waiver_closure_governance_events"
+        ][0]["integrity_failures"] == []
         trace = get_agent_task_evidence_trace(session, impacted["verify_task_id"])
         assert any(
             edge["edge_kind"] == "replay_fixture_promotion_event"
@@ -2949,6 +2955,65 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         == "closed_claim_support_replay_alert_fixture_coverage_waivers>0"
         for row in converted_signals
     )
+    with postgres_integration_harness.session_factory() as session:
+        tampered_closure_event = session.get(
+            SemanticGovernanceEvent,
+            UUID(promotion_payload["waiver_closure_event_ids"][0]),
+        )
+        assert tampered_closure_event is not None
+        tampered_event_payload = deepcopy(tampered_closure_event.event_payload_json)
+        tampered_event_payload[
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        ]["promotion_receipt_sha256"] = "tampered-promotion-receipt"
+        tampered_closure_event.event_payload_json = tampered_event_payload
+        session.commit()
+
+    tampered_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert tampered_signal_response.status_code == 200
+    tampered_signals = tampered_signal_response.json()
+    assert any(
+        row["threshold_crossed"]
+        == "invalid_claim_support_replay_alert_fixture_coverage_waiver_closures>0"
+        for row in tampered_signals
+    )
+    assert any(
+        row["threshold_crossed"]
+        == "active_claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in tampered_signals
+    )
+    assert any(
+        row["threshold_crossed"]
+        == "high_severity_active_claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in tampered_signals
+    )
+    assert any(
+        row["threshold_crossed"]
+        == "waived_claim_support_replay_alert_escalations_promotable>0"
+        for row in tampered_signals
+    )
+    assert not any(
+        row["threshold_crossed"]
+        == "closed_claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in tampered_signals
+    )
+    with postgres_integration_harness.session_factory() as session:
+        tampered_audit_bundle = get_agent_task_audit_bundle(
+            session,
+            impacted["verify_task_id"],
+        )
+        tampered_impacts = {
+            row["change_impact_id"]: row
+            for row in tampered_audit_bundle["change_impact"][
+                "claim_support_policy_change_impacts"
+            ]["impacts"]
+        }
+        tampered_closure = tampered_impacts[str(change_impact_id)][
+            "waiver_closure_governance_events"
+        ][0]
+        assert tampered_closure["integrity_verified"] is False
+        assert "closure_receipt_hash_mismatch" in tampered_closure["integrity_failures"]
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(
