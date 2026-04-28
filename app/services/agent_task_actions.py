@@ -4,9 +4,10 @@ from uuid import UUID
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import AgentTask, AgentTaskSideEffectLevel
+from app.db.models import AgentTask, AgentTaskSideEffectLevel, AgentTaskVerification
 from app.schemas.agent_tasks import (
     ApplyGraphPromotionsTaskInput,
     ApplyGraphPromotionsTaskOutput,
@@ -140,6 +141,7 @@ from app.services.eval_workbench import (
     triage_eval_failure_case,
 )
 from app.services.evidence import (
+    DOCUMENT_GENERATION_CONTEXT_PACK_GATE,
     attach_artifact_to_evidence_export,
     attach_operator_run_to_evidence_export,
     persist_search_evidence_package_export,
@@ -1286,6 +1288,71 @@ def _evaluate_document_generation_context_pack_executor(
     }
 
 
+def _context_pack_sha256_from_harness_output(
+    harness_output: PrepareReportAgentHarnessTaskOutput,
+) -> str | None:
+    if harness_output.context_pack is not None:
+        return harness_output.context_pack.context_pack_sha256
+    if harness_output.harness.document_generation_context_pack is not None:
+        return harness_output.harness.document_generation_context_pack.context_pack_sha256
+    return None
+
+
+def _require_passed_context_pack_gate(
+    session: Session,
+    *,
+    harness_task_id: UUID,
+    harness_output: PrepareReportAgentHarnessTaskOutput,
+) -> AgentTaskVerification:
+    latest_gate = session.scalar(
+        select(AgentTaskVerification)
+        .where(
+            AgentTaskVerification.target_task_id == harness_task_id,
+            AgentTaskVerification.verifier_type == DOCUMENT_GENERATION_CONTEXT_PACK_GATE,
+        )
+        .order_by(
+            AgentTaskVerification.created_at.desc(),
+            AgentTaskVerification.id.desc(),
+        )
+    )
+    if latest_gate is None:
+        raise ValueError(
+            "Technical report drafting requires a passed "
+            "evaluate_document_generation_context_pack task for the report harness."
+        )
+    if latest_gate.outcome != "passed":
+        raise ValueError(
+            "Technical report drafting requires the latest context-pack gate to pass; "
+            f"latest outcome was '{latest_gate.outcome}'."
+        )
+    if latest_gate.verification_task_id is None:
+        raise ValueError(
+            "Technical report drafting requires a context-pack gate linked to its "
+            "evaluation task."
+        )
+    evaluation_task = session.get(AgentTask, latest_gate.verification_task_id)
+    if (
+        evaluation_task is None
+        or evaluation_task.task_type != "evaluate_document_generation_context_pack"
+    ):
+        raise ValueError(
+            "Technical report drafting requires a valid "
+            "evaluate_document_generation_context_pack verifier task."
+        )
+    if evaluation_task.status != "completed":
+        raise ValueError(
+            "Technical report drafting requires a completed context-pack evaluation task."
+        )
+    expected_sha = _context_pack_sha256_from_harness_output(harness_output)
+    observed_sha = (latest_gate.details_json or {}).get("context_pack_sha256")
+    if expected_sha and observed_sha != expected_sha:
+        raise ValueError(
+            "Technical report drafting requires the passed context-pack gate to match "
+            "the current report harness context_pack_sha256."
+        )
+    return latest_gate
+
+
 def _draft_technical_report_executor(
     session: Session,
     task: AgentTask,
@@ -1307,6 +1374,11 @@ def _draft_technical_report_executor(
         ),
     )
     harness_output = PrepareReportAgentHarnessTaskOutput.model_validate(harness_context.output)
+    context_pack_gate = _require_passed_context_pack_gate(
+        session,
+        harness_task_id=payload.target_task_id,
+        harness_output=harness_output,
+    )
     draft_payload = draft_technical_report(
         harness_output.harness.model_dump(mode="json"),
         harness_task_id=payload.target_task_id,
@@ -1314,6 +1386,17 @@ def _draft_technical_report_executor(
         generator_model=payload.generator_model,
         llm_draft_markdown=payload.llm_draft_markdown,
     )
+    draft_payload["llm_adapter_contract"] = {
+        **(draft_payload.get("llm_adapter_contract") or {}),
+        "context_pack_gate": {
+            "verification_id": str(context_pack_gate.id),
+            "verification_task_id": str(context_pack_gate.verification_task_id),
+            "outcome": context_pack_gate.outcome,
+            "context_pack_sha256": (context_pack_gate.details_json or {}).get(
+                "context_pack_sha256"
+            ),
+        },
+    }
     storage_service = StorageService()
     markdown_path = storage_service.get_agent_task_dir(task.id) / "technical_report_draft.md"
     markdown_path.write_text(draft_payload["markdown"])
@@ -1438,6 +1521,11 @@ def _draft_technical_report_executor(
         input_payload={
             "target_task_id": str(payload.target_task_id),
             "harness_task_type": harness_context.task_type,
+            "context_pack_gate_verification_id": str(context_pack_gate.id),
+            "context_pack_gate_task_id": str(context_pack_gate.verification_task_id),
+            "context_pack_sha256": (context_pack_gate.details_json or {}).get(
+                "context_pack_sha256"
+            ),
             "claim_contract_count": len(
                 harness_output.harness.model_dump(mode="json").get("claim_contract") or []
             ),
@@ -1466,7 +1554,24 @@ def _draft_technical_report_executor(
                 "input_kind": "report_agent_harness",
                 "source_table": "agent_tasks",
                 "source_id": payload.target_task_id,
-                "payload": {"target_task_type": harness_context.task_type},
+                "payload": {
+                    "target_task_type": harness_context.task_type,
+                    "context_pack_sha256": (context_pack_gate.details_json or {}).get(
+                        "context_pack_sha256"
+                    ),
+                },
+            },
+            {
+                "input_kind": "document_generation_context_pack_gate",
+                "source_table": "agent_task_verifications",
+                "source_id": context_pack_gate.id,
+                "payload": {
+                    "verification_task_id": str(context_pack_gate.verification_task_id),
+                    "outcome": context_pack_gate.outcome,
+                    "context_pack_sha256": (context_pack_gate.details_json or {}).get(
+                        "context_pack_sha256"
+                    ),
+                },
             }
         ],
         outputs=[
@@ -1506,6 +1611,9 @@ def _draft_technical_report_executor(
         "support_judge_run_id": str(support_operator_run.id)
         if support_operator_run is not None
         else None,
+        "context_pack_evaluation_task_id": str(context_pack_gate.verification_task_id),
+        "context_pack_verification_id": str(context_pack_gate.id),
+        "context_pack_sha256": (context_pack_gate.details_json or {}).get("context_pack_sha256"),
     }
 
 

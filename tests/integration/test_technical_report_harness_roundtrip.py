@@ -152,10 +152,12 @@ def test_technical_report_harness_roundtrip(
     assert harness_context_response.status_code == 200
     harness_context = harness_context_response.json()
     assert harness_context["summary"]["next_action"] == (
-        "Create draft_technical_report to render a verification-ready report draft."
+        "Create evaluate_document_generation_context_pack before rendering a report draft."
     )
     harness_output = harness_context["output"]["harness"]
-    assert harness_output["workflow_state"]["next_task_type"] == "draft_technical_report"
+    assert harness_output["workflow_state"]["next_task_type"] == (
+        "evaluate_document_generation_context_pack"
+    )
     assert {tool["tool_name"] for tool in harness_output["allowed_tools"]} >= {
         "read_task_context",
         "read_task_artifact",
@@ -190,6 +192,27 @@ def test_technical_report_harness_roundtrip(
     assert artifact_payload["llm_adapter_contract"]["primary_context_schema"] == (
         "document_generation_context_pack"
     )
+
+    with postgres_integration_harness.session_factory() as session:
+        premature_draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_technical_report",
+                input={"target_task_id": str(harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        premature_draft_task_id = premature_draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        premature_draft_row = session.get(AgentTask, premature_draft_task_id)
+        assert premature_draft_row is not None
+        assert premature_draft_row.status == "failed"
+        assert "evaluate_document_generation_context_pack" in (
+            premature_draft_row.error_message or ""
+        )
 
     with postgres_integration_harness.session_factory() as session:
         context_pack_eval_task = create_agent_task(
@@ -256,6 +279,14 @@ def test_technical_report_harness_roundtrip(
         assert markdown_path.exists()
         assert "Evidence Cards" in markdown_path.read_text()
         draft_payload = draft_task_row.result_json["payload"]["draft"]
+        assert draft_task_row.result_json["payload"]["context_pack_evaluation_task_id"] == str(
+            context_pack_eval_task_id
+        )
+        assert draft_task_row.result_json["payload"]["context_pack_sha256"] == context_pack_sha256
+        assert (
+            draft_payload["llm_adapter_contract"]["context_pack_gate"]["context_pack_sha256"]
+            == context_pack_sha256
+        )
         assert draft_payload["evidence_package_sha256"]
         assert draft_payload["evidence_package_export_id"]
         assert draft_payload["source_evidence_package_exports"]

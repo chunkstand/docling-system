@@ -2828,8 +2828,10 @@ def _build_prepare_report_agent_harness_context(
             "Package the correct context, tools, skills, evidence, "
             "graph memory, and verifier gate."
         ),
-        decision="The harness is ready for draft_technical_report.",
-        next_action="Create draft_technical_report to render a verification-ready report draft.",
+        decision="The harness is ready for evaluate_document_generation_context_pack.",
+        next_action=(
+            "Create evaluate_document_generation_context_pack before rendering a report draft."
+        ),
         approval_state="not_required",
         verification_state="pending",
         metrics={

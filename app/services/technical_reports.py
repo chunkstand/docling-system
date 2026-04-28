@@ -1497,7 +1497,7 @@ def prepare_report_agent_harness(
                 "build_report_evidence_cards",
                 "prepare_report_agent_harness",
             ],
-            "next_task_type": "draft_technical_report",
+            "next_task_type": "evaluate_document_generation_context_pack",
             "blocked_steps": blocked_steps,
         },
         "context_refs": context_refs,

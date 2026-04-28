@@ -1364,6 +1364,9 @@ class DraftTechnicalReportTaskOutput(BaseModel):
     evidence_package_sha256: str | None = None
     operator_run_id: UUID | None = None
     support_judge_run_id: UUID | None = None
+    context_pack_evaluation_task_id: UUID | None = None
+    context_pack_verification_id: UUID | None = None
+    context_pack_sha256: str | None = None
 
 
 class VerifyTechnicalReportTaskInput(BaseModel):
