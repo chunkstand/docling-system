@@ -545,9 +545,14 @@ def ensure_claim_support_calibration_policy(
             ClaimSupportCalibrationPolicy.policy_sha256 == policy_sha256,
         )
     )
-    if existing is not None:
-        return existing
     status = str(payload.get("status") or "active")
+    if existing is not None:
+        if existing.status != status:
+            raise ValueError(
+                "A matching claim support calibration policy already exists with "
+                f"status {existing.status}; active policy resolution cannot reuse it."
+            )
+        return existing
     if status == "active":
         active = get_active_claim_support_calibration_policy(
             session,
@@ -601,6 +606,11 @@ def draft_claim_support_calibration_policy(
     if existing is not None:
         if existing.status == "active":
             raise ValueError("The proposed claim support calibration policy is already active.")
+        if existing.status != "draft":
+            raise ValueError(
+                "Retired claim support calibration policies cannot be redrafted; "
+                "choose a new policy version."
+            )
         return existing
     row = _policy_row_from_payload(payload, status="draft")
     session.add(row)
@@ -653,8 +663,6 @@ def activate_claim_support_calibration_policy(
     row = session.get(ClaimSupportCalibrationPolicy, policy_id)
     if row is None:
         raise ValueError(f"Claim support calibration policy not found: {policy_id}")
-    if row.status == "active":
-        return row, []
     if row.status != "draft":
         raise ValueError("Only draft claim support calibration policies can be activated.")
 

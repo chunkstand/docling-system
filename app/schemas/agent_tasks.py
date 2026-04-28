@@ -1487,12 +1487,23 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     draft_task_id: UUID
     verification_task_id: UUID
     reason: str
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    approval_note: str | None = None
     previous_active_policy_id: UUID | None = None
     previous_active_policy_sha256: str | None = None
     activated_policy_id: UUID
     activated_policy_sha256: str
     policy_name: str
     policy_version: str
+    draft_policy_sha256: str
+    verification_id: UUID
+    verification_outcome: str
+    verification_reasons: list[str] = Field(default_factory=list)
+    verification_evaluation_id: UUID | None = None
+    verification_fixture_set_id: UUID | None = None
+    verification_fixture_set_sha256: str | None = None
+    verification_policy_sha256: str
     operator_run_id: UUID | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
     artifact_id: UUID

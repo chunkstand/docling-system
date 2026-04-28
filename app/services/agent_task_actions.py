@@ -1861,6 +1861,22 @@ def _claim_support_thresholds_payload(payload) -> dict:
     }
 
 
+def _require_policy_row_matches_draft_output(
+    policy_row: ClaimSupportCalibrationPolicy,
+    draft_output: DraftClaimSupportCalibrationPolicyTaskOutput,
+) -> None:
+    if policy_row.id != draft_output.policy_id:
+        raise ValueError("Draft policy row does not match the requested draft task output.")
+    if policy_row.policy_name != draft_output.policy_name:
+        raise ValueError("Draft policy name no longer matches the draft task output.")
+    if policy_row.policy_version != draft_output.policy_version:
+        raise ValueError("Draft policy version no longer matches the draft task output.")
+    if policy_row.policy_sha256 != draft_output.policy_sha256:
+        raise ValueError("Draft policy hash no longer matches the draft task output.")
+    if dict(policy_row.policy_payload_json or {}) != dict(draft_output.policy_payload or {}):
+        raise ValueError("Draft policy payload no longer matches the draft task output.")
+
+
 def _draft_claim_support_calibration_policy_executor(
     session: Session,
     task: AgentTask,
@@ -1935,6 +1951,7 @@ def _verify_claim_support_calibration_policy_executor(
     policy_row = session.get(ClaimSupportCalibrationPolicy, draft_output.policy_id)
     if policy_row is None:
         raise ValueError(f"Claim support calibration policy not found: {draft_output.policy_id}")
+    _require_policy_row_matches_draft_output(policy_row, draft_output)
     if policy_row.status != "draft":
         raise ValueError("Only draft claim support calibration policies can be verified.")
 
@@ -2094,6 +2111,29 @@ def _apply_claim_support_calibration_policy_executor(
         )
     if str(draft_output.policy_id) != str(verification_output.evaluation.get("policy_id")):
         raise ValueError("Verification did not evaluate the requested claim-support policy draft.")
+    draft_policy = session.get(ClaimSupportCalibrationPolicy, draft_output.policy_id)
+    if draft_policy is None:
+        raise ValueError(f"Claim support calibration policy not found: {draft_output.policy_id}")
+    _require_policy_row_matches_draft_output(draft_policy, draft_output)
+    if draft_policy.status != "draft":
+        raise ValueError("Only draft claim support calibration policies can be applied.")
+
+    verification_details = dict(verification.details or {})
+    verification_policy_sha256 = str(verification_details.get("policy_sha256") or "")
+    evaluation_policy_sha256 = str(verification_output.evaluation.get("policy_sha256") or "")
+    if verification_policy_sha256 != draft_output.policy_sha256:
+        raise ValueError("Verification policy hash does not match the requested draft policy.")
+    if evaluation_policy_sha256 != draft_output.policy_sha256:
+        raise ValueError("Verification evaluation hash does not match the requested draft policy.")
+    if dict(verification_output.draft_policy or {}) != dict(draft_output.policy_payload or {}):
+        raise ValueError("Verification draft policy payload does not match the draft task output.")
+
+    verification_evaluation_id = (
+        verification_details.get("evaluation_id")
+        or verification_output.evaluation.get("evaluation_id")
+    )
+    verification_fixture_set_id = verification_details.get("fixture_set_id")
+    verification_fixture_set_sha256 = verification_details.get("fixture_set_sha256")
 
     previous_active = get_active_claim_support_calibration_policy(
         session,
@@ -2112,6 +2152,9 @@ def _apply_claim_support_calibration_policy_executor(
         "draft_task_id": str(payload.draft_task_id),
         "verification_task_id": str(payload.verification_task_id),
         "reason": payload.reason,
+        "approved_by": task.approved_by,
+        "approved_at": task.approved_at.isoformat() if task.approved_at else None,
+        "approval_note": task.approval_note,
         "previous_active_policy_id": (
             str(previous_active.id) if previous_active is not None else None
         ),
@@ -2122,6 +2165,20 @@ def _apply_claim_support_calibration_policy_executor(
         "activated_policy_sha256": activated_policy.policy_sha256,
         "policy_name": activated_policy.policy_name,
         "policy_version": activated_policy.policy_version,
+        "draft_policy_sha256": draft_output.policy_sha256,
+        "verification_id": str(verification.verification_id),
+        "verification_outcome": verification.outcome,
+        "verification_reasons": list(verification.reasons),
+        "verification_evaluation_id": (
+            str(verification_evaluation_id) if verification_evaluation_id else None
+        ),
+        "verification_fixture_set_id": (
+            str(verification_fixture_set_id) if verification_fixture_set_id else None
+        ),
+        "verification_fixture_set_sha256": (
+            str(verification_fixture_set_sha256) if verification_fixture_set_sha256 else None
+        ),
+        "verification_policy_sha256": verification_policy_sha256,
         "success_metrics": [
             {
                 "metric_key": "claim_support_policy_verification_passed",
@@ -2130,7 +2187,10 @@ def _apply_claim_support_calibration_policy_executor(
                 "summary": "Only a passed verifier record can activate the calibration policy.",
                 "details": {
                     "verification_task_id": str(payload.verification_task_id),
+                    "verification_id": str(verification.verification_id),
                     "verification_outcome": verification.outcome,
+                    "verification_policy_sha256": verification_policy_sha256,
+                    "verification_fixture_set_sha256": verification_fixture_set_sha256,
                 },
             },
             {

@@ -24,7 +24,9 @@ from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     default_claim_support_evaluation_fixtures,
+    draft_claim_support_calibration_policy,
     ensure_claim_support_calibration_policy,
+    resolve_claim_support_calibration_policy,
 )
 from app.services.evidence import payload_sha256
 
@@ -328,6 +330,10 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         verify_payload = verify_row.result_json["payload"]
         assert verify_payload["verification"]["outcome"] == "passed"
         assert verify_payload["evaluation"]["policy_id"] == str(draft_policy_id)
+        verification_id = verify_payload["verification"]["verification_id"]
+        verification_fixture_set_id = verify_payload["evaluation"]["fixture_set_id"]
+        verification_fixture_set_sha256 = verify_payload["evaluation"]["fixture_set_sha256"]
+        verification_policy_sha256 = verify_payload["evaluation"]["policy_sha256"]
 
         apply_task = create_agent_task(
             session,
@@ -362,6 +368,16 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         apply_payload = apply_row.result_json["payload"]
         assert apply_payload["activated_policy_id"] == str(draft_policy_id)
         assert apply_payload["previous_active_policy_id"] == str(initial_policy_id)
+        assert apply_payload["approved_by"] == "claim-support-operator@example.com"
+        assert apply_payload["approved_at"]
+        assert apply_payload["approval_note"] == "verified policy may become active"
+        assert apply_payload["verification_id"] == verification_id
+        assert apply_payload["verification_outcome"] == "passed"
+        assert apply_payload["verification_reasons"] == []
+        assert apply_payload["verification_fixture_set_id"] == verification_fixture_set_id
+        assert apply_payload["verification_fixture_set_sha256"] == verification_fixture_set_sha256
+        assert apply_payload["verification_policy_sha256"] == verification_policy_sha256
+        assert apply_payload["draft_policy_sha256"] == verification_policy_sha256
         assert apply_payload["operator_run_id"]
 
         initial_policy = session.get(ClaimSupportCalibrationPolicy, initial_policy_id)
@@ -405,6 +421,96 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         assert eval_payload["summary"]["gate_outcome"] == "passed"
         assert eval_payload["policy_id"] == str(draft_policy_id)
         assert eval_payload["policy_version"] == "v2"
+
+
+def test_claim_support_policy_apply_blocks_stale_draft_after_verification(
+    postgres_integration_harness,
+):
+    with postgres_integration_harness.session_factory() as session:
+        initial_policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_stale",
+                    "rationale": "prove stale draft policy rows cannot be activated",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["exact_source_support"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_stale_apply_integration",
+            ),
+        )
+        initial_policy_id = initial_policy.id
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_row = session.get(AgentTask, draft_task_id)
+        assert draft_row is not None
+        draft_policy_id = UUID(draft_row.result_json["payload"]["policy_id"])
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                },
+                workflow_version="claim_support_policy_stale_apply_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_policy = session.get(ClaimSupportCalibrationPolicy, draft_policy_id)
+        assert draft_policy is not None
+        draft_policy.policy_payload_json = {
+            **dict(draft_policy.policy_payload_json or {}),
+            "metadata": {"tampered_after_verification": True},
+        }
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "stale draft rows must not activate",
+                },
+                workflow_version="claim_support_policy_stale_apply_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-operator@example.com",
+                approval_note="exercise stale draft guard",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        assert apply_row.status == AgentTaskStatus.FAILED.value
+        assert "Draft policy payload no longer matches" in str(apply_row.error_message)
+        assert session.get(ClaimSupportCalibrationPolicy, initial_policy_id).status == "active"
+        assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "draft"
 
 
 def test_claim_support_policy_promotion_blocks_failed_verification(
@@ -491,6 +597,74 @@ def test_claim_support_policy_promotion_blocks_failed_verification(
         )
         assert draft_policy is not None
         assert draft_policy.status == "draft"
+
+
+def test_claim_support_active_policy_resolution_rejects_retired_identity(
+    postgres_integration_harness,
+):
+    policy_payload = build_claim_support_calibration_policy_payload()
+
+    with postgres_integration_harness.session_factory() as session:
+        policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=policy_payload,
+        )
+        policy.status = "retired"
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        with pytest.raises(ValueError, match="status retired"):
+            ensure_claim_support_calibration_policy(
+                session,
+                policy_payload=policy_payload,
+            )
+        with pytest.raises(ValueError, match="status retired"):
+            resolve_claim_support_calibration_policy(session)
+
+
+def test_claim_support_policy_draft_rejects_retired_identity(
+    postgres_integration_harness,
+):
+    with postgres_integration_harness.session_factory() as session:
+        draft_policy = draft_claim_support_calibration_policy(
+            session,
+            policy_name="claim_support_judge_calibration_policy",
+            policy_version="v_retired_redraft",
+            thresholds={
+                "min_overall_accuracy": 1.0,
+                "min_verdict_precision": 1.0,
+                "min_verdict_recall": 1.0,
+                "min_support_score": 0.34,
+            },
+            min_hard_case_kind_count=1,
+            required_hard_case_kinds=["exact_source_support"],
+            required_verdicts=["supported"],
+            owner="integration-test",
+            source="integration_test",
+            rationale="prove retired policy identities cannot be redrafted",
+        )
+        draft_policy.status = "retired"
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
+        with pytest.raises(ValueError, match="cannot be redrafted"):
+            draft_claim_support_calibration_policy(
+                session,
+                policy_name="claim_support_judge_calibration_policy",
+                policy_version="v_retired_redraft",
+                thresholds={
+                    "min_overall_accuracy": 1.0,
+                    "min_verdict_precision": 1.0,
+                    "min_verdict_recall": 1.0,
+                    "min_support_score": 0.34,
+                },
+                min_hard_case_kind_count=1,
+                required_hard_case_kinds=["exact_source_support"],
+                required_verdicts=["supported"],
+                owner="integration-test",
+                source="integration_test",
+                rationale="prove retired policy identities cannot be redrafted",
+            )
 
 
 def test_claim_support_judge_evaluation_task_persists_failed_gate(
