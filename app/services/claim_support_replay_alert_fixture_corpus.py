@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -16,7 +17,13 @@ from app.db.models import (
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
 )
+from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.evidence import payload_sha256
+from app.services.semantic_governance import (
+    active_semantic_basis,
+    record_semantic_governance_event,
+)
+from app.services.storage import StorageService
 
 ACTIVE_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_NAME = (
     "active_claim_support_replay_alert_fixtures"
@@ -26,6 +33,18 @@ CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
 )
 CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_EVENT_KIND = (
     SemanticGovernanceEventKind.CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED.value
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_corpus_snapshot"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND = (
+    SemanticGovernanceEventKind.CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ACTIVATED.value
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_RECEIPT_SCHEMA = (
+    "claim_support_replay_alert_fixture_corpus_snapshot_receipt"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_PAYLOAD_KEY = (
+    "claim_support_replay_alert_fixture_corpus_snapshot"
 )
 
 
@@ -410,8 +429,305 @@ def _supersede_active_snapshots(session: Session) -> None:
     session.flush()
 
 
+def _snapshot_source_events(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> list[SemanticGovernanceEvent]:
+    event_ids = [
+        *_string_list(snapshot.source_promotion_event_ids_json),
+        *_string_list(snapshot.invalid_promotion_event_ids_json),
+    ]
+    parsed_event_ids = [_uuid_or_none(value) for value in event_ids]
+    parsed_event_ids = [value for value in parsed_event_ids if value is not None]
+    if not parsed_event_ids:
+        return []
+    events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(SemanticGovernanceEvent.id.in_(parsed_event_ids))
+            .order_by(
+                SemanticGovernanceEvent.created_at.asc(),
+                SemanticGovernanceEvent.event_sequence.asc(),
+            )
+        )
+    )
+    return events
+
+
+def _snapshot_anchor_task_id(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> UUID | None:
+    for event in _snapshot_source_events(session, snapshot):
+        if event.agent_task_artifact_id is not None:
+            artifact = session.get(AgentTaskArtifact, event.agent_task_artifact_id)
+            if artifact is not None:
+                return artifact.task_id
+        if event.task_id is not None:
+            return event.task_id
+    return None
+
+
+def _snapshot_governance_deduplication_key(
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> str:
+    return (
+        "claim_support_replay_alert_fixture_corpus_snapshot_activated:"
+        f"{snapshot.id}:{snapshot.snapshot_sha256}"
+    )
+
+
+def _snapshot_governance_payload(
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+    *,
+    artifact_id: UUID | None,
+    semantic_basis: dict[str, Any],
+    recorded_by: str,
+    deduplication_key: str,
+) -> dict[str, Any]:
+    snapshot_payload = dict(snapshot.snapshot_payload_json or {})
+    basis = {
+        "schema_name": CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_RECEIPT_SCHEMA,
+        "schema_version": "1.0",
+        "snapshot_id": str(snapshot.id),
+        "snapshot_name": snapshot.snapshot_name,
+        "snapshot_status": snapshot.status,
+        "snapshot_sha256": snapshot.snapshot_sha256,
+        "fixture_count": snapshot.fixture_count,
+        "promotion_event_count": snapshot.promotion_event_count,
+        "promotion_fixture_set_count": snapshot.promotion_fixture_set_count,
+        "invalid_promotion_event_count": snapshot.invalid_promotion_event_count,
+        "source_promotion_event_ids": list(snapshot.source_promotion_event_ids_json),
+        "source_promotion_artifact_ids": list(
+            snapshot.source_promotion_artifact_ids_json
+        ),
+        "source_promotion_receipt_sha256s": list(
+            snapshot.source_promotion_receipt_sha256s_json
+        ),
+        "source_fixture_set_ids": list(snapshot.source_fixture_set_ids_json),
+        "source_fixture_set_sha256s": list(snapshot.source_fixture_set_sha256s_json),
+        "source_escalation_event_ids": list(snapshot.source_escalation_event_ids_json),
+        "invalid_promotion_event_ids": list(snapshot.invalid_promotion_event_ids_json),
+        "invalid_promotion_events": list(
+            snapshot_payload.get("invalid_promotion_events") or []
+        ),
+        "row_count": len(snapshot_payload.get("rows") or []),
+        "row_sha256s": [
+            str(payload_sha256(row))
+            for row in snapshot_payload.get("rows") or []
+            if isinstance(row, dict)
+        ],
+        "governance_artifact_id": str(artifact_id) if artifact_id else None,
+        "semantic_basis": semantic_basis,
+        "recorded_by": recorded_by,
+        "recorded_at": utcnow().isoformat(),
+        "deduplication_key": deduplication_key,
+    }
+    return {
+        **basis,
+        "receipt_sha256": payload_sha256(basis),
+    }
+
+
+def record_replay_alert_fixture_corpus_snapshot_governance(
+    session: Session,
+    *,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+    storage_service: StorageService | None = None,
+    recorded_by: str = "docling-system",
+) -> tuple[SemanticGovernanceEvent | None, AgentTaskArtifact | None, bool]:
+    if snapshot.semantic_governance_event_id is not None:
+        event = session.get(SemanticGovernanceEvent, snapshot.semantic_governance_event_id)
+        artifact = (
+            session.get(AgentTaskArtifact, snapshot.governance_artifact_id)
+            if snapshot.governance_artifact_id is not None
+            else None
+        )
+        return event, artifact, False
+
+    deduplication_key = _snapshot_governance_deduplication_key(snapshot)
+    existing = session.scalar(
+        select(SemanticGovernanceEvent)
+        .where(SemanticGovernanceEvent.deduplication_key == deduplication_key)
+        .limit(1)
+    )
+    if existing is not None:
+        artifact = (
+            session.get(AgentTaskArtifact, existing.agent_task_artifact_id)
+            if existing.agent_task_artifact_id is not None
+            else None
+        )
+        snapshot.semantic_governance_event_id = existing.id
+        snapshot.governance_artifact_id = artifact.id if artifact is not None else None
+        snapshot.governance_receipt_sha256 = existing.receipt_sha256
+        session.flush()
+        return existing, artifact, False
+
+    semantic_basis = active_semantic_basis(session)
+    anchor_task_id = _snapshot_anchor_task_id(session, snapshot)
+    artifact_id = uuid.uuid4() if anchor_task_id is not None else None
+    receipt_payload = _snapshot_governance_payload(
+        snapshot,
+        artifact_id=artifact_id,
+        semantic_basis=semantic_basis,
+        recorded_by=recorded_by,
+        deduplication_key=deduplication_key,
+    )
+    artifact: AgentTaskArtifact | None = None
+    if anchor_task_id is not None:
+        artifact = create_agent_task_artifact(
+            session,
+            task_id=anchor_task_id,
+            artifact_kind=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND,
+            payload=receipt_payload,
+            storage_service=storage_service,
+            filename=(
+                "claim_support_replay_alert_fixture_corpus_snapshot_"
+                f"{snapshot.id}_{receipt_payload['receipt_sha256'][:12]}.json"
+            ),
+            artifact_id=artifact_id,
+        )
+
+    event = record_semantic_governance_event(
+        session,
+        event_kind=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND,
+        governance_scope=(
+            f"claim_support_replay_alert_fixture_corpus:{snapshot.snapshot_name}"
+        ),
+        subject_table="claim_support_replay_alert_fixture_corpus_snapshots",
+        subject_id=snapshot.id,
+        task_id=anchor_task_id,
+        ontology_snapshot_id=_uuid_or_none(semantic_basis.get("active_ontology_snapshot_id")),
+        semantic_graph_snapshot_id=_uuid_or_none(
+            semantic_basis.get("active_semantic_graph_snapshot_id")
+        ),
+        agent_task_artifact_id=artifact.id if artifact is not None else None,
+        receipt_sha256=receipt_payload["receipt_sha256"],
+        event_payload={
+            CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_PAYLOAD_KEY: (
+                receipt_payload
+            ),
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=deduplication_key,
+        created_by=recorded_by,
+    )
+    snapshot.semantic_governance_event_id = event.id
+    snapshot.governance_artifact_id = artifact.id if artifact is not None else None
+    snapshot.governance_receipt_sha256 = receipt_payload["receipt_sha256"]
+    session.flush()
+    return event, artifact, True
+
+
+def replay_alert_fixture_corpus_snapshot_governance_integrity(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot | None,
+) -> dict[str, Any]:
+    if snapshot is None:
+        return {
+            "complete": False,
+            "failures": ["snapshot_missing"],
+        }
+    failures: list[str] = []
+    event = (
+        session.get(SemanticGovernanceEvent, snapshot.semantic_governance_event_id)
+        if snapshot.semantic_governance_event_id is not None
+        else None
+    )
+    artifact = (
+        session.get(AgentTaskArtifact, snapshot.governance_artifact_id)
+        if snapshot.governance_artifact_id is not None
+        else None
+    )
+    if event is None:
+        failures.append("snapshot_governance_event_missing")
+    elif event.event_kind != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND:
+        failures.append("snapshot_governance_event_kind_mismatch")
+    elif (
+        event.subject_table != "claim_support_replay_alert_fixture_corpus_snapshots"
+        or event.subject_id != snapshot.id
+    ):
+        failures.append("snapshot_governance_event_subject_mismatch")
+    if artifact is None:
+        failures.append("snapshot_governance_artifact_missing")
+    elif (
+        artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND
+    ):
+        failures.append("snapshot_governance_artifact_kind_mismatch")
+
+    event_receipt = {}
+    if event is not None:
+        event_receipt = dict(
+            (event.event_payload_json or {}).get(
+                CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_PAYLOAD_KEY
+            )
+            or {}
+        )
+        if event.receipt_sha256 != snapshot.governance_receipt_sha256:
+            failures.append("snapshot_governance_event_receipt_mismatch")
+        if event.receipt_sha256 != event_receipt.get("receipt_sha256"):
+            failures.append("snapshot_governance_event_payload_receipt_mismatch")
+        event_receipt_basis = dict(event_receipt)
+        event_receipt_basis.pop("receipt_sha256", None)
+        if (
+            not event_receipt.get("receipt_sha256")
+            or payload_sha256(event_receipt_basis) != event_receipt.get("receipt_sha256")
+        ):
+            failures.append("snapshot_governance_event_payload_hash_mismatch")
+        if event_receipt.get("snapshot_sha256") != snapshot.snapshot_sha256:
+            failures.append("snapshot_governance_event_snapshot_hash_mismatch")
+        if event_receipt.get("snapshot_id") != str(snapshot.id):
+            failures.append("snapshot_governance_event_snapshot_id_mismatch")
+
+    if artifact is not None:
+        artifact_payload = dict(artifact.payload_json or {})
+        if artifact_payload.get("receipt_sha256") != snapshot.governance_receipt_sha256:
+            failures.append("snapshot_governance_artifact_receipt_mismatch")
+        artifact_basis = dict(artifact_payload)
+        artifact_basis.pop("receipt_sha256", None)
+        if (
+            not artifact_payload.get("receipt_sha256")
+            or payload_sha256(artifact_basis) != artifact_payload.get("receipt_sha256")
+        ):
+            failures.append("snapshot_governance_artifact_hash_mismatch")
+        if artifact_payload.get("snapshot_sha256") != snapshot.snapshot_sha256:
+            failures.append("snapshot_governance_artifact_snapshot_hash_mismatch")
+        if artifact_payload.get("snapshot_id") != str(snapshot.id):
+            failures.append("snapshot_governance_artifact_snapshot_id_mismatch")
+        if event is not None and event.agent_task_artifact_id != artifact.id:
+            failures.append("snapshot_governance_event_artifact_mismatch")
+
+    return {
+        "complete": not failures,
+        "failures": failures,
+        "snapshot_id": str(snapshot.id),
+        "snapshot_sha256": snapshot.snapshot_sha256,
+        "semantic_governance_event_id": (
+            str(snapshot.semantic_governance_event_id)
+            if snapshot.semantic_governance_event_id
+            else None
+        ),
+        "governance_artifact_id": (
+            str(snapshot.governance_artifact_id)
+            if snapshot.governance_artifact_id
+            else None
+        ),
+        "governance_receipt_sha256": snapshot.governance_receipt_sha256,
+        "event_receipt_sha256": event.receipt_sha256 if event is not None else None,
+        "artifact_receipt_sha256": (
+            (artifact.payload_json or {}).get("receipt_sha256")
+            if artifact is not None
+            else None
+        ),
+    }
+
+
 def ensure_active_replay_alert_fixture_corpus_snapshot(
     session: Session,
+    *,
+    storage_service: StorageService | None = None,
+    recorded_by: str = "docling-system",
 ) -> ClaimSupportReplayAlertFixtureCorpusSnapshot | None:
     build = build_replay_alert_fixture_corpus(session)
     if build is None:
@@ -423,6 +739,12 @@ def ensure_active_replay_alert_fixture_corpus_snapshot(
 
     active = _active_snapshot(session)
     if active is not None and active.snapshot_sha256 == build.snapshot_sha256:
+        record_replay_alert_fixture_corpus_snapshot_governance(
+            session,
+            snapshot=active,
+            storage_service=storage_service,
+            recorded_by=recorded_by,
+        )
         return active
 
     existing = session.scalar(
@@ -449,6 +771,12 @@ def ensure_active_replay_alert_fixture_corpus_snapshot(
         existing.status = "active"
         existing.superseded_at = None
         session.flush()
+        record_replay_alert_fixture_corpus_snapshot_governance(
+            session,
+            snapshot=existing,
+            storage_service=storage_service,
+            recorded_by=recorded_by,
+        )
         return existing
 
     snapshot = ClaimSupportReplayAlertFixtureCorpusSnapshot(
@@ -507,19 +835,38 @@ def ensure_active_replay_alert_fixture_corpus_snapshot(
             )
         )
     session.flush()
+    record_replay_alert_fixture_corpus_snapshot_governance(
+        session,
+        snapshot=snapshot,
+        storage_service=storage_service,
+        recorded_by=recorded_by,
+    )
     return snapshot
 
 
 def replay_alert_fixture_corpus_snapshot_summary(
     snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot | None,
+    *,
+    session: Session | None = None,
 ) -> dict[str, Any] | None:
     if snapshot is None:
         return None
-    return {
+    summary = {
         "snapshot_id": str(snapshot.id),
         "snapshot_name": snapshot.snapshot_name,
         "status": snapshot.status,
         "snapshot_sha256": snapshot.snapshot_sha256,
+        "semantic_governance_event_id": (
+            str(snapshot.semantic_governance_event_id)
+            if snapshot.semantic_governance_event_id
+            else None
+        ),
+        "governance_artifact_id": (
+            str(snapshot.governance_artifact_id)
+            if snapshot.governance_artifact_id
+            else None
+        ),
+        "governance_receipt_sha256": snapshot.governance_receipt_sha256,
         "fixture_count": snapshot.fixture_count,
         "promotion_event_count": snapshot.promotion_event_count,
         "promotion_fixture_set_count": snapshot.promotion_fixture_set_count,
@@ -541,6 +888,14 @@ def replay_alert_fixture_corpus_snapshot_summary(
         if snapshot.superseded_at
         else None,
     }
+    if session is not None:
+        summary["governance_integrity"] = (
+            replay_alert_fixture_corpus_snapshot_governance_integrity(
+                session,
+                snapshot,
+            )
+        )
+    return summary
 
 
 def active_replay_alert_fixture_corpus_snapshot_summary(
@@ -553,7 +908,7 @@ def active_replay_alert_fixture_corpus_snapshot_summary(
         if ensure_current
         else _active_snapshot(session)
     )
-    return replay_alert_fixture_corpus_snapshot_summary(snapshot)
+    return replay_alert_fixture_corpus_snapshot_summary(snapshot, session=session)
 
 
 def active_replay_alert_fixture_corpus_rows(

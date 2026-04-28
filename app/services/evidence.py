@@ -24,6 +24,8 @@ from app.db.models import (
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
     ClaimSupportPolicyChangeImpact,
+    ClaimSupportReplayAlertFixtureCorpusRow,
+    ClaimSupportReplayAlertFixtureCorpusSnapshot,
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
     Document,
@@ -89,6 +91,15 @@ CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND = (
 )
 CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
     "claim_support_policy_impact_fixture_promotion"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND = (
+    "claim_support_replay_alert_fixture_corpus_snapshot_activated"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_corpus_snapshot"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_PAYLOAD_KEY = (
+    "claim_support_replay_alert_fixture_corpus_snapshot"
 )
 CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
     "pending",
@@ -2630,6 +2641,16 @@ def _empty_claim_support_policy_change_impact_summary() -> dict[str, Any]:
         "waiver_closure_integrity_verified": True,
         "clear": True,
     }
+    replay_alert_fixture_corpus = {
+        "related_snapshot_count": 0,
+        "invalid_snapshot_governance_count": 0,
+        "governance_integrity_verified": True,
+        "trace_complete": True,
+        "active_replay_alert_fixture_corpus_snapshot_id": None,
+        "active_replay_alert_fixture_corpus_sha256": None,
+        "invalid_snapshot_ids": [],
+        "snapshots": [],
+    }
     return {
         "related_count": 0,
         "open_count": 0,
@@ -2637,6 +2658,7 @@ def _empty_claim_support_policy_change_impact_summary() -> dict[str, Any]:
         "blocked_count": 0,
         "replay_status_counts": {},
         "waiver_lifecycle": waiver_lifecycle,
+        "replay_alert_fixture_corpus": replay_alert_fixture_corpus,
         "clear": True,
         "impacts": [],
     }
@@ -3079,6 +3101,207 @@ def _waiver_closure_event_payload(
     }
 
 
+def _replay_alert_fixture_corpus_snapshot_governance_integrity(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> dict[str, Any]:
+    failures: list[str] = []
+    event = (
+        session.get(SemanticGovernanceEvent, snapshot.semantic_governance_event_id)
+        if snapshot.semantic_governance_event_id is not None
+        else None
+    )
+    artifact = (
+        session.get(AgentTaskArtifact, snapshot.governance_artifact_id)
+        if snapshot.governance_artifact_id is not None
+        else None
+    )
+    if event is None:
+        failures.append("snapshot_governance_event_missing")
+    elif event.event_kind != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND:
+        failures.append("snapshot_governance_event_kind_mismatch")
+    elif (
+        event.subject_table != "claim_support_replay_alert_fixture_corpus_snapshots"
+        or event.subject_id != snapshot.id
+    ):
+        failures.append("snapshot_governance_event_subject_mismatch")
+    if artifact is None:
+        failures.append("snapshot_governance_artifact_missing")
+    elif (
+        artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND
+    ):
+        failures.append("snapshot_governance_artifact_kind_mismatch")
+
+    if event is not None:
+        event_payload = dict(
+            (event.event_payload_json or {}).get(
+                CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_PAYLOAD_KEY
+            )
+            or {}
+        )
+        receipt_sha256 = str(event_payload.get("receipt_sha256") or "")
+        event_basis = dict(event_payload)
+        event_basis.pop("receipt_sha256", None)
+        if event.receipt_sha256 != snapshot.governance_receipt_sha256:
+            failures.append("snapshot_governance_event_receipt_mismatch")
+        if event.receipt_sha256 != receipt_sha256:
+            failures.append("snapshot_governance_event_payload_receipt_mismatch")
+        if not receipt_sha256 or payload_sha256(event_basis) != receipt_sha256:
+            failures.append("snapshot_governance_event_payload_hash_mismatch")
+        if event_payload.get("snapshot_id") != str(snapshot.id):
+            failures.append("snapshot_governance_event_snapshot_id_mismatch")
+        if event_payload.get("snapshot_sha256") != snapshot.snapshot_sha256:
+            failures.append("snapshot_governance_event_snapshot_hash_mismatch")
+    if artifact is not None:
+        artifact_payload = dict(artifact.payload_json or {})
+        artifact_receipt_sha256 = str(artifact_payload.get("receipt_sha256") or "")
+        artifact_basis = dict(artifact_payload)
+        artifact_basis.pop("receipt_sha256", None)
+        if artifact_receipt_sha256 != snapshot.governance_receipt_sha256:
+            failures.append("snapshot_governance_artifact_receipt_mismatch")
+        if not artifact_receipt_sha256 or payload_sha256(artifact_basis) != artifact_receipt_sha256:
+            failures.append("snapshot_governance_artifact_hash_mismatch")
+        if artifact_payload.get("snapshot_id") != str(snapshot.id):
+            failures.append("snapshot_governance_artifact_snapshot_id_mismatch")
+        if artifact_payload.get("snapshot_sha256") != snapshot.snapshot_sha256:
+            failures.append("snapshot_governance_artifact_snapshot_hash_mismatch")
+        if event is not None and event.agent_task_artifact_id != artifact.id:
+            failures.append("snapshot_governance_event_artifact_mismatch")
+    return {
+        "complete": not failures,
+        "failures": failures,
+        "semantic_governance_event_id": (
+            str(snapshot.semantic_governance_event_id)
+            if snapshot.semantic_governance_event_id
+            else None
+        ),
+        "governance_artifact_id": (
+            str(snapshot.governance_artifact_id)
+            if snapshot.governance_artifact_id
+            else None
+        ),
+        "governance_receipt_sha256": snapshot.governance_receipt_sha256,
+    }
+
+
+def _replay_alert_fixture_corpus_row_payload(
+    row: ClaimSupportReplayAlertFixtureCorpusRow,
+) -> dict[str, Any]:
+    return {
+        "row_id": str(row.id),
+        "snapshot_id": str(row.snapshot_id),
+        "row_index": row.row_index,
+        "case_id": row.case_id,
+        "case_identity_sha256": row.case_identity_sha256,
+        "fixture_sha256": row.fixture_sha256,
+        "fixture_set_id": str(row.fixture_set_id) if row.fixture_set_id else None,
+        "promotion_event_id": (
+            str(row.promotion_event_id) if row.promotion_event_id else None
+        ),
+        "promotion_artifact_id": (
+            str(row.promotion_artifact_id) if row.promotion_artifact_id else None
+        ),
+        "promotion_receipt_sha256": row.promotion_receipt_sha256,
+        "source_change_impact_ids": list(row.source_change_impact_ids_json or []),
+        "source_escalation_event_ids": list(row.source_escalation_event_ids_json or []),
+        "replay_alert_source": dict(row.replay_alert_source_json or {}),
+    }
+
+
+def _replay_alert_fixture_corpus_snapshot_payload(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> dict[str, Any]:
+    rows = list(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .order_by(
+                ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc(),
+                ClaimSupportReplayAlertFixtureCorpusRow.id.asc(),
+            )
+        )
+    )
+    governance_integrity = _replay_alert_fixture_corpus_snapshot_governance_integrity(
+        session,
+        snapshot,
+    )
+    return {
+        "snapshot_id": str(snapshot.id),
+        "snapshot_name": snapshot.snapshot_name,
+        "status": snapshot.status,
+        "snapshot_sha256": snapshot.snapshot_sha256,
+        "semantic_governance_event_id": (
+            str(snapshot.semantic_governance_event_id)
+            if snapshot.semantic_governance_event_id
+            else None
+        ),
+        "governance_artifact_id": (
+            str(snapshot.governance_artifact_id)
+            if snapshot.governance_artifact_id
+            else None
+        ),
+        "governance_receipt_sha256": snapshot.governance_receipt_sha256,
+        "fixture_count": snapshot.fixture_count,
+        "promotion_event_count": snapshot.promotion_event_count,
+        "promotion_fixture_set_count": snapshot.promotion_fixture_set_count,
+        "invalid_promotion_event_count": snapshot.invalid_promotion_event_count,
+        "source_promotion_event_ids": list(snapshot.source_promotion_event_ids_json or []),
+        "source_promotion_artifact_ids": list(
+            snapshot.source_promotion_artifact_ids_json or []
+        ),
+        "source_promotion_receipt_sha256s": list(
+            snapshot.source_promotion_receipt_sha256s_json or []
+        ),
+        "source_fixture_set_ids": list(snapshot.source_fixture_set_ids_json or []),
+        "source_fixture_set_sha256s": list(snapshot.source_fixture_set_sha256s_json or []),
+        "source_escalation_event_ids": list(snapshot.source_escalation_event_ids_json or []),
+        "invalid_promotion_event_ids": list(snapshot.invalid_promotion_event_ids_json or []),
+        "invalid_promotion_events": list(
+            (snapshot.snapshot_payload_json or {}).get("invalid_promotion_events") or []
+        ),
+        "rows": [_replay_alert_fixture_corpus_row_payload(row) for row in rows],
+        "row_count": len(rows),
+        "governance_integrity": governance_integrity,
+        "trace_complete": bool(rows) and governance_integrity["complete"],
+    }
+
+
+def _claim_support_replay_alert_fixture_corpus_snapshots_by_promotion_event(
+    session: Session,
+    events: list[SemanticGovernanceEvent],
+) -> dict[UUID, list[dict[str, Any]]]:
+    event_ids = {event.id for event in events}
+    if not event_ids:
+        return {}
+    snapshots = list(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCorpusSnapshot).order_by(
+                ClaimSupportReplayAlertFixtureCorpusSnapshot.created_at.asc(),
+                ClaimSupportReplayAlertFixtureCorpusSnapshot.id.asc(),
+            )
+        )
+    )
+    by_event_id: dict[UUID, list[dict[str, Any]]] = {}
+    for snapshot in snapshots:
+        source_event_ids = {
+            parsed
+            for parsed in (
+                _uuid_or_none_safe(value)
+                for value in (snapshot.source_promotion_event_ids_json or [])
+            )
+            if parsed is not None
+        }
+        matching_event_ids = event_ids & source_event_ids
+        if not matching_event_ids:
+            continue
+        payload = _replay_alert_fixture_corpus_snapshot_payload(session, snapshot)
+        for event_id in sorted(matching_event_ids, key=str):
+            by_event_id.setdefault(event_id, []).append(payload)
+    return by_event_id
+
+
 def _claim_support_replay_alert_waiver_lifecycle_summary(
     session: Session,
     matching_rows: list[ClaimSupportPolicyChangeImpact],
@@ -3240,6 +3463,16 @@ def _claim_support_policy_change_impact_summary(
     fixture_promotion_events_by_row = (
         _claim_support_policy_fixture_promotion_events_by_impact(session, matching_rows)
     )
+    corpus_snapshots_by_promotion_event = (
+        _claim_support_replay_alert_fixture_corpus_snapshots_by_promotion_event(
+            session,
+            [
+                event
+                for event_rows in fixture_promotion_events_by_row.values()
+                for event in event_rows
+            ],
+        )
+    )
     waiver_closure_events_by_row = (
         _claim_support_replay_alert_waiver_closure_events_by_impact(session, matching_rows)
     )
@@ -3256,6 +3489,16 @@ def _claim_support_policy_change_impact_summary(
         closure_events = events_by_row.get(row.id, [])
         escalation_events = escalation_events_by_row.get(row.id, [])
         fixture_promotion_events = fixture_promotion_events_by_row.get(row.id, [])
+        replay_alert_fixture_corpus_snapshots_by_id: dict[str, dict[str, Any]] = {}
+        for event in fixture_promotion_events:
+            for snapshot_payload in corpus_snapshots_by_promotion_event.get(event.id, []):
+                replay_alert_fixture_corpus_snapshots_by_id[
+                    snapshot_payload["snapshot_id"]
+                ] = snapshot_payload
+        replay_alert_fixture_corpus_snapshots = [
+            replay_alert_fixture_corpus_snapshots_by_id[snapshot_id]
+            for snapshot_id in sorted(replay_alert_fixture_corpus_snapshots_by_id)
+        ]
         waiver_closure_events = waiver_closure_events_by_row.get(row.id, [])
         waiver_closure_event_payloads = [
             _waiver_closure_event_payload(session, event)
@@ -3313,6 +3556,9 @@ def _claim_support_policy_change_impact_summary(
                     _fixture_promotion_event_payload(event)
                     for event in fixture_promotion_events
                 ],
+                "replay_alert_fixture_corpus_snapshots": (
+                    replay_alert_fixture_corpus_snapshots
+                ),
                 "waiver_closure_governance_events": waiver_closure_event_payloads,
             }
         )
@@ -3322,6 +3568,47 @@ def _claim_support_policy_change_impact_summary(
         for row in impact_rows
         if row["replay_status"] in CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES
     ]
+    snapshots_by_id = {
+        snapshot["snapshot_id"]: snapshot
+        for row in impact_rows
+        for snapshot in row.get("replay_alert_fixture_corpus_snapshots") or []
+    }
+    invalid_snapshot_ids = sorted(
+        snapshot_id
+        for snapshot_id, snapshot in snapshots_by_id.items()
+        if not (snapshot.get("governance_integrity") or {}).get("complete")
+    )
+    trace_incomplete_snapshot_ids = sorted(
+        snapshot_id
+        for snapshot_id, snapshot in snapshots_by_id.items()
+        if not snapshot.get("trace_complete")
+    )
+    active_snapshots = [
+        snapshot for snapshot in snapshots_by_id.values() if snapshot.get("status") == "active"
+    ]
+    replay_alert_fixture_corpus = {
+        "related_snapshot_count": len(snapshots_by_id),
+        "invalid_snapshot_governance_count": len(invalid_snapshot_ids),
+        "trace_incomplete_snapshot_count": len(trace_incomplete_snapshot_ids),
+        "governance_integrity_verified": not invalid_snapshot_ids,
+        "trace_complete": not trace_incomplete_snapshot_ids,
+        "active_replay_alert_fixture_corpus_snapshot_id": (
+            active_snapshots[-1]["snapshot_id"] if active_snapshots else None
+        ),
+        "active_replay_alert_fixture_corpus_sha256": (
+            active_snapshots[-1]["snapshot_sha256"] if active_snapshots else None
+        ),
+        "active_replay_alert_fixture_corpus_governance_receipt_sha256": (
+            active_snapshots[-1].get("governance_receipt_sha256")
+            if active_snapshots
+            else None
+        ),
+        "invalid_snapshot_ids": invalid_snapshot_ids,
+        "trace_incomplete_snapshot_ids": trace_incomplete_snapshot_ids,
+        "snapshots": [
+            snapshots_by_id[snapshot_id] for snapshot_id in sorted(snapshots_by_id)
+        ],
+    }
     return {
         "related_count": len(impact_rows),
         "open_count": len(open_impacts),
@@ -3329,7 +3616,13 @@ def _claim_support_policy_change_impact_summary(
         "blocked_count": sum(1 for row in impact_rows if row["replay_status"] == "blocked"),
         "replay_status_counts": status_counts,
         "waiver_lifecycle": waiver_lifecycle,
-        "clear": not open_impacts and waiver_lifecycle["clear"],
+        "replay_alert_fixture_corpus": replay_alert_fixture_corpus,
+        "clear": (
+            not open_impacts
+            and waiver_lifecycle["clear"]
+            and replay_alert_fixture_corpus["governance_integrity_verified"]
+            and replay_alert_fixture_corpus["trace_complete"]
+        ),
         "impacts": impact_rows,
     }
 
@@ -3438,6 +3731,49 @@ def _change_impact_payload(
                 "reason": (
                     "Replay-alert fixture coverage waiver closure receipts related to "
                     "this report failed integrity checks."
+                ),
+            }
+        )
+    replay_alert_fixture_corpus = (
+        claim_support_policy_impacts.get("replay_alert_fixture_corpus") or {}
+    )
+    invalid_corpus_snapshot_count = int(
+        replay_alert_fixture_corpus.get("invalid_snapshot_governance_count") or 0
+    )
+    trace_incomplete_corpus_snapshot_count = int(
+        replay_alert_fixture_corpus.get("trace_incomplete_snapshot_count") or 0
+    )
+    if invalid_corpus_snapshot_count:
+        impacts.append(
+            {
+                "impact_type": (
+                    "claim_support_replay_alert_fixture_corpus_snapshot_governance_invalid"
+                ),
+                "invalid_snapshot_governance_count": invalid_corpus_snapshot_count,
+                "invalid_snapshot_ids": list(
+                    replay_alert_fixture_corpus.get("invalid_snapshot_ids") or []
+                ),
+                "reason": (
+                    "Replay-alert fixture corpus snapshots related to this report "
+                    "failed governance receipt integrity checks."
+                ),
+            }
+        )
+    if trace_incomplete_corpus_snapshot_count:
+        impacts.append(
+            {
+                "impact_type": (
+                    "claim_support_replay_alert_fixture_corpus_snapshot_trace_incomplete"
+                ),
+                "trace_incomplete_snapshot_count": (
+                    trace_incomplete_corpus_snapshot_count
+                ),
+                "trace_incomplete_snapshot_ids": list(
+                    replay_alert_fixture_corpus.get("trace_incomplete_snapshot_ids") or []
+                ),
+                "reason": (
+                    "Replay-alert fixture corpus snapshots related to this report "
+                    "do not have complete row-to-promotion evidence trace coverage."
                 ),
             }
         )
@@ -4309,9 +4645,29 @@ def build_technical_report_evidence_manifest_payload(
             "replay_alert_waiver_lifecycle_clear",
             False,
         ),
+        "active_replay_alert_fixture_corpus_snapshot_id": audit_bundle[
+            "audit_checklist"
+        ].get("active_replay_alert_fixture_corpus_snapshot_id"),
+        "active_replay_alert_fixture_corpus_sha256": audit_bundle[
+            "audit_checklist"
+        ].get("active_replay_alert_fixture_corpus_sha256"),
+        "replay_alert_fixture_corpus_snapshot_governed": audit_bundle[
+            "audit_checklist"
+        ].get("replay_alert_fixture_corpus_snapshot_governed", True),
+        "replay_alert_fixture_corpus_trace_complete": audit_bundle[
+            "audit_checklist"
+        ].get("replay_alert_fixture_corpus_trace_complete", True),
+        "invalid_replay_alert_fixture_corpus_snapshot_governance_count": audit_bundle[
+            "audit_checklist"
+        ].get("invalid_replay_alert_fixture_corpus_snapshot_governance_count", 0),
+        "incomplete_replay_alert_fixture_corpus_trace_count": audit_bundle[
+            "audit_checklist"
+        ].get("incomplete_replay_alert_fixture_corpus_trace_count", 0),
         "has_provenance_edges": bool(provenance_edges),
     }
-    checklist["complete"] = all(checklist.values())
+    checklist["complete"] = all(
+        value for value in checklist.values() if isinstance(value, bool)
+    )
     return {
         "schema_name": "technical_report_evidence_manifest",
         "schema_version": "1.0",
@@ -4378,6 +4734,12 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "technical_report_claim_provenance_locks": "claim_provenance_lock",
     "technical_report_claim_support_judgments": "claim_support_judgment",
     "claim_support_policy_change_impacts": "claim_support_policy_change_impact",
+    "claim_support_replay_alert_fixture_corpus_snapshots": (
+        "claim_support_replay_alert_fixture_corpus_snapshot"
+    ),
+    "claim_support_replay_alert_fixture_corpus_rows": (
+        "claim_support_replay_alert_fixture_corpus_row"
+    ),
     "claim_evidence_derivations": "claim_derivation",
     "evidence_package_exports": "evidence_package_export",
     "audit_bundle_exports": "audit_bundle_export",
@@ -4496,6 +4858,8 @@ def _put_trace_edge(
     payload: dict[str, Any] | None = None,
 ) -> None:
     if not from_node_key or not to_node_key:
+        return
+    if any(edge.get("edge_key") == edge_key for edge in edges):
         return
     edge_payload = {
         "edge_kind": edge_kind,
@@ -5099,6 +5463,175 @@ def _build_evidence_trace_graph_specs(
                         from_node_key=event_node_key,
                         to_node_key=artifact_node_key,
                         payload={"source": "claim_support_policy_change_impact"},
+                    )
+
+        for snapshot in impact.get("replay_alert_fixture_corpus_snapshots") or []:
+            snapshot_id = snapshot.get("snapshot_id")
+            snapshot_node_key = _put_trace_node_from_id(
+                nodes,
+                source_table="claim_support_replay_alert_fixture_corpus_snapshots",
+                source_id=snapshot_id,
+                payload=snapshot,
+            )
+            _put_trace_edge(
+                edges,
+                edge_key=(
+                    f"claim-support-impact:{impact.get('change_impact_id')}:"
+                    f"replay-fixture-corpus-snapshot:{snapshot_id}"
+                ),
+                edge_kind="replay_fixture_corpus_snapshot",
+                from_node_key=impact_node_key,
+                to_node_key=snapshot_node_key,
+                payload={"source": "claim_support_policy_change_impact"},
+            )
+            _put_trace_edge(
+                edges,
+                edge_key=(
+                    f"verification:{verification.get('verification_id')}:"
+                    f"uses-replay-fixture-corpus-snapshot:{snapshot_id}"
+                ),
+                edge_kind="verification_uses_replay_fixture_corpus_snapshot",
+                from_node_key=verification_record_node_key,
+                to_node_key=snapshot_node_key,
+                payload={"source": "claim_support_policy_change_impact"},
+            )
+            governance_event_id = snapshot.get("semantic_governance_event_id")
+            governance_event_node_key = _put_trace_node_from_id(
+                nodes,
+                source_table="semantic_governance_events",
+                source_id=governance_event_id,
+                payload={
+                    "event_id": governance_event_id,
+                    "event_kind": (
+                        CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND
+                    ),
+                    "receipt_sha256": snapshot.get("governance_receipt_sha256"),
+                    "governance_integrity": snapshot.get("governance_integrity"),
+                },
+            )
+            _put_trace_edge(
+                edges,
+                edge_key=(
+                    f"replay-fixture-corpus-snapshot:{snapshot_id}:"
+                    f"governance-event:{governance_event_id}"
+                ),
+                edge_kind="replay_fixture_corpus_snapshot_governance_event",
+                from_node_key=snapshot_node_key,
+                to_node_key=governance_event_node_key,
+                payload={"source": "claim_support_replay_alert_fixture_corpus"},
+            )
+            governance_artifact_id = snapshot.get("governance_artifact_id")
+            governance_artifact_node_key = _put_trace_node_from_id(
+                nodes,
+                source_table="agent_task_artifacts",
+                source_id=governance_artifact_id,
+                payload={
+                    "artifact_id": governance_artifact_id,
+                    "artifact_kind": (
+                        CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND
+                    ),
+                    "receipt_sha256": snapshot.get("governance_receipt_sha256"),
+                },
+            )
+            _put_trace_edge(
+                edges,
+                edge_key=(
+                    f"replay-fixture-corpus-snapshot:{snapshot_id}:"
+                    f"governance-artifact:{governance_artifact_id}"
+                ),
+                edge_kind="replay_fixture_corpus_snapshot_governance_artifact",
+                from_node_key=governance_event_node_key,
+                to_node_key=governance_artifact_node_key,
+                payload={"source": "claim_support_replay_alert_fixture_corpus"},
+            )
+            for row in snapshot.get("rows") or []:
+                row_id = row.get("row_id")
+                row_node_key = _put_trace_node_from_id(
+                    nodes,
+                    source_table="claim_support_replay_alert_fixture_corpus_rows",
+                    source_id=row_id,
+                    payload=row,
+                )
+                _put_trace_edge(
+                    edges,
+                    edge_key=(
+                        f"replay-fixture-corpus-snapshot:{snapshot_id}:row:{row_id}"
+                    ),
+                    edge_kind="replay_fixture_corpus_row",
+                    from_node_key=snapshot_node_key,
+                    to_node_key=row_node_key,
+                    payload={"source": "claim_support_replay_alert_fixture_corpus"},
+                )
+                promotion_event_id = row.get("promotion_event_id")
+                promotion_event_node_key = _put_trace_node_from_id(
+                    nodes,
+                    source_table="semantic_governance_events",
+                    source_id=promotion_event_id,
+                    payload={
+                        "event_id": promotion_event_id,
+                        "event_kind": CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND,
+                        "receipt_sha256": row.get("promotion_receipt_sha256"),
+                    },
+                )
+                _put_trace_edge(
+                    edges,
+                    edge_key=(
+                        f"replay-fixture-corpus-row:{row_id}:"
+                        f"promotion-event:{promotion_event_id}"
+                    ),
+                    edge_kind="replay_fixture_corpus_row_promotion_event",
+                    from_node_key=row_node_key,
+                    to_node_key=promotion_event_node_key,
+                    payload={"source": "claim_support_replay_alert_fixture_corpus"},
+                )
+                promotion_artifact_id = row.get("promotion_artifact_id")
+                promotion_artifact_node_key = _put_trace_node_from_id(
+                    nodes,
+                    source_table="agent_task_artifacts",
+                    source_id=promotion_artifact_id,
+                    payload={
+                        "artifact_id": promotion_artifact_id,
+                        "artifact_kind": (
+                            CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND
+                        ),
+                        "receipt_sha256": row.get("promotion_receipt_sha256"),
+                    },
+                )
+                _put_trace_edge(
+                    edges,
+                    edge_key=(
+                        f"replay-fixture-corpus-row:{row_id}:"
+                        f"promotion-artifact:{promotion_artifact_id}"
+                    ),
+                    edge_kind="replay_fixture_corpus_row_promotion_artifact",
+                    from_node_key=row_node_key,
+                    to_node_key=promotion_artifact_node_key,
+                    payload={"source": "claim_support_replay_alert_fixture_corpus"},
+                )
+                for escalation_event_id in row.get("source_escalation_event_ids") or []:
+                    escalation_event_node_key = _put_trace_node_from_id(
+                        nodes,
+                        source_table="semantic_governance_events",
+                        source_id=escalation_event_id,
+                        payload={
+                            "event_id": escalation_event_id,
+                            "event_kind": (
+                                CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND
+                            ),
+                        },
+                    )
+                    _put_trace_edge(
+                        edges,
+                        edge_key=(
+                            f"replay-fixture-corpus-row:{row_id}:"
+                            f"source-escalation-event:{escalation_event_id}"
+                        ),
+                        edge_kind="replay_fixture_corpus_row_source_escalation_event",
+                        from_node_key=row_node_key,
+                        to_node_key=escalation_event_node_key,
+                        payload={
+                            "source": "claim_support_replay_alert_fixture_corpus"
+                        },
                     )
 
     for index, provenance_edge in enumerate(manifest_payload.get("provenance_edges") or []):
@@ -7206,6 +7739,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         change_impact.get("claim_support_policy_change_impacts") or {}
     )
     waiver_lifecycle = claim_support_change_impacts.get("waiver_lifecycle") or {}
+    replay_alert_fixture_corpus = (
+        claim_support_change_impacts.get("replay_alert_fixture_corpus") or {}
+    )
     unresolved_waiver_count = int(waiver_lifecycle.get("unresolved_waiver_count") or 0)
     invalid_waiver_closure_count = int(
         waiver_lifecycle.get("invalid_waiver_closure_count") or 0
@@ -7217,6 +7753,18 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         unresolved_waiver_count == 0
         and invalid_waiver_closure_count == 0
         and replay_alert_waiver_closure_integrity_verified
+    )
+    invalid_replay_alert_fixture_corpus_snapshot_count = int(
+        replay_alert_fixture_corpus.get("invalid_snapshot_governance_count") or 0
+    )
+    incomplete_replay_alert_fixture_corpus_trace_count = int(
+        replay_alert_fixture_corpus.get("trace_incomplete_snapshot_count") or 0
+    )
+    replay_alert_fixture_corpus_snapshot_governed = bool(
+        replay_alert_fixture_corpus.get("governance_integrity_verified", True)
+    )
+    replay_alert_fixture_corpus_trace_complete = bool(
+        replay_alert_fixture_corpus.get("trace_complete", True)
     )
     integrity = _technical_report_integrity_payload(draft_payload, report_exports, derivations)
     source_evidence_closure = technical_report_search_evidence_closure_payload(
@@ -7380,6 +7928,28 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "replay_alert_waiver_lifecycle_clear": (
                 replay_alert_waiver_lifecycle_clear
             ),
+            "active_replay_alert_fixture_corpus_snapshot_id": (
+                replay_alert_fixture_corpus.get(
+                    "active_replay_alert_fixture_corpus_snapshot_id"
+                )
+            ),
+            "active_replay_alert_fixture_corpus_sha256": (
+                replay_alert_fixture_corpus.get(
+                    "active_replay_alert_fixture_corpus_sha256"
+                )
+            ),
+            "replay_alert_fixture_corpus_snapshot_governed": (
+                replay_alert_fixture_corpus_snapshot_governed
+            ),
+            "replay_alert_fixture_corpus_trace_complete": (
+                replay_alert_fixture_corpus_trace_complete
+            ),
+            "invalid_replay_alert_fixture_corpus_snapshot_governance_count": (
+                invalid_replay_alert_fixture_corpus_snapshot_count
+            ),
+            "incomplete_replay_alert_fixture_corpus_trace_count": (
+                incomplete_replay_alert_fixture_corpus_trace_count
+            ),
         },
     }
     audit_bundle["audit_checklist"]["complete"] = (
@@ -7408,6 +7978,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["change_impact_clear"]
         and audit_bundle["audit_checklist"]["replay_alert_waiver_closure_integrity_verified"]
         and audit_bundle["audit_checklist"]["replay_alert_waiver_lifecycle_clear"]
+        and audit_bundle["audit_checklist"]["replay_alert_fixture_corpus_snapshot_governed"]
+        and audit_bundle["audit_checklist"]["replay_alert_fixture_corpus_trace_complete"]
     )
     audit_bundle["audit_bundle_sha256"] = payload_sha256(audit_bundle)
     return audit_bundle

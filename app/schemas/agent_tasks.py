@@ -1870,6 +1870,10 @@ class ClaimSupportPolicyChangeImpactFixturePromotionResponse(BaseModel):
     active_replay_fixture_corpus_snapshot_id: UUID | None = None
     active_replay_fixture_corpus_sha256: str | None = None
     active_replay_fixture_corpus_fixture_count: int = 0
+    active_replay_fixture_corpus_governance_event_id: UUID | None = None
+    active_replay_fixture_corpus_governance_artifact_id: UUID | None = None
+    active_replay_fixture_corpus_governance_receipt_sha256: str | None = None
+    active_replay_fixture_corpus_governed: bool = False
     waiver_closure_count: int = 0
     waiver_closure_event_ids: list[UUID] = Field(default_factory=list)
     waiver_closure_artifact_ids: list[UUID] = Field(default_factory=list)

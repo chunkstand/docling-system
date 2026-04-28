@@ -2294,6 +2294,14 @@ def _verify_claim_support_calibration_policy_executor(
         )
         or 0
     )
+    active_replay_alert_corpus_governed = bool(
+        replay_alert_fixture_summary.get(
+            "active_replay_alert_fixture_corpus_governed"
+        )
+    )
+    active_replay_alert_corpus_snapshot_id = replay_alert_fixture_summary.get(
+        "active_replay_alert_fixture_corpus_snapshot_id"
+    )
     replay_alert_coverage_passed = (
         not payload.require_replay_alert_fixture_coverage
         or (
@@ -2305,6 +2313,10 @@ def _verify_claim_support_calibration_policy_executor(
             )
             == 0
             and invalid_replay_alert_corpus_promotion_count == 0
+            and (
+                not active_replay_alert_corpus_snapshot_id
+                or active_replay_alert_corpus_governed
+            )
         )
     )
     replay_alert_coverage_metric = {
@@ -2341,6 +2353,30 @@ def _verify_claim_support_calibration_policy_executor(
             "active_replay_alert_fixture_corpus_invalid_promotion_event_count": (
                 invalid_replay_alert_corpus_promotion_count
             ),
+            "active_replay_alert_fixture_corpus_governed": (
+                active_replay_alert_corpus_governed
+            ),
+            "active_replay_alert_fixture_corpus_governance_failures": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_governance_failures"
+                )
+                or []
+            ),
+            "active_replay_alert_fixture_corpus_governance_event_id": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_governance_event_id"
+                )
+            ),
+            "active_replay_alert_fixture_corpus_governance_artifact_id": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_governance_artifact_id"
+                )
+            ),
+            "active_replay_alert_fixture_corpus_governance_receipt_sha256": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_governance_receipt_sha256"
+                )
+            ),
             "unconverted_escalation_event_count": replay_alert_fixture_summary.get(
                 "unconverted_escalation_event_count"
             ),
@@ -2376,6 +2412,15 @@ def _verify_claim_support_calibration_policy_executor(
         ),
         "active_replay_alert_fixture_corpus_invalid_promotion_event_count": (
             invalid_replay_alert_corpus_promotion_count
+        ),
+        "active_replay_alert_fixture_corpus_governed": (
+            active_replay_alert_corpus_governed
+        ),
+        "active_replay_alert_fixture_corpus_governance_failures": (
+            replay_alert_fixture_summary.get(
+                "active_replay_alert_fixture_corpus_governance_failures"
+            )
+            or []
         ),
         "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary.get(
             "verification_summary_sha256"

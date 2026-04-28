@@ -60,6 +60,7 @@ from app.services.evidence import (
     get_agent_task_evidence_manifest,
     get_agent_task_evidence_trace,
     payload_sha256,
+    refresh_technical_report_evidence_manifest,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -2746,6 +2747,12 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert first_promotion_payload["active_replay_fixture_corpus_snapshot_id"]
     assert first_promotion_payload["active_replay_fixture_corpus_sha256"]
     assert first_promotion_payload["active_replay_fixture_corpus_fixture_count"] == 1
+    assert first_promotion_payload["active_replay_fixture_corpus_governance_event_id"]
+    assert first_promotion_payload["active_replay_fixture_corpus_governance_artifact_id"]
+    assert first_promotion_payload[
+        "active_replay_fixture_corpus_governance_receipt_sha256"
+    ]
+    assert first_promotion_payload["active_replay_fixture_corpus_governed"] is True
 
     second_promotion_response = postgres_integration_harness.client.post(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
@@ -2784,6 +2791,10 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert promotion_payload["active_replay_fixture_corpus_snapshot_id"]
     assert promotion_payload["active_replay_fixture_corpus_sha256"]
     assert promotion_payload["active_replay_fixture_corpus_fixture_count"] == 2
+    assert promotion_payload["active_replay_fixture_corpus_governance_event_id"]
+    assert promotion_payload["active_replay_fixture_corpus_governance_artifact_id"]
+    assert promotion_payload["active_replay_fixture_corpus_governance_receipt_sha256"]
+    assert promotion_payload["active_replay_fixture_corpus_governed"] is True
     assert all(row["already_promoted"] for row in promotion_payload["candidates"])
 
     duplicate_promotion_response = postgres_integration_harness.client.post(
@@ -2851,10 +2862,53 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         ]
         assert active_corpus_snapshot.fixture_count == 2
         assert active_corpus_snapshot.promotion_event_count == 2
+        assert active_corpus_snapshot.semantic_governance_event_id is not None
+        assert active_corpus_snapshot.governance_artifact_id is not None
+        assert active_corpus_snapshot.governance_receipt_sha256
         assert set(active_corpus_snapshot.source_fixture_set_ids_json) == {
             str(first_fixture_set.id),
             str(fixture_set.id),
         }
+        active_corpus_governance_event = session.get(
+            SemanticGovernanceEvent,
+            active_corpus_snapshot.semantic_governance_event_id,
+        )
+        assert active_corpus_governance_event is not None
+        assert active_corpus_governance_event.event_kind == (
+            "claim_support_replay_alert_fixture_corpus_snapshot_activated"
+        )
+        assert active_corpus_governance_event.subject_table == (
+            "claim_support_replay_alert_fixture_corpus_snapshots"
+        )
+        assert active_corpus_governance_event.subject_id == active_corpus_snapshot.id
+        assert active_corpus_governance_event.receipt_sha256 == (
+            active_corpus_snapshot.governance_receipt_sha256
+        )
+        active_corpus_governance_receipt = (
+            active_corpus_governance_event.event_payload_json[
+                "claim_support_replay_alert_fixture_corpus_snapshot"
+            ]
+        )
+        assert active_corpus_governance_receipt["snapshot_id"] == str(
+            active_corpus_snapshot.id
+        )
+        assert active_corpus_governance_receipt["snapshot_sha256"] == (
+            active_corpus_snapshot.snapshot_sha256
+        )
+        assert set(active_corpus_governance_receipt["source_promotion_event_ids"]) == set(
+            active_corpus_snapshot.source_promotion_event_ids_json
+        )
+        active_corpus_governance_artifact = session.get(
+            AgentTaskArtifact,
+            active_corpus_snapshot.governance_artifact_id,
+        )
+        assert active_corpus_governance_artifact is not None
+        assert active_corpus_governance_artifact.artifact_kind == (
+            "claim_support_replay_alert_fixture_corpus_snapshot"
+        )
+        assert active_corpus_governance_artifact.payload_json["receipt_sha256"] == (
+            active_corpus_snapshot.governance_receipt_sha256
+        )
         active_corpus_rows = list(
             session.scalars(
                 select(ClaimSupportReplayAlertFixtureCorpusRow)
@@ -3002,6 +3056,18 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert audit_bundle["audit_checklist"][
             "replay_alert_waiver_lifecycle_clear"
         ] is True
+        assert audit_bundle["audit_checklist"][
+            "active_replay_alert_fixture_corpus_snapshot_id"
+        ] == str(active_corpus_snapshot.id)
+        assert audit_bundle["audit_checklist"][
+            "active_replay_alert_fixture_corpus_sha256"
+        ] == active_corpus_snapshot.snapshot_sha256
+        assert audit_bundle["audit_checklist"][
+            "replay_alert_fixture_corpus_snapshot_governed"
+        ] is True
+        assert audit_bundle["audit_checklist"][
+            "replay_alert_fixture_corpus_trace_complete"
+        ] is True
         matching_impacts = {
             row["change_impact_id"]: row
             for row in audit_bundle["change_impact"][
@@ -3025,6 +3091,18 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             "replay_alert_waiver_closure_integrity_verified"
         ] is True
         assert manifest["audit_checklist"]["replay_alert_waiver_lifecycle_clear"] is True
+        assert manifest["audit_checklist"][
+            "active_replay_alert_fixture_corpus_snapshot_id"
+        ] == str(active_corpus_snapshot.id)
+        assert manifest["audit_checklist"][
+            "active_replay_alert_fixture_corpus_sha256"
+        ] == active_corpus_snapshot.snapshot_sha256
+        assert manifest["audit_checklist"][
+            "replay_alert_fixture_corpus_snapshot_governed"
+        ] is True
+        assert manifest["audit_checklist"][
+            "replay_alert_fixture_corpus_trace_complete"
+        ] is True
         manifest_impacts = {
             row["change_impact_id"]: row
             for row in manifest["change_impact"][
@@ -3047,6 +3125,18 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         )
         assert any(
             edge["edge_kind"] == "replay_fixture_waiver_closure_event"
+            for edge in trace["edges"]
+        )
+        assert any(
+            edge["edge_kind"] == "verification_uses_replay_fixture_corpus_snapshot"
+            for edge in trace["edges"]
+        )
+        assert any(
+            edge["edge_kind"] == "replay_fixture_corpus_snapshot_governance_event"
+            for edge in trace["edges"]
+        )
+        assert any(
+            edge["edge_kind"] == "replay_fixture_corpus_row_promotion_event"
             for edge in trace["edges"]
         )
 
@@ -3114,6 +3204,15 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert replay_summary["active_replay_alert_fixture_corpus_snapshot"][
             "fixture_count"
         ] == 2
+        assert replay_summary[
+            "active_replay_alert_fixture_corpus_governed"
+        ] is True
+        assert replay_summary[
+            "active_replay_alert_fixture_corpus_governance_event_id"
+        ]
+        assert replay_summary[
+            "active_replay_alert_fixture_corpus_governance_artifact_id"
+        ]
         assert set(
             replay_summary["active_replay_alert_fixture_corpus_snapshot"][
                 "source_fixture_set_ids"
@@ -3173,6 +3272,123 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         == "active_claim_support_replay_alert_fixture_corpus_snapshot"
         for row in converted_signals
     )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_snapshot_governance_event = session.get(
+            SemanticGovernanceEvent,
+            UUID(promotion_payload["active_replay_fixture_corpus_governance_event_id"]),
+        )
+        assert tampered_snapshot_governance_event is not None
+        tampered_snapshot_governance_payload = deepcopy(
+            tampered_snapshot_governance_event.event_payload_json
+        )
+        tampered_snapshot_governance_payload[
+            "claim_support_replay_alert_fixture_corpus_snapshot"
+        ]["snapshot_sha256"] = "tampered-corpus-snapshot"
+        tampered_snapshot_governance_event.event_payload_json = (
+            tampered_snapshot_governance_payload
+        )
+        session.commit()
+
+    invalid_governance_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert invalid_governance_signal_response.status_code == 200
+    invalid_governance_signals = invalid_governance_signal_response.json()
+    assert any(
+        row["task_type"] == "claim_support_replay_alert_fixture_corpus"
+        and row["threshold_crossed"]
+        == "invalid_claim_support_replay_alert_fixture_corpus_snapshot_governance"
+        for row in invalid_governance_signals
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_governance_audit_bundle = get_agent_task_audit_bundle(
+            session,
+            impacted["verify_task_id"],
+        )
+        assert tampered_governance_audit_bundle["audit_checklist"][
+            "replay_alert_fixture_corpus_snapshot_governed"
+        ] is False
+        assert tampered_governance_audit_bundle["audit_checklist"][
+            "replay_alert_fixture_corpus_trace_complete"
+        ] is False
+        assert tampered_governance_audit_bundle["audit_checklist"][
+            "invalid_replay_alert_fixture_corpus_snapshot_governance_count"
+        ] == 1
+        assert tampered_governance_audit_bundle["change_impact"]["impacted"] is True
+        assert any(
+            impact["impact_type"]
+            == "claim_support_replay_alert_fixture_corpus_snapshot_governance_invalid"
+            for impact in tampered_governance_audit_bundle["change_impact"]["impacts"]
+        )
+        refresh_technical_report_evidence_manifest(
+            session,
+            task_id=impacted["verify_task_id"],
+        )
+        tampered_governance_manifest = get_agent_task_evidence_manifest(
+            session,
+            impacted["verify_task_id"],
+        )
+        assert tampered_governance_manifest["audit_checklist"][
+            "replay_alert_fixture_corpus_snapshot_governed"
+        ] is False
+        tampered_governance_trace = get_agent_task_evidence_trace(
+            session,
+            impacted["verify_task_id"],
+        )
+        assert any(
+            node["node_kind"]
+            == "claim_support_replay_alert_fixture_corpus_snapshot"
+            and (node["payload"].get("governance_integrity") or {}).get("complete")
+            is False
+            for node in tampered_governance_trace["nodes"]
+        )
+
+    with postgres_integration_harness.session_factory() as session:
+        invalid_governance_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_invalid_governance",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": True,
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        invalid_governance_verify_task_id = invalid_governance_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        invalid_governance_verify_row = session.get(
+            AgentTask,
+            invalid_governance_verify_task_id,
+        )
+        assert invalid_governance_verify_row is not None
+        invalid_governance_payload = invalid_governance_verify_row.result_json["payload"]
+        invalid_governance_summary = invalid_governance_payload[
+            "replay_alert_fixture_summary"
+        ]
+        assert invalid_governance_payload["verification"]["outcome"] == "failed"
+        assert invalid_governance_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_passed"
+        ] is False
+        assert invalid_governance_summary[
+            "active_replay_alert_fixture_corpus_governed"
+        ] is False
+        assert (
+            "snapshot_governance_event_payload_hash_mismatch"
+            in invalid_governance_summary[
+                "active_replay_alert_fixture_corpus_governance_failures"
+            ]
+        )
 
     with postgres_integration_harness.session_factory() as session:
         tampered_promotion_event = session.get(

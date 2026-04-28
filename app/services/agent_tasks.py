@@ -1966,6 +1966,17 @@ def get_agent_task_decision_signals(
     invalid_corpus_promotion_event_count = int(
         (active_corpus_summary or {}).get("invalid_promotion_event_count") or 0
     )
+    active_corpus_governed = bool(
+        ((active_corpus_summary or {}).get("governance_integrity") or {}).get(
+            "complete"
+        )
+    )
+    active_corpus_governance_failures = list(
+        ((active_corpus_summary or {}).get("governance_integrity") or {}).get(
+            "failures"
+        )
+        or []
+    )
     unconverted_replay_escalation_count = int(
         session.scalar(
             select(func.count())
@@ -2124,7 +2135,26 @@ def get_agent_task_decision_signals(
                 ),
             )
         )
-    if invalid_corpus_promotion_event_count:
+    if active_corpus_fixture_count and not active_corpus_governed:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_corpus",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    "The active replay-alert fixture corpus snapshot lacks complete "
+                    "governance receipt integrity."
+                ),
+                threshold_crossed=(
+                    "invalid_claim_support_replay_alert_fixture_corpus_snapshot_governance"
+                ),
+                recommended_action=(
+                    "Inspect the corpus snapshot governance event, artifact, and "
+                    f"receipt failures: {', '.join(active_corpus_governance_failures)}"
+                ),
+            )
+        )
+    elif invalid_corpus_promotion_event_count:
         rows.append(
             AgentTaskDecisionSignalResponse(
                 task_type="claim_support_replay_alert_fixture_corpus",

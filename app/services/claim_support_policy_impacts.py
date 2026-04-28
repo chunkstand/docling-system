@@ -1436,6 +1436,16 @@ def claim_support_replay_alert_fixture_coverage_summary(
     stale_unconverted_event_ids = sorted(
         {str(row["event_id"]) for row in stale_unconverted if row.get("event_id")}
     )
+    active_corpus_governance = (
+        active_corpus_snapshot.get("governance_integrity")
+        if active_corpus_snapshot
+        else None
+    ) or {}
+    active_corpus_governed = (
+        bool(active_corpus_governance.get("complete"))
+        if active_corpus_snapshot is not None
+        else True
+    )
     summary_basis = {
         "schema_name": "claim_support_replay_alert_fixture_coverage_summary",
         "schema_version": "1.0",
@@ -1472,6 +1482,25 @@ def claim_support_replay_alert_fixture_coverage_summary(
             int(active_corpus_snapshot.get("invalid_promotion_event_count") or 0)
             if active_corpus_snapshot
             else 0
+        ),
+        "active_replay_alert_fixture_corpus_governed": active_corpus_governed,
+        "active_replay_alert_fixture_corpus_governance_failures": list(
+            active_corpus_governance.get("failures") or []
+        ),
+        "active_replay_alert_fixture_corpus_governance_event_id": (
+            active_corpus_snapshot.get("semantic_governance_event_id")
+            if active_corpus_snapshot
+            else None
+        ),
+        "active_replay_alert_fixture_corpus_governance_artifact_id": (
+            active_corpus_snapshot.get("governance_artifact_id")
+            if active_corpus_snapshot
+            else None
+        ),
+        "active_replay_alert_fixture_corpus_governance_receipt_sha256": (
+            active_corpus_snapshot.get("governance_receipt_sha256")
+            if active_corpus_snapshot
+            else None
         ),
     }
     return {
@@ -1516,7 +1545,10 @@ def latest_claim_support_replay_alert_fixture_rows(
         limit=limit,
     )
     selected = [dict(row.fixture_json or {}) for row in corpus_rows]
-    snapshot_summary = replay_alert_fixture_corpus_snapshot_summary(snapshot)
+    snapshot_summary = replay_alert_fixture_corpus_snapshot_summary(
+        snapshot,
+        session=session,
+    )
     replay_alert_fixture_count = int(snapshot.fixture_count) if snapshot is not None else 0
     return selected, {
         **coverage_summary,
@@ -2411,9 +2443,14 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
     )
     candidates = list(candidate_response.items)
     if not candidates:
-        active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(session)
+        active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(
+            session,
+            storage_service=storage_service,
+            recorded_by=requested_by,
+        )
         active_corpus_summary = replay_alert_fixture_corpus_snapshot_summary(
-            active_corpus_snapshot
+            active_corpus_snapshot,
+            session=session,
         )
         if commit:
             session.commit()
@@ -2440,6 +2477,29 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
                 if active_corpus_summary
                 else 0
             ),
+            active_replay_fixture_corpus_governance_event_id=_uuid_or_none(
+                active_corpus_summary.get("semantic_governance_event_id")
+                if active_corpus_summary
+                else None
+            ),
+            active_replay_fixture_corpus_governance_artifact_id=_uuid_or_none(
+                active_corpus_summary.get("governance_artifact_id")
+                if active_corpus_summary
+                else None
+            ),
+            active_replay_fixture_corpus_governance_receipt_sha256=(
+                active_corpus_summary.get("governance_receipt_sha256")
+                if active_corpus_summary
+                else None
+            ),
+            active_replay_fixture_corpus_governed=bool(
+                (
+                    (active_corpus_summary or {}).get("governance_integrity")
+                    or {}
+                ).get("complete")
+            )
+            if active_corpus_summary
+            else False,
         )
 
     fixtures_by_case_id = {
@@ -2487,9 +2547,14 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         requested_by=requested_by,
         storage_service=storage_service,
     )
-    active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(session)
+    active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(
+        session,
+        storage_service=storage_service,
+        recorded_by=requested_by,
+    )
     active_corpus_summary = replay_alert_fixture_corpus_snapshot_summary(
-        active_corpus_snapshot
+        active_corpus_snapshot,
+        session=session,
     )
     _refresh_existing_evidence_manifests_for_fixture_candidates(session, candidates)
     if commit:
@@ -2537,6 +2602,29 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
             if active_corpus_summary
             else 0
         ),
+        active_replay_fixture_corpus_governance_event_id=_uuid_or_none(
+            active_corpus_summary.get("semantic_governance_event_id")
+            if active_corpus_summary
+            else None
+        ),
+        active_replay_fixture_corpus_governance_artifact_id=_uuid_or_none(
+            active_corpus_summary.get("governance_artifact_id")
+            if active_corpus_summary
+            else None
+        ),
+        active_replay_fixture_corpus_governance_receipt_sha256=(
+            active_corpus_summary.get("governance_receipt_sha256")
+            if active_corpus_summary
+            else None
+        ),
+        active_replay_fixture_corpus_governed=bool(
+            (
+                (active_corpus_summary or {}).get("governance_integrity")
+                or {}
+            ).get("complete")
+        )
+        if active_corpus_summary
+        else False,
         waiver_closure_count=len(waiver_closure_events),
         waiver_closure_event_ids=[event.id for event, _, _ in waiver_closure_events],
         waiver_closure_artifact_ids=[

@@ -135,6 +135,9 @@ class SemanticGovernanceEventKind(StrEnum):
     CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED = (
         "claim_support_replay_alert_fixture_coverage_waiver_closed"
     )
+    CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ACTIVATED = (
+        "claim_support_replay_alert_fixture_corpus_snapshot_activated"
+    )
 
 
 class RetrievalJudgmentKind(StrEnum):
@@ -3694,7 +3697,8 @@ class SemanticGovernanceEvent(Base):
             "'claim_support_policy_impact_replay_closed', "
             "'claim_support_policy_impact_replay_escalated', "
             "'claim_support_policy_impact_fixture_promoted', "
-            "'claim_support_replay_alert_fixture_coverage_waiver_closed'"
+            "'claim_support_replay_alert_fixture_coverage_waiver_closed', "
+            "'claim_support_replay_alert_fixture_corpus_snapshot_activated'"
             ")",
             name="ck_semantic_governance_events_event_kind",
         ),
@@ -4767,6 +4771,14 @@ class ClaimSupportReplayAlertFixtureCorpusSnapshot(Base):
             "created_at",
         ),
         Index("ix_cs_replay_fixture_corpus_snapshots_sha", "snapshot_sha256"),
+        Index(
+            "ix_cs_replay_fixture_corpus_snapshots_governance_event",
+            "semantic_governance_event_id",
+        ),
+        Index(
+            "ix_cs_replay_fixture_corpus_snapshots_governance_artifact",
+            "governance_artifact_id",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -4843,6 +4855,15 @@ class ClaimSupportReplayAlertFixtureCorpusSnapshot(Base):
         default=dict,
         server_default=sql_text("'{}'::jsonb"),
     )
+    semantic_governance_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_governance_events.id", ondelete="SET NULL"),
+    )
+    governance_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_artifacts.id", ondelete="SET NULL"),
+    )
+    governance_receipt_sha256: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
