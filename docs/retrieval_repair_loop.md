@@ -106,6 +106,11 @@ turning handcrafted query rules into the accuracy engine. A future learned reran
 use the same table as its promotion evidence by pointing the candidate harness at the
 trained model artifact and preserving the training-run hash.
 
+Search harness release audit bundles include any linked
+`retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
+sets, and the associated governance events. That keeps the signed release package
+traceable from release gate back to the dataset hash that influenced the candidate.
+
 ## Multivector Retrieval Repair Surface
 
 `multivector_v1` is available as a bounded search harness for high-accuracy retrieval experiments. It adds persisted retrieval evidence span multivectors and a late-interaction max-sim candidate stage without changing canonical chunk, table, or span truth.

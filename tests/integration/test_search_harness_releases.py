@@ -8,10 +8,15 @@ from uuid import UUID, uuid4
 
 from app.db.models import (
     AuditBundleExport,
+    RetrievalJudgmentSet,
+    RetrievalLearningCandidateEvaluation,
+    RetrievalTrainingRun,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
+    SearchHarnessRelease,
     SearchReplayRun,
 )
+from app.services.semantic_governance import record_semantic_governance_event
 
 
 def _replay_run(*, replay_run_id, harness_name: str) -> SearchReplayRun:
@@ -136,6 +141,107 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert body["release_package_sha256"]
     release_id = body["release_id"]
 
+    with postgres_integration_harness.session_factory() as session:
+        release = session.get(SearchHarnessRelease, UUID(release_id))
+        assert release is not None
+        judgment_set_id = uuid4()
+        training_run_id = uuid4()
+        candidate_id = uuid4()
+        session.add(
+            RetrievalJudgmentSet(
+                id=judgment_set_id,
+                set_name="release-audit-learning-set",
+                set_kind="mixed",
+                source_types_json=["feedback", "replay"],
+                source_limit=10,
+                criteria_json={"fixture": "release-audit"},
+                summary_json={"training_example_count": 4},
+                judgment_count=2,
+                positive_count=1,
+                negative_count=1,
+                missing_count=0,
+                hard_negative_count=2,
+                payload_sha256="judgment-set-sha",
+                created_by="integration",
+                created_at=now,
+            )
+        )
+        session.add(
+            RetrievalTrainingRun(
+                id=training_run_id,
+                judgment_set_id=judgment_set_id,
+                run_kind="materialized_training_dataset",
+                status="completed",
+                search_harness_evaluation_id=evaluation_id,
+                search_harness_release_id=UUID(release_id),
+                training_dataset_sha256="training-dataset-sha",
+                training_payload_json={"summary": {"training_example_count": 4}},
+                summary_json={"training_example_count": 4},
+                example_count=4,
+                positive_count=1,
+                negative_count=1,
+                missing_count=0,
+                hard_negative_count=2,
+                created_by="integration",
+                created_at=now,
+                completed_at=now + timedelta(seconds=3),
+            )
+        )
+        session.flush()
+        candidate = RetrievalLearningCandidateEvaluation(
+            id=candidate_id,
+            retrieval_training_run_id=training_run_id,
+            judgment_set_id=judgment_set_id,
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            training_dataset_sha256="training-dataset-sha",
+            training_example_count=4,
+            positive_count=1,
+            negative_count=1,
+            missing_count=0,
+            hard_negative_count=2,
+            baseline_harness_name="default_v1",
+            candidate_harness_name="wide_v2",
+            source_types_json=["evaluation_queries"],
+            limit=4,
+            status="completed",
+            gate_outcome="passed",
+            thresholds_json={"max_total_regressed_count": 0},
+            metrics_json={"total_shared_query_count": 4},
+            reasons_json=[],
+            evaluation_snapshot_json=body["evaluation_snapshot"],
+            release_snapshot_json=body,
+            details_json={"fixture": "release-audit-learning-candidate"},
+            learning_package_sha256="learning-package-sha",
+            created_by="integration",
+            review_note="learning candidate audit",
+            created_at=now,
+            completed_at=now + timedelta(seconds=4),
+        )
+        session.add(candidate)
+        session.flush()
+        event = record_semantic_governance_event(
+            session,
+            event_kind="retrieval_learning_candidate_evaluated",
+            governance_scope=f"retrieval_learning:{training_run_id}",
+            subject_table="retrieval_learning_candidate_evaluations",
+            subject_id=candidate_id,
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            event_payload={
+                "retrieval_learning_candidate_evaluation": {
+                    "candidate_evaluation_id": str(candidate_id),
+                    "retrieval_training_run_id": str(training_run_id),
+                    "training_dataset_sha256": "training-dataset-sha",
+                    "learning_package_sha256": "learning-package-sha",
+                }
+            },
+            deduplication_key=f"release-audit-learning-candidate:{candidate_id}",
+            created_by="integration",
+        )
+        candidate.semantic_governance_event_id = event.id
+        session.commit()
+
     list_response = postgres_integration_harness.client.get("/search/harness-releases")
     assert list_response.status_code == 200
     assert list_response.json()[0]["release_id"] == release_id
@@ -161,10 +267,29 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["integrity"]["complete"] is True
     assert audit_bundle["integrity"]["signature_valid"] is True
     assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"][
+        "learning_candidate_count"
+    ] == 1
     assert audit_bundle["bundle"]["payload"]["integrity"][
         "release_package_hash_matches"
     ] is True
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "training_run_count"
+    ] == 1
+    assert audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
+        "training_dataset_sha256"
+    ] == "training-dataset-sha"
+    assert audit_bundle["bundle"]["payload"]["retrieval_training_runs"][0][
+        "training_dataset_sha256"
+    ] == "training-dataset-sha"
+    assert audit_bundle["bundle"]["payload"]["semantic_governance_events"][0][
+        "event_kind"
+    ] == "retrieval_learning_candidate_evaluated"
     assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
+    assert any(
+        edge["usedEntity"].startswith("docling:retrieval_training_run:")
+        for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
+    )
     assert audit_bundle["signing_key_id"] == "integration-key"
 
     latest_response = postgres_integration_harness.client.get(

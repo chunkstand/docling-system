@@ -9,7 +9,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
@@ -17,10 +17,14 @@ from app.core.config import get_settings
 from app.core.time import utcnow
 from app.db.models import (
     AuditBundleExport,
+    RetrievalJudgmentSet,
+    RetrievalLearningCandidateEvaluation,
+    RetrievalTrainingRun,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchHarnessRelease,
     SearchReplayRun,
+    SemanticGovernanceEvent,
 )
 from app.schemas.search import (
     AuditBundleExportResponse,
@@ -184,6 +188,105 @@ def _replay_payload(row: SearchReplayRun) -> dict[str, Any]:
     }
 
 
+def _retrieval_learning_candidate_payload(
+    row: RetrievalLearningCandidateEvaluation,
+) -> dict[str, Any]:
+    return {
+        "candidate_evaluation_id": str(row.id),
+        "retrieval_training_run_id": str(row.retrieval_training_run_id),
+        "judgment_set_id": str(row.judgment_set_id),
+        "search_harness_evaluation_id": str(row.search_harness_evaluation_id),
+        "search_harness_release_id": (
+            str(row.search_harness_release_id) if row.search_harness_release_id else None
+        ),
+        "semantic_governance_event_id": (
+            str(row.semantic_governance_event_id) if row.semantic_governance_event_id else None
+        ),
+        "training_dataset_sha256": row.training_dataset_sha256,
+        "training_example_count": row.training_example_count,
+        "positive_count": row.positive_count,
+        "negative_count": row.negative_count,
+        "missing_count": row.missing_count,
+        "hard_negative_count": row.hard_negative_count,
+        "baseline_harness_name": row.baseline_harness_name,
+        "candidate_harness_name": row.candidate_harness_name,
+        "source_types": row.source_types_json or [],
+        "limit": row.limit,
+        "status": row.status,
+        "gate_outcome": row.gate_outcome,
+        "thresholds": row.thresholds_json or {},
+        "metrics": row.metrics_json or {},
+        "reasons": row.reasons_json or [],
+        "learning_package_sha256": row.learning_package_sha256,
+        "created_by": row.created_by,
+        "review_note": row.review_note,
+        "created_at": row.created_at.isoformat(),
+        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+    }
+
+
+def _retrieval_training_run_payload(row: RetrievalTrainingRun) -> dict[str, Any]:
+    return {
+        "retrieval_training_run_id": str(row.id),
+        "judgment_set_id": str(row.judgment_set_id),
+        "status": row.status,
+        "run_kind": row.run_kind,
+        "training_dataset_sha256": row.training_dataset_sha256,
+        "example_count": row.example_count,
+        "positive_count": row.positive_count,
+        "negative_count": row.negative_count,
+        "missing_count": row.missing_count,
+        "hard_negative_count": row.hard_negative_count,
+        "summary": row.summary_json or {},
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat(),
+        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+    }
+
+
+def _retrieval_judgment_set_payload(row: RetrievalJudgmentSet) -> dict[str, Any]:
+    return {
+        "judgment_set_id": str(row.id),
+        "set_name": row.set_name,
+        "set_kind": row.set_kind,
+        "source_types": row.source_types_json or [],
+        "source_limit": row.source_limit,
+        "summary": row.summary_json or {},
+        "judgment_count": row.judgment_count,
+        "positive_count": row.positive_count,
+        "negative_count": row.negative_count,
+        "missing_count": row.missing_count,
+        "hard_negative_count": row.hard_negative_count,
+        "payload_sha256": row.payload_sha256,
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
+def _semantic_governance_event_payload(row: SemanticGovernanceEvent) -> dict[str, Any]:
+    return {
+        "event_id": str(row.id),
+        "event_sequence": row.event_sequence,
+        "event_kind": row.event_kind,
+        "governance_scope": row.governance_scope,
+        "subject_table": row.subject_table,
+        "subject_id": str(row.subject_id) if row.subject_id else None,
+        "search_harness_evaluation_id": (
+            str(row.search_harness_evaluation_id) if row.search_harness_evaluation_id else None
+        ),
+        "search_harness_release_id": (
+            str(row.search_harness_release_id) if row.search_harness_release_id else None
+        ),
+        "payload_sha256": row.payload_sha256,
+        "event_hash": row.event_hash,
+        "previous_event_id": str(row.previous_event_id) if row.previous_event_id else None,
+        "previous_event_hash": row.previous_event_hash,
+        "deduplication_key": row.deduplication_key,
+        "created_by": row.created_by,
+        "created_at": row.created_at.isoformat(),
+    }
+
+
 def _release_package_sha256(row: SearchHarnessRelease) -> str:
     package = {
         "schema_name": "search_harness_release_package",
@@ -206,6 +309,10 @@ def _prov_graph(
     evaluation: SearchHarnessEvaluation | None,
     sources: list[SearchHarnessEvaluationSource],
     replay_runs: list[SearchReplayRun],
+    learning_candidates: list[RetrievalLearningCandidateEvaluation],
+    training_runs: list[RetrievalTrainingRun],
+    judgment_sets: list[RetrievalJudgmentSet],
+    governance_events: list[SemanticGovernanceEvent],
     bundle_id: UUID,
     created_by: str | None,
 ) -> dict[str, Any]:
@@ -241,6 +348,31 @@ def _prov_graph(
             "docling:status": replay_run.status,
             "docling:harnessName": replay_run.harness_name,
         }
+    for candidate in learning_candidates:
+        entities[f"docling:retrieval_learning_candidate_evaluation:{candidate.id}"] = {
+            "prov:type": "docling:RetrievalLearningCandidateEvaluation",
+            "docling:gateOutcome": candidate.gate_outcome,
+            "docling:learningPackageSha256": candidate.learning_package_sha256,
+        }
+    for training_run in training_runs:
+        entities[f"docling:retrieval_training_run:{training_run.id}"] = {
+            "prov:type": "docling:RetrievalTrainingRun",
+            "docling:trainingDatasetSha256": training_run.training_dataset_sha256,
+            "docling:exampleCount": training_run.example_count,
+        }
+    for judgment_set in judgment_sets:
+        entities[f"docling:retrieval_judgment_set:{judgment_set.id}"] = {
+            "prov:type": "docling:RetrievalJudgmentSet",
+            "docling:payloadSha256": judgment_set.payload_sha256,
+            "docling:judgmentCount": judgment_set.judgment_count,
+        }
+    for event in governance_events:
+        entities[f"docling:semantic_governance_event:{event.id}"] = {
+            "prov:type": "docling:SemanticGovernanceEvent",
+            "docling:eventKind": event.event_kind,
+            "docling:eventHash": event.event_hash,
+            "docling:payloadSha256": event.payload_sha256,
+        }
 
     used = [
         {"activity": activity, "entity": evaluation_entity},
@@ -265,6 +397,32 @@ def _prov_graph(
                 "usedEntity": f"docling:search_replay_run:{source.candidate_replay_run_id}",
             }
         )
+    for candidate in learning_candidates:
+        candidate_entity = f"docling:retrieval_learning_candidate_evaluation:{candidate.id}"
+        training_run_entity = (
+            f"docling:retrieval_training_run:{candidate.retrieval_training_run_id}"
+        )
+        judgment_set_entity = f"docling:retrieval_judgment_set:{candidate.judgment_set_id}"
+        used.append({"activity": activity, "entity": candidate_entity})
+        was_derived_from.append(
+            {"generatedEntity": release_entity, "usedEntity": candidate_entity}
+        )
+        was_derived_from.append(
+            {"generatedEntity": candidate_entity, "usedEntity": training_run_entity}
+        )
+        was_derived_from.append(
+            {"generatedEntity": training_run_entity, "usedEntity": judgment_set_entity}
+        )
+        if candidate.semantic_governance_event_id is not None:
+            was_derived_from.append(
+                {
+                    "generatedEntity": candidate_entity,
+                    "usedEntity": (
+                        "docling:semantic_governance_event:"
+                        f"{candidate.semantic_governance_event_id}"
+                    ),
+                }
+            )
 
     return {
         "prefix": {
@@ -340,12 +498,93 @@ def _build_search_harness_release_payload(
         for replay_run_id in replay_run_ids
         if replay_run_id in replay_runs_by_id
     ]
+    learning_candidates = (
+        session.execute(
+            select(RetrievalLearningCandidateEvaluation)
+            .where(
+                or_(
+                    RetrievalLearningCandidateEvaluation.search_harness_release_id
+                    == release.id,
+                    RetrievalLearningCandidateEvaluation.search_harness_evaluation_id
+                    == release.search_harness_evaluation_id,
+                )
+            )
+            .order_by(RetrievalLearningCandidateEvaluation.created_at.asc())
+        )
+        .scalars()
+        .all()
+    )
+    training_run_ids = sorted(
+        {row.retrieval_training_run_id for row in learning_candidates},
+        key=str,
+    )
+    judgment_set_ids = sorted({row.judgment_set_id for row in learning_candidates}, key=str)
+    governance_event_ids = sorted(
+        {
+            row.semantic_governance_event_id
+            for row in learning_candidates
+            if row.semantic_governance_event_id is not None
+        },
+        key=str,
+    )
+    training_runs = (
+        session.execute(
+            select(RetrievalTrainingRun).where(RetrievalTrainingRun.id.in_(training_run_ids))
+        )
+        .scalars()
+        .all()
+        if training_run_ids
+        else []
+    )
+    judgment_sets = (
+        session.execute(
+            select(RetrievalJudgmentSet).where(RetrievalJudgmentSet.id.in_(judgment_set_ids))
+        )
+        .scalars()
+        .all()
+        if judgment_set_ids
+        else []
+    )
+    governance_events = (
+        session.execute(
+            select(SemanticGovernanceEvent).where(
+                SemanticGovernanceEvent.id.in_(governance_event_ids)
+            )
+        )
+        .scalars()
+        .all()
+        if governance_event_ids
+        else []
+    )
+    training_runs_by_id = {row.id: row for row in training_runs}
+    judgment_sets_by_id = {row.id: row for row in judgment_sets}
+    governance_events_by_id = {row.id: row for row in governance_events}
+    ordered_training_runs = [
+        training_runs_by_id[training_run_id]
+        for training_run_id in training_run_ids
+        if training_run_id in training_runs_by_id
+    ]
+    ordered_judgment_sets = [
+        judgment_sets_by_id[judgment_set_id]
+        for judgment_set_id in judgment_set_ids
+        if judgment_set_id in judgment_sets_by_id
+    ]
+    ordered_governance_events = [
+        governance_events_by_id[event_id]
+        for event_id in governance_event_ids
+        if event_id in governance_events_by_id
+    ]
     release_package_hash_matches = (
         _release_package_sha256(release) == release.release_package_sha256
     )
     all_replay_runs_present = len(ordered_replay_runs) == len(set(replay_run_ids))
     all_replay_runs_completed = bool(ordered_replay_runs) and all(
         row.status == "completed" for row in ordered_replay_runs
+    )
+    learning_candidate_trace_complete = (
+        len(ordered_training_runs) == len(training_run_ids)
+        and len(ordered_judgment_sets) == len(judgment_set_ids)
+        and len(ordered_governance_events) == len(governance_event_ids)
     )
     audit_checklist = {
         "has_release_record": True,
@@ -355,9 +594,15 @@ def _build_search_harness_release_payload(
         "has_replay_sources": bool(sources),
         "all_replay_runs_present": all_replay_runs_present,
         "all_replay_runs_completed": all_replay_runs_completed,
+        "learning_candidate_count": len(learning_candidates),
+        "learning_candidate_trace_complete": learning_candidate_trace_complete,
         "has_prov_graph": True,
     }
-    audit_checklist["complete"] = all(audit_checklist.values())
+    audit_checklist["complete"] = all(
+        bool(value)
+        for key, value in audit_checklist.items()
+        if key != "learning_candidate_count"
+    )
     return {
         "schema_name": "search_harness_release_audit_payload",
         "schema_version": "1.0",
@@ -373,6 +618,18 @@ def _build_search_harness_release_payload(
         "evaluation": _evaluation_payload(evaluation),
         "evaluation_sources": [_source_payload(row) for row in sources],
         "replay_runs": [_replay_payload(row) for row in ordered_replay_runs],
+        "retrieval_learning_candidates": [
+            _retrieval_learning_candidate_payload(row) for row in learning_candidates
+        ],
+        "retrieval_training_runs": [
+            _retrieval_training_run_payload(row) for row in ordered_training_runs
+        ],
+        "retrieval_judgment_sets": [
+            _retrieval_judgment_set_payload(row) for row in ordered_judgment_sets
+        ],
+        "semantic_governance_events": [
+            _semantic_governance_event_payload(row) for row in ordered_governance_events
+        ],
         "audit_checklist": audit_checklist,
         "integrity": {
             "release_package_hash_matches": release_package_hash_matches,
@@ -380,12 +637,23 @@ def _build_search_harness_release_payload(
             "stored_release_package_sha256": release.release_package_sha256,
             "replay_run_count": len(ordered_replay_runs),
             "expected_replay_run_count": len(set(replay_run_ids)),
+            "retrieval_learning_candidate_count": len(learning_candidates),
+            "training_run_count": len(ordered_training_runs),
+            "expected_training_run_count": len(training_run_ids),
+            "judgment_set_count": len(ordered_judgment_sets),
+            "expected_judgment_set_count": len(judgment_set_ids),
+            "semantic_governance_event_count": len(ordered_governance_events),
+            "expected_semantic_governance_event_count": len(governance_event_ids),
         },
         "prov": _prov_graph(
             release=release,
             evaluation=evaluation,
             sources=sources,
             replay_runs=ordered_replay_runs,
+            learning_candidates=learning_candidates,
+            training_runs=ordered_training_runs,
+            judgment_sets=ordered_judgment_sets,
+            governance_events=ordered_governance_events,
             bundle_id=bundle_id,
             created_by=created_by,
         ),
