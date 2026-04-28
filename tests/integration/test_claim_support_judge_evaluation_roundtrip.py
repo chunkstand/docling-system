@@ -409,10 +409,20 @@ def _assert_claim_support_activation_governance(
 
     change_impact = governance_payload["activation_change_impact"]
     impact_summary = change_impact["impact_summary"]
+    assert change_impact["change_impact_id"] == apply_payload["activation_change_impact_id"]
+    assert change_impact["source"] == {
+        "source_table": "claim_support_policy_change_impacts",
+        "source_id": apply_payload["activation_change_impact_id"],
+    }
     assert (
         change_impact["activation_change_impact_payload_sha256"]
         == apply_payload["activation_change_impact_payload_sha256"]
     )
+    impact_hash_basis = dict(change_impact)
+    impact_hash_basis.pop("activation_change_impact_payload_sha256")
+    assert payload_sha256(impact_hash_basis) == apply_payload[
+        "activation_change_impact_payload_sha256"
+    ]
     assert (
         apply_payload["activation_change_impact_summary"]["affected_support_judgment_count"]
         == expected_affected_support_judgment_count
@@ -435,15 +445,24 @@ def _assert_claim_support_activation_governance(
     )
     assert "claim_support_calibration_policy_changed" in change_impact["impact_reasons"]
     if expected_impacted_derivation_id is not None:
+        assert str(expected_impacted_derivation_id) in change_impact["affected_ids"][
+            "claim_derivation_ids"
+        ]
         assert any(
             row["claim_derivation_id"] == str(expected_impacted_derivation_id)
             for row in change_impact["affected_support_judgments"]
         )
     if expected_impacted_draft_task_id is not None:
+        assert str(expected_impacted_draft_task_id) in change_impact["affected_ids"][
+            "draft_task_ids"
+        ]
         assert str(expected_impacted_draft_task_id) in change_impact[
             "affected_generated_documents"
         ]["draft_task_ids"]
     if expected_impacted_verification_task_id is not None:
+        assert str(expected_impacted_verification_task_id) in change_impact["affected_ids"][
+            "verification_task_ids"
+        ]
         assert any(
             row["verification_task_id"] == str(expected_impacted_verification_task_id)
             for row in change_impact["affected_technical_report_verifications"]
@@ -490,7 +509,7 @@ def _assert_claim_support_activation_governance(
     )
     assert (
         "docling:claim_support_policy_change_impact:"
-        f"{apply_payload['activation_change_impact_payload_sha256']}"
+        f"{apply_payload['activation_change_impact_id']}"
         in graph_ids
     )
     activation_activity = next(
@@ -541,6 +560,10 @@ def _assert_claim_support_activation_governance(
         == apply_payload["activation_change_impact_payload_sha256"]
     )
     assert (
+        event_activation["activation_change_impact_id"]
+        == apply_payload["activation_change_impact_id"]
+    )
+    assert (
         event_activation["affected_support_judgment_count"]
         == expected_affected_support_judgment_count
     )
@@ -549,6 +572,7 @@ def _assert_claim_support_activation_governance(
         UUID(apply_payload["activation_change_impact_id"]),
     )
     assert impact_row is not None
+    assert str(impact_row.id) == change_impact["change_impact_id"]
     assert impact_row.activation_task_id == governance_artifact.task_id
     assert impact_row.activated_policy_id == activated_policy_id
     assert impact_row.previous_policy_id == previous_policy_id
@@ -567,6 +591,10 @@ def _assert_claim_support_activation_governance(
     )
     assert impact_row.affected_verification_count == expected_affected_verification_count
     assert impact_row.impact_payload_json["impact_summary"] == impact_summary
+    assert (
+        impact_row.impact_payload_json["change_impact_id"]
+        == apply_payload["activation_change_impact_id"]
+    )
     if expected_impacted_derivation_id is not None:
         assert str(expected_impacted_derivation_id) in (
             impact_row.impacted_claim_derivation_ids_json

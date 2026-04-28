@@ -2322,6 +2322,7 @@ def _apply_claim_support_calibration_policy_executor(
         storage_service.get_agent_task_dir(task.id)
         / CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME
     )
+    change_impact_id = uuid4()
     change_impact_payload = build_claim_support_policy_change_impact_payload(
         session,
         task=task,
@@ -2331,6 +2332,7 @@ def _apply_claim_support_calibration_policy_executor(
         governance_artifact_id=governance_artifact_id,
         governance_artifact_path=str(governance_artifact_path),
         apply_payload=result,
+        change_impact_id=change_impact_id,
     )
     governance_payload = build_claim_support_policy_activation_governance_payload(
         session,
@@ -2371,6 +2373,7 @@ def _apply_claim_support_calibration_policy_executor(
         previous_active_policy=previous_active,
         governance_event=governance_event,
         governance_artifact=governance_artifact,
+        change_impact_id=change_impact_id,
     )
     governance_receipt = governance_payload.get("activation_governance_receipt") or {}
     governance_integrity = governance_payload.get("integrity") or {}

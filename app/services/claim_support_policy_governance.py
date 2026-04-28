@@ -49,6 +49,9 @@ CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_PROFILE = (
 CLAIM_SUPPORT_POLICY_ACTIVATION_SIGNATURE_ALGORITHM = "hmac-sha256"
 CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_SCHEMA = "claim_support_policy_change_impact"
 CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_PROFILE = "claim_support_policy_change_impact_v1"
+CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD = (
+    "activation_change_impact_payload_sha256"
+)
 TECHNICAL_REPORT_CLAIM_SUPPORT_JUDGE = "technical_report_claim_support_judge"
 TECHNICAL_REPORT_DRAFT_ARTIFACT_KIND = "technical_report_draft"
 TECHNICAL_REPORT_GATE_VERIFIER_TYPE = "technical_report_gate"
@@ -80,6 +83,12 @@ def _json_payload(payload: Any | None) -> dict:
 
 def _value_sha256(value: Any | None) -> str | None:
     return str(payload_sha256(value)) if value is not None else None
+
+
+def claim_support_policy_change_impact_payload_sha256(payload: dict[str, Any]) -> str:
+    payload_basis = _json_payload(payload)
+    payload_basis.pop(CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD, None)
+    return str(payload_sha256(payload_basis))
 
 
 def _signature_value(receipt_sha256: str, signing_key: str) -> str:
@@ -250,12 +259,15 @@ def build_claim_support_policy_change_impact_payload(
     governance_artifact_id: UUID,
     governance_artifact_path: str | None,
     apply_payload: dict[str, Any],
+    change_impact_id: UUID | None = None,
     policy_diff: dict[str, Any] | None = None,
     recorded_at: Any | None = None,
     detail_limit: int = 500,
 ) -> dict[str, Any]:
     """Describe downstream reports that should be replayed after policy activation."""
 
+    if detail_limit < 1:
+        raise ValueError("Change-impact detail_limit must be at least 1.")
     recorded_at = recorded_at or utcnow()
     policy_diff = policy_diff or _policy_diff(previous_active_policy, activated_policy)
     support_rows = list(
@@ -279,6 +291,7 @@ def build_claim_support_policy_change_impact_payload(
                 ClaimEvidenceDerivation.support_judge_run_id.is_not(None),
                 KnowledgeOperatorRun.operator_name == TECHNICAL_REPORT_CLAIM_SUPPORT_JUDGE,
                 ClaimEvidenceDerivation.created_at < recorded_at,
+                KnowledgeOperatorRun.created_at < recorded_at,
             )
             .order_by(ClaimEvidenceDerivation.created_at.desc(), ClaimEvidenceDerivation.id)
         )
@@ -430,6 +443,11 @@ def build_claim_support_policy_change_impact_payload(
         "schema_name": CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_SCHEMA,
         "schema_version": "1.0",
         "governance_profile": CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_PROFILE,
+        "source": {
+            "source_table": "claim_support_policy_change_impacts",
+            "source_id": str(change_impact_id) if change_impact_id else None,
+        },
+        "change_impact_id": str(change_impact_id) if change_impact_id else None,
         "created_at": recorded_at.isoformat(),
         "created_by": task.approved_by,
         "impact_scope": f"claim_support_policy:{activated_policy.policy_name}",
@@ -479,7 +497,9 @@ def build_claim_support_policy_change_impact_payload(
     }
     return {
         **payload_basis,
-        "activation_change_impact_payload_sha256": str(payload_sha256(payload_basis)),
+        CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD: (
+            claim_support_policy_change_impact_payload_sha256(payload_basis)
+        ),
     }
 
 
@@ -492,13 +512,29 @@ def persist_claim_support_policy_change_impact(
     previous_active_policy: ClaimSupportCalibrationPolicy | None,
     governance_event: SemanticGovernanceEvent | None,
     governance_artifact: AgentTaskArtifact | None,
+    change_impact_id: UUID | None = None,
 ) -> ClaimSupportPolicyChangeImpact:
+    recorded_sha = str(impact_payload.get(CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD) or "")
+    expected_sha = claim_support_policy_change_impact_payload_sha256(impact_payload)
+    if recorded_sha != expected_sha:
+        raise ValueError("Claim support policy change impact payload hash mismatch.")
+    payload_change_impact_id = _uuid_or_none(impact_payload.get("change_impact_id"))
+    if change_impact_id is not None and payload_change_impact_id not in {
+        None,
+        change_impact_id,
+    }:
+        raise ValueError("Claim support policy change impact ID mismatch.")
+    row_id = change_impact_id or payload_change_impact_id
     summary = impact_payload.get("impact_summary") or {}
     affected_support_judgments = impact_payload.get("affected_support_judgments") or []
     affected_generated_documents = impact_payload.get("affected_generated_documents") or {}
     affected_verifications = impact_payload.get("affected_technical_report_verifications") or []
     affected_ids = impact_payload.get("affected_ids") or {}
+    row_kwargs: dict[str, Any] = {}
+    if row_id is not None:
+        row_kwargs["id"] = row_id
     row = ClaimSupportPolicyChangeImpact(
+        **row_kwargs,
         activation_task_id=task.id,
         activated_policy_id=activated_policy.id,
         previous_policy_id=previous_active_policy.id if previous_active_policy else None,
@@ -552,10 +588,7 @@ def persist_claim_support_policy_change_impact(
             ]
         ),
         impact_payload_json=impact_payload,
-        impact_payload_sha256=str(
-            impact_payload.get("activation_change_impact_payload_sha256")
-            or payload_sha256(impact_payload)
-        ),
+        impact_payload_sha256=expected_sha,
         created_at=utcnow(),
     )
     session.add(row)
@@ -678,8 +711,11 @@ def _prov_jsonld(
     change_impact_sha = (
         (change_impact_payload or {}).get("activation_change_impact_payload_sha256")
     )
+    change_impact_id = (change_impact_payload or {}).get("change_impact_id")
     change_impact_entity = (
-        f"docling:claim_support_policy_change_impact:{change_impact_sha}"
+        f"docling:claim_support_policy_change_impact:{change_impact_id}"
+        if change_impact_id
+        else f"docling:claim_support_policy_change_impact:{change_impact_sha}"
         if change_impact_sha
         else f"docling:claim_support_policy_change_impact:{task.id}"
     )
@@ -716,6 +752,7 @@ def _prov_jsonld(
         {
             "@id": change_impact_entity,
             "@type": "docling:ClaimSupportPolicyChangeImpact",
+            "docling:changeImpactId": change_impact_id,
             "docling:impactPayloadSha256": change_impact_sha,
             "docling:affectedSupportJudgmentCount": (
                 ((change_impact_payload or {}).get("impact_summary") or {}).get(
@@ -1160,6 +1197,7 @@ def record_claim_support_policy_activation_governance_event(
             "activation_change_impact_payload_sha256": (
                 change_impact.get("activation_change_impact_payload_sha256")
             ),
+            "activation_change_impact_id": change_impact.get("change_impact_id"),
             "affected_support_judgment_count": change_impact_summary.get(
                 "affected_support_judgment_count"
             ),
@@ -1179,6 +1217,7 @@ def record_claim_support_policy_activation_governance_event(
             ),
         },
         "activation_change_impact": {
+            "change_impact_id": change_impact.get("change_impact_id"),
             "impact_payload_sha256": change_impact.get(
                 "activation_change_impact_payload_sha256"
             ),

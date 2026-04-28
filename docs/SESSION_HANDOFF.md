@@ -74,7 +74,7 @@ The support-judge calibration path is now first-class:
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, and a stable payload hash. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -105,14 +105,13 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-768 passed in 105.43s
+769 passed in 86.35s
 ```
 
 Focused claim-support verification during this implementation pass:
 
 ```bash
-uv run python -m pytest tests/unit/test_alembic_0059_claim_support_policy_governance.py -q
-uv run python -m pytest tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py -q
+uv run python -m pytest tests/unit/test_alembic_0059_claim_support_policy_governance.py tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py tests/unit/test_claim_support_policy_governance.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/integration/test_technical_report_harness_roundtrip.py -q
 uv run alembic upgrade head
@@ -124,8 +123,7 @@ uv run ruff check .
 Results:
 
 ```text
-1 passed
-1 passed
+3 passed
 12 passed
 13 passed
 alembic current: 0060_claim_policy_impacts (head)
@@ -160,6 +158,7 @@ agent_action_count: 50
 - [alembic/versions/0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0060_claim_support_policy_change_impacts.py)
 - [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
 - [tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py)
+- [tests/unit/test_claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_claim_support_policy_governance.py)
 
 ## Next Suggested Pass
 
