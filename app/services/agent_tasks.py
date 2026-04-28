@@ -65,6 +65,9 @@ from app.services.agent_task_verifications import (
     count_agent_task_verifications,
     list_agent_task_verifications,
 )
+from app.services.claim_support_replay_alert_fixture_corpus import (
+    active_replay_alert_fixture_corpus_snapshot_summary,
+)
 from app.services.evidence import payload_sha256
 
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
@@ -1946,6 +1949,16 @@ def get_agent_task_decision_signals(
                 promoted_escalation_event_ids.append(UUID(str(event_id)))
             except (TypeError, ValueError):
                 continue
+    active_corpus_summary = active_replay_alert_fixture_corpus_snapshot_summary(
+        session,
+        ensure_current=True,
+    )
+    active_corpus_fixture_count = int(
+        (active_corpus_summary or {}).get("fixture_count") or 0
+    )
+    invalid_corpus_promotion_event_count = int(
+        (active_corpus_summary or {}).get("invalid_promotion_event_count") or 0
+    )
     unconverted_replay_escalation_count = int(
         session.scalar(
             select(func.count())
@@ -2101,6 +2114,45 @@ def get_agent_task_decision_signals(
                 recommended_action=(
                     "Run docling-system-claim-support-replay-fixtures --promote for "
                     "stale escalated replay alerts."
+                ),
+            )
+        )
+    if invalid_corpus_promotion_event_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_corpus",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{invalid_corpus_promotion_event_count} replay-alert fixture "
+                    "promotion governance event(s) were excluded from the active "
+                    "fixture corpus snapshot."
+                ),
+                threshold_crossed=(
+                    "invalid_claim_support_replay_alert_fixture_corpus_promotions>0"
+                ),
+                recommended_action=(
+                    "Inspect promotion receipts, artifacts, and fixture set hashes "
+                    "before relying on replay-alert corpus coverage."
+                ),
+            )
+        )
+    elif active_corpus_fixture_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_corpus",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="healthy",
+                reason=(
+                    f"{active_corpus_fixture_count} replay-alert fixture(s) are "
+                    "available in the active corpus snapshot."
+                ),
+                threshold_crossed=(
+                    "active_claim_support_replay_alert_fixture_corpus_snapshot"
+                ),
+                recommended_action=(
+                    "Use the active corpus snapshot for future claim-support "
+                    "calibration verification."
                 ),
             )
         )

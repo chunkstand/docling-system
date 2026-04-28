@@ -1867,6 +1867,9 @@ class ClaimSupportPolicyChangeImpactFixturePromotionResponse(BaseModel):
     artifact_kind: str | None = None
     artifact_path: str | None = None
     created: bool = False
+    active_replay_fixture_corpus_snapshot_id: UUID | None = None
+    active_replay_fixture_corpus_sha256: str | None = None
+    active_replay_fixture_corpus_fixture_count: int = 0
     waiver_closure_count: int = 0
     waiver_closure_event_ids: list[UUID] = Field(default_factory=list)
     waiver_closure_artifact_ids: list[UUID] = Field(default_factory=list)

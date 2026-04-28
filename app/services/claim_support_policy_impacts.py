@@ -47,6 +47,12 @@ from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
     ensure_claim_support_fixture_set,
 )
+from app.services.claim_support_replay_alert_fixture_corpus import (
+    active_replay_alert_fixture_corpus_rows,
+    active_replay_alert_fixture_corpus_snapshot_summary,
+    ensure_active_replay_alert_fixture_corpus_snapshot,
+    replay_alert_fixture_corpus_snapshot_summary,
+)
 from app.services.claim_support_replay_alert_waivers import (
     apply_replay_alert_fixture_coverage_promotion_to_waiver_ledgers,
     mark_replay_alert_fixture_coverage_waiver_ledger_closed,
@@ -1390,6 +1396,10 @@ def claim_support_replay_alert_fixture_coverage_summary(
     stale_after_hours = max(1, stale_after_hours)
     limit = max(1, limit)
     promotion_summaries = _fixture_promotion_event_summaries(session)
+    active_corpus_snapshot = active_replay_alert_fixture_corpus_snapshot_summary(
+        session,
+        ensure_current=True,
+    )
     promoted_escalation_event_ids = {
         str(event_id)
         for promotion in promotion_summaries
@@ -1436,6 +1446,25 @@ def claim_support_replay_alert_fixture_coverage_summary(
         "latest_promoted_fixture_set": promotion_summaries[0]
         if promotion_summaries
         else None,
+        "active_replay_alert_fixture_corpus_snapshot": active_corpus_snapshot,
+        "active_replay_alert_fixture_corpus_snapshot_id": (
+            active_corpus_snapshot.get("snapshot_id") if active_corpus_snapshot else None
+        ),
+        "active_replay_alert_fixture_corpus_sha256": (
+            active_corpus_snapshot.get("snapshot_sha256")
+            if active_corpus_snapshot
+            else None
+        ),
+        "active_replay_alert_fixture_corpus_fixture_count": (
+            int(active_corpus_snapshot.get("fixture_count") or 0)
+            if active_corpus_snapshot
+            else 0
+        ),
+        "active_replay_alert_fixture_corpus_invalid_promotion_event_count": (
+            int(active_corpus_snapshot.get("invalid_promotion_event_count") or 0)
+            if active_corpus_snapshot
+            else 0
+        ),
     }
     return {
         **summary_basis,
@@ -1473,36 +1502,28 @@ def latest_claim_support_replay_alert_fixture_rows(
             "excluded_case_ids": sorted(exclude_case_ids),
             "fixture_source": "disabled",
         }
-    latest = coverage_summary.get("latest_promoted_fixture_set") or {}
-    fixture_set_id = _uuid_or_none(latest.get("fixture_set_id"))
-    fixture_set = session.get(ClaimSupportFixtureSet, fixture_set_id) if fixture_set_id else None
-    replay_alert_fixtures = [
-        dict(fixture)
-        for fixture in (fixture_set.fixtures_json if fixture_set is not None else []) or []
-        if isinstance(fixture, dict) and fixture.get("replay_alert_source")
-    ]
-    selected: list[dict[str, Any]] = []
-    for fixture in replay_alert_fixtures:
-        case_id = str(fixture.get("case_id") or "")
-        if case_id and case_id in exclude_case_ids:
-            continue
-        selected.append(fixture)
-        if len(selected) >= limit:
-            break
+    snapshot, corpus_rows, available_fixture_count = active_replay_alert_fixture_corpus_rows(
+        session,
+        exclude_case_ids=exclude_case_ids,
+        limit=limit,
+    )
+    selected = [dict(row.fixture_json or {}) for row in corpus_rows]
+    snapshot_summary = replay_alert_fixture_corpus_snapshot_summary(snapshot)
+    replay_alert_fixture_count = int(snapshot.fixture_count) if snapshot is not None else 0
     return selected, {
         **coverage_summary,
         "enabled": include_promoted,
-        "fixture_source": "latest_promoted_fixture_set" if fixture_set is not None else "none",
-        "included_replay_alert_fixture_count": len(selected),
-        "replay_alert_fixture_count": len(replay_alert_fixtures),
-        "excluded_case_ids": sorted(exclude_case_ids),
-        "has_more_replay_alert_fixtures": len(selected) < len(
-            [
-                fixture
-                for fixture in replay_alert_fixtures
-                if str(fixture.get("case_id") or "") not in exclude_case_ids
-            ]
+        "fixture_source": (
+            "active_replay_alert_fixture_corpus_snapshot"
+            if snapshot is not None
+            else "none"
         ),
+        "active_replay_alert_fixture_corpus_snapshot": snapshot_summary,
+        "included_replay_alert_fixture_count": len(selected),
+        "replay_alert_fixture_count": replay_alert_fixture_count,
+        "available_replay_alert_fixture_count": available_fixture_count,
+        "excluded_case_ids": sorted(exclude_case_ids),
+        "has_more_replay_alert_fixtures": len(selected) < available_fixture_count,
     }
 
 
@@ -2382,6 +2403,10 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
     )
     candidates = list(candidate_response.items)
     if not candidates:
+        active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(session)
+        active_corpus_summary = replay_alert_fixture_corpus_snapshot_summary(
+            active_corpus_snapshot
+        )
         if commit:
             session.commit()
         else:
@@ -2394,6 +2419,19 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
             candidate_item_count=candidate_response.item_count,
             has_more_candidates=candidate_response.has_more,
             candidate_summary=candidate_response.summary,
+            active_replay_fixture_corpus_snapshot_id=_uuid_or_none(
+                active_corpus_summary.get("snapshot_id") if active_corpus_summary else None
+            ),
+            active_replay_fixture_corpus_sha256=(
+                active_corpus_summary.get("snapshot_sha256")
+                if active_corpus_summary
+                else None
+            ),
+            active_replay_fixture_corpus_fixture_count=(
+                int(active_corpus_summary.get("fixture_count") or 0)
+                if active_corpus_summary
+                else 0
+            ),
         )
 
     fixtures_by_case_id = {
@@ -2441,6 +2479,10 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         requested_by=requested_by,
         storage_service=storage_service,
     )
+    active_corpus_snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(session)
+    active_corpus_summary = replay_alert_fixture_corpus_snapshot_summary(
+        active_corpus_snapshot
+    )
     _refresh_existing_evidence_manifests_for_fixture_candidates(session, candidates)
     if commit:
         session.commit()
@@ -2476,6 +2518,17 @@ def promote_claim_support_policy_change_impact_fixture_candidates(
         artifact_kind=artifact.artifact_kind if artifact is not None else None,
         artifact_path=artifact.storage_path if artifact is not None else None,
         created=created,
+        active_replay_fixture_corpus_snapshot_id=_uuid_or_none(
+            active_corpus_summary.get("snapshot_id") if active_corpus_summary else None
+        ),
+        active_replay_fixture_corpus_sha256=(
+            active_corpus_summary.get("snapshot_sha256") if active_corpus_summary else None
+        ),
+        active_replay_fixture_corpus_fixture_count=(
+            int(active_corpus_summary.get("fixture_count") or 0)
+            if active_corpus_summary
+            else 0
+        ),
         waiver_closure_count=len(waiver_closure_events),
         waiver_closure_event_ids=[event.id for event, _, _ in waiver_closure_events],
         waiver_closure_artifact_ids=[

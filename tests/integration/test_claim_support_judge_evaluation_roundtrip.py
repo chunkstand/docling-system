@@ -24,6 +24,8 @@ from app.db.models import (
     ClaimSupportEvaluationCase,
     ClaimSupportFixtureSet,
     ClaimSupportPolicyChangeImpact,
+    ClaimSupportReplayAlertFixtureCorpusRow,
+    ClaimSupportReplayAlertFixtureCorpusSnapshot,
     ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
     ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
     EvidencePackageExport,
@@ -2714,7 +2716,38 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         for row in fixture_candidate_payload["items"]
     )
 
-    promotion_response = postgres_integration_harness.client.post(
+    first_promotion_response = postgres_integration_harness.client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
+        "?limit=1&stale_after_hours=24",
+        json={
+            "fixture_set_name": "integration_replay_alert_promotions",
+            "fixture_set_version": "v1",
+            "requested_by": "claim-support-operator@example.com",
+        },
+    )
+    assert first_promotion_response.status_code == 200
+    first_promotion_payload = first_promotion_response.json()
+    assert first_promotion_payload["promoted_candidate_count"] == 1
+    assert first_promotion_payload["fixture_count"] == (
+        len(default_claim_support_evaluation_fixtures()) + 1
+    )
+    assert first_promotion_payload["promotion_event_id"]
+    assert first_promotion_payload["promotion_receipt_sha256"]
+    assert first_promotion_payload["created"] is True
+    assert first_promotion_payload["waiver_closure_count"] == 0
+    assert first_promotion_payload["candidate_matching_count"] == 1
+    assert first_promotion_payload["candidate_item_count"] == 1
+    assert first_promotion_payload["has_more_candidates"] is False
+    assert first_promotion_payload["candidate_summary"]["candidate_count"] == 1
+    assert (
+        first_promotion_payload["candidate_summary"]["source_escalation_event_count"]
+        == 1
+    )
+    assert first_promotion_payload["active_replay_fixture_corpus_snapshot_id"]
+    assert first_promotion_payload["active_replay_fixture_corpus_sha256"]
+    assert first_promotion_payload["active_replay_fixture_corpus_fixture_count"] == 1
+
+    second_promotion_response = postgres_integration_harness.client.post(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions"
         "?limit=5&stale_after_hours=24",
         json={
@@ -2723,11 +2756,12 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             "requested_by": "claim-support-operator@example.com",
         },
     )
-    assert promotion_response.status_code == 200
-    promotion_payload = promotion_response.json()
-    assert promotion_payload["promoted_candidate_count"] == 2
+    assert second_promotion_response.status_code == 200
+    promotion_payload = second_promotion_response.json()
+    assert promotion_payload["promoted_candidate_count"] == 1
+    assert promotion_payload["skipped_candidate_count"] == 1
     assert promotion_payload["fixture_count"] == (
-        len(default_claim_support_evaluation_fixtures()) + 2
+        len(default_claim_support_evaluation_fixtures()) + 1
     )
     assert promotion_payload["promotion_event_id"]
     assert promotion_payload["promotion_receipt_sha256"]
@@ -2737,17 +2771,19 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert promotion_payload["waiver_closure_artifact_ids"]
     assert promotion_payload["waiver_closure_receipt_sha256s"]
     assert promotion_payload["closed_waiver_artifact_ids"] == [waiver["artifact_id"]]
-    assert promotion_payload["candidate_matching_count"] == 2
-    assert promotion_payload["candidate_item_count"] == 2
+    assert promotion_payload["candidate_matching_count"] == 1
+    assert promotion_payload["candidate_item_count"] == 1
     assert promotion_payload["has_more_candidates"] is False
     assert promotion_payload["candidate_summary"]["candidate_count"] == 2
+    assert promotion_payload["candidate_summary"]["promoted_candidate_count"] == 1
+    assert promotion_payload["candidate_summary"]["unpromoted_candidate_count"] == 1
     assert promotion_payload["candidate_summary"]["source_escalation_event_count"] == 2
-    assert set(promotion_payload["source_change_impact_ids"]) == {
-        str(change_impact_id),
-        str(extra_change_impact_id),
-    }
+    assert len(promotion_payload["source_change_impact_ids"]) == 1
     assert str(fresh_change_impact_id) not in promotion_payload["source_change_impact_ids"]
-    assert len(promotion_payload["source_escalation_event_ids"]) == 2
+    assert len(promotion_payload["source_escalation_event_ids"]) == 1
+    assert promotion_payload["active_replay_fixture_corpus_snapshot_id"]
+    assert promotion_payload["active_replay_fixture_corpus_sha256"]
+    assert promotion_payload["active_replay_fixture_corpus_fixture_count"] == 2
     assert all(row["already_promoted"] for row in promotion_payload["candidates"])
 
     duplicate_promotion_response = postgres_integration_harness.client.post(
@@ -2780,6 +2816,16 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert unpromoted_candidate_response.json()["matching_count"] == 0
 
     with postgres_integration_harness.session_factory() as session:
+        first_fixture_set = session.get(
+            ClaimSupportFixtureSet,
+            UUID(first_promotion_payload["fixture_set_id"]),
+        )
+        assert first_fixture_set is not None
+        assert first_fixture_set.fixture_set_name == "integration_replay_alert_promotions"
+        first_promoted_fixture_set_id = first_fixture_set.id
+        assert first_fixture_set.fixture_count == len(
+            default_claim_support_evaluation_fixtures()
+        ) + 1
         fixture_set = session.get(
             ClaimSupportFixtureSet,
             UUID(promotion_payload["fixture_set_id"]),
@@ -2789,10 +2835,47 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         promoted_fixture_set_id = fixture_set.id
         assert fixture_set.fixture_count == len(
             default_claim_support_evaluation_fixtures()
-        ) + 2
+        ) + 1
         assert fixture_set.metadata_json["source"] == (
             "claim_support_policy_change_impact_replay_alerts"
         )
+        active_corpus_snapshot = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusSnapshot)
+            .where(ClaimSupportReplayAlertFixtureCorpusSnapshot.status == "active")
+            .order_by(ClaimSupportReplayAlertFixtureCorpusSnapshot.created_at.desc())
+            .limit(1)
+        )
+        assert active_corpus_snapshot is not None
+        assert str(active_corpus_snapshot.id) == promotion_payload[
+            "active_replay_fixture_corpus_snapshot_id"
+        ]
+        assert active_corpus_snapshot.fixture_count == 2
+        assert active_corpus_snapshot.promotion_event_count == 2
+        assert set(active_corpus_snapshot.source_fixture_set_ids_json) == {
+            str(first_fixture_set.id),
+            str(fixture_set.id),
+        }
+        active_corpus_rows = list(
+            session.scalars(
+                select(ClaimSupportReplayAlertFixtureCorpusRow)
+                .where(
+                    ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id
+                    == active_corpus_snapshot.id
+                )
+                .order_by(ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc())
+            )
+        )
+        assert len(active_corpus_rows) == 2
+        assert {str(row.fixture_set_id) for row in active_corpus_rows} == {
+            str(first_fixture_set.id),
+            str(fixture_set.id),
+        }
+        assert {
+            str(row.promotion_artifact_id) for row in active_corpus_rows
+        } == {
+            first_promotion_payload["artifact_id"],
+            promotion_payload["artifact_id"],
+        }
 
         promotion_event = session.get(
             SemanticGovernanceEvent,
@@ -2811,7 +2894,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             "claim_support_policy_impact_fixture_promotion"
         ]
         assert promotion_receipt["fixture_set_id"] == str(fixture_set.id)
-        assert promotion_receipt["candidate_count"] == 2
+        assert promotion_receipt["candidate_count"] == 1
         assert set(promotion_receipt["source_escalation_event_ids"]) == set(
             promotion_payload["source_escalation_event_ids"]
         )
@@ -2844,13 +2927,19 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert waiver_closure_receipt["promotion_receipt_sha256"] == (
             promotion_payload["promotion_receipt_sha256"]
         )
+        combined_escalation_event_ids = {
+            *first_promotion_payload["source_escalation_event_ids"],
+            *promotion_payload["source_escalation_event_ids"],
+        }
         assert set(waiver_closure_receipt["covered_escalation_event_ids"]) == set(
-            promotion_payload["source_escalation_event_ids"]
+            combined_escalation_event_ids
         )
         assert set(waiver_closure_receipt["coverage_promotion_artifact_ids"]) == {
+            first_promotion_payload["artifact_id"],
             promotion_payload["artifact_id"]
         }
         assert set(waiver_closure_receipt["coverage_promotion_receipt_sha256s"]) == {
+            first_promotion_payload["promotion_receipt_sha256"],
             promotion_payload["promotion_receipt_sha256"]
         }
         waiver_closure_artifact = session.get(
@@ -2875,7 +2964,10 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert waiver_ledger.closure_event_id == waiver_closure_event.id
         assert waiver_ledger.closure_artifact_id == waiver_closure_artifact.id
         assert waiver_ledger.closure_receipt_sha256 == waiver_closure_event.receipt_sha256
-        assert waiver_ledger.promotion_artifact_ids_json == [promotion_payload["artifact_id"]]
+        assert set(waiver_ledger.promotion_artifact_ids_json) == {
+            first_promotion_payload["artifact_id"],
+            promotion_payload["artifact_id"],
+        }
         waiver_ledger_rows = list(
             session.scalars(
                 select(ClaimSupportReplayAlertFixtureCoverageWaiverEscalation)
@@ -2892,7 +2984,10 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert all(row.covered for row in waiver_ledger_rows)
         assert {
             str(row.covered_by_promotion_artifact_id) for row in waiver_ledger_rows
-        } == {promotion_payload["artifact_id"]}
+        } == {
+            first_promotion_payload["artifact_id"],
+            promotion_payload["artifact_id"],
+        }
 
         audit_bundle = get_agent_task_audit_bundle(session, impacted["verify_task_id"])
         assert audit_bundle["audit_checklist"][
@@ -3013,6 +3108,20 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         ] is True
         assert replay_summary["included_replay_alert_fixture_count"] == 2
         assert replay_summary["stale_unconverted_escalation_event_count"] == 0
+        assert replay_summary["fixture_source"] == (
+            "active_replay_alert_fixture_corpus_snapshot"
+        )
+        assert replay_summary["active_replay_alert_fixture_corpus_snapshot"][
+            "fixture_count"
+        ] == 2
+        assert set(
+            replay_summary["active_replay_alert_fixture_corpus_snapshot"][
+                "source_fixture_set_ids"
+            ]
+        ) == {
+            str(first_promoted_fixture_set_id),
+            str(promoted_fixture_set_id),
+        }
         assert replay_summary["latest_promoted_fixture_set"]["fixture_set_id"] == str(
             promoted_fixture_set_id
         )
