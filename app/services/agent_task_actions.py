@@ -17,6 +17,7 @@ from app.db.models import (
     KnowledgeOperatorOutput,
 )
 from app.schemas.agent_tasks import (
+    REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS,
     ApplyClaimSupportCalibrationPolicyTaskInput,
     ApplyClaimSupportCalibrationPolicyTaskOutput,
     ApplyGraphPromotionsTaskInput,
@@ -255,6 +256,10 @@ CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_FILENAME = (
     "claim_support_replay_alert_fixture_coverage_waiver.json"
 )
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS = 24
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA = (
+    "claim_support_replay_alert_fixture_coverage_waiver"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA_VERSION = "1.1"
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
@@ -1921,12 +1926,44 @@ def _coerce_utc_datetime(value: object, *, field_name: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
+def _replay_alert_fixture_coverage_waiver_hash_basis(waiver: dict) -> dict:
+    artifact_fields = {
+        "artifact_id",
+        "artifact_kind",
+        "artifact_path",
+        "waiver_sha256",
+    }
+    return {key: value for key, value in dict(waiver).items() if key not in artifact_fields}
+
+
+def _replay_alert_fixture_coverage_waiver_sha256(waiver: dict) -> str | None:
+    return payload_sha256(_replay_alert_fixture_coverage_waiver_hash_basis(waiver))
+
+
 def _require_active_replay_alert_fixture_coverage_waiver(
     *,
     waiver: dict,
     payload: ApplyClaimSupportCalibrationPolicyTaskInput,
     task: AgentTask,
 ) -> dict:
+    if waiver.get("schema_name") != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA:
+        raise ValueError(
+            "Replay-alert fixture coverage waiver has an unexpected schema name."
+        )
+    if (
+        waiver.get("schema_version")
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA_VERSION
+    ):
+        raise ValueError(
+            "Replay-alert fixture coverage waiver must use lifecycle schema version "
+            f"{CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA_VERSION}."
+        )
+    expected_waiver_sha = waiver.get("waiver_sha256")
+    actual_waiver_sha = _replay_alert_fixture_coverage_waiver_sha256(waiver)
+    if not expected_waiver_sha or actual_waiver_sha != expected_waiver_sha:
+        raise ValueError(
+            "Replay-alert fixture coverage waiver hash does not match its payload."
+        )
     expires_at = _coerce_utc_datetime(
         waiver.get("waiver_expires_at"),
         field_name="replay_alert_fixture_coverage_waiver.waiver_expires_at",
@@ -1936,10 +1973,22 @@ def _require_active_replay_alert_fixture_coverage_waiver(
         raise ValueError(
             "Replay-alert fixture coverage waiver expired before policy activation."
         )
+    if expires_at > now + timedelta(
+        hours=REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS
+    ):
+        raise ValueError(
+            "Replay-alert fixture coverage waiver expiry exceeds the maximum "
+            f"{REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS}-hour lifecycle window."
+        )
     severity = str(waiver.get("waiver_severity") or "").strip().lower()
     if severity not in {"low", "medium", "high", "critical"}:
         raise ValueError(
             "Replay-alert fixture coverage waiver is missing a valid severity."
+        )
+    if not task.approved_by or not task.approved_at:
+        raise ValueError(
+            "Activating a policy verified under a replay-alert fixture coverage "
+            "waiver requires the activation task to be approved first."
         )
     if not payload.waiver_activation_approved_by:
         raise ValueError(
@@ -1959,6 +2008,16 @@ def _require_active_replay_alert_fixture_coverage_waiver(
         raise ValueError(
             "Replay-alert fixture coverage waiver activation approval must come "
             "from a different operator than the task approval."
+        )
+    waived_by = str(waiver.get("waived_by") or "").strip()
+    if (
+        waived_by
+        and payload.waiver_activation_approved_by.strip().casefold()
+        == waived_by.casefold()
+    ):
+        raise ValueError(
+            "Replay-alert fixture coverage waiver activation approval must come "
+            "from a different operator than the waiver creator."
         )
     return {
         "required": True,
@@ -2132,7 +2191,7 @@ def _verify_claim_support_calibration_policy_executor(
         )
         waiver_basis = {
             "schema_name": "claim_support_replay_alert_fixture_coverage_waiver",
-            "schema_version": "1.1",
+            "schema_version": CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_SCHEMA_VERSION,
             "verification_task_id": str(task.id),
             "target_task_id": str(payload.target_task_id),
             "policy_id": str(policy_row.id),
@@ -2163,7 +2222,9 @@ def _verify_claim_support_calibration_policy_executor(
         }
         waiver_payload = {
             **waiver_basis,
-            "waiver_sha256": str(payload_sha256(waiver_basis)),
+            "waiver_sha256": str(
+                _replay_alert_fixture_coverage_waiver_sha256(waiver_basis)
+            ),
         }
         waiver_artifact = create_agent_task_artifact(
             session,

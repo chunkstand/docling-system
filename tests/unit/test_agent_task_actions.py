@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
@@ -78,6 +79,8 @@ from app.services.agent_task_actions import (
     _latest_semantic_pass_executor,
     _optimize_search_harness_from_case_executor,
     _prepare_semantic_generation_brief_executor,
+    _replay_alert_fixture_coverage_waiver_sha256,
+    _require_active_replay_alert_fixture_coverage_waiver,
     _triage_semantic_candidate_disagreements_executor,
     _triage_semantic_graph_disagreements_executor,
     _triage_semantic_pass_executor,
@@ -2502,6 +2505,76 @@ def test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata() 
         == "queue_claim_support_policy_change_impact_replay_output"
     )
     assert replay_action.output_schema_version == "1.0"
+
+
+def test_replay_alert_waiver_activation_requires_integrity_and_independent_approval() -> None:
+    now = datetime.now(UTC)
+    waiver_basis = {
+        "schema_name": "claim_support_replay_alert_fixture_coverage_waiver",
+        "schema_version": "1.1",
+        "verification_task_id": str(uuid4()),
+        "target_task_id": str(uuid4()),
+        "policy_id": str(uuid4()),
+        "policy_sha256": "policy-sha",
+        "fixture_set_id": str(uuid4()),
+        "fixture_set_sha256": "fixture-sha",
+        "waived_by": "waiver-creator@example.com",
+        "waiver_reason": "temporary emergency validation",
+        "waiver_severity": "high",
+        "waiver_expires_at": (now + timedelta(hours=2)).isoformat(),
+        "waiver_review_due_at": (now + timedelta(hours=1)).isoformat(),
+        "waiver_remediation_owner": "remediation@example.com",
+        "waiver_status": "active",
+        "waived_at": now.isoformat(),
+        "replay_alert_fixture_summary": {"included_replay_alert_fixture_count": 0},
+        "replay_alert_fixture_summary_sha256": "summary-sha",
+        "stale_unconverted_escalation_event_count": 1,
+    }
+    waiver = {
+        **waiver_basis,
+        "waiver_sha256": _replay_alert_fixture_coverage_waiver_sha256(waiver_basis),
+        "artifact_id": str(uuid4()),
+        "artifact_kind": "claim_support_replay_alert_fixture_coverage_waiver",
+        "artifact_path": "storage/waiver.json",
+    }
+    task = SimpleNamespace(
+        approved_by="task-approver@example.com",
+        approved_at=now,
+    )
+    payload = ApplyClaimSupportCalibrationPolicyTaskInput(
+        draft_task_id=uuid4(),
+        verification_task_id=uuid4(),
+        reason="activate under managed waiver",
+        waiver_activation_approved_by="waiver-reviewer@example.com",
+        waiver_activation_approval_note="reviewed active waiver before activation",
+    )
+
+    approval = _require_active_replay_alert_fixture_coverage_waiver(
+        waiver=waiver,
+        payload=payload,
+        task=task,
+    )
+
+    assert approval["waiver_sha256"] == waiver["waiver_sha256"]
+    assert approval["approved_by"] == "waiver-reviewer@example.com"
+
+    tampered_waiver = {**waiver, "waiver_reason": "tampered after verification"}
+    with pytest.raises(ValueError, match="hash does not match"):
+        _require_active_replay_alert_fixture_coverage_waiver(
+            waiver=tampered_waiver,
+            payload=payload,
+            task=task,
+        )
+
+    same_creator_payload = payload.model_copy(
+        update={"waiver_activation_approved_by": "waiver-creator@example.com"}
+    )
+    with pytest.raises(ValueError, match="different operator than the waiver creator"):
+        _require_active_replay_alert_fixture_coverage_waiver(
+            waiver=waiver,
+            payload=same_creator_payload,
+            task=task,
+        )
 
 
 def test_get_agent_task_action_exposes_context_pack_eval_metadata() -> None:

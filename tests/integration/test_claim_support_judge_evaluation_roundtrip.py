@@ -1310,6 +1310,48 @@ def test_claim_support_policy_activation_carries_replay_alert_coverage_waiver(
         assert "waiver_activation_approved_by" in str(failed_apply_row.error_message)
         assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "draft"
 
+        same_creator_second_approval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "waiver creator cannot second approve activation",
+                    "waiver_activation_approved_by": (
+                        "claim-support-operator@example.com"
+                    ),
+                    "waiver_activation_approval_note": (
+                        "This should fail because it reuses the waiver creator."
+                    ),
+                },
+                workflow_version="claim_support_policy_coverage_waiver_integration",
+            ),
+        )
+        same_creator_second_approval_task_id = same_creator_second_approval_task.task_id
+        approve_agent_task(
+            session,
+            same_creator_second_approval_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-primary@example.com",
+                approval_note="regular activation approval from primary operator",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        same_creator_apply_row = session.get(
+            AgentTask,
+            same_creator_second_approval_task_id,
+        )
+        assert same_creator_apply_row is not None
+        assert same_creator_apply_row.status == AgentTaskStatus.FAILED.value
+        assert "different operator than the waiver creator" in str(
+            same_creator_apply_row.error_message
+        )
+        assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "draft"
+
         apply_task = create_agent_task(
             session,
             AgentTaskCreateRequest(
@@ -2440,6 +2482,32 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert (
         missing_lifecycle_response.json()["error_code"] == "invalid_agent_task_input"
     )
+
+    excessive_ttl_response = postgres_integration_harness.client.post(
+        "/agent-tasks",
+        json={
+            "task_type": "verify_claim_support_calibration_policy",
+            "input": {
+                "target_task_id": str(unconverted_gate_draft_task_id),
+                "fixture_set_name": "integration_replay_alert_excessive_ttl",
+                "fixture_set_version": "v1",
+                "require_replay_alert_fixture_coverage": False,
+                "replay_alert_fixture_coverage_waived_by": (
+                    "claim-support-operator@example.com"
+                ),
+                "replay_alert_fixture_coverage_waiver_reason": (
+                    "Exercise waiver maximum lifecycle validation."
+                ),
+                "replay_alert_fixture_coverage_waiver_severity": "medium",
+                "replay_alert_fixture_coverage_waiver_expires_at": (
+                    utcnow() + timedelta(hours=73)
+                ).isoformat(),
+            },
+            "workflow_version": "claim_support_policy_replay_alert_coverage",
+        },
+    )
+    assert excessive_ttl_response.status_code == 422
+    assert excessive_ttl_response.json()["error_code"] == "invalid_agent_task_input"
 
     with postgres_integration_harness.session_factory() as session:
         waiver_expires_at = (utcnow() + timedelta(hours=8)).isoformat()

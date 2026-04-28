@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
@@ -25,6 +25,8 @@ from app.schemas.search import (
     SearchRequestExplanationResponse,
 )
 from app.schemas.semantics import DocumentSemanticPassResponse
+
+REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS = 72
 
 
 class AgentTaskCreateRequest(BaseModel):
@@ -1523,9 +1525,18 @@ class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
             raise ValueError(
                 "replay_alert_fixture_coverage_waiver_expires_at must include a timezone."
             )
-        if self.replay_alert_fixture_coverage_waiver_expires_at <= datetime.now(UTC):
+        now = datetime.now(UTC)
+        expires_at = self.replay_alert_fixture_coverage_waiver_expires_at.astimezone(UTC)
+        if expires_at <= now:
             raise ValueError(
                 "replay_alert_fixture_coverage_waiver_expires_at must be in the future."
+            )
+        if expires_at > now + timedelta(
+            hours=REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS
+        ):
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_expires_at must be within "
+                f"{REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS} hours."
             )
         return self
 
