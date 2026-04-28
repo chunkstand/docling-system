@@ -24,6 +24,8 @@ from app.db.models import (
     ClaimSupportEvaluationCase,
     ClaimSupportFixtureSet,
     ClaimSupportPolicyChangeImpact,
+    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
+    ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
     EvidencePackageExport,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
@@ -2520,7 +2522,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
                     "fixture_set_name": "integration_replay_alert_coverage_waiver",
                     "fixture_set_version": "v1",
                     "include_replay_alert_fixtures": True,
-                    "replay_alert_fixture_limit": 10,
+                    "replay_alert_fixture_limit": 1,
                     "require_replay_alert_fixture_coverage": False,
                     "replay_alert_fixture_coverage_waived_by": (
                         "claim-support-operator@example.com"
@@ -2573,6 +2575,50 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         )
         assert waiver_artifact.payload_json["waiver_sha256"] == waiver["waiver_sha256"]
         assert waiver_artifact.payload_json["schema_version"] == "1.1"
+        assert waiver["coverage_ledger_id"]
+        assert waiver["waived_escalation_event_count"] == 2
+        assert waiver["waived_escalation_set_sha256"]
+        assert waiver["stale_unconverted_escalation_set_sha256"] == waiver[
+            "waived_escalation_set_sha256"
+        ]
+        assert len(waiver["stale_unconverted_escalation_event_ids"]) == 2
+        assert len(waiver["stale_unconverted_escalation_events"]) == 2
+        assert waiver["replay_alert_fixture_summary"][
+            "has_more_unconverted_escalations"
+        ] is True
+        assert len(
+            waiver["replay_alert_fixture_summary"]["unconverted_escalation_events"]
+        ) == 1
+        waiver_ledger = session.get(
+            ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
+            UUID(waiver["coverage_ledger_id"]),
+        )
+        assert waiver_ledger is not None
+        assert str(waiver_ledger.waiver_artifact_id) == waiver["artifact_id"]
+        assert waiver_ledger.waived_escalation_event_count == 2
+        assert waiver_ledger.covered_escalation_event_count == 0
+        assert waiver_ledger.coverage_complete is False
+        assert waiver_ledger.coverage_status == "open"
+        assert waiver_ledger.waived_escalation_set_sha256 == waiver[
+            "waived_escalation_set_sha256"
+        ]
+        waiver_ledger_rows = list(
+            session.scalars(
+                select(ClaimSupportReplayAlertFixtureCoverageWaiverEscalation)
+                .where(
+                    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.ledger_id
+                    == waiver_ledger.id
+                )
+                .order_by(
+                    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.created_at.asc()
+                )
+            )
+        )
+        assert len(waiver_ledger_rows) == 2
+        assert {str(row.escalation_event_id) for row in waiver_ledger_rows} == set(
+            waiver["stale_unconverted_escalation_event_ids"]
+        )
+        assert not any(row.covered for row in waiver_ledger_rows)
         assert any(
             metric["metric_key"] == "claim_support_replay_alert_fixture_coverage"
             and metric["passed"] is True
@@ -2798,6 +2844,12 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert set(waiver_closure_receipt["covered_escalation_event_ids"]) == set(
             promotion_payload["source_escalation_event_ids"]
         )
+        assert set(waiver_closure_receipt["coverage_promotion_artifact_ids"]) == {
+            promotion_payload["artifact_id"]
+        }
+        assert set(waiver_closure_receipt["coverage_promotion_receipt_sha256s"]) == {
+            promotion_payload["promotion_receipt_sha256"]
+        }
         waiver_closure_artifact = session.get(
             AgentTaskArtifact,
             UUID(promotion_payload["waiver_closure_artifact_ids"][0]),
@@ -2809,8 +2861,49 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert waiver_closure_artifact.payload_json["receipt_sha256"] == (
             waiver_closure_event.receipt_sha256
         )
+        waiver_ledger = session.get(
+            ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
+            UUID(waiver["coverage_ledger_id"]),
+        )
+        assert waiver_ledger is not None
+        assert waiver_ledger.coverage_complete is True
+        assert waiver_ledger.coverage_status == "closed"
+        assert waiver_ledger.covered_escalation_event_count == 2
+        assert waiver_ledger.closure_event_id == waiver_closure_event.id
+        assert waiver_ledger.closure_artifact_id == waiver_closure_artifact.id
+        assert waiver_ledger.closure_receipt_sha256 == waiver_closure_event.receipt_sha256
+        assert waiver_ledger.promotion_artifact_ids_json == [promotion_payload["artifact_id"]]
+        waiver_ledger_rows = list(
+            session.scalars(
+                select(ClaimSupportReplayAlertFixtureCoverageWaiverEscalation)
+                .where(
+                    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.ledger_id
+                    == waiver_ledger.id
+                )
+                .order_by(
+                    ClaimSupportReplayAlertFixtureCoverageWaiverEscalation.created_at.asc()
+                )
+            )
+        )
+        assert len(waiver_ledger_rows) == 2
+        assert all(row.covered for row in waiver_ledger_rows)
+        assert {
+            str(row.covered_by_promotion_artifact_id) for row in waiver_ledger_rows
+        } == {promotion_payload["artifact_id"]}
 
         audit_bundle = get_agent_task_audit_bundle(session, impacted["verify_task_id"])
+        assert audit_bundle["audit_checklist"][
+            "replay_alert_waiver_closure_integrity_verified"
+        ] is True
+        assert audit_bundle["audit_checklist"][
+            "unresolved_replay_alert_fixture_coverage_waiver_count"
+        ] == 0
+        assert audit_bundle["audit_checklist"][
+            "invalid_replay_alert_fixture_coverage_waiver_closure_count"
+        ] == 0
+        assert audit_bundle["audit_checklist"][
+            "replay_alert_waiver_lifecycle_clear"
+        ] is True
         matching_impacts = {
             row["change_impact_id"]: row
             for row in audit_bundle["change_impact"][
@@ -2826,7 +2919,14 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         assert matching_impacts[str(change_impact_id)][
             "waiver_closure_governance_events"
         ][0]["integrity_verified"] is True
+        assert audit_bundle["change_impact"]["claim_support_policy_change_impacts"][
+            "waiver_lifecycle"
+        ]["closed_waiver_count"] == 1
         manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
+        assert manifest["audit_checklist"][
+            "replay_alert_waiver_closure_integrity_verified"
+        ] is True
+        assert manifest["audit_checklist"]["replay_alert_waiver_lifecycle_clear"] is True
         manifest_impacts = {
             row["change_impact_id"]: row
             for row in manifest["change_impact"][
@@ -3014,6 +3114,22 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         ][0]
         assert tampered_closure["integrity_verified"] is False
         assert "closure_receipt_hash_mismatch" in tampered_closure["integrity_failures"]
+        assert tampered_audit_bundle["audit_checklist"][
+            "replay_alert_waiver_closure_integrity_verified"
+        ] is False
+        assert tampered_audit_bundle["audit_checklist"][
+            "invalid_replay_alert_fixture_coverage_waiver_closure_count"
+        ] == 1
+        assert tampered_audit_bundle["audit_checklist"][
+            "replay_alert_waiver_lifecycle_clear"
+        ] is False
+        assert tampered_audit_bundle["audit_checklist"]["complete"] is False
+        assert tampered_audit_bundle["change_impact"]["impacted"] is True
+        assert any(
+            impact["impact_type"]
+            == "claim_support_replay_alert_fixture_coverage_waiver_closure_invalid"
+            for impact in tampered_audit_bundle["change_impact"]["impacts"]
+        )
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

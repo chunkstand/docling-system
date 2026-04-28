@@ -166,6 +166,9 @@ from app.services.claim_support_policy_impacts import (
     latest_claim_support_replay_alert_fixture_rows,
     queue_claim_support_policy_change_impact_replay_tasks,
 )
+from app.services.claim_support_replay_alert_waivers import (
+    record_replay_alert_fixture_coverage_waiver_ledger,
+)
 from app.services.documents import (
     get_latest_document_evaluation_detail,
     reprocess_document,
@@ -1931,6 +1934,10 @@ def _replay_alert_fixture_coverage_waiver_hash_basis(waiver: dict) -> dict:
         "artifact_id",
         "artifact_kind",
         "artifact_path",
+        "coverage_ledger_id",
+        "coverage_status",
+        "waived_escalation_event_count",
+        "waived_escalation_set_sha256",
         "waiver_sha256",
     }
     return {key: value for key, value in dict(waiver).items() if key not in artifact_fields}
@@ -2219,6 +2226,23 @@ def _verify_claim_support_calibration_policy_executor(
                     "stale_unconverted_escalation_event_count"
                 )
             ),
+            "stale_unconverted_escalation_event_ids": (
+                replay_alert_fixture_summary.get(
+                    "stale_unconverted_escalation_event_ids"
+                )
+                or []
+            ),
+            "stale_unconverted_escalation_set_sha256": (
+                replay_alert_fixture_summary.get(
+                    "stale_unconverted_escalation_set_sha256"
+                )
+            ),
+            "stale_unconverted_escalation_events": (
+                replay_alert_fixture_summary.get(
+                    "stale_unconverted_escalation_events"
+                )
+                or []
+            ),
         }
         waiver_payload = {
             **waiver_basis,
@@ -2236,11 +2260,24 @@ def _verify_claim_support_calibration_policy_executor(
             storage_service=StorageService(),
             filename=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_FILENAME,
         )
+        waiver_ledger = record_replay_alert_fixture_coverage_waiver_ledger(
+            session,
+            waiver_artifact=waiver_artifact,
+            waiver_payload=waiver_payload,
+        )
         replay_alert_fixture_coverage_waiver = {
             **waiver_payload,
             "artifact_id": str(waiver_artifact.id),
             "artifact_kind": waiver_artifact.artifact_kind,
             "artifact_path": waiver_artifact.storage_path,
+            "coverage_ledger_id": str(waiver_ledger.id),
+            "coverage_status": waiver_ledger.coverage_status,
+            "waived_escalation_event_count": (
+                waiver_ledger.waived_escalation_event_count
+            ),
+            "waived_escalation_set_sha256": (
+                waiver_ledger.waived_escalation_set_sha256
+            ),
         }
     evaluation_payload = evaluate_claim_support_judge_fixture_set(
         evaluation_name="claim_support_calibration_policy_verification",

@@ -121,6 +121,19 @@ def _uuid_from_value(value: object) -> UUID | None:
         return None
 
 
+def _uuid_values(values: object) -> list[UUID]:
+    uuids: list[UUID] = []
+    for value in values or []:
+        parsed = _uuid_from_value(value)
+        if parsed is not None:
+            uuids.append(parsed)
+    return uuids
+
+
+def _string_values(values: object) -> set[str]:
+    return {str(value) for value in values or [] if value not in {None, ""}}
+
+
 def _hash_matches_embedded_receipt(payload: dict, *, hash_field: str) -> bool:
     expected_hash = str(payload.get(hash_field) or "")
     if not expected_hash:
@@ -199,15 +212,46 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
     covered_event_ids = {
         str(value) for value in closure_payload.get("covered_escalation_event_ids") or []
     }
-    promotion_event_ids = {
-        str(value)
-        for value in promotion_artifact.payload_json.get("source_escalation_event_ids") or []
-    }
+    coverage_promotion_artifact_ids = set(
+        _uuid_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
+    )
+    if coverage_promotion_artifact_ids:
+        coverage_promotion_artifact_ids.add(promotion_artifact_id)
+        source_promotion_event_ids: set[str] = set()
+        coverage_receipt_sha256s = _string_values(
+            closure_payload.get("coverage_promotion_receipt_sha256s") or []
+        )
+        actual_receipt_sha256s: set[str] = set()
+        for artifact_id in sorted(coverage_promotion_artifact_ids, key=str):
+            artifact = session.get(AgentTaskArtifact, artifact_id)
+            if (
+                artifact is None
+                or artifact.artifact_kind
+                != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND
+            ):
+                return None
+            artifact_receipt_sha256 = str(
+                artifact.payload_json.get("receipt_sha256") or ""
+            )
+            if artifact_receipt_sha256:
+                actual_receipt_sha256s.add(artifact_receipt_sha256)
+            source_promotion_event_ids.update(
+                str(value)
+                for value in artifact.payload_json.get("source_escalation_event_ids") or []
+                if value
+            )
+        if coverage_receipt_sha256s and coverage_receipt_sha256s != actual_receipt_sha256s:
+            return None
+    else:
+        source_promotion_event_ids = {
+            str(value)
+            for value in promotion_artifact.payload_json.get("source_escalation_event_ids") or []
+        }
     if (
         not waived_event_ids
         or not covered_event_ids
         or not waived_event_ids.issubset(covered_event_ids)
-        or not covered_event_ids.issubset(promotion_event_ids)
+        or not covered_event_ids.issubset(source_promotion_event_ids)
     ):
         return None
     return waiver_artifact_id, waiver_sha256

@@ -47,6 +47,13 @@ from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
     ensure_claim_support_fixture_set,
 )
+from app.services.claim_support_replay_alert_waivers import (
+    apply_replay_alert_fixture_coverage_promotion_to_waiver_ledgers,
+    mark_replay_alert_fixture_coverage_waiver_ledger_closed,
+    replay_alert_escalation_set_sha256,
+    stale_unconverted_escalation_event_ids_from_waiver,
+    waiver_artifact_ids_with_coverage_ledgers,
+)
 from app.services.evidence import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
@@ -1408,6 +1415,9 @@ def claim_support_replay_alert_fixture_coverage_summary(
         if str(event.id) not in promoted_escalation_event_ids
     ]
     stale_unconverted = [row for row in unconverted_escalations if row["is_stale"]]
+    stale_unconverted_event_ids = sorted(
+        {str(row["event_id"]) for row in stale_unconverted if row.get("event_id")}
+    )
     summary_basis = {
         "schema_name": "claim_support_replay_alert_fixture_coverage_summary",
         "schema_version": "1.0",
@@ -1418,6 +1428,10 @@ def claim_support_replay_alert_fixture_coverage_summary(
         "promoted_escalation_event_count": len(promoted_escalation_event_ids),
         "unconverted_escalation_event_count": len(unconverted_escalations),
         "stale_unconverted_escalation_event_count": len(stale_unconverted),
+        "stale_unconverted_escalation_event_ids": stale_unconverted_event_ids,
+        "stale_unconverted_escalation_set_sha256": replay_alert_escalation_set_sha256(
+            stale_unconverted_event_ids
+        ),
         "stale_after_hours": stale_after_hours,
         "latest_promoted_fixture_set": promotion_summaries[0]
         if promotion_summaries
@@ -1431,6 +1445,7 @@ def claim_support_replay_alert_fixture_coverage_summary(
         "has_more_unconverted_escalations": len(unconverted_escalations) > limit,
         "promoted_fixture_sets": promotion_summaries[:limit],
         "unconverted_escalation_events": unconverted_escalations[:limit],
+        "stale_unconverted_escalation_events": stale_unconverted,
     }
 
 
@@ -2033,15 +2048,7 @@ def _record_fixture_promotion_event(
 
 
 def _waiver_stale_unconverted_escalation_event_ids(payload: dict[str, Any]) -> list[str]:
-    summary = dict(payload.get("replay_alert_fixture_summary") or {})
-    rows = summary.get("unconverted_escalation_events") or []
-    return sorted(
-        {
-            str(row.get("event_id"))
-            for row in rows
-            if isinstance(row, dict) and row.get("is_stale") and row.get("event_id")
-        }
-    )
+    return stale_unconverted_escalation_event_ids_from_waiver(payload)
 
 
 def _waiver_stale_unconverted_escalation_count(payload: dict[str, Any]) -> int:
@@ -2060,7 +2067,11 @@ def _waiver_has_complete_stale_escalation_set(
     stale_count = _waiver_stale_unconverted_escalation_count(payload)
     if stale_count <= 0:
         return False
-    if summary.get("has_more_unconverted_escalations"):
+    has_full_stale_set = bool(
+        payload.get("stale_unconverted_escalation_event_ids")
+        or summary.get("stale_unconverted_escalation_event_ids")
+    )
+    if summary.get("has_more_unconverted_escalations") and not has_full_stale_set:
         return False
     return len(stale_escalation_event_ids) == stale_count
 
@@ -2087,6 +2098,11 @@ def _record_replay_alert_fixture_coverage_waiver_closure_event(
     waiver_artifact: AgentTaskArtifact,
     waived_escalation_event_ids: list[str],
     covered_escalation_event_ids: list[str],
+    coverage_promotion_event_ids: list[str] | None = None,
+    coverage_promotion_artifact_ids: list[str] | None = None,
+    coverage_promotion_receipt_sha256s: list[str] | None = None,
+    source_change_impact_ids: list[str] | None = None,
+    source_escalation_event_ids: list[str] | None = None,
     requested_by: str,
     storage_service: StorageService | None,
 ) -> tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool] | None:
@@ -2121,11 +2137,17 @@ def _record_replay_alert_fixture_coverage_waiver_closure_event(
         )
         or {}
     )
-    source_change_impact_ids = list(
+    receipt_source_change_impact_ids = list(
+        source_change_impact_ids
+        or []
+    ) or list(
         promotion_payload.get("source_change_impact_ids")
         or sorted({str(candidate.change_impact_id) for candidate in candidates})
     )
-    source_escalation_event_ids = list(
+    receipt_source_escalation_event_ids = list(
+        source_escalation_event_ids
+        or []
+    ) or list(
         promotion_payload.get("source_escalation_event_ids")
         or sorted(
             {
@@ -2153,8 +2175,13 @@ def _record_replay_alert_fixture_coverage_waiver_closure_event(
         ),
         "waived_escalation_event_ids": waived_escalation_event_ids,
         "covered_escalation_event_ids": covered_escalation_event_ids,
-        "source_change_impact_ids": source_change_impact_ids,
-        "source_escalation_event_ids": source_escalation_event_ids,
+        "coverage_promotion_event_ids": sorted(coverage_promotion_event_ids or []),
+        "coverage_promotion_artifact_ids": sorted(coverage_promotion_artifact_ids or []),
+        "coverage_promotion_receipt_sha256s": sorted(
+            coverage_promotion_receipt_sha256s or []
+        ),
+        "source_change_impact_ids": receipt_source_change_impact_ids,
+        "source_escalation_event_ids": receipt_source_escalation_event_ids,
         "fixture_set_id": str(fixture_set.id),
         "fixture_set_name": fixture_set.fixture_set_name,
         "fixture_set_version": fixture_set.fixture_set_version,
@@ -2236,6 +2263,54 @@ def _record_replay_alert_fixture_coverage_waiver_closure_events(
     if not promoted_escalation_event_ids:
         return []
 
+    recorded: list[tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool]] = []
+    ledger_closure_candidates = (
+        apply_replay_alert_fixture_coverage_promotion_to_waiver_ledgers(
+            session,
+            promotion_event=promotion_event,
+            promotion_artifact=promotion_artifact,
+            promoted_escalation_event_ids=promoted_escalation_event_ids,
+        )
+    )
+    for candidate in ledger_closure_candidates:
+        event = _record_replay_alert_fixture_coverage_waiver_closure_event(
+            session,
+            fixture_set=fixture_set,
+            candidates=candidates,
+            promotion_event=promotion_event,
+            promotion_artifact=promotion_artifact,
+            waiver_artifact=candidate.waiver_artifact,
+            waived_escalation_event_ids=candidate.waived_escalation_event_ids,
+            covered_escalation_event_ids=candidate.covered_escalation_event_ids,
+            coverage_promotion_event_ids=candidate.coverage_promotion_event_ids,
+            coverage_promotion_artifact_ids=candidate.coverage_promotion_artifact_ids,
+            coverage_promotion_receipt_sha256s=(
+                candidate.coverage_promotion_receipt_sha256s
+            ),
+            source_change_impact_ids=[
+                str(value) for value in (candidate.ledger.source_change_impact_ids_json or [])
+            ],
+            source_escalation_event_ids=candidate.waived_escalation_event_ids,
+            requested_by=requested_by,
+            storage_service=storage_service,
+        )
+        if event is None:
+            continue
+        closure_event, closure_artifact, _created = event
+        mark_replay_alert_fixture_coverage_waiver_ledger_closed(
+            session,
+            ledger=candidate.ledger,
+            closure_event=closure_event,
+            closure_artifact=closure_artifact,
+            coverage_promotion_event_ids=candidate.coverage_promotion_event_ids,
+            coverage_promotion_artifact_ids=candidate.coverage_promotion_artifact_ids,
+            coverage_promotion_receipt_sha256s=(
+                candidate.coverage_promotion_receipt_sha256s
+            ),
+        )
+        recorded.append(event)
+
+    ledger_backed_waiver_artifact_ids = waiver_artifact_ids_with_coverage_ledgers(session)
     waiver_artifacts = list(
         session.scalars(
             select(AgentTaskArtifact)
@@ -2246,8 +2321,9 @@ def _record_replay_alert_fixture_coverage_waiver_closure_events(
             .order_by(AgentTaskArtifact.created_at.asc(), AgentTaskArtifact.id.asc())
         )
     )
-    recorded: list[tuple[SemanticGovernanceEvent, AgentTaskArtifact | None, bool]] = []
     for waiver_artifact in waiver_artifacts:
+        if waiver_artifact.id in ledger_backed_waiver_artifact_ids:
+            continue
         waiver_payload = dict(waiver_artifact.payload_json or {})
         waived_escalation_event_ids = _waiver_stale_unconverted_escalation_event_ids(
             waiver_payload
@@ -2268,6 +2344,13 @@ def _record_replay_alert_fixture_coverage_waiver_closure_events(
             waiver_artifact=waiver_artifact,
             waived_escalation_event_ids=waived_escalation_event_ids,
             covered_escalation_event_ids=waived_escalation_event_ids,
+            coverage_promotion_event_ids=[str(promotion_event.id)],
+            coverage_promotion_artifact_ids=[str(promotion_artifact.id)],
+            coverage_promotion_receipt_sha256s=[
+                str(promotion_event.receipt_sha256)
+            ]
+            if promotion_event.receipt_sha256
+            else [],
             requested_by=requested_by,
             storage_service=storage_service,
         )

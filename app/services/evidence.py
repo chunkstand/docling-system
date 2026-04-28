@@ -24,6 +24,7 @@ from app.db.models import (
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
     ClaimSupportPolicyChangeImpact,
+    ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
     Document,
     DocumentChunk,
     DocumentFigure,
@@ -78,6 +79,15 @@ CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
 )
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED_EVENT_KIND = (
     "claim_support_replay_alert_fixture_coverage_waiver_closed"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver_closure"
+)
+CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
+    "claim_support_policy_impact_fixture_promotion"
 )
 CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
     "pending",
@@ -2611,12 +2621,21 @@ def _export_document_run_map(export: EvidencePackageExport) -> dict[str, set[str
 
 
 def _empty_claim_support_policy_change_impact_summary() -> dict[str, Any]:
+    waiver_lifecycle = {
+        "related_waiver_count": 0,
+        "unresolved_waiver_count": 0,
+        "closed_waiver_count": 0,
+        "invalid_waiver_closure_count": 0,
+        "waiver_closure_integrity_verified": True,
+        "clear": True,
+    }
     return {
         "related_count": 0,
         "open_count": 0,
         "closed_count": 0,
         "blocked_count": 0,
         "replay_status_counts": {},
+        "waiver_lifecycle": waiver_lifecycle,
         "clear": True,
         "impacts": [],
     }
@@ -2832,6 +2851,11 @@ def _waiver_closure_event_integrity(
     )
     if closure_artifact is None:
         failures.append("closure_artifact_missing")
+    elif (
+        closure_artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSURE_ARTIFACT_KIND
+    ):
+        failures.append("closure_artifact_kind_mismatch")
     elif closure_artifact.payload_json.get("receipt_sha256") != receipt_sha256:
         failures.append("closure_artifact_receipt_mismatch")
 
@@ -2847,6 +2871,11 @@ def _waiver_closure_event_integrity(
     )
     if waiver_artifact is None:
         failures.append("waiver_artifact_missing")
+    elif (
+        waiver_artifact.artifact_kind
+        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
+    ):
+        failures.append("waiver_artifact_kind_mismatch")
     elif waiver_artifact.payload_json.get("waiver_sha256") != closure_payload.get(
         "waiver_sha256"
     ):
@@ -2866,10 +2895,65 @@ def _waiver_closure_event_integrity(
     )
     if promotion_artifact is None:
         failures.append("promotion_artifact_missing")
+    elif (
+        promotion_artifact.artifact_kind
+        != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND
+    ):
+        failures.append("promotion_artifact_kind_mismatch")
     elif promotion_artifact.payload_json.get("receipt_sha256") != closure_payload.get(
         "promotion_receipt_sha256"
     ):
         failures.append("promotion_artifact_receipt_mismatch")
+
+    waived_event_ids = set(
+        _string_values(closure_payload.get("waived_escalation_event_ids") or [])
+    )
+    covered_event_ids = set(
+        _string_values(closure_payload.get("covered_escalation_event_ids") or [])
+    )
+    if not waived_event_ids:
+        failures.append("waived_escalation_event_set_missing")
+    if not covered_event_ids:
+        failures.append("covered_escalation_event_set_missing")
+    if waived_event_ids and not waived_event_ids.issubset(covered_event_ids):
+        failures.append("covered_escalation_event_set_incomplete")
+
+    coverage_promotion_artifact_ids = set(
+        _uuid_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
+    )
+    if promotion_artifact_uuid is not None:
+        coverage_promotion_artifact_ids.add(promotion_artifact_uuid)
+    promotion_source_escalation_event_ids: set[str] = set()
+    actual_coverage_receipt_sha256s: set[str] = set()
+    for coverage_artifact_id in sorted(coverage_promotion_artifact_ids, key=str):
+        coverage_artifact = session.get(AgentTaskArtifact, coverage_artifact_id)
+        if coverage_artifact is None:
+            failures.append("coverage_promotion_artifact_missing")
+            continue
+        if (
+            coverage_artifact.artifact_kind
+            != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND
+        ):
+            failures.append("coverage_promotion_artifact_kind_mismatch")
+            continue
+        receipt_sha = str(coverage_artifact.payload_json.get("receipt_sha256") or "")
+        if receipt_sha:
+            actual_coverage_receipt_sha256s.add(receipt_sha)
+        promotion_source_escalation_event_ids.update(
+            _string_values(coverage_artifact.payload_json.get("source_escalation_event_ids") or [])
+        )
+    declared_coverage_receipt_sha256s = set(
+        _string_values(closure_payload.get("coverage_promotion_receipt_sha256s") or [])
+    )
+    if (
+        declared_coverage_receipt_sha256s
+        and declared_coverage_receipt_sha256s != actual_coverage_receipt_sha256s
+    ):
+        failures.append("coverage_promotion_receipt_set_mismatch")
+    if covered_event_ids and not covered_event_ids.issubset(
+        promotion_source_escalation_event_ids
+    ):
+        failures.append("covered_escalation_event_not_in_promotion")
     return not failures, failures
 
 
@@ -2902,6 +2986,15 @@ def _waiver_closure_event_payload(
         "promotion_event_id": closure_payload.get("promotion_event_id"),
         "promotion_receipt_sha256": closure_payload.get("promotion_receipt_sha256"),
         "promotion_artifact_id": closure_payload.get("promotion_artifact_id"),
+        "coverage_promotion_event_ids": list(
+            closure_payload.get("coverage_promotion_event_ids") or []
+        ),
+        "coverage_promotion_artifact_ids": list(
+            closure_payload.get("coverage_promotion_artifact_ids") or []
+        ),
+        "coverage_promotion_receipt_sha256s": list(
+            closure_payload.get("coverage_promotion_receipt_sha256s") or []
+        ),
         "fixture_set_id": closure_payload.get("fixture_set_id"),
         "fixture_set_sha256": closure_payload.get("fixture_set_sha256"),
         "covered_escalation_event_ids": list(
@@ -2909,6 +3002,117 @@ def _waiver_closure_event_payload(
         ),
         "integrity_verified": integrity_verified,
         "integrity_failures": integrity_failures,
+    }
+
+
+def _claim_support_replay_alert_waiver_lifecycle_summary(
+    session: Session,
+    matching_rows: list[ClaimSupportPolicyChangeImpact],
+    waiver_closure_events_by_row: dict[UUID, list[SemanticGovernanceEvent]],
+) -> dict[str, Any]:
+    row_ids = {str(row.id) for row in matching_rows}
+    related_ledgers = [
+        ledger
+        for ledger in session.scalars(
+            select(ClaimSupportReplayAlertFixtureCoverageWaiverLedger).order_by(
+                ClaimSupportReplayAlertFixtureCoverageWaiverLedger.created_at.asc(),
+                ClaimSupportReplayAlertFixtureCoverageWaiverLedger.id.asc(),
+            )
+        )
+        if row_ids
+        & {
+            str(value)
+            for value in (ledger.source_change_impact_ids_json or [])
+            if value
+        }
+    ]
+    closure_events_by_id = {
+        event.id: event
+        for events in waiver_closure_events_by_row.values()
+        for event in events
+    }
+    invalid_closure_event_ids: set[UUID] = set()
+    for event in closure_events_by_id.values():
+        closure_payload = (
+            (event.event_payload_json or {}).get(
+                "claim_support_replay_alert_fixture_coverage_waiver_closure"
+            )
+            or {}
+        )
+        integrity_verified, _failures = _waiver_closure_event_integrity(
+            session,
+            event,
+            closure_payload,
+        )
+        if not integrity_verified:
+            invalid_closure_event_ids.add(event.id)
+
+    for ledger in related_ledgers:
+        if not ledger.coverage_complete:
+            continue
+        if ledger.closure_event_id is None:
+            continue
+        event = session.get(SemanticGovernanceEvent, ledger.closure_event_id)
+        if event is None:
+            invalid_closure_event_ids.add(ledger.closure_event_id)
+            continue
+        closure_payload = (
+            (event.event_payload_json or {}).get(
+                "claim_support_replay_alert_fixture_coverage_waiver_closure"
+            )
+            or {}
+        )
+        integrity_verified, _failures = _waiver_closure_event_integrity(
+            session,
+            event,
+            closure_payload,
+        )
+        if not integrity_verified:
+            invalid_closure_event_ids.add(event.id)
+
+    unresolved_ledgers = [
+        ledger
+        for ledger in related_ledgers
+        if ledger.waived_escalation_event_count > 0 and not ledger.coverage_complete
+    ]
+    closed_ledgers = [
+        ledger
+        for ledger in related_ledgers
+        if ledger.waived_escalation_event_count > 0 and ledger.coverage_complete
+    ]
+    invalid_closed_ledgers = [
+        ledger
+        for ledger in closed_ledgers
+        if ledger.closure_event_id is None
+        or ledger.closure_event_id in invalid_closure_event_ids
+    ]
+    invalid_waiver_closure_count = len(
+        {
+            *invalid_closure_event_ids,
+            *[
+                ledger.id
+                for ledger in invalid_closed_ledgers
+                if ledger.closure_event_id is None
+            ],
+        }
+    )
+    waiver_closure_integrity_verified = invalid_waiver_closure_count == 0
+    clear = not unresolved_ledgers and waiver_closure_integrity_verified
+    return {
+        "related_waiver_count": len(related_ledgers),
+        "unresolved_waiver_count": len(unresolved_ledgers),
+        "closed_waiver_count": len(closed_ledgers),
+        "invalid_waiver_closure_count": invalid_waiver_closure_count,
+        "waiver_closure_integrity_verified": waiver_closure_integrity_verified,
+        "clear": clear,
+        "related_waiver_ledger_ids": [str(ledger.id) for ledger in related_ledgers],
+        "unresolved_waiver_ledger_ids": [
+            str(ledger.id) for ledger in unresolved_ledgers
+        ],
+        "closed_waiver_ledger_ids": [str(ledger.id) for ledger in closed_ledgers],
+        "invalid_waiver_closure_event_ids": [
+            str(event_id) for event_id in sorted(invalid_closure_event_ids, key=str)
+        ],
     }
 
 
@@ -2954,6 +3158,11 @@ def _claim_support_policy_change_impact_summary(
     waiver_closure_events_by_row = (
         _claim_support_replay_alert_waiver_closure_events_by_impact(session, matching_rows)
     )
+    waiver_lifecycle = _claim_support_replay_alert_waiver_lifecycle_summary(
+        session,
+        matching_rows,
+        waiver_closure_events_by_row,
+    )
     status_counts: dict[str, int] = {}
     impact_rows: list[dict[str, Any]] = []
     for row in matching_rows:
@@ -2963,6 +3172,10 @@ def _claim_support_policy_change_impact_summary(
         escalation_events = escalation_events_by_row.get(row.id, [])
         fixture_promotion_events = fixture_promotion_events_by_row.get(row.id, [])
         waiver_closure_events = waiver_closure_events_by_row.get(row.id, [])
+        waiver_closure_event_payloads = [
+            _waiver_closure_event_payload(session, event)
+            for event in waiver_closure_events
+        ]
         impact_rows.append(
             {
                 "change_impact_id": str(row.id),
@@ -3015,10 +3228,7 @@ def _claim_support_policy_change_impact_summary(
                     _fixture_promotion_event_payload(event)
                     for event in fixture_promotion_events
                 ],
-                "waiver_closure_governance_events": [
-                    _waiver_closure_event_payload(session, event)
-                    for event in waiver_closure_events
-                ],
+                "waiver_closure_governance_events": waiver_closure_event_payloads,
             }
         )
 
@@ -3033,7 +3243,8 @@ def _claim_support_policy_change_impact_summary(
         "closed_count": sum(1 for row in impact_rows if row["replay_status"] == "closed"),
         "blocked_count": sum(1 for row in impact_rows if row["replay_status"] == "blocked"),
         "replay_status_counts": status_counts,
-        "clear": not open_impacts,
+        "waiver_lifecycle": waiver_lifecycle,
+        "clear": not open_impacts and waiver_lifecycle["clear"],
         "impacts": impact_rows,
     }
 
@@ -3113,6 +3324,35 @@ def _change_impact_payload(
                 "reason": (
                     "A claim-support calibration policy changed after this report's "
                     "support judgments were produced, and managed replay has not closed."
+                ),
+            }
+        )
+    waiver_lifecycle = claim_support_policy_impacts.get("waiver_lifecycle") or {}
+    unresolved_waiver_count = int(waiver_lifecycle.get("unresolved_waiver_count") or 0)
+    invalid_waiver_closure_count = int(
+        waiver_lifecycle.get("invalid_waiver_closure_count") or 0
+    )
+    if unresolved_waiver_count:
+        impacts.append(
+            {
+                "impact_type": "claim_support_replay_alert_fixture_coverage_waiver_unresolved",
+                "unresolved_waiver_count": unresolved_waiver_count,
+                "reason": (
+                    "Replay-alert fixture coverage waivers related to this report still "
+                    "lack complete promoted fixture coverage."
+                ),
+            }
+        )
+    if invalid_waiver_closure_count:
+        impacts.append(
+            {
+                "impact_type": (
+                    "claim_support_replay_alert_fixture_coverage_waiver_closure_invalid"
+                ),
+                "invalid_waiver_closure_count": invalid_waiver_closure_count,
+                "reason": (
+                    "Replay-alert fixture coverage waiver closure receipts related to "
+                    "this report failed integrity checks."
                 ),
             }
         )
@@ -3975,6 +4215,13 @@ def build_technical_report_evidence_manifest_payload(
         ),
         "change_impact_clear": audit_bundle["audit_checklist"].get(
             "change_impact_clear",
+            False,
+        ),
+        "replay_alert_waiver_closure_integrity_verified": audit_bundle[
+            "audit_checklist"
+        ].get("replay_alert_waiver_closure_integrity_verified", False),
+        "replay_alert_waiver_lifecycle_clear": audit_bundle["audit_checklist"].get(
+            "replay_alert_waiver_lifecycle_clear",
             False,
         ),
         "has_provenance_edges": bool(provenance_edges),
@@ -6870,6 +7117,22 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         else None
     )
     change_impact = _change_impact_payload(session, exports)
+    claim_support_change_impacts = (
+        change_impact.get("claim_support_policy_change_impacts") or {}
+    )
+    waiver_lifecycle = claim_support_change_impacts.get("waiver_lifecycle") or {}
+    unresolved_waiver_count = int(waiver_lifecycle.get("unresolved_waiver_count") or 0)
+    invalid_waiver_closure_count = int(
+        waiver_lifecycle.get("invalid_waiver_closure_count") or 0
+    )
+    replay_alert_waiver_closure_integrity_verified = bool(
+        waiver_lifecycle.get("waiver_closure_integrity_verified", True)
+    )
+    replay_alert_waiver_lifecycle_clear = (
+        unresolved_waiver_count == 0
+        and invalid_waiver_closure_count == 0
+        and replay_alert_waiver_closure_integrity_verified
+    )
     integrity = _technical_report_integrity_payload(draft_payload, report_exports, derivations)
     source_evidence_closure = technical_report_search_evidence_closure_payload(
         session,
@@ -7020,6 +7283,18 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
                 verification_row.outcome == "passed" if verification_row is not None else False
             ),
             "change_impact_clear": not change_impact["impacted"],
+            "replay_alert_waiver_closure_integrity_verified": (
+                replay_alert_waiver_closure_integrity_verified
+            ),
+            "unresolved_replay_alert_fixture_coverage_waiver_count": (
+                unresolved_waiver_count
+            ),
+            "invalid_replay_alert_fixture_coverage_waiver_closure_count": (
+                invalid_waiver_closure_count
+            ),
+            "replay_alert_waiver_lifecycle_clear": (
+                replay_alert_waiver_lifecycle_clear
+            ),
         },
     }
     audit_bundle["audit_checklist"]["complete"] = (
@@ -7046,6 +7321,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["semantic_governance_chain_change_impact_evaluated"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
+        and audit_bundle["audit_checklist"]["replay_alert_waiver_closure_integrity_verified"]
+        and audit_bundle["audit_checklist"]["replay_alert_waiver_lifecycle_clear"]
     )
     audit_bundle["audit_bundle_sha256"] = payload_sha256(audit_bundle)
     return audit_bundle
