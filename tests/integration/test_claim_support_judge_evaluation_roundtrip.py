@@ -93,8 +93,12 @@ def test_claim_support_judge_evaluation_task_persists_replay_rows(
         assert evaluation_row.evaluation_payload_sha256 == payload_sha256(
             evaluation_row.evaluation_payload_json
         )
-        assert session.get(ClaimSupportFixtureSet, UUID(payload["fixture_set_id"])) is not None
-        assert session.get(ClaimSupportCalibrationPolicy, UUID(payload["policy_id"])) is not None
+        fixture_set_row = session.get(ClaimSupportFixtureSet, UUID(payload["fixture_set_id"]))
+        policy_row = session.get(ClaimSupportCalibrationPolicy, UUID(payload["policy_id"]))
+        assert fixture_set_row is not None
+        assert fixture_set_row.fixture_set_sha256 == payload["fixture_set_sha256"]
+        assert policy_row is not None
+        assert policy_row.policy_sha256 == payload["policy_sha256"]
 
         case_rows = list(
             session.scalars(

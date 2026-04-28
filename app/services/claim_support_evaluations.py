@@ -363,7 +363,7 @@ def _fixture_set_payload(
     verdicts = _normalize_string_list(
         fixture.get("expected_verdict") for fixture in fixtures if fixture.get("expected_verdict")
     )
-    payload = {
+    fingerprint_payload = {
         "schema_name": CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_NAME,
         "schema_version": CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_VERSION,
         "fixture_set_name": fixture_set_name,
@@ -375,9 +375,18 @@ def _fixture_set_payload(
         "hard_case_kinds": hard_case_kinds,
         "verdicts": verdicts,
         "fixtures": fixtures,
+    }
+    payload = {
+        **fingerprint_payload,
         "metadata": metadata or {},
     }
-    return {**payload, "fixture_set_sha256": str(payload_sha256(payload))}
+    return {**payload, "fixture_set_sha256": str(payload_sha256(fingerprint_payload))}
+
+
+def _policy_payload_sha256(payload: dict[str, Any]) -> str:
+    return str(
+        payload_sha256({key: value for key, value in payload.items() if key != "policy_sha256"})
+    )
 
 
 def build_claim_support_calibration_policy_payload(
@@ -420,7 +429,7 @@ def build_claim_support_calibration_policy_payload(
         "required_verdicts": _normalize_string_list(required_verdicts or CLAIM_SUPPORT_VERDICTS),
         "metadata": metadata or {},
     }
-    return {**payload, "policy_sha256": str(payload_sha256(payload))}
+    return {**payload, "policy_sha256": _policy_payload_sha256(payload)}
 
 
 def ensure_claim_support_fixture_set(
@@ -477,7 +486,11 @@ def ensure_claim_support_calibration_policy(
         policy_payload
         or build_claim_support_calibration_policy_payload(thresholds=thresholds)
     )
-    policy_sha256 = str(payload.get("policy_sha256") or payload_sha256(payload))
+    policy_sha256 = _policy_payload_sha256(payload)
+    provided_policy_sha256 = payload.get("policy_sha256")
+    if provided_policy_sha256 and str(provided_policy_sha256) != policy_sha256:
+        raise ValueError("Claim support calibration policy payload SHA does not match payload.")
+    payload = {**payload, "policy_sha256": policy_sha256}
     existing = session.scalar(
         select(ClaimSupportCalibrationPolicy).where(
             ClaimSupportCalibrationPolicy.policy_name == str(payload["policy_name"]),
@@ -598,7 +611,10 @@ def evaluate_claim_support_judge_fixture_set(
         calibration_policy
         or build_claim_support_calibration_policy_payload(thresholds=requested_thresholds)
     )
-    policy_sha256 = str(policy_payload.get("policy_sha256") or payload_sha256(policy_payload))
+    policy_sha256 = _policy_payload_sha256(policy_payload)
+    provided_policy_sha256 = policy_payload.get("policy_sha256")
+    if provided_policy_sha256 and str(provided_policy_sha256) != policy_sha256:
+        raise ValueError("Claim support calibration policy payload SHA does not match payload.")
     policy_payload = {**policy_payload, "policy_sha256": policy_sha256}
     thresholds = dict(policy_payload.get("thresholds") or requested_thresholds)
     min_support_score = float(thresholds["min_support_score"])

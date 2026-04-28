@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
     default_claim_support_evaluation_fixtures,
@@ -79,6 +81,17 @@ def test_claim_support_judge_evaluation_uses_custom_policy_requirements() -> Non
     assert metrics_by_key["claim_support_judge_accuracy_gate"]["passed"] is True
     assert metrics_by_key["claim_support_verdict_coverage"]["passed"] is True
     assert metrics_by_key["claim_support_hard_case_coverage"]["passed"] is False
+
+
+def test_claim_support_judge_evaluation_rejects_policy_hash_mismatch() -> None:
+    policy = build_claim_support_calibration_policy_payload()
+    policy["policy_sha256"] = "not-the-policy-payload-sha"
+
+    with pytest.raises(
+        ValueError,
+        match="Claim support calibration policy payload SHA does not match payload",
+    ):
+        evaluate_claim_support_judge_fixture_set(calibration_policy=policy)
 
 
 def test_claim_support_judge_evaluation_fails_regression_fixture() -> None:
