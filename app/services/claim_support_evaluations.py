@@ -529,10 +529,30 @@ def mine_claim_support_failure_fixtures(
             source_case_id = str(case_row.case_id)
             source = {
                 "source_evaluation_id": str(evaluation_row.id),
+                "source_evaluation_name": evaluation_row.evaluation_name,
+                "source_gate_outcome": evaluation_row.gate_outcome,
+                "source_agent_task_id": (
+                    str(evaluation_row.agent_task_id)
+                    if evaluation_row.agent_task_id is not None
+                    else None
+                ),
+                "source_operator_run_id": (
+                    str(evaluation_row.operator_run_id)
+                    if evaluation_row.operator_run_id is not None
+                    else None
+                ),
+                "source_created_at": evaluation_row.created_at.isoformat(),
                 "source_case_row_id": str(case_row.id),
                 "source_case_id": source_case_id,
+                "case_index": case_row.case_index,
                 "source_fixture_set_id": (
                     str(fixture_set_row.id) if fixture_set_row is not None else None
+                ),
+                "source_fixture_set_name": (
+                    fixture_set_row.fixture_set_name if fixture_set_row is not None else None
+                ),
+                "source_fixture_set_version": (
+                    fixture_set_row.fixture_set_version if fixture_set_row is not None else None
                 ),
                 "source_fixture_set_sha256": (
                     fixture_set_row.fixture_set_sha256 if fixture_set_row is not None else None
@@ -540,10 +560,13 @@ def mine_claim_support_failure_fixtures(
                 "source_policy_id": (
                     str(evaluation_row.policy_id) if evaluation_row.policy_id else None
                 ),
+                "source_policy_name": evaluation_row.policy_name,
+                "source_policy_version": evaluation_row.policy_version,
                 "source_policy_sha256": evaluation_row.policy_sha256,
                 "expected_verdict": case_row.expected_verdict,
                 "predicted_verdict": case_row.predicted_verdict,
                 "hard_case_kind": case_row.hard_case_kind,
+                "support_score": case_row.support_score,
                 "failure_reasons": list(case_row.failure_reasons_json or []),
             }
             if source_case_id in seen_case_ids:
@@ -552,6 +575,20 @@ def mine_claim_support_failure_fixtures(
             fixture = _fixture_from_fixture_set(fixture_set_row, case_id=source_case_id)
             if fixture is None:
                 skipped_sources.append({**source, "skip_reason": "source_fixture_not_found"})
+                continue
+            if str(fixture.get("expected_verdict") or "") != case_row.expected_verdict:
+                skipped_sources.append(
+                    {**source, "skip_reason": "source_fixture_verdict_mismatch"}
+                )
+                continue
+            fixture_hard_case_kind = fixture.get("hard_case_kind")
+            if (
+                fixture_hard_case_kind
+                and str(fixture_hard_case_kind) != str(case_row.hard_case_kind or "")
+            ):
+                skipped_sources.append(
+                    {**source, "skip_reason": "source_fixture_hard_case_kind_mismatch"}
+                )
                 continue
             if not fixture.get("draft_payload"):
                 skipped_sources.append({**source, "skip_reason": "missing_draft_payload"})

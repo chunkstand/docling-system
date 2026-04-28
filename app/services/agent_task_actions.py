@@ -162,6 +162,7 @@ from app.services.evidence import (
     DOCUMENT_GENERATION_CONTEXT_PACK_GATE,
     attach_artifact_to_evidence_export,
     attach_operator_run_to_evidence_export,
+    payload_sha256,
     persist_search_evidence_package_export,
     persist_technical_report_evidence_export,
     persist_technical_report_evidence_manifest,
@@ -1972,12 +1973,16 @@ def _verify_claim_support_calibration_policy_executor(
         },
     )
     fixture_rows = [*base_fixture_rows, *mined_fixture_rows]
-    mined_failure_summary = {
+    mined_failure_summary_basis = {
         **mined_failure_manifest,
         "enabled": payload.include_mined_failures,
         "explicit_fixture_count": len(explicit_fixture_rows),
         "default_fixture_count": len(default_fixture_rows),
         "combined_fixture_count": len(fixture_rows),
+    }
+    mined_failure_summary = {
+        **mined_failure_summary_basis,
+        "summary_sha256": str(payload_sha256(mined_failure_summary_basis)),
     }
     fixture_set_record = ensure_claim_support_fixture_set(
         session,
@@ -2010,6 +2015,7 @@ def _verify_claim_support_calibration_policy_executor(
             "fixture_set_id": str(fixture_set_record.id),
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
             "mined_failure_manifest_sha256": mined_failure_summary["manifest_sha256"],
+            "mined_failure_summary_sha256": mined_failure_summary["summary_sha256"],
             "mined_failure_case_count": mined_failure_summary["mined_failure_case_count"],
         },
         input_payload={
@@ -2232,6 +2238,9 @@ def _apply_claim_support_calibration_policy_executor(
                     "verification_fixture_set_sha256": verification_fixture_set_sha256,
                     "mined_failure_manifest_sha256": (
                         verification_mined_failure_summary.get("manifest_sha256")
+                    ),
+                    "mined_failure_summary_sha256": (
+                        verification_mined_failure_summary.get("summary_sha256")
                     ),
                     "mined_failure_case_count": (
                         verification_mined_failure_summary.get("mined_failure_case_count")
