@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from copy import deepcopy
 from typing import Any
 from uuid import UUID
 
@@ -23,6 +24,8 @@ CLAIM_SUPPORT_EVALUATION_SCHEMA_NAME = "claim_support_judge_evaluation"
 CLAIM_SUPPORT_EVALUATION_SCHEMA_VERSION = "1.0"
 CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_NAME = "claim_support_fixture_set"
 CLAIM_SUPPORT_FIXTURE_SET_SCHEMA_VERSION = "1.0"
+CLAIM_SUPPORT_MINED_FAILURE_MANIFEST_SCHEMA_NAME = "claim_support_mined_failure_manifest"
+CLAIM_SUPPORT_MINED_FAILURE_MANIFEST_SCHEMA_VERSION = "1.0"
 CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_NAME = "claim_support_calibration_policy"
 CLAIM_SUPPORT_CALIBRATION_POLICY_SCHEMA_VERSION = "1.0"
 DEFAULT_CLAIM_SUPPORT_FIXTURE_SET_NAME = "default_claim_support_v1"
@@ -474,6 +477,106 @@ def ensure_claim_support_fixture_set(
     session.add(row)
     session.flush()
     return row
+
+
+def _fixture_from_fixture_set(
+    fixture_set: ClaimSupportFixtureSet | None,
+    *,
+    case_id: str,
+) -> dict[str, Any] | None:
+    if fixture_set is None:
+        return None
+    for fixture in fixture_set.fixtures_json or []:
+        if str(fixture.get("case_id") or "") == case_id:
+            return deepcopy(fixture)
+    return None
+
+
+def mine_claim_support_failure_fixtures(
+    session: Session,
+    *,
+    limit: int = 20,
+    exclude_case_ids: set[str] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    requested_limit = max(0, min(int(limit), 100))
+    seen_case_ids = set(exclude_case_ids or set())
+    sources: list[dict[str, Any]] = []
+    mined_fixtures: list[dict[str, Any]] = []
+    skipped_sources: list[dict[str, Any]] = []
+    if requested_limit:
+        rows = session.execute(
+            select(
+                ClaimSupportEvaluationCase,
+                ClaimSupportEvaluation,
+                ClaimSupportFixtureSet,
+            )
+            .join(
+                ClaimSupportEvaluation,
+                ClaimSupportEvaluation.id == ClaimSupportEvaluationCase.evaluation_id,
+            )
+            .outerjoin(
+                ClaimSupportFixtureSet,
+                ClaimSupportFixtureSet.id == ClaimSupportEvaluation.fixture_set_id,
+            )
+            .where(ClaimSupportEvaluationCase.passed.is_(False))
+            .order_by(
+                ClaimSupportEvaluationCase.created_at.desc(),
+                ClaimSupportEvaluationCase.id.desc(),
+            )
+            .limit(requested_limit * 4)
+        ).all()
+        for case_row, evaluation_row, fixture_set_row in rows:
+            source_case_id = str(case_row.case_id)
+            source = {
+                "source_evaluation_id": str(evaluation_row.id),
+                "source_case_row_id": str(case_row.id),
+                "source_case_id": source_case_id,
+                "source_fixture_set_id": (
+                    str(fixture_set_row.id) if fixture_set_row is not None else None
+                ),
+                "source_fixture_set_sha256": (
+                    fixture_set_row.fixture_set_sha256 if fixture_set_row is not None else None
+                ),
+                "source_policy_id": (
+                    str(evaluation_row.policy_id) if evaluation_row.policy_id else None
+                ),
+                "source_policy_sha256": evaluation_row.policy_sha256,
+                "expected_verdict": case_row.expected_verdict,
+                "predicted_verdict": case_row.predicted_verdict,
+                "hard_case_kind": case_row.hard_case_kind,
+                "failure_reasons": list(case_row.failure_reasons_json or []),
+            }
+            if source_case_id in seen_case_ids:
+                skipped_sources.append({**source, "skip_reason": "duplicate_case_id"})
+                continue
+            fixture = _fixture_from_fixture_set(fixture_set_row, case_id=source_case_id)
+            if fixture is None:
+                skipped_sources.append({**source, "skip_reason": "source_fixture_not_found"})
+                continue
+            if not fixture.get("draft_payload"):
+                skipped_sources.append({**source, "skip_reason": "missing_draft_payload"})
+                continue
+            source["source_fixture_sha256"] = str(payload_sha256(fixture))
+            fixture["mined_failure_source"] = source
+            mined_fixtures.append(fixture)
+            sources.append(source)
+            seen_case_ids.add(source_case_id)
+            if len(mined_fixtures) >= requested_limit:
+                break
+
+    manifest_basis = {
+        "schema_name": CLAIM_SUPPORT_MINED_FAILURE_MANIFEST_SCHEMA_NAME,
+        "schema_version": CLAIM_SUPPORT_MINED_FAILURE_MANIFEST_SCHEMA_VERSION,
+        "requested_limit": requested_limit,
+        "mined_failure_case_count": len(mined_fixtures),
+        "skipped_source_count": len(skipped_sources),
+        "sources": sources,
+        "skipped_sources": skipped_sources,
+    }
+    return mined_fixtures, {
+        **manifest_basis,
+        "manifest_sha256": str(payload_sha256(manifest_basis)),
+    }
 
 
 def _policy_row_from_payload(

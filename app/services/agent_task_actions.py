@@ -139,10 +139,12 @@ from app.services.agent_task_verifications import (
 )
 from app.services.claim_support_evaluations import (
     activate_claim_support_calibration_policy,
+    default_claim_support_evaluation_fixtures,
     draft_claim_support_calibration_policy,
     ensure_claim_support_fixture_set,
     evaluate_claim_support_judge_fixture_set,
     get_active_claim_support_calibration_policy,
+    mine_claim_support_failure_fixtures,
     persist_claim_support_judge_evaluation,
     resolve_claim_support_calibration_policy,
 )
@@ -1955,19 +1957,43 @@ def _verify_claim_support_calibration_policy_executor(
     if policy_row.status != "draft":
         raise ValueError("Only draft claim support calibration policies can be verified.")
 
-    fixture_rows = [fixture.model_dump(mode="json") for fixture in payload.fixtures]
+    explicit_fixture_rows = [fixture.model_dump(mode="json") for fixture in payload.fixtures]
+    default_fixture_rows = (
+        [] if explicit_fixture_rows else default_claim_support_evaluation_fixtures()
+    )
+    base_fixture_rows = explicit_fixture_rows or default_fixture_rows
+    mined_fixture_rows, mined_failure_manifest = mine_claim_support_failure_fixtures(
+        session,
+        limit=payload.mined_failure_limit if payload.include_mined_failures else 0,
+        exclude_case_ids={
+            str(fixture.get("case_id"))
+            for fixture in base_fixture_rows
+            if fixture.get("case_id")
+        },
+    )
+    fixture_rows = [*base_fixture_rows, *mined_fixture_rows]
+    mined_failure_summary = {
+        **mined_failure_manifest,
+        "enabled": payload.include_mined_failures,
+        "explicit_fixture_count": len(explicit_fixture_rows),
+        "default_fixture_count": len(default_fixture_rows),
+        "combined_fixture_count": len(fixture_rows),
+    }
     fixture_set_record = ensure_claim_support_fixture_set(
         session,
         fixture_set_name=payload.fixture_set_name,
         fixture_set_version=payload.fixture_set_version,
-        fixtures=fixture_rows or None,
-        metadata={"source": "verify_claim_support_calibration_policy"},
+        fixtures=fixture_rows,
+        metadata={
+            "source": "verify_claim_support_calibration_policy",
+            "mined_failure_summary": mined_failure_summary,
+        },
     )
     evaluation_payload = evaluate_claim_support_judge_fixture_set(
         evaluation_name="claim_support_calibration_policy_verification",
         fixture_set_name=payload.fixture_set_name,
         fixture_set_version=payload.fixture_set_version,
-        fixtures=fixture_rows or None,
+        fixtures=fixture_rows,
         calibration_policy=policy_row.policy_payload_json,
         fixture_set_id=fixture_set_record.id,
         policy_id=policy_row.id,
@@ -1983,12 +2009,17 @@ def _verify_claim_support_calibration_policy_executor(
             "policy_sha256": policy_row.policy_sha256,
             "fixture_set_id": str(fixture_set_record.id),
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
+            "mined_failure_manifest_sha256": mined_failure_summary["manifest_sha256"],
+            "mined_failure_case_count": mined_failure_summary["mined_failure_case_count"],
         },
         input_payload={
             "target_task_id": str(payload.target_task_id),
             "policy_payload": policy_row.policy_payload_json,
             "fixture_set_name": payload.fixture_set_name,
             "fixture_set_version": payload.fixture_set_version,
+            "include_mined_failures": payload.include_mined_failures,
+            "mined_failure_limit": payload.mined_failure_limit,
+            "mined_failure_summary": mined_failure_summary,
         },
         output_payload=evaluation_payload,
         metrics=evaluation_payload.get("summary") or {},
@@ -2032,12 +2063,14 @@ def _verify_claim_support_calibration_policy_executor(
             "fixture_set_id": str(fixture_set_record.id),
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
             "evaluation_id": result_evaluation["evaluation_id"],
+            "mined_failure_summary": mined_failure_summary,
         },
     )
     result = {
         "draft_policy": policy_row.policy_payload_json,
         "evaluation": result_evaluation,
         "verification": record.model_dump(mode="json"),
+        "mined_failure_summary": mined_failure_summary,
     }
     artifact = create_agent_task_artifact(
         session,
@@ -2134,6 +2167,11 @@ def _apply_claim_support_calibration_policy_executor(
     )
     verification_fixture_set_id = verification_details.get("fixture_set_id")
     verification_fixture_set_sha256 = verification_details.get("fixture_set_sha256")
+    verification_mined_failure_summary = dict(
+        verification_output.mined_failure_summary
+        or verification_details.get("mined_failure_summary")
+        or {}
+    )
 
     previous_active = get_active_claim_support_calibration_policy(
         session,
@@ -2179,6 +2217,7 @@ def _apply_claim_support_calibration_policy_executor(
             str(verification_fixture_set_sha256) if verification_fixture_set_sha256 else None
         ),
         "verification_policy_sha256": verification_policy_sha256,
+        "verification_mined_failure_summary": verification_mined_failure_summary,
         "success_metrics": [
             {
                 "metric_key": "claim_support_policy_verification_passed",
@@ -2191,6 +2230,12 @@ def _apply_claim_support_calibration_policy_executor(
                     "verification_outcome": verification.outcome,
                     "verification_policy_sha256": verification_policy_sha256,
                     "verification_fixture_set_sha256": verification_fixture_set_sha256,
+                    "mined_failure_manifest_sha256": (
+                        verification_mined_failure_summary.get("manifest_sha256")
+                    ),
+                    "mined_failure_case_count": (
+                        verification_mined_failure_summary.get("mined_failure_case_count")
+                    ),
                 },
             },
             {
@@ -2218,6 +2263,7 @@ def _apply_claim_support_calibration_policy_executor(
         input_payload={
             "draft_policy": draft_output.policy_payload,
             "verification": verification.model_dump(mode="json"),
+            "verification_mined_failure_summary": verification_mined_failure_summary,
             "reason": payload.reason,
         },
         output_payload=apply_payload,

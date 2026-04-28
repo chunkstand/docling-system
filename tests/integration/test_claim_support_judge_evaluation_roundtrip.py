@@ -330,6 +330,7 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         verify_payload = verify_row.result_json["payload"]
         assert verify_payload["verification"]["outcome"] == "passed"
         assert verify_payload["evaluation"]["policy_id"] == str(draft_policy_id)
+        assert verify_payload["mined_failure_summary"]["mined_failure_case_count"] == 0
         verification_id = verify_payload["verification"]["verification_id"]
         verification_fixture_set_id = verify_payload["evaluation"]["fixture_set_id"]
         verification_fixture_set_sha256 = verify_payload["evaluation"]["fixture_set_sha256"]
@@ -378,6 +379,9 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         assert apply_payload["verification_fixture_set_sha256"] == verification_fixture_set_sha256
         assert apply_payload["verification_policy_sha256"] == verification_policy_sha256
         assert apply_payload["draft_policy_sha256"] == verification_policy_sha256
+        assert apply_payload["verification_mined_failure_summary"][
+            "mined_failure_case_count"
+        ] == 0
         assert apply_payload["operator_run_id"]
 
         initial_policy = session.get(ClaimSupportCalibrationPolicy, initial_policy_id)
@@ -421,6 +425,111 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         assert eval_payload["summary"]["gate_outcome"] == "passed"
         assert eval_payload["policy_id"] == str(draft_policy_id)
         assert eval_payload["policy_version"] == "v2"
+
+
+def test_claim_support_policy_verification_replays_mined_failed_cases(
+    postgres_integration_harness,
+):
+    failure_fixture = deepcopy(default_claim_support_evaluation_fixtures()[0])
+    failure_fixture["case_id"] = "mined_claim_support_failure"
+    failure_fixture["description"] = "Persisted failure should become future policy evidence."
+    failure_fixture["hard_case_kind"] = "mined_failed_claim_support_case"
+    failure_fixture["expected_verdict"] = "unsupported"
+
+    with postgres_integration_harness.session_factory() as session:
+        source_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_claim_support_judge",
+                input={
+                    "evaluation_name": "claim_support_judge_mined_failure_source",
+                    "fixture_set_name": "mined_failure_source_fixture_set",
+                    "fixtures": [failure_fixture],
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["mined_failed_claim_support_case"],
+                    "required_verdicts": ["unsupported"],
+                },
+                workflow_version="claim_support_policy_mined_failure_integration",
+            ),
+        )
+        source_task_id = source_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        source_row = session.get(AgentTask, source_task_id)
+        assert source_row is not None
+        source_payload = source_row.result_json["payload"]
+        source_evaluation_id = source_payload["evaluation_id"]
+        source_fixture_set_id = source_payload["fixture_set_id"]
+        source_fixture_set_sha256 = source_payload["fixture_set_sha256"]
+        assert source_payload["summary"]["gate_outcome"] == "failed"
+        assert source_payload["summary"]["failed_case_count"] == 1
+
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_mined_failures",
+                    "rationale": "prove mined support-judge failures join verification evidence",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["exact_source_support"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_mined_failure_integration",
+            ),
+        )
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixture_set_name": "mined_failure_policy_verification",
+                    "fixture_set_version": "v1",
+                    "include_mined_failures": True,
+                    "mined_failure_limit": 5,
+                },
+                workflow_version="claim_support_policy_mined_failure_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        verify_payload = verify_row.result_json["payload"]
+        mined_summary = verify_payload["mined_failure_summary"]
+        mined_source = mined_summary["sources"][0]
+
+        assert verify_payload["verification"]["outcome"] == "failed"
+        assert verify_payload["evaluation"]["summary"]["failed_case_count"] == 1
+        assert verify_payload["evaluation"]["summary"]["case_count"] == (
+            len(default_claim_support_evaluation_fixtures()) + 1
+        )
+        assert mined_summary["enabled"] is True
+        assert mined_summary["default_fixture_count"] == len(
+            default_claim_support_evaluation_fixtures()
+        )
+        assert mined_summary["explicit_fixture_count"] == 0
+        assert mined_summary["mined_failure_case_count"] == 1
+        assert mined_summary["combined_fixture_count"] == (
+            len(default_claim_support_evaluation_fixtures()) + 1
+        )
+        assert mined_summary["manifest_sha256"]
+        assert mined_source["source_evaluation_id"] == source_evaluation_id
+        assert mined_source["source_case_id"] == "mined_claim_support_failure"
+        assert mined_source["source_fixture_set_id"] == source_fixture_set_id
+        assert mined_source["source_fixture_set_sha256"] == source_fixture_set_sha256
 
 
 def test_claim_support_policy_apply_blocks_stale_draft_after_verification(
