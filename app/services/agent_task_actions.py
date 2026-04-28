@@ -148,6 +148,12 @@ from app.services.claim_support_evaluations import (
     persist_claim_support_judge_evaluation,
     resolve_claim_support_calibration_policy,
 )
+from app.services.claim_support_policy_governance import (
+    CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
+    CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME,
+    build_claim_support_policy_activation_governance_payload,
+    record_claim_support_policy_activation_governance_event,
+)
 from app.services.documents import (
     get_latest_document_evaluation_detail,
     reprocess_document,
@@ -2307,11 +2313,53 @@ def _apply_claim_support_calibration_policy_executor(
         storage_service=StorageService(),
         filename="claim_support_calibration_policy_activation.json",
     )
+    governance_payload = build_claim_support_policy_activation_governance_payload(
+        session,
+        task=task,
+        activated_policy=activated_policy,
+        previous_active_policy=previous_active,
+        retired_policies=retired_policies,
+        verification=verification.model_dump(mode="json"),
+        verification_output=verification_output.model_dump(mode="json"),
+        apply_payload=result,
+        activation_artifact=artifact,
+        operator_run=operator_run,
+    )
+    governance_artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind=CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
+        payload=governance_payload,
+        storage_service=StorageService(),
+        filename=CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME,
+    )
+    governance_event = record_claim_support_policy_activation_governance_event(
+        session,
+        task=task,
+        activated_policy=activated_policy,
+        governance_artifact=governance_artifact,
+        governance_payload=governance_payload,
+    )
+    governance_receipt = governance_payload.get("activation_governance_receipt") or {}
+    governance_integrity = governance_payload.get("integrity") or {}
     return {
         **result,
         "artifact_id": str(artifact.id),
         "artifact_kind": artifact.artifact_kind,
         "artifact_path": artifact.storage_path,
+        "activation_governance_artifact_id": str(governance_artifact.id),
+        "activation_governance_artifact_kind": governance_artifact.artifact_kind,
+        "activation_governance_artifact_path": governance_artifact.storage_path,
+        "activation_governance_payload_sha256": governance_payload.get(
+            "activation_governance_payload_sha256"
+        ),
+        "activation_governance_receipt_sha256": governance_receipt.get("receipt_sha256"),
+        "activation_governance_signature_status": governance_receipt.get("signature_status"),
+        "activation_governance_prov_jsonld_sha256": governance_integrity.get(
+            "prov_jsonld_sha256"
+        ),
+        "activation_governance_event_id": str(governance_event.id),
+        "activation_governance_event_hash": governance_event.event_hash,
     }
 
 

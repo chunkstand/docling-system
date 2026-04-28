@@ -2,9 +2,9 @@
 
 Date: 2026-04-27 local / 2026-04-28 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
-Branch: `codex/document-generation-context-pack`
+Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this implementation pass: `e75ea17` (`Align docs with claim support evaluation state`)
+Latest committed checkpoint before this implementation pass: `e0bad8a` (`Harden mined claim support verification`)
 
 ## Current Position
 
@@ -70,11 +70,11 @@ The support-judge calibration path is now first-class:
 - governed promotion path: `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`
 - service: `app.services.claim_support_evaluations`
 - persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`
-- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
+- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, `claim_support_calibration_policy_activation`, and `claim_support_policy_activation_governance`
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, and records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason; the database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, and a linked `claim_support_policy_activated` semantic-governance event. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -96,7 +96,7 @@ Every registered action declares typed input, output schema metadata, side-effec
 
 ## Verification Snapshot
 
-Latest full code verification before this docs update:
+Latest full code verification during this implementation pass:
 
 ```bash
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
@@ -105,28 +105,35 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-749 passed
+766 passed in 83.18s
 ```
 
-Focused claim-support verification before this docs update:
+Focused claim-support verification during this implementation pass:
 
 ```bash
-uv run python -m pytest tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_claim_support_evaluations.py tests/unit/test_agent_action_contracts.py -q
+uv run python -m pytest tests/unit/test_alembic_0059_claim_support_policy_governance.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
+uv run alembic upgrade head
+uv run alembic current
+uv run docling-system-architecture-inspect
+uv run ruff check .
 ```
 
 Results:
 
 ```text
-80 passed
-2 passed
+1 passed
+11 passed
+alembic current: 0059_claim_policy_governance (head)
+create_all verified against a clean temporary Postgres database
+architecture inspection valid: true, violation_count: 0
+ruff: All checks passed
 ```
 
-Documentation alignment verification during this docs update:
+Architecture inspection during this pass:
 
 ```bash
 uv run docling-system-architecture-inspect
-uv run python -m pytest tests/unit/test_agent_action_contracts.py tests/unit/test_architecture_inspection.py tests/unit/test_architecture_decisions.py -q
 ```
 
 Results:
@@ -134,15 +141,22 @@ Results:
 ```text
 valid: true
 violation_count: 0
-agent_action_count: 46
-31 passed
+agent_action_count: 50
 ```
 
-## Files Updated In This Documentation Alignment
+## Files Updated In This Pass
 
 - [README.md](/Users/chunkstand/Documents/docling-system/README.md)
 - [SYSTEM_PLAN.md](/Users/chunkstand/Documents/docling-system/SYSTEM_PLAN.md)
 - [docs/SESSION_HANDOFF.md](/Users/chunkstand/Documents/docling-system/docs/SESSION_HANDOFF.md)
+- [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
+- [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
+- [app/services/agent_task_actions.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_actions.py)
+- [app/services/claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_governance.py)
+- [app/services/semantic_governance.py](/Users/chunkstand/Documents/docling-system/app/services/semantic_governance.py)
+- [alembic/versions/0059_claim_support_policy_activation_governance.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0059_claim_support_policy_activation_governance.py)
+- [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
+- [tests/unit/test_alembic_0059_claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0059_claim_support_policy_governance.py)
 
 ## Next Suggested Pass
 

@@ -1513,6 +1513,15 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     artifact_id: UUID
     artifact_kind: str
     artifact_path: str | None = None
+    activation_governance_artifact_id: UUID | None = None
+    activation_governance_artifact_kind: str | None = None
+    activation_governance_artifact_path: str | None = None
+    activation_governance_payload_sha256: str | None = None
+    activation_governance_receipt_sha256: str | None = None
+    activation_governance_signature_status: str | None = None
+    activation_governance_prov_jsonld_sha256: str | None = None
+    activation_governance_event_id: UUID | None = None
+    activation_governance_event_hash: str | None = None
 
 
 class EvaluateClaimSupportJudgeTaskOutput(BaseModel):

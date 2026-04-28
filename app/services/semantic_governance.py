@@ -433,6 +433,10 @@ def _active_semantic_basis(session: Session) -> dict[str, Any]:
     }
 
 
+def active_semantic_basis(session: Session) -> dict[str, Any]:
+    return _active_semantic_basis(session)
+
+
 def _search_requests_for_manifest(
     session: Session,
     manifest: EvidenceManifest | None,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
@@ -17,6 +18,7 @@ from app.db.models import (
     ClaimSupportFixtureSet,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
+    SemanticGovernanceEvent,
 )
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
@@ -42,6 +44,161 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         assert task is not None
         process_agent_task(session, task.id, postgres_integration_harness.storage_service)
         return task.id
+
+
+def _enable_claim_support_governance_signing(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.claim_support_policy_governance.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="claim-support-secret",
+            audit_bundle_signing_key_id="claim-support-key",
+        ),
+    )
+
+
+def _assert_claim_support_activation_governance(
+    session,
+    *,
+    apply_payload: dict,
+    activated_policy_id: UUID,
+    previous_policy_id: UUID | None,
+    verification_fixture_set_sha256: str,
+    expected_mined_failure_count: int,
+    expected_mined_failure_summary_sha256: str | None = None,
+) -> dict:
+    assert (
+        apply_payload["activation_governance_artifact_kind"]
+        == "claim_support_policy_activation_governance"
+    )
+    assert apply_payload["activation_governance_artifact_id"]
+    assert apply_payload["activation_governance_artifact_path"]
+    assert apply_payload["activation_governance_payload_sha256"]
+    assert apply_payload["activation_governance_receipt_sha256"]
+    assert apply_payload["activation_governance_signature_status"] == "signed"
+    assert apply_payload["activation_governance_prov_jsonld_sha256"]
+    assert apply_payload["activation_governance_event_id"]
+    assert apply_payload["activation_governance_event_hash"]
+
+    governance_artifact = session.get(
+        AgentTaskArtifact,
+        UUID(apply_payload["activation_governance_artifact_id"]),
+    )
+    assert governance_artifact is not None
+    assert governance_artifact.artifact_kind == "claim_support_policy_activation_governance"
+    assert governance_artifact.storage_path == apply_payload["activation_governance_artifact_path"]
+
+    governance_payload = governance_artifact.payload_json
+    assert governance_payload["schema_name"] == "claim_support_policy_activation_governance"
+    assert governance_payload["governance_profile"] == (
+        "claim_support_policy_activation_governance_v1"
+    )
+    assert (
+        governance_payload["activation_governance_payload_sha256"]
+        == apply_payload["activation_governance_payload_sha256"]
+    )
+    assert governance_payload["policy_diff"]["activated_policy"]["policy_id"] == str(
+        activated_policy_id
+    )
+    assert (
+        governance_payload["policy_diff"]["activated_policy"]["policy_sha256"]
+        == apply_payload["activated_policy_sha256"]
+    )
+    previous_snapshot = governance_payload["policy_diff"]["previous_active_policy"]
+    if previous_policy_id is None:
+        assert previous_snapshot is None
+    else:
+        assert previous_snapshot["policy_id"] == str(previous_policy_id)
+        assert (
+            previous_snapshot["policy_sha256"]
+            == apply_payload["previous_active_policy_sha256"]
+        )
+    assert (
+        governance_payload["verification"]["verification"]["verification_id"]
+        == apply_payload["verification_id"]
+    )
+    assert (
+        governance_payload["fixture_replay"]["fixture_set"]["fixture_set_sha256"]
+        == verification_fixture_set_sha256
+    )
+    fixture_set_diff = governance_payload["fixture_replay"]["fixture_set_diff"]
+    assert fixture_set_diff["fixture_set_sha256"] == verification_fixture_set_sha256
+    assert fixture_set_diff["fixture_set_diff_sha256"]
+    assert (
+        fixture_set_diff["replay_composition"]["mined_failure_case_count"]
+        == expected_mined_failure_count
+    )
+    mined_summary = governance_payload["fixture_replay"]["mined_failure_summary"]
+    assert mined_summary["mined_failure_case_count"] == expected_mined_failure_count
+    if expected_mined_failure_summary_sha256 is not None:
+        assert mined_summary["summary_sha256"] == expected_mined_failure_summary_sha256
+
+    receipt = governance_payload["activation_governance_receipt"]
+    assert receipt["signature_status"] == "signed"
+    assert receipt["signing_key_id"] == "claim-support-key"
+    assert receipt["hash_chain_complete"] is True
+    assert receipt["signed_payload_sha256"] == apply_payload[
+        "activation_governance_payload_sha256"
+    ]
+    assert receipt["receipt_sha256"] == apply_payload["activation_governance_receipt_sha256"]
+    assert any(
+        item["name"] == "claim_support_policy_activation_governance"
+        and item["sha256"] == apply_payload["activation_governance_payload_sha256"]
+        for item in receipt["hash_chain"]
+    )
+    assert any(
+        item["name"] == "verification_fixture_set_diff"
+        and item["sha256"] == fixture_set_diff["fixture_set_diff_sha256"]
+        for item in receipt["hash_chain"]
+    )
+
+    assert governance_payload["integrity"]["complete"] is True
+    assert governance_payload["integrity"]["signature_present"] is True
+    assert (
+        governance_payload["integrity"]["prov_jsonld_sha256"]
+        == apply_payload["activation_governance_prov_jsonld_sha256"]
+    )
+    prov_jsonld = governance_payload["prov_jsonld"]
+    assert prov_jsonld["@context"]["prov"] == "http://www.w3.org/ns/prov#"
+    graph_ids = {node["@id"] for node in prov_jsonld["@graph"]}
+    assert f"docling:claim_support_calibration_policy:{activated_policy_id}" in graph_ids
+    assert f"docling:agent_task_artifact:{apply_payload['artifact_id']}" in graph_ids
+
+    governance_event = session.get(
+        SemanticGovernanceEvent,
+        UUID(apply_payload["activation_governance_event_id"]),
+    )
+    assert governance_event is not None
+    assert governance_event.event_kind == "claim_support_policy_activated"
+    assert governance_event.governance_scope == (
+        "claim_support_policy:claim_support_judge_calibration_policy"
+    )
+    assert governance_event.subject_table == "claim_support_calibration_policies"
+    assert governance_event.subject_id == activated_policy_id
+    assert governance_event.task_id == governance_artifact.task_id
+    assert governance_event.agent_task_artifact_id == governance_artifact.id
+    assert governance_event.receipt_sha256 == apply_payload[
+        "activation_governance_receipt_sha256"
+    ]
+    assert governance_event.event_hash == apply_payload["activation_governance_event_hash"]
+    event_activation = governance_event.event_payload_json["claim_support_policy_activation"]
+    assert event_activation["artifact_id"] == str(governance_artifact.id)
+    assert event_activation["activated_policy_id"] == str(activated_policy_id)
+    assert event_activation["activated_policy_sha256"] == apply_payload[
+        "activated_policy_sha256"
+    ]
+    assert event_activation["receipt_sha256"] == apply_payload[
+        "activation_governance_receipt_sha256"
+    ]
+    assert event_activation["signature_status"] == "signed"
+    assert (
+        event_activation["verification_fixture_set_diff_sha256"]
+        == fixture_set_diff["fixture_set_diff_sha256"]
+    )
+    assert (
+        event_activation["activation_governance_payload_sha256"]
+        == apply_payload["activation_governance_payload_sha256"]
+    )
+    return governance_payload
 
 
 def test_claim_support_judge_evaluation_task_persists_replay_rows(
@@ -273,7 +430,10 @@ def test_claim_support_judge_evaluation_task_uses_persisted_custom_policy(
 
 def test_claim_support_policy_promotion_workflow_activates_verified_policy(
     postgres_integration_harness,
+    monkeypatch,
 ):
+    _enable_claim_support_governance_signing(monkeypatch)
+
     with postgres_integration_harness.session_factory() as session:
         initial_policy = ensure_claim_support_calibration_policy(
             session,
@@ -383,6 +543,14 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
             "mined_failure_case_count"
         ] == 0
         assert apply_payload["operator_run_id"]
+        _assert_claim_support_activation_governance(
+            session,
+            apply_payload=apply_payload,
+            activated_policy_id=draft_policy_id,
+            previous_policy_id=initial_policy_id,
+            verification_fixture_set_sha256=verification_fixture_set_sha256,
+            expected_mined_failure_count=0,
+        )
 
         initial_policy = session.get(ClaimSupportCalibrationPolicy, initial_policy_id)
         activated_policy = session.get(ClaimSupportCalibrationPolicy, draft_policy_id)
@@ -548,7 +716,10 @@ def test_claim_support_policy_verification_replays_mined_failed_cases(
 
 def test_claim_support_policy_activation_carries_remediated_mined_failures(
     postgres_integration_harness,
+    monkeypatch,
 ):
+    _enable_claim_support_governance_signing(monkeypatch)
+
     failure_fixture = deepcopy(default_claim_support_evaluation_fixtures()[1])
     failure_fixture["case_id"] = "mined_remediated_claim_support_failure"
     failure_fixture["description"] = (
@@ -634,6 +805,7 @@ def test_claim_support_policy_activation_carries_remediated_mined_failures(
         assert verify_payload["evaluation"]["summary"]["case_count"] == (
             len(default_claim_support_evaluation_fixtures()) + 1
         )
+        verification_fixture_set_sha256 = verify_payload["evaluation"]["fixture_set_sha256"]
         assert mined_summary["mined_failure_case_count"] == 1
         assert mined_summary["summary_sha256"]
         assert mined_source["source_case_id"] == "mined_remediated_claim_support_failure"
@@ -681,6 +853,15 @@ def test_claim_support_policy_activation_carries_remediated_mined_failures(
         assert apply_payload["success_metrics"][0]["details"][
             "mined_failure_summary_sha256"
         ] == mined_summary["summary_sha256"]
+        _assert_claim_support_activation_governance(
+            session,
+            apply_payload=apply_payload,
+            activated_policy_id=draft_policy_id,
+            previous_policy_id=initial_policy_id,
+            verification_fixture_set_sha256=verification_fixture_set_sha256,
+            expected_mined_failure_count=1,
+            expected_mined_failure_summary_sha256=mined_summary["summary_sha256"],
+        )
         assert session.get(ClaimSupportCalibrationPolicy, initial_policy_id).status == "retired"
         assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "active"
 

@@ -122,6 +122,7 @@ class SemanticGovernanceEventKind(StrEnum):
     RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
     RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
     RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = "retrieval_reranker_artifact_materialized"
+    CLAIM_SUPPORT_POLICY_ACTIVATED = "claim_support_policy_activated"
 
 
 class RetrievalJudgmentKind(StrEnum):
@@ -3676,7 +3677,8 @@ class SemanticGovernanceEvent(Base):
             "'technical_report_prov_export_frozen', "
             "'retrieval_training_run_materialized', "
             "'retrieval_learning_candidate_evaluated', "
-            "'retrieval_reranker_artifact_materialized'"
+            "'retrieval_reranker_artifact_materialized', "
+            "'claim_support_policy_activated'"
             ")",
             name="ck_semantic_governance_events_event_kind",
         ),
