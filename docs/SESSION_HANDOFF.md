@@ -4,7 +4,7 @@ Date: 2026-04-27 local / 2026-04-28 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this hardening pass: `ff4108b` (`Add claim support activation governance artifact`)
+Latest committed checkpoint before this implementation pass: `4c7cf74` (`Harden claim support activation governance`)
 
 ## Current Position
 
@@ -69,12 +69,12 @@ The support-judge calibration path is now first-class:
 - task type: `evaluate_claim_support_judge`
 - governed promotion path: `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`
 - service: `app.services.claim_support_evaluations`
-- persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, and `claim_support_evaluation_cases`
+- persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, `claim_support_evaluation_cases`, and `claim_support_policy_change_impacts`
 - artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, `claim_support_calibration_policy_activation`, and `claim_support_policy_activation_governance`
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, and a linked `claim_support_policy_activated` semantic-governance event. The governance PROV graph names both the activation artifact and the governance artifact, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, and a stable payload hash. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -105,13 +105,14 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-766 passed in 86.24s
+768 passed in 105.43s
 ```
 
 Focused claim-support verification during this implementation pass:
 
 ```bash
 uv run python -m pytest tests/unit/test_alembic_0059_claim_support_policy_governance.py -q
+uv run python -m pytest tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/integration/test_technical_report_harness_roundtrip.py -q
 uv run alembic upgrade head
@@ -124,10 +125,11 @@ Results:
 
 ```text
 1 passed
-11 passed
+1 passed
 12 passed
-alembic current: 0059_claim_policy_governance (head)
-create_all verified against a clean temporary Postgres database
+13 passed
+alembic current: 0060_claim_policy_impacts (head)
+create_all verified against a clean temporary Postgres database with 73 tables
 architecture inspection valid: true, violation_count: 0
 ruff: All checks passed
 ```
@@ -154,25 +156,18 @@ agent_action_count: 50
 - [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
 - [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
 - [app/services/agent_task_actions.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_actions.py)
-- [app/services/agent_task_artifacts.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_artifacts.py)
 - [app/services/claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_governance.py)
-- [app/services/semantic_governance.py](/Users/chunkstand/Documents/docling-system/app/services/semantic_governance.py)
-- [alembic/versions/0059_claim_support_policy_activation_governance.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0059_claim_support_policy_activation_governance.py)
+- [alembic/versions/0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0060_claim_support_policy_change_impacts.py)
 - [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
-- [tests/unit/test_alembic_0059_claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0059_claim_support_policy_governance.py)
+- [tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py)
 
 ## Next Suggested Pass
 
-The remaining useful next pass is not another docs update. It is an end-to-end live operator workflow run for the technical-report path:
+The next useful pass is to turn persisted policy change-impact rows into an operator replay workflow:
 
-1. create a report plan from an active ingested document
-2. build evidence cards
-3. prepare the report harness
-4. evaluate the document-generation context pack
-5. draft a technical report
-6. verify the report
-7. export and inspect the audit bundle
-8. run `evaluate_claim_support_judge`
-9. exercise `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy` when a support-judge replay policy change is needed
+1. list `claim_support_policy_change_impacts` rows by policy activation
+2. render impacted draft/support/verifier IDs and replay reasons in the operator surface/API
+3. create queued replay tasks from the recommendations
+4. close the impact row only after the replayed `draft_technical_report` and `verify_technical_report` tasks pass
 
-That would validate the full document-generation audit chain against live corpus data rather than only fixtures and isolated integration tests.
+That would move from identifying stale court-grade report artifacts to driving the replay loop that refreshes them.

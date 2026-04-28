@@ -5,20 +5,25 @@ import os
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import delete, select, text, update
 
+from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskArtifactImmutabilityEvent,
     AgentTaskStatus,
+    AgentTaskVerification,
+    ClaimEvidenceDerivation,
     ClaimSupportCalibrationPolicy,
     ClaimSupportEvaluation,
     ClaimSupportEvaluationCase,
     ClaimSupportFixtureSet,
+    ClaimSupportPolicyChangeImpact,
+    EvidencePackageExport,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
     SemanticGovernanceEvent,
@@ -77,6 +82,205 @@ def _enable_claim_support_governance_signing(monkeypatch) -> None:
     )
 
 
+def _seed_impacted_technical_report_records(session) -> dict[str, UUID | str]:
+    now = utcnow()
+    draft_task_id = uuid4()
+    verify_task_id = uuid4()
+    support_run_id = uuid4()
+    export_id = uuid4()
+    draft_artifact_id = uuid4()
+    derivation_id = uuid4()
+    support_judgment = {
+        "schema_name": "technical_report_claim_support_judgment",
+        "schema_version": "1.0",
+        "judge_kind": "deterministic_v1",
+        "claim_id": "claim-impact-1",
+        "verdict": "supported",
+        "support_score": 0.92,
+        "min_support_score": 0.34,
+        "evidence_card_ids": ["card-impact-1"],
+        "resolved_evidence_card_ids": ["card-impact-1"],
+        "graph_edge_ids": [],
+        "resolved_graph_edge_ids": [],
+        "source_search_request_result_ids": [str(uuid4())],
+        "matched_claim_tokens": ["traceable", "evidence"],
+        "matched_claim_token_count": 2,
+        "claim_token_count": 2,
+        "lexical_overlap_ratio": 1.0,
+        "support_reasons": ["resolved_evidence_cards"],
+        "unsupported_reasons": [],
+        "provisional_rule": "integration fixture",
+    }
+    support_judgment_sha = payload_sha256(support_judgment)
+    draft_payload = {
+        "schema_name": "draft_technical_report_output",
+        "schema_version": "1.0",
+        "claims": [
+            {
+                "claim_id": "claim-impact-1",
+                "rendered_text": "A traceable evidence claim.",
+                "support_judge_run_id": str(support_run_id),
+                "support_judgment_sha256": support_judgment_sha,
+                "support_judgment": support_judgment,
+            }
+        ],
+        "claim_support_summary": {
+            "support_judge_run_id": str(support_run_id),
+            "claims_with_support_judgment_count": 1,
+            "supported_claim_count": 1,
+        },
+    }
+    verification_payload = {
+        "schema_name": "verify_technical_report_output",
+        "schema_version": "1.0",
+        "verification_outcome": "passed",
+        "summary": {
+            "claim_count": 1,
+            "claims_with_support_judgment_count": 1,
+        },
+    }
+    session.add_all(
+        [
+            AgentTask(
+                id=draft_task_id,
+                task_type="draft_technical_report",
+                status=AgentTaskStatus.COMPLETED.value,
+                side_effect_level="draft_change",
+                input_json={"target_task_id": str(uuid4())},
+                result_json=draft_payload,
+                workflow_version="claim_support_policy_impact_fixture",
+                created_at=now,
+                updated_at=now,
+                completed_at=now,
+            ),
+            AgentTask(
+                id=verify_task_id,
+                task_type="verify_technical_report",
+                status=AgentTaskStatus.COMPLETED.value,
+                side_effect_level="read_only",
+                input_json={"target_task_id": str(draft_task_id)},
+                result_json=verification_payload,
+                workflow_version="claim_support_policy_impact_fixture",
+                created_at=now,
+                updated_at=now,
+                completed_at=now,
+            ),
+        ]
+    )
+    session.flush()
+    support_output = {
+        "schema_name": "technical_report_claim_support_judgments",
+        "claim_count": 1,
+        "supported_claim_count": 1,
+        "claim_judgments": [support_judgment],
+    }
+    session.add(
+        KnowledgeOperatorRun(
+            id=support_run_id,
+            operator_kind="judge",
+            operator_name="technical_report_claim_support_judge",
+            operator_version="v1",
+            status="completed",
+            agent_task_id=draft_task_id,
+            output_sha256=payload_sha256(support_output),
+            metrics_json={"claim_count": 1, "supported_claim_count": 1},
+            metadata_json={"fixture": "claim_support_policy_change_impact"},
+            created_at=now,
+            started_at=now,
+            completed_at=now,
+        )
+    )
+    session.add(
+        AgentTaskArtifact(
+            id=draft_artifact_id,
+            task_id=draft_task_id,
+            artifact_kind="technical_report_draft",
+            storage_path=f"storage/agent_tasks/{draft_task_id}/technical_report_draft.json",
+            payload_json=draft_payload,
+            created_at=now,
+        )
+    )
+    session.add(
+        EvidencePackageExport(
+            id=export_id,
+            package_kind="technical_report_claims",
+            search_request_id=None,
+            agent_task_id=draft_task_id,
+            agent_task_artifact_id=draft_artifact_id,
+            package_sha256="impact-evidence-package-sha",
+            trace_sha256="impact-trace-sha",
+            package_payload_json={"claim_ids": ["claim-impact-1"]},
+            source_snapshot_sha256s_json=["impact-source-snapshot-sha"],
+            operator_run_ids_json=[str(support_run_id)],
+            document_ids_json=[],
+            run_ids_json=[],
+            claim_ids_json=["claim-impact-1"],
+            export_status="completed",
+            created_at=now,
+        )
+    )
+    session.flush()
+    session.add(
+        ClaimEvidenceDerivation(
+            id=derivation_id,
+            evidence_package_export_id=export_id,
+            agent_task_id=draft_task_id,
+            claim_id="claim-impact-1",
+            claim_text="A traceable evidence claim.",
+            derivation_rule="integration_fixture_supports_claim",
+            evidence_card_ids_json=["card-impact-1"],
+            graph_edge_ids_json=[],
+            fact_ids_json=[],
+            assertion_ids_json=[],
+            source_document_ids_json=[],
+            source_snapshot_sha256s_json=["impact-source-snapshot-sha"],
+            source_search_request_ids_json=[],
+            source_search_request_result_ids_json=[],
+            source_evidence_package_export_ids_json=[str(export_id)],
+            source_evidence_package_sha256s_json=["impact-evidence-package-sha"],
+            source_evidence_trace_sha256s_json=["impact-trace-sha"],
+            semantic_ontology_snapshot_ids_json=[],
+            semantic_graph_snapshot_ids_json=[],
+            retrieval_reranker_artifact_ids_json=[],
+            search_harness_release_ids_json=[],
+            release_audit_bundle_ids_json=[],
+            release_validation_receipt_ids_json=[],
+            provenance_lock_json={"claim_id": "claim-impact-1"},
+            provenance_lock_sha256=payload_sha256({"claim_id": "claim-impact-1"}),
+            support_verdict="supported",
+            support_score=0.92,
+            support_judge_run_id=support_run_id,
+            support_judgment_json=support_judgment,
+            support_judgment_sha256=support_judgment_sha,
+            evidence_package_sha256="impact-evidence-package-sha",
+            derivation_sha256="impact-derivation-sha",
+            created_at=now,
+        )
+    )
+    session.add(
+        AgentTaskVerification(
+            id=uuid4(),
+            target_task_id=draft_task_id,
+            verification_task_id=verify_task_id,
+            verifier_type="technical_report_gate",
+            outcome="passed",
+            metrics_json={"claims_with_support_judgment_count": 1},
+            reasons_json=[],
+            details_json={"fixture": "claim_support_policy_change_impact"},
+            created_at=now,
+            completed_at=now,
+        )
+    )
+    session.flush()
+    return {
+        "draft_task_id": draft_task_id,
+        "verify_task_id": verify_task_id,
+        "support_run_id": support_run_id,
+        "derivation_id": derivation_id,
+        "support_judgment_sha256": support_judgment_sha,
+    }
+
+
 def _install_claim_support_governance_immutability_trigger(
     postgres_integration_harness,
     postgres_schema_engine,
@@ -126,6 +330,12 @@ def _assert_claim_support_activation_governance(
     verification_fixture_set_sha256: str,
     expected_mined_failure_count: int,
     expected_mined_failure_summary_sha256: str | None = None,
+    expected_affected_support_judgment_count: int = 0,
+    expected_affected_generated_document_count: int = 0,
+    expected_affected_verification_count: int = 0,
+    expected_impacted_draft_task_id: UUID | None = None,
+    expected_impacted_verification_task_id: UUID | None = None,
+    expected_impacted_derivation_id: UUID | None = None,
 ) -> dict:
     assert (
         apply_payload["activation_governance_artifact_kind"]
@@ -139,6 +349,10 @@ def _assert_claim_support_activation_governance(
     assert apply_payload["activation_governance_prov_jsonld_sha256"]
     assert apply_payload["activation_governance_event_id"]
     assert apply_payload["activation_governance_event_hash"]
+    assert apply_payload["activation_change_impact_id"]
+    assert apply_payload["activation_change_impact_payload_sha256"]
+    assert apply_payload["activation_change_impact_summary"]
+    assert apply_payload["activation_change_impact_replay_recommended_count"] is not None
 
     governance_artifact = session.get(
         AgentTaskArtifact,
@@ -193,6 +407,48 @@ def _assert_claim_support_activation_governance(
     if expected_mined_failure_summary_sha256 is not None:
         assert mined_summary["summary_sha256"] == expected_mined_failure_summary_sha256
 
+    change_impact = governance_payload["activation_change_impact"]
+    impact_summary = change_impact["impact_summary"]
+    assert (
+        change_impact["activation_change_impact_payload_sha256"]
+        == apply_payload["activation_change_impact_payload_sha256"]
+    )
+    assert (
+        apply_payload["activation_change_impact_summary"]["affected_support_judgment_count"]
+        == expected_affected_support_judgment_count
+    )
+    assert (
+        impact_summary["affected_support_judgment_count"]
+        == expected_affected_support_judgment_count
+    )
+    assert (
+        impact_summary["affected_generated_document_count"]
+        == expected_affected_generated_document_count
+    )
+    assert (
+        impact_summary["affected_technical_report_verification_count"]
+        == expected_affected_verification_count
+    )
+    assert (
+        apply_payload["activation_change_impact_replay_recommended_count"]
+        == impact_summary["replay_recommended_count"]
+    )
+    assert "claim_support_calibration_policy_changed" in change_impact["impact_reasons"]
+    if expected_impacted_derivation_id is not None:
+        assert any(
+            row["claim_derivation_id"] == str(expected_impacted_derivation_id)
+            for row in change_impact["affected_support_judgments"]
+        )
+    if expected_impacted_draft_task_id is not None:
+        assert str(expected_impacted_draft_task_id) in change_impact[
+            "affected_generated_documents"
+        ]["draft_task_ids"]
+    if expected_impacted_verification_task_id is not None:
+        assert any(
+            row["verification_task_id"] == str(expected_impacted_verification_task_id)
+            for row in change_impact["affected_technical_report_verifications"]
+        )
+
     receipt = governance_payload["activation_governance_receipt"]
     assert receipt["signature_status"] == "signed"
     assert receipt["signing_key_id"] == "claim-support-key"
@@ -211,6 +467,11 @@ def _assert_claim_support_activation_governance(
         and item["sha256"] == fixture_set_diff["fixture_set_diff_sha256"]
         for item in receipt["hash_chain"]
     )
+    assert any(
+        item["name"] == "policy_change_impact"
+        and item["sha256"] == apply_payload["activation_change_impact_payload_sha256"]
+        for item in receipt["hash_chain"]
+    )
 
     assert governance_payload["integrity"]["complete"] is True
     assert governance_payload["integrity"]["signature_present"] is True
@@ -225,6 +486,11 @@ def _assert_claim_support_activation_governance(
     assert f"docling:agent_task_artifact:{apply_payload['artifact_id']}" in graph_ids
     assert (
         f"docling:agent_task_artifact:{apply_payload['activation_governance_artifact_id']}"
+        in graph_ids
+    )
+    assert (
+        "docling:claim_support_policy_change_impact:"
+        f"{apply_payload['activation_change_impact_payload_sha256']}"
         in graph_ids
     )
     activation_activity = next(
@@ -270,12 +536,54 @@ def _assert_claim_support_activation_governance(
         event_activation["activation_governance_payload_sha256"]
         == apply_payload["activation_governance_payload_sha256"]
     )
+    assert (
+        event_activation["activation_change_impact_payload_sha256"]
+        == apply_payload["activation_change_impact_payload_sha256"]
+    )
+    assert (
+        event_activation["affected_support_judgment_count"]
+        == expected_affected_support_judgment_count
+    )
+    impact_row = session.get(
+        ClaimSupportPolicyChangeImpact,
+        UUID(apply_payload["activation_change_impact_id"]),
+    )
+    assert impact_row is not None
+    assert impact_row.activation_task_id == governance_artifact.task_id
+    assert impact_row.activated_policy_id == activated_policy_id
+    assert impact_row.previous_policy_id == previous_policy_id
+    assert impact_row.semantic_governance_event_id == governance_event.id
+    assert impact_row.governance_artifact_id == governance_artifact.id
+    assert impact_row.impact_payload_sha256 == apply_payload[
+        "activation_change_impact_payload_sha256"
+    ]
+    assert (
+        impact_row.affected_support_judgment_count
+        == expected_affected_support_judgment_count
+    )
+    assert (
+        impact_row.affected_generated_document_count
+        == expected_affected_generated_document_count
+    )
+    assert impact_row.affected_verification_count == expected_affected_verification_count
+    assert impact_row.impact_payload_json["impact_summary"] == impact_summary
+    if expected_impacted_derivation_id is not None:
+        assert str(expected_impacted_derivation_id) in (
+            impact_row.impacted_claim_derivation_ids_json
+        )
+    if expected_impacted_draft_task_id is not None:
+        assert str(expected_impacted_draft_task_id) in impact_row.impacted_task_ids_json
+    if expected_impacted_verification_task_id is not None:
+        assert str(expected_impacted_verification_task_id) in (
+            impact_row.impacted_verification_task_ids_json
+        )
     operator_run = session.get(KnowledgeOperatorRun, UUID(apply_payload["operator_run_id"]))
     assert operator_run is not None
     assert operator_run.output_sha256 == payload_sha256(apply_payload)
     assert operator_run.metrics_json["activation_governance_artifact_id"] == str(
         governance_artifact.id
     )
+    assert operator_run.metrics_json["activation_change_impact_id"] == str(impact_row.id)
     operator_output = session.scalar(
         select(KnowledgeOperatorOutput).where(
             KnowledgeOperatorOutput.operator_run_id == operator_run.id,
@@ -291,6 +599,9 @@ def _assert_claim_support_activation_governance(
     )
     assert operator_output.payload_json["activation_governance_artifact_id"] == str(
         governance_artifact.id
+    )
+    assert operator_output.payload_json["activation_change_impact_id"] == str(
+        impact_row.id
     )
     return governance_payload
 
@@ -750,6 +1061,119 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         assert eval_payload["summary"]["gate_outcome"] == "passed"
         assert eval_payload["policy_id"] == str(draft_policy_id)
         assert eval_payload["policy_version"] == "v2"
+
+
+def test_claim_support_policy_activation_records_change_impact_for_prior_reports(
+    postgres_integration_harness,
+    monkeypatch,
+):
+    _enable_claim_support_governance_signing(monkeypatch)
+
+    with postgres_integration_harness.session_factory() as session:
+        initial_policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        impacted = _seed_impacted_technical_report_records(session)
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_change_impact",
+                    "rationale": "prove policy activation identifies stale report support gates",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["exact_source_support"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_change_impact_integration",
+            ),
+        )
+        initial_policy_id = initial_policy.id
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        draft_row = session.get(AgentTask, draft_task_id)
+        assert draft_row is not None
+        draft_policy_id = UUID(draft_row.result_json["payload"]["policy_id"])
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                },
+                workflow_version="claim_support_policy_change_impact_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        verify_payload = verify_row.result_json["payload"]
+        assert verify_payload["verification"]["outcome"] == "passed"
+        verification_fixture_set_sha256 = verify_payload["evaluation"][
+            "fixture_set_sha256"
+        ]
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "activate policy and enumerate downstream report impact",
+                },
+                workflow_version="claim_support_policy_change_impact_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-operator@example.com",
+                approval_note="impact analysis required before relying on prior reports",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        assert apply_row.status == AgentTaskStatus.COMPLETED.value
+        apply_payload = apply_row.result_json["payload"]
+        governance_payload = _assert_claim_support_activation_governance(
+            session,
+            apply_payload=apply_payload,
+            activated_policy_id=draft_policy_id,
+            previous_policy_id=initial_policy_id,
+            verification_fixture_set_sha256=verification_fixture_set_sha256,
+            expected_mined_failure_count=0,
+            expected_affected_support_judgment_count=1,
+            expected_affected_generated_document_count=1,
+            expected_affected_verification_count=1,
+            expected_impacted_draft_task_id=impacted["draft_task_id"],
+            expected_impacted_verification_task_id=impacted["verify_task_id"],
+            expected_impacted_derivation_id=impacted["derivation_id"],
+        )
+        change_impact = governance_payload["activation_change_impact"]
+        assert change_impact["affected_support_judgments"][0][
+            "support_judgment_sha256"
+        ] == impacted["support_judgment_sha256"]
+        assert {
+            row["action"] for row in change_impact["replay_recommendations"]
+        } == {"rerun_draft_technical_report", "rerun_verify_technical_report"}
+        assert session.get(ClaimSupportCalibrationPolicy, initial_policy_id).status == "retired"
+        assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "active"
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

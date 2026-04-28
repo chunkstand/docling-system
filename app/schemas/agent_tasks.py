@@ -1522,6 +1522,10 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     activation_governance_prov_jsonld_sha256: str | None = None
     activation_governance_event_id: UUID | None = None
     activation_governance_event_hash: str | None = None
+    activation_change_impact_id: UUID | None = None
+    activation_change_impact_payload_sha256: str | None = None
+    activation_change_impact_summary: dict = Field(default_factory=dict)
+    activation_change_impact_replay_recommended_count: int | None = None
 
 
 class EvaluateClaimSupportJudgeTaskOutput(BaseModel):

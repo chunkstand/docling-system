@@ -153,6 +153,8 @@ from app.services.claim_support_policy_governance import (
     CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
     CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME,
     build_claim_support_policy_activation_governance_payload,
+    build_claim_support_policy_change_impact_payload,
+    persist_claim_support_policy_change_impact,
     record_claim_support_policy_activation_governance_event,
 )
 from app.services.documents import (
@@ -2320,6 +2322,16 @@ def _apply_claim_support_calibration_policy_executor(
         storage_service.get_agent_task_dir(task.id)
         / CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME
     )
+    change_impact_payload = build_claim_support_policy_change_impact_payload(
+        session,
+        task=task,
+        activated_policy=activated_policy,
+        previous_active_policy=previous_active,
+        activation_artifact=artifact,
+        governance_artifact_id=governance_artifact_id,
+        governance_artifact_path=str(governance_artifact_path),
+        apply_payload=result,
+    )
     governance_payload = build_claim_support_policy_activation_governance_payload(
         session,
         task=task,
@@ -2333,6 +2345,7 @@ def _apply_claim_support_calibration_policy_executor(
         governance_artifact_id=governance_artifact_id,
         governance_artifact_path=str(governance_artifact_path),
         operator_run=operator_run,
+        change_impact_payload=change_impact_payload,
     )
     governance_artifact = create_agent_task_artifact(
         session,
@@ -2350,8 +2363,28 @@ def _apply_claim_support_calibration_policy_executor(
         governance_artifact=governance_artifact,
         governance_payload=governance_payload,
     )
+    change_impact_row = persist_claim_support_policy_change_impact(
+        session,
+        impact_payload=change_impact_payload,
+        task=task,
+        activated_policy=activated_policy,
+        previous_active_policy=previous_active,
+        governance_event=governance_event,
+        governance_artifact=governance_artifact,
+    )
     governance_receipt = governance_payload.get("activation_governance_receipt") or {}
     governance_integrity = governance_payload.get("integrity") or {}
+    change_impact_summary = change_impact_payload.get("impact_summary") or {}
+    change_impact_result = {
+        "activation_change_impact_id": str(change_impact_row.id),
+        "activation_change_impact_payload_sha256": (
+            change_impact_payload.get("activation_change_impact_payload_sha256")
+        ),
+        "activation_change_impact_summary": change_impact_summary,
+        "activation_change_impact_replay_recommended_count": (
+            change_impact_summary.get("replay_recommended_count")
+        ),
+    }
     governance_result = {
         "activation_governance_artifact_id": str(governance_artifact.id),
         "activation_governance_artifact_kind": governance_artifact.artifact_kind,
@@ -2366,6 +2399,7 @@ def _apply_claim_support_calibration_policy_executor(
         ),
         "activation_governance_event_id": str(governance_event.id),
         "activation_governance_event_hash": governance_event.event_hash,
+        **change_impact_result,
     }
     final_result = {
         **result,
@@ -2387,6 +2421,13 @@ def _apply_claim_support_calibration_policy_executor(
                 "receipt_sha256"
             ),
             "activation_governance_event_id": str(governance_event.id),
+            "activation_change_impact_id": str(change_impact_row.id),
+            "activation_change_impact_payload_sha256": (
+                change_impact_payload.get("activation_change_impact_payload_sha256")
+            ),
+            "activation_change_impact_replay_recommended_count": (
+                change_impact_summary.get("replay_recommended_count")
+            ),
         }
         operator_output = session.scalar(
             select(KnowledgeOperatorOutput)
