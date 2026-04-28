@@ -1400,11 +1400,19 @@ def claim_support_replay_alert_fixture_coverage_summary(
         session,
         ensure_current=True,
     )
-    promoted_escalation_event_ids = {
-        str(event_id)
-        for promotion in promotion_summaries
-        for event_id in promotion.get("source_escalation_event_ids") or []
-    }
+    if active_corpus_snapshot is not None:
+        promoted_escalation_event_ids = {
+            str(event_id)
+            for event_id in (
+                active_corpus_snapshot.get("source_escalation_event_ids") or []
+            )
+        }
+    else:
+        promoted_escalation_event_ids = {
+            str(event_id)
+            for promotion in promotion_summaries
+            for event_id in promotion.get("source_escalation_event_ids") or []
+        }
     escalation_events = list(
         session.scalars(
             select(SemanticGovernanceEvent)

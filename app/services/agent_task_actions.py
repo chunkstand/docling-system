@@ -2288,10 +2288,24 @@ def _verify_claim_support_calibration_policy_executor(
         fixture_set_id=fixture_set_record.id,
         policy_id=policy_row.id,
     )
+    invalid_replay_alert_corpus_promotion_count = int(
+        replay_alert_fixture_summary.get(
+            "active_replay_alert_fixture_corpus_invalid_promotion_event_count"
+        )
+        or 0
+    )
     replay_alert_coverage_passed = (
         not payload.require_replay_alert_fixture_coverage
-        or int(replay_alert_fixture_summary.get("stale_unconverted_escalation_event_count") or 0)
-        == 0
+        or (
+            int(
+                replay_alert_fixture_summary.get(
+                    "stale_unconverted_escalation_event_count"
+                )
+                or 0
+            )
+            == 0
+            and invalid_replay_alert_corpus_promotion_count == 0
+        )
     )
     replay_alert_coverage_metric = {
         "metric_key": "claim_support_replay_alert_fixture_coverage",
@@ -2313,6 +2327,19 @@ def _verify_claim_support_calibration_policy_executor(
             ),
             "promoted_escalation_event_count": replay_alert_fixture_summary.get(
                 "promoted_escalation_event_count"
+            ),
+            "active_replay_alert_fixture_corpus_snapshot_id": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_snapshot_id"
+                )
+            ),
+            "active_replay_alert_fixture_corpus_sha256": (
+                replay_alert_fixture_summary.get(
+                    "active_replay_alert_fixture_corpus_sha256"
+                )
+            ),
+            "active_replay_alert_fixture_corpus_invalid_promotion_event_count": (
+                invalid_replay_alert_corpus_promotion_count
             ),
             "unconverted_escalation_event_count": replay_alert_fixture_summary.get(
                 "unconverted_escalation_event_count"
@@ -2346,6 +2373,9 @@ def _verify_claim_support_calibration_policy_executor(
         ),
         "stale_unconverted_escalation_event_count": replay_alert_fixture_summary.get(
             "stale_unconverted_escalation_event_count"
+        ),
+        "active_replay_alert_fixture_corpus_invalid_promotion_event_count": (
+            invalid_replay_alert_corpus_promotion_count
         ),
         "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary.get(
             "verification_summary_sha256"

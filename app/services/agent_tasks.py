@@ -1953,6 +1953,13 @@ def get_agent_task_decision_signals(
         session,
         ensure_current=True,
     )
+    if active_corpus_summary is not None:
+        promoted_escalation_event_ids = []
+        for event_id in active_corpus_summary.get("source_escalation_event_ids") or []:
+            try:
+                promoted_escalation_event_ids.append(UUID(str(event_id)))
+            except (TypeError, ValueError):
+                continue
     active_corpus_fixture_count = int(
         (active_corpus_summary or {}).get("fixture_count") or 0
     )

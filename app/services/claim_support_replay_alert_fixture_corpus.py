@@ -38,6 +38,13 @@ class ReplayAlertFixtureCorpusBuild:
     invalid_promotion_event_ids: list[str]
 
 
+@dataclass(frozen=True)
+class ReplayAlertFixturePromotionContext:
+    promotion_payload: dict[str, Any]
+    fixture_set: ClaimSupportFixtureSet
+    artifact: AgentTaskArtifact
+
+
 def _uuid_or_none(value: object) -> UUID | None:
     if value in {None, ""}:
         return None
@@ -68,6 +75,15 @@ def _promotion_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
         )
         or {}
     )
+
+
+def _hash_matches_embedded_receipt(payload: dict[str, Any], *, hash_field: str) -> bool:
+    expected_hash = str(payload.get(hash_field) or "")
+    if not expected_hash:
+        return False
+    basis = dict(payload)
+    basis.pop(hash_field, None)
+    return payload_sha256(basis) == expected_hash
 
 
 def _fixture_by_candidate(
@@ -146,37 +162,65 @@ def _case_identity_sha256(
     )
 
 
-def _valid_promotion_context(
+def _promotion_context(
     session: Session,
     event: SemanticGovernanceEvent,
-) -> tuple[dict[str, Any], ClaimSupportFixtureSet, AgentTaskArtifact | None] | None:
+) -> tuple[ReplayAlertFixturePromotionContext | None, list[str]]:
+    failures: list[str] = []
     promotion_payload = _promotion_payload(event)
     if not promotion_payload:
-        return None
+        return None, ["promotion_payload_missing"]
     payload_receipt = str(promotion_payload.get("receipt_sha256") or "")
-    if payload_receipt and payload_receipt != str(event.receipt_sha256 or ""):
-        return None
+    if not payload_receipt or not _hash_matches_embedded_receipt(
+        promotion_payload,
+        hash_field="receipt_sha256",
+    ):
+        failures.append("promotion_receipt_hash_mismatch")
+    if payload_receipt != str(event.receipt_sha256 or ""):
+        failures.append("promotion_event_receipt_mismatch")
     fixture_set_id = _uuid_or_none(promotion_payload.get("fixture_set_id"))
     if fixture_set_id is None:
-        return None
+        failures.append("fixture_set_id_missing")
+        return None, failures
     if event.subject_table != "claim_support_fixture_sets" or event.subject_id != fixture_set_id:
-        return None
+        failures.append("promotion_event_subject_mismatch")
     fixture_set = session.get(ClaimSupportFixtureSet, fixture_set_id)
     if fixture_set is None:
-        return None
+        failures.append("fixture_set_missing")
+        return None, failures
     if promotion_payload.get("fixture_set_sha256") != fixture_set.fixture_set_sha256:
-        return None
-    artifact: AgentTaskArtifact | None = None
-    if event.agent_task_artifact_id is not None:
-        artifact = session.get(AgentTaskArtifact, event.agent_task_artifact_id)
-        if artifact is None:
-            return None
-        if artifact.artifact_kind != CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND:
-            return None
-        artifact_receipt = str((artifact.payload_json or {}).get("receipt_sha256") or "")
-        if artifact_receipt != str(event.receipt_sha256 or ""):
-            return None
-    return promotion_payload, fixture_set, artifact
+        failures.append("fixture_set_hash_mismatch")
+    try:
+        promotion_fixture_count = int(promotion_payload.get("fixture_count") or 0)
+    except (TypeError, ValueError):
+        promotion_fixture_count = 0
+    if promotion_fixture_count != fixture_set.fixture_count:
+        failures.append("fixture_set_count_mismatch")
+    if event.agent_task_artifact_id is None:
+        failures.append("promotion_artifact_missing")
+        return None, failures
+    artifact = session.get(AgentTaskArtifact, event.agent_task_artifact_id)
+    if artifact is None:
+        failures.append("promotion_artifact_missing")
+        return None, failures
+    if artifact.artifact_kind != CLAIM_SUPPORT_IMPACT_FIXTURE_PROMOTION_ARTIFACT_KIND:
+        failures.append("promotion_artifact_kind_mismatch")
+    artifact_payload = dict(artifact.payload_json or {})
+    artifact_receipt = str(artifact_payload.get("receipt_sha256") or "")
+    if artifact_receipt != str(event.receipt_sha256 or ""):
+        failures.append("promotion_artifact_receipt_mismatch")
+    if not _hash_matches_embedded_receipt(artifact_payload, hash_field="receipt_sha256"):
+        failures.append("promotion_artifact_hash_mismatch")
+    if failures:
+        return None, failures
+    return (
+        ReplayAlertFixturePromotionContext(
+            promotion_payload=promotion_payload,
+            fixture_set=fixture_set,
+            artifact=artifact,
+        ),
+        [],
+    )
 
 
 def build_replay_alert_fixture_corpus(
@@ -206,13 +250,24 @@ def build_replay_alert_fixture_corpus(
     source_fixture_set_sha256s: list[str] = []
     source_escalation_event_ids: list[str] = []
     invalid_promotion_event_ids: list[str] = []
+    invalid_promotion_events: list[dict[str, Any]] = []
 
     for event in events:
-        context = _valid_promotion_context(session, event)
+        context, failures = _promotion_context(session, event)
         if context is None:
             invalid_promotion_event_ids.append(str(event.id))
+            invalid_promotion_events.append(
+                {
+                    "event_id": str(event.id),
+                    "event_hash": event.event_hash,
+                    "receipt_sha256": event.receipt_sha256,
+                    "failures": failures,
+                }
+            )
             continue
-        promotion_payload, fixture_set, artifact = context
+        promotion_payload = context.promotion_payload
+        fixture_set = context.fixture_set
+        artifact = context.artifact
         event_id = str(event.id)
         source_promotion_event_ids.append(event_id)
         if artifact is not None:
@@ -225,10 +280,23 @@ def build_replay_alert_fixture_corpus(
             _string_list(promotion_payload.get("source_escalation_event_ids") or [])
         )
 
-        for candidate, fixture in _candidate_payloads_for_fixture_set(
+        candidate_fixture_rows = _candidate_payloads_for_fixture_set(
             fixture_set,
             promotion_payload,
-        ):
+        )
+        if promotion_payload.get("candidates") and not candidate_fixture_rows:
+            invalid_promotion_event_ids.append(str(event.id))
+            invalid_promotion_events.append(
+                {
+                    "event_id": str(event.id),
+                    "event_hash": event.event_hash,
+                    "receipt_sha256": event.receipt_sha256,
+                    "failures": ["promotion_candidate_fixture_missing"],
+                }
+            )
+            continue
+
+        for candidate, fixture in candidate_fixture_rows:
             fixture_sha256 = str(candidate.get("fixture_sha256") or payload_sha256(fixture))
             case_identity_sha256 = _case_identity_sha256(
                 fixture,
@@ -238,14 +306,12 @@ def build_replay_alert_fixture_corpus(
             row_source_change_impact_ids = _string_list(
                 [
                     candidate.get("change_impact_id"),
-                    *(promotion_payload.get("source_change_impact_ids") or []),
                 ]
             )
             row_source_escalation_event_ids = _string_list(
                 [
                     *(candidate.get("escalation_event_ids") or []),
                     candidate.get("latest_escalation_event_id"),
-                    *(promotion_payload.get("source_escalation_event_ids") or []),
                 ]
             )
             rows_by_identity[case_identity_sha256] = {
@@ -300,6 +366,7 @@ def build_replay_alert_fixture_corpus(
         "source_fixture_set_sha256s": _string_list(source_fixture_set_sha256s),
         "source_escalation_event_ids": _string_list(source_escalation_event_ids),
         "invalid_promotion_event_ids": _string_list(invalid_promotion_event_ids),
+        "invalid_promotion_events": invalid_promotion_events,
         "rows": row_payloads,
     }
     return ReplayAlertFixtureCorpusBuild(
@@ -329,13 +396,29 @@ def _active_snapshot(
     )
 
 
+def _supersede_active_snapshots(session: Session) -> None:
+    now = utcnow()
+    session.execute(
+        update(ClaimSupportReplayAlertFixtureCorpusSnapshot)
+        .where(
+            ClaimSupportReplayAlertFixtureCorpusSnapshot.snapshot_name
+            == ACTIVE_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_NAME,
+            ClaimSupportReplayAlertFixtureCorpusSnapshot.status == "active",
+        )
+        .values(status="superseded", superseded_at=now)
+    )
+    session.flush()
+
+
 def ensure_active_replay_alert_fixture_corpus_snapshot(
     session: Session,
 ) -> ClaimSupportReplayAlertFixtureCorpusSnapshot | None:
     build = build_replay_alert_fixture_corpus(session)
     if build is None:
+        _supersede_active_snapshots(session)
         return None
     if not build.source_promotion_event_ids and not build.invalid_promotion_event_ids:
+        _supersede_active_snapshots(session)
         return None
 
     active = _active_snapshot(session)
@@ -450,6 +533,9 @@ def replay_alert_fixture_corpus_snapshot_summary(
         "source_fixture_set_sha256s": list(snapshot.source_fixture_set_sha256s_json),
         "source_escalation_event_ids": list(snapshot.source_escalation_event_ids_json),
         "invalid_promotion_event_ids": list(snapshot.invalid_promotion_event_ids_json),
+        "invalid_promotion_events": list(
+            (snapshot.snapshot_payload_json or {}).get("invalid_promotion_events") or []
+        ),
         "created_at": snapshot.created_at.isoformat(),
         "superseded_at": snapshot.superseded_at.isoformat()
         if snapshot.superseded_at

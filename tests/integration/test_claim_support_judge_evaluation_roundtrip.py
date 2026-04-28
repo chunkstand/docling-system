@@ -3167,6 +3167,91 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         == "closed_claim_support_replay_alert_fixture_coverage_waivers>0"
         for row in converted_signals
     )
+    assert any(
+        row["task_type"] == "claim_support_replay_alert_fixture_corpus"
+        and row["threshold_crossed"]
+        == "active_claim_support_replay_alert_fixture_corpus_snapshot"
+        for row in converted_signals
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_promotion_event = session.get(
+            SemanticGovernanceEvent,
+            UUID(promotion_payload["promotion_event_id"]),
+        )
+        assert tampered_promotion_event is not None
+        tampered_promotion_payload = deepcopy(tampered_promotion_event.event_payload_json)
+        tampered_promotion_payload[
+            "claim_support_policy_impact_fixture_promotion"
+        ]["receipt_sha256"] = "tampered-promotion-receipt"
+        tampered_promotion_event.event_payload_json = tampered_promotion_payload
+        session.commit()
+
+    invalid_corpus_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert invalid_corpus_signal_response.status_code == 200
+    invalid_corpus_signals = invalid_corpus_signal_response.json()
+    assert any(
+        row["task_type"] == "claim_support_replay_alert_fixture_corpus"
+        and row["threshold_crossed"]
+        == "invalid_claim_support_replay_alert_fixture_corpus_promotions>0"
+        for row in invalid_corpus_signals
+    )
+    assert any(
+        row["task_type"] == "claim_support_policy_change_impact_fixture_coverage"
+        and row["threshold_crossed"]
+        == "stale_unconverted_claim_support_replay_escalations>0"
+        for row in invalid_corpus_signals
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        invalid_corpus_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_invalid_corpus",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": True,
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        invalid_corpus_verify_task_id = invalid_corpus_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        invalid_corpus_verify_row = session.get(
+            AgentTask,
+            invalid_corpus_verify_task_id,
+        )
+        assert invalid_corpus_verify_row is not None
+        invalid_corpus_payload = invalid_corpus_verify_row.result_json["payload"]
+        invalid_corpus_summary = invalid_corpus_payload[
+            "replay_alert_fixture_summary"
+        ]
+        assert invalid_corpus_payload["verification"]["outcome"] == "failed"
+        assert invalid_corpus_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_passed"
+        ] is False
+        assert invalid_corpus_payload["evaluation"]["summary"][
+            "active_replay_alert_fixture_corpus_invalid_promotion_event_count"
+        ] == 1
+        assert invalid_corpus_summary[
+            "active_replay_alert_fixture_corpus_invalid_promotion_event_count"
+        ] == 1
+        assert invalid_corpus_summary["included_replay_alert_fixture_count"] == 1
+        assert invalid_corpus_summary["stale_unconverted_escalation_event_count"] == 1
+        assert invalid_corpus_summary["active_replay_alert_fixture_corpus_snapshot"][
+            "invalid_promotion_events"
+        ][0]["failures"]
+
     with postgres_integration_harness.session_factory() as session:
         tampered_closure_event = session.get(
             SemanticGovernanceEvent,
