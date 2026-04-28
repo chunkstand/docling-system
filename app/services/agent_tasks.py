@@ -72,6 +72,9 @@ CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
 CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
     "claim_support_policy_impact_fixture_promoted"
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver"
+)
 
 
 def _agent_task_not_found(task_id: UUID) -> HTTPException:
@@ -1692,25 +1695,22 @@ def get_agent_task_decision_signals(
     rows: list[AgentTaskDecisionSignalResponse] = []
     replay_open_statuses = {"pending", "queued", "in_progress", "blocked"}
     replay_stale_cutoff = utcnow() - timedelta(hours=24)
-    promoted_escalation_event_ids = [
-        UUID(str(event_id))
-        for event_payload in session.scalars(
-            select(SemanticGovernanceEvent.event_payload_json).where(
-                SemanticGovernanceEvent.event_kind
-                == CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
-            )
+    promoted_escalation_event_ids: list[UUID] = []
+    for event_payload in session.scalars(
+        select(SemanticGovernanceEvent.event_payload_json).where(
+            SemanticGovernanceEvent.event_kind
+            == CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
         )
-        for event_id in (
-            (
-                (event_payload or {}).get(
-                    "claim_support_policy_impact_fixture_promotion"
-                )
-                or {}
-            ).get("source_escalation_event_ids")
-            or []
+    ):
+        promotion_payload = (
+            (event_payload or {}).get("claim_support_policy_impact_fixture_promotion")
+            or {}
         )
-        if event_id
-    ]
+        for event_id in promotion_payload.get("source_escalation_event_ids") or []:
+            try:
+                promoted_escalation_event_ids.append(UUID(str(event_id)))
+            except (TypeError, ValueError):
+                continue
     unconverted_replay_escalation_count = int(
         session.scalar(
             select(func.count())
@@ -1721,6 +1721,17 @@ def get_agent_task_decision_signals(
             )
             .where(SemanticGovernanceEvent.created_at <= replay_stale_cutoff)
             .where(~SemanticGovernanceEvent.id.in_(promoted_escalation_event_ids))
+        )
+        or 0
+    )
+    replay_alert_fixture_coverage_waiver_count = int(
+        session.scalar(
+            select(func.count())
+            .select_from(AgentTaskArtifact)
+            .where(
+                AgentTaskArtifact.artifact_kind
+                == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
+            )
         )
         or 0
     )
@@ -1817,6 +1828,25 @@ def get_agent_task_decision_signals(
                 recommended_action=(
                     "Run docling-system-claim-support-replay-fixtures --promote for "
                     "stale escalated replay alerts."
+                ),
+            )
+        )
+    if replay_alert_fixture_coverage_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{replay_alert_fixture_coverage_waiver_count} claim-support "
+                    "replay-alert fixture coverage waiver artifact(s) exist."
+                ),
+                threshold_crossed=(
+                    "claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Review waiver artifacts before activating or relying on waived "
+                    "claim-support calibration policy verifications."
                 ),
             )
         )

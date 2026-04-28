@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.documents import DocumentUploadResponse
 from app.schemas.eval_workbench import (
@@ -1469,8 +1469,34 @@ class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
     include_replay_alert_fixtures: bool = True
     replay_alert_fixture_limit: int = Field(default=100, ge=0, le=100)
     require_replay_alert_fixture_coverage: bool = True
+    replay_alert_fixture_coverage_waived_by: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
+    replay_alert_fixture_coverage_waiver_reason: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2000,
+    )
     include_mined_failures: bool = True
     mined_failure_limit: int = Field(default=20, ge=0, le=100)
+
+    @model_validator(mode="after")
+    def require_replay_alert_coverage_waiver_details(self):
+        if self.require_replay_alert_fixture_coverage:
+            return self
+        if not self.replay_alert_fixture_coverage_waived_by:
+            raise ValueError(
+                "replay_alert_fixture_coverage_waived_by is required when "
+                "require_replay_alert_fixture_coverage is false."
+            )
+        if not self.replay_alert_fixture_coverage_waiver_reason:
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_reason is required when "
+                "require_replay_alert_fixture_coverage is false."
+            )
+        return self
 
 
 class VerifyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
@@ -1478,6 +1504,7 @@ class VerifyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     evaluation: dict = Field(default_factory=dict)
     verification: AgentTaskVerificationResponse
     replay_alert_fixture_summary: dict = Field(default_factory=dict)
+    replay_alert_fixture_coverage_waiver: dict = Field(default_factory=dict)
     mined_failure_summary: dict = Field(default_factory=dict)
     artifact_id: UUID
     artifact_kind: str
@@ -1512,6 +1539,7 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     verification_fixture_set_sha256: str | None = None
     verification_policy_sha256: str
     verification_replay_alert_fixture_summary: dict = Field(default_factory=dict)
+    verification_replay_alert_fixture_coverage_waiver: dict = Field(default_factory=dict)
     verification_mined_failure_summary: dict = Field(default_factory=dict)
     operator_run_id: UUID | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)

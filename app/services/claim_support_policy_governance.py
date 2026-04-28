@@ -1077,10 +1077,16 @@ def build_claim_support_policy_activation_governance_payload(
     replay_alert_fixture_summary = (
         apply_payload.get("verification_replay_alert_fixture_summary") or {}
     )
+    replay_alert_fixture_coverage_waiver = (
+        apply_payload.get("verification_replay_alert_fixture_coverage_waiver") or {}
+    )
     fixture_replay = {
         "fixture_set": _fixture_set_snapshot(fixture_set),
         "fixture_set_diff": _fixture_set_diff(fixture_set, mined_failure_summary),
         "replay_alert_fixture_summary": replay_alert_fixture_summary,
+        "replay_alert_fixture_coverage_waiver": (
+            replay_alert_fixture_coverage_waiver
+        ),
         "mined_failure_summary": mined_failure_summary,
     }
     prov_jsonld = _prov_jsonld(
@@ -1182,6 +1188,9 @@ def record_claim_support_policy_activation_governance_event(
     fixture_replay = governance_payload.get("fixture_replay") or {}
     fixture_set_diff = fixture_replay.get("fixture_set_diff") or {}
     replay_alert_fixture_summary = fixture_replay.get("replay_alert_fixture_summary") or {}
+    replay_alert_fixture_coverage_waiver = (
+        fixture_replay.get("replay_alert_fixture_coverage_waiver") or {}
+    )
     mined_failure_summary = fixture_replay.get("mined_failure_summary") or {}
     change_impact = governance_payload.get("activation_change_impact") or {}
     change_impact_summary = change_impact.get("impact_summary") or {}
@@ -1215,6 +1224,12 @@ def record_claim_support_policy_activation_governance_event(
             ),
             "replay_alert_fixture_count": (
                 replay_alert_fixture_summary.get("included_replay_alert_fixture_count")
+            ),
+            "replay_alert_fixture_coverage_waiver_sha256": (
+                replay_alert_fixture_coverage_waiver.get("waiver_sha256")
+            ),
+            "replay_alert_fixture_coverage_waiver_artifact_id": (
+                replay_alert_fixture_coverage_waiver.get("artifact_id")
             ),
             "mined_failure_summary_sha256": mined_failure_summary.get("summary_sha256"),
             "activation_governance_payload_sha256": (

@@ -386,6 +386,7 @@ def _assert_claim_support_activation_governance(
     expected_impacted_draft_task_id: UUID | None = None,
     expected_impacted_verification_task_id: UUID | None = None,
     expected_impacted_derivation_id: UUID | None = None,
+    expected_replay_alert_fixture_coverage_waiver_sha256: str | None = None,
 ) -> dict:
     assert (
         apply_payload["activation_governance_artifact_kind"]
@@ -456,6 +457,22 @@ def _assert_claim_support_activation_governance(
     assert mined_summary["mined_failure_case_count"] == expected_mined_failure_count
     if expected_mined_failure_summary_sha256 is not None:
         assert mined_summary["summary_sha256"] == expected_mined_failure_summary_sha256
+    replay_alert_coverage_waiver = governance_payload["fixture_replay"][
+        "replay_alert_fixture_coverage_waiver"
+    ]
+    if expected_replay_alert_fixture_coverage_waiver_sha256 is None:
+        assert replay_alert_coverage_waiver == {}
+    else:
+        assert (
+            replay_alert_coverage_waiver["waiver_sha256"]
+            == expected_replay_alert_fixture_coverage_waiver_sha256
+        )
+        assert (
+            apply_payload["verification_replay_alert_fixture_coverage_waiver"][
+                "waiver_sha256"
+            ]
+            == expected_replay_alert_fixture_coverage_waiver_sha256
+        )
 
     change_impact = governance_payload["activation_change_impact"]
     impact_summary = change_impact["impact_summary"]
@@ -1181,6 +1198,121 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         assert eval_payload["summary"]["gate_outcome"] == "passed"
         assert eval_payload["policy_id"] == str(draft_policy_id)
         assert eval_payload["policy_version"] == "v2"
+
+
+def test_claim_support_policy_activation_carries_replay_alert_coverage_waiver(
+    postgres_integration_harness,
+    monkeypatch,
+):
+    _enable_claim_support_governance_signing(monkeypatch)
+
+    with postgres_integration_harness.session_factory() as session:
+        initial_policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_claim_support_calibration_policy",
+                input={
+                    "policy_name": "claim_support_judge_calibration_policy",
+                    "policy_version": "v_coverage_waiver",
+                    "rationale": "activate with an audited replay-alert coverage waiver",
+                    "min_hard_case_kind_count": 1,
+                    "required_hard_case_kinds": ["exact_source_support"],
+                    "required_verdicts": ["supported"],
+                },
+                workflow_version="claim_support_policy_coverage_waiver_integration",
+            ),
+        )
+        initial_policy_id = initial_policy.id
+        draft_task_id = draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixtures": [default_claim_support_evaluation_fixtures()[0]],
+                    "require_replay_alert_fixture_coverage": False,
+                    "replay_alert_fixture_coverage_waived_by": (
+                        "claim-support-operator@example.com"
+                    ),
+                    "replay_alert_fixture_coverage_waiver_reason": (
+                        "Exercise audited activation propagation for a coverage waiver."
+                    ),
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_coverage_waiver_integration",
+            ),
+        )
+        verify_task_id = verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        verify_row = session.get(AgentTask, verify_task_id)
+        assert verify_row is not None
+        verify_payload = verify_row.result_json["payload"]
+        assert verify_payload["verification"]["outcome"] == "passed"
+        waiver = verify_payload["replay_alert_fixture_coverage_waiver"]
+        assert waiver["waiver_sha256"]
+        assert waiver["artifact_id"]
+        draft_policy_id = UUID(verify_payload["evaluation"]["policy_id"])
+        verification_fixture_set_sha256 = verify_payload["evaluation"][
+            "fixture_set_sha256"
+        ]
+
+        apply_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="apply_claim_support_calibration_policy",
+                input={
+                    "draft_task_id": str(draft_task_id),
+                    "verification_task_id": str(verify_task_id),
+                    "reason": "activate the verified waiver propagation policy",
+                },
+                workflow_version="claim_support_policy_coverage_waiver_integration",
+            ),
+        )
+        apply_task_id = apply_task.task_id
+        approve_agent_task(
+            session,
+            apply_task_id,
+            AgentTaskApprovalRequest(
+                approved_by="claim-support-operator@example.com",
+                approval_note="waiver artifact reviewed for activation test",
+            ),
+        )
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        apply_row = session.get(AgentTask, apply_task_id)
+        assert apply_row is not None
+        apply_payload = apply_row.result_json["payload"]
+        assert apply_payload["verification_replay_alert_fixture_coverage_waiver"][
+            "waiver_sha256"
+        ] == waiver["waiver_sha256"]
+        assert apply_payload["success_metrics"][0]["details"][
+            "replay_alert_fixture_coverage_waiver_sha256"
+        ] == waiver["waiver_sha256"]
+        _assert_claim_support_activation_governance(
+            session,
+            apply_payload=apply_payload,
+            activated_policy_id=draft_policy_id,
+            previous_policy_id=initial_policy_id,
+            verification_fixture_set_sha256=verification_fixture_set_sha256,
+            expected_mined_failure_count=0,
+            expected_replay_alert_fixture_coverage_waiver_sha256=waiver[
+                "waiver_sha256"
+            ],
+        )
 
 
 def test_claim_support_policy_activation_records_change_impact_for_prior_reports(
@@ -2103,6 +2235,91 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             and metric["passed"] is False
             for metric in unconverted_gate_payload["evaluation"]["success_metrics"]
         )
+
+    missing_waiver_response = postgres_integration_harness.client.post(
+        "/agent-tasks",
+        json={
+            "task_type": "verify_claim_support_calibration_policy",
+            "input": {
+                "target_task_id": str(unconverted_gate_draft_task_id),
+                "fixture_set_name": "integration_replay_alert_missing_waiver",
+                "fixture_set_version": "v1",
+                "require_replay_alert_fixture_coverage": False,
+            },
+            "workflow_version": "claim_support_policy_replay_alert_coverage",
+        },
+    )
+    assert missing_waiver_response.status_code == 422
+    assert missing_waiver_response.json()["error_code"] == "invalid_agent_task_input"
+
+    with postgres_integration_harness.session_factory() as session:
+        waived_gate_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(unconverted_gate_draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_coverage_waiver",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": False,
+                    "replay_alert_fixture_coverage_waived_by": (
+                        "claim-support-operator@example.com"
+                    ),
+                    "replay_alert_fixture_coverage_waiver_reason": (
+                        "Emergency calibration validation before replay-alert fixtures "
+                        "are promoted."
+                    ),
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        waived_gate_verify_task_id = waived_gate_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        waived_gate_verify_row = session.get(AgentTask, waived_gate_verify_task_id)
+        assert waived_gate_verify_row is not None
+        waived_gate_payload = waived_gate_verify_row.result_json["payload"]
+        waiver = waived_gate_payload["replay_alert_fixture_coverage_waiver"]
+        assert waived_gate_payload["verification"]["outcome"] == "passed"
+        assert waived_gate_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_required"
+        ] is False
+        assert waived_gate_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_waiver_sha256"
+        ] == waiver["waiver_sha256"]
+        assert waiver["waived_by"] == "claim-support-operator@example.com"
+        assert waiver["artifact_kind"] == (
+            "claim_support_replay_alert_fixture_coverage_waiver"
+        )
+        assert waiver["stale_unconverted_escalation_event_count"] == 2
+        waiver_artifact = session.get(AgentTaskArtifact, UUID(waiver["artifact_id"]))
+        assert waiver_artifact is not None
+        assert waiver_artifact.artifact_kind == (
+            "claim_support_replay_alert_fixture_coverage_waiver"
+        )
+        assert waiver_artifact.payload_json["waiver_sha256"] == waiver["waiver_sha256"]
+        assert any(
+            metric["metric_key"] == "claim_support_replay_alert_fixture_coverage"
+            and metric["passed"] is True
+            and metric["details"]["waiver"]["waiver_sha256"] == waiver["waiver_sha256"]
+            for metric in waived_gate_payload["evaluation"]["success_metrics"]
+        )
+
+    waiver_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert waiver_signal_response.status_code == 200
+    assert any(
+        row["task_type"] == "claim_support_replay_alert_fixture_coverage_waiver"
+        and row["threshold_crossed"]
+        == "claim_support_replay_alert_fixture_coverage_waivers>0"
+        for row in waiver_signal_response.json()
+    )
 
     fixture_candidate_response = postgres_integration_harness.client.get(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates"

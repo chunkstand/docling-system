@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
     AgentTaskSideEffectLevel,
@@ -244,6 +245,13 @@ from app.services.technical_reports import (
     prepare_report_agent_harness,
     task_output_context_ref,
     verify_technical_report,
+)
+
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
+    "claim_support_replay_alert_fixture_coverage_waiver"
+)
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_FILENAME = (
+    "claim_support_replay_alert_fixture_coverage_waiver.json"
 )
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
@@ -2037,6 +2045,50 @@ def _verify_claim_support_calibration_policy_executor(
             "replay_alert_fixture_summary": replay_alert_fixture_summary,
         },
     )
+    replay_alert_fixture_coverage_waiver: dict = {}
+    if not payload.require_replay_alert_fixture_coverage:
+        waiver_basis = {
+            "schema_name": "claim_support_replay_alert_fixture_coverage_waiver",
+            "schema_version": "1.0",
+            "verification_task_id": str(task.id),
+            "target_task_id": str(payload.target_task_id),
+            "policy_id": str(policy_row.id),
+            "policy_sha256": policy_row.policy_sha256,
+            "fixture_set_id": str(fixture_set_record.id),
+            "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
+            "waived_by": payload.replay_alert_fixture_coverage_waived_by,
+            "waiver_reason": payload.replay_alert_fixture_coverage_waiver_reason,
+            "waived_at": utcnow().isoformat(),
+            "replay_alert_fixture_summary": replay_alert_fixture_summary,
+            "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary[
+                "verification_summary_sha256"
+            ],
+            "stale_unconverted_escalation_event_count": (
+                replay_alert_fixture_summary.get(
+                    "stale_unconverted_escalation_event_count"
+                )
+            ),
+        }
+        waiver_payload = {
+            **waiver_basis,
+            "waiver_sha256": str(payload_sha256(waiver_basis)),
+        }
+        waiver_artifact = create_agent_task_artifact(
+            session,
+            task_id=task.id,
+            artifact_kind=(
+                CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
+            ),
+            payload=waiver_payload,
+            storage_service=StorageService(),
+            filename=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_FILENAME,
+        )
+        replay_alert_fixture_coverage_waiver = {
+            **waiver_payload,
+            "artifact_id": str(waiver_artifact.id),
+            "artifact_kind": waiver_artifact.artifact_kind,
+            "artifact_path": waiver_artifact.storage_path,
+        }
     evaluation_payload = evaluate_claim_support_judge_fixture_set(
         evaluation_name="claim_support_calibration_policy_verification",
         fixture_set_name=payload.fixture_set_name,
@@ -2062,6 +2114,7 @@ def _verify_claim_support_calibration_policy_executor(
         "details": {
             "required": payload.require_replay_alert_fixture_coverage,
             "enabled": replay_alert_fixture_summary.get("enabled"),
+            "waiver": replay_alert_fixture_coverage_waiver,
             "included_replay_alert_fixture_count": replay_alert_fixture_summary.get(
                 "included_replay_alert_fixture_count"
             ),
@@ -2092,6 +2145,12 @@ def _verify_claim_support_calibration_policy_executor(
             payload.require_replay_alert_fixture_coverage
         ),
         "replay_alert_fixture_coverage_passed": replay_alert_coverage_passed,
+        "replay_alert_fixture_coverage_waiver_sha256": (
+            replay_alert_fixture_coverage_waiver.get("waiver_sha256")
+        ),
+        "replay_alert_fixture_coverage_waiver_artifact_id": (
+            replay_alert_fixture_coverage_waiver.get("artifact_id")
+        ),
         "included_replay_alert_fixture_count": replay_alert_fixture_summary.get(
             "included_replay_alert_fixture_count"
         ),
@@ -2139,6 +2198,9 @@ def _verify_claim_support_calibration_policy_executor(
             "replay_alert_fixture_limit": payload.replay_alert_fixture_limit,
             "require_replay_alert_fixture_coverage": (
                 payload.require_replay_alert_fixture_coverage
+            ),
+            "replay_alert_fixture_coverage_waiver": (
+                replay_alert_fixture_coverage_waiver
             ),
             "replay_alert_fixture_summary": replay_alert_fixture_summary,
             "include_mined_failures": payload.include_mined_failures,
@@ -2188,6 +2250,9 @@ def _verify_claim_support_calibration_policy_executor(
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
             "evaluation_id": result_evaluation["evaluation_id"],
             "replay_alert_fixture_summary": replay_alert_fixture_summary,
+            "replay_alert_fixture_coverage_waiver": (
+                replay_alert_fixture_coverage_waiver
+            ),
             "mined_failure_summary": mined_failure_summary,
         },
     )
@@ -2196,6 +2261,7 @@ def _verify_claim_support_calibration_policy_executor(
         "evaluation": result_evaluation,
         "verification": record.model_dump(mode="json"),
         "replay_alert_fixture_summary": replay_alert_fixture_summary,
+        "replay_alert_fixture_coverage_waiver": replay_alert_fixture_coverage_waiver,
         "mined_failure_summary": mined_failure_summary,
     }
     artifact = create_agent_task_artifact(
@@ -2303,6 +2369,11 @@ def _apply_claim_support_calibration_policy_executor(
         or verification_details.get("replay_alert_fixture_summary")
         or {}
     )
+    verification_replay_alert_fixture_coverage_waiver = dict(
+        verification_output.replay_alert_fixture_coverage_waiver
+        or verification_details.get("replay_alert_fixture_coverage_waiver")
+        or {}
+    )
 
     previous_active = get_active_claim_support_calibration_policy(
         session,
@@ -2351,6 +2422,9 @@ def _apply_claim_support_calibration_policy_executor(
         "verification_replay_alert_fixture_summary": (
             verification_replay_alert_fixture_summary
         ),
+        "verification_replay_alert_fixture_coverage_waiver": (
+            verification_replay_alert_fixture_coverage_waiver
+        ),
         "verification_mined_failure_summary": verification_mined_failure_summary,
         "success_metrics": [
             {
@@ -2372,6 +2446,16 @@ def _apply_claim_support_calibration_policy_executor(
                     "replay_alert_fixture_count": (
                         verification_replay_alert_fixture_summary.get(
                             "included_replay_alert_fixture_count"
+                        )
+                    ),
+                    "replay_alert_fixture_coverage_waiver_sha256": (
+                        verification_replay_alert_fixture_coverage_waiver.get(
+                            "waiver_sha256"
+                        )
+                    ),
+                    "replay_alert_fixture_coverage_waiver_artifact_id": (
+                        verification_replay_alert_fixture_coverage_waiver.get(
+                            "artifact_id"
                         )
                     ),
                     "mined_failure_manifest_sha256": (
@@ -2412,6 +2496,9 @@ def _apply_claim_support_calibration_policy_executor(
             "verification": verification.model_dump(mode="json"),
             "verification_replay_alert_fixture_summary": (
                 verification_replay_alert_fixture_summary
+            ),
+            "verification_replay_alert_fixture_coverage_waiver": (
+                verification_replay_alert_fixture_coverage_waiver
             ),
             "verification_mined_failure_summary": verification_mined_failure_summary,
             "reason": payload.reason,
