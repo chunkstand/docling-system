@@ -2200,7 +2200,13 @@ class RetrievalJudgmentSet(Base):
     __tablename__ = "retrieval_judgment_sets"
     __table_args__ = (
         CheckConstraint(
-            "set_kind IN ('feedback', 'replay', 'mixed', 'training')",
+            "set_kind IN ("
+            "'feedback', "
+            "'replay', "
+            "'mixed', "
+            "'training', "
+            "'claim_support_replay_alert_corpus'"
+            ")",
             name="ck_retrieval_judgment_sets_set_kind",
         ),
         UniqueConstraint("set_name", name="uq_retrieval_judgment_sets_set_name"),
@@ -2267,7 +2273,7 @@ class RetrievalJudgment(Base):
             name="ck_retrieval_judgments_kind",
         ),
         CheckConstraint(
-            "source_type IN ('feedback', 'replay')",
+            "source_type IN ('feedback', 'replay', 'claim_support_replay_alert_corpus')",
             name="ck_retrieval_judgments_source_type",
         ),
         CheckConstraint(
@@ -2390,7 +2396,7 @@ class RetrievalHardNegative(Base):
             name="ck_retrieval_hard_negatives_kind",
         ),
         CheckConstraint(
-            "source_type IN ('feedback', 'replay')",
+            "source_type IN ('feedback', 'replay', 'claim_support_replay_alert_corpus')",
             name="ck_retrieval_hard_negatives_source_type",
         ),
         CheckConstraint(

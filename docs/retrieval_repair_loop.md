@@ -126,7 +126,11 @@ any affected evidence traces or claims.
 Retrieval training run audit bundles freeze the full learning input: the training run
 record, judgment set, canonical training payload, every judgment row, every hard
 negative row, source payload hashes, evidence refs, semantic governance events, and a
-PROV-style graph. Search harness release audit bundles include any linked
+PROV-style graph. When the governed claim-support replay-alert corpus is included as a
+learning source, each corpus-derived judgment and hard negative carries the active
+snapshot hash, governance event/artifact/receipt, promotion lineage, source
+policy-change impact IDs, escalation event IDs, fixture hash, hard-case kind, expected
+verdict, and evidence-card references. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
 sets, any linked `retrieval_reranker_artifacts`, the artifact payload hashes,
 change-impact report hashes, the associated governance events, and references to the

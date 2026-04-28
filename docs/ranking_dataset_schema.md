@@ -14,7 +14,15 @@ The durable retrieval-learning ledger is materialized by:
 uv run docling-system-materialize-retrieval-learning --limit 200
 ```
 
-That command stores a judgment set, item-level judgments, mined hard negatives, a training run payload hash, and a semantic governance event in Postgres. The JSON export remains a lightweight derived view for offline inspection.
+That command stores a judgment set, item-level judgments, mined hard negatives, a training run payload hash, and a semantic governance event in Postgres. By default it mines `feedback` and `replay` sources. It can also materialize the governed claim-support replay-alert fixture corpus:
+
+```bash
+uv run docling-system-materialize-retrieval-learning \
+  --source-type claim_support_replay_alert_corpus \
+  --limit 200
+```
+
+The JSON export remains a lightweight derived view for offline inspection.
 
 ## Feedback Rows
 
@@ -94,6 +102,27 @@ Notes:
 - `details` includes source metadata such as `source_reason`, `feedback_type`, `embedding_status`, `harness_name`, `reranker_name`, `reranker_version`, and `retrieval_profile_name` when available.
 - Replay rows are useful for offline harness comparison because they preserve both the query and the observed delta signals.
 
+## Claim-Support Replay-Alert Corpus Source
+
+`source_type = "claim_support_replay_alert_corpus"`
+
+This source is available in the durable retrieval-learning ledger, not the lightweight JSON export. It converts the active governed replay-alert fixture corpus into retrieval judgments only after the active corpus snapshot passes governance integrity checks.
+
+Mapping:
+
+- `expected_verdict = "supported"` becomes a positive judgment.
+- `expected_verdict = "unsupported"` becomes a negative judgment plus an `explicit_irrelevant` hard negative.
+- `expected_verdict = "insufficient_evidence"` becomes a missing judgment.
+
+Stored lineage:
+
+- active corpus snapshot ID, snapshot hash, governance event, governance artifact, and governance receipt
+- corpus row ID, row index, case identity, fixture hash, fixture set, promotion event, promotion artifact, and promotion receipt
+- source policy-change impact IDs and replay escalation event IDs
+- original fixture claim, hard-case kind, expected verdict, evidence-card references, and source search request/result references when present
+
+The materializer refuses to use this source when snapshot governance is incomplete, fixture hashes do not match stored corpus rows, promotion lineage is missing, or escalation event lineage is missing. This keeps court-facing training data traceable back to the exact governed replay-alert source that caused the learning signal.
+
 ## Intended Use
 
 Use this export to:
@@ -102,12 +131,13 @@ Use this export to:
 - analyze which harness versions improve or regress fixed-corpus queries
 - cluster repeated live misses before promoting them into durable evaluation fixtures
 - inspect which feature snapshots correlate with operator-approved results
+- turn governed replay-alert fixture promotions into auditable retrieval-learning judgments
 
 This export is a derived operator artifact, not a source of truth. The durable source of truth remains the persisted search request, feedback, replay, evaluation, and retrieval-learning ledger tables in Postgres:
 
 - `retrieval_judgment_sets` records the source mix, criteria, counts, and canonical payload hash.
-- `retrieval_judgments` stores positive, negative, and missing judgments with query, harness, result, rerank feature, evidence-span references, and stable source payload hashes.
-- `retrieval_hard_negatives` stores explicit and mined hard negatives for reranker training, including direct source request/replay references, evidence-span refs, stable source payload hashes, and optional positive judgment pair links.
+- `retrieval_judgments` stores positive, negative, and missing judgments with query, harness, result, rerank feature, evidence-span references, source-specific lineage, and stable source payload hashes.
+- `retrieval_hard_negatives` stores explicit and mined hard negatives for reranker training, including direct source request/replay/corpus references, evidence-span refs, stable source payload hashes, source-specific lineage, and optional positive judgment pair links.
 - `retrieval_training_runs` stores the canonical training payload, total training example count, and a link to `semantic_governance_events` for auditability.
 - `retrieval_learning_candidate_evaluations` links one training run to a candidate search harness evaluation and release gate, including the training dataset hash, candidate metrics, gate outcome, package hash, and governance event. This is the auditable bridge from learned retrieval data to a candidate retrieval behavior decision.
 - `retrieval_reranker_artifacts` stores versioned data-derived reranker candidates, their bounded harness override spec, evaluation/release snapshots, artifact hash, change-impact hash, and semantic governance event. The artifact payload is evaluated through the same harness release gate before it can be treated as promotion evidence.

@@ -9,9 +9,14 @@ import pytest
 from sqlalchemy import select
 
 from app.db.models import (
+    AgentTask,
+    AgentTaskArtifact,
     AuditBundleExport,
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
+    ClaimSupportFixtureSet,
+    ClaimSupportReplayAlertFixtureCorpusRow,
+    ClaimSupportReplayAlertFixtureCorpusSnapshot,
     EvidencePackageExport,
     EvidenceTraceEdge,
     EvidenceTraceNode,
@@ -37,11 +42,16 @@ from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseResponse,
 )
+from app.services.claim_support_replay_alert_fixture_corpus import (
+    ensure_active_replay_alert_fixture_corpus_snapshot,
+)
+from app.services.evidence import payload_sha256
 from app.services.retrieval_learning import (
     create_retrieval_reranker_artifact,
     evaluate_retrieval_learning_candidate,
     materialize_retrieval_learning_dataset,
 )
+from app.services.semantic_governance import record_semantic_governance_event
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -107,6 +117,425 @@ def _make_result(
         preview_text=f"{result_type} result {rank}",
         created_at=now,
     )
+
+
+def _claim_support_learning_fixture(
+    *,
+    case_id: str,
+    expected_verdict: str,
+    hard_case_kind: str,
+    rendered_text: str,
+    evidence_excerpt: str | None,
+) -> dict:
+    document_id = uuid4()
+    run_id = uuid4()
+    request_id = uuid4()
+    search_result_id = uuid4()
+    chunk_id = uuid4()
+    evidence_card_id = f"card:{case_id}:source"
+    evidence_card_ids = [evidence_card_id] if evidence_excerpt is not None else []
+    evidence_cards = (
+        [
+            {
+                "evidence_card_id": evidence_card_id,
+                "evidence_kind": "source_evidence",
+                "source_type": "chunk",
+                "source_locator": f"chunk:{case_id}:source",
+                "chunk_id": str(chunk_id),
+                "document_id": str(document_id),
+                "run_id": str(run_id),
+                "page_from": 3,
+                "page_to": 3,
+                "excerpt": evidence_excerpt,
+                "source_search_request_ids": [str(request_id)],
+                "source_search_request_result_ids": [str(search_result_id)],
+                "metadata": {"fixture": "claim-support-replay-alert-corpus"},
+            }
+        ]
+        if evidence_excerpt is not None
+        else []
+    )
+    return {
+        "case_id": case_id,
+        "description": f"{hard_case_kind} replay-alert fixture",
+        "hard_case_kind": hard_case_kind,
+        "expected_verdict": expected_verdict,
+        "claim_id": f"claim:{case_id}",
+        "draft_payload": {
+            "document_kind": "technical_report",
+            "title": "Replay alert fixture",
+            "goal": "Evaluate claim support replay alerts.",
+            "claims": [
+                {
+                    "claim_id": f"claim:{case_id}",
+                    "rendered_text": rendered_text,
+                    "source_search_request_ids": [str(request_id)],
+                    "source_search_request_result_ids": [str(search_result_id)],
+                    "source_document_ids": [str(document_id)],
+                    "evidence_card_ids": evidence_card_ids,
+                }
+            ],
+            "evidence_cards": evidence_cards,
+            "markdown": rendered_text,
+        },
+        "replay_alert_source": {
+            "candidate_identity_sha256": f"candidate:{case_id}",
+            "draft_source": "reconstructed_claim_derivation",
+        },
+    }
+
+
+def _receipt_payload(payload: dict) -> dict:
+    basis = dict(payload)
+    return {**basis, "receipt_sha256": payload_sha256(basis)}
+
+
+def _seed_governed_claim_support_replay_alert_corpus(
+    session,
+    *,
+    now: datetime,
+    fixtures: list[dict],
+) -> ClaimSupportReplayAlertFixtureCorpusSnapshot:
+    task_id = uuid4()
+    session.add(
+        AgentTask(
+            id=task_id,
+            task_type="claim_support_replay_alert_fixture_promotion",
+            status="completed",
+            priority=100,
+            side_effect_level="promotable",
+            requires_approval=False,
+            input_json={},
+            result_json={},
+            attempts=1,
+            workflow_version="claim_support_policy_change_impact_replay_v1",
+            model_settings_json={},
+            created_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+    )
+    fixture_set_id = uuid4()
+    fixture_set_sha256 = payload_sha256(
+        {
+            "schema_name": "claim_support_fixture_set",
+            "fixture_set_name": "retrieval_learning_replay_alert_corpus",
+            "fixture_set_version": "v1",
+            "fixtures": fixtures,
+        }
+    )
+    session.add(
+        ClaimSupportFixtureSet(
+            id=fixture_set_id,
+            fixture_set_name="retrieval_learning_replay_alert_corpus",
+            fixture_set_version="v1",
+            status="active",
+            fixture_set_sha256=fixture_set_sha256,
+            fixture_count=len(fixtures),
+            hard_case_kinds_json=sorted({row["hard_case_kind"] for row in fixtures}),
+            verdicts_json=sorted({row["expected_verdict"] for row in fixtures}),
+            fixtures_json=fixtures,
+            metadata_json={"source": "integration"},
+            created_at=now,
+        )
+    )
+    escalation_event_ids = []
+    change_impact_ids = []
+    for fixture in fixtures:
+        change_impact_id = uuid4()
+        change_impact_ids.append(change_impact_id)
+        escalation_event = record_semantic_governance_event(
+            session,
+            event_kind="claim_support_policy_impact_replay_escalated",
+            governance_scope=f"claim_support_replay_alert:{fixture['case_id']}",
+            subject_table="claim_support_policy_change_impacts",
+            subject_id=change_impact_id,
+            task_id=task_id,
+            event_payload={
+                "claim_support_policy_impact_replay_escalation": {
+                    "case_id": fixture["case_id"],
+                    "change_impact_id": str(change_impact_id),
+                }
+            },
+            deduplication_key=(
+                "test-replay-alert-escalation:"
+                f"{fixture_set_id}:{fixture['case_id']}"
+            ),
+            created_by="integration",
+        )
+        escalation_event_ids.append(escalation_event.id)
+    candidates = [
+        {
+            "candidate_id": fixture["replay_alert_source"]["candidate_identity_sha256"],
+            "candidate_identity_sha256": fixture["replay_alert_source"][
+                "candidate_identity_sha256"
+            ],
+            "case_id": fixture["case_id"],
+            "fixture_sha256": payload_sha256(fixture),
+            "change_impact_id": str(change_impact_id),
+            "escalation_event_ids": [str(escalation_event_id)],
+            "latest_escalation_event_id": str(escalation_event_id),
+        }
+        for fixture, change_impact_id, escalation_event_id in zip(
+            fixtures,
+            change_impact_ids,
+            escalation_event_ids,
+            strict=True,
+        )
+    ]
+    promotion_payload = _receipt_payload(
+        {
+            "schema_name": "claim_support_policy_impact_fixture_promotion",
+            "schema_version": "1.0",
+            "fixture_set_id": str(fixture_set_id),
+            "fixture_set_name": "retrieval_learning_replay_alert_corpus",
+            "fixture_set_version": "v1",
+            "fixture_set_sha256": fixture_set_sha256,
+            "fixture_count": len(fixtures),
+            "candidate_count": len(candidates),
+            "source_change_impact_ids": [str(value) for value in change_impact_ids],
+            "source_escalation_event_ids": [str(value) for value in escalation_event_ids],
+            "candidates": candidates,
+        }
+    )
+    promotion_artifact = AgentTaskArtifact(
+        id=uuid4(),
+        task_id=task_id,
+        attempt_id=None,
+        artifact_kind="claim_support_policy_impact_fixture_promotion",
+        storage_path=None,
+        payload_json=promotion_payload,
+        created_at=now,
+    )
+    session.add(promotion_artifact)
+    session.flush()
+    record_semantic_governance_event(
+        session,
+        event_kind="claim_support_policy_impact_fixture_promoted",
+        governance_scope="claim_support_policy:retrieval_learning_replay_alert_corpus:v1",
+        subject_table="claim_support_fixture_sets",
+        subject_id=fixture_set_id,
+        task_id=task_id,
+        agent_task_artifact_id=promotion_artifact.id,
+        receipt_sha256=promotion_payload["receipt_sha256"],
+        event_payload={"claim_support_policy_impact_fixture_promotion": promotion_payload},
+        deduplication_key=(
+            "test-replay-alert-fixture-promotion:"
+            f"{fixture_set_id}:{promotion_payload['receipt_sha256']}"
+        ),
+        created_by="integration",
+    )
+    snapshot = ensure_active_replay_alert_fixture_corpus_snapshot(
+        session,
+        recorded_by="integration",
+    )
+    assert snapshot is not None
+    assert snapshot.fixture_count == len(fixtures)
+    assert snapshot.semantic_governance_event_id is not None
+    assert snapshot.governance_artifact_id is not None
+    return snapshot
+
+
+def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpus(
+    postgres_integration_harness,
+    monkeypatch,
+) -> None:
+    now = datetime.now(UTC)
+    fixtures = [
+        _claim_support_learning_fixture(
+            case_id="replay-alert-supported",
+            expected_verdict="supported",
+            hard_case_kind="policy_change_supported",
+            rendered_text="The policy exception is supported by the cited record.",
+            evidence_excerpt="The record states the exception is authorized.",
+        ),
+        _claim_support_learning_fixture(
+            case_id="replay-alert-unsupported",
+            expected_verdict="unsupported",
+            hard_case_kind="policy_change_unsupported",
+            rendered_text="The policy exception is not supported by the cited record.",
+            evidence_excerpt="The cited record discusses a different policy.",
+        ),
+        _claim_support_learning_fixture(
+            case_id="replay-alert-insufficient",
+            expected_verdict="insufficient_evidence",
+            hard_case_kind="policy_change_insufficient_evidence",
+            rendered_text="The policy exception lacks traceable source support.",
+            evidence_excerpt=None,
+        ),
+    ]
+    expected_chunk_ids = {
+        fixture["draft_payload"]["evidence_cards"][0]["chunk_id"]
+        for fixture in fixtures
+        if fixture["draft_payload"]["evidence_cards"]
+    }
+    source_search_result_ids = {
+        fixture["draft_payload"]["evidence_cards"][0]["source_search_request_result_ids"][0]
+        for fixture in fixtures
+        if fixture["draft_payload"]["evidence_cards"]
+    }
+
+    with postgres_integration_harness.session_factory() as session:
+        snapshot = _seed_governed_claim_support_replay_alert_corpus(
+            session,
+            now=now,
+            fixtures=fixtures,
+        )
+        snapshot_id = str(snapshot.id)
+        snapshot_sha256 = snapshot.snapshot_sha256
+        response = materialize_retrieval_learning_dataset(
+            session,
+            limit=10,
+            source_types=["claim_support_replay_alert_corpus"],
+            set_name="integration-replay-alert-corpus-learning",
+            created_by="integration",
+        )
+        training_run_id = response["retrieval_training_run_id"]
+        judgment_set_id = UUID(response["judgment_set_id"])
+        session.commit()
+
+    assert response["summary"]["source_types"] == ["claim_support_replay_alert_corpus"]
+    assert response["summary"]["judgment_count"] == 3
+    assert response["summary"]["positive_count"] == 1
+    assert response["summary"]["negative_count"] == 1
+    assert response["summary"]["missing_count"] == 1
+    assert response["summary"]["hard_negative_count"] == 1
+    assert response["summary"]["training_example_count"] == 4
+    assert response["summary"]["judgment_counts_by_source_type"] == {
+        "claim_support_replay_alert_corpus": 3
+    }
+
+    with postgres_integration_harness.session_factory() as session:
+        judgment_set = session.get(RetrievalJudgmentSet, judgment_set_id)
+        judgments = list(
+            session.scalars(
+                select(RetrievalJudgment)
+                .where(RetrievalJudgment.judgment_set_id == judgment_set_id)
+                .order_by(RetrievalJudgment.deduplication_key.asc())
+            )
+        )
+        hard_negatives = list(
+            session.scalars(
+                select(RetrievalHardNegative)
+                .where(RetrievalHardNegative.judgment_set_id == judgment_set_id)
+                .order_by(RetrievalHardNegative.deduplication_key.asc())
+            )
+        )
+        training_run = session.get(RetrievalTrainingRun, UUID(training_run_id))
+
+    assert judgment_set is not None
+    assert judgment_set.set_kind == "claim_support_replay_alert_corpus"
+    assert judgment_set.source_types_json == ["claim_support_replay_alert_corpus"]
+    assert judgment_set.criteria_json["claim_support_replay_alert_corpus"][
+        "snapshot_governance_required"
+    ] is True
+    assert training_run is not None
+    assert training_run.training_payload_json["judgment_set"]["criteria"][
+        "claim_support_replay_alert_corpus"
+    ]["row_lineage_required"] == [
+        "fixture_expected_verdict",
+        "fixture_hard_case_kind",
+        "fixture_sha256",
+        "promotion_event",
+        "promotion_artifact",
+        "source_change_impact_ids",
+        "source_escalation_events",
+    ]
+    assert {row.source_type for row in judgments} == {
+        "claim_support_replay_alert_corpus"
+    }
+    assert {row.judgment_kind for row in judgments} == {
+        "positive",
+        "negative",
+        "missing",
+    }
+    assert {str(row.result_id) for row in judgments if row.result_id} == expected_chunk_ids
+    assert not {
+        str(row.result_id)
+        for row in judgments
+        if row.result_id and str(row.result_id) in source_search_result_ids
+    }
+    assert all(row.search_request_id is None for row in judgments)
+    assert all(row.search_request_result_id is None for row in judgments)
+    assert all(row.source_payload_sha256 for row in judgments)
+    assert len(hard_negatives) == 1
+    assert hard_negatives[0].source_type == "claim_support_replay_alert_corpus"
+    assert hard_negatives[0].hard_negative_kind == "explicit_irrelevant"
+    assert hard_negatives[0].source_payload_sha256
+    source_details = judgments[0].payload_json["source_details"]
+    assert source_details["snapshot"]["snapshot_id"] == snapshot_id
+    assert source_details["snapshot"]["snapshot_sha256"] == snapshot_sha256
+    assert source_details["snapshot"]["governance_integrity"]["complete"] is True
+    assert source_details["row"]["source_change_impact_ids"]
+    assert source_details["row"]["source_escalation_event_ids"]
+    assert source_details["row"]["promotion_event_id"]
+    assert source_details["row"]["promotion_artifact_id"]
+
+    monkeypatch.setattr(
+        "app.services.audit_bundles.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="retrieval-training-secret",
+            audit_bundle_signing_key_id="retrieval-training-key",
+        ),
+    )
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_payload = audit_response.json()["bundle"]["payload"]
+    assert audit_payload["audit_checklist"]["complete"] is True
+    assert audit_payload["integrity"]["judgment_count"] == 3
+    assert audit_payload["integrity"]["hard_negative_count"] == 1
+    assert {
+        row["source_type"] for row in audit_payload["retrieval_judgments"]
+    } == {"claim_support_replay_alert_corpus"}
+    assert all(
+        row["payload"]["source_details"]["snapshot"]["snapshot_sha256"]
+        == snapshot_sha256
+        for row in audit_payload["retrieval_judgments"]
+    )
+    assert audit_payload["source_payload_hashes"]
+
+
+def test_materialize_retrieval_learning_dataset_rejects_tampered_replay_alert_corpus(
+    postgres_integration_harness,
+) -> None:
+    now = datetime.now(UTC)
+    fixtures = [
+        _claim_support_learning_fixture(
+            case_id="replay-alert-tampered",
+            expected_verdict="supported",
+            hard_case_kind="policy_change_supported",
+            rendered_text="The policy exception is supported by the cited record.",
+            evidence_excerpt="The record states the exception is authorized.",
+        )
+    ]
+
+    with postgres_integration_harness.session_factory() as session:
+        snapshot = _seed_governed_claim_support_replay_alert_corpus(
+            session,
+            now=now,
+            fixtures=fixtures,
+        )
+        row = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .limit(1)
+        )
+        assert row is not None
+        row.fixture_sha256 = "tampered-fixture-hash"
+        session.flush()
+
+        with pytest.raises(ValueError, match="snapshot governance is incomplete"):
+            materialize_retrieval_learning_dataset(
+                session,
+                limit=10,
+                source_types=["claim_support_replay_alert_corpus"],
+                set_name="tampered-replay-alert-corpus-learning",
+                created_by="integration",
+            )
+        session.rollback()
 
 
 def test_materialize_retrieval_learning_dataset_roundtrip(

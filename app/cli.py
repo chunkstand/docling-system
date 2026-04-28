@@ -812,9 +812,12 @@ def run_materialize_retrieval_learning_dataset() -> None:
     parser.add_argument(
         "--source-type",
         action="append",
-        choices=["feedback", "replay"],
+        choices=["feedback", "replay", "claim_support_replay_alert_corpus"],
         dest="source_types",
-        help="Source family to mine. May be repeated; defaults to feedback and replay.",
+        help=(
+            "Source family to mine. May be repeated; defaults to feedback and replay. "
+            "Use claim_support_replay_alert_corpus for the governed replay-alert fixture corpus."
+        ),
     )
     parser.add_argument("--set-name", default=None, help="Optional unique judgment set name.")
     parser.add_argument(

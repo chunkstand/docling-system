@@ -15,7 +15,10 @@ from sqlalchemy.orm import Session
 from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import (
+    AgentTaskArtifact,
     ClaimEvidenceDerivation,
+    ClaimSupportReplayAlertFixtureCorpusRow,
+    ClaimSupportReplayAlertFixtureCorpusSnapshot,
     EvidenceTraceEdge,
     EvidenceTraceNode,
     RetrievalHardNegative,
@@ -35,6 +38,7 @@ from app.db.models import (
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
+    SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
 )
 from app.schemas.search import (
@@ -49,6 +53,10 @@ from app.schemas.search import (
     SearchHarnessReleaseGateRequest,
     SearchHarnessReleaseResponse,
 )
+from app.services.claim_support_replay_alert_fixture_corpus import (
+    active_replay_alert_fixture_corpus_rows,
+    replay_alert_fixture_corpus_snapshot_governance_integrity,
+)
 from app.services.search import get_search_harness
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_release_gate import record_search_harness_release_gate
@@ -59,10 +67,21 @@ from app.services.semantic_governance import (
 
 RETRIEVAL_LEARNING_DATASET_SCHEMA = "retrieval_learning_dataset"
 RETRIEVAL_LEARNING_DATASET_SCHEMA_VERSION = "1.0"
-RETRIEVAL_LEARNING_SOURCES = {"feedback", "replay"}
+RETRIEVAL_LEARNING_SOURCE_FEEDBACK = "feedback"
+RETRIEVAL_LEARNING_SOURCE_REPLAY = "replay"
+RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS = (
+    "claim_support_replay_alert_corpus"
+)
+RETRIEVAL_LEARNING_SOURCES = {
+    RETRIEVAL_LEARNING_SOURCE_FEEDBACK,
+    RETRIEVAL_LEARNING_SOURCE_REPLAY,
+    RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+}
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA = "retrieval_reranker_artifact"
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA_VERSION = "1.0"
 RETRIEVAL_RERANKER_ARTIFACT_KIND = "linear_feature_weight_candidate"
+CLAIM_SUPPORT_FIXTURE_PROMOTION_EVENT_KIND = "claim_support_policy_impact_fixture_promoted"
+CLAIM_SUPPORT_REPLAY_ESCALATION_EVENT_KIND = "claim_support_policy_impact_replay_escalated"
 
 
 def _json_default(value: Any) -> str:
@@ -992,6 +1011,401 @@ def _collect_replay_sources(
     return judgments, hard_negatives
 
 
+def _claim_support_fixture_claim(fixture: dict[str, Any]) -> dict[str, Any]:
+    draft_payload = fixture.get("draft_payload") if isinstance(fixture, dict) else {}
+    claims = draft_payload.get("claims") if isinstance(draft_payload, dict) else []
+    claim_id = str(fixture.get("claim_id") or "")
+    for claim in claims or []:
+        if not isinstance(claim, dict):
+            continue
+        if claim_id and str(claim.get("claim_id") or "") != claim_id:
+            continue
+        return claim
+    for claim in claims or []:
+        if isinstance(claim, dict):
+            return claim
+    return {}
+
+
+def _claim_support_query_text(
+    fixture: dict[str, Any],
+    row: ClaimSupportReplayAlertFixtureCorpusRow,
+) -> str:
+    claim = _claim_support_fixture_claim(fixture)
+    return (
+        str(claim.get("rendered_text") or "").strip()
+        or str(fixture.get("description") or "").strip()
+        or str(fixture.get("case_id") or "").strip()
+        or str(row.case_id or "").strip()
+    )
+
+
+def _claim_support_evidence_cards(fixture: dict[str, Any]) -> list[dict[str, Any]]:
+    draft_payload = fixture.get("draft_payload") if isinstance(fixture, dict) else {}
+    if not isinstance(draft_payload, dict):
+        return []
+    return [card for card in draft_payload.get("evidence_cards") or [] if isinstance(card, dict)]
+
+
+def _claim_support_result_fields(fixture: dict[str, Any]) -> dict[str, Any]:
+    for card in _claim_support_evidence_cards(fixture):
+        result_type = str(card.get("source_type") or "").strip()
+        if result_type not in {"chunk", "table"}:
+            continue
+        source_id_key = "chunk_id" if result_type == "chunk" else "table_id"
+        result_id = _maybe_uuid(card.get(source_id_key))
+        if result_id is None:
+            result_id = _maybe_uuid(card.get("source_id"))
+        if result_id is None:
+            result_ids = card.get("source_search_request_result_ids") or []
+            result_id = _maybe_uuid(next(iter(result_ids), None))
+        return {
+            "result_rank": None,
+            "result_type": result_type,
+            "result_id": result_id,
+            "document_id": _maybe_uuid(card.get("document_id")),
+            "run_id": _maybe_uuid(card.get("run_id")),
+            "score": None,
+            "rerank_features_json": {},
+            "evidence_refs_json": _claim_support_evidence_refs(fixture),
+        }
+    return {
+        "result_rank": None,
+        "result_type": None,
+        "result_id": None,
+        "document_id": None,
+        "run_id": None,
+        "score": None,
+        "rerank_features_json": {},
+        "evidence_refs_json": _claim_support_evidence_refs(fixture),
+    }
+
+
+def _claim_support_evidence_refs(fixture: dict[str, Any]) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    for card in _claim_support_evidence_cards(fixture):
+        result_ids = [str(value) for value in card.get("source_search_request_result_ids") or []]
+        request_ids = [str(value) for value in card.get("source_search_request_ids") or []]
+        refs.append(
+            _json_payload(
+                {
+                    "source": "claim_support_replay_alert_fixture",
+                    "evidence_card_id": card.get("evidence_card_id"),
+                    "source_type": card.get("source_type"),
+                    "source_locator": card.get("source_locator"),
+                    "source_search_request_ids": request_ids,
+                    "source_search_request_result_ids": result_ids,
+                    "document_id": card.get("document_id"),
+                    "run_id": card.get("run_id"),
+                    "page_from": card.get("page_from"),
+                    "page_to": card.get("page_to"),
+                    "text_excerpt": card.get("excerpt"),
+                    "source_snapshot_sha256": card.get("source_snapshot_sha256"),
+                    "metadata": card.get("metadata") or {},
+                }
+            )
+        )
+    return refs
+
+
+def _claim_support_expected_judgment(fixture: dict[str, Any]) -> tuple[str, str, str]:
+    expected_verdict = str(fixture.get("expected_verdict") or "").strip()
+    if expected_verdict == "supported":
+        return (
+            RetrievalJudgmentKind.POSITIVE.value,
+            "claim_support_expected_supported",
+            "Claim-support replay-alert fixture expects the claim to be supported.",
+        )
+    if expected_verdict == "unsupported":
+        return (
+            RetrievalJudgmentKind.NEGATIVE.value,
+            "claim_support_expected_unsupported",
+            (
+                "Claim-support replay-alert fixture expects the supplied evidence "
+                "not to support the claim."
+            ),
+        )
+    return (
+        RetrievalJudgmentKind.MISSING.value,
+        "claim_support_expected_insufficient_evidence",
+        "Claim-support replay-alert fixture expects insufficient traceable evidence.",
+    )
+
+
+def _claim_support_corpus_details(
+    *,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+    row: ClaimSupportReplayAlertFixtureCorpusRow,
+    fixture: dict[str, Any],
+    governance_integrity: dict[str, Any],
+) -> dict[str, Any]:
+    claim = _claim_support_fixture_claim(fixture)
+    return _json_payload(
+        {
+            "source_family": RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+            "snapshot": {
+                "snapshot_id": snapshot.id,
+                "snapshot_name": snapshot.snapshot_name,
+                "snapshot_sha256": snapshot.snapshot_sha256,
+                "semantic_governance_event_id": snapshot.semantic_governance_event_id,
+                "governance_artifact_id": snapshot.governance_artifact_id,
+                "governance_receipt_sha256": snapshot.governance_receipt_sha256,
+                "governance_integrity": governance_integrity,
+            },
+            "row": {
+                "corpus_row_id": row.id,
+                "row_index": row.row_index,
+                "case_id": row.case_id,
+                "case_identity_sha256": row.case_identity_sha256,
+                "fixture_sha256": row.fixture_sha256,
+                "fixture_set_id": row.fixture_set_id,
+                "promotion_event_id": row.promotion_event_id,
+                "promotion_artifact_id": row.promotion_artifact_id,
+                "promotion_receipt_sha256": row.promotion_receipt_sha256,
+                "source_change_impact_ids": list(row.source_change_impact_ids_json or []),
+                "source_escalation_event_ids": list(row.source_escalation_event_ids_json or []),
+                "replay_alert_source": row.replay_alert_source_json or {},
+            },
+            "fixture": {
+                "case_id": fixture.get("case_id"),
+                "claim_id": fixture.get("claim_id"),
+                "hard_case_kind": fixture.get("hard_case_kind"),
+                "expected_verdict": fixture.get("expected_verdict"),
+                "description": fixture.get("description"),
+                "claim": claim,
+                "evidence_card_count": len(_claim_support_evidence_cards(fixture)),
+            },
+        }
+    )
+
+
+def _claim_support_corpus_lineage_failures(
+    session: Session,
+    *,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+    rows: list[ClaimSupportReplayAlertFixtureCorpusRow],
+) -> list[str]:
+    failures: list[str] = []
+    if int(snapshot.invalid_promotion_event_count or 0):
+        failures.append("snapshot_has_invalid_promotion_events")
+
+    promotion_event_ids = {row.promotion_event_id for row in rows if row.promotion_event_id}
+    promotion_artifact_ids = {
+        row.promotion_artifact_id for row in rows if row.promotion_artifact_id
+    }
+    escalation_event_ids = {
+        event_id
+        for row in rows
+        for event_id in (_maybe_uuid(value) for value in row.source_escalation_event_ids_json or [])
+        if event_id is not None
+    }
+    promotion_events = _load_by_ids(session, SemanticGovernanceEvent, promotion_event_ids)
+    promotion_artifacts = _load_by_ids(session, AgentTaskArtifact, promotion_artifact_ids)
+    escalation_events = _load_by_ids(session, SemanticGovernanceEvent, escalation_event_ids)
+
+    for row in rows:
+        row_prefix = f"row_{row.row_index}_{row.case_id}"
+        fixture = dict(row.fixture_json or {})
+        if not fixture.get("case_id"):
+            failures.append(f"{row_prefix}:fixture_case_id_missing")
+        if not fixture.get("expected_verdict"):
+            failures.append(f"{row_prefix}:fixture_expected_verdict_missing")
+        if not fixture.get("hard_case_kind"):
+            failures.append(f"{row_prefix}:fixture_hard_case_kind_missing")
+        if _payload_sha256(fixture) != row.fixture_sha256:
+            failures.append(f"{row_prefix}:fixture_hash_mismatch")
+        if not row.source_change_impact_ids_json:
+            failures.append(f"{row_prefix}:source_change_impact_ids_missing")
+        if not row.source_escalation_event_ids_json:
+            failures.append(f"{row_prefix}:source_escalation_event_ids_missing")
+        if not row.replay_alert_source_json:
+            failures.append(f"{row_prefix}:replay_alert_source_missing")
+
+        if row.promotion_event_id is None:
+            failures.append(f"{row_prefix}:promotion_event_missing")
+        else:
+            promotion_event = promotion_events.get(row.promotion_event_id)
+            if promotion_event is None:
+                failures.append(f"{row_prefix}:promotion_event_not_found")
+            elif promotion_event.event_kind != CLAIM_SUPPORT_FIXTURE_PROMOTION_EVENT_KIND:
+                failures.append(f"{row_prefix}:promotion_event_kind_mismatch")
+            elif (
+                row.promotion_receipt_sha256
+                and promotion_event.receipt_sha256 != row.promotion_receipt_sha256
+            ):
+                failures.append(f"{row_prefix}:promotion_event_receipt_mismatch")
+
+        if row.promotion_artifact_id is None:
+            failures.append(f"{row_prefix}:promotion_artifact_missing")
+        elif row.promotion_artifact_id not in promotion_artifacts:
+            failures.append(f"{row_prefix}:promotion_artifact_not_found")
+
+        for escalation_event_id in (
+            _maybe_uuid(value) for value in row.source_escalation_event_ids_json or []
+        ):
+            if escalation_event_id is None:
+                failures.append(f"{row_prefix}:source_escalation_event_id_invalid")
+                continue
+            escalation_event = escalation_events.get(escalation_event_id)
+            if escalation_event is None:
+                failures.append(f"{row_prefix}:source_escalation_event_not_found")
+            elif escalation_event.event_kind != CLAIM_SUPPORT_REPLAY_ESCALATION_EVENT_KIND:
+                failures.append(f"{row_prefix}:source_escalation_event_kind_mismatch")
+
+    return failures
+
+
+def _collect_claim_support_replay_alert_corpus_sources(
+    session: Session,
+    *,
+    judgment_set_id: UUID,
+    limit: int,
+    created_at: datetime,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    snapshot, selected_rows, _available = active_replay_alert_fixture_corpus_rows(
+        session,
+        limit=limit,
+    )
+    if snapshot is None:
+        return [], []
+    all_rows = list(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .order_by(
+                ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc(),
+                ClaimSupportReplayAlertFixtureCorpusRow.id.asc(),
+            )
+        )
+    )
+    governance_integrity = replay_alert_fixture_corpus_snapshot_governance_integrity(
+        session,
+        snapshot,
+    )
+    if not governance_integrity.get("complete"):
+        failures = ", ".join(str(value) for value in governance_integrity.get("failures") or [])
+        raise ValueError(
+            "Active replay-alert fixture corpus snapshot governance is incomplete"
+            f": {failures}"
+        )
+    lineage_failures = _claim_support_corpus_lineage_failures(
+        session,
+        snapshot=snapshot,
+        rows=all_rows,
+    )
+    if lineage_failures:
+        raise ValueError(
+            "Active replay-alert fixture corpus rows are not valid retrieval-learning "
+            f"sources: {', '.join(lineage_failures)}"
+        )
+
+    judgments: list[dict[str, Any]] = []
+    hard_negatives: list[dict[str, Any]] = []
+    for corpus_row in selected_rows:
+        fixture = dict(corpus_row.fixture_json or {})
+        query_text = _claim_support_query_text(fixture, corpus_row)
+        judgment_kind, judgment_label, rationale = _claim_support_expected_judgment(fixture)
+        result_fields = _claim_support_result_fields(fixture)
+        details = _claim_support_corpus_details(
+            snapshot=snapshot,
+            row=corpus_row,
+            fixture=fixture,
+            governance_integrity=governance_integrity,
+        )
+        row_id = uuid.uuid4()
+        judgment = {
+            "id": row_id,
+            "judgment_set_id": judgment_set_id,
+            "judgment_kind": judgment_kind,
+            "judgment_label": judgment_label,
+            "source_type": RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+            "source_ref_id": corpus_row.id,
+            "search_feedback_id": None,
+            "search_replay_query_id": None,
+            "search_replay_run_id": None,
+            "evaluation_query_id": None,
+            "source_search_request_id": None,
+            "search_request_id": None,
+            "search_request_result_id": None,
+            **result_fields,
+            "query_text": query_text,
+            "mode": "hybrid",
+            "filters_json": {},
+            "expected_result_type": result_fields["result_type"],
+            "expected_top_n": 1 if result_fields["result_type"] else None,
+            "harness_name": None,
+            "reranker_name": None,
+            "reranker_version": None,
+            "retrieval_profile_name": None,
+            "rationale": rationale,
+            "payload_json": {
+                "source_details": details,
+                "harness_config": {},
+            },
+            "source_payload_sha256": None,
+            "deduplication_key": ":".join(
+                [
+                    str(judgment_set_id),
+                    "judgment",
+                    RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+                    str(corpus_row.id),
+                    judgment_kind,
+                    judgment_label,
+                ]
+            ),
+            "created_at": created_at,
+        }
+        judgments.append(judgment)
+        if judgment_kind == RetrievalJudgmentKind.NEGATIVE.value:
+            hard_negatives.append(
+                {
+                    "id": uuid.uuid4(),
+                    "judgment_set_id": judgment_set_id,
+                    "judgment_id": row_id,
+                    "positive_judgment_id": None,
+                    "hard_negative_kind": RetrievalHardNegativeKind.EXPLICIT_IRRELEVANT.value,
+                    "source_type": RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+                    "source_ref_id": corpus_row.id,
+                    "search_feedback_id": None,
+                    "search_replay_query_id": None,
+                    "search_replay_run_id": None,
+                    "evaluation_query_id": None,
+                    "source_search_request_id": None,
+                    "search_request_id": None,
+                    "search_request_result_id": None,
+                    "result_rank": result_fields["result_rank"],
+                    "result_type": result_fields["result_type"],
+                    "result_id": result_fields["result_id"],
+                    "document_id": result_fields["document_id"],
+                    "run_id": result_fields["run_id"],
+                    "score": result_fields["score"],
+                    "query_text": query_text,
+                    "mode": "hybrid",
+                    "filters_json": {},
+                    "rerank_features_json": result_fields["rerank_features_json"],
+                    "expected_result_type": result_fields["result_type"],
+                    "expected_top_n": 1 if result_fields["result_type"] else None,
+                    "evidence_refs_json": result_fields["evidence_refs_json"],
+                    "reason": (
+                        "Claim-support fixture labels this evidence as not supporting the claim."
+                    ),
+                    "details_json": {"source_details": details, "harness_config": {}},
+                    "source_payload_sha256": None,
+                    "deduplication_key": ":".join(
+                        [
+                            str(judgment_set_id),
+                            "hard-negative",
+                            RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+                            str(corpus_row.id),
+                            RetrievalHardNegativeKind.EXPLICIT_IRRELEVANT.value,
+                        ]
+                    ),
+                    "created_at": created_at,
+                }
+            )
+    return judgments, hard_negatives
+
+
 def _summary(
     *,
     source_types: list[str],
@@ -1041,7 +1455,7 @@ def materialize_retrieval_learning_dataset(
 
     judgments: list[dict[str, Any]] = []
     hard_negatives: list[dict[str, Any]] = []
-    if "feedback" in normalized_source_types:
+    if RETRIEVAL_LEARNING_SOURCE_FEEDBACK in normalized_source_types:
         feedback_judgments, feedback_hard_negatives = _collect_feedback_sources(
             session,
             judgment_set_id=judgment_set_id,
@@ -1050,7 +1464,7 @@ def materialize_retrieval_learning_dataset(
         )
         judgments.extend(feedback_judgments)
         hard_negatives.extend(feedback_hard_negatives)
-    if "replay" in normalized_source_types:
+    if RETRIEVAL_LEARNING_SOURCE_REPLAY in normalized_source_types:
         replay_judgments, replay_hard_negatives = _collect_replay_sources(
             session,
             judgment_set_id=judgment_set_id,
@@ -1059,6 +1473,20 @@ def materialize_retrieval_learning_dataset(
         )
         judgments.extend(replay_judgments)
         hard_negatives.extend(replay_hard_negatives)
+    if (
+        RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS
+        in normalized_source_types
+    ):
+        corpus_judgments, corpus_hard_negatives = (
+            _collect_claim_support_replay_alert_corpus_sources(
+                session,
+                judgment_set_id=judgment_set_id,
+                limit=limit,
+                created_at=created_at,
+            )
+        )
+        judgments.extend(corpus_judgments)
+        hard_negatives.extend(corpus_hard_negatives)
 
     judgments.sort(key=lambda row: row["deduplication_key"])
     hard_negatives.sort(key=lambda row: row["deduplication_key"])
@@ -1094,6 +1522,24 @@ def materialize_retrieval_learning_dataset(
                     "replay": {
                         "passed_queries": "positive_or_expected_no_answer",
                         "failed_queries": "missing_or_top_result_hard_negative",
+                    },
+                    RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS: {
+                        "active_snapshot_required": True,
+                        "snapshot_governance_required": True,
+                        "row_lineage_required": [
+                            "fixture_expected_verdict",
+                            "fixture_hard_case_kind",
+                            "fixture_sha256",
+                            "promotion_event",
+                            "promotion_artifact",
+                            "source_change_impact_ids",
+                            "source_escalation_events",
+                        ],
+                        "supported_verdict": "positive_judgment",
+                        "unsupported_verdict": (
+                            "negative_judgment_with_explicit_irrelevant_hard_negative"
+                        ),
+                        "insufficient_evidence_verdict": "missing_judgment",
                     },
                 },
             },
