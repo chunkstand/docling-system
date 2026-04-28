@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef
+from app.services.evidence import apply_technical_report_derivation_links, payload_sha256
 from app.services.technical_reports import (
     build_report_evidence_cards,
     draft_technical_report,
@@ -11,6 +12,74 @@ from app.services.technical_reports import (
     prepare_report_agent_harness,
     verify_technical_report,
 )
+
+
+def _add_unit_provenance_locks(draft: dict) -> dict:
+    request_id = str(uuid4())
+    result_id = str(uuid4())
+    for card in draft.get("evidence_cards") or []:
+        card["source_search_request_ids"] = card.get("source_search_request_ids") or [request_id]
+        card["source_search_request_result_ids"] = card.get(
+            "source_search_request_result_ids"
+        ) or [result_id]
+    for claim in draft.get("claims") or []:
+        claim["source_search_request_ids"] = claim.get("source_search_request_ids") or [request_id]
+        claim["source_search_request_result_ids"] = claim.get(
+            "source_search_request_result_ids"
+        ) or [result_id]
+        lock = {
+            "schema_name": "technical_report_claim_provenance_lock",
+            "schema_version": "1.0",
+            "claim_id": claim["claim_id"],
+            "source_search_request_ids": claim["source_search_request_ids"],
+            "source_search_request_result_ids": claim["source_search_request_result_ids"],
+            "source_evidence_package_export_ids": claim.get(
+                "source_evidence_package_export_ids"
+            )
+            or [],
+            "source_evidence_package_sha256s": claim.get("source_evidence_package_sha256s")
+            or [],
+            "source_evidence_trace_sha256s": claim.get("source_evidence_trace_sha256s") or [],
+            "semantic_ontology_snapshot_ids": claim.get("semantic_ontology_snapshot_ids")
+            or [],
+            "semantic_graph_snapshot_ids": claim.get("semantic_graph_snapshot_ids") or [],
+            "retrieval_reranker_artifact_ids": claim.get("retrieval_reranker_artifact_ids")
+            or [],
+            "search_harness_release_ids": claim.get("search_harness_release_ids") or [],
+            "release_audit_bundle_ids": claim.get("release_audit_bundle_ids") or [],
+            "release_validation_receipt_ids": claim.get("release_validation_receipt_ids") or [],
+            "coverage": {
+                "source_search_request_count": len(claim["source_search_request_ids"]),
+                "source_search_request_result_count": len(
+                    claim["source_search_request_result_ids"]
+                ),
+                "source_evidence_package_export_count": len(
+                    claim.get("source_evidence_package_export_ids") or []
+                ),
+                "semantic_ontology_snapshot_count": len(
+                    claim.get("semantic_ontology_snapshot_ids") or []
+                ),
+                "semantic_graph_snapshot_count": len(
+                    claim.get("semantic_graph_snapshot_ids") or []
+                ),
+                "retrieval_reranker_artifact_count": len(
+                    claim.get("retrieval_reranker_artifact_ids") or []
+                ),
+                "search_harness_release_count": len(
+                    claim.get("search_harness_release_ids") or []
+                ),
+                "release_audit_bundle_count": len(
+                    claim.get("release_audit_bundle_ids") or []
+                ),
+                "release_validation_receipt_count": len(
+                    claim.get("release_validation_receipt_ids") or []
+                ),
+            },
+        }
+        claim["provenance_lock"] = lock
+        claim["provenance_lock_sha256"] = payload_sha256(lock)
+    apply_technical_report_derivation_links(draft)
+    return draft
 
 
 def _semantic_brief_payload() -> dict:
@@ -238,7 +307,7 @@ def _draft_from_semantic_brief(monkeypatch, semantic_brief: dict) -> dict:
         evidence_task_id=context_ref.task_id,
         upstream_context_refs=[context_ref],
     )
-    return draft_technical_report(harness, harness_task_id=uuid4())
+    return _add_unit_provenance_locks(draft_technical_report(harness, harness_task_id=uuid4()))
 
 
 def test_report_harness_service_roundtrip(monkeypatch) -> None:
@@ -261,7 +330,7 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     }
     assert harness["llm_adapter_contract"]["harness_context_refs"][0]["freshness_status"] == "fresh"
 
-    draft = draft_technical_report(harness, harness_task_id=uuid4())
+    draft = _add_unit_provenance_locks(draft_technical_report(harness, harness_task_id=uuid4()))
     assert draft["claims"][0]["evidence_card_ids"]
     assert draft["evidence_package_sha256"]
     assert draft["claims"][0]["evidence_package_sha256"] == draft["evidence_package_sha256"]

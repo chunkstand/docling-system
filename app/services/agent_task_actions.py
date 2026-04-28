@@ -652,6 +652,7 @@ def _source_export_summary(export) -> dict:
     package_payload = export.package_payload_json or {}
     search_request = package_payload.get("search_request") or {}
     source_evidence = list(package_payload.get("source_evidence") or [])
+    result_payloads = list(package_payload.get("results") or [])
     source_document_run_keys = _unique_strings(
         f"{document_id}:{run_id}"
         for document_id in (export.document_ids_json or [])
@@ -659,18 +660,21 @@ def _source_export_summary(export) -> dict:
     )
     source_record_keys: list[str] = []
     source_page_spans: list[dict] = []
+    source_results: list[dict] = []
     for source_item in source_evidence:
         document = source_item.get("document") or {}
         run = source_item.get("run") or {}
-        source_record_keys.append(
+        item_record_keys: list[str] = []
+        item_page_spans: list[dict] = []
+        item_record_keys.append(
             _source_record_key(source_item.get("result_type"), source_item.get("source_id"))
         )
         for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
             source_payload = source_item.get(payload_key) or {}
-            source_record_keys.append(
+            item_record_keys.append(
                 _source_record_key(source_type, source_payload.get("id"))
             )
-            source_page_spans.append(
+            item_page_spans.append(
                 _source_page_span(
                     document_id=source_payload.get("document_id") or document.get("id"),
                     run_id=source_payload.get("run_id") or run.get("id"),
@@ -679,10 +683,10 @@ def _source_export_summary(export) -> dict:
                 )
             )
         for span in source_item.get("retrieval_evidence_spans") or []:
-            source_record_keys.append(
+            item_record_keys.append(
                 _source_record_key(span.get("source_type"), span.get("source_id"))
             )
-            source_page_spans.append(
+            item_page_spans.append(
                 _source_page_span(
                     document_id=document.get("id"),
                     run_id=run.get("id"),
@@ -690,6 +694,28 @@ def _source_export_summary(export) -> dict:
                     page_to=span.get("page_to"),
                 )
             )
+        item_record_keys = _unique_strings(item_record_keys)
+        item_page_spans = _unique_page_spans(item_page_spans)
+        source_record_keys.extend(item_record_keys)
+        source_page_spans.extend(item_page_spans)
+        if source_item.get("search_request_result_id"):
+            source_results.append(
+                {
+                    "search_request_result_id": str(source_item["search_request_result_id"]),
+                    "source_record_keys": item_record_keys,
+                    "source_page_spans": item_page_spans,
+                }
+            )
+    if not source_results:
+        source_results = [
+            {
+                "search_request_result_id": str(result["search_request_result_id"]),
+                "source_record_keys": [],
+                "source_page_spans": [],
+            }
+            for result in result_payloads
+            if result.get("search_request_result_id")
+        ]
     return {
         "evidence_package_export_id": str(export.id),
         "search_request_id": str(export.search_request_id) if export.search_request_id else None,
@@ -702,6 +728,10 @@ def _source_export_summary(export) -> dict:
         "source_document_run_keys": source_document_run_keys,
         "source_record_keys": _unique_strings(source_record_keys),
         "source_page_spans": _unique_page_spans(source_page_spans),
+        "source_search_request_result_ids": _unique_strings(
+            result.get("search_request_result_id") for result in source_results
+        ),
+        "source_results": source_results,
         "source_result_count": len(source_evidence),
     }
 
@@ -827,6 +857,29 @@ def _attach_source_exports_to_evidence_bundle(
     evidence_bundle: dict,
     search_export_summaries: list[dict],
 ) -> None:
+    def matched_result_ids(card: dict, summaries: list[dict]) -> list[str]:
+        card_source_record_keys = set(_card_source_record_keys(card))
+        card_page_span = _card_page_span(card)
+        result_ids: list[str] = []
+        for summary in summaries:
+            for result in summary.get("source_results") or []:
+                result_id = result.get("search_request_result_id")
+                if not result_id:
+                    continue
+                result_record_keys = set(result.get("source_record_keys") or [])
+                result_page_spans = list(result.get("source_page_spans") or [])
+                if card_source_record_keys and card_source_record_keys & result_record_keys:
+                    result_ids.append(result_id)
+                    continue
+                if card_page_span and any(
+                    _page_spans_overlap(card_page_span, span) for span in result_page_spans
+                ):
+                    result_ids.append(result_id)
+                    continue
+                if not card_source_record_keys and not card_page_span:
+                    result_ids.append(result_id)
+        return _unique_strings(result_ids)
+
     cards_by_id: dict[str, dict] = {}
     for card in evidence_bundle.get("evidence_cards") or []:
         source_match_status, matched_summaries, source_match_keys = _match_card_source_exports(
@@ -841,6 +894,10 @@ def _attach_source_exports_to_evidence_bundle(
         )
         card["source_search_request_ids"] = _unique_strings(
             summary.get("search_request_id") for summary in matched_summaries
+        )
+        card["source_search_request_result_ids"] = matched_result_ids(
+            card,
+            matched_summaries,
         )
         card["source_evidence_package_export_ids"] = _unique_strings(
             summary.get("evidence_package_export_id") for summary in matched_summaries
@@ -869,6 +926,11 @@ def _attach_source_exports_to_evidence_bundle(
             value
             for card in claim_cards
             for value in (card.get("source_search_request_ids") or [])
+        )
+        claim["source_search_request_result_ids"] = _unique_strings(
+            value
+            for card in claim_cards
+            for value in (card.get("source_search_request_result_ids") or [])
         )
         claim["source_evidence_package_export_ids"] = _unique_strings(
             value

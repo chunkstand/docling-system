@@ -789,6 +789,7 @@ def prepare_report_agent_harness(
                 "graph_edge_ids",
                 "source_evidence_package_export_ids",
                 "source_search_request_ids",
+                "source_search_request_result_ids",
                 "source_evidence_match_keys",
                 "source_evidence_match_status",
                 "source_locator",
@@ -910,6 +911,13 @@ def draft_technical_report(
                 for export_id in card.source_evidence_package_export_ids
             ]
         )
+        source_search_request_result_ids = _unique_uuids(
+            [
+                result_id
+                for card in claim_cards
+                for result_id in card.source_search_request_result_ids
+            ]
+        )
         source_evidence_package_sha256s = _unique_strings(
             [
                 sha256
@@ -954,6 +962,7 @@ def draft_technical_report(
                 "review_policy_status": claim_contract.get("review_policy_status"),
                 "disclosure_note": claim_contract.get("disclosure_note"),
                 "source_search_request_ids": source_search_request_ids,
+                "source_search_request_result_ids": source_search_request_result_ids,
                 "source_evidence_package_export_ids": source_evidence_package_export_ids,
                 "source_evidence_package_sha256s": source_evidence_package_sha256s,
                 "source_evidence_trace_sha256s": source_evidence_trace_sha256s,
@@ -1163,6 +1172,30 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 ],
             },
         ),
+        _success_metric(
+            "court_grade_claim_provenance_lock",
+            "Luc Moreau / James Cheney",
+            summary["claims_with_provenance_lock_count"] == summary["claim_count"]
+            and summary["missing_provenance_lock_count"] == 0
+            and summary["provenance_lock_integrity_mismatch_count"] == 0
+            and summary["claims_missing_source_search_request_result_count"] == 0,
+            (
+                "Every generated claim carries a recomputable provenance lock down to "
+                "search result identifiers."
+            ),
+            {
+                "claims_with_provenance_lock_count": summary[
+                    "claims_with_provenance_lock_count"
+                ],
+                "missing_provenance_lock_count": summary["missing_provenance_lock_count"],
+                "provenance_lock_integrity_mismatch_count": summary[
+                    "provenance_lock_integrity_mismatch_count"
+                ],
+                "claims_missing_source_search_request_result_count": summary[
+                    "claims_missing_source_search_request_result_count"
+                ],
+            },
+        ),
     ]
 
 
@@ -1198,6 +1231,9 @@ def verify_technical_report(
     unresolved_graph_edge_ref_count = 0
     missing_evidence_package_hash_count = 0
     missing_derivation_hash_count = 0
+    missing_provenance_lock_count = 0
+    provenance_lock_integrity_mismatch_count = 0
+    claims_missing_source_search_request_result_count = 0
     evidence_package_mismatch_count = 0
     evidence_package_integrity_mismatch_count = 0
     derivation_integrity_mismatch_count = 0
@@ -1263,6 +1299,28 @@ def verify_technical_report(
                     f"{claim.claim_id} derivation hash does not match recomputed "
                     "claim derivation."
                 )
+        expected_derivation = expected_derivations_by_claim_id.get(claim.claim_id)
+        expected_provenance_lock_sha256 = (
+            str(expected_derivation.get("provenance_lock_sha256") or "")
+            if expected_derivation is not None
+            else ""
+        )
+        if not claim.provenance_lock or not claim.provenance_lock_sha256:
+            missing_provenance_lock_count += 1
+            reasons.append(f"{claim.claim_id} is missing a provenance lock.")
+        elif (
+            claim.provenance_lock_sha256 != _payload_sha256(claim.provenance_lock)
+            or claim.provenance_lock_sha256 != expected_provenance_lock_sha256
+        ):
+            provenance_lock_integrity_mismatch_count += 1
+            reasons.append(
+                f"{claim.claim_id} provenance lock hash does not match recomputation."
+            )
+        if not claim.source_search_request_result_ids:
+            claims_missing_source_search_request_result_count += 1
+            reasons.append(
+                f"{claim.claim_id} is missing source search request result identifiers."
+            )
         missing_evidence_card_ids = [
             card_id for card_id in claim.evidence_card_ids if card_id not in card_ids
         ]
@@ -1319,6 +1377,7 @@ def verify_technical_report(
     graph_claim_count = sum(1 for claim in draft.claims if claim.graph_edge_ids)
     claims_with_evidence_package_hash_count = claim_count - missing_evidence_package_hash_count
     claims_with_derivation_hash_count = claim_count - missing_derivation_hash_count
+    claims_with_provenance_lock_count = claim_count - missing_provenance_lock_count
     if unsupported_claim_count > max_unsupported_claim_count:
         reasons.append(
             f"Unsupported claim count {unsupported_claim_count} exceeds the allowed maximum "
@@ -1338,10 +1397,13 @@ def verify_technical_report(
         or evidence_package_mismatch_count
         or evidence_package_integrity_mismatch_count
         or derivation_integrity_mismatch_count
+        or missing_provenance_lock_count
+        or provenance_lock_integrity_mismatch_count
+        or claims_missing_source_search_request_result_count
     ):
         reasons.append(
-            "Frozen evidence package and derivation hashes are required and must "
-            "match recomputation."
+            "Frozen evidence package, derivation hashes, provenance locks, and source "
+            "search result identifiers are required and must match recomputation."
         )
     if block_stale_context and stale_context_count:
         reasons.append("The report used stale wake-up context while stale blocking was enabled.")
@@ -1356,13 +1418,21 @@ def verify_technical_report(
         "unsupported_claim_count": unsupported_claim_count,
         "claims_with_evidence_package_hash_count": claims_with_evidence_package_hash_count,
         "claims_with_derivation_hash_count": claims_with_derivation_hash_count,
+        "claims_with_provenance_lock_count": claims_with_provenance_lock_count,
         "draft_evidence_package_hash_present": bool(draft.evidence_package_sha256),
         "expected_evidence_package_sha256": expected_package_sha256,
         "missing_evidence_package_hash_count": missing_evidence_package_hash_count,
         "missing_derivation_hash_count": missing_derivation_hash_count,
+        "missing_provenance_lock_count": missing_provenance_lock_count,
         "evidence_package_mismatch_count": evidence_package_mismatch_count,
         "evidence_package_integrity_mismatch_count": evidence_package_integrity_mismatch_count,
         "derivation_integrity_mismatch_count": derivation_integrity_mismatch_count,
+        "provenance_lock_integrity_mismatch_count": (
+            provenance_lock_integrity_mismatch_count
+        ),
+        "claims_missing_source_search_request_result_count": (
+            claims_missing_source_search_request_result_count
+        ),
         "traceable_claim_ratio": traceable_claim_ratio,
         "required_concept_count": required_concept_count,
         "covered_required_concept_count": covered_required_concept_count,

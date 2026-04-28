@@ -1101,6 +1101,7 @@ class TechnicalReportEvidenceCard(BaseModel):
     review_status: str | None = None
     relation_key: str | None = None
     source_search_request_ids: list[UUID] = Field(default_factory=list)
+    source_search_request_result_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_sha256s: list[str] = Field(default_factory=list)
     source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
@@ -1207,11 +1208,20 @@ class TechnicalReportClaim(BaseModel):
     review_policy_status: str | None = None
     disclosure_note: str | None = None
     source_search_request_ids: list[UUID] = Field(default_factory=list)
+    source_search_request_result_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_export_ids: list[UUID] = Field(default_factory=list)
     source_evidence_package_sha256s: list[str] = Field(default_factory=list)
     source_evidence_trace_sha256s: list[str] = Field(default_factory=list)
     source_evidence_match_keys: list[str] = Field(default_factory=list)
     source_evidence_match_status: str | None = None
+    semantic_ontology_snapshot_ids: list[UUID] = Field(default_factory=list)
+    semantic_graph_snapshot_ids: list[UUID] = Field(default_factory=list)
+    retrieval_reranker_artifact_ids: list[UUID] = Field(default_factory=list)
+    search_harness_release_ids: list[UUID] = Field(default_factory=list)
+    release_audit_bundle_ids: list[UUID] = Field(default_factory=list)
+    release_validation_receipt_ids: list[UUID] = Field(default_factory=list)
+    provenance_lock: dict = Field(default_factory=dict)
+    provenance_lock_sha256: str | None = None
     derivation_rule: str | None = None
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
@@ -1241,6 +1251,14 @@ class TechnicalReportDraftPayload(BaseModel):
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
     source_snapshot_sha256s: list[str] = Field(default_factory=list)
+    semantic_ontology_snapshot_ids: list[UUID] = Field(default_factory=list)
+    semantic_graph_snapshot_ids: list[UUID] = Field(default_factory=list)
+    retrieval_reranker_artifact_ids: list[UUID] = Field(default_factory=list)
+    search_harness_release_ids: list[UUID] = Field(default_factory=list)
+    release_audit_bundle_ids: list[UUID] = Field(default_factory=list)
+    release_validation_receipt_ids: list[UUID] = Field(default_factory=list)
+    provenance_lock_sha256s: list[str] = Field(default_factory=list)
+    provenance_lock_summary: dict = Field(default_factory=dict)
     claim_derivations: list[dict] = Field(default_factory=list)
     markdown: str
     markdown_path: str | None = None

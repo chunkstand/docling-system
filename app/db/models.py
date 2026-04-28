@@ -4329,6 +4329,10 @@ class ClaimEvidenceDerivation(Base):
         Index("ix_claim_evidence_derivations_agent_task_id", "agent_task_id"),
         Index("ix_claim_evidence_derivations_claim_id", "claim_id"),
         Index("ix_claim_evidence_derivations_derivation_sha256", "derivation_sha256"),
+        Index(
+            "ix_claim_evidence_derivations_provenance_lock_sha",
+            "provenance_lock_sha256",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -4386,6 +4390,91 @@ class ClaimEvidenceDerivation(Base):
         default=list,
         server_default=sql_text("'[]'::jsonb"),
     )
+    source_search_request_ids_json: Mapped[list] = mapped_column(
+        "source_search_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_search_request_result_ids_json: Mapped[list] = mapped_column(
+        "source_search_request_result_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_evidence_package_export_ids_json: Mapped[list] = mapped_column(
+        "source_evidence_package_export_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_evidence_package_sha256s_json: Mapped[list] = mapped_column(
+        "source_evidence_package_sha256s",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_evidence_trace_sha256s_json: Mapped[list] = mapped_column(
+        "source_evidence_trace_sha256s",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    semantic_ontology_snapshot_ids_json: Mapped[list] = mapped_column(
+        "semantic_ontology_snapshot_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    semantic_graph_snapshot_ids_json: Mapped[list] = mapped_column(
+        "semantic_graph_snapshot_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    retrieval_reranker_artifact_ids_json: Mapped[list] = mapped_column(
+        "retrieval_reranker_artifact_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    search_harness_release_ids_json: Mapped[list] = mapped_column(
+        "search_harness_release_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    release_audit_bundle_ids_json: Mapped[list] = mapped_column(
+        "release_audit_bundle_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    release_validation_receipt_ids_json: Mapped[list] = mapped_column(
+        "release_validation_receipt_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    provenance_lock_json: Mapped[dict] = mapped_column(
+        "provenance_lock",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    provenance_lock_sha256: Mapped[str | None] = mapped_column(Text)
     evidence_package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     derivation_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

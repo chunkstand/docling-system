@@ -19,6 +19,8 @@ from app.db.models import (
     AgentTaskArtifact,
     AgentTaskArtifactImmutabilityEvent,
     AgentTaskVerification,
+    AuditBundleExport,
+    AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
     Document,
     DocumentChunk,
@@ -34,6 +36,8 @@ from app.db.models import (
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
     RetrievalEvidenceSpanMultiVector,
+    RetrievalRerankerArtifact,
+    SearchHarnessRelease,
     SearchRequestRecord,
     SearchRequestResult,
     SearchRequestResultSpan,
@@ -41,6 +45,7 @@ from app.db.models import (
     SemanticAssertionEvidence,
     SemanticFact,
     SemanticFactEvidence,
+    SemanticGraphSnapshot,
 )
 from app.services.semantic_governance import (
     record_technical_report_prov_export_governance_event,
@@ -1416,6 +1421,371 @@ def _clean_mapping(value: dict[str, Any], *, drop_fields: set[str]) -> dict[str,
     return {key: item for key, item in value.items() if key not in drop_fields}
 
 
+def _id_str_values(values: Iterable[Any]) -> list[str]:
+    return _string_values(_uuid_values(values))
+
+
+def _latest_passed_releases_by_harness(
+    session: Session,
+    harness_names: Iterable[str],
+) -> dict[str, SearchHarnessRelease]:
+    names = _string_values(harness_names)
+    if not names:
+        return {}
+    rows = list(
+        session.scalars(
+            select(SearchHarnessRelease)
+            .where(
+                SearchHarnessRelease.candidate_harness_name.in_(names),
+                SearchHarnessRelease.outcome == "passed",
+            )
+            .order_by(
+                SearchHarnessRelease.candidate_harness_name.asc(),
+                SearchHarnessRelease.created_at.desc(),
+                SearchHarnessRelease.id.asc(),
+            )
+        )
+    )
+    latest_by_harness: dict[str, SearchHarnessRelease] = {}
+    for row in rows:
+        latest_by_harness.setdefault(row.candidate_harness_name, row)
+    return latest_by_harness
+
+
+def _latest_release_audit_bundles_by_release(
+    session: Session,
+    release_ids: Iterable[UUID],
+) -> dict[UUID, AuditBundleExport]:
+    ids = _uuid_values(release_ids)
+    if not ids:
+        return {}
+    rows = list(
+        session.scalars(
+            select(AuditBundleExport)
+            .where(
+                AuditBundleExport.search_harness_release_id.in_(ids),
+                AuditBundleExport.bundle_kind == "search_harness_release_provenance",
+                AuditBundleExport.export_status == "completed",
+            )
+            .order_by(
+                AuditBundleExport.search_harness_release_id.asc(),
+                AuditBundleExport.created_at.desc(),
+                AuditBundleExport.id.asc(),
+            )
+        )
+    )
+    latest_by_release: dict[UUID, AuditBundleExport] = {}
+    for row in rows:
+        if row.search_harness_release_id is not None:
+            latest_by_release.setdefault(row.search_harness_release_id, row)
+    return latest_by_release
+
+
+def _latest_passed_receipts_by_bundle(
+    session: Session,
+    bundle_ids: Iterable[UUID],
+) -> dict[UUID, AuditBundleValidationReceipt]:
+    ids = _uuid_values(bundle_ids)
+    if not ids:
+        return {}
+    rows = list(
+        session.scalars(
+            select(AuditBundleValidationReceipt)
+            .where(
+                AuditBundleValidationReceipt.audit_bundle_export_id.in_(ids),
+                AuditBundleValidationReceipt.validation_status == "passed",
+            )
+            .order_by(
+                AuditBundleValidationReceipt.audit_bundle_export_id.asc(),
+                AuditBundleValidationReceipt.created_at.desc(),
+                AuditBundleValidationReceipt.id.asc(),
+            )
+        )
+    )
+    latest_by_bundle: dict[UUID, AuditBundleValidationReceipt] = {}
+    for row in rows:
+        latest_by_bundle.setdefault(row.audit_bundle_export_id, row)
+    return latest_by_bundle
+
+
+def _claim_source_values(
+    claim: dict[str, Any],
+    *,
+    cards_by_id: dict[str, dict[str, Any]],
+    field_name: str,
+) -> list[str]:
+    return _string_values(
+        [
+            *(claim.get(field_name) or []),
+            *[
+                value
+                for card_id in claim.get("evidence_card_ids") or []
+                for value in (cards_by_id.get(str(card_id), {}).get(field_name) or [])
+            ],
+        ]
+    )
+
+
+def _apply_technical_report_claim_provenance_locks(
+    session: Session,
+    draft_payload: dict[str, Any],
+) -> None:
+    cards_by_id = {
+        str(card.get("evidence_card_id")): dict(card)
+        for card in draft_payload.get("evidence_cards", [])
+        if card.get("evidence_card_id")
+    }
+    graph_snapshot_by_edge_id = {
+        str(edge.get("edge_id")): edge.get("graph_snapshot_id")
+        for edge in draft_payload.get("graph_context") or []
+        if edge.get("edge_id") and edge.get("graph_snapshot_id")
+    }
+    all_fact_ids = _uuid_values(
+        fact_id
+        for claim in draft_payload.get("claims") or []
+        for fact_id in (claim.get("fact_ids") or [])
+    )
+    fact_ontology_by_id: dict[str, str] = {}
+    if all_fact_ids:
+        facts = session.scalars(select(SemanticFact).where(SemanticFact.id.in_(all_fact_ids)))
+        fact_ontology_by_id = {
+            str(row.id): str(row.ontology_snapshot_id)
+            for row in facts
+            if row.ontology_snapshot_id is not None
+        }
+
+    all_graph_snapshot_ids = _uuid_values(graph_snapshot_by_edge_id.values())
+    graph_snapshot_ontology_by_id: dict[str, str] = {}
+    if all_graph_snapshot_ids:
+        graph_snapshots = session.scalars(
+            select(SemanticGraphSnapshot).where(SemanticGraphSnapshot.id.in_(all_graph_snapshot_ids))
+        )
+        graph_snapshot_ontology_by_id = {
+            str(row.id): str(row.ontology_snapshot_id)
+            for row in graph_snapshots
+            if row.ontology_snapshot_id is not None
+        }
+
+    all_search_request_ids = _uuid_values(
+        request_id
+        for claim in draft_payload.get("claims") or []
+        for request_id in _claim_source_values(
+            claim,
+            cards_by_id=cards_by_id,
+            field_name="source_search_request_ids",
+        )
+    )
+    request_harness_by_id: dict[str, str] = {}
+    if all_search_request_ids:
+        requests = session.scalars(
+            select(SearchRequestRecord).where(SearchRequestRecord.id.in_(all_search_request_ids))
+        )
+        request_harness_by_id = {str(row.id): row.harness_name for row in requests}
+
+    releases_by_harness = _latest_passed_releases_by_harness(
+        session,
+        request_harness_by_id.values(),
+    )
+    release_ids = _uuid_values(row.id for row in releases_by_harness.values())
+    reranker_artifacts_by_release: dict[str, list[RetrievalRerankerArtifact]] = {
+        str(release_id): [] for release_id in release_ids
+    }
+    if release_ids:
+        reranker_rows = session.scalars(
+            select(RetrievalRerankerArtifact)
+            .where(RetrievalRerankerArtifact.search_harness_release_id.in_(release_ids))
+            .order_by(
+                RetrievalRerankerArtifact.search_harness_release_id.asc(),
+                RetrievalRerankerArtifact.created_at.desc(),
+                RetrievalRerankerArtifact.id.asc(),
+            )
+        )
+        for row in reranker_rows:
+            if row.search_harness_release_id is not None:
+                reranker_artifacts_by_release.setdefault(
+                    str(row.search_harness_release_id), []
+                ).append(row)
+    audit_bundles_by_release = _latest_release_audit_bundles_by_release(session, release_ids)
+    receipts_by_bundle = _latest_passed_receipts_by_bundle(
+        session,
+        (row.id for row in audit_bundles_by_release.values()),
+    )
+
+    all_lock_sha256s: list[str] = []
+    all_ontology_snapshot_ids: list[str] = []
+    all_graph_snapshot_ids_for_claims: list[str] = []
+    all_reranker_artifact_ids: list[str] = []
+    all_release_ids: list[str] = []
+    all_audit_bundle_ids: list[str] = []
+    all_receipt_ids: list[str] = []
+
+    for claim in draft_payload.get("claims") or []:
+        source_search_request_ids = _id_str_values(
+            _claim_source_values(
+                claim,
+                cards_by_id=cards_by_id,
+                field_name="source_search_request_ids",
+            )
+        )
+        source_search_request_result_ids = _id_str_values(
+            _claim_source_values(
+                claim,
+                cards_by_id=cards_by_id,
+                field_name="source_search_request_result_ids",
+            )
+        )
+        source_evidence_package_export_ids = _id_str_values(
+            _claim_source_values(
+                claim,
+                cards_by_id=cards_by_id,
+                field_name="source_evidence_package_export_ids",
+            )
+        )
+        source_evidence_package_sha256s = _string_values(
+            _claim_source_values(
+                claim,
+                cards_by_id=cards_by_id,
+                field_name="source_evidence_package_sha256s",
+            )
+        )
+        source_evidence_trace_sha256s = _string_values(
+            _claim_source_values(
+                claim,
+                cards_by_id=cards_by_id,
+                field_name="source_evidence_trace_sha256s",
+            )
+        )
+        semantic_graph_snapshot_ids = _id_str_values(
+            graph_snapshot_by_edge_id.get(str(edge_id))
+            for edge_id in claim.get("graph_edge_ids") or []
+        )
+        semantic_ontology_snapshot_ids = _id_str_values(
+            [
+                *[
+                    fact_ontology_by_id.get(str(fact_id))
+                    for fact_id in claim.get("fact_ids") or []
+                ],
+                *[
+                    graph_snapshot_ontology_by_id.get(str(snapshot_id))
+                    for snapshot_id in semantic_graph_snapshot_ids
+                ],
+            ]
+        )
+        claim_harness_names = _string_values(
+            request_harness_by_id.get(str(request_id))
+            for request_id in source_search_request_ids
+        )
+        claim_release_ids = _id_str_values(
+            releases_by_harness[harness_name].id
+            for harness_name in claim_harness_names
+            if harness_name in releases_by_harness
+        )
+        retrieval_reranker_artifact_ids = _id_str_values(
+            row.id
+            for release_id in claim_release_ids
+            for row in reranker_artifacts_by_release.get(str(release_id), [])
+        )
+        release_audit_bundle_ids = _id_str_values(
+            audit_bundles_by_release[UUID(str(release_id))].id
+            for release_id in claim_release_ids
+            if UUID(str(release_id)) in audit_bundles_by_release
+        )
+        release_validation_receipt_ids = _id_str_values(
+            receipts_by_bundle[UUID(str(bundle_id))].id
+            for bundle_id in release_audit_bundle_ids
+            if UUID(str(bundle_id)) in receipts_by_bundle
+        )
+        provenance_lock = {
+            "schema_name": "technical_report_claim_provenance_lock",
+            "schema_version": "1.0",
+            "claim_id": str(claim.get("claim_id") or ""),
+            "source_search_request_ids": source_search_request_ids,
+            "source_search_request_result_ids": source_search_request_result_ids,
+            "source_evidence_package_export_ids": source_evidence_package_export_ids,
+            "source_evidence_package_sha256s": source_evidence_package_sha256s,
+            "source_evidence_trace_sha256s": source_evidence_trace_sha256s,
+            "semantic_ontology_snapshot_ids": semantic_ontology_snapshot_ids,
+            "semantic_graph_snapshot_ids": semantic_graph_snapshot_ids,
+            "retrieval_reranker_artifact_ids": retrieval_reranker_artifact_ids,
+            "search_harness_release_ids": claim_release_ids,
+            "release_audit_bundle_ids": release_audit_bundle_ids,
+            "release_validation_receipt_ids": release_validation_receipt_ids,
+            "coverage": {
+                "source_search_request_count": len(source_search_request_ids),
+                "source_search_request_result_count": len(source_search_request_result_ids),
+                "source_evidence_package_export_count": len(source_evidence_package_export_ids),
+                "semantic_ontology_snapshot_count": len(semantic_ontology_snapshot_ids),
+                "semantic_graph_snapshot_count": len(semantic_graph_snapshot_ids),
+                "retrieval_reranker_artifact_count": len(retrieval_reranker_artifact_ids),
+                "search_harness_release_count": len(claim_release_ids),
+                "release_audit_bundle_count": len(release_audit_bundle_ids),
+                "release_validation_receipt_count": len(release_validation_receipt_ids),
+            },
+        }
+        provenance_lock_sha256 = str(payload_sha256(provenance_lock) or "")
+        claim["source_search_request_ids"] = source_search_request_ids
+        claim["source_search_request_result_ids"] = source_search_request_result_ids
+        claim["source_evidence_package_export_ids"] = source_evidence_package_export_ids
+        claim["source_evidence_package_sha256s"] = source_evidence_package_sha256s
+        claim["source_evidence_trace_sha256s"] = source_evidence_trace_sha256s
+        claim["semantic_ontology_snapshot_ids"] = semantic_ontology_snapshot_ids
+        claim["semantic_graph_snapshot_ids"] = semantic_graph_snapshot_ids
+        claim["retrieval_reranker_artifact_ids"] = retrieval_reranker_artifact_ids
+        claim["search_harness_release_ids"] = claim_release_ids
+        claim["release_audit_bundle_ids"] = release_audit_bundle_ids
+        claim["release_validation_receipt_ids"] = release_validation_receipt_ids
+        claim["provenance_lock"] = provenance_lock
+        claim["provenance_lock_sha256"] = provenance_lock_sha256
+
+        all_lock_sha256s.append(provenance_lock_sha256)
+        all_ontology_snapshot_ids.extend(semantic_ontology_snapshot_ids)
+        all_graph_snapshot_ids_for_claims.extend(semantic_graph_snapshot_ids)
+        all_reranker_artifact_ids.extend(retrieval_reranker_artifact_ids)
+        all_release_ids.extend(claim_release_ids)
+        all_audit_bundle_ids.extend(release_audit_bundle_ids)
+        all_receipt_ids.extend(release_validation_receipt_ids)
+
+    draft_payload["semantic_ontology_snapshot_ids"] = _id_str_values(all_ontology_snapshot_ids)
+    draft_payload["semantic_graph_snapshot_ids"] = _id_str_values(all_graph_snapshot_ids_for_claims)
+    draft_payload["retrieval_reranker_artifact_ids"] = _id_str_values(all_reranker_artifact_ids)
+    draft_payload["search_harness_release_ids"] = _id_str_values(all_release_ids)
+    draft_payload["release_audit_bundle_ids"] = _id_str_values(all_audit_bundle_ids)
+    draft_payload["release_validation_receipt_ids"] = _id_str_values(all_receipt_ids)
+    draft_payload["provenance_lock_sha256s"] = _string_values(all_lock_sha256s)
+    claim_count = len(draft_payload.get("claims") or [])
+    draft_payload["provenance_lock_summary"] = {
+        "schema_name": "technical_report_provenance_lock_summary",
+        "schema_version": "1.0",
+        "claim_count": claim_count,
+        "claims_with_provenance_lock_count": len(
+            [
+                claim
+                for claim in draft_payload.get("claims") or []
+                if claim.get("provenance_lock_sha256")
+            ]
+        ),
+        "source_search_request_result_id_count": len(
+            _id_str_values(
+                result_id
+                for claim in draft_payload.get("claims") or []
+                for result_id in (claim.get("source_search_request_result_ids") or [])
+            )
+        ),
+        "semantic_ontology_snapshot_id_count": len(
+            draft_payload["semantic_ontology_snapshot_ids"]
+        ),
+        "semantic_graph_snapshot_id_count": len(draft_payload["semantic_graph_snapshot_ids"]),
+        "retrieval_reranker_artifact_id_count": len(
+            draft_payload["retrieval_reranker_artifact_ids"]
+        ),
+        "search_harness_release_id_count": len(draft_payload["search_harness_release_ids"]),
+        "release_audit_bundle_id_count": len(draft_payload["release_audit_bundle_ids"]),
+        "release_validation_receipt_id_count": len(
+            draft_payload["release_validation_receipt_ids"]
+        ),
+    }
+
+
 def _evidence_card_snapshot(card: dict[str, Any]) -> dict[str, Any]:
     clean_card = _clean_mapping(
         card,
@@ -1476,6 +1846,41 @@ def build_technical_report_derivation_package(draft_payload: dict[str, Any]) -> 
                 "assertion_ids": _string_values(claim.get("assertion_ids") or []),
                 "source_document_ids": _string_values(claim.get("source_document_ids") or []),
                 "source_snapshot_sha256s": source_snapshot_sha256s,
+                "source_search_request_ids": _string_values(
+                    claim.get("source_search_request_ids") or []
+                ),
+                "source_search_request_result_ids": _string_values(
+                    claim.get("source_search_request_result_ids") or []
+                ),
+                "source_evidence_package_export_ids": _string_values(
+                    claim.get("source_evidence_package_export_ids") or []
+                ),
+                "source_evidence_package_sha256s": _string_values(
+                    claim.get("source_evidence_package_sha256s") or []
+                ),
+                "source_evidence_trace_sha256s": _string_values(
+                    claim.get("source_evidence_trace_sha256s") or []
+                ),
+                "semantic_ontology_snapshot_ids": _string_values(
+                    claim.get("semantic_ontology_snapshot_ids") or []
+                ),
+                "semantic_graph_snapshot_ids": _string_values(
+                    claim.get("semantic_graph_snapshot_ids") or []
+                ),
+                "retrieval_reranker_artifact_ids": _string_values(
+                    claim.get("retrieval_reranker_artifact_ids") or []
+                ),
+                "search_harness_release_ids": _string_values(
+                    claim.get("search_harness_release_ids") or []
+                ),
+                "release_audit_bundle_ids": _string_values(
+                    claim.get("release_audit_bundle_ids") or []
+                ),
+                "release_validation_receipt_ids": _string_values(
+                    claim.get("release_validation_receipt_ids") or []
+                ),
+                "provenance_lock": dict(claim.get("provenance_lock") or {}),
+                "provenance_lock_sha256": claim.get("provenance_lock_sha256"),
                 "derivation_rule": "technical_report_claim_contract_v1",
             }
         )
@@ -1576,6 +1981,7 @@ def persist_technical_report_evidence_export(
     agent_task_id: UUID,
     agent_task_artifact_id: UUID | None = None,
 ) -> EvidencePackageExport:
+    _apply_technical_report_claim_provenance_locks(session, draft_payload)
     package = apply_technical_report_derivation_links(draft_payload)
     now = utcnow()
     export = EvidencePackageExport(
@@ -1614,6 +2020,35 @@ def persist_technical_report_evidence_export(
                 assertion_ids_json=list(derivation["assertion_ids"]),
                 source_document_ids_json=list(derivation["source_document_ids"]),
                 source_snapshot_sha256s_json=list(derivation["source_snapshot_sha256s"]),
+                source_search_request_ids_json=list(derivation["source_search_request_ids"]),
+                source_search_request_result_ids_json=list(
+                    derivation["source_search_request_result_ids"]
+                ),
+                source_evidence_package_export_ids_json=list(
+                    derivation["source_evidence_package_export_ids"]
+                ),
+                source_evidence_package_sha256s_json=list(
+                    derivation["source_evidence_package_sha256s"]
+                ),
+                source_evidence_trace_sha256s_json=list(
+                    derivation["source_evidence_trace_sha256s"]
+                ),
+                semantic_ontology_snapshot_ids_json=list(
+                    derivation["semantic_ontology_snapshot_ids"]
+                ),
+                semantic_graph_snapshot_ids_json=list(
+                    derivation["semantic_graph_snapshot_ids"]
+                ),
+                retrieval_reranker_artifact_ids_json=list(
+                    derivation["retrieval_reranker_artifact_ids"]
+                ),
+                search_harness_release_ids_json=list(derivation["search_harness_release_ids"]),
+                release_audit_bundle_ids_json=list(derivation["release_audit_bundle_ids"]),
+                release_validation_receipt_ids_json=list(
+                    derivation["release_validation_receipt_ids"]
+                ),
+                provenance_lock_json=dict(derivation["provenance_lock"]),
+                provenance_lock_sha256=derivation.get("provenance_lock_sha256"),
                 evidence_package_sha256=str(derivation["evidence_package_sha256"]),
                 derivation_sha256=str(derivation["derivation_sha256"]),
                 created_at=now,
@@ -1684,6 +2119,21 @@ def _claim_derivation_payload(row: ClaimEvidenceDerivation) -> dict:
         "assertion_ids": row.assertion_ids_json or [],
         "source_document_ids": row.source_document_ids_json or [],
         "source_snapshot_sha256s": row.source_snapshot_sha256s_json or [],
+        "source_search_request_ids": row.source_search_request_ids_json or [],
+        "source_search_request_result_ids": row.source_search_request_result_ids_json or [],
+        "source_evidence_package_export_ids": (
+            row.source_evidence_package_export_ids_json or []
+        ),
+        "source_evidence_package_sha256s": row.source_evidence_package_sha256s_json or [],
+        "source_evidence_trace_sha256s": row.source_evidence_trace_sha256s_json or [],
+        "semantic_ontology_snapshot_ids": row.semantic_ontology_snapshot_ids_json or [],
+        "semantic_graph_snapshot_ids": row.semantic_graph_snapshot_ids_json or [],
+        "retrieval_reranker_artifact_ids": row.retrieval_reranker_artifact_ids_json or [],
+        "search_harness_release_ids": row.search_harness_release_ids_json or [],
+        "release_audit_bundle_ids": row.release_audit_bundle_ids_json or [],
+        "release_validation_receipt_ids": row.release_validation_receipt_ids_json or [],
+        "provenance_lock": row.provenance_lock_json or {},
+        "provenance_lock_sha256": row.provenance_lock_sha256,
         "evidence_package_sha256": row.evidence_package_sha256,
         "derivation_sha256": row.derivation_sha256,
         "created_at": row.created_at,
@@ -1967,6 +2417,8 @@ def _technical_report_integrity_payload(
     )
     mismatched_claim_ids: list[str] = []
     package_mismatched_claim_ids: list[str] = []
+    provenance_lock_mismatched_claim_ids: list[str] = []
+    missing_provenance_lock_claim_ids: list[str] = []
     for row in derivations:
         expected_derivation = expected_derivations_by_claim_id.get(str(row.claim_id))
         expected_derivation_sha256 = (
@@ -1978,6 +2430,18 @@ def _technical_report_integrity_payload(
             mismatched_claim_ids.append(str(row.claim_id))
         if row.evidence_package_sha256 != expected_package_sha256:
             package_mismatched_claim_ids.append(str(row.claim_id))
+        expected_provenance_lock_sha256 = (
+            str(expected_derivation.get("provenance_lock_sha256") or "")
+            if expected_derivation is not None
+            else ""
+        )
+        if not row.provenance_lock_json or not row.provenance_lock_sha256:
+            missing_provenance_lock_claim_ids.append(str(row.claim_id))
+        elif (
+            row.provenance_lock_sha256 != payload_sha256(row.provenance_lock_json)
+            or row.provenance_lock_sha256 != expected_provenance_lock_sha256
+        ):
+            provenance_lock_mismatched_claim_ids.append(str(row.claim_id))
 
     return {
         "expected_evidence_package_sha256": expected_package_sha256,
@@ -1990,9 +2454,13 @@ def _technical_report_integrity_payload(
         "claim_derivation_count_matches": len(derivations) == len(expected_derivations_by_claim_id),
         "claim_derivation_hash_mismatch_count": len(mismatched_claim_ids),
         "claim_package_hash_mismatch_count": len(package_mismatched_claim_ids),
+        "claim_provenance_lock_mismatch_count": len(provenance_lock_mismatched_claim_ids),
+        "missing_claim_provenance_lock_count": len(missing_provenance_lock_claim_ids),
         "missing_claim_derivation_count": len(missing_claim_derivation_ids),
         "mismatched_claim_ids": sorted(mismatched_claim_ids),
         "package_mismatched_claim_ids": sorted(package_mismatched_claim_ids),
+        "provenance_lock_mismatched_claim_ids": sorted(provenance_lock_mismatched_claim_ids),
+        "missing_provenance_lock_claim_ids": sorted(missing_provenance_lock_claim_ids),
         "missing_claim_derivation_ids": missing_claim_derivation_ids,
     }
 
@@ -2294,11 +2762,79 @@ def _technical_report_provenance_edges(
                 }
             )
     for claim in claims:
+        if claim.get("provenance_lock_sha256"):
+            edges.append(
+                {
+                    "edge_type": "claim_to_provenance_lock",
+                    "from": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                    "to": {
+                        "table": "technical_report_claim_provenance_locks",
+                        "id": claim.get("provenance_lock_sha256"),
+                    },
+                    "derivation_sha256": claim.get("derivation_sha256"),
+                }
+            )
+        for result_id in claim.get("source_search_request_result_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "search_result_to_claim",
+                    "from": {"table": "search_request_results", "id": result_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
         for export_id in claim.get("source_evidence_package_export_ids") or []:
             edges.append(
                 {
                     "edge_type": "search_evidence_export_to_claim",
                     "from": {"table": "evidence_package_exports", "id": export_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for snapshot_id in claim.get("semantic_ontology_snapshot_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "semantic_ontology_snapshot_to_claim",
+                    "from": {"table": "semantic_ontology_snapshots", "id": snapshot_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for snapshot_id in claim.get("semantic_graph_snapshot_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "semantic_graph_snapshot_to_claim",
+                    "from": {"table": "semantic_graph_snapshots", "id": snapshot_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for artifact_id in claim.get("retrieval_reranker_artifact_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "retrieval_reranker_artifact_to_claim",
+                    "from": {"table": "retrieval_reranker_artifacts", "id": artifact_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for release_id in claim.get("search_harness_release_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "search_harness_release_to_claim",
+                    "from": {"table": "search_harness_releases", "id": release_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for bundle_id in claim.get("release_audit_bundle_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "release_audit_bundle_to_claim",
+                    "from": {"table": "audit_bundle_exports", "id": bundle_id},
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                }
+            )
+        for receipt_id in claim.get("release_validation_receipt_ids") or []:
+            edges.append(
+                {
+                    "edge_type": "release_validation_receipt_to_claim",
+                    "from": {"table": "audit_bundle_validation_receipts", "id": receipt_id},
                     "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
                 }
             )
@@ -2467,6 +3003,12 @@ def build_technical_report_evidence_manifest_payload(
         "has_evidence_cards": bool(evidence_cards),
         "has_claims": bool(claims),
         "has_claim_derivations": len(claim_derivations) == len(claims) and bool(claims),
+        "has_claim_provenance_locks": bool(claims)
+        and all(claim.get("provenance_lock_sha256") for claim in claims)
+        and audit_bundle["audit_checklist"].get("all_claims_have_provenance_locks", False),
+        "has_claim_source_search_results": bool(claims)
+        and all(claim.get("source_search_request_result_ids") for claim in claims)
+        and audit_bundle["audit_checklist"].get("all_claims_have_source_search_results", False),
         "has_semantic_trace": bool(
             semantic_trace["assertions"]
             or semantic_trace["facts"]
@@ -2565,10 +3107,15 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "semantic_assertion_evidence": "semantic_assertion_evidence",
     "semantic_facts": "semantic_fact",
     "semantic_fact_evidence": "semantic_fact_evidence",
+    "semantic_ontology_snapshots": "semantic_ontology_snapshot",
+    "semantic_graph_snapshots": "semantic_graph_snapshot",
     "technical_report_evidence_cards": "evidence_card",
     "technical_report_claims": "technical_report_claim",
+    "technical_report_claim_provenance_locks": "claim_provenance_lock",
     "claim_evidence_derivations": "claim_derivation",
     "evidence_package_exports": "evidence_package_export",
+    "audit_bundle_exports": "audit_bundle_export",
+    "audit_bundle_validation_receipts": "audit_bundle_validation_receipt",
     "knowledge_operator_runs": "operator_run",
     "agent_tasks": "agent_task",
     "agent_task_verifications": "verification_record",
@@ -2577,6 +3124,8 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "search_request_result_spans": "selected_retrieval_span",
     "retrieval_evidence_spans": "retrieval_evidence_span",
     "retrieval_evidence_span_multivectors": "retrieval_evidence_span_multivector",
+    "retrieval_reranker_artifacts": "retrieval_reranker_artifact",
+    "search_harness_releases": "search_harness_release",
     "evidence_manifests": "evidence_manifest",
 }
 
@@ -5181,6 +5730,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and integrity["claim_derivation_count_matches"]
         and integrity["claim_derivation_hash_mismatch_count"] == 0
         and integrity["claim_package_hash_mismatch_count"] == 0
+        and integrity["claim_provenance_lock_mismatch_count"] == 0
+        and integrity["missing_claim_provenance_lock_count"] == 0
         and integrity["missing_claim_derivation_count"] == 0
     )
     source_evidence_trace_integrity_verified = source_evidence_closure["complete"]
@@ -5219,6 +5770,18 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "has_frozen_evidence_package": bool(exports),
             "all_claims_have_derivations": len(derivations)
             == len(draft_payload.get("claims") or []),
+            "all_claims_have_provenance_locks": bool(draft_payload.get("claims"))
+            and all(
+                claim.get("provenance_lock") and claim.get("provenance_lock_sha256")
+                for claim in draft_payload.get("claims") or []
+            )
+            and integrity["missing_claim_provenance_lock_count"] == 0
+            and integrity["claim_provenance_lock_mismatch_count"] == 0,
+            "all_claims_have_source_search_results": bool(draft_payload.get("claims"))
+            and all(
+                claim.get("source_search_request_result_ids")
+                for claim in draft_payload.get("claims") or []
+            ),
             "hash_integrity_verified": hash_integrity_verified,
             "has_frozen_source_evidence_packages": bool(search_exports),
             "has_frozen_prov_export": bool(prov_export_artifacts),
@@ -5270,6 +5833,8 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
     }
     audit_bundle["audit_checklist"]["complete"] = (
         audit_bundle["audit_checklist"]["generation_evidence_closed"]
+        and audit_bundle["audit_checklist"]["all_claims_have_provenance_locks"]
+        and audit_bundle["audit_checklist"]["all_claims_have_source_search_results"]
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
