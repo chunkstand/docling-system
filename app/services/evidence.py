@@ -70,6 +70,9 @@ _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND = (
     "claim_support_policy_impact_replay_closed"
 )
+CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
+    "claim_support_policy_impact_replay_escalated"
+)
 CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
     "pending",
     "queued",
@@ -2671,6 +2674,8 @@ def _claim_support_policy_change_impact_refs(
 def _claim_support_policy_change_impact_events_by_row(
     session: Session,
     rows: list[ClaimSupportPolicyChangeImpact],
+    *,
+    event_kind: str = CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND,
 ) -> dict[UUID, list[SemanticGovernanceEvent]]:
     row_ids = [row.id for row in rows]
     if not row_ids:
@@ -2681,8 +2686,7 @@ def _claim_support_policy_change_impact_events_by_row(
             .where(
                 SemanticGovernanceEvent.subject_table == "claim_support_policy_change_impacts",
                 SemanticGovernanceEvent.subject_id.in_(row_ids),
-                SemanticGovernanceEvent.event_kind
-                == CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND,
+                SemanticGovernanceEvent.event_kind == event_kind,
             )
             .order_by(
                 SemanticGovernanceEvent.created_at.asc(),
@@ -2728,12 +2732,18 @@ def _claim_support_policy_change_impact_summary(
         return _empty_claim_support_policy_change_impact_summary()
 
     events_by_row = _claim_support_policy_change_impact_events_by_row(session, matching_rows)
+    escalation_events_by_row = _claim_support_policy_change_impact_events_by_row(
+        session,
+        matching_rows,
+        event_kind=CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND,
+    )
     status_counts: dict[str, int] = {}
     impact_rows: list[dict[str, Any]] = []
     for row in matching_rows:
         status_value = str(row.replay_status)
         status_counts[status_value] = status_counts.get(status_value, 0) + 1
         closure_events = events_by_row.get(row.id, [])
+        escalation_events = escalation_events_by_row.get(row.id, [])
         impact_rows.append(
             {
                 "change_impact_id": str(row.id),
@@ -2759,6 +2769,28 @@ def _claim_support_policy_change_impact_summary(
                         "payload_sha256": event.payload_sha256,
                     }
                     for event in closure_events
+                ],
+                "escalation_governance_events": [
+                    {
+                        "event_id": str(event.id),
+                        "event_hash": event.event_hash,
+                        "receipt_sha256": event.receipt_sha256,
+                        "agent_task_artifact_id": str(event.agent_task_artifact_id)
+                        if event.agent_task_artifact_id
+                        else None,
+                        "payload_sha256": event.payload_sha256,
+                        "alert_kind": (
+                            (
+                                event.event_payload_json.get(
+                                    "claim_support_policy_impact_replay_escalation"
+                                )
+                                or {}
+                            ).get("alert_kind")
+                            if event.event_payload_json
+                            else None
+                        ),
+                    }
+                    for event in escalation_events
                 ],
             }
         )
@@ -3803,6 +3835,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "retrieval_reranker_artifacts": "retrieval_reranker_artifact",
     "search_harness_releases": "search_harness_release",
     "evidence_manifests": "evidence_manifest",
+    "semantic_governance_events": "semantic_governance_event",
 }
 
 
@@ -4444,6 +4477,62 @@ def _build_evidence_trace_graph_specs(
             source_id=search_request_id,
             payload={"search_request_id": str(search_request_id)},
         )
+
+    change_impact = manifest_payload.get("change_impact") or {}
+    policy_impacts = (
+        change_impact.get("claim_support_policy_change_impacts") or {}
+    ).get("impacts") or []
+    for impact in policy_impacts:
+        impact_node_key = _put_trace_node_from_id(
+            nodes,
+            source_table="claim_support_policy_change_impacts",
+            source_id=impact.get("change_impact_id"),
+            payload=impact,
+        )
+        for event_kind, event_rows in [
+            ("replay_closure_event", impact.get("closure_governance_events") or []),
+            ("replay_escalation_event", impact.get("escalation_governance_events") or []),
+        ]:
+            for event in event_rows:
+                event_node_key = _put_trace_node_from_id(
+                    nodes,
+                    source_table="semantic_governance_events",
+                    source_id=event.get("event_id"),
+                    payload=event,
+                )
+                _put_trace_edge(
+                    edges,
+                    edge_key=(
+                        f"claim-support-impact:{impact.get('change_impact_id')}:"
+                        f"{event_kind}:{event.get('event_id')}"
+                    ),
+                    edge_kind=event_kind,
+                    from_node_key=impact_node_key,
+                    to_node_key=event_node_key,
+                    payload={"source": "claim_support_policy_change_impact"},
+                )
+                artifact_id = event.get("agent_task_artifact_id")
+                if artifact_id:
+                    artifact_node_key = _put_trace_node_from_id(
+                        nodes,
+                        source_table="agent_task_artifacts",
+                        source_id=artifact_id,
+                        payload={
+                            "artifact_id": artifact_id,
+                            "receipt_sha256": event.get("receipt_sha256"),
+                        },
+                    )
+                    _put_trace_edge(
+                        edges,
+                        edge_key=(
+                            f"claim-support-impact:{impact.get('change_impact_id')}:"
+                            f"{event_kind}-artifact:{artifact_id}"
+                        ),
+                        edge_kind=f"{event_kind}_artifact",
+                        from_node_key=event_node_key,
+                        to_node_key=artifact_node_key,
+                        payload={"source": "claim_support_policy_change_impact"},
+                    )
 
     for index, provenance_edge in enumerate(manifest_payload.get("provenance_edges") or []):
         from_node_key = _put_trace_node_from_ref(nodes, provenance_edge.get("from") or {})

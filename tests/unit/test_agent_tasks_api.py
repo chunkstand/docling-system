@@ -146,6 +146,155 @@ def test_claim_support_policy_change_impact_worklist_rejects_invalid_query() -> 
     assert response.status_code == 422
 
 
+def test_claim_support_policy_change_impact_alerts_route_uses_service(
+    monkeypatch,
+) -> None:
+    captured = {}
+    now = datetime(2026, 4, 12, tzinfo=UTC)
+
+    def fake_claim_support_policy_change_impact_alerts(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+            }
+        )
+        return {
+            "summary": {
+                "total_count": 2,
+                "replay_status_counts": {"blocked": 1, "pending": 1},
+                "open_count": 2,
+                "stale_open_count": 1,
+                "stale_after_hours": stale_after_hours,
+                "stale_cutoff": now,
+            },
+            "generated_at": now,
+            "stale_after_hours": stale_after_hours,
+            "limit": limit,
+            "matching_count": 2,
+            "item_count": 0,
+            "has_more": False,
+            "recorded_escalation_count": 0,
+            "items": [],
+        }
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.claim_support_policy_change_impact_alerts",
+        fake_claim_support_policy_change_impact_alerts,
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts"
+        "?policy_name=claim_support_judge_calibration_policy"
+        "&stale_after_hours=6&limit=3"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["matching_count"] == 2
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 3,
+    }
+
+
+def test_claim_support_policy_change_impact_alerts_rejects_invalid_query() -> None:
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts"
+        "?limit=0"
+    )
+
+    assert response.status_code == 422
+
+
+def test_claim_support_policy_change_impact_alert_escalation_route_uses_service(
+    monkeypatch,
+) -> None:
+    captured = {}
+    now = datetime(2026, 4, 12, tzinfo=UTC)
+
+    def fake_record_claim_support_policy_change_impact_alert_escalations(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+        requested_by="docling-system",
+        storage_service=None,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+                "requested_by": requested_by,
+                "storage_service": storage_service,
+            }
+        )
+        return {
+            "summary": {
+                "total_count": 1,
+                "replay_status_counts": {"blocked": 1},
+                "open_count": 1,
+                "stale_open_count": 0,
+                "stale_after_hours": stale_after_hours,
+                "stale_cutoff": now,
+            },
+            "generated_at": now,
+            "stale_after_hours": stale_after_hours,
+            "limit": limit,
+            "matching_count": 1,
+            "item_count": 0,
+            "has_more": False,
+            "recorded_escalation_count": 1,
+            "items": [],
+        }
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.record_claim_support_policy_change_impact_alert_escalations",
+        fake_record_claim_support_policy_change_impact_alert_escalations,
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations"
+        "?policy_name=claim_support_judge_calibration_policy"
+        "&stale_after_hours=6&limit=3",
+        json={"requested_by": "ops@example.com"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["recorded_escalation_count"] == 1
+    captured_storage_service = captured.pop("storage_service")
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 3,
+        "requested_by": "ops@example.com",
+    }
+    assert captured_storage_service is not None
+
+
+def test_claim_support_policy_change_impact_alert_escalation_rejects_invalid_query() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations"
+        "?stale_after_hours=0",
+        json={"requested_by": "ops@example.com"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrated_tasks() -> None:
     client = TestClient(app)
     response = client.get("/agent-tasks/actions")

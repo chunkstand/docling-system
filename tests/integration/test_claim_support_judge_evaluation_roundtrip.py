@@ -48,7 +48,11 @@ from app.services.claim_support_policy_governance import (
     claim_support_policy_change_impact_payload_sha256,
     persist_claim_support_policy_change_impact,
 )
-from app.services.evidence import get_agent_task_audit_bundle, payload_sha256
+from app.services.evidence import (
+    get_agent_task_audit_bundle,
+    get_agent_task_evidence_manifest,
+    payload_sha256,
+)
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -1786,9 +1790,30 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         )
         impacted = _seed_impacted_technical_report_records(session)
         now = utcnow() - timedelta(hours=48)
+        activation_task = AgentTask(
+            id=uuid4(),
+            task_type="apply_claim_support_calibration_policy",
+            status=AgentTaskStatus.COMPLETED.value,
+            priority=100,
+            side_effect_level="promotable",
+            requires_approval=True,
+            input_json={},
+            result_json={},
+            workflow_version="claim_support_policy_change_impact_integration",
+            model_settings_json={},
+            created_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+        session.add(activation_task)
+        session.flush()
+        activation_task_id = activation_task.id
         change_impact_id = uuid4()
         extra_change_impact_id = uuid4()
         for row_change_impact_id in [change_impact_id, extra_change_impact_id]:
+            replay_status = (
+                "blocked" if row_change_impact_id == extra_change_impact_id else "pending"
+            )
             impact_payload = {
                 "schema_name": "claim_support_policy_change_impact",
                 "schema_version": "1.0",
@@ -1812,7 +1837,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             session.add(
                 ClaimSupportPolicyChangeImpact(
                     id=row_change_impact_id,
-                    activation_task_id=None,
+                    activation_task_id=activation_task_id,
                     activated_policy_id=policy.id,
                     previous_policy_id=None,
                     semantic_governance_event_id=None,
@@ -1826,7 +1851,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
                     affected_generated_document_count=1,
                     affected_verification_count=1,
                     replay_recommended_count=2,
-                    replay_status="pending",
+                    replay_status=replay_status,
                     impacted_claim_derivation_ids_json=[str(impacted["derivation_id"])],
                     impacted_task_ids_json=[str(impacted["draft_task_id"])],
                     impacted_verification_task_ids_json=[
@@ -1897,6 +1922,84 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert worklist_item["is_stale"] is True
     assert worklist_item["severity"] == "warning"
     assert worklist_item["recommended_action"] == "queue_replay"
+
+    alert_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts"
+        "?limit=1&stale_after_hours=24"
+    )
+    assert alert_response.status_code == 200
+    alert_payload = alert_response.json()
+    assert alert_payload["matching_count"] == 2
+    assert alert_payload["item_count"] == 1
+    assert alert_payload["has_more"] is True
+    assert alert_payload["items"][0]["alert_kind"] == "blocked"
+    assert alert_payload["items"][0]["severity"] == "critical"
+
+    escalation_response = postgres_integration_harness.client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations"
+        "?limit=5&stale_after_hours=24",
+        json={"requested_by": "claim-support-operator@example.com"},
+    )
+    assert escalation_response.status_code == 200
+    escalation_payload = escalation_response.json()
+    assert escalation_payload["recorded_escalation_count"] == 2
+    assert escalation_payload["matching_count"] == 2
+    assert all(row["escalation_events"] for row in escalation_payload["items"])
+
+    duplicate_escalation_response = postgres_integration_harness.client.post(
+        "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations"
+        "?limit=5&stale_after_hours=24",
+        json={"requested_by": "claim-support-operator@example.com"},
+    )
+    assert duplicate_escalation_response.status_code == 200
+    assert duplicate_escalation_response.json()["recorded_escalation_count"] == 0
+
+    with postgres_integration_harness.session_factory() as session:
+        escalation_events = list(
+            session.scalars(
+                select(SemanticGovernanceEvent)
+                .where(
+                    SemanticGovernanceEvent.subject_table
+                    == "claim_support_policy_change_impacts",
+                    SemanticGovernanceEvent.event_kind
+                    == "claim_support_policy_impact_replay_escalated",
+                )
+                .order_by(SemanticGovernanceEvent.created_at.asc())
+            )
+        )
+        assert len(escalation_events) == 2
+        assert {event.created_by for event in escalation_events} == {
+            "claim-support-operator@example.com"
+        }
+        escalation_artifacts = list(
+            session.scalars(
+                select(AgentTaskArtifact).where(
+                    AgentTaskArtifact.artifact_kind
+                    == "claim_support_policy_impact_replay_escalation"
+                )
+            )
+        )
+        assert len(escalation_artifacts) == 2
+        assert {artifact.task_id for artifact in escalation_artifacts} == {
+            activation_task_id
+        }
+        assert all(artifact.payload_json["receipt_sha256"] for artifact in escalation_artifacts)
+
+        audit_bundle = get_agent_task_audit_bundle(session, impacted["verify_task_id"])
+        policy_impacts = audit_bundle["change_impact"][
+            "claim_support_policy_change_impacts"
+        ]
+        matching_impacts = {
+            row["change_impact_id"]: row for row in policy_impacts["impacts"]
+        }
+        assert matching_impacts[str(change_impact_id)]["escalation_governance_events"]
+        assert matching_impacts[str(extra_change_impact_id)]["escalation_governance_events"]
+
+        manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
+        manifest_impacts = manifest["change_impact"][
+            "claim_support_policy_change_impacts"
+        ]["impacts"]
+        assert any(row["escalation_governance_events"] for row in manifest_impacts)
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

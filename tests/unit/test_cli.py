@@ -34,6 +34,7 @@ from app.cli import (
     run_agent_task_workflow_versions,
     run_audit,
     run_backfill_legacy_audit,
+    run_claim_support_replay_alerts,
     run_eval_candidates,
     run_eval_corpus,
     run_eval_reranker,
@@ -1152,6 +1153,98 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(
     run_agent_task_export_traces()
     export_output = json.loads(capsys.readouterr().out.strip())
     assert export_output["traces"][0]["result"]["draft_harness_name"] == "wide_v2_review"
+
+
+def test_claim_support_replay_alerts_cli_prints_table_and_records(
+    monkeypatch,
+    capsys,
+) -> None:
+    change_impact_id = uuid4()
+    captured = {}
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    def fake_record_alerts(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+        requested_by="docling-system",
+        storage_service=None,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+                "requested_by": requested_by,
+                "storage_service": storage_service,
+            }
+        )
+        return SimpleNamespace(
+            model_dump=lambda mode="json": {
+                "matching_count": 1,
+                "recorded_escalation_count": 1,
+                "items": [
+                    {
+                        "change_impact": {
+                            "change_impact_id": str(change_impact_id),
+                        },
+                        "alert_kind": "blocked",
+                        "severity": "critical",
+                        "replay_status": "blocked",
+                        "status_age_hours": 3.5,
+                        "recommended_action": "inspect_blockers",
+                        "escalation_events": [{"event_id": str(uuid4())}],
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docling-system-claim-support-replay-alerts",
+            "--record-escalations",
+            "--requested-by",
+            "ops@example.com",
+            "--policy-name",
+            "claim_support_judge_calibration_policy",
+            "--stale-after-hours",
+            "6",
+            "--limit",
+            "2",
+            "--format",
+            "table",
+        ],
+    )
+    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr(
+        "app.cli.record_claim_support_policy_change_impact_alert_escalations",
+        fake_record_alerts,
+    )
+    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+
+    run_claim_support_replay_alerts()
+
+    output = capsys.readouterr().out
+    assert "change_impact_id\talert_kind\tseverity" in output
+    assert f"{change_impact_id}\tblocked\tcritical" in output
+    captured_storage_service = captured.pop("storage_service")
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 6,
+        "limit": 2,
+        "requested_by": "ops@example.com",
+    }
+    assert captured_storage_service is not None
 
 
 def test_agent_task_triage_context_cli_prints_recommendation(monkeypatch, capsys) -> None:

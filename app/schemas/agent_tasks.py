@@ -1598,6 +1598,17 @@ class ClaimSupportPolicyChangeImpactClosureEventRef(BaseModel):
     created_at: datetime
 
 
+class ClaimSupportPolicyChangeImpactAlertEventRef(BaseModel):
+    event_id: UUID
+    event_hash: str
+    receipt_sha256: str | None = None
+    artifact_id: UUID | None = None
+    artifact_kind: str | None = None
+    artifact_path: str | None = None
+    alert_kind: str | None = None
+    created_at: datetime
+
+
 class ClaimSupportPolicyChangeImpactWorklistItemResponse(BaseModel):
     change_impact: ClaimSupportPolicyChangeImpactResponse
     severity: str
@@ -1634,6 +1645,49 @@ class ClaimSupportPolicyChangeImpactWorklistResponse(BaseModel):
     items: list[ClaimSupportPolicyChangeImpactWorklistItemResponse] = Field(
         default_factory=list
     )
+
+
+class ClaimSupportPolicyChangeImpactAlertItemResponse(BaseModel):
+    change_impact: ClaimSupportPolicyChangeImpactResponse
+    alert_kind: str
+    severity: str
+    replay_status: str
+    is_stale: bool
+    age_hours: float
+    status_age_hours: float
+    next_action: str
+    recommended_action: str
+    reasons: list[str] = Field(default_factory=list)
+    affected_draft_task_ids: list[UUID] = Field(default_factory=list)
+    affected_verification_task_ids: list[UUID] = Field(default_factory=list)
+    audit_bundle_task_ids: list[UUID] = Field(default_factory=list)
+    replay_tasks: list[ClaimSupportPolicyChangeImpactWorklistTaskRef] = Field(
+        default_factory=list
+    )
+    escalation_events: list[ClaimSupportPolicyChangeImpactAlertEventRef] = Field(
+        default_factory=list
+    )
+    latest_escalation_event_id: UUID | None = None
+    latest_escalation_receipt_sha256: str | None = None
+    operator_links: dict = Field(default_factory=dict)
+
+
+class ClaimSupportPolicyChangeImpactAlertResponse(BaseModel):
+    summary: ClaimSupportPolicyChangeImpactSummaryResponse
+    generated_at: datetime
+    stale_after_hours: int
+    limit: int = 50
+    matching_count: int = 0
+    item_count: int
+    has_more: bool = False
+    recorded_escalation_count: int = 0
+    items: list[ClaimSupportPolicyChangeImpactAlertItemResponse] = Field(
+        default_factory=list
+    )
+
+
+class ClaimSupportPolicyChangeImpactAlertEscalationRequest(BaseModel):
+    requested_by: str = Field(default="docling-system", min_length=1)
 
 
 class ClaimSupportPolicyChangeImpactReplayRequest(BaseModel):

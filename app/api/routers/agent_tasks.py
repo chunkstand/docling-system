@@ -45,6 +45,8 @@ from app.schemas.agent_tasks import (
     AgentTaskVerificationResponse,
     AgentTaskVerificationTrendResponse,
     AgentTaskWorkflowVersionSummaryResponse,
+    ClaimSupportPolicyChangeImpactAlertEscalationRequest,
+    ClaimSupportPolicyChangeImpactAlertResponse,
     ClaimSupportPolicyChangeImpactReplayRequest,
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactResponse,
@@ -54,10 +56,12 @@ from app.schemas.agent_tasks import (
 )
 from app.services.capabilities import agent_orchestration
 from app.services.claim_support_policy_impacts import (
+    claim_support_policy_change_impact_alerts,
     claim_support_policy_change_impact_worklist,
     get_claim_support_policy_change_impact,
     list_claim_support_policy_change_impacts,
     queue_claim_support_policy_change_impact_replay_tasks,
+    record_claim_support_policy_change_impact_alert_escalations,
     refresh_claim_support_policy_change_impact_replay_status,
     summarize_claim_support_policy_change_impacts,
 )
@@ -498,6 +502,51 @@ def read_claim_support_policy_change_impact_worklist(
         stale_after_hours=stale_after_hours,
         limit=limit,
         include_closed=include_closed,
+    )
+
+
+@router.get(
+    "/agent-tasks/claim-support-policy-change-impacts/alerts",
+    response_model=ClaimSupportPolicyChangeImpactAlertResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impact_alerts(
+    session: DbSession,
+    policy_name: str | None = None,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ClaimSupportPolicyChangeImpactAlertResponse:
+    return claim_support_policy_change_impact_alerts(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+    )
+
+
+@router.post(
+    "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations",
+    response_model=ClaimSupportPolicyChangeImpactAlertResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
+    ],
+)
+def record_claim_support_policy_change_impact_alert_escalations_route(
+    session: DbSession,
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
+    payload: ClaimSupportPolicyChangeImpactAlertEscalationRequest,
+    policy_name: str | None = None,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> ClaimSupportPolicyChangeImpactAlertResponse:
+    return record_claim_support_policy_change_impact_alert_escalations(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+        requested_by=payload.requested_by,
+        storage_service=storage_service,
     )
 
 
