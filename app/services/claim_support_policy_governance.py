@@ -530,6 +530,7 @@ def persist_claim_support_policy_change_impact(
     affected_generated_documents = impact_payload.get("affected_generated_documents") or {}
     affected_verifications = impact_payload.get("affected_technical_report_verifications") or []
     affected_ids = impact_payload.get("affected_ids") or {}
+    replay_recommended_count = int(summary.get("replay_recommended_count") or 0)
     row_kwargs: dict[str, Any] = {}
     if row_id is not None:
         row_kwargs["id"] = row_id
@@ -559,7 +560,7 @@ def persist_claim_support_policy_change_impact(
         affected_verification_count=int(
             summary.get("affected_technical_report_verification_count") or 0
         ),
-        replay_recommended_count=int(summary.get("replay_recommended_count") or 0),
+        replay_recommended_count=replay_recommended_count,
         impacted_claim_derivation_ids_json=_unique_strings(
             list(affected_ids.get("claim_derivation_ids") or [])
             + [
@@ -589,6 +590,8 @@ def persist_claim_support_policy_change_impact(
         ),
         impact_payload_json=impact_payload,
         impact_payload_sha256=expected_sha,
+        replay_status="pending" if replay_recommended_count > 0 else "no_action_required",
+        replay_status_updated_at=utcnow(),
         created_at=utcnow(),
     )
     session.add(row)

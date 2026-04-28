@@ -57,7 +57,7 @@
         "ADR-0004",
         "ADR-0006"
       ],
-      "item_count": 117,
+      "item_count": 121,
       "name": "api_route_capabilities",
       "source": "app.api.route_contracts"
     },
@@ -65,7 +65,7 @@
       "decision_ids": [
         "ADR-0007"
       ],
-      "item_count": 50,
+      "item_count": 51,
       "name": "agent_action_catalog",
       "source": "app.services.agent_actions"
     },

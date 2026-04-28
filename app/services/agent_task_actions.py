@@ -81,6 +81,8 @@ from app.schemas.agent_tasks import (
     PrepareSemanticGenerationBriefTaskOutput,
     QualityEvalCandidatesTaskInput,
     QualityEvalCandidatesTaskOutput,
+    QueueClaimSupportPolicyChangeImpactReplayTaskInput,
+    QueueClaimSupportPolicyChangeImpactReplayTaskOutput,
     RefreshEvalFailureCasesTaskInput,
     RefreshEvalFailureCasesTaskOutput,
     ReplaySearchRequestTaskInput,
@@ -156,6 +158,9 @@ from app.services.claim_support_policy_governance import (
     build_claim_support_policy_change_impact_payload,
     persist_claim_support_policy_change_impact,
     record_claim_support_policy_activation_governance_event,
+)
+from app.services.claim_support_policy_impacts import (
+    queue_claim_support_policy_change_impact_replay_tasks,
 )
 from app.services.documents import (
     get_latest_document_evaluation_detail,
@@ -2454,6 +2459,34 @@ def _apply_claim_support_calibration_policy_executor(
     return final_result
 
 
+def _queue_claim_support_policy_change_impact_replay_executor(
+    session: Session,
+    task: AgentTask,
+    payload: QueueClaimSupportPolicyChangeImpactReplayTaskInput,
+) -> dict:
+    replay = queue_claim_support_policy_change_impact_replay_tasks(
+        session,
+        payload.change_impact_id,
+        requested_by=payload.requested_by,
+        parent_task_id=task.id,
+    )
+    replay_payload = replay.model_dump(mode="json")
+    artifact = create_agent_task_artifact(
+        session,
+        task_id=task.id,
+        artifact_kind="claim_support_policy_change_impact_replay_plan",
+        payload=replay_payload,
+        storage_service=StorageService(),
+        filename="claim_support_policy_change_impact_replay_plan.json",
+    )
+    return {
+        **replay_payload,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+    }
+
+
 def _evaluate_claim_support_judge_executor(
     session: Session,
     task: AgentTask,
@@ -4662,6 +4695,26 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "draft_task_id": "00000000-0000-0000-0000-000000000000",
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified claim-support calibration policy.",
+        },
+        context_builder_name="generic",
+    ),
+    "queue_claim_support_policy_change_impact_replay": AgentTaskActionDefinition(
+        task_type="queue_claim_support_policy_change_impact_replay",
+        capability="technical_reports",
+        definition_kind="draft",
+        description=(
+            "Create managed replay tasks for stale technical-report artifacts identified "
+            "by a claim-support policy change-impact row."
+        ),
+        payload_model=QueueClaimSupportPolicyChangeImpactReplayTaskInput,
+        executor=_queue_claim_support_policy_change_impact_replay_executor,
+        side_effect_level=AgentTaskSideEffectLevel.DRAFT_CHANGE.value,
+        output_model=QueueClaimSupportPolicyChangeImpactReplayTaskOutput,
+        output_schema_name="queue_claim_support_policy_change_impact_replay_output",
+        output_schema_version="1.0",
+        input_example={
+            "change_impact_id": "00000000-0000-0000-0000-000000000000",
+            "requested_by": "docling-system",
         },
         context_builder_name="generic",
     ),

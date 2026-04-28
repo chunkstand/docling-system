@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.api.errors import api_error
 from app.api.main import app
 from app.db.session import get_db_session
 from app.services.storage import StorageService
@@ -41,6 +42,34 @@ def test_agent_task_actions_route_lists_supported_actions(monkeypatch) -> None:
     assert response.json()[0]["output_schema_name"] == "evaluate_search_harness_output"
 
 
+def test_claim_support_policy_change_impact_detail_route_returns_error_code(
+    monkeypatch,
+) -> None:
+    change_impact_id = uuid4()
+
+    def fake_get_claim_support_policy_change_impact(session, requested_change_impact_id):
+        raise api_error(
+            404,
+            "claim_support_policy_change_impact_not_found",
+            "Claim support policy change impact row was not found.",
+            change_impact_id=str(requested_change_impact_id),
+        )
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.get_claim_support_policy_change_impact",
+        fake_get_claim_support_policy_change_impact,
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "claim_support_policy_change_impact_not_found"
+    assert response.json()["error_context"]["change_impact_id"] == str(change_impact_id)
+
+
 def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrated_tasks() -> None:
     client = TestClient(app)
     response = client.get("/agent-tasks/actions")
@@ -63,6 +92,7 @@ def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrate
         "evaluate_document_generation_context_pack",
         "draft_technical_report",
         "verify_technical_report",
+        "queue_claim_support_policy_change_impact_replay",
         "prepare_semantic_generation_brief",
         "list_quality_eval_candidates",
         "replay_search_request",

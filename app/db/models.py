@@ -4797,6 +4797,11 @@ class ClaimSupportPolicyChangeImpact(Base):
             "replay_recommended_count >= 0",
             name="ck_claim_support_policy_change_impacts_replay_count",
         ),
+        CheckConstraint(
+            "replay_status IN "
+            "('no_action_required', 'pending', 'queued', 'in_progress', 'blocked', 'closed')",
+            name="ck_claim_support_policy_change_impacts_replay_status",
+        ),
         Index(
             "ix_claim_support_policy_change_impacts_activation_task",
             "activation_task_id",
@@ -4823,6 +4828,11 @@ class ClaimSupportPolicyChangeImpact(Base):
         Index(
             "ix_claim_support_policy_change_impacts_payload_sha",
             "impact_payload_sha256",
+        ),
+        Index(
+            "ix_claim_support_policy_change_impacts_replay_status",
+            "replay_status",
+            "created_at",
         ),
     )
 
@@ -4876,6 +4886,12 @@ class ClaimSupportPolicyChangeImpact(Base):
         default=0,
         server_default=sql_text("0"),
     )
+    replay_status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+        server_default=sql_text("'pending'"),
+    )
     impacted_claim_derivation_ids_json: Mapped[list] = mapped_column(
         "impacted_claim_derivation_ids",
         JSONB,
@@ -4905,6 +4921,30 @@ class ClaimSupportPolicyChangeImpact(Base):
         server_default=sql_text("'{}'::jsonb"),
     )
     impact_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    replay_task_ids_json: Mapped[list] = mapped_column(
+        "replay_task_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    replay_task_plan_json: Mapped[dict] = mapped_column(
+        "replay_task_plan",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    replay_closure_json: Mapped[dict] = mapped_column(
+        "replay_closure",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    replay_closure_sha256: Mapped[str | None] = mapped_column(Text)
+    replay_status_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    replay_closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

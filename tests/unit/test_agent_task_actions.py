@@ -40,6 +40,8 @@ from app.schemas.agent_tasks import (
     LatestSemanticPassTaskInput,
     OptimizeSearchHarnessFromCaseTaskInput,
     PrepareSemanticGenerationBriefTaskInput,
+    QueueClaimSupportPolicyChangeImpactReplayTaskInput,
+    QueueClaimSupportPolicyChangeImpactReplayTaskOutput,
     TriageSemanticCandidateDisagreementsTaskInput,
     TriageSemanticGraphDisagreementsTaskInput,
     TriageSemanticPassTaskInput,
@@ -2460,6 +2462,7 @@ def test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata() 
     draft_action = get_agent_task_action("draft_claim_support_calibration_policy")
     verify_action = get_agent_task_action("verify_claim_support_calibration_policy")
     apply_action = get_agent_task_action("apply_claim_support_calibration_policy")
+    replay_action = get_agent_task_action("queue_claim_support_policy_change_impact_replay")
 
     assert draft_action.capability == "technical_reports"
     assert draft_action.definition_kind == "draft"
@@ -2487,6 +2490,18 @@ def test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata() 
     assert apply_action.output_model is ApplyClaimSupportCalibrationPolicyTaskOutput
     assert apply_action.output_schema_name == "apply_claim_support_calibration_policy_output"
     assert apply_action.output_schema_version == "1.0"
+
+    assert replay_action.capability == "technical_reports"
+    assert replay_action.definition_kind == "draft"
+    assert replay_action.side_effect_level == "draft_change"
+    assert replay_action.requires_approval is False
+    assert replay_action.payload_model is QueueClaimSupportPolicyChangeImpactReplayTaskInput
+    assert replay_action.output_model is QueueClaimSupportPolicyChangeImpactReplayTaskOutput
+    assert (
+        replay_action.output_schema_name
+        == "queue_claim_support_policy_change_impact_replay_output"
+    )
+    assert replay_action.output_schema_version == "1.0"
 
 
 def test_get_agent_task_action_exposes_context_pack_eval_metadata() -> None:

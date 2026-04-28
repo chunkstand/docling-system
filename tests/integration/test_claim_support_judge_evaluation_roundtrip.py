@@ -84,6 +84,7 @@ def _enable_claim_support_governance_signing(monkeypatch) -> None:
 
 def _seed_impacted_technical_report_records(session) -> dict[str, UUID | str]:
     now = utcnow()
+    harness_task_id = uuid4()
     draft_task_id = uuid4()
     verify_task_id = uuid4()
     support_run_id = uuid4()
@@ -142,11 +143,26 @@ def _seed_impacted_technical_report_records(session) -> dict[str, UUID | str]:
     session.add_all(
         [
             AgentTask(
+                id=harness_task_id,
+                task_type="prepare_report_agent_harness",
+                status=AgentTaskStatus.COMPLETED.value,
+                side_effect_level="read_only",
+                input_json={"target_task_id": str(uuid4())},
+                result_json={"schema_name": "prepare_report_agent_harness_output"},
+                workflow_version="claim_support_policy_impact_fixture",
+                created_at=now,
+                updated_at=now,
+                completed_at=now,
+            ),
+            AgentTask(
                 id=draft_task_id,
                 task_type="draft_technical_report",
                 status=AgentTaskStatus.COMPLETED.value,
                 side_effect_level="draft_change",
-                input_json={"target_task_id": str(uuid4())},
+                input_json={
+                    "target_task_id": str(harness_task_id),
+                    "generator_mode": "structured_fallback",
+                },
                 result_json=draft_payload,
                 workflow_version="claim_support_policy_impact_fixture",
                 created_at=now,
@@ -273,6 +289,7 @@ def _seed_impacted_technical_report_records(session) -> dict[str, UUID | str]:
     )
     session.flush()
     return {
+        "harness_task_id": harness_task_id,
         "draft_task_id": draft_task_id,
         "verify_task_id": verify_task_id,
         "support_run_id": support_run_id,
@@ -1202,6 +1219,112 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
         } == {"rerun_draft_technical_report", "rerun_verify_technical_report"}
         assert session.get(ClaimSupportCalibrationPolicy, initial_policy_id).status == "retired"
         assert session.get(ClaimSupportCalibrationPolicy, draft_policy_id).status == "active"
+
+    replay_response = postgres_integration_harness.client.post(
+        (
+            "/agent-tasks/claim-support-policy-change-impacts/"
+            f"{apply_payload['activation_change_impact_id']}/replay-tasks"
+        ),
+        json={"requested_by": "claim-support-operator@example.com"},
+    )
+    assert replay_response.status_code == 200
+    replay_payload = replay_response.json()
+    assert replay_payload["replay_status"] == "queued"
+    assert len(replay_payload["replay_task_ids"]) == 2
+    replay_tasks = {
+        row["task_type"]: row for row in replay_payload["replay_task_plan"]["tasks"]
+    }
+    replay_draft_task_id = UUID(replay_tasks["draft_technical_report"]["replay_task_id"])
+    replay_verify_task_id = UUID(replay_tasks["verify_technical_report"]["replay_task_id"])
+
+    with postgres_integration_harness.session_factory() as session:
+        impact_row = session.get(
+            ClaimSupportPolicyChangeImpact,
+            UUID(apply_payload["activation_change_impact_id"]),
+        )
+        assert impact_row is not None
+        assert impact_row.replay_status == "queued"
+        assert impact_row.replay_closure_sha256 is None
+        assert impact_row.replay_task_ids_json == [
+            str(replay_draft_task_id),
+            str(replay_verify_task_id),
+        ]
+
+        replay_draft = session.get(AgentTask, replay_draft_task_id)
+        replay_verify = session.get(AgentTask, replay_verify_task_id)
+        assert replay_draft is not None
+        assert replay_verify is not None
+        assert replay_draft.parent_task_id == apply_task_id
+        assert replay_draft.input_json["target_task_id"] == str(impacted["harness_task_id"])
+        assert replay_draft.status == AgentTaskStatus.QUEUED.value
+        assert replay_verify.input_json["target_task_id"] == str(replay_draft_task_id)
+        assert replay_verify.status == AgentTaskStatus.BLOCKED.value
+
+    preclosure_response = postgres_integration_harness.client.post(
+        (
+            "/agent-tasks/claim-support-policy-change-impacts/"
+            f"{apply_payload['activation_change_impact_id']}/replay-status"
+        ),
+    )
+    assert preclosure_response.status_code == 200
+    preclosure_payload = preclosure_response.json()
+    assert preclosure_payload["replay_status"] == "queued"
+    assert preclosure_payload["replay_closure_sha256"] is None
+    assert preclosure_payload["replay_closure"]["closed"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        now = utcnow()
+        replay_draft = session.get(AgentTask, replay_draft_task_id)
+        replay_verify = session.get(AgentTask, replay_verify_task_id)
+        assert replay_draft is not None
+        assert replay_verify is not None
+        replay_draft.status = AgentTaskStatus.COMPLETED.value
+        replay_draft.completed_at = now
+        replay_draft.updated_at = now
+        replay_verify.status = AgentTaskStatus.COMPLETED.value
+        replay_verify.completed_at = now
+        replay_verify.updated_at = now
+        session.add(
+            AgentTaskVerification(
+                id=uuid4(),
+                target_task_id=replay_draft_task_id,
+                verification_task_id=replay_verify_task_id,
+                verifier_type="technical_report_gate",
+                outcome="passed",
+                metrics_json={"claim_count": 1},
+                reasons_json=[],
+                details_json={
+                    "replay_of_change_impact_id": apply_payload[
+                        "activation_change_impact_id"
+                    ]
+                },
+                created_at=now,
+                completed_at=now,
+            )
+        )
+        session.commit()
+
+    closure_response = postgres_integration_harness.client.post(
+        (
+            "/agent-tasks/claim-support-policy-change-impacts/"
+            f"{apply_payload['activation_change_impact_id']}/replay-status"
+        ),
+    )
+    assert closure_response.status_code == 200
+    closure_payload = closure_response.json()
+    assert closure_payload["replay_status"] == "closed"
+    assert closure_payload["replay_closure_sha256"]
+    assert closure_payload["replay_closure"]["closed"] is True
+    assert closure_payload["replay_closure"]["passed_verification_task_count"] == 1
+
+    detail_response = postgres_integration_harness.client.get(
+        (
+            "/agent-tasks/claim-support-policy-change-impacts/"
+            f"{apply_payload['activation_change_impact_id']}"
+        ),
+    )
+    assert detail_response.status_code == 200
+    assert detail_response.json()["replay_status"] == "closed"
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

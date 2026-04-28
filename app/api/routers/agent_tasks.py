@@ -45,9 +45,18 @@ from app.schemas.agent_tasks import (
     AgentTaskVerificationResponse,
     AgentTaskVerificationTrendResponse,
     AgentTaskWorkflowVersionSummaryResponse,
+    ClaimSupportPolicyChangeImpactReplayRequest,
+    ClaimSupportPolicyChangeImpactReplayResponse,
+    ClaimSupportPolicyChangeImpactResponse,
     TaskContextEnvelope,
 )
 from app.services.capabilities import agent_orchestration
+from app.services.claim_support_policy_impacts import (
+    get_claim_support_policy_change_impact,
+    list_claim_support_policy_change_impacts,
+    queue_claim_support_policy_change_impact_replay_tasks,
+    refresh_claim_support_policy_change_impact_replay_status,
+)
 from app.services.storage import StorageService
 
 router = APIRouter()
@@ -428,6 +437,75 @@ def read_agent_task_trace_export(
         limit=limit,
         workflow_version=workflow_version,
         task_type=task_type,
+    )
+
+
+@router.get(
+    "/agent-tasks/claim-support-policy-change-impacts",
+    response_model=list[ClaimSupportPolicyChangeImpactResponse],
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impacts(
+    session: DbSession,
+    policy_name: str | None = None,
+    replay_status: str | None = None,
+    limit: int = 50,
+) -> list[ClaimSupportPolicyChangeImpactResponse]:
+    return list_claim_support_policy_change_impacts(
+        session,
+        policy_name=policy_name,
+        replay_status=replay_status,
+        limit=limit,
+    )
+
+
+@router.get(
+    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}",
+    response_model=ClaimSupportPolicyChangeImpactResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impact(
+    session: DbSession,
+    change_impact_id: UUID,
+) -> ClaimSupportPolicyChangeImpactResponse:
+    return get_claim_support_policy_change_impact(session, change_impact_id)
+
+
+@router.post(
+    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks",
+    response_model=ClaimSupportPolicyChangeImpactReplayResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
+    ],
+)
+def create_claim_support_policy_change_impact_replay_tasks(
+    session: DbSession,
+    change_impact_id: UUID,
+    payload: ClaimSupportPolicyChangeImpactReplayRequest,
+) -> ClaimSupportPolicyChangeImpactReplayResponse:
+    return queue_claim_support_policy_change_impact_replay_tasks(
+        session,
+        change_impact_id,
+        requested_by=payload.requested_by,
+    )
+
+
+@router.post(
+    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status",
+    response_model=ClaimSupportPolicyChangeImpactReplayResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
+    ],
+)
+def refresh_claim_support_policy_change_impact_replay_status_route(
+    session: DbSession,
+    change_impact_id: UUID,
+) -> ClaimSupportPolicyChangeImpactReplayResponse:
+    return refresh_claim_support_policy_change_impact_replay_status(
+        session,
+        change_impact_id,
     )
 
 

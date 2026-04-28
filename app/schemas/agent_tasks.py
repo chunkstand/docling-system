@@ -1528,6 +1528,77 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     activation_change_impact_replay_recommended_count: int | None = None
 
 
+class ClaimSupportPolicyChangeImpactReplayTaskResponse(BaseModel):
+    action: str
+    source_task_id: UUID | None = None
+    prior_verification_task_id: UUID | None = None
+    replay_task_id: UUID
+    task_type: str
+    status: str
+    dependency_task_ids: list[UUID] = Field(default_factory=list)
+    reason: str | None = None
+
+
+class ClaimSupportPolicyChangeImpactResponse(BaseModel):
+    change_impact_id: UUID
+    activation_task_id: UUID | None = None
+    activated_policy_id: UUID | None = None
+    previous_policy_id: UUID | None = None
+    semantic_governance_event_id: UUID | None = None
+    governance_artifact_id: UUID | None = None
+    impact_scope: str
+    policy_name: str
+    policy_version: str
+    activated_policy_sha256: str
+    previous_policy_sha256: str | None = None
+    affected_support_judgment_count: int
+    affected_generated_document_count: int
+    affected_verification_count: int
+    replay_recommended_count: int
+    replay_status: str
+    impacted_claim_derivation_ids: list[str] = Field(default_factory=list)
+    impacted_task_ids: list[str] = Field(default_factory=list)
+    impacted_verification_task_ids: list[str] = Field(default_factory=list)
+    impact_payload_sha256: str
+    impact_payload: dict = Field(default_factory=dict)
+    replay_task_ids: list[UUID] = Field(default_factory=list)
+    replay_task_plan: dict = Field(default_factory=dict)
+    replay_closure: dict = Field(default_factory=dict)
+    replay_closure_sha256: str | None = None
+    replay_status_updated_at: datetime | None = None
+    replay_closed_at: datetime | None = None
+    created_at: datetime
+
+
+class ClaimSupportPolicyChangeImpactReplayRequest(BaseModel):
+    requested_by: str = Field(default="docling-system", min_length=1)
+
+
+class ClaimSupportPolicyChangeImpactReplayResponse(BaseModel):
+    change_impact: ClaimSupportPolicyChangeImpactResponse
+    replay_status: str
+    replay_task_ids: list[UUID] = Field(default_factory=list)
+    created_tasks: list[ClaimSupportPolicyChangeImpactReplayTaskResponse] = Field(
+        default_factory=list
+    )
+    replay_task_plan: dict = Field(default_factory=dict)
+    replay_closure: dict = Field(default_factory=dict)
+    replay_closure_sha256: str | None = None
+
+
+class QueueClaimSupportPolicyChangeImpactReplayTaskInput(BaseModel):
+    change_impact_id: UUID
+    requested_by: str = Field(default="docling-system", min_length=1)
+
+
+class QueueClaimSupportPolicyChangeImpactReplayTaskOutput(
+    ClaimSupportPolicyChangeImpactReplayResponse
+):
+    artifact_id: UUID | None = None
+    artifact_kind: str | None = None
+    artifact_path: str | None = None
+
+
 class EvaluateClaimSupportJudgeTaskOutput(BaseModel):
     evaluation_id: UUID
     evaluation_name: str
