@@ -1810,10 +1810,16 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         activation_task_id = activation_task.id
         change_impact_id = uuid4()
         extra_change_impact_id = uuid4()
-        for row_change_impact_id in [change_impact_id, extra_change_impact_id]:
+        fresh_change_impact_id = uuid4()
+        for row_change_impact_id in [
+            change_impact_id,
+            extra_change_impact_id,
+            fresh_change_impact_id,
+        ]:
             replay_status = (
                 "blocked" if row_change_impact_id == extra_change_impact_id else "pending"
             )
+            row_created_at = utcnow() if row_change_impact_id == fresh_change_impact_id else now
             impact_payload = {
                 "schema_name": "claim_support_policy_change_impact",
                 "schema_version": "1.0",
@@ -1862,8 +1868,8 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
                     replay_task_ids_json=[],
                     replay_task_plan_json={},
                     replay_closure_json={},
-                    replay_status_updated_at=now,
-                    created_at=now,
+                    replay_status_updated_at=row_created_at,
+                    created_at=row_created_at,
                 )
             )
         session.commit()
@@ -1905,7 +1911,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert worklist_response.status_code == 200
     worklist_payload = worklist_response.json()
     assert worklist_payload["limit"] == 1
-    assert worklist_payload["matching_count"] == 2
+    assert worklist_payload["matching_count"] == 3
     assert worklist_payload["item_count"] == 1
     assert worklist_payload["has_more"] is True
 
@@ -1934,6 +1940,20 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     assert alert_payload["has_more"] is True
     assert alert_payload["items"][0]["alert_kind"] == "blocked"
     assert alert_payload["items"][0]["severity"] == "critical"
+
+    with postgres_integration_harness.session_factory() as session:
+        pre_escalation_manifest = get_agent_task_evidence_manifest(
+            session,
+            impacted["verify_task_id"],
+        )
+        pre_escalation_manifest_id = pre_escalation_manifest["evidence_manifest_id"]
+        pre_escalation_impacts = pre_escalation_manifest["change_impact"][
+            "claim_support_policy_change_impacts"
+        ]["impacts"]
+        assert not any(
+            row["escalation_governance_events"] for row in pre_escalation_impacts
+        )
+        session.commit()
 
     escalation_response = postgres_integration_harness.client.post(
         "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations"
@@ -1994,8 +2014,12 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
         }
         assert matching_impacts[str(change_impact_id)]["escalation_governance_events"]
         assert matching_impacts[str(extra_change_impact_id)]["escalation_governance_events"]
+        assert not matching_impacts[str(fresh_change_impact_id)][
+            "escalation_governance_events"
+        ]
 
         manifest = get_agent_task_evidence_manifest(session, impacted["verify_task_id"])
+        assert manifest["evidence_manifest_id"] == pre_escalation_manifest_id
         manifest_impacts = manifest["change_impact"][
             "claim_support_policy_change_impacts"
         ]["impacts"]

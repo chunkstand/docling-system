@@ -5,7 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
@@ -16,6 +16,7 @@ from app.db.models import (
     AgentTaskStatus,
     AgentTaskVerification,
     ClaimSupportPolicyChangeImpact,
+    EvidenceManifest,
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
 )
@@ -80,7 +81,6 @@ REPLAY_TERMINAL_STATUSES = {
     "closed",
     "no_action_required",
 }
-ALERT_INTERNAL_LIMIT = 1_000_000
 REPLAY_PLAN_HASH_FIELD = "replay_task_plan_sha256"
 REPLAY_CLOSURE_HASH_FIELD = "replay_closure_sha256"
 
@@ -547,6 +547,7 @@ def claim_support_policy_change_impact_worklist(
     stale_after_hours: int = 24,
     limit: int = 50,
     include_closed: bool = False,
+    change_impact_ids: list[UUID] | None = None,
 ) -> ClaimSupportPolicyChangeImpactWorklistResponse:
     stale_after_hours = max(1, stale_after_hours)
     limit = max(1, limit)
@@ -563,6 +564,19 @@ def claim_support_policy_change_impact_worklist(
     )
     if policy_name is not None:
         statement = statement.where(ClaimSupportPolicyChangeImpact.policy_name == policy_name)
+    if change_impact_ids is not None:
+        if not change_impact_ids:
+            return ClaimSupportPolicyChangeImpactWorklistResponse(
+                summary=summary,
+                generated_at=generated_at,
+                stale_after_hours=stale_after_hours,
+                limit=limit,
+                matching_count=0,
+                item_count=0,
+                has_more=False,
+                items=[],
+            )
+        statement = statement.where(ClaimSupportPolicyChangeImpact.id.in_(change_impact_ids))
     if not include_closed:
         statement = statement.where(
             ClaimSupportPolicyChangeImpact.replay_status.in_(REPLAY_OPEN_STATUSES)
@@ -758,6 +772,41 @@ def _alert_kind_for_worklist_item(
     return None
 
 
+def _alert_row_ids(
+    session: Session,
+    *,
+    policy_name: str | None,
+    stale_after_hours: int,
+) -> list[UUID]:
+    stale_after_hours = max(1, stale_after_hours)
+    stale_cutoff = utcnow() - timedelta(hours=stale_after_hours)
+    status_updated_at = func.coalesce(
+        ClaimSupportPolicyChangeImpact.replay_status_updated_at,
+        ClaimSupportPolicyChangeImpact.created_at,
+    )
+    statement = (
+        select(ClaimSupportPolicyChangeImpact.id)
+        .where(
+            or_(
+                ClaimSupportPolicyChangeImpact.replay_status == "blocked",
+                (
+                    ClaimSupportPolicyChangeImpact.replay_status.in_(
+                        REPLAY_OPEN_STATUSES - {"blocked"}
+                    )
+                    & (status_updated_at <= stale_cutoff)
+                ),
+            )
+        )
+        .order_by(
+            ClaimSupportPolicyChangeImpact.created_at.desc(),
+            ClaimSupportPolicyChangeImpact.id.desc(),
+        )
+    )
+    if policy_name is not None:
+        statement = statement.where(ClaimSupportPolicyChangeImpact.policy_name == policy_name)
+    return list(session.scalars(statement))
+
+
 def _alert_events_by_row(
     session: Session,
     row_ids: list[UUID],
@@ -865,12 +914,18 @@ def claim_support_policy_change_impact_alerts(
     limit: int = 50,
 ) -> ClaimSupportPolicyChangeImpactAlertResponse:
     limit = max(1, limit)
+    alert_row_ids = _alert_row_ids(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+    )
     worklist = claim_support_policy_change_impact_worklist(
         session,
         policy_name=policy_name,
         stale_after_hours=stale_after_hours,
-        limit=ALERT_INTERNAL_LIMIT,
+        limit=max(1, len(alert_row_ids)),
         include_closed=False,
+        change_impact_ids=alert_row_ids,
     )
     alert_pairs = [
         (item, alert_kind)
@@ -925,7 +980,8 @@ def _record_alert_escalation_event(
     session: Session,
     row: ClaimSupportPolicyChangeImpact,
     *,
-    item: ClaimSupportPolicyChangeImpactAlertItemResponse,
+    item: ClaimSupportPolicyChangeImpactWorklistItemResponse,
+    alert_kind: str,
     requested_by: str,
     stale_after_hours: int,
     generated_at,
@@ -933,7 +989,7 @@ def _record_alert_escalation_event(
 ) -> tuple[SemanticGovernanceEvent, bool]:
     deduplication_key = _alert_escalation_deduplication_key(
         row,
-        alert_kind=item.alert_kind,
+        alert_kind=alert_kind,
         stale_after_hours=stale_after_hours,
     )
     existing = session.scalar(
@@ -949,7 +1005,7 @@ def _record_alert_escalation_event(
         "schema_name": CLAIM_SUPPORT_IMPACT_REPLAY_ESCALATION_RECEIPT_SCHEMA,
         "schema_version": "1.0",
         "change_impact_id": str(row.id),
-        "alert_kind": item.alert_kind,
+        "alert_kind": alert_kind,
         "severity": item.severity,
         "policy_name": row.policy_name,
         "policy_version": row.policy_version,
@@ -995,7 +1051,7 @@ def _record_alert_escalation_event(
             storage_service=storage_service,
             filename=(
                 "claim_support_policy_impact_replay_escalation_"
-                f"{row.id}_{item.alert_kind}_{receipt_sha256[:12]}.json"
+                f"{row.id}_{alert_kind}_{receipt_sha256[:12]}.json"
             ),
         )
 
@@ -1022,6 +1078,50 @@ def _record_alert_escalation_event(
     return event, True
 
 
+def _fresh_alert_worklist_item(
+    session: Session,
+    *,
+    change_impact_id: UUID,
+    stale_after_hours: int,
+) -> tuple[ClaimSupportPolicyChangeImpactWorklistItemResponse, str] | None:
+    worklist = claim_support_policy_change_impact_worklist(
+        session,
+        stale_after_hours=stale_after_hours,
+        limit=1,
+        include_closed=False,
+        change_impact_ids=[change_impact_id],
+    )
+    if not worklist.items:
+        return None
+    item = worklist.items[0]
+    alert_kind = _alert_kind_for_worklist_item(item)
+    if alert_kind is None:
+        return None
+    return item, alert_kind
+
+
+def _refresh_existing_evidence_manifests_for_alert_item(
+    session: Session,
+    item: ClaimSupportPolicyChangeImpactWorklistItemResponse,
+) -> None:
+    verification_task_ids = list(item.audit_bundle_task_ids)
+    if not verification_task_ids:
+        return
+    existing_manifest_task_ids = list(
+        session.scalars(
+            select(EvidenceManifest.verification_task_id)
+            .where(EvidenceManifest.verification_task_id.in_(verification_task_ids))
+            .order_by(EvidenceManifest.created_at.asc())
+        )
+    )
+    if not existing_manifest_task_ids:
+        return
+    from app.services.evidence import refresh_technical_report_evidence_manifest
+
+    for task_id in dict.fromkeys(existing_manifest_task_ids):
+        refresh_technical_report_evidence_manifest(session, task_id=task_id)
+
+
 def record_claim_support_policy_change_impact_alert_escalations(
     session: Session,
     *,
@@ -1041,10 +1141,19 @@ def record_claim_support_policy_change_impact_alert_escalations(
     created_count = 0
     for item in feed.items:
         row = _get_impact_row(session, item.change_impact.change_impact_id, for_update=True)
+        fresh_item = _fresh_alert_worklist_item(
+            session,
+            change_impact_id=row.id,
+            stale_after_hours=stale_after_hours,
+        )
+        if fresh_item is None:
+            continue
+        current_item, alert_kind = fresh_item
         _, created = _record_alert_escalation_event(
             session,
             row,
-            item=item,
+            item=current_item,
+            alert_kind=alert_kind,
             requested_by=requested_by,
             stale_after_hours=stale_after_hours,
             generated_at=feed.generated_at,
@@ -1052,6 +1161,7 @@ def record_claim_support_policy_change_impact_alert_escalations(
         )
         if created:
             created_count += 1
+        _refresh_existing_evidence_manifests_for_alert_item(session, current_item)
     if commit:
         session.commit()
     else:
