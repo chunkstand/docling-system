@@ -397,6 +397,18 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
     assert training_receipt["prov_jsonld"]["@graph"]
     assert training_receipt["integrity"]["complete"] is True
 
+    receipt_list_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{training_audit_bundle['bundle_id']}/validation-receipts"
+    )
+    assert receipt_list_response.status_code == 200
+    assert receipt_list_response.json()[0]["receipt_id"] == training_receipt["receipt_id"]
+
+    receipt_detail_response = postgres_integration_harness.client.get(
+        receipt_response.headers["Location"]
+    )
+    assert receipt_detail_response.status_code == 200
+    assert receipt_detail_response.json()["receipt_id"] == training_receipt["receipt_id"]
+
     latest_receipt_response = postgres_integration_harness.client.get(
         f"/search/audit-bundles/{training_audit_bundle['bundle_id']}/validation-receipts/latest"
     )

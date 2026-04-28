@@ -74,7 +74,9 @@ Inspection surfaces:
 - `GET /search/retrieval-training-runs/{training_run_id}/audit-bundles/latest`
 - `GET /search/audit-bundles/{bundle_id}`
 - `POST /search/audit-bundles/{bundle_id}/validation-receipts`
+- `GET /search/audit-bundles/{bundle_id}/validation-receipts`
 - `GET /search/audit-bundles/{bundle_id}/validation-receipts/latest`
+- `GET /search/audit-bundles/{bundle_id}/validation-receipts/{receipt_id}`
 - `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
   prints both the evaluation and persisted release gate
 - `docling-system-search-harness-release-audit-bundle <release_id>`, which exports a

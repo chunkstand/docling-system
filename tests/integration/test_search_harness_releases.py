@@ -495,6 +495,20 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert validation_receipt["prov_jsonld"]["@graph"]
     assert validation_receipt["integrity"]["complete"] is True
 
+    validation_list_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts"
+    )
+    assert validation_list_response.status_code == 200
+    assert validation_list_response.json()[0]["receipt_id"] == (
+        validation_receipt["receipt_id"]
+    )
+
+    validation_detail_response = postgres_integration_harness.client.get(
+        validation_response.headers["Location"]
+    )
+    assert validation_detail_response.status_code == 200
+    assert validation_detail_response.json()["receipt_id"] == validation_receipt["receipt_id"]
+
     latest_validation_response = postgres_integration_harness.client.get(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts/latest"
     )

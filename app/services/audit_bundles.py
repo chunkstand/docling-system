@@ -77,12 +77,18 @@ def _audit_bundle_not_found(bundle_id: UUID) -> HTTPException:
     )
 
 
-def _audit_bundle_validation_receipt_not_found(bundle_id: UUID) -> HTTPException:
+def _audit_bundle_validation_receipt_not_found(
+    bundle_id: UUID,
+    receipt_id: UUID | None = None,
+) -> HTTPException:
+    context = {"bundle_id": str(bundle_id)}
+    if receipt_id is not None:
+        context["receipt_id"] = str(receipt_id)
     return api_error(
         status.HTTP_404_NOT_FOUND,
         "audit_bundle_validation_receipt_not_found",
         "Audit bundle validation receipt not found.",
-        bundle_id=str(bundle_id),
+        **context,
     )
 
 
@@ -2556,6 +2562,13 @@ def get_audit_bundle_export(
     return _to_response(row, storage_service=storage_service)
 
 
+def _get_audit_bundle_row(session: Session, bundle_id: UUID) -> AuditBundleExport:
+    row = session.get(AuditBundleExport, bundle_id)
+    if row is None:
+        raise _audit_bundle_not_found(bundle_id)
+    return row
+
+
 def create_audit_bundle_validation_receipt(
     session: Session,
     bundle_id: UUID,
@@ -2563,9 +2576,7 @@ def create_audit_bundle_validation_receipt(
     *,
     storage_service: StorageService,
 ) -> AuditBundleValidationReceiptResponse:
-    audit_bundle = session.get(AuditBundleExport, bundle_id)
-    if audit_bundle is None:
-        raise _audit_bundle_not_found(bundle_id)
+    audit_bundle = _get_audit_bundle_row(session, bundle_id)
     signing_key, signing_key_id = _signing_key()
     row = _create_audit_bundle_validation_receipt_row(
         session,
@@ -2578,16 +2589,59 @@ def create_audit_bundle_validation_receipt(
     return _to_validation_receipt_response(row, storage_service=storage_service)
 
 
+def list_audit_bundle_validation_receipts(
+    session: Session,
+    bundle_id: UUID,
+) -> list[AuditBundleValidationReceiptSummaryResponse]:
+    _get_audit_bundle_row(session, bundle_id)
+    rows = (
+        session.execute(
+            select(AuditBundleValidationReceipt)
+            .where(AuditBundleValidationReceipt.audit_bundle_export_id == bundle_id)
+            .order_by(
+                AuditBundleValidationReceipt.created_at.desc(),
+                AuditBundleValidationReceipt.id.asc(),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [_to_validation_receipt_summary(row) for row in rows]
+
+
+def get_audit_bundle_validation_receipt(
+    session: Session,
+    bundle_id: UUID,
+    receipt_id: UUID,
+    *,
+    storage_service: StorageService,
+) -> AuditBundleValidationReceiptResponse:
+    _get_audit_bundle_row(session, bundle_id)
+    row = session.scalar(
+        select(AuditBundleValidationReceipt).where(
+            AuditBundleValidationReceipt.audit_bundle_export_id == bundle_id,
+            AuditBundleValidationReceipt.id == receipt_id,
+        )
+    )
+    if row is None:
+        raise _audit_bundle_validation_receipt_not_found(bundle_id, receipt_id)
+    return _to_validation_receipt_response(row, storage_service=storage_service)
+
+
 def get_latest_audit_bundle_validation_receipt(
     session: Session,
     bundle_id: UUID,
     *,
     storage_service: StorageService,
 ) -> AuditBundleValidationReceiptResponse:
+    _get_audit_bundle_row(session, bundle_id)
     row = session.scalar(
         select(AuditBundleValidationReceipt)
         .where(AuditBundleValidationReceipt.audit_bundle_export_id == bundle_id)
-        .order_by(AuditBundleValidationReceipt.created_at.desc())
+        .order_by(
+            AuditBundleValidationReceipt.created_at.desc(),
+            AuditBundleValidationReceipt.id.asc(),
+        )
     )
     if row is None:
         raise _audit_bundle_validation_receipt_not_found(bundle_id)

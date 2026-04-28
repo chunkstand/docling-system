@@ -15,6 +15,7 @@ from app.schemas.search import (
     AuditBundleExportResponse,
     AuditBundleValidationReceiptRequest,
     AuditBundleValidationReceiptResponse,
+    AuditBundleValidationReceiptSummaryResponse,
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
@@ -236,6 +237,21 @@ class RetrievalCapability(Protocol):
         session: Session,
         bundle_id: UUID,
         payload: AuditBundleValidationReceiptRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse: ...
+
+    def list_audit_bundle_validation_receipts(
+        self,
+        session: Session,
+        bundle_id: UUID,
+    ) -> list[AuditBundleValidationReceiptSummaryResponse]: ...
+
+    def get_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        receipt_id: UUID,
         *,
         storage_service: StorageService,
     ) -> AuditBundleValidationReceiptResponse: ...
@@ -557,6 +573,28 @@ class ServicesRetrievalCapability:
         return audit_bundles.get_latest_audit_bundle_validation_receipt(
             session,
             bundle_id,
+            storage_service=storage_service,
+        )
+
+    def list_audit_bundle_validation_receipts(
+        self,
+        session: Session,
+        bundle_id: UUID,
+    ) -> list[AuditBundleValidationReceiptSummaryResponse]:
+        return audit_bundles.list_audit_bundle_validation_receipts(session, bundle_id)
+
+    def get_audit_bundle_validation_receipt(
+        self,
+        session: Session,
+        bundle_id: UUID,
+        receipt_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleValidationReceiptResponse:
+        return audit_bundles.get_audit_bundle_validation_receipt(
+            session,
+            bundle_id,
+            receipt_id,
             storage_service=storage_service,
         )
 

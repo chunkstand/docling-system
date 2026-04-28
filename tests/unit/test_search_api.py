@@ -1002,6 +1002,30 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
+        "app.api.routers.search.list_audit_bundle_validation_receipts",
+        lambda session, lookup_bundle_id: [
+            {
+                key: value
+                for key, value in audit_bundle_validation_receipt_payload.items()
+                if key
+                not in {
+                    "receipt",
+                    "prov_jsonld",
+                    "validation_errors",
+                    "integrity",
+                }
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_audit_bundle_validation_receipt",
+        lambda session, lookup_bundle_id, lookup_receipt_id, *, storage_service: {
+            **audit_bundle_validation_receipt_payload,
+            "audit_bundle_export_id": str(lookup_bundle_id),
+            "receipt_id": str(lookup_receipt_id),
+        },
+    )
+    monkeypatch.setattr(
         "app.api.routers.search.get_latest_audit_bundle_validation_receipt",
         lambda session, lookup_bundle_id, *, storage_service: {
             **audit_bundle_validation_receipt_payload,
@@ -1167,6 +1191,20 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     )
     assert receipt_response.json()["validation_status"] == "passed"
     assert receipt_response.json()["created_by"] == "operator"
+
+    receipt_list_response = client.get(
+        f"/search/audit-bundles/{audit_bundle_id}/validation-receipts"
+    )
+    assert receipt_list_response.status_code == 200
+    assert receipt_list_response.json()[0]["receipt_id"] == str(
+        audit_bundle_validation_receipt_id
+    )
+
+    receipt_detail_response = client.get(receipt_response.headers["Location"])
+    assert receipt_detail_response.status_code == 200
+    assert receipt_detail_response.json()["receipt_id"] == str(
+        audit_bundle_validation_receipt_id
+    )
 
     latest_receipt_response = client.get(
         f"/search/audit-bundles/{audit_bundle_id}/validation-receipts/latest"
@@ -1341,6 +1379,37 @@ def test_search_audit_bundle_validation_receipt_latest_route_returns_machine_rea
     assert response.status_code == 404
     assert response.json()["error_code"] == "audit_bundle_validation_receipt_not_found"
     assert response.json()["error_context"]["bundle_id"] == str(bundle_id)
+
+
+def test_search_audit_bundle_validation_receipt_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    bundle_id = uuid4()
+    receipt_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_audit_bundle_validation_receipt",
+        lambda session, lookup_bundle_id, lookup_receipt_id, *, storage_service: (
+            _ for _ in ()
+        ).throw(
+            api_error(
+                404,
+                "audit_bundle_validation_receipt_not_found",
+                "Audit bundle validation receipt not found.",
+                bundle_id=str(lookup_bundle_id),
+                receipt_id=str(lookup_receipt_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/search/audit-bundles/{bundle_id}/validation-receipts/{receipt_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "audit_bundle_validation_receipt_not_found"
+    assert response.json()["error_context"]["bundle_id"] == str(bundle_id)
+    assert response.json()["error_context"]["receipt_id"] == str(receipt_id)
 
 
 def test_retrieval_training_audit_bundle_latest_route_returns_machine_readable_error(
