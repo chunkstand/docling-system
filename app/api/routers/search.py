@@ -30,6 +30,9 @@ from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
+    RetrievalRerankerArtifactRequest,
+    RetrievalRerankerArtifactResponse,
+    RetrievalRerankerArtifactSummaryResponse,
     RetrievalTrainingRunAuditBundleRequest,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
@@ -109,6 +112,9 @@ list_retrieval_learning_candidate_evaluations = (
 get_retrieval_learning_candidate_evaluation_detail = (
     retrieval.get_retrieval_learning_candidate_evaluation_detail
 )
+create_retrieval_reranker_artifact = retrieval.create_retrieval_reranker_artifact
+list_retrieval_reranker_artifacts = retrieval.list_retrieval_reranker_artifacts
+get_retrieval_reranker_artifact_detail = retrieval.get_retrieval_reranker_artifact_detail
 explain_search_harness_evaluation = evaluation.explain_search_harness_evaluation
 answer_question = retrieval.answer_question
 record_chat_answer_feedback = retrieval.record_chat_answer_feedback
@@ -528,6 +534,59 @@ def read_retrieval_learning_candidate_evaluation(
         session,
         candidate_evaluation_id,
     )
+
+
+@router.get(
+    "/search/retrieval-learning/reranker-artifacts",
+    response_model=list[RetrievalRerankerArtifactSummaryResponse],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_retrieval_reranker_artifacts(
+    session: DbSession,
+    limit: HarnessEvaluationLimitQuery = 20,
+    retrieval_training_run_id: UUID | None = None,
+    candidate_harness_name: str | None = None,
+) -> list[RetrievalRerankerArtifactSummaryResponse]:
+    return list_retrieval_reranker_artifacts(
+        session,
+        limit=limit,
+        retrieval_training_run_id=retrieval_training_run_id,
+        candidate_harness_name=candidate_harness_name,
+    )
+
+
+@router.post(
+    "/search/retrieval-learning/reranker-artifacts",
+    response_model=RetrievalRerankerArtifactResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_retrieval_reranker_artifact_route(
+    response: Response,
+    payload: RetrievalRerankerArtifactRequest,
+    session: DbSession,
+) -> RetrievalRerankerArtifactResponse:
+    artifact = create_retrieval_reranker_artifact(session, payload)
+    session.commit()
+    artifact_id = response_field(artifact, "artifact_id")
+    response.headers["Location"] = (
+        f"/search/retrieval-learning/reranker-artifacts/{artifact_id}"
+    )
+    return artifact
+
+
+@router.get(
+    "/search/retrieval-learning/reranker-artifacts/{artifact_id}",
+    response_model=RetrievalRerankerArtifactResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_retrieval_reranker_artifact(
+    artifact_id: UUID,
+    session: DbSession,
+) -> RetrievalRerankerArtifactResponse:
+    return get_retrieval_reranker_artifact_detail(session, artifact_id)
 
 
 @router.post(

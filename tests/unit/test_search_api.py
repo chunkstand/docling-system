@@ -680,6 +680,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     evaluation_id = uuid4()
     release_id = uuid4()
     learning_candidate_id = uuid4()
+    reranker_artifact_id = uuid4()
     retrieval_training_run_id = uuid4()
     judgment_set_id = uuid4()
     semantic_governance_event_id = uuid4()
@@ -869,6 +870,58 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
         "release": release_payload,
     }
+    reranker_artifact_payload = {
+        "schema_name": "retrieval_reranker_artifact",
+        "schema_version": "1.0",
+        "artifact_id": str(reranker_artifact_id),
+        "retrieval_training_run_id": str(retrieval_training_run_id),
+        "judgment_set_id": str(judgment_set_id),
+        "retrieval_learning_candidate_evaluation_id": str(learning_candidate_id),
+        "search_harness_evaluation_id": str(evaluation_id),
+        "search_harness_release_id": str(release_id),
+        "semantic_governance_event_id": str(semantic_governance_event_id),
+        "artifact_kind": "linear_feature_weight_candidate",
+        "artifact_name": "learned-reranker",
+        "artifact_version": "wide_v2+training-sha",
+        "status": "evaluated",
+        "gate_outcome": "passed",
+        "baseline_harness_name": "default_v1",
+        "candidate_harness_name": "wide_v2",
+        "source_types": ["cross_document_prose_regressions"],
+        "limit": 5,
+        "training_dataset_sha256": "training-sha",
+        "training_example_count": 7,
+        "positive_count": 2,
+        "negative_count": 2,
+        "missing_count": 1,
+        "hard_negative_count": 2,
+        "thresholds": {"max_total_regressed_count": 0},
+        "metrics": {"total_shared_query_count": 3},
+        "reasons": [],
+        "artifact_sha256": "artifact-sha",
+        "change_impact_sha256": "impact-sha",
+        "created_by": "operator",
+        "review_note": "reranker artifact",
+        "created_at": "2026-04-21T00:00:07Z",
+        "completed_at": "2026-04-21T00:00:07Z",
+        "feature_weights": {
+            "proposed_reranker_overrides": {"result_type_priority_bonus": 0.009}
+        },
+        "harness_overrides": {
+            "wide_v2": {
+                "base_harness_name": "default_v1",
+                "override_type": "retrieval_reranker_artifact",
+                "reranker_overrides": {"result_type_priority_bonus": 0.009},
+            }
+        },
+        "artifact": {"artifact_name": "learned-reranker"},
+        "change_impact_report": {
+            "affected_trace_summary": {"affected_claim_count": 1}
+        },
+        "evaluation": learning_candidate_payload["evaluation"],
+        "release": release_payload,
+        "candidate_evaluation": learning_candidate_payload,
+    }
     audit_bundle_id = uuid4()
     audit_bundle_validation_receipt_id = uuid4()
     audit_bundle_payload = {
@@ -987,6 +1040,27 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         lambda session, lookup_candidate_id: {
             **learning_candidate_payload,
             "candidate_evaluation_id": str(lookup_candidate_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.create_retrieval_reranker_artifact",
+        lambda session, payload: {
+            **reranker_artifact_payload,
+            "candidate_harness_name": payload.candidate_harness_name,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.list_retrieval_reranker_artifacts",
+        lambda session,
+        limit=20,
+        retrieval_training_run_id=None,
+        candidate_harness_name=None: [reranker_artifact_payload],
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_retrieval_reranker_artifact_detail",
+        lambda session, lookup_artifact_id: {
+            **reranker_artifact_payload,
+            "artifact_id": str(lookup_artifact_id),
         },
     )
     monkeypatch.setattr(
@@ -1178,6 +1252,40 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         semantic_governance_event_id
     )
 
+    artifact_response = client.post(
+        "/search/retrieval-learning/reranker-artifacts",
+        json={
+            "retrieval_training_run_id": str(retrieval_training_run_id),
+            "artifact_name": "learned-reranker",
+            "candidate_harness_name": "wide_v2",
+            "baseline_harness_name": "default_v1",
+            "source_types": ["cross_document_prose_regressions"],
+            "limit": 5,
+            "requested_by": "operator",
+            "review_note": "reranker artifact",
+        },
+    )
+    assert artifact_response.status_code == 200
+    assert artifact_response.headers["Location"] == (
+        f"/search/retrieval-learning/reranker-artifacts/{reranker_artifact_id}"
+    )
+    assert artifact_response.json()["artifact_sha256"] == "artifact-sha"
+    assert artifact_response.json()["change_impact_report"][
+        "affected_trace_summary"
+    ]["affected_claim_count"] == 1
+
+    artifact_list_response = client.get("/search/retrieval-learning/reranker-artifacts")
+    assert artifact_list_response.status_code == 200
+    assert artifact_list_response.json()[0]["artifact_id"] == str(reranker_artifact_id)
+
+    artifact_detail_response = client.get(
+        f"/search/retrieval-learning/reranker-artifacts/{reranker_artifact_id}"
+    )
+    assert artifact_detail_response.status_code == 200
+    assert artifact_detail_response.json()["candidate_evaluation"]["candidate_evaluation_id"] == (
+        str(learning_candidate_id)
+    )
+
     audit_response = client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
         json={"created_by": "operator"},
@@ -1358,6 +1466,30 @@ def test_retrieval_learning_candidate_detail_route_returns_machine_readable_erro
     assert response.json()["error_context"]["candidate_evaluation_id"] == str(
         candidate_evaluation_id
     )
+
+
+def test_retrieval_reranker_artifact_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    artifact_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_retrieval_reranker_artifact_detail",
+        lambda session, lookup_artifact_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "retrieval_reranker_artifact_not_found",
+                "Retrieval reranker artifact not found.",
+                artifact_id=str(lookup_artifact_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/retrieval-learning/reranker-artifacts/{artifact_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "retrieval_reranker_artifact_not_found"
+    assert response.json()["error_context"]["artifact_id"] == str(artifact_id)
 
 
 def test_search_audit_bundle_detail_route_returns_machine_readable_error(

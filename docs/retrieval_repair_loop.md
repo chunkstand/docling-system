@@ -110,12 +110,18 @@ Inspection surfaces:
 
 - `GET /search/retrieval-learning/candidate-evaluations`
 - `GET /search/retrieval-learning/candidate-evaluations/{candidate_evaluation_id}`
+- `POST /search/retrieval-learning/reranker-artifacts`
+- `GET /search/retrieval-learning/reranker-artifacts`
+- `GET /search/retrieval-learning/reranker-artifacts/{artifact_id}`
 - `docling-system-evaluate-retrieval-learning-candidate <candidate_harness_name>`
+- `docling-system-create-retrieval-reranker-artifact <candidate_harness_name>`
 
 This pass intentionally records the learning influence and gate decision without
-turning handcrafted query rules into the accuracy engine. A future learned reranker can
-use the same table as its promotion evidence by pointing the candidate harness at the
-trained model artifact and preserving the training-run hash.
+turning handcrafted query rules into the accuracy engine. Reranker artifacts now use
+the same ledger to persist a versioned data-derived scorer candidate, evaluate it
+through a bounded harness override and release gate, and store a change-impact report
+that links the ranking artifact to training sources, active semantic governance, and
+any affected evidence traces or claims.
 
 Retrieval training run audit bundles freeze the full learning input: the training run
 record, judgment set, canonical training payload, every judgment row, every hard

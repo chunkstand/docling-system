@@ -11,10 +11,15 @@ from sqlalchemy import select
 from app.db.models import (
     AuditBundleExport,
     AuditBundleValidationReceipt,
+    ClaimEvidenceDerivation,
+    EvidencePackageExport,
+    EvidenceTraceEdge,
+    EvidenceTraceNode,
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
+    RetrievalRerankerArtifact,
     RetrievalTrainingRun,
     SearchFeedback,
     SearchHarnessEvaluation,
@@ -28,10 +33,12 @@ from app.db.models import (
 )
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
+    RetrievalRerankerArtifactRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseResponse,
 )
 from app.services.retrieval_learning import (
+    create_retrieval_reranker_artifact,
     evaluate_retrieval_learning_candidate,
     materialize_retrieval_learning_dataset,
 )
@@ -493,3 +500,355 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
         ]
         == response["training_dataset_sha256"]
     )
+
+
+def test_create_retrieval_reranker_artifact_records_change_impact(
+    postgres_integration_harness,
+    monkeypatch,
+) -> None:
+    now = datetime.now(UTC)
+    judgment_set_id = uuid4()
+    training_run_id = uuid4()
+    evaluation_id = uuid4()
+    release_id = uuid4()
+    document_id = uuid4()
+    run_id = uuid4()
+    table_result_id = uuid4()
+    chunk_result_id = uuid4()
+    export_id = uuid4()
+    source_node_id = uuid4()
+    claim_node_id = uuid4()
+    training_payload = {
+        "schema_name": "retrieval_learning_dataset",
+        "schema_version": "1.0",
+        "judgment_set": {
+            "judgment_set_id": str(judgment_set_id),
+            "set_name": "reranker-artifact-set",
+        },
+        "summary": {
+            "training_example_count": 2,
+            "judgment_count": 1,
+            "hard_negative_count": 1,
+        },
+        "judgments": [
+            {
+                "judgment_id": str(uuid4()),
+                "source_payload_sha256": "positive-source-sha",
+                "judgment_kind": "positive",
+                "judgment_label": "operator_relevant",
+                "source": {"source_type": "feedback", "source_ref_id": str(uuid4())},
+                "query": {"query_text": "fixture table", "mode": "hybrid", "filters": {}},
+                "result": {
+                    "result_type": "table",
+                    "result_id": str(table_result_id),
+                    "document_id": str(document_id),
+                    "run_id": str(run_id),
+                    "rerank_features": {
+                        "phrase_overlap": 0.9,
+                        "tabular_table_signal": 1.0,
+                    },
+                    "evidence_refs": [
+                        {
+                            "retrieval_evidence_span_id": str(uuid4()),
+                            "content_sha256": "span-content-sha",
+                        }
+                    ],
+                },
+            }
+        ],
+        "hard_negatives": [
+            {
+                "hard_negative_id": str(uuid4()),
+                "source_payload_sha256": "negative-source-sha",
+                "judgment_id": str(uuid4()),
+                "hard_negative_kind": "wrong_result_type",
+                "source": {"source_type": "replay", "source_ref_id": str(uuid4())},
+                "query": {"query_text": "fixture table", "mode": "hybrid", "filters": {}},
+                "result": {
+                    "result_type": "chunk",
+                    "result_id": str(chunk_result_id),
+                    "document_id": str(document_id),
+                    "run_id": str(run_id),
+                    "rerank_features": {
+                        "phrase_overlap": 0.1,
+                        "tabular_table_signal": 0.0,
+                    },
+                    "evidence_refs": [],
+                },
+            }
+        ],
+    }
+
+    with postgres_integration_harness.session_factory() as session:
+        session.add(
+            RetrievalJudgmentSet(
+                id=judgment_set_id,
+                set_name="reranker-artifact-set",
+                set_kind="mixed",
+                source_types_json=["feedback", "replay"],
+                source_limit=10,
+                criteria_json={"fixture": "reranker-artifact"},
+                summary_json=training_payload["summary"],
+                judgment_count=1,
+                positive_count=1,
+                negative_count=0,
+                missing_count=0,
+                hard_negative_count=1,
+                payload_sha256="training-dataset-sha",
+                created_by="integration",
+                created_at=now,
+            )
+        )
+        session.add(
+            RetrievalTrainingRun(
+                id=training_run_id,
+                judgment_set_id=judgment_set_id,
+                run_kind="materialized_training_dataset",
+                status="completed",
+                training_dataset_sha256="training-dataset-sha",
+                training_payload_json=training_payload,
+                summary_json=training_payload["summary"],
+                example_count=2,
+                positive_count=1,
+                negative_count=0,
+                missing_count=0,
+                hard_negative_count=1,
+                created_by="integration",
+                created_at=now,
+                completed_at=now,
+            )
+        )
+        session.add(
+            SearchHarnessEvaluation(
+                id=evaluation_id,
+                status="completed",
+                baseline_harness_name="default_v1",
+                candidate_harness_name="learned_reranker_v1",
+                limit=5,
+                source_types_json=["feedback"],
+                harness_overrides_json={},
+                total_shared_query_count=1,
+                total_improved_count=1,
+                total_regressed_count=0,
+                total_unchanged_count=0,
+                summary_json={},
+                error_message=None,
+                created_at=now,
+                completed_at=now,
+            )
+        )
+        session.add(
+            SearchHarnessRelease(
+                id=release_id,
+                search_harness_evaluation_id=evaluation_id,
+                outcome="passed",
+                baseline_harness_name="default_v1",
+                candidate_harness_name="learned_reranker_v1",
+                limit=5,
+                source_types_json=["feedback"],
+                thresholds_json={"max_total_regressed_count": 0},
+                metrics_json={"total_shared_query_count": 1},
+                reasons_json=[],
+                details_json={"evaluation_id": str(evaluation_id)},
+                evaluation_snapshot_json={"evaluation_id": str(evaluation_id)},
+                release_package_sha256="release-package-sha",
+                requested_by="integration",
+                review_note="reranker artifact gate",
+                created_at=now,
+            )
+        )
+        session.add(
+            EvidencePackageExport(
+                id=export_id,
+                package_kind="technical_report_claims",
+                search_request_id=None,
+                agent_task_id=None,
+                agent_task_artifact_id=None,
+                package_sha256="evidence-package-sha",
+                trace_sha256="trace-sha",
+                package_payload_json={},
+                source_snapshot_sha256s_json=["span-content-sha"],
+                operator_run_ids_json=[],
+                document_ids_json=[str(document_id)],
+                run_ids_json=[str(run_id)],
+                claim_ids_json=["claim-1"],
+                export_status="completed",
+                created_at=now,
+            )
+        )
+        session.flush()
+        session.add_all(
+            [
+                EvidenceTraceNode(
+                    id=source_node_id,
+                    evidence_manifest_id=None,
+                    evidence_package_export_id=export_id,
+                    node_key="source-document",
+                    node_kind="source_document",
+                    source_table="documents",
+                    source_id=document_id,
+                    source_ref=None,
+                    content_sha256="span-content-sha",
+                    payload_json={"fixture": "source"},
+                    created_at=now,
+                ),
+                EvidenceTraceNode(
+                    id=claim_node_id,
+                    evidence_manifest_id=None,
+                    evidence_package_export_id=export_id,
+                    node_key="claim-1",
+                    node_kind="technical_report_claim",
+                    source_table=None,
+                    source_id=None,
+                    source_ref="claim-1",
+                    content_sha256="claim-content-sha",
+                    payload_json={"claim_id": "claim-1"},
+                    created_at=now,
+                ),
+            ]
+        )
+        session.flush()
+        session.add(
+            EvidenceTraceEdge(
+                id=uuid4(),
+                evidence_manifest_id=None,
+                evidence_package_export_id=export_id,
+                edge_key="source-to-claim",
+                edge_kind="source_supports_claim",
+                from_node_id=source_node_id,
+                to_node_id=claim_node_id,
+                from_node_key="source-document",
+                to_node_key="claim-1",
+                derivation_sha256="derivation-sha",
+                content_sha256="edge-content-sha",
+                payload_json={"fixture": "edge"},
+                created_at=now,
+            )
+        )
+        session.add(
+            ClaimEvidenceDerivation(
+                id=uuid4(),
+                evidence_package_export_id=export_id,
+                agent_task_id=None,
+                claim_id="claim-1",
+                claim_text="Fixture claim",
+                derivation_rule="fixture_source_supports_claim",
+                evidence_card_ids_json=[],
+                graph_edge_ids_json=[],
+                fact_ids_json=[],
+                assertion_ids_json=[],
+                source_document_ids_json=[str(document_id)],
+                source_snapshot_sha256s_json=["span-content-sha"],
+                evidence_package_sha256="evidence-package-sha",
+                derivation_sha256="derivation-sha",
+                created_at=now,
+            )
+        )
+        session.commit()
+
+    evaluation_response = SearchHarnessEvaluationResponse(
+        evaluation_id=evaluation_id,
+        status="completed",
+        baseline_harness_name="default_v1",
+        candidate_harness_name="learned_reranker_v1",
+        source_types=["feedback"],
+        limit=5,
+        total_shared_query_count=1,
+        total_improved_count=1,
+        total_regressed_count=0,
+        total_unchanged_count=0,
+        created_at=now,
+        completed_at=now,
+        sources=[],
+    )
+    release_response = SearchHarnessReleaseResponse(
+        release_id=release_id,
+        evaluation_id=evaluation_id,
+        outcome="passed",
+        baseline_harness_name="default_v1",
+        candidate_harness_name="learned_reranker_v1",
+        limit=5,
+        source_types=["feedback"],
+        thresholds={"max_total_regressed_count": 0},
+        metrics={"total_shared_query_count": 1},
+        reasons=[],
+        release_package_sha256="release-package-sha",
+        requested_by="integration",
+        review_note="reranker artifact gate",
+        created_at=now,
+        details={"evaluation_id": str(evaluation_id)},
+        evaluation_snapshot=evaluation_response.model_dump(mode="json"),
+    )
+
+    def fake_evaluate_search_harness(session, request, *, harness_overrides=None):
+        assert harness_overrides is not None
+        overrides = harness_overrides["learned_reranker_v1"]["reranker_overrides"]
+        assert overrides["result_type_priority_bonus"] > 0.005
+        assert overrides["phrase_overlap_bonus"] > 0.03
+        return evaluation_response.model_copy(
+            update={"harness_overrides": harness_overrides}
+        )
+
+    monkeypatch.setattr(
+        "app.services.retrieval_learning.evaluate_search_harness",
+        fake_evaluate_search_harness,
+    )
+    monkeypatch.setattr(
+        "app.services.retrieval_learning.record_search_harness_release_gate",
+        lambda session, evaluation, payload, *, requested_by=None, review_note=None: (
+            release_response
+        ),
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        response = create_retrieval_reranker_artifact(
+            session,
+            RetrievalRerankerArtifactRequest(
+                retrieval_training_run_id=training_run_id,
+                artifact_name="learned-table-reranker",
+                candidate_harness_name="learned_reranker_v1",
+                baseline_harness_name="default_v1",
+                base_harness_name="default_v1",
+                source_types=["feedback"],
+                limit=5,
+                requested_by="integration",
+                review_note="reranker artifact gate",
+            ),
+        )
+        session.commit()
+
+    assert response.artifact_name == "learned-table-reranker"
+    assert response.gate_outcome == "passed"
+    assert response.harness_overrides["learned_reranker_v1"]["override_type"] == (
+        "retrieval_reranker_artifact"
+    )
+    assert response.artifact_sha256
+    assert response.change_impact_sha256
+    impact = response.change_impact_report["affected_trace_summary"]
+    assert impact["matching_trace_node_count"] >= 1
+    assert impact["affected_claim_count"] == 1
+    assert impact["affected_derivation_count"] == 1
+
+    with postgres_integration_harness.session_factory() as session:
+        artifacts = session.execute(select(RetrievalRerankerArtifact)).scalars().all()
+        candidate_rows = (
+            session.execute(select(RetrievalLearningCandidateEvaluation)).scalars().all()
+        )
+        governance_events = session.execute(select(SemanticGovernanceEvent)).scalars().all()
+
+    assert len(artifacts) == 1
+    assert artifacts[0].artifact_sha256 == response.artifact_sha256
+    assert artifacts[0].change_impact_sha256 == response.change_impact_sha256
+    assert len(candidate_rows) == 1
+    assert candidate_rows[0].details_json["learning_loop_stage"] == (
+        "training_dataset_to_reranker_artifact_gate"
+    )
+    artifact_event = next(
+        row
+        for row in governance_events
+        if row.event_kind == "retrieval_reranker_artifact_materialized"
+    )
+    assert artifacts[0].semantic_governance_event_id == artifact_event.id
+    assert artifact_event.event_payload_json["retrieval_reranker_artifact"][
+        "artifact_sha256"
+    ] == response.artifact_sha256

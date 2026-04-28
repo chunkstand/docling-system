@@ -19,6 +19,9 @@ from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
+    RetrievalRerankerArtifactRequest,
+    RetrievalRerankerArtifactResponse,
+    RetrievalRerankerArtifactSummaryResponse,
     RetrievalTrainingRunAuditBundleRequest,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
@@ -291,6 +294,27 @@ class RetrievalCapability(Protocol):
         session: Session,
         candidate_evaluation_id: UUID,
     ) -> RetrievalLearningCandidateEvaluationResponse: ...
+
+    def create_retrieval_reranker_artifact(
+        self,
+        session: Session,
+        payload: RetrievalRerankerArtifactRequest,
+    ) -> RetrievalRerankerArtifactResponse: ...
+
+    def list_retrieval_reranker_artifacts(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        retrieval_training_run_id: UUID | None = None,
+        candidate_harness_name: str | None = None,
+    ) -> list[RetrievalRerankerArtifactSummaryResponse]: ...
+
+    def get_retrieval_reranker_artifact_detail(
+        self,
+        session: Session,
+        artifact_id: UUID,
+    ) -> RetrievalRerankerArtifactResponse: ...
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse: ...
 
@@ -642,6 +666,38 @@ class ServicesRetrievalCapability:
         return retrieval_learning.get_retrieval_learning_candidate_evaluation_detail(
             session,
             candidate_evaluation_id,
+        )
+
+    def create_retrieval_reranker_artifact(
+        self,
+        session: Session,
+        payload: RetrievalRerankerArtifactRequest,
+    ) -> RetrievalRerankerArtifactResponse:
+        return retrieval_learning.create_retrieval_reranker_artifact(session, payload)
+
+    def list_retrieval_reranker_artifacts(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        retrieval_training_run_id: UUID | None = None,
+        candidate_harness_name: str | None = None,
+    ) -> list[RetrievalRerankerArtifactSummaryResponse]:
+        return retrieval_learning.list_retrieval_reranker_artifacts(
+            session,
+            limit=limit,
+            retrieval_training_run_id=retrieval_training_run_id,
+            candidate_harness_name=candidate_harness_name,
+        )
+
+    def get_retrieval_reranker_artifact_detail(
+        self,
+        session: Session,
+        artifact_id: UUID,
+    ) -> RetrievalRerankerArtifactResponse:
+        return retrieval_learning.get_retrieval_reranker_artifact_detail(
+            session,
+            artifact_id,
         )
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse:
