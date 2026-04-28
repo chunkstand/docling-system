@@ -1066,6 +1066,9 @@ def build_claim_support_policy_activation_governance_payload(
             previous_active_policy.policy_sha256 if previous_active_policy else None
         ),
         "retired_policy_ids": [str(row.id) for row in retired_policies],
+        "waiver_activation_approval": (
+            apply_payload.get("waiver_activation_approval") or {}
+        ),
         "operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
     verification_summary = {
@@ -1230,6 +1233,15 @@ def record_claim_support_policy_activation_governance_event(
             ),
             "replay_alert_fixture_coverage_waiver_artifact_id": (
                 replay_alert_fixture_coverage_waiver.get("artifact_id")
+            ),
+            "replay_alert_fixture_coverage_waiver_severity": (
+                replay_alert_fixture_coverage_waiver.get("waiver_severity")
+            ),
+            "replay_alert_fixture_coverage_waiver_expires_at": (
+                replay_alert_fixture_coverage_waiver.get("waiver_expires_at")
+            ),
+            "waiver_activation_approved_by": (
+                (activation.get("waiver_activation_approval") or {}).get("approved_by")
             ),
             "mined_failure_summary_sha256": mined_failure_summary.get("summary_sha256"),
             "activation_governance_payload_sha256": (

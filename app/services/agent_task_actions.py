@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -253,6 +254,7 @@ CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_FILENAME = (
     "claim_support_replay_alert_fixture_coverage_waiver.json"
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS = 24
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
 
@@ -1903,6 +1905,76 @@ def _require_policy_row_matches_draft_output(
         raise ValueError("Draft policy payload no longer matches the draft task output.")
 
 
+def _coerce_utc_datetime(value: object, *, field_name: str) -> datetime:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ValueError(f"{field_name} must be an ISO-8601 datetime.") from exc
+    else:
+        raise ValueError(f"{field_name} is required.")
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError(f"{field_name} must include a timezone.")
+    return parsed.astimezone(UTC)
+
+
+def _require_active_replay_alert_fixture_coverage_waiver(
+    *,
+    waiver: dict,
+    payload: ApplyClaimSupportCalibrationPolicyTaskInput,
+    task: AgentTask,
+) -> dict:
+    expires_at = _coerce_utc_datetime(
+        waiver.get("waiver_expires_at"),
+        field_name="replay_alert_fixture_coverage_waiver.waiver_expires_at",
+    )
+    now = utcnow()
+    if expires_at <= now:
+        raise ValueError(
+            "Replay-alert fixture coverage waiver expired before policy activation."
+        )
+    severity = str(waiver.get("waiver_severity") or "").strip().lower()
+    if severity not in {"low", "medium", "high", "critical"}:
+        raise ValueError(
+            "Replay-alert fixture coverage waiver is missing a valid severity."
+        )
+    if not payload.waiver_activation_approved_by:
+        raise ValueError(
+            "Activating a policy verified under a replay-alert fixture coverage "
+            "waiver requires waiver_activation_approved_by."
+        )
+    if not payload.waiver_activation_approval_note:
+        raise ValueError(
+            "Activating a policy verified under a replay-alert fixture coverage "
+            "waiver requires waiver_activation_approval_note."
+        )
+    if (
+        task.approved_by
+        and payload.waiver_activation_approved_by.strip().casefold()
+        == task.approved_by.strip().casefold()
+    ):
+        raise ValueError(
+            "Replay-alert fixture coverage waiver activation approval must come "
+            "from a different operator than the task approval."
+        )
+    return {
+        "required": True,
+        "approved_by": payload.waiver_activation_approved_by,
+        "approval_note": payload.waiver_activation_approval_note,
+        "approved_at": now.isoformat(),
+        "task_approved_by": task.approved_by,
+        "task_approved_at": task.approved_at.isoformat() if task.approved_at else None,
+        "waiver_sha256": waiver.get("waiver_sha256"),
+        "waiver_artifact_id": waiver.get("artifact_id"),
+        "waiver_severity": severity,
+        "waiver_expires_at": expires_at.isoformat(),
+        "waiver_status": "active",
+    }
+
+
 def _draft_claim_support_calibration_policy_executor(
     session: Session,
     task: AgentTask,
@@ -2047,9 +2119,20 @@ def _verify_claim_support_calibration_policy_executor(
     )
     replay_alert_fixture_coverage_waiver: dict = {}
     if not payload.require_replay_alert_fixture_coverage:
+        waived_at = utcnow()
+        waiver_expires_at = (
+            payload.replay_alert_fixture_coverage_waiver_expires_at.astimezone(UTC)
+        )
+        waiver_review_due_at = max(
+            waived_at,
+            waiver_expires_at
+            - timedelta(
+                hours=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS
+            ),
+        )
         waiver_basis = {
             "schema_name": "claim_support_replay_alert_fixture_coverage_waiver",
-            "schema_version": "1.0",
+            "schema_version": "1.1",
             "verification_task_id": str(task.id),
             "target_task_id": str(payload.target_task_id),
             "policy_id": str(policy_row.id),
@@ -2058,7 +2141,16 @@ def _verify_claim_support_calibration_policy_executor(
             "fixture_set_sha256": fixture_set_record.fixture_set_sha256,
             "waived_by": payload.replay_alert_fixture_coverage_waived_by,
             "waiver_reason": payload.replay_alert_fixture_coverage_waiver_reason,
-            "waived_at": utcnow().isoformat(),
+            "waiver_severity": (
+                payload.replay_alert_fixture_coverage_waiver_severity
+            ),
+            "waiver_expires_at": waiver_expires_at.isoformat(),
+            "waiver_review_due_at": waiver_review_due_at.isoformat(),
+            "waiver_remediation_owner": (
+                payload.replay_alert_fixture_coverage_waiver_remediation_owner
+            ),
+            "waiver_status": "active",
+            "waived_at": waived_at.isoformat(),
             "replay_alert_fixture_summary": replay_alert_fixture_summary,
             "replay_alert_fixture_summary_sha256": replay_alert_fixture_summary[
                 "verification_summary_sha256"
@@ -2374,6 +2466,13 @@ def _apply_claim_support_calibration_policy_executor(
         or verification_details.get("replay_alert_fixture_coverage_waiver")
         or {}
     )
+    waiver_activation_approval: dict = {}
+    if verification_replay_alert_fixture_coverage_waiver:
+        waiver_activation_approval = _require_active_replay_alert_fixture_coverage_waiver(
+            waiver=verification_replay_alert_fixture_coverage_waiver,
+            payload=payload,
+            task=task,
+        )
 
     previous_active = get_active_claim_support_calibration_policy(
         session,
@@ -2386,6 +2485,7 @@ def _apply_claim_support_calibration_policy_executor(
             "activated_by_task_id": str(task.id),
             "verification_task_id": str(payload.verification_task_id),
             "reason": payload.reason,
+            "waiver_activation_approval": waiver_activation_approval,
         },
     )
     apply_payload = {
@@ -2426,6 +2526,7 @@ def _apply_claim_support_calibration_policy_executor(
             verification_replay_alert_fixture_coverage_waiver
         ),
         "verification_mined_failure_summary": verification_mined_failure_summary,
+        "waiver_activation_approval": waiver_activation_approval,
         "success_metrics": [
             {
                 "metric_key": "claim_support_policy_verification_passed",
@@ -2458,6 +2559,7 @@ def _apply_claim_support_calibration_policy_executor(
                             "artifact_id"
                         )
                     ),
+                    "waiver_activation_approval": waiver_activation_approval,
                     "mined_failure_manifest_sha256": (
                         verification_mined_failure_summary.get("manifest_sha256")
                     ),
@@ -2501,6 +2603,7 @@ def _apply_claim_support_calibration_policy_executor(
                 verification_replay_alert_fixture_coverage_waiver
             ),
             "verification_mined_failure_summary": verification_mined_failure_summary,
+            "waiver_activation_approval": waiver_activation_approval,
             "reason": payload.reason,
         },
         output_payload=apply_payload,
@@ -4912,6 +5015,10 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
             "draft_task_id": "00000000-0000-0000-0000-000000000000",
             "verification_task_id": "00000000-0000-0000-0000-000000000000",
             "reason": "Publish the verified claim-support calibration policy.",
+            "waiver_activation_approved_by": "reviewer@example.com",
+            "waiver_activation_approval_note": (
+                "Reviewed active replay-alert fixture coverage waiver before activation."
+            ),
         },
         context_builder_name="generic",
     ),

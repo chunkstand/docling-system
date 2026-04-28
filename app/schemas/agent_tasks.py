@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID
 
@@ -1479,6 +1479,16 @@ class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
         min_length=1,
         max_length=2000,
     )
+    replay_alert_fixture_coverage_waiver_severity: str | None = Field(
+        default=None,
+        pattern="^(low|medium|high|critical)$",
+    )
+    replay_alert_fixture_coverage_waiver_expires_at: datetime | None = None
+    replay_alert_fixture_coverage_waiver_remediation_owner: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
     include_mined_failures: bool = True
     mined_failure_limit: int = Field(default=20, ge=0, le=100)
 
@@ -1495,6 +1505,27 @@ class VerifyClaimSupportCalibrationPolicyTaskInput(BaseModel):
             raise ValueError(
                 "replay_alert_fixture_coverage_waiver_reason is required when "
                 "require_replay_alert_fixture_coverage is false."
+            )
+        if not self.replay_alert_fixture_coverage_waiver_severity:
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_severity is required when "
+                "require_replay_alert_fixture_coverage is false."
+            )
+        if self.replay_alert_fixture_coverage_waiver_expires_at is None:
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_expires_at is required when "
+                "require_replay_alert_fixture_coverage is false."
+            )
+        if (
+            self.replay_alert_fixture_coverage_waiver_expires_at.tzinfo is None
+            or self.replay_alert_fixture_coverage_waiver_expires_at.utcoffset() is None
+        ):
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_expires_at must include a timezone."
+            )
+        if self.replay_alert_fixture_coverage_waiver_expires_at <= datetime.now(UTC):
+            raise ValueError(
+                "replay_alert_fixture_coverage_waiver_expires_at must be in the future."
             )
         return self
 
@@ -1515,6 +1546,16 @@ class ApplyClaimSupportCalibrationPolicyTaskInput(BaseModel):
     draft_task_id: UUID
     verification_task_id: UUID
     reason: str = Field(min_length=1)
+    waiver_activation_approved_by: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
+    waiver_activation_approval_note: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=2000,
+    )
 
 
 class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
@@ -1541,6 +1582,7 @@ class ApplyClaimSupportCalibrationPolicyTaskOutput(BaseModel):
     verification_replay_alert_fixture_summary: dict = Field(default_factory=dict)
     verification_replay_alert_fixture_coverage_waiver: dict = Field(default_factory=dict)
     verification_mined_failure_summary: dict = Field(default_factory=dict)
+    waiver_activation_approval: dict = Field(default_factory=dict)
     operator_run_id: UUID | None = None
     success_metrics: list[SemanticSuccessMetricCheck] = Field(default_factory=list)
     artifact_id: UUID

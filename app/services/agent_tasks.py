@@ -75,6 +75,7 @@ CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND = (
 CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND = (
     "claim_support_replay_alert_fixture_coverage_waiver"
 )
+CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS = 24
 
 
 def _agent_task_not_found(task_id: UUID) -> HTTPException:
@@ -84,6 +85,21 @@ def _agent_task_not_found(task_id: UUID) -> HTTPException:
         "Agent task not found.",
         task_id=str(task_id),
     )
+
+
+def _coerce_utc_datetime(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def _initial_task_status(*, requires_approval: bool, has_incomplete_dependencies: bool) -> str:
@@ -1724,17 +1740,47 @@ def get_agent_task_decision_signals(
         )
         or 0
     )
-    replay_alert_fixture_coverage_waiver_count = int(
-        session.scalar(
-            select(func.count())
-            .select_from(AgentTaskArtifact)
-            .where(
+    replay_alert_fixture_coverage_waiver_artifacts = list(
+        session.scalars(
+            select(AgentTaskArtifact).where(
                 AgentTaskArtifact.artifact_kind
                 == CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
             )
         )
-        or 0
     )
+    waiver_now = utcnow()
+    waiver_expiring_cutoff = waiver_now + timedelta(
+        hours=CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_EXPIRING_HOURS
+    )
+    active_waiver_count = 0
+    expiring_waiver_count = 0
+    expired_waiver_count = 0
+    unmanaged_waiver_count = 0
+    high_severity_active_waiver_count = 0
+    promotable_waived_escalation_count = 0
+    for artifact in replay_alert_fixture_coverage_waiver_artifacts:
+        payload = dict(artifact.payload_json or {})
+        expires_at = _coerce_utc_datetime(payload.get("waiver_expires_at"))
+        severity = str(payload.get("waiver_severity") or "").strip().lower()
+        try:
+            stale_unconverted_count = int(
+                payload.get("stale_unconverted_escalation_event_count") or 0
+            )
+        except (TypeError, ValueError):
+            stale_unconverted_count = 0
+        if expires_at is None or severity not in {"low", "medium", "high", "critical"}:
+            unmanaged_waiver_count += 1
+            continue
+        if expires_at <= waiver_now:
+            expired_waiver_count += 1
+            continue
+        active_waiver_count += 1
+        if expires_at <= waiver_expiring_cutoff:
+            expiring_waiver_count += 1
+        if severity in {"high", "critical"}:
+            high_severity_active_waiver_count += 1
+        if stale_unconverted_count:
+            promotable_waived_escalation_count += stale_unconverted_count
     blocked_replay_count = int(
         session.scalar(
             select(func.count())
@@ -1831,22 +1877,116 @@ def get_agent_task_decision_signals(
                 ),
             )
         )
-    if replay_alert_fixture_coverage_waiver_count:
+    if expired_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{expired_waiver_count} claim-support replay-alert fixture "
+                    "coverage waiver artifact(s) are expired."
+                ),
+                threshold_crossed=(
+                    "expired_claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Promote replay-alert fixture coverage or rerun verification with "
+                    "a fresh lifecycle-managed waiver before activation."
+                ),
+            )
+        )
+    if unmanaged_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{unmanaged_waiver_count} claim-support replay-alert fixture "
+                    "coverage waiver artifact(s) lack expiry or severity metadata."
+                ),
+                threshold_crossed=(
+                    "unmanaged_claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Rerun verification with lifecycle-managed waiver metadata or "
+                    "promote the replay-alert fixtures."
+                ),
+            )
+        )
+    if high_severity_active_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{high_severity_active_waiver_count} active high-severity "
+                    "claim-support replay-alert fixture coverage waiver artifact(s) exist."
+                ),
+                threshold_crossed=(
+                    "high_severity_active_claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Require second approval before activation and prioritize fixture "
+                    "promotion for the waived replay alerts."
+                ),
+            )
+        )
+    if expiring_waiver_count:
         rows.append(
             AgentTaskDecisionSignalResponse(
                 task_type="claim_support_replay_alert_fixture_coverage_waiver",
                 workflow_version="claim_support_policy_change_impact_replay_v1",
                 status="watch",
                 reason=(
-                    f"{replay_alert_fixture_coverage_waiver_count} claim-support "
-                    "replay-alert fixture coverage waiver artifact(s) exist."
+                    f"{expiring_waiver_count} active claim-support replay-alert fixture "
+                    "coverage waiver artifact(s) expire within 24 hours."
                 ),
                 threshold_crossed=(
-                    "claim_support_replay_alert_fixture_coverage_waivers>0"
+                    "expiring_claim_support_replay_alert_fixture_coverage_waivers>0"
                 ),
                 recommended_action=(
-                    "Review waiver artifacts before activating or relying on waived "
-                    "claim-support calibration policy verifications."
+                    "Promote fixture coverage or renew the waiver before it expires."
+                ),
+            )
+        )
+    if active_waiver_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{active_waiver_count} active claim-support replay-alert fixture "
+                    "coverage waiver artifact(s) exist."
+                ),
+                threshold_crossed=(
+                    "active_claim_support_replay_alert_fixture_coverage_waivers>0"
+                ),
+                recommended_action=(
+                    "Review waiver lifecycle metadata and second-approval posture "
+                    "before activating or relying on waived verifications."
+                ),
+            )
+        )
+    if promotable_waived_escalation_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_replay_alert_fixture_coverage_waiver_remediation",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{promotable_waived_escalation_count} waived stale replay "
+                    "escalation receipt(s) are ready for fixture promotion."
+                ),
+                threshold_crossed=(
+                    "waived_claim_support_replay_alert_escalations_promotable>0"
+                ),
+                recommended_action=(
+                    "Run docling-system-claim-support-replay-fixtures --promote to "
+                    "replace the waiver with promoted hard-case coverage."
                 ),
             )
         )
