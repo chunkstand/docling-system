@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from uuid import UUID
 
 from fastapi import status
@@ -10,21 +11,40 @@ from app.api.errors import api_error
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
+    AgentTaskArtifact,
     AgentTaskStatus,
     AgentTaskVerification,
     ClaimSupportPolicyChangeImpact,
+    SemanticGovernanceEvent,
+    SemanticGovernanceEventKind,
 )
 from app.schemas.agent_tasks import (
     AgentTaskCreateRequest,
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactReplayTaskResponse,
     ClaimSupportPolicyChangeImpactResponse,
+    ClaimSupportPolicyChangeImpactSummaryResponse,
 )
+from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.evidence import payload_sha256
+from app.services.semantic_governance import (
+    active_semantic_basis,
+    record_semantic_governance_event,
+)
+from app.services.storage import StorageService
 
 CLAIM_SUPPORT_IMPACT_REPLAY_WORKFLOW_VERSION = "claim_support_policy_change_impact_replay_v1"
 CLAIM_SUPPORT_IMPACT_REPLAY_PLAN_SCHEMA = "claim_support_policy_change_impact_replay_plan"
 CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_SCHEMA = "claim_support_policy_change_impact_replay_closure"
+CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_RECEIPT_SCHEMA = (
+    "claim_support_policy_impact_replay_closure_receipt"
+)
+CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_ARTIFACT_KIND = (
+    "claim_support_policy_impact_replay_closure"
+)
+CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_FILENAME = (
+    "claim_support_policy_impact_replay_closure.json"
+)
 REPLAY_TERMINAL_FAILURE_STATUSES = {
     AgentTaskStatus.FAILED.value,
     AgentTaskStatus.REJECTED.value,
@@ -32,6 +52,12 @@ REPLAY_TERMINAL_FAILURE_STATUSES = {
 REPLAY_ACTIVE_STATUSES = {
     AgentTaskStatus.PROCESSING.value,
     AgentTaskStatus.RETRY_WAIT.value,
+}
+REPLAY_OPEN_STATUSES = {
+    "pending",
+    "queued",
+    "in_progress",
+    "blocked",
 }
 REPLAY_PLAN_HASH_FIELD = "replay_task_plan_sha256"
 REPLAY_CLOSURE_HASH_FIELD = "replay_closure_sha256"
@@ -265,6 +291,40 @@ def list_claim_support_policy_change_impacts(
     return [_impact_response(row) for row in session.execute(statement).scalars().all()]
 
 
+def summarize_claim_support_policy_change_impacts(
+    session: Session,
+    *,
+    policy_name: str | None = None,
+    stale_after_hours: int = 24,
+) -> ClaimSupportPolicyChangeImpactSummaryResponse:
+    stale_after_hours = max(1, stale_after_hours)
+    stale_cutoff = utcnow() - timedelta(hours=stale_after_hours)
+    statement = select(ClaimSupportPolicyChangeImpact)
+    if policy_name is not None:
+        statement = statement.where(ClaimSupportPolicyChangeImpact.policy_name == policy_name)
+    rows = session.execute(statement).scalars().all()
+    status_counts: dict[str, int] = {}
+    open_count = 0
+    stale_open_count = 0
+    for row in rows:
+        status_value = str(row.replay_status)
+        status_counts[status_value] = status_counts.get(status_value, 0) + 1
+        if status_value not in REPLAY_OPEN_STATUSES:
+            continue
+        open_count += 1
+        status_updated_at = row.replay_status_updated_at or row.created_at
+        if status_updated_at <= stale_cutoff:
+            stale_open_count += 1
+    return ClaimSupportPolicyChangeImpactSummaryResponse(
+        total_count=len(rows),
+        replay_status_counts=status_counts,
+        open_count=open_count,
+        stale_open_count=stale_open_count,
+        stale_after_hours=stale_after_hours,
+        stale_cutoff=stale_cutoff,
+    )
+
+
 def get_claim_support_policy_change_impact(
     session: Session,
     change_impact_id: UUID,
@@ -454,6 +514,205 @@ def _validated_replay_work_items(
     return ordered_items
 
 
+def _replay_closure_hash(row: ClaimSupportPolicyChangeImpact) -> str | None:
+    closure = dict(row.replay_closure_json or {})
+    return (
+        row.replay_closure_sha256
+        or closure.get(REPLAY_CLOSURE_HASH_FIELD)
+        or payload_sha256(closure)
+    )
+
+
+def _replay_closure_event_deduplication_key(
+    row: ClaimSupportPolicyChangeImpact,
+    closure_sha256: str,
+) -> str:
+    return f"claim_support_policy_impact_replay_closed:{row.id}:{closure_sha256}"
+
+
+def _existing_replay_closure_event(
+    session: Session,
+    *,
+    row: ClaimSupportPolicyChangeImpact,
+    closure_sha256: str,
+) -> SemanticGovernanceEvent | None:
+    return session.scalar(
+        select(SemanticGovernanceEvent)
+        .where(
+            SemanticGovernanceEvent.deduplication_key
+            == _replay_closure_event_deduplication_key(row, closure_sha256)
+        )
+        .limit(1)
+    )
+
+
+def _replay_closure_anchor_task_id(
+    row: ClaimSupportPolicyChangeImpact,
+) -> UUID | None:
+    closure = dict(row.replay_closure_json or {})
+    tasks = list(closure.get("tasks") or [])
+    for task_spec in tasks:
+        if (
+            task_spec.get("task_type") == "verify_technical_report"
+            and task_spec.get("verification_outcome") == "passed"
+            and task_spec.get("replay_task_id")
+        ):
+            return UUID(str(task_spec["replay_task_id"]))
+    for task_spec in tasks:
+        if task_spec.get("replay_task_id"):
+            return UUID(str(task_spec["replay_task_id"]))
+    replay_task_ids = _uuid_list(row.replay_task_ids_json)
+    if replay_task_ids:
+        return replay_task_ids[-1]
+    return row.activation_task_id
+
+
+def _replay_closure_receipt_payload(
+    row: ClaimSupportPolicyChangeImpact,
+    *,
+    anchor_task_id: UUID | None,
+    closure_sha256: str,
+) -> dict:
+    closure = dict(row.replay_closure_json or {})
+    plan = dict(row.replay_task_plan_json or {})
+    plan_sha256 = plan.get(REPLAY_PLAN_HASH_FIELD) or payload_sha256(plan)
+    basis = {
+        "schema_name": CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_RECEIPT_SCHEMA,
+        "schema_version": "1.0",
+        "change_impact_id": str(row.id),
+        "source": {
+            "source_table": "claim_support_policy_change_impacts",
+            "source_id": str(row.id),
+        },
+        "policy_name": row.policy_name,
+        "policy_version": row.policy_version,
+        "impact_scope": row.impact_scope,
+        "impact_payload_sha256": row.impact_payload_sha256,
+        "replay_status": row.replay_status,
+        "replay_closed_at": row.replay_closed_at.isoformat()
+        if row.replay_closed_at
+        else None,
+        "anchor_task_id": str(anchor_task_id) if anchor_task_id is not None else None,
+        "activation_task_id": str(row.activation_task_id) if row.activation_task_id else None,
+        "activated_policy_id": str(row.activated_policy_id) if row.activated_policy_id else None,
+        "previous_policy_id": str(row.previous_policy_id) if row.previous_policy_id else None,
+        "replay_task_ids": _string_list(row.replay_task_ids_json),
+        "replay_task_plan_sha256": plan_sha256,
+        "replay_closure_sha256": closure_sha256,
+        "replay_closure": closure,
+    }
+    return {
+        **basis,
+        "receipt_sha256": payload_sha256(basis),
+    }
+
+
+def _create_replay_closure_artifact(
+    session: Session,
+    *,
+    anchor_task_id: UUID | None,
+    receipt_payload: dict,
+    storage_service: StorageService | None,
+) -> AgentTaskArtifact | None:
+    if anchor_task_id is None:
+        return None
+    return create_agent_task_artifact(
+        session,
+        task_id=anchor_task_id,
+        artifact_kind=CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_ARTIFACT_KIND,
+        payload=receipt_payload,
+        storage_service=storage_service,
+        filename=(
+            f"{receipt_payload['change_impact_id']}_"
+            f"{CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_FILENAME}"
+        ),
+    )
+
+
+def _record_replay_closure_governance_event(
+    session: Session,
+    row: ClaimSupportPolicyChangeImpact,
+    *,
+    storage_service: StorageService | None = None,
+    created_by: str = "docling-system",
+) -> SemanticGovernanceEvent | None:
+    if row.replay_status not in {"closed", "no_action_required"}:
+        return None
+    if not row.replay_closure_json:
+        return None
+    _verify_replay_closure_integrity(row)
+    closure_sha256 = _replay_closure_hash(row)
+    if not closure_sha256:
+        return None
+    existing = _existing_replay_closure_event(
+        session,
+        row=row,
+        closure_sha256=closure_sha256,
+    )
+    if existing is not None:
+        return existing
+
+    semantic_basis = active_semantic_basis(session)
+    anchor_task_id = _replay_closure_anchor_task_id(row)
+    receipt_payload = _replay_closure_receipt_payload(
+        row,
+        anchor_task_id=anchor_task_id,
+        closure_sha256=closure_sha256,
+    )
+    artifact = _create_replay_closure_artifact(
+        session,
+        anchor_task_id=anchor_task_id,
+        receipt_payload=receipt_payload,
+        storage_service=storage_service,
+    )
+    ontology_snapshot_id = _uuid_or_none(semantic_basis.get("active_ontology_snapshot_id"))
+    semantic_graph_snapshot_id = _uuid_or_none(
+        semantic_basis.get("active_semantic_graph_snapshot_id")
+    )
+    receipt_sha256 = receipt_payload["receipt_sha256"]
+    return record_semantic_governance_event(
+        session,
+        event_kind=SemanticGovernanceEventKind.CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED.value,
+        governance_scope=row.impact_scope,
+        subject_table="claim_support_policy_change_impacts",
+        subject_id=row.id,
+        task_id=anchor_task_id,
+        ontology_snapshot_id=ontology_snapshot_id,
+        semantic_graph_snapshot_id=semantic_graph_snapshot_id,
+        agent_task_artifact_id=artifact.id if artifact is not None else None,
+        receipt_sha256=receipt_sha256,
+        event_payload={
+            "claim_support_policy_impact_replay_closure": {
+                "change_impact_id": str(row.id),
+                "policy_name": row.policy_name,
+                "policy_version": row.policy_version,
+                "impact_payload_sha256": row.impact_payload_sha256,
+                "replay_status": row.replay_status,
+                "replay_task_ids": _string_list(row.replay_task_ids_json),
+                "replay_task_plan_sha256": (
+                    (row.replay_task_plan_json or {}).get(REPLAY_PLAN_HASH_FIELD)
+                    or payload_sha256(row.replay_task_plan_json or {})
+                ),
+                "replay_closure_sha256": closure_sha256,
+                "closure_artifact_id": str(artifact.id) if artifact is not None else None,
+                "closure_artifact_kind": (
+                    artifact.artifact_kind if artifact is not None else None
+                ),
+                "closure_artifact_path": artifact.storage_path
+                if artifact is not None
+                else None,
+                "receipt_sha256": receipt_sha256,
+                "closed_at": row.replay_closed_at.isoformat()
+                if row.replay_closed_at
+                else None,
+            },
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=_replay_closure_event_deduplication_key(row, closure_sha256),
+        created_by=created_by,
+    )
+
+
 def _queue_agent_task(
     session: Session,
     *,
@@ -633,11 +892,26 @@ def queue_claim_support_policy_change_impact_replay_tasks(
 def refresh_claim_support_policy_change_impact_replay_status(
     session: Session,
     change_impact_id: UUID,
+    *,
+    storage_service: StorageService | None = None,
+    commit: bool = True,
 ) -> ClaimSupportPolicyChangeImpactReplayResponse:
     row = _get_impact_row(session, change_impact_id, for_update=True)
     _verify_replay_plan_integrity(row)
     _verify_replay_closure_integrity(row)
     now = utcnow()
+    if row.replay_status in {"closed", "no_action_required"} and row.replay_closure_json:
+        _record_replay_closure_governance_event(
+            session,
+            row,
+            storage_service=storage_service,
+        )
+        if commit:
+            session.commit()
+        else:
+            session.flush()
+        return _replay_response(row)
+
     if row.replay_recommended_count <= 0:
         closure_basis = {
             "schema_name": CLAIM_SUPPORT_IMPACT_REPLAY_CLOSURE_SCHEMA,
@@ -658,8 +932,16 @@ def refresh_claim_support_policy_change_impact_replay_status(
             REPLAY_CLOSURE_HASH_FIELD: payload_sha256(closure_basis),
         }
         row.replay_closure_sha256 = row.replay_closure_json[REPLAY_CLOSURE_HASH_FIELD]
+        _record_replay_closure_governance_event(
+            session,
+            row,
+            storage_service=storage_service,
+        )
         session.add(row)
-        session.commit()
+        if commit:
+            session.commit()
+        else:
+            session.flush()
         return _replay_response(row)
 
     replay_task_ids = _uuid_list(row.replay_task_ids_json)
@@ -670,7 +952,10 @@ def refresh_claim_support_policy_change_impact_replay_status(
         row.replay_closure_json = {}
         row.replay_closure_sha256 = None
         session.add(row)
-        session.commit()
+        if commit:
+            session.commit()
+        else:
+            session.flush()
         return _replay_response(row)
 
     task_rows = (
@@ -796,9 +1081,57 @@ def refresh_claim_support_policy_change_impact_replay_status(
             REPLAY_CLOSURE_HASH_FIELD: payload_sha256(closure_basis),
         }
         row.replay_closure_sha256 = row.replay_closure_json[REPLAY_CLOSURE_HASH_FIELD]
+        _record_replay_closure_governance_event(
+            session,
+            row,
+            storage_service=storage_service,
+        )
     else:
         row.replay_closure_json = closure_basis
         row.replay_closure_sha256 = None
     session.add(row)
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return _replay_response(row)
+
+
+def refresh_claim_support_policy_change_impacts_for_replay_task(
+    session: Session,
+    task_id: UUID,
+    *,
+    storage_service: StorageService | None = None,
+    commit: bool = True,
+) -> list[ClaimSupportPolicyChangeImpactReplayResponse]:
+    candidate_rows = (
+        session.execute(
+            select(ClaimSupportPolicyChangeImpact)
+            .where(
+                ClaimSupportPolicyChangeImpact.replay_status.in_(REPLAY_OPEN_STATUSES),
+            )
+            .order_by(ClaimSupportPolicyChangeImpact.created_at.asc())
+        )
+        .scalars()
+        .all()
+    )
+    rows = [
+        row
+        for row in candidate_rows
+        if str(task_id) in set(_string_list(row.replay_task_ids_json))
+    ]
+    responses: list[ClaimSupportPolicyChangeImpactReplayResponse] = []
+    for row in rows:
+        responses.append(
+            refresh_claim_support_policy_change_impact_replay_status(
+                session,
+                row.id,
+                storage_service=storage_service,
+                commit=False,
+            )
+        )
+    if commit:
+        session.commit()
+    else:
+        session.flush()
+    return responses

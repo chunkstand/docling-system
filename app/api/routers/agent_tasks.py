@@ -48,6 +48,7 @@ from app.schemas.agent_tasks import (
     ClaimSupportPolicyChangeImpactReplayRequest,
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactResponse,
+    ClaimSupportPolicyChangeImpactSummaryResponse,
     TaskContextEnvelope,
 )
 from app.services.capabilities import agent_orchestration
@@ -56,6 +57,7 @@ from app.services.claim_support_policy_impacts import (
     list_claim_support_policy_change_impacts,
     queue_claim_support_policy_change_impact_replay_tasks,
     refresh_claim_support_policy_change_impact_replay_status,
+    summarize_claim_support_policy_change_impacts,
 )
 from app.services.storage import StorageService
 
@@ -460,6 +462,23 @@ def read_claim_support_policy_change_impacts(
 
 
 @router.get(
+    "/agent-tasks/claim-support-policy-change-impacts/summary",
+    response_model=ClaimSupportPolicyChangeImpactSummaryResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impact_summary(
+    session: DbSession,
+    policy_name: str | None = None,
+    stale_after_hours: int = 24,
+) -> ClaimSupportPolicyChangeImpactSummaryResponse:
+    return summarize_claim_support_policy_change_impacts(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+    )
+
+
+@router.get(
     "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}",
     response_model=ClaimSupportPolicyChangeImpactResponse,
     dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
@@ -502,10 +521,12 @@ def create_claim_support_policy_change_impact_replay_tasks(
 def refresh_claim_support_policy_change_impact_replay_status_route(
     session: DbSession,
     change_impact_id: UUID,
+    storage_service: Annotated[StorageService, Depends(get_storage_service)],
 ) -> ClaimSupportPolicyChangeImpactReplayResponse:
     return refresh_claim_support_policy_change_impact_replay_status(
         session,
         change_impact_id,
+        storage_service=storage_service,
     )
 
 

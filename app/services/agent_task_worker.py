@@ -20,6 +20,9 @@ from app.core.time import utcnow
 from app.db.models import AgentTask, AgentTaskAttempt, AgentTaskDependency, AgentTaskStatus
 from app.services.agent_task_actions import execute_agent_task_action
 from app.services.agent_task_context import write_agent_task_context
+from app.services.claim_support_policy_impacts import (
+    refresh_claim_support_policy_change_impacts_for_replay_task,
+)
 from app.services.evidence import (
     persist_agent_task_provenance_export,
     refresh_technical_report_evidence_manifest,
@@ -102,6 +105,23 @@ def _technical_report_verification_passed(result: dict) -> bool:
         return False
     verification = payload.get("verification")
     return isinstance(verification, dict) and verification.get("outcome") == "passed"
+
+
+def _refresh_claim_support_replay_impacts_after_task_finalization(
+    session: Session,
+    *,
+    task_id: UUID,
+    storage_service: StorageService | None,
+) -> None:
+    if not hasattr(session, "execute"):
+        return
+    session.flush()
+    refresh_claim_support_policy_change_impacts_for_replay_task(
+        session,
+        task_id,
+        storage_service=storage_service,
+        commit=False,
+    )
 
 
 def _evaluation_query_count_from_evaluation(evaluation: dict) -> int:
@@ -571,6 +591,12 @@ def finalize_agent_task_success(
             ).get("export_payload_sha256")
             task.result_json = sanitized_result
 
+    _refresh_claim_support_replay_impacts_after_task_finalization(
+        session,
+        task_id=task.id,
+        storage_service=storage_service,
+    )
+
     attempt = _current_attempt(session, task)
     if attempt is not None:
         attempt.status = "completed"
@@ -632,6 +658,11 @@ def finalize_agent_task_failure(
         failure_stage=failure_stage,
     )
     task.failure_artifact_path = str(failure_path) if failure_path is not None else None
+    _refresh_claim_support_replay_impacts_after_task_finalization(
+        session,
+        task_id=task.id,
+        storage_service=storage_service,
+    )
     session.commit()
 
 

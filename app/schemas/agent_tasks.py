@@ -1570,6 +1570,15 @@ class ClaimSupportPolicyChangeImpactResponse(BaseModel):
     created_at: datetime
 
 
+class ClaimSupportPolicyChangeImpactSummaryResponse(BaseModel):
+    total_count: int
+    replay_status_counts: dict[str, int] = Field(default_factory=dict)
+    open_count: int
+    stale_open_count: int
+    stale_after_hours: int
+    stale_cutoff: datetime
+
+
 class ClaimSupportPolicyChangeImpactReplayRequest(BaseModel):
     requested_by: str = Field(default="docling-system", min_length=1)
 

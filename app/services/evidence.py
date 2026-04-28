@@ -23,6 +23,7 @@ from app.db.models import (
     AuditBundleExport,
     AuditBundleValidationReceipt,
     ClaimEvidenceDerivation,
+    ClaimSupportPolicyChangeImpact,
     Document,
     DocumentChunk,
     DocumentFigure,
@@ -46,6 +47,7 @@ from app.db.models import (
     SemanticAssertionEvidence,
     SemanticFact,
     SemanticFactEvidence,
+    SemanticGovernanceEvent,
     SemanticGraphSnapshot,
 )
 from app.services.semantic_governance import (
@@ -65,6 +67,15 @@ DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_ARTIFACT_KIND = (
 DOCUMENT_GENERATION_CONTEXT_PACK_GATE = "document_generation_context_pack_gate"
 DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_OPERATOR = "document_generation_context_pack_evaluation"
 _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
+CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND = (
+    "claim_support_policy_impact_replay_closed"
+)
+CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
+    "pending",
+    "queued",
+    "in_progress",
+    "blocked",
+}
 
 
 def payload_sha256(payload: Any | None) -> str | None:
@@ -2590,11 +2601,193 @@ def _export_document_run_map(export: EvidencePackageExport) -> dict[str, set[str
     return mapping
 
 
+def _empty_claim_support_policy_change_impact_summary() -> dict[str, Any]:
+    return {
+        "related_count": 0,
+        "open_count": 0,
+        "closed_count": 0,
+        "blocked_count": 0,
+        "replay_status_counts": {},
+        "clear": True,
+        "impacts": [],
+    }
+
+
+def _claim_support_policy_change_impact_refs(
+    session: Session,
+    exports: list[EvidencePackageExport],
+) -> dict[str, set[str]]:
+    report_export_ids = [
+        row.id for row in exports if row.package_kind == "technical_report_claims"
+    ]
+    if not report_export_ids:
+        return {
+            "claim_derivation_ids": set(),
+            "draft_task_ids": set(),
+            "verification_task_ids": set(),
+        }
+    derivations = list(
+        session.scalars(
+            select(ClaimEvidenceDerivation)
+            .where(ClaimEvidenceDerivation.evidence_package_export_id.in_(report_export_ids))
+            .order_by(ClaimEvidenceDerivation.created_at.asc())
+        )
+    )
+    draft_task_ids = {
+        str(row.agent_task_id)
+        for row in derivations
+        if row.agent_task_id is not None
+    }
+    draft_task_ids.update(
+        str(row.agent_task_id)
+        for row in exports
+        if row.package_kind == "technical_report_claims" and row.agent_task_id is not None
+    )
+    verification_rows = (
+        list(
+            session.scalars(
+                select(AgentTaskVerification)
+                .where(
+                    AgentTaskVerification.target_task_id.in_(_uuid_values(draft_task_ids)),
+                    AgentTaskVerification.verifier_type == "technical_report_gate",
+                )
+                .order_by(AgentTaskVerification.created_at.asc())
+            )
+        )
+        if draft_task_ids
+        else []
+    )
+    return {
+        "claim_derivation_ids": {str(row.id) for row in derivations},
+        "draft_task_ids": draft_task_ids,
+        "verification_task_ids": {
+            str(row.verification_task_id)
+            for row in verification_rows
+            if row.verification_task_id is not None
+        },
+    }
+
+
+def _claim_support_policy_change_impact_events_by_row(
+    session: Session,
+    rows: list[ClaimSupportPolicyChangeImpact],
+) -> dict[UUID, list[SemanticGovernanceEvent]]:
+    row_ids = [row.id for row in rows]
+    if not row_ids:
+        return {}
+    events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                SemanticGovernanceEvent.subject_table == "claim_support_policy_change_impacts",
+                SemanticGovernanceEvent.subject_id.in_(row_ids),
+                SemanticGovernanceEvent.event_kind
+                == CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND,
+            )
+            .order_by(
+                SemanticGovernanceEvent.created_at.asc(),
+                SemanticGovernanceEvent.event_sequence.asc(),
+            )
+        )
+    )
+    events_by_row: dict[UUID, list[SemanticGovernanceEvent]] = {}
+    for event in events:
+        if event.subject_id is not None:
+            events_by_row.setdefault(event.subject_id, []).append(event)
+    return events_by_row
+
+
+def _claim_support_policy_change_impact_summary(
+    session: Session,
+    exports: list[EvidencePackageExport],
+) -> dict[str, Any]:
+    refs = _claim_support_policy_change_impact_refs(session, exports)
+    if not any(refs.values()):
+        return _empty_claim_support_policy_change_impact_summary()
+    rows = list(
+        session.scalars(
+            select(ClaimSupportPolicyChangeImpact).order_by(
+                ClaimSupportPolicyChangeImpact.created_at.asc(),
+                ClaimSupportPolicyChangeImpact.id.asc(),
+            )
+        )
+    )
+    matching_rows: list[ClaimSupportPolicyChangeImpact] = []
+    for row in rows:
+        if (
+            set(str(value) for value in (row.impacted_claim_derivation_ids_json or []))
+            & refs["claim_derivation_ids"]
+            or set(str(value) for value in (row.impacted_task_ids_json or []))
+            & refs["draft_task_ids"]
+            or set(str(value) for value in (row.impacted_verification_task_ids_json or []))
+            & refs["verification_task_ids"]
+        ):
+            matching_rows.append(row)
+
+    if not matching_rows:
+        return _empty_claim_support_policy_change_impact_summary()
+
+    events_by_row = _claim_support_policy_change_impact_events_by_row(session, matching_rows)
+    status_counts: dict[str, int] = {}
+    impact_rows: list[dict[str, Any]] = []
+    for row in matching_rows:
+        status_value = str(row.replay_status)
+        status_counts[status_value] = status_counts.get(status_value, 0) + 1
+        closure_events = events_by_row.get(row.id, [])
+        impact_rows.append(
+            {
+                "change_impact_id": str(row.id),
+                "policy_name": row.policy_name,
+                "policy_version": row.policy_version,
+                "impact_scope": row.impact_scope,
+                "impact_payload_sha256": row.impact_payload_sha256,
+                "replay_status": row.replay_status,
+                "replay_recommended_count": row.replay_recommended_count,
+                "replay_task_ids": list(row.replay_task_ids_json or []),
+                "replay_closure_sha256": row.replay_closure_sha256,
+                "replay_closed_at": row.replay_closed_at.isoformat()
+                if row.replay_closed_at
+                else None,
+                "closure_governance_events": [
+                    {
+                        "event_id": str(event.id),
+                        "event_hash": event.event_hash,
+                        "receipt_sha256": event.receipt_sha256,
+                        "agent_task_artifact_id": str(event.agent_task_artifact_id)
+                        if event.agent_task_artifact_id
+                        else None,
+                        "payload_sha256": event.payload_sha256,
+                    }
+                    for event in closure_events
+                ],
+            }
+        )
+
+    open_impacts = [
+        row
+        for row in impact_rows
+        if row["replay_status"] in CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES
+    ]
+    return {
+        "related_count": len(impact_rows),
+        "open_count": len(open_impacts),
+        "closed_count": sum(1 for row in impact_rows if row["replay_status"] == "closed"),
+        "blocked_count": sum(1 for row in impact_rows if row["replay_status"] == "blocked"),
+        "replay_status_counts": status_counts,
+        "clear": not open_impacts,
+        "impacts": impact_rows,
+    }
+
+
 def _change_impact_payload(
     session: Session,
     exports: list[EvidencePackageExport],
 ) -> dict:
     impacts: list[dict[str, Any]] = []
+    claim_support_policy_impacts = _claim_support_policy_change_impact_summary(
+        session,
+        exports,
+    )
     if not exports:
         return {
             "impacted": True,
@@ -2605,6 +2798,7 @@ def _change_impact_payload(
                     "reason": "No frozen evidence package export is linked to the report draft.",
                 }
             ],
+            "claim_support_policy_change_impacts": claim_support_policy_impacts,
         }
     document_ids = {
         UUID(str(document_id))
@@ -2646,10 +2840,28 @@ def _change_impact_payload(
                         "current_latest_run_id": latest_run_id,
                     }
                 )
+    for impact in claim_support_policy_impacts["impacts"]:
+        if impact["replay_status"] not in CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES:
+            continue
+        impacts.append(
+            {
+                "impact_type": "claim_support_policy_change_replay_open",
+                "change_impact_id": impact["change_impact_id"],
+                "policy_name": impact["policy_name"],
+                "policy_version": impact["policy_version"],
+                "replay_status": impact["replay_status"],
+                "replay_recommended_count": impact["replay_recommended_count"],
+                "reason": (
+                    "A claim-support calibration policy changed after this report's "
+                    "support judgments were produced, and managed replay has not closed."
+                ),
+            }
+        )
     return {
         "impacted": bool(impacts),
         "impact_count": len(impacts),
         "impacts": impacts,
+        "claim_support_policy_change_impacts": claim_support_policy_impacts,
     }
 
 
@@ -3574,6 +3786,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "technical_report_claims": "technical_report_claim",
     "technical_report_claim_provenance_locks": "claim_provenance_lock",
     "technical_report_claim_support_judgments": "claim_support_judgment",
+    "claim_support_policy_change_impacts": "claim_support_policy_change_impact",
     "claim_evidence_derivations": "claim_derivation",
     "evidence_package_exports": "evidence_package_export",
     "audit_bundle_exports": "audit_bundle_export",

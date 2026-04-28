@@ -29,7 +29,11 @@ from app.db.models import (
     SemanticGovernanceEvent,
 )
 from app.schemas.agent_tasks import AgentTaskApprovalRequest, AgentTaskCreateRequest
-from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
+from app.services.agent_task_worker import (
+    claim_next_agent_task,
+    finalize_agent_task_success,
+    process_agent_task,
+)
 from app.services.agent_tasks import approve_agent_task, create_agent_task
 from app.services.claim_support_evaluations import (
     build_claim_support_calibration_policy_payload,
@@ -38,7 +42,7 @@ from app.services.claim_support_evaluations import (
     ensure_claim_support_calibration_policy,
     resolve_claim_support_calibration_policy,
 )
-from app.services.evidence import payload_sha256
+from app.services.evidence import get_agent_task_audit_bundle, payload_sha256
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -1339,6 +1343,19 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
     assert preclosure_payload["replay_closure"]["closed"] is False
 
     with postgres_integration_harness.session_factory() as session:
+        preclosure_audit_bundle = get_agent_task_audit_bundle(
+            session,
+            impacted["verify_task_id"],
+        )
+        policy_impacts = preclosure_audit_bundle["change_impact"][
+            "claim_support_policy_change_impacts"
+        ]
+        assert preclosure_audit_bundle["change_impact"]["impacted"] is True
+        assert policy_impacts["related_count"] == 1
+        assert policy_impacts["open_count"] == 1
+        assert policy_impacts["clear"] is False
+
+    with postgres_integration_harness.session_factory() as session:
         now = utcnow()
         replay_draft = session.get(AgentTask, replay_draft_task_id)
         replay_verify = session.get(AgentTask, replay_verify_task_id)
@@ -1368,20 +1385,21 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
                 completed_at=now,
             )
         )
-        session.commit()
-
-    closure_response = postgres_integration_harness.client.post(
-        (
-            "/agent-tasks/claim-support-policy-change-impacts/"
-            f"{apply_payload['activation_change_impact_id']}/replay-status"
-        ),
-    )
-    assert closure_response.status_code == 200
-    closure_payload = closure_response.json()
-    assert closure_payload["replay_status"] == "closed"
-    assert closure_payload["replay_closure_sha256"]
-    assert closure_payload["replay_closure"]["closed"] is True
-    assert closure_payload["replay_closure"]["passed_verification_task_count"] == 1
+        finalize_agent_task_success(
+            session,
+            replay_verify,
+            {
+                "schema_name": "synthetic_replay_verification_completion",
+                "payload": {
+                    "verification": {
+                        "target_task_id": str(replay_draft_task_id),
+                        "verification_task_id": str(replay_verify_task_id),
+                        "outcome": "passed",
+                    }
+                },
+            },
+            storage_service=postgres_integration_harness.storage_service,
+        )
 
     detail_response = postgres_integration_harness.client.get(
         (
@@ -1390,7 +1408,72 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
         ),
     )
     assert detail_response.status_code == 200
-    assert detail_response.json()["replay_status"] == "closed"
+    closure_payload = detail_response.json()
+    assert closure_payload["replay_status"] == "closed"
+    assert closure_payload["replay_closure_sha256"]
+    assert closure_payload["replay_closure"]["closed"] is True
+    assert closure_payload["replay_closure"]["passed_verification_task_count"] == 1
+
+    idempotent_closure_response = postgres_integration_harness.client.post(
+        (
+            "/agent-tasks/claim-support-policy-change-impacts/"
+            f"{apply_payload['activation_change_impact_id']}/replay-status"
+        ),
+    )
+    assert idempotent_closure_response.status_code == 200
+    assert idempotent_closure_response.json()["replay_status"] == "closed"
+
+    summary_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/summary"
+    )
+    assert summary_response.status_code == 200
+    assert summary_response.json()["replay_status_counts"]["closed"] >= 1
+
+    with postgres_integration_harness.session_factory() as session:
+        closure_events = list(
+            session.scalars(
+                select(SemanticGovernanceEvent)
+                .where(
+                    SemanticGovernanceEvent.subject_table
+                    == "claim_support_policy_change_impacts",
+                    SemanticGovernanceEvent.subject_id
+                    == UUID(apply_payload["activation_change_impact_id"]),
+                    SemanticGovernanceEvent.event_kind
+                    == "claim_support_policy_impact_replay_closed",
+                )
+                .order_by(SemanticGovernanceEvent.created_at.asc())
+            )
+        )
+        assert len(closure_events) == 1
+        closure_event = closure_events[0]
+        assert closure_event.task_id == replay_verify_task_id
+        assert closure_event.receipt_sha256
+        closure_artifact = session.get(AgentTaskArtifact, closure_event.agent_task_artifact_id)
+        assert closure_artifact is not None
+        assert closure_artifact.artifact_kind == "claim_support_policy_impact_replay_closure"
+        assert closure_artifact.payload_json["receipt_sha256"] == closure_event.receipt_sha256
+        assert (
+            closure_event.event_payload_json[
+                "claim_support_policy_impact_replay_closure"
+            ]["replay_closure_sha256"]
+            == closure_payload["replay_closure_sha256"]
+        )
+
+        closed_audit_bundle = get_agent_task_audit_bundle(
+            session,
+            impacted["verify_task_id"],
+        )
+        closed_policy_impacts = closed_audit_bundle["change_impact"][
+            "claim_support_policy_change_impacts"
+        ]
+        assert closed_audit_bundle["change_impact"]["impacted"] is False
+        assert closed_policy_impacts["related_count"] == 1
+        assert closed_policy_impacts["open_count"] == 0
+        assert closed_policy_impacts["closed_count"] == 1
+        assert closed_policy_impacts["clear"] is True
+        assert closed_policy_impacts["impacts"][0]["closure_governance_events"][0][
+            "event_id"
+        ] == str(closure_event.id)
 
 
 def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
