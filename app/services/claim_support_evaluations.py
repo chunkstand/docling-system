@@ -443,13 +443,13 @@ def evaluate_claim_support_judge_fixture_set(
                 f"{verdict} recall {metrics['recall']:.4f} is below {min_verdict_recall:.4f}."
             )
 
-    gate_outcome = "failed" if reasons else "passed"
+    accuracy_gate_passed = not reasons
     summary = {
         "case_count": case_count,
         "passed_case_count": passed_case_count,
         "failed_case_count": case_count - passed_case_count,
         "overall_accuracy": round(overall_accuracy, 4),
-        "gate_outcome": gate_outcome,
+        "gate_outcome": "pending",
         "hard_case_kind_count": len(hard_case_kinds),
         "hard_case_kinds": hard_case_kinds,
     }
@@ -457,7 +457,7 @@ def evaluate_claim_support_judge_fixture_set(
         {
             "metric_key": "claim_support_judge_accuracy_gate",
             "stakeholder": "Omar Khattab",
-            "passed": gate_outcome == "passed",
+            "passed": accuracy_gate_passed,
             "summary": "Support-judge verdicts pass fixed replay precision and recall gates.",
             "details": {
                 "overall_accuracy": summary["overall_accuracy"],
@@ -484,6 +484,7 @@ def evaluate_claim_support_judge_fixture_set(
     ]
     if not all(metric["passed"] for metric in success_metrics):
         reasons.extend(metric["summary"] for metric in success_metrics if not metric["passed"])
+    summary["gate_outcome"] = "failed" if reasons else "passed"
 
     return {
         "schema_name": CLAIM_SUPPORT_EVALUATION_SCHEMA_NAME,

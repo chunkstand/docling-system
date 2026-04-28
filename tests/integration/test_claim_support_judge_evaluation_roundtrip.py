@@ -12,6 +12,7 @@ from app.db.models import (
     AgentTaskArtifact,
     ClaimSupportEvaluation,
     ClaimSupportEvaluationCase,
+    KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
@@ -110,6 +111,67 @@ def test_claim_support_judge_evaluation_task_persists_replay_rows(
         )
         assert len(artifacts) == 1
         assert artifacts[0].payload_json["evaluation_id"] == str(evaluation_id)
+
+
+def test_claim_support_judge_evaluation_task_fails_single_fixture_coverage_gate(
+    postgres_integration_harness,
+):
+    fixture = deepcopy(default_claim_support_evaluation_fixtures()[0])
+    fixture["case_id"] = "single_fixture_coverage_gap"
+
+    with postgres_integration_harness.session_factory() as session:
+        task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_claim_support_judge",
+                input={
+                    "evaluation_name": "claim_support_judge_coverage_gap",
+                    "fixture_set_name": "single_fixture_coverage_gap",
+                    "fixtures": [fixture],
+                    "min_support_score": 0.34,
+                    "min_overall_accuracy": 1.0,
+                    "min_verdict_precision": 1.0,
+                    "min_verdict_recall": 1.0,
+                },
+                workflow_version="claim_support_judge_eval_coverage_gap_integration",
+            ),
+        )
+        task_id = task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        task_row = session.get(AgentTask, task_id)
+        assert task_row is not None
+        assert task_row.status == "completed"
+        payload = task_row.result_json["payload"]
+        evaluation_id = UUID(payload["evaluation_id"])
+        assert payload["summary"]["gate_outcome"] == "failed"
+        assert payload["summary"]["overall_accuracy"] == 1.0
+        assert payload["summary"]["failed_case_count"] == 0
+        assert payload["summary"]["hard_case_kind_count"] == 1
+        assert "Support-judge quality is measured by reusable hard-case fixtures." in payload[
+            "reasons"
+        ]
+
+        evaluation_row = session.get(ClaimSupportEvaluation, evaluation_id)
+        assert evaluation_row is not None
+        assert evaluation_row.gate_outcome == "failed"
+        assert evaluation_row.metrics_json["gate_outcome"] == "failed"
+        assert evaluation_row.reasons_json == payload["reasons"]
+
+        operator_run = session.get(KnowledgeOperatorRun, UUID(payload["operator_run_id"]))
+        assert operator_run is not None
+        assert operator_run.metrics_json["gate_outcome"] == "failed"
+
+        operator_output = session.scalar(
+            select(KnowledgeOperatorOutput).where(
+                KnowledgeOperatorOutput.operator_run_id == operator_run.id,
+                KnowledgeOperatorOutput.output_kind == "claim_support_judge_evaluation",
+            )
+        )
+        assert operator_output is not None
+        assert operator_output.payload_json["gate_outcome"] == "failed"
 
 
 def test_claim_support_judge_evaluation_task_persists_failed_gate(
