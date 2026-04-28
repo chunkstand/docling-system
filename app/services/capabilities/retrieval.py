@@ -28,6 +28,7 @@ from app.schemas.search import (
     SearchHarnessEvaluationSummaryResponse,
     SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
     SearchHarnessResponse,
@@ -189,6 +190,12 @@ class RetrievalCapability(Protocol):
         session: Session,
         release_id: UUID,
     ) -> SearchHarnessReleaseResponse: ...
+
+    def get_search_harness_release_readiness(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseReadinessResponse: ...
 
     def create_search_harness_release_audit_bundle(
         self,
@@ -478,6 +485,13 @@ class ServicesRetrievalCapability:
         release_id: UUID,
     ) -> SearchHarnessReleaseResponse:
         return search_release_gate.get_search_harness_release_detail(session, release_id)
+
+    def get_search_harness_release_readiness(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseReadinessResponse:
+        return search_release_gate.get_search_harness_release_readiness(session, release_id)
 
     def create_search_harness_release_audit_bundle(
         self,

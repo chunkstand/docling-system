@@ -805,6 +805,23 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "review_note": "release gate",
         "created_at": "2026-04-21T00:00:02Z",
     }
+    release_readiness_payload = {
+        "schema_name": "search_harness_release_readiness",
+        "schema_version": "1.0",
+        "release_id": str(release_id),
+        "readiness_profile": "search_harness_release_readiness_v1",
+        "ready": True,
+        "blockers": [],
+        "retrieval": {"release_passed": True},
+        "provenance": {"release_audit_bundle_present": True},
+        "semantic_governance": {
+            "policy_profile": "release_semantic_governance_v1",
+            "complete": True,
+        },
+        "validation_receipts": {"release_validation_receipt_passed": True},
+        "checks": {"ready": True},
+        "generated_at": "2026-04-21T00:00:06Z",
+    }
     learning_candidate_payload = {
         "schema_name": "retrieval_learning_candidate_evaluation",
         "schema_version": "1.0",
@@ -892,6 +909,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "prov_graph_valid": True,
         "bundle_integrity_valid": True,
         "source_integrity_valid": True,
+        "semantic_governance_valid": True,
         "receipt_sha256": "receipt-sha",
         "prov_jsonld_sha256": "prov-jsonld-sha",
         "signature": "receipt-sig",
@@ -940,6 +958,13 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "app.api.routers.search.get_search_harness_release_detail",
         lambda session, lookup_release_id: {
             **release_payload,
+            "release_id": str(lookup_release_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_search_harness_release_readiness",
+        lambda session, lookup_release_id: {
+            **release_readiness_payload,
             "release_id": str(lookup_release_id),
         },
     )
@@ -1113,6 +1138,13 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         evaluation_id
     )
 
+    release_readiness_response = client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert release_readiness_response.status_code == 200
+    assert release_readiness_response.json()["ready"] is True
+    assert release_readiness_response.json()["semantic_governance"]["complete"] is True
+
     learning_response = client.post(
         "/search/retrieval-learning/candidate-evaluations",
         json={
@@ -1270,6 +1302,30 @@ def test_search_harness_release_detail_route_returns_machine_readable_error(
 
     client = TestClient(app)
     response = client.get(f"/search/harness-releases/{release_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "search_harness_release_not_found"
+    assert response.json()["error_context"]["release_id"] == str(release_id)
+
+
+def test_search_harness_release_readiness_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    release_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_search_harness_release_readiness",
+        lambda session, lookup_release_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "search_harness_release_not_found",
+                "Search harness release gate not found.",
+                release_id=str(lookup_release_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(f"/search/harness-releases/{release_id}/readiness")
 
     assert response.status_code == 404
     assert response.json()["error_code"] == "search_harness_release_not_found"

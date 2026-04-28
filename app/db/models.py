@@ -2881,6 +2881,7 @@ class AuditBundleValidationReceipt(Base):
     prov_graph_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     bundle_integrity_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     source_integrity_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    semantic_governance_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     receipt_storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     prov_jsonld_storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     receipt_sha256: Mapped[str] = mapped_column(Text, nullable=False)

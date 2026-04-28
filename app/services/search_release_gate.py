@@ -13,15 +13,28 @@ from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
 from app.core.time import utcnow
-from app.db.models import AgentTaskVerificationOutcome, SearchHarnessRelease, SearchReplayRun
+from app.db.models import (
+    AgentTaskVerificationOutcome,
+    AuditBundleExport,
+    AuditBundleValidationReceipt,
+    SearchHarnessRelease,
+    SearchReplayRun,
+)
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
 )
 from app.services.search_harness_evaluations import get_search_harness_evaluation_detail
-from app.services.semantic_governance import record_search_harness_release_governance_event
+from app.services.semantic_governance import (
+    record_search_harness_release_governance_event,
+    search_harness_release_semantic_governance_context,
+)
+
+READINESS_PROFILE = "search_harness_release_readiness_v1"
+RELEASE_AUDIT_BUNDLE_KIND = "search_harness_release_provenance"
 
 
 @dataclass(frozen=True)
@@ -362,6 +375,149 @@ def create_search_harness_release_gate(
         payload,
         requested_by=payload.requested_by,
         review_note=payload.review_note,
+    )
+
+
+def _release_package_sha256(row: SearchHarnessRelease) -> str:
+    release_package = {
+        "schema_name": "search_harness_release_package",
+        "schema_version": "1.0",
+        "evaluation": row.evaluation_snapshot_json or {},
+        "gate": {
+            "outcome": row.outcome,
+            "metrics": row.metrics_json or {},
+            "reasons": row.reasons_json or [],
+            "details": row.details_json or {},
+        },
+        "thresholds": row.thresholds_json or {},
+    }
+    return _payload_sha256(release_package)
+
+
+def _latest_release_audit_bundle(
+    session: Session,
+    release_id: UUID,
+) -> AuditBundleExport | None:
+    return session.scalar(
+        select(AuditBundleExport)
+        .where(
+            AuditBundleExport.search_harness_release_id == release_id,
+            AuditBundleExport.bundle_kind == RELEASE_AUDIT_BUNDLE_KIND,
+        )
+        .order_by(AuditBundleExport.created_at.desc(), AuditBundleExport.id.asc())
+        .limit(1)
+    )
+
+
+def _latest_validation_receipt(
+    session: Session,
+    audit_bundle_id: UUID,
+) -> AuditBundleValidationReceipt | None:
+    return session.scalar(
+        select(AuditBundleValidationReceipt)
+        .where(AuditBundleValidationReceipt.audit_bundle_export_id == audit_bundle_id)
+        .order_by(
+            AuditBundleValidationReceipt.created_at.desc(),
+            AuditBundleValidationReceipt.id.asc(),
+        )
+        .limit(1)
+    )
+
+
+def get_search_harness_release_readiness(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseReadinessResponse:
+    release = session.get(SearchHarnessRelease, release_id)
+    if release is None:
+        raise _search_harness_release_not_found(release_id)
+
+    release_package_hash_matches = (
+        _release_package_sha256(release) == release.release_package_sha256
+    )
+    retrieval = {
+        "release_outcome": release.outcome,
+        "release_passed": release.outcome == AgentTaskVerificationOutcome.PASSED.value,
+        "evaluation_snapshot_present": bool(release.evaluation_snapshot_json),
+        "release_package_hash_matches": release_package_hash_matches,
+        "candidate_harness_name": release.candidate_harness_name,
+        "baseline_harness_name": release.baseline_harness_name,
+        "source_types": list(release.source_types_json or []),
+    }
+
+    audit_bundle = _latest_release_audit_bundle(session, release.id)
+    provenance = {
+        "latest_release_audit_bundle_id": str(audit_bundle.id) if audit_bundle else None,
+        "release_audit_bundle_present": audit_bundle is not None,
+        "release_audit_bundle_completed": (
+            audit_bundle is not None and audit_bundle.export_status == "completed"
+        ),
+        "release_audit_bundle_sha256": audit_bundle.bundle_sha256 if audit_bundle else None,
+    }
+
+    validation_receipt = (
+        _latest_validation_receipt(session, audit_bundle.id) if audit_bundle is not None else None
+    )
+    validation_receipts = {
+        "latest_release_validation_receipt_id": (
+            str(validation_receipt.id) if validation_receipt else None
+        ),
+        "release_validation_receipt_present": validation_receipt is not None,
+        "release_validation_receipt_passed": (
+            validation_receipt is not None and validation_receipt.validation_status == "passed"
+        ),
+        "payload_schema_valid": (
+            validation_receipt.payload_schema_valid if validation_receipt else False
+        ),
+        "prov_graph_valid": validation_receipt.prov_graph_valid if validation_receipt else False,
+        "bundle_integrity_valid": (
+            validation_receipt.bundle_integrity_valid if validation_receipt else False
+        ),
+        "source_integrity_valid": (
+            validation_receipt.source_integrity_valid if validation_receipt else False
+        ),
+        "semantic_governance_valid": (
+            validation_receipt.semantic_governance_valid if validation_receipt else False
+        ),
+    }
+
+    semantic_context = search_harness_release_semantic_governance_context(session, release)
+    semantic_governance = semantic_context["policy"]
+
+    checks = {
+        "retrieval_ready": (
+            retrieval["release_passed"]
+            and retrieval["evaluation_snapshot_present"]
+            and retrieval["release_package_hash_matches"]
+        ),
+        "provenance_ready": (
+            provenance["release_audit_bundle_present"]
+            and provenance["release_audit_bundle_completed"]
+        ),
+        "semantic_governance_ready": semantic_governance["complete"],
+        "validation_receipts_ready": (
+            validation_receipts["release_validation_receipt_present"]
+            and validation_receipts["release_validation_receipt_passed"]
+            and validation_receipts["payload_schema_valid"]
+            and validation_receipts["prov_graph_valid"]
+            and validation_receipts["bundle_integrity_valid"]
+            and validation_receipts["source_integrity_valid"]
+            and validation_receipts["semantic_governance_valid"]
+        ),
+    }
+    checks["ready"] = all(checks.values())
+    blockers = [key for key, value in checks.items() if key != "ready" and not value]
+    return SearchHarnessReleaseReadinessResponse(
+        release_id=release.id,
+        readiness_profile=READINESS_PROFILE,
+        ready=checks["ready"],
+        blockers=blockers,
+        retrieval=retrieval,
+        provenance=provenance,
+        semantic_governance=semantic_governance,
+        validation_receipts=validation_receipts,
+        checks=checks,
+        generated_at=utcnow(),
     )
 
 

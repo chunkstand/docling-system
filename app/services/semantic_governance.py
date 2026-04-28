@@ -29,6 +29,10 @@ WORKSPACE_SEMANTIC_STATE_KEY = "default"
 WORKSPACE_SEMANTIC_GRAPH_STATE_KEY = "default"
 SEMANTIC_GOVERNANCE_EVENT_SCHEMA = "semantic_governance_event"
 SEMANTIC_GOVERNANCE_CHAIN_SCHEMA = "semantic_governance_chain"
+SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_SCHEMA = (
+    "search_harness_release_semantic_governance_policy"
+)
+SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_PROFILE = "release_semantic_governance_v1"
 
 
 def _json_payload(payload: Any | None) -> dict:
@@ -359,12 +363,17 @@ def record_search_harness_release_governance_event(
     session: Session,
     release: SearchHarnessRelease,
 ) -> SemanticGovernanceEvent:
+    semantic_basis = _active_semantic_basis(session)
+    ontology_snapshot_id = _uuid_or_none(semantic_basis.get("active_ontology_snapshot_id"))
+    graph_snapshot_id = _uuid_or_none(semantic_basis.get("active_semantic_graph_snapshot_id"))
     return record_semantic_governance_event(
         session,
         event_kind=SemanticGovernanceEventKind.SEARCH_HARNESS_RELEASE_RECORDED.value,
         governance_scope=f"search_harness:{release.candidate_harness_name}",
         subject_table="search_harness_releases",
         subject_id=release.id,
+        ontology_snapshot_id=ontology_snapshot_id,
+        semantic_graph_snapshot_id=graph_snapshot_id,
         search_harness_evaluation_id=release.search_harness_evaluation_id,
         search_harness_release_id=release.id,
         event_payload={
@@ -380,7 +389,8 @@ def record_search_harness_release_governance_event(
                 "release_package_sha256": release.release_package_sha256,
                 "created_by": release.requested_by,
                 "review_note": release.review_note,
-            }
+            },
+            "semantic_basis": semantic_basis,
         },
         deduplication_key=f"search_harness_release_recorded:{release.id}",
         created_by=release.requested_by,
@@ -617,6 +627,147 @@ def semantic_governance_event_payload(row: SemanticGovernanceEvent) -> dict[str,
         "created_at": _created_at_text(row.created_at),
         "event_payload": _json_payload(row.event_payload_json or {}),
         "integrity": semantic_governance_event_integrity(row),
+    }
+
+
+def semantic_governance_chain_integrity(
+    events: Iterable[SemanticGovernanceEvent],
+) -> dict[str, Any]:
+    rows = list(events)
+    event_ids = {row.id for row in rows}
+    event_hashes_by_id = {row.id: row.event_hash for row in rows}
+    hash_link_mismatch_count = 0
+    external_previous_event_count = 0
+    for row in rows:
+        if row.previous_event_id is None:
+            continue
+        if row.previous_event_id not in event_ids:
+            external_previous_event_count += 1
+            continue
+        if row.previous_event_hash != event_hashes_by_id.get(row.previous_event_id):
+            hash_link_mismatch_count += 1
+
+    integrity_rows = [semantic_governance_event_integrity(row) for row in rows]
+    payload_hash_mismatch_count = sum(
+        1 for row in integrity_rows if not row["payload_hash_matches"]
+    )
+    event_hash_mismatch_count = sum(1 for row in integrity_rows if not row["event_hash_matches"])
+    return {
+        "has_events": bool(rows),
+        "event_count": len(rows),
+        "payload_hash_mismatch_count": payload_hash_mismatch_count,
+        "event_hash_mismatch_count": event_hash_mismatch_count,
+        "hash_link_mismatch_count": hash_link_mismatch_count,
+        "external_previous_event_count": external_previous_event_count,
+        "payload_hashes_verified": payload_hash_mismatch_count == 0,
+        "event_hashes_verified": event_hash_mismatch_count == 0,
+        "hash_links_verified": (
+            hash_link_mismatch_count == 0 and external_previous_event_count == 0
+        ),
+        "complete": (
+            bool(rows)
+            and payload_hash_mismatch_count == 0
+            and event_hash_mismatch_count == 0
+            and hash_link_mismatch_count == 0
+            and external_previous_event_count == 0
+        ),
+    }
+
+
+def search_harness_release_semantic_governance_context(
+    session: Session,
+    release: SearchHarnessRelease,
+) -> dict[str, Any]:
+    seed_events = list(
+        session.scalars(
+            select(SemanticGovernanceEvent)
+            .where(
+                or_(
+                    SemanticGovernanceEvent.search_harness_release_id == release.id,
+                    (
+                        (SemanticGovernanceEvent.subject_table == "search_harness_releases")
+                        & (SemanticGovernanceEvent.subject_id == release.id)
+                    ),
+                )
+            )
+            .order_by(
+                SemanticGovernanceEvent.event_sequence.asc(),
+                SemanticGovernanceEvent.created_at.asc(),
+            )
+        )
+    )
+    events = _expand_with_previous_events(session, seed_events)
+    referenced = _referenced_ids(events)
+    chain_integrity = semantic_governance_chain_integrity(events)
+    active_basis = _active_semantic_basis(session)
+    has_release_governance_event = any(
+        row.event_kind == SemanticGovernanceEventKind.SEARCH_HARNESS_RELEASE_RECORDED.value
+        and row.search_harness_release_id == release.id
+        for row in events
+    )
+    semantic_coverage_claimed = bool(
+        referenced["ontology_snapshot_ids"] or referenced["semantic_graph_snapshot_ids"]
+    )
+    has_ontology_snapshot_reference = bool(referenced["ontology_snapshot_ids"])
+    has_semantic_graph_snapshot_reference = bool(referenced["semantic_graph_snapshot_ids"])
+    checks = {
+        "has_release_governance_event": has_release_governance_event,
+        "payload_hashes_verified": chain_integrity["payload_hashes_verified"],
+        "event_hashes_verified": chain_integrity["event_hashes_verified"],
+        "hash_links_verified": chain_integrity["hash_links_verified"],
+        "semantic_coverage_claimed": semantic_coverage_claimed,
+        "has_ontology_snapshot_reference": has_ontology_snapshot_reference,
+        "has_semantic_graph_snapshot_reference": has_semantic_graph_snapshot_reference,
+    }
+    checks["complete"] = (
+        checks["has_release_governance_event"]
+        and checks["payload_hashes_verified"]
+        and checks["event_hashes_verified"]
+        and checks["hash_links_verified"]
+        and (
+            not semantic_coverage_claimed
+            or (
+                checks["has_ontology_snapshot_reference"]
+                and checks["has_semantic_graph_snapshot_reference"]
+            )
+        )
+    )
+    policy = {
+        "schema_name": SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_SCHEMA,
+        "schema_version": "1.0",
+        "policy_profile": SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_PROFILE,
+        "release_id": str(release.id),
+        "candidate_harness_name": release.candidate_harness_name,
+        "semantic_coverage_claimed": semantic_coverage_claimed,
+        "requirements": {
+            "release_governance_event_required": True,
+            "governance_event_hash_chain_required": True,
+            "ontology_snapshot_required_when_claimed": True,
+            "semantic_graph_snapshot_required_when_claimed": True,
+        },
+        "active_semantic_basis": active_basis,
+        "referenced_ids": {
+            "ontology_snapshot_ids": [
+                str(value) for value in sorted(referenced["ontology_snapshot_ids"], key=str)
+            ],
+            "semantic_graph_snapshot_ids": [
+                str(value) for value in sorted(referenced["semantic_graph_snapshot_ids"], key=str)
+            ],
+            "search_harness_release_ids": [
+                str(value) for value in sorted(referenced["search_harness_release_ids"], key=str)
+            ],
+        },
+        "event_ids": [str(row.id) for row in events],
+        "event_kinds": [row.event_kind for row in events],
+        "event_count": len(events),
+        "chain_integrity": chain_integrity,
+        "checks": checks,
+        "complete": checks["complete"],
+    }
+    return {
+        "events": events,
+        "event_payloads": [semantic_governance_event_payload(row) for row in events],
+        "policy": policy,
     }
 
 

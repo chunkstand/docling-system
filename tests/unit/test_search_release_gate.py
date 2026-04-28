@@ -50,6 +50,8 @@ class FakeSession:
     def get(self, model, key):
         if model.__name__ == "SearchReplayRun":
             return self.replay_runs.get(key)
+        if model.__name__ in {"WorkspaceSemanticState", "WorkspaceSemanticGraphState"}:
+            return None
         raise AssertionError(f"Unexpected model lookup: {model.__name__}")
 
     def scalar(self, statement):

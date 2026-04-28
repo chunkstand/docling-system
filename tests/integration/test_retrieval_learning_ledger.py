@@ -396,6 +396,8 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
     assert training_receipt["receipt_sha256"] == training_receipt["receipt"]["receipt_sha256"]
     assert training_receipt["prov_jsonld"]["@graph"]
     assert training_receipt["integrity"]["complete"] is True
+    assert training_receipt["semantic_governance_valid"] is True
+    assert training_receipt["receipt"]["validation_checks"]["semantic_governance_valid"] is True
 
     receipt_list_response = postgres_integration_harness.client.get(
         f"/search/audit-bundles/{training_audit_bundle['bundle_id']}/validation-receipts"

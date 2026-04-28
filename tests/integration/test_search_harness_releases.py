@@ -419,9 +419,21 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["retrieval_training_runs"][0][
         "training_dataset_sha256"
     ] == training_dataset_sha256
-    assert audit_bundle["bundle"]["payload"]["semantic_governance_events"][0][
-        "event_kind"
-    ] == "retrieval_learning_candidate_evaluated"
+    assert any(
+        row["event_kind"] == "search_harness_release_recorded"
+        for row in audit_bundle["bundle"]["payload"]["semantic_governance_events"]
+    )
+    assert any(
+        row["event_kind"] == "retrieval_learning_candidate_evaluated"
+        for row in audit_bundle["bundle"]["payload"]["semantic_governance_events"]
+    )
+    semantic_governance_policy = audit_bundle["bundle"]["payload"][
+        "semantic_governance_policy"
+    ]
+    assert semantic_governance_policy["policy_profile"] == "release_semantic_governance_v1"
+    assert semantic_governance_policy["checks"]["has_release_governance_event"] is True
+    assert semantic_governance_policy["checks"]["hash_links_verified"] is True
+    assert semantic_governance_policy["complete"] is True
     training_audit_bundle_ref = audit_bundle["bundle"]["payload"][
         "retrieval_training_audit_bundles"
     ][0]
@@ -494,6 +506,10 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     )
     assert validation_receipt["prov_jsonld"]["@graph"]
     assert validation_receipt["integrity"]["complete"] is True
+    assert validation_receipt["semantic_governance_valid"] is True
+    assert validation_receipt["receipt"]["validation_checks"][
+        "semantic_governance_valid"
+    ] is True
 
     validation_list_response = postgres_integration_harness.client.get(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts"
@@ -514,6 +530,22 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     )
     assert latest_validation_response.status_code == 200
     assert latest_validation_response.json()["receipt_id"] == validation_receipt["receipt_id"]
+
+    readiness_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_response.status_code == 200
+    readiness = readiness_response.json()
+    assert readiness["ready"] is True
+    assert readiness["checks"] == {
+        "retrieval_ready": True,
+        "provenance_ready": True,
+        "semantic_governance_ready": True,
+        "validation_receipts_ready": True,
+        "ready": True,
+    }
+    assert readiness["semantic_governance"]["checks"]["has_release_governance_event"] is True
+    assert readiness["validation_receipts"]["semantic_governance_valid"] is True
 
     with postgres_integration_harness.session_factory() as session:
         row = session.get(AuditBundleExport, audit_bundle["bundle_id"])

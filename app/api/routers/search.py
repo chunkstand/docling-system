@@ -39,6 +39,7 @@ from app.schemas.search import (
     SearchHarnessEvaluationSummaryResponse,
     SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
     SearchHarnessResponse,
@@ -81,6 +82,7 @@ get_search_harness_evaluation_detail = retrieval.get_search_harness_evaluation_d
 create_search_harness_release_gate = retrieval.create_search_harness_release_gate
 list_search_harness_releases = retrieval.list_search_harness_releases
 get_search_harness_release_detail = retrieval.get_search_harness_release_detail
+get_search_harness_release_readiness = retrieval.get_search_harness_release_readiness
 create_search_harness_release_audit_bundle = (
     retrieval.create_search_harness_release_audit_bundle
 )
@@ -458,6 +460,18 @@ def read_search_harness_release(
     session: DbSession,
 ) -> SearchHarnessReleaseResponse:
     return get_search_harness_release_detail(session, release_id)
+
+
+@router.get(
+    "/search/harness-releases/{release_id}/readiness",
+    response_model=SearchHarnessReleaseReadinessResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_search_harness_release_readiness(
+    release_id: UUID,
+    session: DbSession,
+) -> SearchHarnessReleaseReadinessResponse:
+    return get_search_harness_release_readiness(session, release_id)
 
 
 @router.get(

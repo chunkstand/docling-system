@@ -38,6 +38,10 @@ from app.schemas.search import (
     RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessReleaseAuditBundleRequest,
 )
+from app.services.semantic_governance import (
+    search_harness_release_semantic_governance_context,
+    semantic_governance_event_payload,
+)
 from app.services.storage import StorageService
 
 SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND = "search_harness_release_provenance"
@@ -483,29 +487,7 @@ def _validation_receipt_reference_payload(
 
 
 def _semantic_governance_event_payload(row: SemanticGovernanceEvent) -> dict[str, Any]:
-    return {
-        "event_id": str(row.id),
-        "event_sequence": row.event_sequence,
-        "event_kind": row.event_kind,
-        "governance_scope": row.governance_scope,
-        "subject_table": row.subject_table,
-        "subject_id": str(row.subject_id) if row.subject_id else None,
-        "search_harness_evaluation_id": (
-            str(row.search_harness_evaluation_id) if row.search_harness_evaluation_id else None
-        ),
-        "search_harness_release_id": (
-            str(row.search_harness_release_id) if row.search_harness_release_id else None
-        ),
-        "payload_sha256": row.payload_sha256,
-        "event_hash": row.event_hash,
-        "previous_event_id": str(row.previous_event_id) if row.previous_event_id else None,
-        "previous_event_hash": row.previous_event_hash,
-        "receipt_sha256": row.receipt_sha256,
-        "deduplication_key": row.deduplication_key,
-        "event_payload": row.event_payload_json or {},
-        "created_by": row.created_by,
-        "created_at": row.created_at.isoformat(),
-    }
+    return semantic_governance_event_payload(row)
 
 
 def _load_governance_event_chain(
@@ -711,6 +693,7 @@ def _validate_bundle_payload_schema(
                 "retrieval_training_audit_bundles",
                 "retrieval_training_audit_bundle_validation_receipts",
                 "semantic_governance_events",
+                "semantic_governance_policy",
                 "audit_checklist",
                 "integrity",
                 "prov",
@@ -872,6 +855,110 @@ def _validate_bundle_source_integrity(
                     "bundle.payload.retrieval_training_run.retrieval_training_run_id",
                 )
             )
+    return errors
+
+
+def _semantic_governance_chain_checks(
+    events: list[dict[str, Any]],
+) -> dict[str, Any]:
+    event_ids = {str(row.get("event_id")) for row in events if row.get("event_id")}
+    event_hashes_by_id = {
+        str(row.get("event_id")): row.get("event_hash")
+        for row in events
+        if row.get("event_id")
+    }
+    external_previous_event_count = 0
+    hash_link_mismatch_count = 0
+    for row in events:
+        previous_event_id = row.get("previous_event_id")
+        if not previous_event_id:
+            continue
+        if previous_event_id not in event_ids:
+            external_previous_event_count += 1
+            continue
+        if row.get("previous_event_hash") != event_hashes_by_id.get(previous_event_id):
+            hash_link_mismatch_count += 1
+    return {
+        "event_count": len(events),
+        "external_previous_event_count": external_previous_event_count,
+        "hash_link_mismatch_count": hash_link_mismatch_count,
+        "hash_links_verified": (
+            external_previous_event_count == 0 and hash_link_mismatch_count == 0
+        ),
+    }
+
+
+def _validate_release_semantic_governance_policy(
+    payload: dict[str, Any],
+) -> list[dict[str, str]]:
+    errors: list[dict[str, str]] = []
+    policy = payload.get("semantic_governance_policy")
+    if not isinstance(policy, dict):
+        return [
+            _validation_error(
+                "semantic_governance_policy_missing",
+                "Release audit payload must include a semantic governance policy profile.",
+                "bundle.payload.semantic_governance_policy",
+            )
+        ]
+    checks = policy.get("checks") or {}
+    if policy.get("schema_name") != "search_harness_release_semantic_governance_policy":
+        errors.append(
+            _validation_error(
+                "invalid_semantic_governance_policy_schema",
+                "Release semantic governance policy schema_name is invalid.",
+                "bundle.payload.semantic_governance_policy.schema_name",
+            )
+        )
+    if checks.get("has_release_governance_event") is not True:
+        errors.append(
+            _validation_error(
+                "release_governance_event_missing",
+                "Release semantic governance policy must reference a release governance event.",
+                "bundle.payload.semantic_governance_policy.checks.has_release_governance_event",
+            )
+        )
+    events = payload.get("semantic_governance_events") or []
+    chain_checks = _semantic_governance_chain_checks(events if isinstance(events, list) else [])
+    if checks.get("hash_links_verified") is not True or not chain_checks["hash_links_verified"]:
+        errors.append(
+            _validation_error(
+                "semantic_governance_chain_broken",
+                "Semantic governance event previous-hash links must be closed and verified.",
+                "bundle.payload.semantic_governance_policy.checks.hash_links_verified",
+            )
+        )
+    if policy.get("semantic_coverage_claimed") is True:
+        if checks.get("has_ontology_snapshot_reference") is not True:
+            errors.append(
+                _validation_error(
+                    "semantic_ontology_snapshot_reference_missing",
+                    "Semantic coverage claims require an ontology snapshot reference.",
+                    (
+                        "bundle.payload.semantic_governance_policy.checks."
+                        "has_ontology_snapshot_reference"
+                    ),
+                )
+            )
+        if checks.get("has_semantic_graph_snapshot_reference") is not True:
+            errors.append(
+                _validation_error(
+                    "semantic_graph_snapshot_reference_missing",
+                    "Semantic coverage claims require a semantic graph snapshot reference.",
+                    (
+                        "bundle.payload.semantic_governance_policy.checks."
+                        "has_semantic_graph_snapshot_reference"
+                    ),
+                )
+            )
+    if policy.get("complete") is not True or checks.get("complete") is not True:
+        errors.append(
+            _validation_error(
+                "semantic_governance_policy_incomplete",
+                "Release semantic governance policy is incomplete.",
+                "bundle.payload.semantic_governance_policy.complete",
+            )
+        )
     return errors
 
 
@@ -1591,7 +1678,7 @@ def _build_search_harness_release_payload(
         key=str,
     )
     judgment_set_ids = sorted({row.judgment_set_id for row in learning_candidates}, key=str)
-    governance_event_ids = sorted(
+    candidate_governance_event_ids = sorted(
         {
             row.semantic_governance_event_id
             for row in learning_candidates
@@ -1617,20 +1704,14 @@ def _build_search_harness_release_payload(
         if judgment_set_ids
         else []
     )
-    governance_events = (
-        session.execute(
-            select(SemanticGovernanceEvent).where(
-                SemanticGovernanceEvent.id.in_(governance_event_ids)
-            )
-        )
-        .scalars()
-        .all()
-        if governance_event_ids
-        else []
+    semantic_governance_context = search_harness_release_semantic_governance_context(
+        session,
+        release,
     )
+    ordered_governance_events = semantic_governance_context["events"]
+    semantic_governance_policy = semantic_governance_context["policy"]
     training_runs_by_id = {row.id: row for row in training_runs}
     judgment_sets_by_id = {row.id: row for row in judgment_sets}
-    governance_events_by_id = {row.id: row for row in governance_events}
     ordered_training_runs = [
         training_runs_by_id[training_run_id]
         for training_run_id in training_run_ids
@@ -1640,11 +1721,6 @@ def _build_search_harness_release_payload(
         judgment_sets_by_id[judgment_set_id]
         for judgment_set_id in judgment_set_ids
         if judgment_set_id in judgment_sets_by_id
-    ]
-    ordered_governance_events = [
-        governance_events_by_id[event_id]
-        for event_id in governance_event_ids
-        if event_id in governance_events_by_id
     ]
     training_audit_bundle_rows = (
         session.execute(
@@ -1735,7 +1811,9 @@ def _build_search_harness_release_payload(
     learning_candidate_trace_complete = (
         len(ordered_training_runs) == len(training_run_ids)
         and len(ordered_judgment_sets) == len(judgment_set_ids)
-        and len(ordered_governance_events) == len(governance_event_ids)
+        and set(candidate_governance_event_ids).issubset(
+            {row.id for row in ordered_governance_events}
+        )
     )
     training_audit_bundle_trace_complete = len(ordered_training_audit_bundles) == len(
         training_run_ids
@@ -1765,6 +1843,7 @@ def _build_search_harness_release_payload(
         "training_audit_bundle_validation_receipts_complete": (
             training_audit_bundle_validation_receipts_complete
         ),
+        "semantic_governance_policy_complete": semantic_governance_policy["complete"],
         "has_prov_graph": True,
     }
     audit_checklist["complete"] = all(
@@ -1806,6 +1885,7 @@ def _build_search_harness_release_payload(
         "semantic_governance_events": [
             _semantic_governance_event_payload(row) for row in ordered_governance_events
         ],
+        "semantic_governance_policy": semantic_governance_policy,
         "audit_checklist": audit_checklist,
         "integrity": {
             "release_package_hash_matches": release_package_hash_matches,
@@ -1834,7 +1914,8 @@ def _build_search_harness_release_payload(
             "judgment_set_count": len(ordered_judgment_sets),
             "expected_judgment_set_count": len(judgment_set_ids),
             "semantic_governance_event_count": len(ordered_governance_events),
-            "expected_semantic_governance_event_count": len(governance_event_ids),
+            "expected_candidate_governance_event_count": len(candidate_governance_event_ids),
+            "semantic_governance_policy_complete": semantic_governance_policy["complete"],
         },
         "prov": _prov_graph(
             release=release,
@@ -2021,7 +2102,13 @@ def _validate_audit_bundle(
     schema_errors = _validate_bundle_payload_schema(row=row, bundle=bundle)
     source_errors = _validate_bundle_source_integrity(row=row, bundle=bundle)
     prov_jsonld, prov_errors = _validate_prov_graph(bundle)
-    errors = [*schema_errors, *source_errors, *prov_errors]
+    payload = bundle.get("payload") or {}
+    semantic_governance_errors = (
+        _validate_release_semantic_governance_policy(payload)
+        if row.bundle_kind == SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND
+        else []
+    )
+    errors = [*schema_errors, *source_errors, *prov_errors, *semantic_governance_errors]
     if not bundle_integrity.get("complete"):
         errors.append(
             _validation_error(
@@ -2035,6 +2122,7 @@ def _validate_audit_bundle(
         "prov_graph_valid": not prov_errors,
         "bundle_integrity_valid": bool(bundle_integrity.get("complete")),
         "source_integrity_valid": not source_errors,
+        "semantic_governance_valid": not semantic_governance_errors,
     }
     checks["complete"] = all(checks.values())
     return checks, prov_jsonld, errors
@@ -2055,6 +2143,7 @@ def _to_validation_receipt_summary(
         prov_graph_valid=row.prov_graph_valid,
         bundle_integrity_valid=row.bundle_integrity_valid,
         source_integrity_valid=row.source_integrity_valid,
+        semantic_governance_valid=row.semantic_governance_valid,
         receipt_sha256=row.receipt_sha256,
         prov_jsonld_sha256=row.prov_jsonld_sha256,
         signature=row.signature,
@@ -2238,6 +2327,7 @@ def _create_audit_bundle_validation_receipt_row(
         prov_graph_valid=validation_checks["prov_graph_valid"],
         bundle_integrity_valid=validation_checks["bundle_integrity_valid"],
         source_integrity_valid=validation_checks["source_integrity_valid"],
+        semantic_governance_valid=validation_checks["semantic_governance_valid"],
         receipt_storage_path=str(receipt_path),
         prov_jsonld_storage_path=str(prov_jsonld_path),
         receipt_sha256=receipt_sha256,

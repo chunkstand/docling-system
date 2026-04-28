@@ -416,6 +416,21 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
     evaluation_snapshot: dict = Field(default_factory=dict)
 
 
+class SearchHarnessReleaseReadinessResponse(BaseModel):
+    schema_name: str = "search_harness_release_readiness"
+    schema_version: str = "1.0"
+    release_id: UUID
+    readiness_profile: str
+    ready: bool
+    blockers: list[str] = Field(default_factory=list)
+    retrieval: dict = Field(default_factory=dict)
+    provenance: dict = Field(default_factory=dict)
+    semantic_governance: dict = Field(default_factory=dict)
+    validation_receipts: dict = Field(default_factory=dict)
+    checks: dict = Field(default_factory=dict)
+    generated_at: datetime
+
+
 class RetrievalLearningCandidateEvaluationRequest(BaseModel):
     retrieval_training_run_id: UUID | None = None
     candidate_harness_name: str
@@ -525,6 +540,7 @@ class AuditBundleValidationReceiptSummaryResponse(BaseModel):
     prov_graph_valid: bool
     bundle_integrity_valid: bool
     source_integrity_valid: bool
+    semantic_governance_valid: bool
     receipt_sha256: str
     prov_jsonld_sha256: str
     signature: str

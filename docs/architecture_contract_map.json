@@ -14,7 +14,7 @@
       "name": "run_lifecycle"
     },
     {
-      "function_count": 35,
+      "function_count": 36,
       "module": "app.services.capabilities.retrieval",
       "name": "retrieval"
     },
@@ -57,7 +57,7 @@
         "ADR-0004",
         "ADR-0006"
       ],
-      "item_count": 113,
+      "item_count": 114,
       "name": "api_route_capabilities",
       "source": "app.api.route_contracts"
     },
@@ -75,7 +75,7 @@
         "ADR-0003",
         "ADR-0006"
       ],
-      "item_count": 103,
+      "item_count": 104,
       "name": "capability_surface_contracts",
       "schema_name": "capability_contract_map",
       "schema_version": "1.0",

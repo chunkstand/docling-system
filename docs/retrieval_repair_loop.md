@@ -68,6 +68,7 @@ Inspection surfaces:
 
 - `GET /search/harness-releases`
 - `GET /search/harness-releases/{release_id}`
+- `GET /search/harness-releases/{release_id}/readiness`
 - `POST /search/harness-releases/{release_id}/audit-bundles`
 - `GET /search/harness-releases/{release_id}/audit-bundles/latest`
 - `POST /search/retrieval-training-runs/{training_run_id}/audit-bundles`
@@ -127,10 +128,16 @@ no current matching training audit bundle, release-bundle export freezes one bef
 signing the release bundle. Release-bundle export also validates every linked training
 audit bundle and embeds the resulting validation-receipt references before signing.
 Validation receipts are immutable database rows with canonical `receipt.json`,
-standards-facing `prov.jsonld`, schema/source/integrity check flags, receipt hash,
-PROV export hash, and HMAC signature. The database enforces that audit bundle source
-IDs match their concrete release or training-run foreign keys. That keeps the signed
-release package traceable from release gate back to the exact auditable dataset that
+standards-facing `prov.jsonld`, schema/source/integrity/semantic-governance check
+flags, receipt hash, PROV export hash, and HMAC signature. Release audit bundles carry
+a machine-checkable semantic governance policy profile. If a release claims semantic
+coverage by linking active semantic state, the policy requires ontology and semantic
+graph snapshot references plus a closed governance-event hash chain. The release
+readiness endpoint combines retrieval gate status, latest release audit bundle status,
+release validation receipt status, and semantic governance policy status into one
+document-generation gate. The database enforces that audit bundle source IDs match
+their concrete release or training-run foreign keys. That keeps the signed release
+package traceable from release gate back to the exact auditable dataset that
 influenced the candidate, and gives downstream document-generation workflows a
 court-facing receipt they can re-check independently of the bundle payload.
 

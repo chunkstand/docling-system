@@ -244,6 +244,58 @@ def test_semantic_governance_ledger_records_lifecycle_events_and_is_append_only(
     assert release_response.status_code == 200
     release_id = release_response.json()["release_id"]
 
+    readiness_before_audit_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_before_audit_response.status_code == 200
+    readiness_before_audit = readiness_before_audit_response.json()
+    assert readiness_before_audit["ready"] is False
+    assert readiness_before_audit["semantic_governance"]["semantic_coverage_claimed"] is True
+    assert readiness_before_audit["semantic_governance"]["checks"][
+        "has_ontology_snapshot_reference"
+    ] is True
+    assert readiness_before_audit["semantic_governance"]["checks"][
+        "has_semantic_graph_snapshot_reference"
+    ] is True
+    assert readiness_before_audit["semantic_governance"]["complete"] is True
+    assert set(readiness_before_audit["blockers"]) == {
+        "provenance_ready",
+        "validation_receipts_ready",
+    }
+
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    semantic_policy = audit_bundle["bundle"]["payload"]["semantic_governance_policy"]
+    assert semantic_policy["semantic_coverage_claimed"] is True
+    assert semantic_policy["referenced_ids"]["ontology_snapshot_ids"] == [
+        str(ontology_snapshot_id)
+    ]
+    assert semantic_policy["referenced_ids"]["semantic_graph_snapshot_ids"] == [
+        str(graph_snapshot_id)
+    ]
+
+    receipt_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "integration"},
+    )
+    assert receipt_response.status_code == 200
+    receipt = receipt_response.json()
+    assert receipt["validation_status"] == "passed"
+    assert receipt["semantic_governance_valid"] is True
+
+    readiness_after_audit_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_after_audit_response.status_code == 200
+    readiness_after_audit = readiness_after_audit_response.json()
+    assert readiness_after_audit["ready"] is True
+    assert readiness_after_audit["semantic_governance"]["semantic_coverage_claimed"] is True
+    assert readiness_after_audit["validation_receipts"]["semantic_governance_valid"] is True
+
     with postgres_integration_harness.session_factory() as session:
         events = list(
             session.scalars(
