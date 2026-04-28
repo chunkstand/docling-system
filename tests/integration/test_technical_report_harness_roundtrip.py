@@ -213,6 +213,9 @@ def test_technical_report_harness_roundtrip(
     assert context_pack_eval_context["summary"]["metrics"]["traceable_claim_ratio"] == 1.0
     assert context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "passed"
     assert context_pack_eval_context["output"]["context_pack"]["context_pack_sha256"]
+    context_pack_sha256 = context_pack_eval_context["output"]["context_pack"][
+        "context_pack_sha256"
+    ]
     assert any(
         ref["ref_key"] == "document_generation_context_pack_artifact"
         for ref in context_pack_eval_context["refs"]
@@ -498,8 +501,30 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
     assert audit_bundle["audit_checklist"]["has_support_judge_operator_run"] is True
     assert audit_bundle["audit_checklist"]["has_verification_operator_run"] is True
+    assert audit_bundle["audit_checklist"]["has_context_pack_artifact"] is True
+    assert audit_bundle["audit_checklist"]["has_context_pack_evaluation_artifact"] is True
+    assert audit_bundle["audit_checklist"]["has_context_pack_verifier_record"] is True
+    assert audit_bundle["audit_checklist"]["has_context_pack_evaluation_operator_run"] is True
+    assert audit_bundle["audit_checklist"]["context_pack_evaluation_passed"] is True
+    assert audit_bundle["audit_checklist"]["context_pack_hash_verified"] is True
+    assert audit_bundle["audit_checklist"]["context_pack_audit_complete"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
+    assert audit_bundle["context_pack_audit"]["integrity"]["complete"] is True
+    assert audit_bundle["context_pack_audit"]["context_pack_sha256s"] == [context_pack_sha256]
+    assert audit_bundle["context_pack_audit"]["evaluation_task_ids"] == [
+        str(context_pack_eval_task_id)
+    ]
+    assert {
+        row["artifact_kind"] for row in audit_bundle["context_pack_audit"]["context_pack_artifacts"]
+    } == {"document_generation_context_pack"}
+    assert {
+        row["artifact_kind"] for row in audit_bundle["context_pack_audit"]["evaluation_artifacts"]
+    } == {"document_generation_context_pack_evaluation"}
+    assert any(
+        row["operator_name"] == "document_generation_context_pack_evaluation"
+        for row in audit_bundle["context_pack_audit"]["operator_runs"]
+    )
     assert audit_bundle["integrity"]["draft_package_hash_matches"] is True
     assert audit_bundle["integrity"]["export_package_hash_matches"] is True
     assert audit_bundle["integrity"]["claim_derivation_count_matches"] is True
@@ -598,6 +623,12 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["has_claim_provenance_locks"] is True
     assert manifest["audit_checklist"]["has_claim_support_judgments"] is True
     assert manifest["audit_checklist"]["has_support_judge_operator_run"] is True
+    assert manifest["audit_checklist"]["has_context_pack_artifact"] is True
+    assert manifest["audit_checklist"]["has_context_pack_evaluation_artifact"] is True
+    assert manifest["audit_checklist"]["has_context_pack_verifier_record"] is True
+    assert manifest["audit_checklist"]["has_context_pack_evaluation_operator_run"] is True
+    assert manifest["audit_checklist"]["context_pack_evaluation_passed"] is True
+    assert manifest["audit_checklist"]["context_pack_hash_verified"] is True
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
@@ -606,6 +637,10 @@ def test_technical_report_harness_roundtrip(
         manifest["report_trace"]["evidence_package_integrity"]["draft_package_hash_matches"] is True
     )
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
+    assert manifest["report_trace"]["context_pack_audit"]["integrity"]["complete"] is True
+    assert manifest["report_trace"]["context_pack_audit"]["context_pack_sha256s"] == [
+        context_pack_sha256
+    ]
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
     assert manifest["retrieval_trace"]["source_evidence_closure"]["source_record_recall"] == 1.0
     assert (
@@ -621,6 +656,11 @@ def test_technical_report_harness_roundtrip(
         "claim_to_support_judgment",
         "support_judge_run_to_claim",
         "search_result_to_claim",
+        "harness_task_to_context_pack_artifact",
+        "context_pack_eval_task_to_verifier_record",
+        "context_pack_artifact_to_verifier_record",
+        "context_pack_eval_task_to_evaluation_artifact",
+        "context_pack_eval_operator_to_verifier_record",
     }.issubset({edge["edge_type"] for edge in manifest["provenance_edges"]})
     assert manifest["manifest_integrity"]["complete"] is True
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
@@ -653,6 +693,8 @@ def test_technical_report_harness_roundtrip(
         "search_result",
         "operator_run",
         "verification_record",
+        "agent_task_artifact",
+        "context_pack_evaluation_task",
         "evidence_manifest",
     }.issubset(node_kinds)
     assert any(
@@ -689,6 +731,18 @@ def test_technical_report_harness_roundtrip(
     assert provenance["activity"]
     assert provenance["agent"]["docling:agent/technical-report-gate"]["prov:type"] == (
         "prov:SoftwareAgent"
+    )
+    assert provenance["agent"]["docling:agent/context-pack-gate"]["prov:type"] == (
+        "prov:SoftwareAgent"
+    )
+    assert any(
+        entity.get("prov:type") == "docling:DocumentGenerationContextPack"
+        and entity.get("docling:context_pack_sha256") == context_pack_sha256
+        for entity in provenance["entity"].values()
+    )
+    assert any(
+        activity.get("prov:type") == "docling:ContextPackEvaluationTask"
+        for activity in provenance["activity"].values()
     )
     assert provenance["wasDerivedFrom"]
     assert provenance["used"]

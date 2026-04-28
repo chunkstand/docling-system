@@ -18,6 +18,7 @@ from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
     AgentTaskArtifactImmutabilityEvent,
+    AgentTaskDependency,
     AgentTaskVerification,
     AuditBundleExport,
     AuditBundleValidationReceipt,
@@ -57,6 +58,12 @@ TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
 TECHNICAL_REPORT_PROV_EXPORT_FILENAME = "technical_report_prov_export.json"
 TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA = "technical_report_prov_export_receipt"
 PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM = "hmac-sha256"
+DOCUMENT_GENERATION_CONTEXT_PACK_ARTIFACT_KIND = "document_generation_context_pack"
+DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_ARTIFACT_KIND = (
+    "document_generation_context_pack_evaluation"
+)
+DOCUMENT_GENERATION_CONTEXT_PACK_GATE = "document_generation_context_pack_gate"
+DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_OPERATOR = "document_generation_context_pack_evaluation"
 _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
 
 
@@ -2276,6 +2283,7 @@ def _artifact_payload(row: AgentTaskArtifact) -> dict:
         "task_id": row.task_id,
         "artifact_kind": row.artifact_kind,
         "storage_path": row.storage_path,
+        "payload_sha256": payload_sha256(row.payload_json or {}),
         "created_at": row.created_at,
     }
 
@@ -2346,6 +2354,153 @@ def _operator_run_summary(row: KnowledgeOperatorRun) -> dict:
         "output_sha256": row.output_sha256,
         "metrics": row.metrics_json or {},
         "created_at": row.created_at,
+    }
+
+
+def _context_pack_eval_task_ids_for_harness(session: Session, harness_task_id: UUID) -> list[UUID]:
+    task_ids = list(
+        session.scalars(
+            select(AgentTask.id)
+            .join(AgentTaskDependency, AgentTaskDependency.task_id == AgentTask.id)
+            .where(
+                AgentTask.task_type == "evaluate_document_generation_context_pack",
+                AgentTaskDependency.depends_on_task_id == harness_task_id,
+                AgentTaskDependency.dependency_kind == "target_task",
+            )
+            .order_by(AgentTask.created_at.asc(), AgentTask.id.asc())
+        )
+    )
+    verification_task_ids = list(
+        session.scalars(
+            select(AgentTaskVerification.verification_task_id)
+            .where(
+                AgentTaskVerification.target_task_id == harness_task_id,
+                AgentTaskVerification.verifier_type == DOCUMENT_GENERATION_CONTEXT_PACK_GATE,
+                AgentTaskVerification.verification_task_id.is_not(None),
+            )
+            .order_by(AgentTaskVerification.created_at.asc(), AgentTaskVerification.id.asc())
+        )
+    )
+    return list(
+        dict.fromkeys(
+            [
+                *task_ids,
+                *[task_id for task_id in verification_task_ids if task_id],
+            ]
+        )
+    )
+
+
+def _context_pack_verification_rows(
+    session: Session,
+    *,
+    harness_task_id: UUID | None,
+    eval_task_ids: list[UUID],
+) -> list[AgentTaskVerification]:
+    filters = [AgentTaskVerification.verifier_type == DOCUMENT_GENERATION_CONTEXT_PACK_GATE]
+    if harness_task_id is not None and eval_task_ids:
+        filters.append(
+            or_(
+                AgentTaskVerification.target_task_id == harness_task_id,
+                AgentTaskVerification.verification_task_id.in_(eval_task_ids),
+            )
+        )
+    elif harness_task_id is not None:
+        filters.append(AgentTaskVerification.target_task_id == harness_task_id)
+    elif eval_task_ids:
+        filters.append(AgentTaskVerification.verification_task_id.in_(eval_task_ids))
+    else:
+        return []
+    return list(
+        session.scalars(
+            select(AgentTaskVerification)
+            .where(*filters)
+            .order_by(AgentTaskVerification.created_at.asc(), AgentTaskVerification.id.asc())
+        )
+    )
+
+
+def _verification_check_passed(row: AgentTaskVerification, check_key: str) -> bool:
+    details = row.details_json or {}
+    return any(
+        check.get("check_key") == check_key and check.get("passed") is True
+        for check in details.get("checks") or []
+    )
+
+
+def _context_pack_sha256s_from_artifacts(
+    context_pack_artifacts: list[AgentTaskArtifact],
+    evaluation_artifacts: list[AgentTaskArtifact],
+    verification_rows: list[AgentTaskVerification],
+) -> list[str]:
+    values: list[Any] = []
+    for artifact in context_pack_artifacts:
+        values.append((artifact.payload_json or {}).get("context_pack_sha256"))
+    for artifact in evaluation_artifacts:
+        values.append((artifact.payload_json or {}).get("context_pack_sha256"))
+    for row in verification_rows:
+        values.append((row.details_json or {}).get("context_pack_sha256"))
+    return _string_values(values)
+
+
+def _technical_report_context_pack_audit_payload(
+    *,
+    harness_task_id: UUID | None,
+    eval_task_ids: list[UUID],
+    artifacts: list[AgentTaskArtifact],
+    verification_rows: list[AgentTaskVerification],
+    operator_runs: list[KnowledgeOperatorRun],
+) -> dict[str, Any]:
+    eval_task_id_set = set(eval_task_ids)
+    context_pack_artifacts = [
+        row
+        for row in artifacts
+        if row.artifact_kind == DOCUMENT_GENERATION_CONTEXT_PACK_ARTIFACT_KIND
+    ]
+    evaluation_artifacts = [
+        row
+        for row in artifacts
+        if row.artifact_kind == DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_ARTIFACT_KIND
+    ]
+    context_pack_operator_runs = [
+        row
+        for row in operator_runs
+        if row.operator_name == DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_OPERATOR
+        or (row.agent_task_id is not None and row.agent_task_id in eval_task_id_set)
+    ]
+    sha256s = _context_pack_sha256s_from_artifacts(
+        context_pack_artifacts,
+        evaluation_artifacts,
+        verification_rows,
+    )
+    latest_verification = verification_rows[-1] if verification_rows else None
+    integrity = {
+        "has_context_pack_artifact": bool(context_pack_artifacts),
+        "has_context_pack_evaluation_task": bool(eval_task_ids),
+        "has_context_pack_evaluation_artifact": bool(evaluation_artifacts),
+        "has_context_pack_verifier_record": bool(verification_rows),
+        "has_context_pack_evaluation_operator_run": bool(context_pack_operator_runs),
+        "latest_context_pack_evaluation_passed": (
+            latest_verification.outcome == "passed" if latest_verification is not None else False
+        ),
+        "context_pack_hash_verified": any(
+            _verification_check_passed(row, "context_pack_hash_integrity")
+            for row in verification_rows
+        ),
+        "context_pack_sha256_consistent": bool(sha256s) and len(sha256s) == 1,
+    }
+    integrity["complete"] = all(integrity.values())
+    return {
+        "schema_name": "technical_report_context_pack_audit",
+        "schema_version": "1.0",
+        "harness_task_id": str(harness_task_id) if harness_task_id is not None else None,
+        "evaluation_task_ids": _string_values(eval_task_ids),
+        "context_pack_sha256s": sha256s,
+        "context_pack_artifacts": [_artifact_payload(row) for row in context_pack_artifacts],
+        "evaluation_artifacts": [_artifact_payload(row) for row in evaluation_artifacts],
+        "verifications": [_verification_payload(row) for row in verification_rows],
+        "operator_runs": [_operator_run_summary(row) for row in context_pack_operator_runs],
+        "integrity": integrity,
     }
 
 
@@ -2865,8 +3020,81 @@ def _technical_report_provenance_edges(
     claims: list[dict],
     claim_derivations: list[dict],
     semantic_trace: dict[str, Any],
+    context_pack_audit: dict[str, Any],
 ) -> list[dict[str, Any]]:
     edges: list[dict[str, Any]] = []
+    harness_task_id = context_pack_audit.get("harness_task_id")
+    context_pack_artifacts = list(context_pack_audit.get("context_pack_artifacts") or [])
+    evaluation_artifacts = list(context_pack_audit.get("evaluation_artifacts") or [])
+    context_pack_verifications = list(context_pack_audit.get("verifications") or [])
+    context_pack_operator_runs = list(context_pack_audit.get("operator_runs") or [])
+    for artifact in context_pack_artifacts:
+        artifact_id = artifact.get("artifact_id")
+        if harness_task_id and artifact_id:
+            edges.append(
+                {
+                    "edge_type": "harness_task_to_context_pack_artifact",
+                    "from": {"table": "agent_tasks", "id": harness_task_id},
+                    "to": {"table": "agent_task_artifacts", "id": artifact_id},
+                }
+            )
+    for verification in context_pack_verifications:
+        verification_id = verification.get("verification_id")
+        verification_task_id = verification.get("verification_task_id")
+        if verification_task_id and verification_id:
+            edges.append(
+                {
+                    "edge_type": "context_pack_eval_task_to_verifier_record",
+                    "from": {"table": "agent_tasks", "id": verification_task_id},
+                    "to": {"table": "agent_task_verifications", "id": verification_id},
+                }
+            )
+        for artifact in context_pack_artifacts:
+            artifact_id = artifact.get("artifact_id")
+            if artifact_id and verification_id:
+                edges.append(
+                    {
+                        "edge_type": "context_pack_artifact_to_verifier_record",
+                        "from": {"table": "agent_task_artifacts", "id": artifact_id},
+                        "to": {"table": "agent_task_verifications", "id": verification_id},
+                        "context_pack_sha256": verification.get("details", {}).get(
+                            "context_pack_sha256"
+                        ),
+                    }
+                )
+    for artifact in evaluation_artifacts:
+        artifact_id = artifact.get("artifact_id")
+        task_id = artifact.get("task_id")
+        if task_id and artifact_id:
+            edges.append(
+                {
+                    "edge_type": "context_pack_eval_task_to_evaluation_artifact",
+                    "from": {"table": "agent_tasks", "id": task_id},
+                    "to": {"table": "agent_task_artifacts", "id": artifact_id},
+                }
+            )
+        for verification in context_pack_verifications:
+            verification_id = verification.get("verification_id")
+            if verification_id and artifact_id:
+                edges.append(
+                    {
+                        "edge_type": "context_pack_verifier_record_to_evaluation_artifact",
+                        "from": {"table": "agent_task_verifications", "id": verification_id},
+                        "to": {"table": "agent_task_artifacts", "id": artifact_id},
+                    }
+                )
+    for operator_run in context_pack_operator_runs:
+        operator_run_id = operator_run.get("operator_run_id")
+        for verification in context_pack_verifications:
+            verification_id = verification.get("verification_id")
+            if operator_run_id and verification_id:
+                edges.append(
+                    {
+                        "edge_type": "context_pack_eval_operator_to_verifier_record",
+                        "from": {"table": "knowledge_operator_runs", "id": operator_run_id},
+                        "to": {"table": "agent_task_verifications", "id": verification_id},
+                    }
+                )
     for export in evidence_exports:
         if export.get("package_kind") == "search_request" and export.get("search_request_id"):
             edges.append(
@@ -3077,6 +3305,7 @@ def build_technical_report_evidence_manifest_payload(
     source_evidence_closure = dict(audit_bundle.get("source_evidence_closure") or {})
     claim_derivations = list(audit_bundle.get("claim_derivations") or [])
     operator_runs = list(audit_bundle.get("operator_runs") or [])
+    context_pack_audit = dict(audit_bundle.get("context_pack_audit") or {})
     document_ids = _uuid_values(
         [
             *[row.get("document_id") for row in draft_payload.get("document_refs") or []],
@@ -3181,6 +3410,7 @@ def build_technical_report_evidence_manifest_payload(
         claims=claims,
         claim_derivations=claim_derivations,
         semantic_trace=semantic_trace,
+        context_pack_audit=context_pack_audit,
     )
     checklist = {
         "has_source_documents": bool(source_documents),
@@ -3226,6 +3456,30 @@ def build_technical_report_evidence_manifest_payload(
         ),
         "has_verification_operator_run": audit_bundle["audit_checklist"].get(
             "has_verification_operator_run",
+            False,
+        ),
+        "has_context_pack_artifact": audit_bundle["audit_checklist"].get(
+            "has_context_pack_artifact",
+            False,
+        ),
+        "has_context_pack_evaluation_artifact": audit_bundle["audit_checklist"].get(
+            "has_context_pack_evaluation_artifact",
+            False,
+        ),
+        "has_context_pack_verifier_record": audit_bundle["audit_checklist"].get(
+            "has_context_pack_verifier_record",
+            False,
+        ),
+        "has_context_pack_evaluation_operator_run": audit_bundle["audit_checklist"].get(
+            "has_context_pack_evaluation_operator_run",
+            False,
+        ),
+        "context_pack_evaluation_passed": audit_bundle["audit_checklist"].get(
+            "context_pack_evaluation_passed",
+            False,
+        ),
+        "context_pack_hash_verified": audit_bundle["audit_checklist"].get(
+            "context_pack_hash_verified",
             False,
         ),
         "verification_passed": audit_bundle["audit_checklist"].get(
@@ -3288,6 +3542,7 @@ def build_technical_report_evidence_manifest_payload(
             "evidence_package_exports": evidence_exports,
             "evidence_package_integrity": audit_bundle["integrity"],
             "verification": audit_bundle["verification_record"],
+            "context_pack_audit": context_pack_audit,
             "operator_runs": operator_runs,
         },
         "provenance_edges": provenance_edges,
@@ -3325,6 +3580,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "audit_bundle_validation_receipts": "audit_bundle_validation_receipt",
     "knowledge_operator_runs": "operator_run",
     "agent_tasks": "agent_task",
+    "agent_task_artifacts": "agent_task_artifact",
     "agent_task_verifications": "verification_record",
     "search_requests": "search_request",
     "search_request_results": "search_result",
@@ -3922,6 +4178,35 @@ def _build_evidence_trace_graph_specs(
             source_table="evidence_package_exports",
             source_id=export.get("evidence_package_export_id"),
             payload=export,
+        )
+    context_pack_audit = report_trace.get("context_pack_audit") or {}
+    for eval_task_id in context_pack_audit.get("evaluation_task_ids") or []:
+        _put_trace_node_from_id(
+            nodes,
+            source_table="agent_tasks",
+            source_id=eval_task_id,
+            node_kind="context_pack_evaluation_task",
+            payload={
+                "task_id": str(eval_task_id),
+                "task_type": "evaluate_document_generation_context_pack",
+            },
+        )
+    for artifact in [
+        *(context_pack_audit.get("context_pack_artifacts") or []),
+        *(context_pack_audit.get("evaluation_artifacts") or []),
+    ]:
+        _put_trace_node_from_id(
+            nodes,
+            source_table="agent_task_artifacts",
+            source_id=artifact.get("artifact_id"),
+            payload=artifact,
+        )
+    for verification in context_pack_audit.get("verifications") or []:
+        _put_trace_node_from_id(
+            nodes,
+            source_table="agent_task_verifications",
+            source_id=verification.get("verification_id"),
+            payload=verification,
         )
     for operator_run in report_trace.get("operator_runs") or []:
         _put_trace_node_from_id(
@@ -4995,6 +5280,10 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             "prov:type": "prov:SoftwareAgent",
             "prov:label": "Technical report verification gate",
         },
+        "docling:agent/context-pack-gate": {
+            "prov:type": "prov:SoftwareAgent",
+            "prov:label": "Document generation context-pack gate",
+        },
     }
     was_generated_by: dict[str, dict[str, Any]] = {}
     used: dict[str, dict[str, Any]] = {}
@@ -5049,6 +5338,117 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             sequence=len(was_associated_with) + 1,
             **{"prov:activity": activity_id, "prov:agent": "docling:agent/docling-system"},
         )
+
+    report_trace = manifest.get("report_trace") or {}
+    context_pack_audit = report_trace.get("context_pack_audit") or {}
+    harness_activity_id = _prov_identifier(
+        "agent_tasks",
+        context_pack_audit.get("harness_task_id"),
+    )
+    if harness_activity_id:
+        _prov_activity(
+            activities,
+            harness_activity_id,
+            label="prepare_report_agent_harness",
+            activity_type="docling:AgentTask",
+            **{"docling:task_type": "prepare_report_agent_harness"},
+        )
+        _prov_relation(
+            was_associated_with,
+            "was-associated-with",
+            sequence=len(was_associated_with) + 1,
+            **{"prov:activity": harness_activity_id, "prov:agent": "docling:agent/docling-system"},
+        )
+    for eval_task_id in context_pack_audit.get("evaluation_task_ids") or []:
+        activity_id = _prov_identifier("agent_tasks", eval_task_id)
+        _prov_activity(
+            activities,
+            activity_id,
+            label="evaluate_document_generation_context_pack",
+            activity_type="docling:ContextPackEvaluationTask",
+            **{"docling:task_type": "evaluate_document_generation_context_pack"},
+        )
+        _prov_relation(
+            was_associated_with,
+            "was-associated-with",
+            sequence=len(was_associated_with) + 1,
+            **{"prov:activity": activity_id, "prov:agent": "docling:agent/context-pack-gate"},
+        )
+    for artifact in context_pack_audit.get("context_pack_artifacts") or []:
+        entity_id = _prov_identifier("agent_task_artifacts", artifact.get("artifact_id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label="Document generation context pack",
+            entity_type="docling:DocumentGenerationContextPack",
+            **{
+                "docling:artifact_kind": artifact.get("artifact_kind"),
+                "docling:payload_sha256": artifact.get("payload_sha256"),
+                "docling:context_pack_sha256": (
+                    context_pack_audit.get("context_pack_sha256s") or [None]
+                )[0],
+            },
+        )
+        _prov_relation(
+            was_generated_by,
+            "was-generated-by",
+            sequence=len(was_generated_by) + 1,
+            **{"prov:entity": entity_id, "prov:activity": harness_activity_id},
+        )
+    for artifact in context_pack_audit.get("evaluation_artifacts") or []:
+        entity_id = _prov_identifier("agent_task_artifacts", artifact.get("artifact_id"))
+        eval_activity_id = _prov_identifier("agent_tasks", artifact.get("task_id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label="Document generation context-pack evaluation",
+            entity_type="docling:DocumentGenerationContextPackEvaluation",
+            **{
+                "docling:artifact_kind": artifact.get("artifact_kind"),
+                "docling:payload_sha256": artifact.get("payload_sha256"),
+            },
+        )
+        _prov_relation(
+            was_generated_by,
+            "was-generated-by",
+            sequence=len(was_generated_by) + 1,
+            **{"prov:entity": entity_id, "prov:activity": eval_activity_id},
+        )
+    for verification in context_pack_audit.get("verifications") or []:
+        entity_id = _prov_identifier(
+            "agent_task_verifications",
+            verification.get("verification_id"),
+        )
+        eval_activity_id = _prov_identifier("agent_tasks", verification.get("verification_task_id"))
+        _prov_entity(
+            entities,
+            entity_id,
+            label="Document generation context-pack verifier record",
+            entity_type="docling:ContextPackVerificationRecord",
+            **{
+                "docling:outcome": verification.get("outcome"),
+                "docling:context_pack_sha256": (verification.get("details") or {}).get(
+                    "context_pack_sha256"
+                ),
+            },
+        )
+        _prov_relation(
+            was_generated_by,
+            "was-generated-by",
+            sequence=len(was_generated_by) + 1,
+            **{"prov:entity": entity_id, "prov:activity": eval_activity_id},
+        )
+        for artifact in context_pack_audit.get("context_pack_artifacts") or []:
+            context_entity_id = _prov_identifier(
+                "agent_task_artifacts",
+                artifact.get("artifact_id"),
+            )
+            _prov_relation(
+                used,
+                "used",
+                sequence=len(used) + 1,
+                **{"prov:activity": eval_activity_id, "prov:entity": context_entity_id},
+            )
 
     verification_activity_id = _prov_identifier(
         "agent_tasks",
@@ -5245,20 +5645,22 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             from_ref.get("id") or from_ref.get("sha256"),
         )
         to_id = _prov_identifier(to_ref.get("table"), to_ref.get("id") or to_ref.get("sha256"))
-        _prov_entity(
-            entities,
-            from_id,
-            label=str(from_ref.get("table") or "provenance source"),
-            entity_type="docling:ProvenanceEndpoint",
-            **{"docling:table": from_ref.get("table")},
-        )
-        _prov_entity(
-            entities,
-            to_id,
-            label=str(to_ref.get("table") or "provenance target"),
-            entity_type="docling:ProvenanceEndpoint",
-            **{"docling:table": to_ref.get("table")},
-        )
+        if from_id not in entities:
+            _prov_entity(
+                entities,
+                from_id,
+                label=str(from_ref.get("table") or "provenance source"),
+                entity_type="docling:ProvenanceEndpoint",
+                **{"docling:table": from_ref.get("table")},
+            )
+        if to_id not in entities:
+            _prov_entity(
+                entities,
+                to_id,
+                label=str(to_ref.get("table") or "provenance target"),
+                entity_type="docling:ProvenanceEndpoint",
+                **{"docling:table": to_ref.get("table")},
+            )
         _prov_relation(
             was_derived_from,
             "was-derived-from",
@@ -5780,6 +6182,7 @@ def _technical_report_upstream_task_ids(
     harness_task_id = _uuid_or_none_safe(draft_payload.get("harness_task_id"))
     if harness_task_id is not None:
         related_task_ids.append(harness_task_id)
+        related_task_ids.extend(_context_pack_eval_task_ids_for_harness(session, harness_task_id))
         harness_task = session.get(AgentTask, harness_task_id)
         harness_payload = (
             ((harness_task.result_json or {}).get("payload") or {}).get("harness", {})
@@ -5906,6 +6309,24 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             .order_by(KnowledgeOperatorRun.created_at.asc())
         )
     )
+    harness_task_id = _uuid_or_none_safe(draft_payload.get("harness_task_id"))
+    context_pack_eval_task_ids = (
+        _context_pack_eval_task_ids_for_harness(session, harness_task_id)
+        if harness_task_id is not None
+        else []
+    )
+    context_pack_verifications = _context_pack_verification_rows(
+        session,
+        harness_task_id=harness_task_id,
+        eval_task_ids=context_pack_eval_task_ids,
+    )
+    context_pack_audit = _technical_report_context_pack_audit_payload(
+        harness_task_id=harness_task_id,
+        eval_task_ids=context_pack_eval_task_ids,
+        artifacts=artifacts,
+        verification_rows=context_pack_verifications,
+        operator_runs=operator_runs,
+    )
     verification_payload = (
         ((verification_task.result_json or {}).get("payload") or {})
         if verification_task is not None
@@ -5960,6 +6381,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         "source_evidence_closure": source_evidence_closure,
         "claim_derivations": [_claim_derivation_payload(row) for row in derivations],
         "operator_runs": [_operator_run_summary(row) for row in operator_runs],
+        "context_pack_audit": context_pack_audit,
         "change_impact": change_impact,
         "integrity": integrity,
         "audit_checklist": {
@@ -6038,6 +6460,25 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "has_verification_operator_run": any(
                 row.operator_kind == "verify" for row in operator_runs
             ),
+            "has_context_pack_artifact": context_pack_audit["integrity"][
+                "has_context_pack_artifact"
+            ],
+            "has_context_pack_evaluation_artifact": context_pack_audit["integrity"][
+                "has_context_pack_evaluation_artifact"
+            ],
+            "has_context_pack_verifier_record": context_pack_audit["integrity"][
+                "has_context_pack_verifier_record"
+            ],
+            "has_context_pack_evaluation_operator_run": context_pack_audit["integrity"][
+                "has_context_pack_evaluation_operator_run"
+            ],
+            "context_pack_evaluation_passed": context_pack_audit["integrity"][
+                "latest_context_pack_evaluation_passed"
+            ],
+            "context_pack_hash_verified": context_pack_audit["integrity"][
+                "context_pack_hash_verified"
+            ],
+            "context_pack_audit_complete": context_pack_audit["integrity"]["complete"],
             "verification_passed": (
                 verification_row.outcome == "passed" if verification_row is not None else False
             ),
@@ -6055,6 +6496,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
         and audit_bundle["audit_checklist"]["has_support_judge_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
+        and audit_bundle["audit_checklist"]["context_pack_audit_complete"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
         and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]
