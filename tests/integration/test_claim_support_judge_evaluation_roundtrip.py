@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 from copy import deepcopy
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select, text, update
 
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
+    AgentTaskArtifactImmutabilityEvent,
     AgentTaskStatus,
     ClaimSupportCalibrationPolicy,
     ClaimSupportEvaluation,
@@ -46,6 +49,24 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         return task.id
 
 
+def _load_revision_0059():
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "alembic"
+        / "versions"
+        / "0059_claim_support_policy_activation_governance.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "revision_0059_claim_support_policy_governance",
+        path,
+    )
+    if spec is None or spec.loader is None:
+        raise AssertionError("Failed to load 0059 migration module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _enable_claim_support_governance_signing(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.services.claim_support_policy_governance.get_settings",
@@ -54,6 +75,46 @@ def _enable_claim_support_governance_signing(monkeypatch) -> None:
             audit_bundle_signing_key_id="claim-support-key",
         ),
     )
+
+
+def _install_claim_support_governance_immutability_trigger(
+    postgres_integration_harness,
+    postgres_schema_engine,
+) -> str:
+    revision_0059 = _load_revision_0059()
+    _engine, schema_name = postgres_schema_engine
+    trigger_sql = """
+    DROP TRIGGER IF EXISTS trg_agent_task_artifacts_prevent_frozen_prov_mutation
+    ON agent_task_artifacts;
+    CREATE TRIGGER trg_agent_task_artifacts_prevent_frozen_prov_mutation
+    BEFORE UPDATE OR DELETE ON agent_task_artifacts
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_frozen_agent_task_artifact_mutation();
+    """
+    with postgres_integration_harness.session_factory() as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+        session.execute(text(revision_0059.PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL))
+        session.execute(text(trigger_sql))
+        session.commit()
+    return schema_name
+
+
+def _drop_claim_support_governance_immutability_trigger(
+    postgres_integration_harness,
+    schema_name: str,
+) -> None:
+    with postgres_integration_harness.session_factory() as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+        session.execute(
+            text(
+                """
+                DROP TRIGGER IF EXISTS trg_agent_task_artifacts_prevent_frozen_prov_mutation
+                ON agent_task_artifacts;
+                DROP FUNCTION IF EXISTS prevent_frozen_agent_task_artifact_mutation();
+                """
+            )
+        )
+        session.commit()
 
 
 def _assert_claim_support_activation_governance(
@@ -162,6 +223,17 @@ def _assert_claim_support_activation_governance(
     graph_ids = {node["@id"] for node in prov_jsonld["@graph"]}
     assert f"docling:claim_support_calibration_policy:{activated_policy_id}" in graph_ids
     assert f"docling:agent_task_artifact:{apply_payload['artifact_id']}" in graph_ids
+    assert (
+        f"docling:agent_task_artifact:{apply_payload['activation_governance_artifact_id']}"
+        in graph_ids
+    )
+    activation_activity = next(
+        node
+        for node in prov_jsonld["@graph"]
+        if node["@id"]
+        == f"docling:activity:claim_support_policy_activation:{governance_artifact.task_id}"
+    )
+    assert activation_activity["prov:endedAtTime"]
 
     governance_event = session.get(
         SemanticGovernanceEvent,
@@ -197,6 +269,28 @@ def _assert_claim_support_activation_governance(
     assert (
         event_activation["activation_governance_payload_sha256"]
         == apply_payload["activation_governance_payload_sha256"]
+    )
+    operator_run = session.get(KnowledgeOperatorRun, UUID(apply_payload["operator_run_id"]))
+    assert operator_run is not None
+    assert operator_run.output_sha256 == payload_sha256(apply_payload)
+    assert operator_run.metrics_json["activation_governance_artifact_id"] == str(
+        governance_artifact.id
+    )
+    operator_output = session.scalar(
+        select(KnowledgeOperatorOutput).where(
+            KnowledgeOperatorOutput.operator_run_id == operator_run.id,
+            KnowledgeOperatorOutput.output_kind
+            == "claim_support_calibration_policy_activation",
+        )
+    )
+    assert operator_output is not None
+    assert operator_output.artifact_path == governance_artifact.storage_path
+    assert (
+        operator_output.artifact_sha256
+        == apply_payload["activation_governance_payload_sha256"]
+    )
+    assert operator_output.payload_json["activation_governance_artifact_id"] == str(
+        governance_artifact.id
     )
     return governance_payload
 
@@ -430,6 +524,7 @@ def test_claim_support_judge_evaluation_task_uses_persisted_custom_policy(
 
 def test_claim_support_policy_promotion_workflow_activates_verified_policy(
     postgres_integration_harness,
+    postgres_schema_engine,
     monkeypatch,
 ):
     _enable_claim_support_governance_signing(monkeypatch)
@@ -551,6 +646,7 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
             verification_fixture_set_sha256=verification_fixture_set_sha256,
             expected_mined_failure_count=0,
         )
+        governance_artifact_id = UUID(apply_payload["activation_governance_artifact_id"])
 
         initial_policy = session.get(ClaimSupportCalibrationPolicy, initial_policy_id)
         activated_policy = session.get(ClaimSupportCalibrationPolicy, draft_policy_id)
@@ -570,6 +666,67 @@ def test_claim_support_policy_promotion_workflow_activates_verified_policy(
         )
         assert [row.id for row in active_policies] == [draft_policy_id]
 
+    schema_name = _install_claim_support_governance_immutability_trigger(
+        postgres_integration_harness,
+        postgres_schema_engine,
+    )
+    try:
+        with postgres_integration_harness.session_factory() as session:
+            session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+            session.execute(
+                update(AgentTaskArtifact)
+                .where(AgentTaskArtifact.id == governance_artifact_id)
+                .values(payload_json={"tampered": True})
+            )
+            session.commit()
+
+        with postgres_integration_harness.session_factory() as session:
+            governance_artifact = session.get(AgentTaskArtifact, governance_artifact_id)
+            assert governance_artifact is not None
+            assert (
+                governance_artifact.payload_json["schema_name"]
+                == "claim_support_policy_activation_governance"
+            )
+            mutation_events = list(
+                session.scalars(
+                    select(AgentTaskArtifactImmutabilityEvent).where(
+                        AgentTaskArtifactImmutabilityEvent.artifact_id
+                        == governance_artifact_id
+                    )
+                )
+            )
+            assert len(mutation_events) == 1
+            assert mutation_events[0].event_kind == "mutation_blocked"
+            assert mutation_events[0].mutation_operation == "UPDATE"
+            assert mutation_events[0].attempted_payload_sha256 is None
+
+        with postgres_integration_harness.session_factory() as session:
+            session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+            session.execute(
+                delete(AgentTaskArtifact).where(AgentTaskArtifact.id == governance_artifact_id)
+            )
+            session.commit()
+
+        with postgres_integration_harness.session_factory() as session:
+            assert session.get(AgentTaskArtifact, governance_artifact_id) is not None
+            mutation_events = list(
+                session.scalars(
+                    select(AgentTaskArtifactImmutabilityEvent)
+                    .where(
+                        AgentTaskArtifactImmutabilityEvent.artifact_id
+                        == governance_artifact_id
+                    )
+                    .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+                )
+            )
+            assert [row.mutation_operation for row in mutation_events] == ["UPDATE", "DELETE"]
+    finally:
+        _drop_claim_support_governance_immutability_trigger(
+            postgres_integration_harness,
+            schema_name,
+        )
+
+    with postgres_integration_harness.session_factory() as session:
         eval_task = create_agent_task(
             session,
             AgentTaskCreateRequest(

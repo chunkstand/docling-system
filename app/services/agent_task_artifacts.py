@@ -24,6 +24,7 @@ def create_agent_task_artifact(
     storage_service: StorageService | None = None,
     filename: str | None = None,
     attempt_id: UUID | None = None,
+    artifact_id: UUID | None = None,
 ) -> AgentTaskArtifact:
     encoded_payload = jsonable_encoder(payload)
     storage_path: str | None = None
@@ -33,14 +34,17 @@ def create_agent_task_artifact(
         artifact_path.write_text(json.dumps(encoded_payload, indent=2, sort_keys=True))
         storage_path = str(artifact_path)
 
-    row = AgentTaskArtifact(
-        task_id=task_id,
-        attempt_id=attempt_id,
-        artifact_kind=artifact_kind,
-        storage_path=storage_path,
-        payload_json=encoded_payload,
-        created_at=utcnow(),
-    )
+    row_kwargs = {
+        "task_id": task_id,
+        "attempt_id": attempt_id,
+        "artifact_kind": artifact_kind,
+        "storage_path": storage_path,
+        "payload_json": encoded_payload,
+        "created_at": utcnow(),
+    }
+    if artifact_id is not None:
+        row_kwargs["id"] = artifact_id
+    row = AgentTaskArtifact(**row_kwargs)
     session.add(row)
     session.flush()
     return row

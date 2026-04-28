@@ -231,10 +231,13 @@ def _prov_jsonld(
     fixture_set: ClaimSupportFixtureSet | None,
     verification_evaluation: ClaimSupportEvaluation | None,
     activation_artifact: AgentTaskArtifact,
+    governance_artifact_id: UUID,
+    governance_artifact_path: str | None,
     operator_run: KnowledgeOperatorRun | None,
     apply_payload: dict[str, Any],
     policy_diff_sha256: str | None,
     created_by: str | None,
+    recorded_at: Any,
 ) -> dict[str, Any]:
     activation_activity = f"docling:activity:claim_support_policy_activation:{task.id}"
     verification_activity = (
@@ -243,7 +246,8 @@ def _prov_jsonld(
     )
     agent_id = f"docling:agent:{created_by or 'docling-system'}"
     activated_policy_entity = f"docling:claim_support_calibration_policy:{activated_policy.id}"
-    artifact_entity = f"docling:agent_task_artifact:{activation_artifact.id}"
+    activation_artifact_entity = f"docling:agent_task_artifact:{activation_artifact.id}"
+    governance_artifact_entity = f"docling:agent_task_artifact:{governance_artifact_id}"
 
     graph: list[dict[str, Any]] = [
         {
@@ -255,15 +259,23 @@ def _prov_jsonld(
             "docling:status": activated_policy.status,
         },
         {
-            "@id": artifact_entity,
+            "@id": activation_artifact_entity,
             "@type": "docling:AgentTaskArtifact",
             "docling:artifactKind": activation_artifact.artifact_kind,
             "docling:storagePath": activation_artifact.storage_path,
         },
         {
+            "@id": governance_artifact_entity,
+            "@type": "docling:AgentTaskArtifact",
+            "docling:artifactKind": CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
+            "docling:storagePath": governance_artifact_path,
+        },
+        {
             "@id": activation_activity,
             "@type": "docling:ClaimSupportPolicyActivation",
-            "prov:endedAtTime": task.completed_at.isoformat() if task.completed_at else None,
+            "prov:endedAtTime": recorded_at.isoformat()
+            if hasattr(recorded_at, "isoformat")
+            else str(recorded_at),
             "docling:reason": apply_payload.get("reason"),
         },
         {
@@ -342,7 +354,13 @@ def _prov_jsonld(
             {
                 "@id": f"docling:edge:generated-artifact:{task.id}",
                 "@type": "prov:Generation",
-                "prov:entity": {"@id": artifact_entity},
+                "prov:entity": {"@id": activation_artifact_entity},
+                "prov:activity": {"@id": activation_activity},
+            },
+            {
+                "@id": f"docling:edge:generated-governance-artifact:{task.id}",
+                "@type": "prov:Generation",
+                "prov:entity": {"@id": governance_artifact_entity},
                 "prov:activity": {"@id": activation_activity},
             },
             {
@@ -493,8 +511,11 @@ def build_claim_support_policy_activation_governance_payload(
     verification_output: dict[str, Any],
     apply_payload: dict[str, Any],
     activation_artifact: AgentTaskArtifact,
+    governance_artifact_id: UUID,
+    governance_artifact_path: str | None,
     operator_run: KnowledgeOperatorRun | None,
 ) -> dict[str, Any]:
+    recorded_at = utcnow()
     verification_fixture_set_id = _uuid_or_none(apply_payload.get("verification_fixture_set_id"))
     verification_evaluation_id = _uuid_or_none(apply_payload.get("verification_evaluation_id"))
     fixture_set = (
@@ -548,10 +569,13 @@ def build_claim_support_policy_activation_governance_payload(
         fixture_set=fixture_set,
         verification_evaluation=verification_evaluation,
         activation_artifact=activation_artifact,
+        governance_artifact_id=governance_artifact_id,
+        governance_artifact_path=governance_artifact_path,
         operator_run=operator_run,
         apply_payload=apply_payload,
         policy_diff_sha256=policy_diff.get("policy_diff_sha256"),
         created_by=created_by,
+        recorded_at=recorded_at,
     )
     prov_jsonld_sha = _value_sha256(prov_jsonld)
     payload_basis = {
@@ -563,7 +587,7 @@ def build_claim_support_policy_activation_governance_payload(
             "source_id": str(activated_policy.id),
             "artifact_kind": CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
         },
-        "created_at": utcnow().isoformat(),
+        "created_at": recorded_at.isoformat(),
         "created_by": created_by,
         "semantic_basis": active_semantic_basis(session),
         "policy_diff": policy_diff,
@@ -577,6 +601,9 @@ def build_claim_support_policy_activation_governance_payload(
             "activation_artifact_payload_sha256": _value_sha256(
                 activation_artifact.payload_json or {}
             ),
+            "governance_artifact_id": str(governance_artifact_id),
+            "governance_artifact_kind": CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
+            "governance_artifact_path": governance_artifact_path,
         },
         "prov_jsonld": prov_jsonld,
         "integrity_inputs": {

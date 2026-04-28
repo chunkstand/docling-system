@@ -4,11 +4,11 @@ Date: 2026-04-27 local / 2026-04-28 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this implementation pass: `e0bad8a` (`Harden mined claim support verification`)
+Latest committed checkpoint before this hardening pass: `ff4108b` (`Add claim support activation governance artifact`)
 
 ## Current Position
 
-`main` is aligned with `origin/main` at the latest code checkpoint before this docs update. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
+`main` has local verified work that has not been pushed to `origin/main`. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
 
 - active-run-gated PDF ingest, parsing, validation, and promotion
 - mixed chunk/table retrieval with replayable evaluations and harness governance
@@ -74,7 +74,7 @@ The support-judge calibration path is now first-class:
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, and a linked `claim_support_policy_activated` semantic-governance event. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, and a linked `claim_support_policy_activated` semantic-governance event. The governance PROV graph names both the activation artifact and the governance artifact, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -105,7 +105,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-766 passed in 83.18s
+766 passed in 86.24s
 ```
 
 Focused claim-support verification during this implementation pass:
@@ -113,6 +113,7 @@ Focused claim-support verification during this implementation pass:
 ```bash
 uv run python -m pytest tests/unit/test_alembic_0059_claim_support_policy_governance.py -q
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/integration/test_technical_report_harness_roundtrip.py -q
 uv run alembic upgrade head
 uv run alembic current
 uv run docling-system-architecture-inspect
@@ -124,6 +125,7 @@ Results:
 ```text
 1 passed
 11 passed
+12 passed
 alembic current: 0059_claim_policy_governance (head)
 create_all verified against a clean temporary Postgres database
 architecture inspection valid: true, violation_count: 0
@@ -152,6 +154,7 @@ agent_action_count: 50
 - [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
 - [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
 - [app/services/agent_task_actions.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_actions.py)
+- [app/services/agent_task_artifacts.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_artifacts.py)
 - [app/services/claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_governance.py)
 - [app/services/semantic_governance.py](/Users/chunkstand/Documents/docling-system/app/services/semantic_governance.py)
 - [alembic/versions/0059_claim_support_policy_activation_governance.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0059_claim_support_policy_activation_governance.py)

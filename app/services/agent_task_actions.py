@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from app.db.models import (
     AgentTaskSideEffectLevel,
     AgentTaskVerification,
     ClaimSupportCalibrationPolicy,
+    KnowledgeOperatorOutput,
 )
 from app.schemas.agent_tasks import (
     ApplyClaimSupportCalibrationPolicyTaskInput,
@@ -2305,13 +2306,19 @@ def _apply_claim_support_calibration_policy_executor(
         **apply_payload,
         "operator_run_id": str(operator_run.id) if operator_run is not None else None,
     }
+    storage_service = StorageService()
     artifact = create_agent_task_artifact(
         session,
         task_id=task.id,
         artifact_kind="claim_support_calibration_policy_activation",
         payload=result,
-        storage_service=StorageService(),
+        storage_service=storage_service,
         filename="claim_support_calibration_policy_activation.json",
+    )
+    governance_artifact_id = uuid4()
+    governance_artifact_path = (
+        storage_service.get_agent_task_dir(task.id)
+        / CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME
     )
     governance_payload = build_claim_support_policy_activation_governance_payload(
         session,
@@ -2323,6 +2330,8 @@ def _apply_claim_support_calibration_policy_executor(
         verification_output=verification_output.model_dump(mode="json"),
         apply_payload=result,
         activation_artifact=artifact,
+        governance_artifact_id=governance_artifact_id,
+        governance_artifact_path=str(governance_artifact_path),
         operator_run=operator_run,
     )
     governance_artifact = create_agent_task_artifact(
@@ -2330,8 +2339,9 @@ def _apply_claim_support_calibration_policy_executor(
         task_id=task.id,
         artifact_kind=CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_ARTIFACT_KIND,
         payload=governance_payload,
-        storage_service=StorageService(),
+        storage_service=storage_service,
         filename=CLAIM_SUPPORT_POLICY_ACTIVATION_GOVERNANCE_FILENAME,
+        artifact_id=governance_artifact_id,
     )
     governance_event = record_claim_support_policy_activation_governance_event(
         session,
@@ -2342,11 +2352,7 @@ def _apply_claim_support_calibration_policy_executor(
     )
     governance_receipt = governance_payload.get("activation_governance_receipt") or {}
     governance_integrity = governance_payload.get("integrity") or {}
-    return {
-        **result,
-        "artifact_id": str(artifact.id),
-        "artifact_kind": artifact.artifact_kind,
-        "artifact_path": artifact.storage_path,
+    governance_result = {
         "activation_governance_artifact_id": str(governance_artifact.id),
         "activation_governance_artifact_kind": governance_artifact.artifact_kind,
         "activation_governance_artifact_path": governance_artifact.storage_path,
@@ -2361,6 +2367,47 @@ def _apply_claim_support_calibration_policy_executor(
         "activation_governance_event_id": str(governance_event.id),
         "activation_governance_event_hash": governance_event.event_hash,
     }
+    final_result = {
+        **result,
+        "artifact_id": str(artifact.id),
+        "artifact_kind": artifact.artifact_kind,
+        "artifact_path": artifact.storage_path,
+        **governance_result,
+    }
+    if operator_run is not None:
+        operator_output_payload = ApplyClaimSupportCalibrationPolicyTaskOutput.model_validate(
+            final_result
+        ).model_dump(mode="json", exclude_none=True)
+        operator_run.output_sha256 = payload_sha256(operator_output_payload)
+        operator_run.metrics_json = {
+            **dict(operator_run.metrics_json or {}),
+            "activation_artifact_id": str(artifact.id),
+            "activation_governance_artifact_id": str(governance_artifact.id),
+            "activation_governance_receipt_sha256": governance_receipt.get(
+                "receipt_sha256"
+            ),
+            "activation_governance_event_id": str(governance_event.id),
+        }
+        operator_output = session.scalar(
+            select(KnowledgeOperatorOutput)
+            .where(
+                KnowledgeOperatorOutput.operator_run_id == operator_run.id,
+                KnowledgeOperatorOutput.output_kind
+                == "claim_support_calibration_policy_activation",
+            )
+            .order_by(KnowledgeOperatorOutput.output_index.asc())
+            .limit(1)
+        )
+        if operator_output is not None:
+            operator_output.payload_json = {
+                **dict(operator_output.payload_json or {}),
+                **governance_result,
+            }
+            operator_output.artifact_path = governance_artifact.storage_path
+            operator_output.artifact_sha256 = governance_result[
+                "activation_governance_payload_sha256"
+            ]
+    return final_result
 
 
 def _evaluate_claim_support_judge_executor(
