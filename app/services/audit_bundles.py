@@ -90,6 +90,16 @@ def _training_run_not_found(training_run_id: UUID) -> HTTPException:
     )
 
 
+def _training_run_not_completed(training_run: RetrievalTrainingRun) -> HTTPException:
+    return api_error(
+        status.HTTP_409_CONFLICT,
+        "retrieval_training_run_not_completed",
+        "Retrieval training run must be completed before exporting an audit bundle.",
+        retrieval_training_run_id=str(training_run.id),
+        status=training_run.status,
+    )
+
+
 def _signing_key() -> tuple[str, str]:
     settings = get_settings()
     signing_key = getattr(settings, "audit_bundle_signing_key", None)
@@ -393,6 +403,10 @@ def _retrieval_hard_negative_payload(row: RetrievalHardNegative) -> dict[str, An
 
 
 def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
+    payload = (row.bundle_payload_json or {}).get("payload") or {}
+    payload_source = payload.get("source") or {}
+    payload_training_run = payload.get("retrieval_training_run") or {}
+    payload_integrity = payload.get("integrity") or {}
     return {
         "bundle_id": str(row.id),
         "bundle_kind": row.bundle_kind,
@@ -409,6 +423,14 @@ def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
         "signature": row.signature,
         "signature_algorithm": row.signature_algorithm,
         "signing_key_id": row.signing_key_id,
+        "payload_source_table": payload_source.get("source_table"),
+        "payload_source_id": payload_source.get("source_id"),
+        "payload_training_dataset_sha256": payload_training_run.get(
+            "training_dataset_sha256"
+        ),
+        "payload_training_dataset_hash_matches": payload_integrity.get(
+            "training_dataset_hash_matches"
+        ),
         "created_by": row.created_by,
         "export_status": row.export_status,
         "created_at": row.created_at.isoformat(),
@@ -496,6 +518,32 @@ def _load_training_run_governance_events(
         .all()
     )
     return _load_governance_event_chain(session, seed_events)
+
+
+def _training_audit_bundle_matches_training_run(
+    bundle: AuditBundleExport | None,
+    training_run: RetrievalTrainingRun,
+) -> bool:
+    if bundle is None:
+        return False
+    payload = (bundle.bundle_payload_json or {}).get("payload") or {}
+    payload_source = payload.get("source") or {}
+    payload_training_run = payload.get("retrieval_training_run") or {}
+    payload_integrity = payload.get("integrity") or {}
+    return all(
+        (
+            bundle.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+            bundle.source_table == RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
+            bundle.source_id == training_run.id,
+            bundle.retrieval_training_run_id == training_run.id,
+            payload_source.get("source_table") == RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
+            payload_source.get("source_id") == str(training_run.id),
+            payload_training_run.get("retrieval_training_run_id") == str(training_run.id),
+            payload_training_run.get("training_dataset_sha256")
+            == training_run.training_dataset_sha256,
+            payload_integrity.get("training_dataset_hash_matches") is True,
+        )
+    )
 
 
 def _release_package_sha256(row: SearchHarnessRelease) -> str:
@@ -1151,6 +1199,23 @@ def _build_search_harness_release_payload(
         for training_run_id in training_run_ids
         if training_run_id in latest_training_audit_bundles_by_run_id
     ]
+    training_audit_bundle_match_checks = []
+    for training_run in ordered_training_runs:
+        bundle = latest_training_audit_bundles_by_run_id.get(training_run.id)
+        payload = (bundle.bundle_payload_json or {}).get("payload") if bundle else None
+        payload_training_run = (
+            (payload or {}).get("retrieval_training_run") if payload else None
+        ) or {}
+        check = {
+            "retrieval_training_run_id": str(training_run.id),
+            "audit_bundle_id": str(bundle.id) if bundle else None,
+            "training_dataset_sha256": training_run.training_dataset_sha256,
+            "payload_training_dataset_sha256": payload_training_run.get(
+                "training_dataset_sha256"
+            ),
+            "complete": _training_audit_bundle_matches_training_run(bundle, training_run),
+        }
+        training_audit_bundle_match_checks.append(check)
     release_package_hash_matches = (
         _release_package_sha256(release) == release.release_package_sha256
     )
@@ -1166,6 +1231,10 @@ def _build_search_harness_release_payload(
     training_audit_bundle_trace_complete = len(ordered_training_audit_bundles) == len(
         training_run_ids
     )
+    training_audit_bundle_hashes_match_training_runs = (
+        len(training_audit_bundle_match_checks) == len(training_run_ids)
+        and all(row["complete"] for row in training_audit_bundle_match_checks)
+    )
     audit_checklist = {
         "has_release_record": True,
         "has_evaluation_record": evaluation is not None,
@@ -1177,6 +1246,9 @@ def _build_search_harness_release_payload(
         "learning_candidate_count": len(learning_candidates),
         "learning_candidate_trace_complete": learning_candidate_trace_complete,
         "training_audit_bundle_trace_complete": training_audit_bundle_trace_complete,
+        "training_audit_bundle_hashes_match_training_runs": (
+            training_audit_bundle_hashes_match_training_runs
+        ),
         "has_prov_graph": True,
     }
     audit_checklist["complete"] = all(
@@ -1226,6 +1298,10 @@ def _build_search_harness_release_payload(
             "expected_training_run_count": len(training_run_ids),
             "training_audit_bundle_count": len(ordered_training_audit_bundles),
             "expected_training_audit_bundle_count": len(training_run_ids),
+            "training_audit_bundle_hashes_match_training_runs": (
+                training_audit_bundle_hashes_match_training_runs
+            ),
+            "training_audit_bundle_match_checks": training_audit_bundle_match_checks,
             "judgment_set_count": len(ordered_judgment_sets),
             "expected_judgment_set_count": len(judgment_set_ids),
             "semantic_governance_event_count": len(ordered_governance_events),
@@ -1374,6 +1450,149 @@ def _to_response(
     )
 
 
+def _create_retrieval_training_run_audit_bundle_row(
+    session: Session,
+    *,
+    training_run: RetrievalTrainingRun,
+    created_by: str | None,
+    storage_service: StorageService,
+    signing_key: str,
+    signing_key_id: str,
+) -> AuditBundleExport:
+    if training_run.status != "completed":
+        raise _training_run_not_completed(training_run)
+    bundle_id = uuid.uuid4()
+    created_at = utcnow()
+    audit_payload = _build_retrieval_training_run_payload(
+        session,
+        training_run=training_run,
+        bundle_id=bundle_id,
+        created_by=created_by,
+        created_at=created_at,
+    )
+    bundle = _signed_bundle(
+        bundle_id=bundle_id,
+        bundle_kind=RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+        source_table=RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
+        source_id=training_run.id,
+        payload=audit_payload,
+        signing_key=signing_key,
+        signing_key_id=signing_key_id,
+    )
+    bundle_path = storage_service.get_audit_bundle_json_path(
+        RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+        bundle_id,
+    )
+    bundle_path.write_bytes(_canonical_json_bytes(bundle))
+    integrity = {
+        "payload_hash_matches_bundle": True,
+        "bundle_hash_matches_bundle": True,
+        "signature_valid": True,
+        "file_exists": True,
+        "stored_payload_matches_file": True,
+        "complete": True,
+    }
+    row = AuditBundleExport(
+        id=bundle_id,
+        bundle_kind=RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+        source_table=RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
+        source_id=training_run.id,
+        search_harness_release_id=training_run.search_harness_release_id,
+        retrieval_training_run_id=training_run.id,
+        storage_path=str(bundle_path),
+        payload_sha256=bundle["bundle_export"]["payload_sha256"],
+        bundle_sha256=bundle["bundle_export"]["bundle_sha256"],
+        signature=bundle["bundle_export"]["signature"],
+        signature_algorithm=bundle["bundle_export"]["signature_algorithm"],
+        signing_key_id=bundle["bundle_export"]["signing_key_id"],
+        bundle_payload_json=bundle,
+        integrity_json=integrity,
+        created_by=created_by,
+        export_status="completed",
+        created_at=created_at,
+    )
+    session.add(row)
+    session.flush()
+    return row
+
+
+def _ensure_retrieval_training_run_audit_bundles_for_release(
+    session: Session,
+    *,
+    release: SearchHarnessRelease,
+    created_by: str | None,
+    storage_service: StorageService,
+    signing_key: str,
+    signing_key_id: str,
+) -> None:
+    learning_candidates = (
+        session.execute(
+            select(RetrievalLearningCandidateEvaluation)
+            .where(
+                or_(
+                    RetrievalLearningCandidateEvaluation.search_harness_release_id
+                    == release.id,
+                    RetrievalLearningCandidateEvaluation.search_harness_evaluation_id
+                    == release.search_harness_evaluation_id,
+                )
+            )
+            .order_by(RetrievalLearningCandidateEvaluation.created_at.asc())
+        )
+        .scalars()
+        .all()
+    )
+    training_run_ids = sorted(
+        {row.retrieval_training_run_id for row in learning_candidates},
+        key=str,
+    )
+    if not training_run_ids:
+        return
+    existing_bundle_rows = (
+        session.execute(
+            select(AuditBundleExport)
+            .where(
+                AuditBundleExport.retrieval_training_run_id.in_(training_run_ids),
+                AuditBundleExport.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+            )
+            .order_by(
+                AuditBundleExport.retrieval_training_run_id.asc(),
+                AuditBundleExport.created_at.desc(),
+                AuditBundleExport.id.asc(),
+            )
+        )
+        .scalars()
+        .all()
+    )
+    existing_bundle_by_run_id: dict[UUID, AuditBundleExport] = {}
+    for row in existing_bundle_rows:
+        if row.retrieval_training_run_id is None:
+            continue
+        existing_bundle_by_run_id.setdefault(row.retrieval_training_run_id, row)
+    training_runs = (
+        session.execute(
+            select(RetrievalTrainingRun).where(RetrievalTrainingRun.id.in_(training_run_ids))
+        )
+        .scalars()
+        .all()
+    )
+    training_runs_by_id = {row.id: row for row in training_runs}
+    for training_run_id in training_run_ids:
+        training_run = training_runs_by_id.get(training_run_id)
+        if training_run is None:
+            continue
+        existing_bundle = existing_bundle_by_run_id.get(training_run_id)
+        if _training_audit_bundle_matches_training_run(existing_bundle, training_run):
+            continue
+        _create_retrieval_training_run_audit_bundle_row(
+            session,
+            training_run=training_run,
+            created_by=created_by,
+            storage_service=storage_service,
+            signing_key=signing_key,
+            signing_key_id=signing_key_id,
+        )
+
+
 def create_search_harness_release_audit_bundle(
     session: Session,
     release_id: UUID,
@@ -1385,6 +1604,14 @@ def create_search_harness_release_audit_bundle(
     if release is None:
         raise _release_not_found(release_id)
     signing_key, signing_key_id = _signing_key()
+    _ensure_retrieval_training_run_audit_bundles_for_release(
+        session,
+        release=release,
+        created_by=payload.created_by,
+        storage_service=storage_service,
+        signing_key=signing_key,
+        signing_key_id=signing_key_id,
+    )
     bundle_id = uuid.uuid4()
     created_at = utcnow()
     audit_payload = _build_search_harness_release_payload(
@@ -1450,58 +1677,14 @@ def create_retrieval_training_run_audit_bundle(
     if training_run is None:
         raise _training_run_not_found(training_run_id)
     signing_key, signing_key_id = _signing_key()
-    bundle_id = uuid.uuid4()
-    created_at = utcnow()
-    audit_payload = _build_retrieval_training_run_payload(
+    row = _create_retrieval_training_run_audit_bundle_row(
         session,
         training_run=training_run,
-        bundle_id=bundle_id,
         created_by=payload.created_by,
-        created_at=created_at,
-    )
-    bundle = _signed_bundle(
-        bundle_id=bundle_id,
-        bundle_kind=RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
-        source_table=RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
-        source_id=training_run.id,
-        payload=audit_payload,
+        storage_service=storage_service,
         signing_key=signing_key,
         signing_key_id=signing_key_id,
     )
-    bundle_path = storage_service.get_audit_bundle_json_path(
-        RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
-        bundle_id,
-    )
-    bundle_path.write_bytes(_canonical_json_bytes(bundle))
-    integrity = {
-        "payload_hash_matches_bundle": True,
-        "bundle_hash_matches_bundle": True,
-        "signature_valid": True,
-        "file_exists": True,
-        "stored_payload_matches_file": True,
-        "complete": True,
-    }
-    row = AuditBundleExport(
-        id=bundle_id,
-        bundle_kind=RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
-        source_table=RETRIEVAL_TRAINING_RUN_SOURCE_TABLE,
-        source_id=training_run.id,
-        search_harness_release_id=training_run.search_harness_release_id,
-        retrieval_training_run_id=training_run.id,
-        storage_path=str(bundle_path),
-        payload_sha256=bundle["bundle_export"]["payload_sha256"],
-        bundle_sha256=bundle["bundle_export"]["bundle_sha256"],
-        signature=bundle["bundle_export"]["signature"],
-        signature_algorithm=bundle["bundle_export"]["signature_algorithm"],
-        signing_key_id=bundle["bundle_export"]["signing_key_id"],
-        bundle_payload_json=bundle,
-        integrity_json=integrity,
-        created_by=payload.created_by,
-        export_status="completed",
-        created_at=created_at,
-    )
-    session.add(row)
-    session.flush()
     return _to_response(row, storage_service=storage_service)
 
 

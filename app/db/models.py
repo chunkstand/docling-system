@@ -2749,6 +2749,21 @@ class AuditBundleExport(Base):
             "export_status IN ('completed', 'failed')",
             name="ck_audit_bundle_exports_status",
         ),
+        CheckConstraint(
+            "("
+            "bundle_kind = 'search_harness_release_provenance' "
+            "AND source_table = 'search_harness_releases' "
+            "AND search_harness_release_id IS NOT NULL "
+            "AND search_harness_release_id = source_id "
+            "AND retrieval_training_run_id IS NULL"
+            ") OR ("
+            "bundle_kind = 'retrieval_training_run_provenance' "
+            "AND source_table = 'retrieval_training_runs' "
+            "AND retrieval_training_run_id IS NOT NULL "
+            "AND retrieval_training_run_id = source_id"
+            ")",
+            name="ck_audit_bundle_exports_source_consistency",
+        ),
         Index("ix_audit_bundle_exports_bundle_kind_created_at", "bundle_kind", "created_at"),
         Index("ix_audit_bundle_exports_source", "source_table", "source_id"),
         Index(

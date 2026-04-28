@@ -116,9 +116,12 @@ negative row, source payload hashes, evidence refs, semantic governance events, 
 PROV-style graph. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
 sets, the associated governance events, and references to the latest signed training
-audit bundle hash for each linked training run. That keeps the signed release package
-traceable from release gate back to the exact auditable dataset that influenced the
-candidate.
+audit bundle hash for each linked training run. If a linked completed training run has
+no current matching training audit bundle, release-bundle export freezes one before
+signing the release bundle. The database enforces that audit bundle source IDs match
+their concrete release or training-run foreign keys. That keeps the signed release
+package traceable from release gate back to the exact auditable dataset that
+influenced the candidate.
 
 ## Multivector Retrieval Repair Surface
 

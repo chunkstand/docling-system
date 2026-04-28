@@ -1277,3 +1277,35 @@ def test_retrieval_training_audit_bundle_latest_route_returns_machine_readable_e
     assert response.json()["error_context"]["retrieval_training_run_id"] == str(
         training_run_id
     )
+
+
+def test_retrieval_training_audit_bundle_create_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    training_run_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.create_retrieval_training_run_audit_bundle",
+        lambda session, lookup_training_run_id, payload, *, storage_service: (
+            _ for _ in ()
+        ).throw(
+            api_error(
+                409,
+                "retrieval_training_run_not_completed",
+                "Retrieval training run must be completed before exporting an audit bundle.",
+                retrieval_training_run_id=str(lookup_training_run_id),
+                status="failed",
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+        json={"created_by": "operator"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["error_code"] == "retrieval_training_run_not_completed"
+    assert response.json()["error_context"]["retrieval_training_run_id"] == str(
+        training_run_id
+    )

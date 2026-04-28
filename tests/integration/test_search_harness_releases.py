@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -8,6 +9,8 @@ from uuid import UUID, uuid4
 
 from app.db.models import (
     AuditBundleExport,
+    RetrievalHardNegative,
+    RetrievalJudgment,
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
     RetrievalTrainingRun,
@@ -17,6 +20,12 @@ from app.db.models import (
     SearchReplayRun,
 )
 from app.services.semantic_governance import record_semantic_governance_event
+
+
+def _payload_sha256(payload) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    ).hexdigest()
 
 
 def _replay_run(*, replay_run_id, harness_name: str) -> SearchReplayRun:
@@ -147,6 +156,26 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         judgment_set_id = uuid4()
         training_run_id = uuid4()
         candidate_id = uuid4()
+        judgment_id = uuid4()
+        hard_negative_id = uuid4()
+        training_payload = {
+            "schema_name": "retrieval_learning_dataset",
+            "schema_version": "1.0",
+            "judgment_set": {
+                "judgment_set_id": str(judgment_set_id),
+                "set_name": "release-audit-learning-set",
+            },
+            "summary": {
+                "training_example_count": 2,
+                "judgment_count": 1,
+                "hard_negative_count": 1,
+            },
+            "judgments": [{"judgment_id": str(judgment_id), "source_payload_sha256": "j-sha"}],
+            "hard_negatives": [
+                {"hard_negative_id": str(hard_negative_id), "source_payload_sha256": "hn-sha"}
+            ],
+        }
+        training_dataset_sha256 = _payload_sha256(training_payload)
         session.add(
             RetrievalJudgmentSet(
                 id=judgment_set_id,
@@ -155,13 +184,13 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
                 source_types_json=["feedback", "replay"],
                 source_limit=10,
                 criteria_json={"fixture": "release-audit"},
-                summary_json={"training_example_count": 4},
-                judgment_count=2,
+                summary_json={"training_example_count": 2},
+                judgment_count=1,
                 positive_count=1,
-                negative_count=1,
+                negative_count=0,
                 missing_count=0,
-                hard_negative_count=2,
-                payload_sha256="judgment-set-sha",
+                hard_negative_count=1,
+                payload_sha256=training_dataset_sha256,
                 created_by="integration",
                 created_at=now,
             )
@@ -174,32 +203,108 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
                 status="completed",
                 search_harness_evaluation_id=evaluation_id,
                 search_harness_release_id=UUID(release_id),
-                training_dataset_sha256="training-dataset-sha",
-                training_payload_json={"summary": {"training_example_count": 4}},
-                summary_json={"training_example_count": 4},
-                example_count=4,
+                training_dataset_sha256=training_dataset_sha256,
+                training_payload_json=training_payload,
+                summary_json={"training_example_count": 2},
+                example_count=2,
                 positive_count=1,
-                negative_count=1,
+                negative_count=0,
                 missing_count=0,
-                hard_negative_count=2,
+                hard_negative_count=1,
                 created_by="integration",
                 created_at=now,
                 completed_at=now + timedelta(seconds=3),
             )
         )
         session.flush()
+        session.add(
+            RetrievalJudgment(
+                id=judgment_id,
+                judgment_set_id=judgment_set_id,
+                judgment_kind="positive",
+                judgment_label="relevant",
+                source_type="feedback",
+                source_ref_id=None,
+                search_feedback_id=None,
+                search_replay_query_id=None,
+                search_replay_run_id=None,
+                evaluation_query_id=None,
+                source_search_request_id=None,
+                search_request_id=None,
+                search_request_result_id=None,
+                result_rank=1,
+                result_type="table",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                score=0.9,
+                query_text="fixture query",
+                mode="hybrid",
+                filters_json={},
+                expected_result_type="table",
+                expected_top_n=1,
+                harness_name="default_v1",
+                reranker_name="linear_feature_reranker",
+                reranker_version="v1",
+                retrieval_profile_name="default_v1",
+                rerank_features_json={},
+                evidence_refs_json=[{"source": "fixture"}],
+                rationale="relevant table",
+                payload_json={"fixture": "judgment"},
+                source_payload_sha256="j-sha",
+                deduplication_key=f"release-audit-judgment:{judgment_id}",
+                created_at=now,
+            )
+        )
+        session.flush()
+        session.add(
+            RetrievalHardNegative(
+                id=hard_negative_id,
+                judgment_set_id=judgment_set_id,
+                judgment_id=judgment_id,
+                positive_judgment_id=judgment_id,
+                hard_negative_kind="explicit_irrelevant",
+                source_type="feedback",
+                source_ref_id=None,
+                search_feedback_id=None,
+                search_replay_query_id=None,
+                search_replay_run_id=None,
+                evaluation_query_id=None,
+                source_search_request_id=None,
+                search_request_id=None,
+                search_request_result_id=None,
+                result_rank=2,
+                result_type="chunk",
+                result_id=uuid4(),
+                document_id=uuid4(),
+                run_id=uuid4(),
+                score=0.2,
+                query_text="fixture query",
+                mode="hybrid",
+                filters_json={},
+                rerank_features_json={},
+                expected_result_type="table",
+                expected_top_n=1,
+                evidence_refs_json=[{"source": "fixture"}],
+                reason="wrong chunk",
+                details_json={"fixture": "hard-negative"},
+                source_payload_sha256="hn-sha",
+                deduplication_key=f"release-audit-hard-negative:{hard_negative_id}",
+                created_at=now,
+            )
+        )
         candidate = RetrievalLearningCandidateEvaluation(
             id=candidate_id,
             retrieval_training_run_id=training_run_id,
             judgment_set_id=judgment_set_id,
             search_harness_evaluation_id=evaluation_id,
             search_harness_release_id=UUID(release_id),
-            training_dataset_sha256="training-dataset-sha",
-            training_example_count=4,
+            training_dataset_sha256=training_dataset_sha256,
+            training_example_count=2,
             positive_count=1,
-            negative_count=1,
+            negative_count=0,
             missing_count=0,
-            hard_negative_count=2,
+            hard_negative_count=1,
             baseline_harness_name="default_v1",
             candidate_harness_name="wide_v2",
             source_types_json=["evaluation_queries"],
@@ -232,7 +337,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
                 "retrieval_learning_candidate_evaluation": {
                     "candidate_evaluation_id": str(candidate_id),
                     "retrieval_training_run_id": str(training_run_id),
-                    "training_dataset_sha256": "training-dataset-sha",
+                    "training_dataset_sha256": training_dataset_sha256,
                     "learning_package_sha256": "learning-package-sha",
                 }
             },
@@ -253,15 +358,6 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert detail_response.json()["details"]["per_source"]["evaluation_queries"][
         "shared_query_count"
     ] == 4
-
-    training_audit_response = postgres_integration_harness.client.post(
-        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
-        json={"created_by": "integration"},
-    )
-    assert training_audit_response.status_code == 200
-    training_audit_bundle = training_audit_response.json()
-    assert training_audit_bundle["bundle_kind"] == "retrieval_training_run_provenance"
-    assert training_audit_bundle["source_id"] == str(training_run_id)
 
     audit_response = postgres_integration_harness.client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
@@ -288,25 +384,36 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["integrity"][
         "training_audit_bundle_count"
     ] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "training_audit_bundle_hashes_match_training_runs"
+    ] is True
     assert audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
         "training_dataset_sha256"
-    ] == "training-dataset-sha"
+    ] == training_dataset_sha256
     assert audit_bundle["bundle"]["payload"]["retrieval_training_runs"][0][
         "training_dataset_sha256"
-    ] == "training-dataset-sha"
+    ] == training_dataset_sha256
     assert audit_bundle["bundle"]["payload"]["semantic_governance_events"][0][
         "event_kind"
     ] == "retrieval_learning_candidate_evaluated"
-    assert audit_bundle["bundle"]["payload"]["retrieval_training_audit_bundles"][0][
-        "bundle_sha256"
-    ] == training_audit_bundle["bundle_sha256"]
+    training_audit_bundle_ref = audit_bundle["bundle"]["payload"][
+        "retrieval_training_audit_bundles"
+    ][0]
+    assert training_audit_bundle_ref["bundle_kind"] == "retrieval_training_run_provenance"
+    assert training_audit_bundle_ref["source_id"] == str(training_run_id)
+    assert training_audit_bundle_ref["payload_source_id"] == str(training_run_id)
+    assert training_audit_bundle_ref["payload_training_dataset_sha256"] == (
+        training_dataset_sha256
+    )
+    assert training_audit_bundle_ref["payload_training_dataset_hash_matches"] is True
     assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     assert any(
         edge["usedEntity"].startswith("docling:retrieval_training_run:")
         for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     )
     assert any(
-        edge["usedEntity"] == f"docling:audit_bundle_export:{training_audit_bundle['bundle_id']}"
+        edge["usedEntity"]
+        == f"docling:audit_bundle_export:{training_audit_bundle_ref['bundle_id']}"
         for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     )
     assert audit_bundle["signing_key_id"] == "integration-key"
@@ -328,6 +435,12 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         assert row is not None
         assert row.bundle_sha256 == audit_bundle["bundle_sha256"]
         assert row.search_harness_release_id == UUID(audit_bundle["source_id"])
+        training_bundle_row = session.get(
+            AuditBundleExport,
+            UUID(training_audit_bundle_ref["bundle_id"]),
+        )
+        assert training_bundle_row is not None
+        assert training_bundle_row.retrieval_training_run_id == training_run_id
         storage_path = Path(row.storage_path)
 
     stored_bundle = json.loads(storage_path.read_text())
