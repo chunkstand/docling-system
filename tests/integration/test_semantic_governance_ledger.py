@@ -278,9 +278,8 @@ def test_semantic_governance_ledger_records_lifecycle_events_and_is_append_only(
         str(graph_snapshot_id)
     ]
 
-    receipt_response = postgres_integration_harness.client.post(
-        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
-        json={"created_by": "integration"},
+    receipt_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts/latest"
     )
     assert receipt_response.status_code == 200
     receipt = receipt_response.json()

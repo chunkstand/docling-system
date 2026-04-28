@@ -2615,6 +2615,14 @@ def create_search_harness_release_audit_bundle(
     )
     session.add(row)
     session.flush()
+    _ensure_audit_bundle_validation_receipts(
+        session,
+        audit_bundles=[row],
+        created_by=payload.created_by,
+        storage_service=storage_service,
+        signing_key=signing_key,
+        signing_key_id=signing_key_id,
+    )
     return _to_response(row, storage_service=storage_service)
 
 

@@ -484,6 +484,31 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_detail_response.status_code == 200
     assert audit_detail_response.json()["integrity"]["bundle_hash_matches_row"] is True
 
+    auto_latest_validation_response = postgres_integration_harness.client.get(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts/latest"
+    )
+    assert auto_latest_validation_response.status_code == 200
+    auto_validation_receipt = auto_latest_validation_response.json()
+    assert auto_validation_receipt["validation_status"] == "passed"
+    assert auto_validation_receipt["semantic_governance_valid"] is True
+
+    readiness_after_export_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_after_export_response.status_code == 200
+    readiness_after_export = readiness_after_export_response.json()
+    assert readiness_after_export["ready"] is True
+    assert readiness_after_export["checks"] == {
+        "retrieval_ready": True,
+        "provenance_ready": True,
+        "semantic_governance_ready": True,
+        "validation_receipts_ready": True,
+        "ready": True,
+    }
+    assert readiness_after_export["validation_receipts"][
+        "latest_release_validation_receipt_id"
+    ] == auto_validation_receipt["receipt_id"]
+
     validation_response = postgres_integration_harness.client.post(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
         json={"created_by": "integration"},
