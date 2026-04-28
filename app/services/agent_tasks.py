@@ -23,6 +23,7 @@ from app.db.models import (
     AgentTaskStatus,
     AgentTaskVerification,
     AgentTaskVerificationOutcome,
+    ClaimSupportPolicyChangeImpact,
 )
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
@@ -1681,6 +1682,87 @@ def get_agent_task_decision_signals(
     session: Session,
 ) -> list[AgentTaskDecisionSignalResponse]:
     rows: list[AgentTaskDecisionSignalResponse] = []
+    replay_open_statuses = {"pending", "queued", "in_progress", "blocked"}
+    replay_stale_cutoff = utcnow() - timedelta(hours=24)
+    blocked_replay_count = int(
+        session.scalar(
+            select(func.count())
+            .select_from(ClaimSupportPolicyChangeImpact)
+            .where(ClaimSupportPolicyChangeImpact.replay_status == "blocked")
+        )
+        or 0
+    )
+    stale_replay_count = int(
+        session.scalar(
+            select(func.count())
+            .select_from(ClaimSupportPolicyChangeImpact)
+            .where(ClaimSupportPolicyChangeImpact.replay_status.in_(replay_open_statuses))
+            .where(
+                func.coalesce(
+                    ClaimSupportPolicyChangeImpact.replay_status_updated_at,
+                    ClaimSupportPolicyChangeImpact.created_at,
+                )
+                <= replay_stale_cutoff
+            )
+        )
+        or 0
+    )
+    open_replay_count = int(
+        session.scalar(
+            select(func.count())
+            .select_from(ClaimSupportPolicyChangeImpact)
+            .where(ClaimSupportPolicyChangeImpact.replay_status.in_(replay_open_statuses))
+        )
+        or 0
+    )
+    if blocked_replay_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_policy_change_impact_replay",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="degraded",
+                reason=(
+                    f"{blocked_replay_count} claim-support policy replay impact(s) "
+                    "are blocked from closure."
+                ),
+                threshold_crossed="blocked_claim_support_replay_impacts>0",
+                recommended_action=(
+                    "Open the claim-support replay worklist and inspect blocked replay tasks."
+                ),
+            )
+        )
+    elif stale_replay_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_policy_change_impact_replay",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{stale_replay_count} open claim-support policy replay impact(s) "
+                    "are older than 24 hours."
+                ),
+                threshold_crossed="stale_claim_support_replay_impacts>0",
+                recommended_action=(
+                    "Refresh replay status or queue managed replay for stale impact rows."
+                ),
+            )
+        )
+    elif open_replay_count:
+        rows.append(
+            AgentTaskDecisionSignalResponse(
+                task_type="claim_support_policy_change_impact_replay",
+                workflow_version="claim_support_policy_change_impact_replay_v1",
+                status="watch",
+                reason=(
+                    f"{open_replay_count} claim-support policy replay impact(s) "
+                    "are open."
+                ),
+                threshold_crossed="open_claim_support_replay_impacts>0",
+                recommended_action=(
+                    "Monitor the claim-support replay worklist until all impacts close."
+                ),
+            )
+        )
     for value_row in get_agent_task_value_density(session):
         if value_row.recommendation_task_count == 0:
             continue

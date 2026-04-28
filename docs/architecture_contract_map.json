@@ -57,7 +57,7 @@
         "ADR-0004",
         "ADR-0006"
       ],
-      "item_count": 122,
+      "item_count": 123,
       "name": "api_route_capabilities",
       "source": "app.api.route_contracts"
     },

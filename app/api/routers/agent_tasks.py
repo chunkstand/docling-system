@@ -49,10 +49,12 @@ from app.schemas.agent_tasks import (
     ClaimSupportPolicyChangeImpactReplayResponse,
     ClaimSupportPolicyChangeImpactResponse,
     ClaimSupportPolicyChangeImpactSummaryResponse,
+    ClaimSupportPolicyChangeImpactWorklistResponse,
     TaskContextEnvelope,
 )
 from app.services.capabilities import agent_orchestration
 from app.services.claim_support_policy_impacts import (
+    claim_support_policy_change_impact_worklist,
     get_claim_support_policy_change_impact,
     list_claim_support_policy_change_impacts,
     queue_claim_support_policy_change_impact_replay_tasks,
@@ -451,7 +453,7 @@ def read_claim_support_policy_change_impacts(
     session: DbSession,
     policy_name: str | None = None,
     replay_status: str | None = None,
-    limit: int = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> list[ClaimSupportPolicyChangeImpactResponse]:
     return list_claim_support_policy_change_impacts(
         session,
@@ -469,12 +471,33 @@ def read_claim_support_policy_change_impacts(
 def read_claim_support_policy_change_impact_summary(
     session: DbSession,
     policy_name: str | None = None,
-    stale_after_hours: int = 24,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
 ) -> ClaimSupportPolicyChangeImpactSummaryResponse:
     return summarize_claim_support_policy_change_impacts(
         session,
         policy_name=policy_name,
         stale_after_hours=stale_after_hours,
+    )
+
+
+@router.get(
+    "/agent-tasks/claim-support-policy-change-impacts/worklist",
+    response_model=ClaimSupportPolicyChangeImpactWorklistResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
+)
+def read_claim_support_policy_change_impact_worklist(
+    session: DbSession,
+    policy_name: str | None = None,
+    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    include_closed: bool = False,
+) -> ClaimSupportPolicyChangeImpactWorklistResponse:
+    return claim_support_policy_change_impact_worklist(
+        session,
+        policy_name=policy_name,
+        stale_after_hours=stale_after_hours,
+        limit=limit,
+        include_closed=include_closed,
     )
 
 

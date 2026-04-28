@@ -1579,6 +1579,60 @@ class ClaimSupportPolicyChangeImpactSummaryResponse(BaseModel):
     stale_cutoff: datetime
 
 
+class ClaimSupportPolicyChangeImpactWorklistTaskRef(BaseModel):
+    task_id: UUID
+    task_type: str
+    status: str
+    completed_at: datetime | None = None
+    is_terminal_failure: bool = False
+    is_required_for_closure: bool = False
+
+
+class ClaimSupportPolicyChangeImpactClosureEventRef(BaseModel):
+    event_id: UUID
+    event_hash: str
+    receipt_sha256: str | None = None
+    artifact_id: UUID | None = None
+    artifact_kind: str | None = None
+    artifact_path: str | None = None
+    created_at: datetime
+
+
+class ClaimSupportPolicyChangeImpactWorklistItemResponse(BaseModel):
+    change_impact: ClaimSupportPolicyChangeImpactResponse
+    severity: str
+    status_label: str
+    is_open: bool
+    is_stale: bool
+    age_hours: float
+    status_age_hours: float
+    next_action: str
+    recommended_action: str
+    reasons: list[str] = Field(default_factory=list)
+    affected_draft_task_ids: list[UUID] = Field(default_factory=list)
+    affected_verification_task_ids: list[UUID] = Field(default_factory=list)
+    audit_bundle_task_ids: list[UUID] = Field(default_factory=list)
+    replay_tasks: list[ClaimSupportPolicyChangeImpactWorklistTaskRef] = Field(
+        default_factory=list
+    )
+    closure_events: list[ClaimSupportPolicyChangeImpactClosureEventRef] = Field(
+        default_factory=list
+    )
+    closure_receipt_artifact_id: UUID | None = None
+    closure_receipt_sha256: str | None = None
+    operator_links: dict = Field(default_factory=dict)
+
+
+class ClaimSupportPolicyChangeImpactWorklistResponse(BaseModel):
+    summary: ClaimSupportPolicyChangeImpactSummaryResponse
+    generated_at: datetime
+    stale_after_hours: int
+    item_count: int
+    items: list[ClaimSupportPolicyChangeImpactWorklistItemResponse] = Field(
+        default_factory=list
+    )
+
+
 class ClaimSupportPolicyChangeImpactReplayRequest(BaseModel):
     requested_by: str = Field(default="docling-system", min_length=1)
 

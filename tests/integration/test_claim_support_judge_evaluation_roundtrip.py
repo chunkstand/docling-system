@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import os
 from copy import deepcopy
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -1420,6 +1421,46 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
         assert policy_impacts["open_count"] == 1
         assert policy_impacts["clear"] is False
 
+    worklist_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?limit=5&stale_after_hours=1"
+    )
+    assert worklist_response.status_code == 200
+    worklist_items = worklist_response.json()["items"]
+    worklist_item = next(
+        row
+        for row in worklist_items
+        if row["change_impact"]["change_impact_id"]
+        == apply_payload["activation_change_impact_id"]
+    )
+    assert worklist_item["recommended_action"] == "monitor_replay"
+    assert worklist_item["affected_verification_task_ids"] == [
+        str(impacted["verify_task_id"])
+    ]
+    assert worklist_item["audit_bundle_task_ids"] == [str(impacted["verify_task_id"])]
+    assert {row["task_id"] for row in worklist_item["replay_tasks"]} == {
+        str(replay_draft_task_id),
+        str(replay_verify_task_id),
+    }
+    assert {
+        row["task_id"]
+        for row in worklist_item["replay_tasks"]
+        if row["is_required_for_closure"]
+    } == {str(replay_verify_task_id)}
+    assert worklist_item["operator_links"]["affected_audit_bundles"] == [
+        f"/agent-tasks/{impacted['verify_task_id']}/audit-bundle"
+    ]
+
+    decision_signals_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert decision_signals_response.status_code == 200
+    assert any(
+        row["task_type"] == "claim_support_policy_change_impact_replay"
+        and row["status"] == "watch"
+        for row in decision_signals_response.json()
+    )
+
     with postgres_integration_harness.session_factory() as session:
         now = utcnow()
         replay_draft = session.get(AgentTask, replay_draft_task_id)
@@ -1493,6 +1534,32 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
     )
     assert summary_response.status_code == 200
     assert summary_response.json()["replay_status_counts"]["closed"] >= 1
+
+    open_worklist_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist?limit=10"
+    )
+    assert open_worklist_response.status_code == 200
+    assert all(
+        row["change_impact"]["change_impact_id"]
+        != apply_payload["activation_change_impact_id"]
+        for row in open_worklist_response.json()["items"]
+    )
+
+    closed_worklist_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?include_closed=true&limit=10"
+    )
+    assert closed_worklist_response.status_code == 200
+    closed_worklist_item = next(
+        row
+        for row in closed_worklist_response.json()["items"]
+        if row["change_impact"]["change_impact_id"]
+        == apply_payload["activation_change_impact_id"]
+    )
+    assert closed_worklist_item["severity"] == "cleared"
+    assert closed_worklist_item["closure_receipt_sha256"]
+    assert closed_worklist_item["closure_events"]
+    assert closed_worklist_item["operator_links"]["closure_artifact"]
 
     with postgres_integration_harness.session_factory() as session:
         closure_events = list(
@@ -1718,7 +1785,7 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             policy_payload=build_claim_support_calibration_policy_payload(),
         )
         impacted = _seed_impacted_technical_report_records(session)
-        now = utcnow()
+        now = utcnow() - timedelta(hours=48)
         change_impact_id = uuid4()
         impact_payload = {
             "schema_name": "claim_support_policy_change_impact",
@@ -1801,6 +1868,20 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
             .all()
         )
         assert replay_rows == []
+
+    worklist_response = postgres_integration_harness.client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?limit=5&stale_after_hours=24"
+    )
+    assert worklist_response.status_code == 200
+    worklist_item = next(
+        row
+        for row in worklist_response.json()["items"]
+        if row["change_impact"]["change_impact_id"] == str(change_impact_id)
+    )
+    assert worklist_item["is_stale"] is True
+    assert worklist_item["severity"] == "warning"
+    assert worklist_item["recommended_action"] == "queue_replay"
 
 
 def test_claim_support_policy_verification_replays_mined_failed_cases(

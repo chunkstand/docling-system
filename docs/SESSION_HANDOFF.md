@@ -74,7 +74,7 @@ The support-judge calibration path is now first-class:
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, inspect status counts and stale open rows through `GET /agent-tasks/claim-support-policy-change-impacts/summary`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or terminal closure payload hash mismatches before mutating status. Worker finalization refreshes related impact rows after replay task success or failure. Impact rows carry replay task IDs, replay plans, replay status, and immutable closure receipts; replay-required rows do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. Zero-replay `no_action_required` rows close during activation with the same closure artifact and semantic-governance event used for completed replay rows. Terminal closures must carry a row-level hash, matching payload hash, matching row status, and `replay_closed_at`; technical-report audit bundles/evidence manifests surface related policy-change replay impact status until replay closes. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, inspect status counts and stale open rows through `GET /agent-tasks/claim-support-policy-change-impacts/summary`, load the remediation worklist through `GET /agent-tasks/claim-support-policy-change-impacts/worklist`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. The Agent Workflows UI now exposes the worklist with stale-row controls, affected audit-bundle links, replay task links, closure receipt links, and queue/refresh actions; decision signals surface open, stale, and blocked claim-support replay impacts. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or terminal closure payload hash mismatches before mutating status. Worker finalization refreshes related impact rows after replay task success or failure. Impact rows carry replay task IDs, replay plans, replay status, and immutable closure receipts; replay-required rows do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. Zero-replay `no_action_required` rows close during activation with the same closure artifact and semantic-governance event used for completed replay rows. Terminal closures must carry a row-level hash, matching payload hash, matching row status, and `replay_closed_at`; technical-report audit bundles/evidence manifests surface related policy-change replay impact status until replay closes. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
@@ -106,35 +106,29 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-774 passed in 88.79s
+776 passed in 95.53s (0:01:35)
 ```
 
 Focused claim-support verification during this implementation pass:
 
 ```bash
-uv run python -m pytest tests/unit/test_alembic_0062_claim_support_impact_replay_governance.py tests/unit/test_alembic_0061_claim_support_impact_replay.py tests/unit/test_agent_tasks_api.py::test_claim_support_policy_change_impact_detail_route_returns_error_code tests/unit/test_agent_tasks_api.py::test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrated_tasks tests/unit/test_agent_task_actions.py::test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata -q
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_change_impact_without_replay_records_terminal_closure tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_policy_activation_records_change_impact_for_prior_reports -q
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_technical_report_harness_roundtrip.py -q
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/integration/test_technical_report_harness_roundtrip.py -q
-uv run alembic upgrade head
-uv run alembic current
+uv run ruff check app/api/routers/agent_tasks.py app/schemas/agent_tasks.py app/services/agent_tasks.py app/services/claim_support_policy_impacts.py tests/unit/test_agent_tasks_api.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+node --check app/ui/app.js
+uv run pytest -q tests/unit/test_agent_tasks_api.py -q
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_policy_activation_records_change_impact_for_prior_reports tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_change_impact_replay_prevalidates_before_creating_tasks
 uv run docling-system-architecture-inspect --write-map
 uv run docling-system-architecture-inspect
-uv run ruff check .
 ```
 
 Results:
 
 ```text
-4 passed
-13 passed
-1 passed
-14 passed
-alembic current: 0061_claim_impact_replay (head)
-create_all verified by the integration harness against temporary Postgres schemas
-architecture inspection valid: true, violation_count: 0
 ruff: All checks passed
+node --check: passed
+tests/unit/test_agent_tasks_api.py: passed
+claim-support focused integration: 2 passed in 3.10s
+architecture inspection valid: true, violation_count: 0
+api_route_count: 123
 ```
 
 Architecture inspection during this pass:
@@ -148,6 +142,7 @@ Results:
 ```text
 valid: true
 violation_count: 0
+api_route_count: 123
 agent_action_count: 51
 ```
 
@@ -156,31 +151,24 @@ agent_action_count: 51
 - [README.md](/Users/chunkstand/Documents/docling-system/README.md)
 - [SYSTEM_PLAN.md](/Users/chunkstand/Documents/docling-system/SYSTEM_PLAN.md)
 - [docs/SESSION_HANDOFF.md](/Users/chunkstand/Documents/docling-system/docs/SESSION_HANDOFF.md)
-- [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
+- [docs/architecture_contract_map.json](/Users/chunkstand/Documents/docling-system/docs/architecture_contract_map.json)
 - [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
 - [app/api/routers/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/api/routers/agent_tasks.py)
-- [app/services/agent_task_actions.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_actions.py)
-- [app/services/agent_task_worker.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_worker.py)
+- [app/services/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/services/agent_tasks.py)
 - [app/services/claim_support_policy_impacts.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_impacts.py)
-- [app/services/claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_governance.py)
-- [app/services/evidence.py](/Users/chunkstand/Documents/docling-system/app/services/evidence.py)
-- [alembic/versions/0062_claim_support_impact_replay_governance.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0062_claim_support_impact_replay_governance.py)
-- [alembic/versions/0061_claim_support_impact_replay_lifecycle.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0061_claim_support_impact_replay_lifecycle.py)
-- [alembic/versions/0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0060_claim_support_policy_change_impacts.py)
+- [app/ui/agents.html](/Users/chunkstand/Documents/docling-system/app/ui/agents.html)
+- [app/ui/app.js](/Users/chunkstand/Documents/docling-system/app/ui/app.js)
+- [app/ui/styles.css](/Users/chunkstand/Documents/docling-system/app/ui/styles.css)
 - [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
-- [tests/unit/test_alembic_0062_claim_support_impact_replay_governance.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0062_claim_support_impact_replay_governance.py)
-- [tests/unit/test_alembic_0061_claim_support_impact_replay.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0061_claim_support_impact_replay.py)
 - [tests/unit/test_agent_tasks_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_agent_tasks_api.py)
-- [tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_alembic_0060_claim_support_policy_change_impacts.py)
-- [tests/unit/test_claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_claim_support_policy_governance.py)
 
 ## Next Suggested Pass
 
-The next useful pass is to make managed replay easier to operate at scale:
+The next useful pass is to make managed replay visible outside the UI:
 
-1. add operator UI tables for `claim_support_policy_change_impacts`
-2. show replay status, open replay tasks, and closure receipts beside report audit bundles
-3. add operator controls for stale rows still in `pending`, `queued`, `in_progress`, or `blocked`
-4. add notification/alerting hooks for blocked closure receipts
+1. add an alert feed for stale or blocked `claim_support_policy_change_impacts`
+2. expose a CLI/report command that emits the same replay worklist and decision posture
+3. add escalation receipts when a blocked row remains unresolved across a configured threshold
+4. tie those alerts back to audit bundles and closure receipts
 
-That would move the new replay lifecycle from API/operator-task support into everyday operational visibility.
+That would move replay operations from an operator workbench into auditable escalation and reporting.

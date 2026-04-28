@@ -136,6 +136,42 @@
           </div>
         </section>
 
+        <section class="panel reveal">
+          <div class="section-heading">
+            <p class="eyebrow">Claim-support replay operations</p>
+            <h2>Policy impacts waiting on managed replay</h2>
+          </div>
+          <form id="claim-support-replay-controls" class="action-form replay-controls">
+            <label>
+              <span class="field-caption">Stale after hours</span>
+              <input id="claim-support-replay-stale-hours" type="number" min="1" max="720" value="24" />
+            </label>
+            <label>
+              <span class="field-caption">Scope</span>
+              <select id="claim-support-replay-include-closed">
+                <option value="open">Open only</option>
+                <option value="all">Include closed</option>
+              </select>
+            </label>
+            <label>
+              <span class="field-caption">Operator</span>
+              <input id="claim-support-replay-actor" type="text" value="claim-support-operator@example.com" />
+            </label>
+            <button class="secondary-link button-link secondary-button" type="submit">
+              Refresh worklist
+            </button>
+          </form>
+          <div id="claim-support-replay-note" class="inline-note">
+            Policy-change ledger ready.
+          </div>
+          <div id="claim-support-replay-summary" class="mini-grid empty-state">
+            Replay impact summary will appear here.
+          </div>
+          <div id="claim-support-replay-worklist" class="stack-list empty-state">
+            Replay impact worklist will appear here.
+          </div>
+        </section>
+
         <section class="panel panel-split reveal">
           <div>
             <div class="section-heading">

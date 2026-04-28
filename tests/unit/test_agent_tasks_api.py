@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -68,6 +69,75 @@ def test_claim_support_policy_change_impact_detail_route_returns_error_code(
     assert response.status_code == 404
     assert response.json()["error_code"] == "claim_support_policy_change_impact_not_found"
     assert response.json()["error_context"]["change_impact_id"] == str(change_impact_id)
+
+
+def test_claim_support_policy_change_impact_worklist_route_uses_service(
+    monkeypatch,
+) -> None:
+    captured = {}
+    now = datetime(2026, 4, 12, tzinfo=UTC)
+
+    def fake_claim_support_policy_change_impact_worklist(
+        session,
+        *,
+        policy_name=None,
+        stale_after_hours=24,
+        limit=50,
+        include_closed=False,
+    ):
+        captured.update(
+            {
+                "policy_name": policy_name,
+                "stale_after_hours": stale_after_hours,
+                "limit": limit,
+                "include_closed": include_closed,
+            }
+        )
+        return {
+            "summary": {
+                "total_count": 1,
+                "replay_status_counts": {"queued": 1},
+                "open_count": 1,
+                "stale_open_count": 0,
+                "stale_after_hours": stale_after_hours,
+                "stale_cutoff": now,
+            },
+            "generated_at": now,
+            "stale_after_hours": stale_after_hours,
+            "item_count": 0,
+            "items": [],
+        }
+
+    monkeypatch.setattr(
+        "app.api.routers.agent_tasks.claim_support_policy_change_impact_worklist",
+        fake_claim_support_policy_change_impact_worklist,
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?policy_name=claim_support_judge_calibration_policy"
+        "&stale_after_hours=12&limit=2&include_closed=true"
+    )
+
+    assert response.status_code == 200
+    assert response.json()["summary"]["open_count"] == 1
+    assert captured == {
+        "policy_name": "claim_support_judge_calibration_policy",
+        "stale_after_hours": 12,
+        "limit": 2,
+        "include_closed": True,
+    }
+
+
+def test_claim_support_policy_change_impact_worklist_rejects_invalid_query() -> None:
+    client = TestClient(app)
+    response = client.get(
+        "/agent-tasks/claim-support-policy-change-impacts/worklist"
+        "?stale_after_hours=0"
+    )
+
+    assert response.status_code == 422
 
 
 def test_agent_task_actions_route_exposes_output_schema_metadata_for_all_migrated_tasks() -> None:
