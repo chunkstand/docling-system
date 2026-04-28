@@ -59,6 +59,55 @@ def _unique_uuids(values: list[UUID]) -> list[UUID]:
     return [value for value in dict.fromkeys(values) if value is not None]
 
 
+_CLAIM_PROVENANCE_LOCK_LIST_FIELDS = (
+    "source_search_request_ids",
+    "source_search_request_result_ids",
+    "source_evidence_package_export_ids",
+    "source_evidence_package_sha256s",
+    "source_evidence_trace_sha256s",
+    "semantic_ontology_snapshot_ids",
+    "semantic_graph_snapshot_ids",
+    "retrieval_reranker_artifact_ids",
+    "search_harness_release_ids",
+    "release_audit_bundle_ids",
+    "release_validation_receipt_ids",
+)
+
+
+def _claim_provenance_lock_contract_mismatches(claim) -> list[str]:
+    lock = dict(claim.provenance_lock or {})
+    if not lock:
+        return ["provenance_lock"]
+    mismatches: list[str] = []
+    if lock.get("schema_name") != "technical_report_claim_provenance_lock":
+        mismatches.append("schema_name")
+    if lock.get("schema_version") != "1.0":
+        mismatches.append("schema_version")
+    if str(lock.get("claim_id") or "") != claim.claim_id:
+        mismatches.append("claim_id")
+    for field_name in _CLAIM_PROVENANCE_LOCK_LIST_FIELDS:
+        claim_values = [str(value) for value in getattr(claim, field_name)]
+        lock_values = [str(value) for value in lock.get(field_name) or []]
+        if lock_values != claim_values:
+            mismatches.append(field_name)
+    coverage = dict(lock.get("coverage") or {})
+    coverage_fields = {
+        "source_search_request_count": "source_search_request_ids",
+        "source_search_request_result_count": "source_search_request_result_ids",
+        "source_evidence_package_export_count": "source_evidence_package_export_ids",
+        "semantic_ontology_snapshot_count": "semantic_ontology_snapshot_ids",
+        "semantic_graph_snapshot_count": "semantic_graph_snapshot_ids",
+        "retrieval_reranker_artifact_count": "retrieval_reranker_artifact_ids",
+        "search_harness_release_count": "search_harness_release_ids",
+        "release_audit_bundle_count": "release_audit_bundle_ids",
+        "release_validation_receipt_count": "release_validation_receipt_ids",
+    }
+    for coverage_key, field_name in coverage_fields.items():
+        if coverage.get(coverage_key) != len(lock.get(field_name) or []):
+            mismatches.append(f"coverage.{coverage_key}")
+    return mismatches
+
+
 def _source_evidence_match_status(statuses: list[str]) -> str | None:
     unique_statuses = _unique_strings(statuses)
     if not unique_statuses:
@@ -1178,6 +1227,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
             summary["claims_with_provenance_lock_count"] == summary["claim_count"]
             and summary["missing_provenance_lock_count"] == 0
             and summary["provenance_lock_integrity_mismatch_count"] == 0
+            and summary["provenance_lock_contract_mismatch_count"] == 0
             and summary["claims_missing_source_search_request_result_count"] == 0,
             (
                 "Every generated claim carries a recomputable provenance lock down to "
@@ -1190,6 +1240,9 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 "missing_provenance_lock_count": summary["missing_provenance_lock_count"],
                 "provenance_lock_integrity_mismatch_count": summary[
                     "provenance_lock_integrity_mismatch_count"
+                ],
+                "provenance_lock_contract_mismatch_count": summary[
+                    "provenance_lock_contract_mismatch_count"
                 ],
                 "claims_missing_source_search_request_result_count": summary[
                     "claims_missing_source_search_request_result_count"
@@ -1233,6 +1286,7 @@ def verify_technical_report(
     missing_derivation_hash_count = 0
     missing_provenance_lock_count = 0
     provenance_lock_integrity_mismatch_count = 0
+    provenance_lock_contract_mismatch_count = 0
     claims_missing_source_search_request_result_count = 0
     evidence_package_mismatch_count = 0
     evidence_package_integrity_mismatch_count = 0
@@ -1315,6 +1369,13 @@ def verify_technical_report(
             provenance_lock_integrity_mismatch_count += 1
             reasons.append(
                 f"{claim.claim_id} provenance lock hash does not match recomputation."
+            )
+        lock_contract_mismatches = _claim_provenance_lock_contract_mismatches(claim)
+        if lock_contract_mismatches:
+            provenance_lock_contract_mismatch_count += 1
+            reasons.append(
+                f"{claim.claim_id} provenance lock does not match claim fields: "
+                f"{', '.join(lock_contract_mismatches)}."
             )
         if not claim.source_search_request_result_ids:
             claims_missing_source_search_request_result_count += 1
@@ -1399,6 +1460,7 @@ def verify_technical_report(
         or derivation_integrity_mismatch_count
         or missing_provenance_lock_count
         or provenance_lock_integrity_mismatch_count
+        or provenance_lock_contract_mismatch_count
         or claims_missing_source_search_request_result_count
     ):
         reasons.append(
@@ -1430,6 +1492,7 @@ def verify_technical_report(
         "provenance_lock_integrity_mismatch_count": (
             provenance_lock_integrity_mismatch_count
         ),
+        "provenance_lock_contract_mismatch_count": provenance_lock_contract_mismatch_count,
         "claims_missing_source_search_request_result_count": (
             claims_missing_source_search_request_result_count
         ),

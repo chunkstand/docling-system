@@ -389,6 +389,24 @@ def test_verification_fails_when_draft_package_hash_is_tampered(monkeypatch) -> 
     )
 
 
+def test_verification_fails_when_provenance_lock_does_not_match_claim(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    claim = draft["claims"][0]
+    claim["provenance_lock"]["source_search_request_result_ids"] = [str(uuid4())]
+    claim["provenance_lock_sha256"] = payload_sha256(claim["provenance_lock"])
+    apply_technical_report_derivation_links(draft)
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["provenance_lock_integrity_mismatch_count"] == 0
+    assert verification.summary["provenance_lock_contract_mismatch_count"] == 1
+    assert any(
+        "provenance lock does not match claim fields" in reason
+        for reason in verification.verification_reasons
+    )
+
+
 def test_fact_backed_claims_bind_to_source_evidence_without_label(monkeypatch) -> None:
     semantic_brief = _semantic_brief_payload()
     semantic_brief["claim_candidates"][0]["evidence_labels"] = []

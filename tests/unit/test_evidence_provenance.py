@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from app.services.evidence import (
     _frozen_prov_export_payload,
+    _latest_passed_release_bindings_by_request,
     _prov_export_integrity_payload,
     _prov_export_receipt_integrity,
 )
@@ -60,6 +61,68 @@ def _base_prov_export() -> dict:
         "prov_summary": {"relation_count": 5},
         "prov_integrity": {"stale": True},
     }
+
+
+class _FakeScalarSession:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def scalars(self, _statement):
+        return iter(self._rows)
+
+
+def test_release_binding_uses_latest_release_before_search_request() -> None:
+    request_id = str(uuid4())
+    search_created_at = datetime(2026, 4, 27, 12, tzinfo=UTC)
+    older_release = SimpleNamespace(
+        id=uuid4(),
+        candidate_harness_name="default_v1",
+        created_at=datetime(2026, 4, 27, 10, tzinfo=UTC),
+    )
+    future_release = SimpleNamespace(
+        id=uuid4(),
+        candidate_harness_name="default_v1",
+        created_at=datetime(2026, 4, 27, 13, tzinfo=UTC),
+    )
+    session = _FakeScalarSession([future_release, older_release])
+
+    bindings, releases = _latest_passed_release_bindings_by_request(
+        session,
+        {
+            request_id: SimpleNamespace(
+                harness_name="default_v1",
+                created_at=search_created_at,
+            )
+        },
+    )
+
+    assert bindings[request_id]["search_harness_release_id"] == str(older_release.id)
+    assert bindings[request_id]["selection_status"] == "release_found_before_request"
+    assert list(releases) == [str(older_release.id)]
+
+
+def test_release_binding_does_not_attach_future_only_release() -> None:
+    request_id = str(uuid4())
+    future_release = SimpleNamespace(
+        id=uuid4(),
+        candidate_harness_name="default_v1",
+        created_at=datetime(2026, 4, 27, 13, tzinfo=UTC),
+    )
+    session = _FakeScalarSession([future_release])
+
+    bindings, releases = _latest_passed_release_bindings_by_request(
+        session,
+        {
+            request_id: SimpleNamespace(
+                harness_name="default_v1",
+                created_at=datetime(2026, 4, 27, 12, tzinfo=UTC),
+            )
+        },
+    )
+
+    assert bindings[request_id]["search_harness_release_id"] is None
+    assert bindings[request_id]["selection_status"] == "no_passed_release_before_request"
+    assert releases == {}
 
 
 def test_prov_export_integrity_is_complete_for_closed_relation_graph() -> None:

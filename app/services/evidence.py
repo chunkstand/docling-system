@@ -1412,6 +1412,20 @@ _DERIVATION_MUTABLE_FIELDS = {
     "source_snapshot_sha256s",
 }
 
+_CLAIM_PROVENANCE_LOCK_LIST_FIELDS = (
+    "source_search_request_ids",
+    "source_search_request_result_ids",
+    "source_evidence_package_export_ids",
+    "source_evidence_package_sha256s",
+    "source_evidence_trace_sha256s",
+    "semantic_ontology_snapshot_ids",
+    "semantic_graph_snapshot_ids",
+    "retrieval_reranker_artifact_ids",
+    "search_harness_release_ids",
+    "release_audit_bundle_ids",
+    "release_validation_receipt_ids",
+)
+
 
 def _string_values(values: Iterable[Any]) -> list[str]:
     return [str(value) for value in dict.fromkeys(values) if value is not None and value != ""]
@@ -1425,18 +1439,18 @@ def _id_str_values(values: Iterable[Any]) -> list[str]:
     return _string_values(_uuid_values(values))
 
 
-def _latest_passed_releases_by_harness(
+def _latest_passed_release_bindings_by_request(
     session: Session,
-    harness_names: Iterable[str],
-) -> dict[str, SearchHarnessRelease]:
-    names = _string_values(harness_names)
-    if not names:
-        return {}
-    rows = list(
+    request_rows_by_id: dict[str, SearchRequestRecord],
+) -> tuple[dict[str, dict[str, Any]], dict[str, SearchHarnessRelease]]:
+    harness_names = _string_values(row.harness_name for row in request_rows_by_id.values())
+    if not harness_names:
+        return {}, {}
+    release_rows = list(
         session.scalars(
             select(SearchHarnessRelease)
             .where(
-                SearchHarnessRelease.candidate_harness_name.in_(names),
+                SearchHarnessRelease.candidate_harness_name.in_(harness_names),
                 SearchHarnessRelease.outcome == "passed",
             )
             .order_by(
@@ -1446,10 +1460,44 @@ def _latest_passed_releases_by_harness(
             )
         )
     )
-    latest_by_harness: dict[str, SearchHarnessRelease] = {}
-    for row in rows:
-        latest_by_harness.setdefault(row.candidate_harness_name, row)
-    return latest_by_harness
+    release_rows_by_harness: dict[str, list[SearchHarnessRelease]] = {
+        harness_name: [] for harness_name in harness_names
+    }
+    for row in release_rows:
+        release_rows_by_harness.setdefault(row.candidate_harness_name, []).append(row)
+
+    bindings_by_request_id: dict[str, dict[str, Any]] = {}
+    releases_by_id: dict[str, SearchHarnessRelease] = {}
+    for request_id, request_row in request_rows_by_id.items():
+        selected_release = next(
+            (
+                row
+                for row in release_rows_by_harness.get(request_row.harness_name, [])
+                if row.created_at <= request_row.created_at
+            ),
+            None,
+        )
+        binding = {
+            "search_request_id": request_id,
+            "harness_name": request_row.harness_name,
+            "search_request_created_at": request_row.created_at,
+            "search_harness_release_id": (
+                str(selected_release.id) if selected_release is not None else None
+            ),
+            "search_harness_release_created_at": (
+                selected_release.created_at if selected_release is not None else None
+            ),
+            "selection_rule": "latest_passed_release_at_or_before_search_request",
+            "selection_status": (
+                "release_found_before_request"
+                if selected_release is not None
+                else "no_passed_release_before_request"
+            ),
+        }
+        bindings_by_request_id[request_id] = _json_payload(binding)
+        if selected_release is not None:
+            releases_by_id[str(selected_release.id)] = selected_release
+    return bindings_by_request_id, releases_by_id
 
 
 def _latest_release_audit_bundles_by_release(
@@ -1526,6 +1574,57 @@ def _claim_source_values(
     )
 
 
+def _claim_derivation_provenance_lock_contract_mismatches(
+    row: ClaimEvidenceDerivation,
+) -> list[str]:
+    lock = dict(row.provenance_lock_json or {})
+    if not lock:
+        return ["provenance_lock"]
+    mismatches: list[str] = []
+    if lock.get("schema_name") != "technical_report_claim_provenance_lock":
+        mismatches.append("schema_name")
+    if lock.get("schema_version") != "1.0":
+        mismatches.append("schema_version")
+    if str(lock.get("claim_id") or "") != str(row.claim_id):
+        mismatches.append("claim_id")
+    row_values = {
+        "source_search_request_ids": row.source_search_request_ids_json or [],
+        "source_search_request_result_ids": row.source_search_request_result_ids_json or [],
+        "source_evidence_package_export_ids": (
+            row.source_evidence_package_export_ids_json or []
+        ),
+        "source_evidence_package_sha256s": row.source_evidence_package_sha256s_json or [],
+        "source_evidence_trace_sha256s": row.source_evidence_trace_sha256s_json or [],
+        "semantic_ontology_snapshot_ids": row.semantic_ontology_snapshot_ids_json or [],
+        "semantic_graph_snapshot_ids": row.semantic_graph_snapshot_ids_json or [],
+        "retrieval_reranker_artifact_ids": row.retrieval_reranker_artifact_ids_json or [],
+        "search_harness_release_ids": row.search_harness_release_ids_json or [],
+        "release_audit_bundle_ids": row.release_audit_bundle_ids_json or [],
+        "release_validation_receipt_ids": row.release_validation_receipt_ids_json or [],
+    }
+    for field_name in _CLAIM_PROVENANCE_LOCK_LIST_FIELDS:
+        if _string_values(lock.get(field_name) or []) != _string_values(
+            row_values[field_name]
+        ):
+            mismatches.append(field_name)
+    coverage = dict(lock.get("coverage") or {})
+    coverage_fields = {
+        "source_search_request_count": "source_search_request_ids",
+        "source_search_request_result_count": "source_search_request_result_ids",
+        "source_evidence_package_export_count": "source_evidence_package_export_ids",
+        "semantic_ontology_snapshot_count": "semantic_ontology_snapshot_ids",
+        "semantic_graph_snapshot_count": "semantic_graph_snapshot_ids",
+        "retrieval_reranker_artifact_count": "retrieval_reranker_artifact_ids",
+        "search_harness_release_count": "search_harness_release_ids",
+        "release_audit_bundle_count": "release_audit_bundle_ids",
+        "release_validation_receipt_count": "release_validation_receipt_ids",
+    }
+    for coverage_key, field_name in coverage_fields.items():
+        if coverage.get(coverage_key) != len(_string_values(lock.get(field_name) or [])):
+            mismatches.append(f"coverage.{coverage_key}")
+    return mismatches
+
+
 def _apply_technical_report_claim_provenance_locks(
     session: Session,
     draft_payload: dict[str, Any],
@@ -1575,18 +1674,18 @@ def _apply_technical_report_claim_provenance_locks(
             field_name="source_search_request_ids",
         )
     )
-    request_harness_by_id: dict[str, str] = {}
+    request_rows_by_id: dict[str, SearchRequestRecord] = {}
     if all_search_request_ids:
         requests = session.scalars(
             select(SearchRequestRecord).where(SearchRequestRecord.id.in_(all_search_request_ids))
         )
-        request_harness_by_id = {str(row.id): row.harness_name for row in requests}
+        request_rows_by_id = {str(row.id): row for row in requests}
 
-    releases_by_harness = _latest_passed_releases_by_harness(
+    release_bindings_by_request_id, releases_by_id = _latest_passed_release_bindings_by_request(
         session,
-        request_harness_by_id.values(),
+        request_rows_by_id,
     )
-    release_ids = _uuid_values(row.id for row in releases_by_harness.values())
+    release_ids = _uuid_values(row.id for row in releases_by_id.values())
     reranker_artifacts_by_release: dict[str, list[RetrievalRerankerArtifact]] = {
         str(release_id): [] for release_id in release_ids
     }
@@ -1671,14 +1770,14 @@ def _apply_technical_report_claim_provenance_locks(
                 ],
             ]
         )
-        claim_harness_names = _string_values(
-            request_harness_by_id.get(str(request_id))
+        source_search_request_release_bindings = [
+            release_bindings_by_request_id[request_id]
             for request_id in source_search_request_ids
-        )
+            if request_id in release_bindings_by_request_id
+        ]
         claim_release_ids = _id_str_values(
-            releases_by_harness[harness_name].id
-            for harness_name in claim_harness_names
-            if harness_name in releases_by_harness
+            binding.get("search_harness_release_id")
+            for binding in source_search_request_release_bindings
         )
         retrieval_reranker_artifact_ids = _id_str_values(
             row.id
@@ -1708,6 +1807,9 @@ def _apply_technical_report_claim_provenance_locks(
             "semantic_graph_snapshot_ids": semantic_graph_snapshot_ids,
             "retrieval_reranker_artifact_ids": retrieval_reranker_artifact_ids,
             "search_harness_release_ids": claim_release_ids,
+            "source_search_request_release_bindings": (
+                source_search_request_release_bindings
+            ),
             "release_audit_bundle_ids": release_audit_bundle_ids,
             "release_validation_receipt_ids": release_validation_receipt_ids,
             "coverage": {
@@ -2418,6 +2520,7 @@ def _technical_report_integrity_payload(
     mismatched_claim_ids: list[str] = []
     package_mismatched_claim_ids: list[str] = []
     provenance_lock_mismatched_claim_ids: list[str] = []
+    provenance_lock_contract_mismatched_claim_ids: list[str] = []
     missing_provenance_lock_claim_ids: list[str] = []
     for row in derivations:
         expected_derivation = expected_derivations_by_claim_id.get(str(row.claim_id))
@@ -2442,6 +2545,8 @@ def _technical_report_integrity_payload(
             or row.provenance_lock_sha256 != expected_provenance_lock_sha256
         ):
             provenance_lock_mismatched_claim_ids.append(str(row.claim_id))
+        if _claim_derivation_provenance_lock_contract_mismatches(row):
+            provenance_lock_contract_mismatched_claim_ids.append(str(row.claim_id))
 
     return {
         "expected_evidence_package_sha256": expected_package_sha256,
@@ -2455,11 +2560,17 @@ def _technical_report_integrity_payload(
         "claim_derivation_hash_mismatch_count": len(mismatched_claim_ids),
         "claim_package_hash_mismatch_count": len(package_mismatched_claim_ids),
         "claim_provenance_lock_mismatch_count": len(provenance_lock_mismatched_claim_ids),
+        "claim_provenance_lock_contract_mismatch_count": len(
+            provenance_lock_contract_mismatched_claim_ids
+        ),
         "missing_claim_provenance_lock_count": len(missing_provenance_lock_claim_ids),
         "missing_claim_derivation_count": len(missing_claim_derivation_ids),
         "mismatched_claim_ids": sorted(mismatched_claim_ids),
         "package_mismatched_claim_ids": sorted(package_mismatched_claim_ids),
         "provenance_lock_mismatched_claim_ids": sorted(provenance_lock_mismatched_claim_ids),
+        "provenance_lock_contract_mismatched_claim_ids": sorted(
+            provenance_lock_contract_mismatched_claim_ids
+        ),
         "missing_provenance_lock_claim_ids": sorted(missing_provenance_lock_claim_ids),
         "missing_claim_derivation_ids": missing_claim_derivation_ids,
     }
@@ -5731,6 +5842,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and integrity["claim_derivation_hash_mismatch_count"] == 0
         and integrity["claim_package_hash_mismatch_count"] == 0
         and integrity["claim_provenance_lock_mismatch_count"] == 0
+        and integrity["claim_provenance_lock_contract_mismatch_count"] == 0
         and integrity["missing_claim_provenance_lock_count"] == 0
         and integrity["missing_claim_derivation_count"] == 0
     )
@@ -5777,6 +5889,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             )
             and integrity["missing_claim_provenance_lock_count"] == 0
             and integrity["claim_provenance_lock_mismatch_count"] == 0,
+            "all_claim_provenance_locks_match_claim_fields": (
+                integrity["claim_provenance_lock_contract_mismatch_count"] == 0
+            ),
             "all_claims_have_source_search_results": bool(draft_payload.get("claims"))
             and all(
                 claim.get("source_search_request_result_ids")
@@ -5834,6 +5949,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
     audit_bundle["audit_checklist"]["complete"] = (
         audit_bundle["audit_checklist"]["generation_evidence_closed"]
         and audit_bundle["audit_checklist"]["all_claims_have_provenance_locks"]
+        and audit_bundle["audit_checklist"][
+            "all_claim_provenance_locks_match_claim_fields"
+        ]
         and audit_bundle["audit_checklist"]["all_claims_have_source_search_results"]
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]

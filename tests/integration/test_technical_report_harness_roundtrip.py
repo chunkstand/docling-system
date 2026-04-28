@@ -328,6 +328,7 @@ def test_technical_report_harness_roundtrip(
         assert verification["metrics"]["evidence_package_integrity_mismatch_count"] == 0
         assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
         assert verification["metrics"]["provenance_lock_integrity_mismatch_count"] == 0
+        assert verification["metrics"]["provenance_lock_contract_mismatch_count"] == 0
         assert (
             verification["metrics"]["claims_missing_source_search_request_result_count"]
             == 0
@@ -431,6 +432,9 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["has_frozen_evidence_package"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_provenance_locks"] is True
+    assert audit_bundle["audit_checklist"][
+        "all_claim_provenance_locks_match_claim_fields"
+    ] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_source_search_results"] is True
     assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_source_evidence_packages"] is True
@@ -466,6 +470,7 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["integrity"]["claim_derivation_hash_mismatch_count"] == 0
     assert audit_bundle["integrity"]["claim_package_hash_mismatch_count"] == 0
     assert audit_bundle["integrity"]["claim_provenance_lock_mismatch_count"] == 0
+    assert audit_bundle["integrity"]["claim_provenance_lock_contract_mismatch_count"] == 0
     assert audit_bundle["integrity"]["missing_claim_provenance_lock_count"] == 0
     report_export = next(
         row
