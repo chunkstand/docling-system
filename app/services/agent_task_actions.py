@@ -2379,6 +2379,7 @@ def _apply_claim_support_calibration_policy_executor(
         governance_event=governance_event,
         governance_artifact=governance_artifact,
         change_impact_id=change_impact_id,
+        storage_service=storage_service,
     )
     governance_receipt = governance_payload.get("activation_governance_receipt") or {}
     governance_integrity = governance_payload.get("integrity") or {}

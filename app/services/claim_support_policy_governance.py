@@ -513,6 +513,7 @@ def persist_claim_support_policy_change_impact(
     governance_event: SemanticGovernanceEvent | None,
     governance_artifact: AgentTaskArtifact | None,
     change_impact_id: UUID | None = None,
+    storage_service: Any | None = None,
 ) -> ClaimSupportPolicyChangeImpact:
     recorded_sha = str(impact_payload.get(CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD) or "")
     expected_sha = claim_support_policy_change_impact_payload_sha256(impact_payload)
@@ -596,6 +597,17 @@ def persist_claim_support_policy_change_impact(
     )
     session.add(row)
     session.flush()
+    if replay_recommended_count <= 0:
+        from app.services.claim_support_policy_impacts import (
+            refresh_claim_support_policy_change_impact_replay_status,
+        )
+
+        refresh_claim_support_policy_change_impact_replay_status(
+            session,
+            row.id,
+            storage_service=storage_service,
+            commit=False,
+        )
     return row
 
 

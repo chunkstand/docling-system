@@ -59,6 +59,10 @@ REPLAY_OPEN_STATUSES = {
     "in_progress",
     "blocked",
 }
+REPLAY_TERMINAL_STATUSES = {
+    "closed",
+    "no_action_required",
+}
 REPLAY_PLAN_HASH_FIELD = "replay_task_plan_sha256"
 REPLAY_CLOSURE_HASH_FIELD = "replay_closure_sha256"
 
@@ -171,6 +175,66 @@ def _verify_replay_closure_integrity(row: ClaimSupportPolicyChangeImpact) -> Non
             change_impact_id=str(row.id),
             row_sha256=recorded_row_sha,
             payload_sha256=recorded_payload_sha,
+        )
+
+
+def _verify_terminal_replay_closure_integrity(
+    row: ClaimSupportPolicyChangeImpact,
+) -> None:
+    if row.replay_status not in REPLAY_TERMINAL_STATUSES:
+        return
+    closure = dict(row.replay_closure_json or {})
+    if not closure:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_closure_missing",
+            "Terminal claim support impact replay rows must include a closure receipt.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
+        )
+    _verify_replay_closure_integrity(row)
+    recorded_payload_sha = closure.get(REPLAY_CLOSURE_HASH_FIELD)
+    if not recorded_payload_sha:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_closure_hash_missing",
+            "Terminal claim support impact replay closures must include a payload hash.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
+        )
+    if not row.replay_closure_sha256:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_row_hash_missing",
+            "Terminal claim support impact replay rows must record the closure hash.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
+            replay_closure_sha256=recorded_payload_sha,
+        )
+    if closure.get("status") != row.replay_status:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_status_mismatch",
+            "Terminal claim support impact replay closure status does not match the row.",
+            change_impact_id=str(row.id),
+            row_replay_status=row.replay_status,
+            closure_status=closure.get("status"),
+        )
+    if closure.get("closed") is not True:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_not_closed",
+            "Terminal claim support impact replay closures must be marked closed.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
+        )
+    if row.replay_closed_at is None:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_closed_at_missing",
+            "Terminal claim support impact replay rows must record replay_closed_at.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
         )
 
 
@@ -640,7 +704,7 @@ def _record_replay_closure_governance_event(
         return None
     if not row.replay_closure_json:
         return None
-    _verify_replay_closure_integrity(row)
+    _verify_terminal_replay_closure_integrity(row)
     closure_sha256 = _replay_closure_hash(row)
     if not closure_sha256:
         return None
@@ -901,6 +965,7 @@ def refresh_claim_support_policy_change_impact_replay_status(
     _verify_replay_closure_integrity(row)
     now = utcnow()
     if row.replay_status in {"closed", "no_action_required"} and row.replay_closure_json:
+        _verify_terminal_replay_closure_integrity(row)
         _record_replay_closure_governance_event(
             session,
             row,
@@ -911,6 +976,22 @@ def refresh_claim_support_policy_change_impact_replay_status(
         else:
             session.flush()
         return _replay_response(row)
+    if row.replay_status == "closed":
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_terminal_closure_missing",
+            "Closed claim support impact replay rows must include a closure receipt.",
+            change_impact_id=str(row.id),
+            replay_status=row.replay_status,
+        )
+    if row.replay_status == "no_action_required" and row.replay_recommended_count > 0:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_no_action_inconsistent",
+            "No-action claim support impact replay rows cannot require replay tasks.",
+            change_impact_id=str(row.id),
+            replay_recommended_count=row.replay_recommended_count,
+        )
 
     if row.replay_recommended_count <= 0:
         closure_basis = {

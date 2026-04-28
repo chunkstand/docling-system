@@ -188,6 +188,14 @@ $$;
 """
 
 
+PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL = _protected_artifact_mutation_function_sql(
+    PROTECTED_ARTIFACT_KINDS
+)
+LEGACY_PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL = _protected_artifact_mutation_function_sql(
+    LEGACY_PROTECTED_ARTIFACT_KINDS
+)
+
+
 def upgrade() -> None:
     op.drop_constraint(
         "ck_semantic_governance_events_event_kind",
@@ -199,7 +207,7 @@ def upgrade() -> None:
         "semantic_governance_events",
         SEMANTIC_GOVERNANCE_EVENT_KIND_CHECK_SQL,
     )
-    op.execute(_protected_artifact_mutation_function_sql(PROTECTED_ARTIFACT_KINDS))
+    op.execute(PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL)
 
 
 def downgrade() -> None:
@@ -213,4 +221,4 @@ def downgrade() -> None:
         "semantic_governance_events",
         LEGACY_SEMANTIC_GOVERNANCE_EVENT_KIND_CHECK_SQL,
     )
-    op.execute(_protected_artifact_mutation_function_sql(LEGACY_PROTECTED_ARTIFACT_KINDS))
+    op.execute(LEGACY_PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL)

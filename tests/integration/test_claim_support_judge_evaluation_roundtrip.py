@@ -42,6 +42,11 @@ from app.services.claim_support_evaluations import (
     ensure_claim_support_calibration_policy,
     resolve_claim_support_calibration_policy,
 )
+from app.services.claim_support_policy_governance import (
+    CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD,
+    claim_support_policy_change_impact_payload_sha256,
+    persist_claim_support_policy_change_impact,
+)
 from app.services.evidence import get_agent_task_audit_bundle, payload_sha256
 
 pytestmark = pytest.mark.skipif(
@@ -71,6 +76,24 @@ def _load_revision_0059():
     )
     if spec is None or spec.loader is None:
         raise AssertionError("Failed to load 0059 migration module")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_revision_0062():
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "alembic"
+        / "versions"
+        / "0062_claim_support_impact_replay_governance.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "revision_0062_claim_support_impact_replay_governance",
+        path,
+    )
+    if spec is None or spec.loader is None:
+        raise AssertionError("Failed to load 0062 migration module")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -306,7 +329,7 @@ def _install_claim_support_governance_immutability_trigger(
     postgres_integration_harness,
     postgres_schema_engine,
 ) -> str:
-    revision_0059 = _load_revision_0059()
+    revision_0062 = _load_revision_0062()
     _engine, schema_name = postgres_schema_engine
     trigger_sql = """
     DROP TRIGGER IF EXISTS trg_agent_task_artifacts_prevent_frozen_prov_mutation
@@ -318,7 +341,7 @@ def _install_claim_support_governance_immutability_trigger(
     """
     with postgres_integration_harness.session_factory() as session:
         session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
-        session.execute(text(revision_0059.PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL))
+        session.execute(text(revision_0062.PROTECTED_ARTIFACT_MUTATION_FUNCTION_SQL))
         session.execute(text(trigger_sql))
         session.commit()
     return schema_name
@@ -653,6 +676,48 @@ def _assert_claim_support_activation_governance(
         impact_row.id
     )
     return governance_payload
+
+
+def _claim_support_change_impact_payload_without_replay(
+    *,
+    change_impact_id: UUID,
+) -> dict:
+    payload = {
+        "schema_name": "claim_support_policy_change_impact",
+        "schema_version": "1.0",
+        "change_impact_id": str(change_impact_id),
+        "impact_scope": "claim_support_policy:claim_support_judge_calibration_policy",
+        "activation": {
+            "reason": "no impacted prior support judgments",
+        },
+        "semantic_basis": {},
+        "impact_summary": {
+            "affected_support_judgment_count": 0,
+            "affected_generated_document_count": 0,
+            "affected_technical_report_verification_count": 0,
+            "replay_recommended_count": 0,
+        },
+        "impact_reasons": [],
+        "affected_ids": {
+            "claim_derivation_ids": [],
+            "draft_task_ids": [],
+            "verification_task_ids": [],
+        },
+        "affected_support_judgments": [],
+        "affected_generated_documents": {
+            "draft_task_ids": [],
+            "artifacts": [],
+        },
+        "affected_technical_report_verifications": [],
+        "replay_recommendations": [],
+        "integrity_inputs": {},
+    }
+    return {
+        **payload,
+        CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD: (
+            claim_support_policy_change_impact_payload_sha256(payload)
+        ),
+    }
 
 
 def test_claim_support_judge_evaluation_task_persists_replay_rows(
@@ -1474,6 +1539,174 @@ def test_claim_support_policy_activation_records_change_impact_for_prior_reports
         assert closed_policy_impacts["impacts"][0]["closure_governance_events"][0][
             "event_id"
         ] == str(closure_event.id)
+
+
+def test_claim_support_change_impact_without_replay_records_terminal_closure(
+    postgres_integration_harness,
+    postgres_schema_engine,
+):
+    change_impact_id = uuid4()
+    with postgres_integration_harness.session_factory() as session:
+        policy = ensure_claim_support_calibration_policy(
+            session,
+            policy_payload=build_claim_support_calibration_policy_payload(),
+        )
+        activation_task = AgentTask(
+            id=uuid4(),
+            task_type="apply_claim_support_policy",
+            status=AgentTaskStatus.COMPLETED.value,
+            priority=100,
+            side_effect_level="promotable",
+            requires_approval=True,
+            input_json={},
+            result_json={},
+            workflow_version="claim_support_policy_activation_v1",
+            model_settings_json={},
+            created_at=utcnow(),
+            updated_at=utcnow(),
+            completed_at=utcnow(),
+        )
+        session.add(activation_task)
+        session.flush()
+        activation_task_id = activation_task.id
+
+        row = persist_claim_support_policy_change_impact(
+            session,
+            impact_payload=_claim_support_change_impact_payload_without_replay(
+                change_impact_id=change_impact_id,
+            ),
+            task=activation_task,
+            activated_policy=policy,
+            previous_active_policy=None,
+            governance_event=None,
+            governance_artifact=None,
+            change_impact_id=change_impact_id,
+            storage_service=postgres_integration_harness.storage_service,
+        )
+        session.commit()
+        assert row.replay_status == "no_action_required"
+        assert row.replay_closed_at is not None
+        assert row.replay_closure_sha256
+        assert row.replay_closure_json["status"] == "no_action_required"
+        assert row.replay_closure_json["closed"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        closure_events = list(
+            session.scalars(
+                select(SemanticGovernanceEvent)
+                .where(
+                    SemanticGovernanceEvent.subject_table
+                    == "claim_support_policy_change_impacts",
+                    SemanticGovernanceEvent.subject_id == change_impact_id,
+                    SemanticGovernanceEvent.event_kind
+                    == "claim_support_policy_impact_replay_closed",
+                )
+                .order_by(SemanticGovernanceEvent.created_at.asc())
+            )
+        )
+        assert len(closure_events) == 1
+        closure_event = closure_events[0]
+        assert closure_event.task_id == activation_task_id
+        assert closure_event.receipt_sha256
+        closure_artifact = session.get(
+            AgentTaskArtifact,
+            closure_event.agent_task_artifact_id,
+        )
+        assert closure_artifact is not None
+        assert closure_artifact.task_id == activation_task_id
+        assert closure_artifact.artifact_kind == "claim_support_policy_impact_replay_closure"
+        assert closure_artifact.payload_json["receipt_sha256"] == closure_event.receipt_sha256
+        closure_artifact_id = closure_artifact.id
+
+    schema_name = _install_claim_support_governance_immutability_trigger(
+        postgres_integration_harness,
+        postgres_schema_engine,
+    )
+    try:
+        with postgres_integration_harness.session_factory() as session:
+            session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+            session.execute(
+                update(AgentTaskArtifact)
+                .where(AgentTaskArtifact.id == closure_artifact_id)
+                .values(payload_json={"tampered": True})
+            )
+            session.commit()
+
+        with postgres_integration_harness.session_factory() as session:
+            closure_artifact = session.get(AgentTaskArtifact, closure_artifact_id)
+            assert closure_artifact is not None
+            assert (
+                closure_artifact.payload_json["schema_name"]
+                == "claim_support_policy_impact_replay_closure_receipt"
+            )
+            mutation_events = list(
+                session.scalars(
+                    select(AgentTaskArtifactImmutabilityEvent)
+                    .where(
+                        AgentTaskArtifactImmutabilityEvent.artifact_id
+                        == closure_artifact_id
+                    )
+                    .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+                )
+            )
+            assert [row.mutation_operation for row in mutation_events] == ["UPDATE"]
+
+        with postgres_integration_harness.session_factory() as session:
+            session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
+            session.execute(
+                delete(AgentTaskArtifact).where(
+                    AgentTaskArtifact.id == closure_artifact_id
+                )
+            )
+            session.commit()
+
+        with postgres_integration_harness.session_factory() as session:
+            assert session.get(AgentTaskArtifact, closure_artifact_id) is not None
+            mutation_events = list(
+                session.scalars(
+                    select(AgentTaskArtifactImmutabilityEvent)
+                    .where(
+                        AgentTaskArtifactImmutabilityEvent.artifact_id
+                        == closure_artifact_id
+                    )
+                    .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+                )
+            )
+            assert [row.mutation_operation for row in mutation_events] == [
+                "UPDATE",
+                "DELETE",
+            ]
+    finally:
+        _drop_claim_support_governance_immutability_trigger(
+            postgres_integration_harness,
+            schema_name,
+        )
+
+    with postgres_integration_harness.session_factory() as session:
+        impact_row = session.get(ClaimSupportPolicyChangeImpact, change_impact_id)
+        assert impact_row is not None
+        closure = dict(impact_row.replay_closure_json)
+        closure_basis = {
+            **closure,
+            "status": "closed",
+        }
+        closure_basis.pop("replay_closure_sha256", None)
+        tampered_closure = {
+            **closure_basis,
+            "replay_closure_sha256": payload_sha256(closure_basis),
+        }
+        impact_row.replay_closure_json = tampered_closure
+        impact_row.replay_closure_sha256 = tampered_closure["replay_closure_sha256"]
+        session.commit()
+
+    tampered_response = postgres_integration_harness.client.post(
+        f"/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status",
+    )
+    assert tampered_response.status_code == 409
+    assert (
+        tampered_response.json()["error_code"]
+        == "claim_support_impact_replay_terminal_status_mismatch"
+    )
 
 
 def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
