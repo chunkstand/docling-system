@@ -22,6 +22,7 @@ from app.db.models import (
     RetrievalJudgment,
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
+    RetrievalRerankerArtifact,
     RetrievalTrainingRun,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
@@ -273,6 +274,65 @@ def _retrieval_learning_candidate_payload(
     }
 
 
+def _retrieval_reranker_artifact_payload(row: RetrievalRerankerArtifact) -> dict[str, Any]:
+    artifact_payload = row.artifact_payload_json or {}
+    change_impact_report = row.change_impact_report_json or {}
+    payload_training_run = artifact_payload.get("retrieval_training_run") or {}
+    payload_evaluation = artifact_payload.get("evaluation") or {}
+    payload_release = artifact_payload.get("release") or {}
+    return {
+        "artifact_id": str(row.id),
+        "retrieval_training_run_id": str(row.retrieval_training_run_id),
+        "judgment_set_id": str(row.judgment_set_id),
+        "retrieval_learning_candidate_evaluation_id": str(
+            row.retrieval_learning_candidate_evaluation_id
+        ),
+        "search_harness_evaluation_id": str(row.search_harness_evaluation_id),
+        "search_harness_release_id": (
+            str(row.search_harness_release_id) if row.search_harness_release_id else None
+        ),
+        "semantic_governance_event_id": (
+            str(row.semantic_governance_event_id) if row.semantic_governance_event_id else None
+        ),
+        "artifact_kind": row.artifact_kind,
+        "artifact_name": row.artifact_name,
+        "artifact_version": row.artifact_version,
+        "status": row.status,
+        "gate_outcome": row.gate_outcome,
+        "baseline_harness_name": row.baseline_harness_name,
+        "candidate_harness_name": row.candidate_harness_name,
+        "source_types": row.source_types_json or [],
+        "limit": row.limit,
+        "training_dataset_sha256": row.training_dataset_sha256,
+        "training_example_count": row.training_example_count,
+        "positive_count": row.positive_count,
+        "negative_count": row.negative_count,
+        "missing_count": row.missing_count,
+        "hard_negative_count": row.hard_negative_count,
+        "thresholds": row.thresholds_json or {},
+        "metrics": row.metrics_json or {},
+        "reasons": row.reasons_json or [],
+        "feature_weights": row.feature_weights_json or {},
+        "harness_overrides": row.harness_overrides_json or {},
+        "artifact_sha256": row.artifact_sha256,
+        "payload_artifact_sha256": _payload_sha256(artifact_payload),
+        "change_impact_sha256": row.change_impact_sha256,
+        "payload_change_impact_sha256": _payload_sha256(change_impact_report),
+        "payload_training_run_id": payload_training_run.get("retrieval_training_run_id"),
+        "payload_training_dataset_sha256": payload_training_run.get("training_dataset_sha256"),
+        "payload_evaluation_id": payload_evaluation.get("evaluation_id"),
+        "payload_release_id": payload_release.get("release_id"),
+        "artifact_payload": artifact_payload,
+        "change_impact_report": change_impact_report,
+        "evaluation_snapshot": row.evaluation_snapshot_json or {},
+        "release_snapshot": row.release_snapshot_json or {},
+        "created_by": row.created_by,
+        "review_note": row.review_note,
+        "created_at": row.created_at.isoformat(),
+        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
+    }
+
+
 def _retrieval_training_run_payload(row: RetrievalTrainingRun) -> dict[str, Any]:
     return {
         "retrieval_training_run_id": str(row.id),
@@ -297,17 +357,13 @@ def _retrieval_training_run_full_payload(row: RetrievalTrainingRun) -> dict[str,
     payload.update(
         {
             "search_harness_evaluation_id": (
-                str(row.search_harness_evaluation_id)
-                if row.search_harness_evaluation_id
-                else None
+                str(row.search_harness_evaluation_id) if row.search_harness_evaluation_id else None
             ),
             "search_harness_release_id": (
                 str(row.search_harness_release_id) if row.search_harness_release_id else None
             ),
             "semantic_governance_event_id": (
-                str(row.semantic_governance_event_id)
-                if row.semantic_governance_event_id
-                else None
+                str(row.semantic_governance_event_id) if row.semantic_governance_event_id else None
             ),
             "training_payload": row.training_payload_json or {},
         }
@@ -449,9 +505,7 @@ def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
         "signing_key_id": row.signing_key_id,
         "payload_source_table": payload_source.get("source_table"),
         "payload_source_id": payload_source.get("source_id"),
-        "payload_training_dataset_sha256": payload_training_run.get(
-            "training_dataset_sha256"
-        ),
+        "payload_training_dataset_sha256": payload_training_run.get("training_dataset_sha256"),
         "payload_training_dataset_hash_matches": payload_integrity.get(
             "training_dataset_hash_matches"
         ),
@@ -503,9 +557,7 @@ def _load_governance_event_chain(
     while pending_ids:
         rows = (
             session.execute(
-                select(SemanticGovernanceEvent).where(
-                    SemanticGovernanceEvent.id.in_(pending_ids)
-                )
+                select(SemanticGovernanceEvent).where(SemanticGovernanceEvent.id.in_(pending_ids))
             )
             .scalars()
             .all()
@@ -680,27 +732,12 @@ def _validate_bundle_payload_schema(
                     "bundle.payload.schema_name",
                 )
             )
-        _append_missing_key_errors(
-            errors,
-            payload,
-            (
-                "release",
-                "evaluation",
-                "evaluation_sources",
-                "replay_runs",
-                "retrieval_learning_candidates",
-                "retrieval_training_runs",
-                "retrieval_training_audit_bundles",
-                "retrieval_training_audit_bundle_validation_receipts",
-                "semantic_governance_events",
-                "semantic_governance_policy",
-                "audit_checklist",
-                "integrity",
-                "prov",
-            ),
-            path="bundle.payload",
+        requires_reranker_artifacts = (
+            payload.get("schema_version") != "1.0" or "retrieval_reranker_artifacts" in payload
         )
-        for key in (
+        required_keys = [
+            "release",
+            "evaluation",
             "evaluation_sources",
             "replay_runs",
             "retrieval_learning_candidates",
@@ -708,7 +745,30 @@ def _validate_bundle_payload_schema(
             "retrieval_training_audit_bundles",
             "retrieval_training_audit_bundle_validation_receipts",
             "semantic_governance_events",
-        ):
+            "semantic_governance_policy",
+            "audit_checklist",
+            "integrity",
+            "prov",
+        ]
+        required_list_keys = [
+            "evaluation_sources",
+            "replay_runs",
+            "retrieval_learning_candidates",
+            "retrieval_training_runs",
+            "retrieval_training_audit_bundles",
+            "retrieval_training_audit_bundle_validation_receipts",
+            "semantic_governance_events",
+        ]
+        if requires_reranker_artifacts:
+            required_keys.append("retrieval_reranker_artifacts")
+            required_list_keys.append("retrieval_reranker_artifacts")
+        _append_missing_key_errors(
+            errors,
+            payload,
+            tuple(required_keys),
+            path="bundle.payload",
+        )
+        for key in required_list_keys:
             _append_required_list_error(errors, payload, key, path="bundle.payload")
         audit_checklist = payload.get("audit_checklist") or {}
         integrity = payload.get("integrity") or {}
@@ -726,6 +786,28 @@ def _validate_bundle_payload_schema(
                     "training_bundle_hash_mismatch",
                     "Training audit bundle hashes must match linked training runs.",
                     "bundle.payload.integrity.training_audit_bundle_hashes_match_training_runs",
+                )
+            )
+        if (
+            requires_reranker_artifacts
+            and integrity.get("reranker_artifact_hashes_match") is not True
+        ):
+            errors.append(
+                _validation_error(
+                    "reranker_artifact_hash_mismatch",
+                    "Reranker artifact hashes must match their frozen payloads.",
+                    "bundle.payload.integrity.reranker_artifact_hashes_match",
+                )
+            )
+        if (
+            requires_reranker_artifacts
+            and integrity.get("reranker_artifact_change_impacts_complete") is not True
+        ):
+            errors.append(
+                _validation_error(
+                    "reranker_artifact_change_impact_incomplete",
+                    "Reranker artifact change-impact reports must be complete.",
+                    "bundle.payload.integrity.reranker_artifact_change_impacts_complete",
                 )
             )
     elif row.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND:
@@ -863,9 +945,7 @@ def _semantic_governance_chain_checks(
 ) -> dict[str, Any]:
     event_ids = {str(row.get("event_id")) for row in events if row.get("event_id")}
     event_hashes_by_id = {
-        str(row.get("event_id")): row.get("event_hash")
-        for row in events
-        if row.get("event_id")
+        str(row.get("event_id")): row.get("event_hash") for row in events if row.get("event_id")
     }
     external_previous_event_count = 0
     hash_link_mismatch_count = 0
@@ -1134,6 +1214,7 @@ def _prov_graph(
     sources: list[SearchHarnessEvaluationSource],
     replay_runs: list[SearchReplayRun],
     learning_candidates: list[RetrievalLearningCandidateEvaluation],
+    reranker_artifacts: list[RetrievalRerankerArtifact],
     training_runs: list[RetrievalTrainingRun],
     training_audit_bundles: list[AuditBundleExport],
     judgment_sets: list[RetrievalJudgmentSet],
@@ -1182,6 +1263,14 @@ def _prov_graph(
             "prov:type": "docling:RetrievalLearningCandidateEvaluation",
             "docling:gateOutcome": candidate.gate_outcome,
             "docling:learningPackageSha256": candidate.learning_package_sha256,
+        }
+    for artifact in reranker_artifacts:
+        entities[f"docling:retrieval_reranker_artifact:{artifact.id}"] = {
+            "prov:type": "docling:RetrievalRerankerArtifact",
+            "docling:artifactKind": artifact.artifact_kind,
+            "docling:artifactSha256": artifact.artifact_sha256,
+            "docling:changeImpactSha256": artifact.change_impact_sha256,
+            "docling:gateOutcome": artifact.gate_outcome,
         }
     for training_run in training_runs:
         entities[f"docling:retrieval_training_run:{training_run.id}"] = {
@@ -1242,9 +1331,7 @@ def _prov_graph(
         )
         judgment_set_entity = f"docling:retrieval_judgment_set:{candidate.judgment_set_id}"
         used.append({"activity": activity, "entity": candidate_entity})
-        was_derived_from.append(
-            {"generatedEntity": release_entity, "usedEntity": candidate_entity}
-        )
+        was_derived_from.append({"generatedEntity": release_entity, "usedEntity": candidate_entity})
         was_derived_from.append(
             {"generatedEntity": candidate_entity, "usedEntity": training_run_entity}
         )
@@ -1258,6 +1345,31 @@ def _prov_graph(
                     "usedEntity": (
                         "docling:semantic_governance_event:"
                         f"{candidate.semantic_governance_event_id}"
+                    ),
+                }
+            )
+
+    for artifact in reranker_artifacts:
+        artifact_entity = f"docling:retrieval_reranker_artifact:{artifact.id}"
+        candidate_entity = (
+            "docling:retrieval_learning_candidate_evaluation:"
+            f"{artifact.retrieval_learning_candidate_evaluation_id}"
+        )
+        training_run_entity = f"docling:retrieval_training_run:{artifact.retrieval_training_run_id}"
+        used.append({"activity": activity, "entity": artifact_entity})
+        was_derived_from.append({"generatedEntity": release_entity, "usedEntity": artifact_entity})
+        was_derived_from.append(
+            {"generatedEntity": artifact_entity, "usedEntity": candidate_entity}
+        )
+        was_derived_from.append(
+            {"generatedEntity": artifact_entity, "usedEntity": training_run_entity}
+        )
+        if artifact.semantic_governance_event_id is not None:
+            was_derived_from.append(
+                {
+                    "generatedEntity": artifact_entity,
+                    "usedEntity": (
+                        f"docling:semantic_governance_event:{artifact.semantic_governance_event_id}"
                     ),
                 }
             )
@@ -1377,9 +1489,7 @@ def _training_run_prov_graph(
     for judgment in judgments:
         judgment_entity = f"docling:retrieval_judgment:{judgment.id}"
         used.append({"activity": materialization_activity, "entity": judgment_entity})
-        was_derived_from.append(
-            {"generatedEntity": dataset_entity, "usedEntity": judgment_entity}
-        )
+        was_derived_from.append({"generatedEntity": dataset_entity, "usedEntity": judgment_entity})
     for hard_negative in hard_negatives:
         hard_negative_entity = f"docling:retrieval_hard_negative:{hard_negative.id}"
         used.append({"activity": materialization_activity, "entity": hard_negative_entity})
@@ -1512,24 +1622,18 @@ def _build_retrieval_training_run_payload(
     evidence_ref_count = sum(
         len(row.evidence_refs_json or []) for row in [*judgments, *hard_negatives]
     )
-    training_payload_count_matches = (
-        len(training_payload.get("judgments") or []) == len(judgments)
-        and len(training_payload.get("hard_negatives") or []) == len(hard_negatives)
-    )
+    training_payload_count_matches = len(training_payload.get("judgments") or []) == len(
+        judgments
+    ) and len(training_payload.get("hard_negatives") or []) == len(hard_negatives)
     judgment_count_matches = (
-        len(judgments) == training_run.positive_count
-        + training_run.negative_count
-        + training_run.missing_count
+        len(judgments)
+        == training_run.positive_count + training_run.negative_count + training_run.missing_count
         and len(judgments) == (judgment_set.judgment_count if judgment_set else len(judgments))
     )
-    hard_negative_count_matches = (
-        len(hard_negatives) == training_run.hard_negative_count
-        and len(hard_negatives)
-        == (judgment_set.hard_negative_count if judgment_set else len(hard_negatives))
-    )
-    example_count_matches = (
-        len(judgments) + len(hard_negatives) == training_run.example_count
-    )
+    hard_negative_count_matches = len(hard_negatives) == training_run.hard_negative_count and len(
+        hard_negatives
+    ) == (judgment_set.hard_negative_count if judgment_set else len(hard_negatives))
+    example_count_matches = len(judgments) + len(hard_negatives) == training_run.example_count
     training_dataset_hash_matches = (
         training_payload_sha256 == training_run.training_dataset_sha256
         and (
@@ -1662,8 +1766,7 @@ def _build_search_harness_release_payload(
             select(RetrievalLearningCandidateEvaluation)
             .where(
                 or_(
-                    RetrievalLearningCandidateEvaluation.search_harness_release_id
-                    == release.id,
+                    RetrievalLearningCandidateEvaluation.search_harness_release_id == release.id,
                     RetrievalLearningCandidateEvaluation.search_harness_evaluation_id
                     == release.search_harness_evaluation_id,
                 )
@@ -1673,15 +1776,76 @@ def _build_search_harness_release_payload(
         .scalars()
         .all()
     )
-    training_run_ids = sorted(
-        {row.retrieval_training_run_id for row in learning_candidates},
+    learning_candidates_by_id = {row.id: row for row in learning_candidates}
+    learning_candidate_ids = set(learning_candidates_by_id)
+    reranker_artifact_conditions = [
+        RetrievalRerankerArtifact.search_harness_release_id == release.id
+    ]
+    if learning_candidate_ids:
+        reranker_artifact_conditions.append(
+            RetrievalRerankerArtifact.retrieval_learning_candidate_evaluation_id.in_(
+                learning_candidate_ids
+            )
+        )
+    reranker_artifacts = (
+        session.execute(
+            select(RetrievalRerankerArtifact)
+            .where(or_(*reranker_artifact_conditions))
+            .order_by(RetrievalRerankerArtifact.created_at.asc())
+        )
+        .scalars()
+        .all()
+    )
+    artifact_candidate_ids = {
+        row.retrieval_learning_candidate_evaluation_id for row in reranker_artifacts
+    }
+    missing_candidate_ids = sorted(
+        artifact_candidate_ids - learning_candidate_ids,
         key=str,
     )
-    judgment_set_ids = sorted({row.judgment_set_id for row in learning_candidates}, key=str)
+    if missing_candidate_ids:
+        extra_candidates = (
+            session.execute(
+                select(RetrievalLearningCandidateEvaluation)
+                .where(RetrievalLearningCandidateEvaluation.id.in_(missing_candidate_ids))
+                .order_by(RetrievalLearningCandidateEvaluation.created_at.asc())
+            )
+            .scalars()
+            .all()
+        )
+        for row in extra_candidates:
+            learning_candidates_by_id[row.id] = row
+        learning_candidates = sorted(
+            learning_candidates_by_id.values(),
+            key=lambda row: (row.created_at, str(row.id)),
+        )
+        learning_candidate_ids = set(learning_candidates_by_id)
+    training_run_ids = sorted(
+        {
+            *(row.retrieval_training_run_id for row in learning_candidates),
+            *(row.retrieval_training_run_id for row in reranker_artifacts),
+        },
+        key=str,
+    )
+    judgment_set_ids = sorted(
+        {
+            *(row.judgment_set_id for row in learning_candidates),
+            *(row.judgment_set_id for row in reranker_artifacts),
+        },
+        key=str,
+    )
     candidate_governance_event_ids = sorted(
         {
             row.semantic_governance_event_id
             for row in learning_candidates
+            if row.semantic_governance_event_id is not None
+        },
+        key=str,
+    )
+    reranker_artifact_governance_event_ids = sorted(
+        {
+            row.semantic_governance_event_id
+            for row in reranker_artifacts
             if row.semantic_governance_event_id is not None
         },
         key=str,
@@ -1758,9 +1922,7 @@ def _build_search_harness_release_payload(
         session.execute(
             select(AuditBundleValidationReceipt)
             .where(
-                AuditBundleValidationReceipt.audit_bundle_export_id.in_(
-                    training_audit_bundle_ids
-                )
+                AuditBundleValidationReceipt.audit_bundle_export_id.in_(training_audit_bundle_ids)
             )
             .order_by(
                 AuditBundleValidationReceipt.audit_bundle_export_id.asc(),
@@ -1795,9 +1957,7 @@ def _build_search_harness_release_payload(
             "retrieval_training_run_id": str(training_run.id),
             "audit_bundle_id": str(bundle.id) if bundle else None,
             "training_dataset_sha256": training_run.training_dataset_sha256,
-            "payload_training_dataset_sha256": payload_training_run.get(
-                "training_dataset_sha256"
-            ),
+            "payload_training_dataset_sha256": payload_training_run.get("training_dataset_sha256"),
             "complete": _training_audit_bundle_matches_training_run(bundle, training_run),
         }
         training_audit_bundle_match_checks.append(check)
@@ -1815,16 +1975,56 @@ def _build_search_harness_release_payload(
             {row.id for row in ordered_governance_events}
         )
     )
+    reranker_artifact_release_links_match = all(
+        (
+            artifact.search_harness_release_id is None
+            or artifact.search_harness_release_id == release.id
+        )
+        and artifact.search_harness_evaluation_id == release.search_harness_evaluation_id
+        for artifact in reranker_artifacts
+    )
+    reranker_artifact_candidate_links_match = all(
+        artifact.retrieval_learning_candidate_evaluation_id in learning_candidate_ids
+        for artifact in reranker_artifacts
+    )
+    reranker_artifact_hashes_match = all(
+        _payload_sha256(artifact.artifact_payload_json or {}) == artifact.artifact_sha256
+        and artifact.artifact_sha256
+        for artifact in reranker_artifacts
+    )
+    reranker_artifact_change_impacts_complete = all(
+        (artifact.change_impact_report_json or {}).get("schema_name")
+        == "retrieval_reranker_change_impact_report"
+        and _payload_sha256(artifact.change_impact_report_json or {})
+        == artifact.change_impact_sha256
+        and artifact.change_impact_sha256
+        for artifact in reranker_artifacts
+    )
+    reranker_artifact_trace_complete = (
+        reranker_artifact_release_links_match
+        and reranker_artifact_candidate_links_match
+        and len(reranker_artifact_governance_event_ids) == len(reranker_artifacts)
+        and set(reranker_artifact_governance_event_ids).issubset(
+            {row.id for row in ordered_governance_events}
+        )
+        and all(
+            artifact.retrieval_training_run_id in training_runs_by_id
+            and artifact.judgment_set_id in judgment_sets_by_id
+            for artifact in reranker_artifacts
+        )
+    )
     training_audit_bundle_trace_complete = len(ordered_training_audit_bundles) == len(
         training_run_ids
     )
-    training_audit_bundle_hashes_match_training_runs = (
-        len(training_audit_bundle_match_checks) == len(training_run_ids)
-        and all(row["complete"] for row in training_audit_bundle_match_checks)
+    training_audit_bundle_hashes_match_training_runs = len(
+        training_audit_bundle_match_checks
+    ) == len(training_run_ids) and all(
+        row["complete"] for row in training_audit_bundle_match_checks
     )
-    training_audit_bundle_validation_receipts_complete = (
-        len(ordered_training_validation_receipts) == len(ordered_training_audit_bundles)
-        and all(row.validation_status == "passed" for row in ordered_training_validation_receipts)
+    training_audit_bundle_validation_receipts_complete = len(
+        ordered_training_validation_receipts
+    ) == len(ordered_training_audit_bundles) and all(
+        row.validation_status == "passed" for row in ordered_training_validation_receipts
     )
     audit_checklist = {
         "has_release_record": True,
@@ -1836,6 +2036,10 @@ def _build_search_harness_release_payload(
         "all_replay_runs_completed": all_replay_runs_completed,
         "learning_candidate_count": len(learning_candidates),
         "learning_candidate_trace_complete": learning_candidate_trace_complete,
+        "reranker_artifact_count": len(reranker_artifacts),
+        "reranker_artifact_trace_complete": reranker_artifact_trace_complete,
+        "reranker_artifact_hashes_match": reranker_artifact_hashes_match,
+        "reranker_artifact_change_impacts_complete": (reranker_artifact_change_impacts_complete),
         "training_audit_bundle_trace_complete": training_audit_bundle_trace_complete,
         "training_audit_bundle_hashes_match_training_runs": (
             training_audit_bundle_hashes_match_training_runs
@@ -1849,11 +2053,11 @@ def _build_search_harness_release_payload(
     audit_checklist["complete"] = all(
         bool(value)
         for key, value in audit_checklist.items()
-        if key != "learning_candidate_count"
+        if key not in {"learning_candidate_count", "reranker_artifact_count"}
     )
     return {
         "schema_name": "search_harness_release_audit_payload",
-        "schema_version": "1.0",
+        "schema_version": "1.1",
         "bundle_id": str(bundle_id),
         "bundle_kind": SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
         "created_at": created_at.isoformat(),
@@ -1868,6 +2072,9 @@ def _build_search_harness_release_payload(
         "replay_runs": [_replay_payload(row) for row in ordered_replay_runs],
         "retrieval_learning_candidates": [
             _retrieval_learning_candidate_payload(row) for row in learning_candidates
+        ],
+        "retrieval_reranker_artifacts": [
+            _retrieval_reranker_artifact_payload(row) for row in reranker_artifacts
         ],
         "retrieval_training_runs": [
             _retrieval_training_run_payload(row) for row in ordered_training_runs
@@ -1894,6 +2101,16 @@ def _build_search_harness_release_payload(
             "replay_run_count": len(ordered_replay_runs),
             "expected_replay_run_count": len(set(replay_run_ids)),
             "retrieval_learning_candidate_count": len(learning_candidates),
+            "reranker_artifact_count": len(reranker_artifacts),
+            "expected_reranker_artifact_count": len(reranker_artifacts),
+            "reranker_artifact_trace_complete": reranker_artifact_trace_complete,
+            "reranker_artifact_release_links_match": reranker_artifact_release_links_match,
+            "reranker_artifact_candidate_links_match": (reranker_artifact_candidate_links_match),
+            "reranker_artifact_hashes_match": reranker_artifact_hashes_match,
+            "reranker_artifact_change_impacts_complete": (
+                reranker_artifact_change_impacts_complete
+            ),
+            "reranker_artifact_governance_event_count": len(reranker_artifact_governance_event_ids),
             "training_run_count": len(ordered_training_runs),
             "expected_training_run_count": len(training_run_ids),
             "training_audit_bundle_count": len(ordered_training_audit_bundles),
@@ -1915,6 +2132,9 @@ def _build_search_harness_release_payload(
             "expected_judgment_set_count": len(judgment_set_ids),
             "semantic_governance_event_count": len(ordered_governance_events),
             "expected_candidate_governance_event_count": len(candidate_governance_event_ids),
+            "expected_reranker_artifact_governance_event_count": len(
+                reranker_artifact_governance_event_ids
+            ),
             "semantic_governance_policy_complete": semantic_governance_policy["complete"],
         },
         "prov": _prov_graph(
@@ -1923,6 +2143,7 @@ def _build_search_harness_release_payload(
             sources=sources,
             replay_runs=ordered_replay_runs,
             learning_candidates=learning_candidates,
+            reranker_artifacts=reranker_artifacts,
             training_runs=ordered_training_runs,
             training_audit_bundles=ordered_training_audit_bundles,
             judgment_sets=ordered_judgment_sets,
@@ -2167,9 +2388,7 @@ def _verify_validation_receipt(
         else row.receipt_payload_json
     )
     prov_jsonld = (
-        json.loads(prov_path.read_text())
-        if prov_path is not None
-        else row.prov_jsonld_json
+        json.loads(prov_path.read_text()) if prov_path is not None else row.prov_jsonld_json
     )
     try:
         signing_key, _key_id = _signing_key()
@@ -2211,9 +2430,7 @@ def _to_validation_receipt_response(
         else row.receipt_payload_json
     )
     prov_jsonld = (
-        json.loads(prov_path.read_text())
-        if prov_path is not None
-        else row.prov_jsonld_json
+        json.loads(prov_path.read_text()) if prov_path is not None else row.prov_jsonld_json
     )
     return AuditBundleValidationReceiptResponse(
         **_to_validation_receipt_summary(row).model_dump(),
@@ -2468,8 +2685,7 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
             select(RetrievalLearningCandidateEvaluation)
             .where(
                 or_(
-                    RetrievalLearningCandidateEvaluation.search_harness_release_id
-                    == release.id,
+                    RetrievalLearningCandidateEvaluation.search_harness_release_id == release.id,
                     RetrievalLearningCandidateEvaluation.search_harness_evaluation_id
                     == release.search_harness_evaluation_id,
                 )
@@ -2479,8 +2695,26 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
         .scalars()
         .all()
     )
+    learning_candidate_ids = {row.id for row in learning_candidates}
+    reranker_artifact_conditions = [
+        RetrievalRerankerArtifact.search_harness_release_id == release.id
+    ]
+    if learning_candidate_ids:
+        reranker_artifact_conditions.append(
+            RetrievalRerankerArtifact.retrieval_learning_candidate_evaluation_id.in_(
+                learning_candidate_ids
+            )
+        )
+    reranker_artifacts = (
+        session.execute(select(RetrievalRerankerArtifact).where(or_(*reranker_artifact_conditions)))
+        .scalars()
+        .all()
+    )
     training_run_ids = sorted(
-        {row.retrieval_training_run_id for row in learning_candidates},
+        {
+            *(row.retrieval_training_run_id for row in learning_candidates),
+            *(row.retrieval_training_run_id for row in reranker_artifacts),
+        },
         key=str,
     )
     if not training_run_ids:

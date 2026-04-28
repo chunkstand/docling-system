@@ -16,6 +16,7 @@ from app.db.models import (
     RetrievalJudgment,
     RetrievalJudgmentSet,
     RetrievalLearningCandidateEvaluation,
+    RetrievalRerankerArtifact,
     RetrievalTrainingRun,
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
@@ -365,6 +366,135 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
             created_by="integration",
         )
         candidate.semantic_governance_event_id = event.id
+        reranker_artifact_id = uuid4()
+        reranker_feature_weights = {
+            "keyword_score": 0.7,
+            "semantic_score": 0.8,
+            "table_type": 0.2,
+        }
+        reranker_harness_overrides = {
+            "reranker": {
+                "override_type": "retrieval_reranker_artifact",
+                "artifact_id": str(reranker_artifact_id),
+                "feature_weights": reranker_feature_weights,
+            }
+        }
+        artifact_payload = {
+            "schema_name": "retrieval_reranker_artifact",
+            "schema_version": "1.0",
+            "artifact_id": str(reranker_artifact_id),
+            "artifact_kind": "linear_feature_weight_candidate",
+            "artifact_name": "release-audit-reranker",
+            "artifact_version": f"wide_v2+{training_dataset_sha256[:12]}",
+            "candidate_harness_name": "wide_v2",
+            "base_harness_name": "default_v1",
+            "baseline_harness_name": "default_v1",
+            "retrieval_training_run": {
+                "retrieval_training_run_id": str(training_run_id),
+                "judgment_set_id": str(judgment_set_id),
+                "training_dataset_sha256": training_dataset_sha256,
+                "training_example_count": 2,
+            },
+            "feature_weights": reranker_feature_weights,
+            "harness_overrides": reranker_harness_overrides,
+            "evaluation": body["evaluation_snapshot"],
+            "release": body,
+        }
+        artifact_sha256 = _payload_sha256(artifact_payload)
+        change_impact_report = {
+            "schema_name": "retrieval_reranker_change_impact_report",
+            "schema_version": "1.0",
+            "artifact": {
+                "artifact_id": str(reranker_artifact_id),
+                "artifact_sha256": artifact_sha256,
+                "artifact_name": "release-audit-reranker",
+                "artifact_version": f"wide_v2+{training_dataset_sha256[:12]}",
+                "candidate_harness_name": "wide_v2",
+                "base_harness_name": "default_v1",
+            },
+            "changed_state_refs": {
+                "retrieval_training_run_id": str(training_run_id),
+                "judgment_set_id": str(judgment_set_id),
+                "training_dataset_sha256": training_dataset_sha256,
+                "search_harness_evaluation_id": str(evaluation_id),
+                "search_harness_release_id": release_id,
+            },
+            "affected_trace_summary": {
+                "matching_trace_node_count": 0,
+                "owner_trace_node_count": 0,
+                "owner_trace_edge_count": 0,
+                "affected_claim_count": 0,
+                "affected_derivation_count": 0,
+            },
+            "impact_policy": {
+                "scope": "ranking_artifact_to_training_sources_and_trace_owners",
+                "requires_release_gate": True,
+                "requires_semantic_governance_context": True,
+                "requires_trace_recheck_when_affected_claim_count_gt_zero": True,
+            },
+        }
+        change_impact_sha256 = _payload_sha256(change_impact_report)
+        reranker_artifact = RetrievalRerankerArtifact(
+            id=reranker_artifact_id,
+            retrieval_training_run_id=training_run_id,
+            judgment_set_id=judgment_set_id,
+            retrieval_learning_candidate_evaluation_id=candidate_id,
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            artifact_kind="linear_feature_weight_candidate",
+            artifact_name="release-audit-reranker",
+            artifact_version=f"wide_v2+{training_dataset_sha256[:12]}",
+            status="evaluated",
+            gate_outcome="passed",
+            baseline_harness_name="default_v1",
+            candidate_harness_name="wide_v2",
+            source_types_json=["evaluation_queries"],
+            limit=4,
+            training_dataset_sha256=training_dataset_sha256,
+            training_example_count=2,
+            positive_count=1,
+            negative_count=0,
+            missing_count=0,
+            hard_negative_count=1,
+            thresholds_json={"max_total_regressed_count": 0},
+            metrics_json={"total_shared_query_count": 4},
+            reasons_json=[],
+            feature_weights_json=reranker_feature_weights,
+            harness_overrides_json=reranker_harness_overrides,
+            artifact_payload_json=artifact_payload,
+            evaluation_snapshot_json=body["evaluation_snapshot"],
+            release_snapshot_json=body,
+            change_impact_report_json=change_impact_report,
+            artifact_sha256=artifact_sha256,
+            change_impact_sha256=change_impact_sha256,
+            created_by="integration",
+            review_note="reranker artifact audit",
+            created_at=now,
+            completed_at=now + timedelta(seconds=5),
+        )
+        session.add(reranker_artifact)
+        session.flush()
+        artifact_event = record_semantic_governance_event(
+            session,
+            event_kind="retrieval_reranker_artifact_materialized",
+            governance_scope=f"retrieval_reranker_artifact:{reranker_artifact_id}",
+            subject_table="retrieval_reranker_artifacts",
+            subject_id=reranker_artifact_id,
+            search_harness_evaluation_id=evaluation_id,
+            search_harness_release_id=UUID(release_id),
+            event_payload={
+                "retrieval_reranker_artifact": {
+                    "artifact_id": str(reranker_artifact_id),
+                    "retrieval_training_run_id": str(training_run_id),
+                    "training_dataset_sha256": training_dataset_sha256,
+                    "artifact_sha256": artifact_sha256,
+                    "change_impact_sha256": change_impact_sha256,
+                }
+            },
+            deduplication_key=f"release-audit-reranker-artifact:{reranker_artifact_id}",
+            created_by="integration",
+        )
+        reranker_artifact.semantic_governance_event_id = artifact_event.id
         session.commit()
 
     list_response = postgres_integration_harness.client.get("/search/harness-releases")
@@ -375,9 +505,10 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         f"/search/harness-releases/{release_id}"
     )
     assert detail_response.status_code == 200
-    assert detail_response.json()["details"]["per_source"]["evaluation_queries"][
-        "shared_query_count"
-    ] == 4
+    assert (
+        detail_response.json()["details"]["per_source"]["evaluation_queries"]["shared_query_count"]
+        == 4
+    )
 
     audit_response = postgres_integration_harness.client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
@@ -391,34 +522,61 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle_kind"] == "search_harness_release_provenance"
     assert audit_bundle["integrity"]["complete"] is True
     assert audit_bundle["integrity"]["signature_valid"] is True
+    assert audit_bundle["bundle"]["payload"]["schema_version"] == "1.1"
     assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
-    assert audit_bundle["bundle"]["payload"]["audit_checklist"][
-        "learning_candidate_count"
-    ] == 1
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "release_package_hash_matches"
-    ] is True
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "training_run_count"
-    ] == 1
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "training_audit_bundle_count"
-    ] == 1
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "training_audit_bundle_hashes_match_training_runs"
-    ] is True
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "training_audit_bundle_validation_receipt_count"
-    ] == 1
-    assert audit_bundle["bundle"]["payload"]["integrity"][
-        "training_audit_bundle_validation_receipts_complete"
-    ] is True
-    assert audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
-        "training_dataset_sha256"
-    ] == training_dataset_sha256
-    assert audit_bundle["bundle"]["payload"]["retrieval_training_runs"][0][
-        "training_dataset_sha256"
-    ] == training_dataset_sha256
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["learning_candidate_count"] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"]["release_package_hash_matches"] is True
+    assert audit_bundle["bundle"]["payload"]["integrity"]["training_run_count"] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"]["training_audit_bundle_count"] == 1
+    assert (
+        audit_bundle["bundle"]["payload"]["integrity"][
+            "training_audit_bundle_hashes_match_training_runs"
+        ]
+        is True
+    )
+    assert (
+        audit_bundle["bundle"]["payload"]["integrity"][
+            "training_audit_bundle_validation_receipt_count"
+        ]
+        == 1
+    )
+    assert (
+        audit_bundle["bundle"]["payload"]["integrity"][
+            "training_audit_bundle_validation_receipts_complete"
+        ]
+        is True
+    )
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["reranker_artifact_count"] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"]["reranker_artifact_count"] == 1
+    assert (
+        audit_bundle["bundle"]["payload"]["integrity"]["reranker_artifact_trace_complete"] is True
+    )
+    assert audit_bundle["bundle"]["payload"]["integrity"]["reranker_artifact_hashes_match"] is True
+    assert (
+        audit_bundle["bundle"]["payload"]["integrity"]["reranker_artifact_change_impacts_complete"]
+        is True
+    )
+    assert (
+        audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
+            "training_dataset_sha256"
+        ]
+        == training_dataset_sha256
+    )
+    reranker_artifact_ref = audit_bundle["bundle"]["payload"]["retrieval_reranker_artifacts"][0]
+    assert reranker_artifact_ref["artifact_id"] == str(reranker_artifact_id)
+    assert reranker_artifact_ref["artifact_sha256"] == artifact_sha256
+    assert reranker_artifact_ref["payload_artifact_sha256"] == artifact_sha256
+    assert reranker_artifact_ref["change_impact_sha256"] == change_impact_sha256
+    assert reranker_artifact_ref["payload_change_impact_sha256"] == (change_impact_sha256)
+    assert reranker_artifact_ref["payload_training_dataset_sha256"] == (training_dataset_sha256)
+    assert reranker_artifact_ref["payload_release_id"] == release_id
+    assert reranker_artifact_ref["change_impact_report"]["schema_name"] == (
+        "retrieval_reranker_change_impact_report"
+    )
+    assert (
+        audit_bundle["bundle"]["payload"]["retrieval_training_runs"][0]["training_dataset_sha256"]
+        == training_dataset_sha256
+    )
     assert any(
         row["event_kind"] == "search_harness_release_recorded"
         for row in audit_bundle["bundle"]["payload"]["semantic_governance_events"]
@@ -427,9 +585,11 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         row["event_kind"] == "retrieval_learning_candidate_evaluated"
         for row in audit_bundle["bundle"]["payload"]["semantic_governance_events"]
     )
-    semantic_governance_policy = audit_bundle["bundle"]["payload"][
-        "semantic_governance_policy"
-    ]
+    assert any(
+        row["event_kind"] == "retrieval_reranker_artifact_materialized"
+        for row in audit_bundle["bundle"]["payload"]["semantic_governance_events"]
+    )
+    semantic_governance_policy = audit_bundle["bundle"]["payload"]["semantic_governance_policy"]
     assert semantic_governance_policy["policy_profile"] == "release_semantic_governance_v1"
     assert semantic_governance_policy["checks"]["has_release_governance_event"] is True
     assert semantic_governance_policy["checks"]["hash_links_verified"] is True
@@ -440,19 +600,16 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert training_audit_bundle_ref["bundle_kind"] == "retrieval_training_run_provenance"
     assert training_audit_bundle_ref["source_id"] == str(training_run_id)
     assert training_audit_bundle_ref["payload_source_id"] == str(training_run_id)
-    assert training_audit_bundle_ref["payload_training_dataset_sha256"] == (
-        training_dataset_sha256
-    )
+    assert training_audit_bundle_ref["payload_training_dataset_sha256"] == (training_dataset_sha256)
     assert training_audit_bundle_ref["payload_training_dataset_hash_matches"] is True
     training_validation_receipt_ref = audit_bundle["bundle"]["payload"][
         "retrieval_training_audit_bundle_validation_receipts"
     ][0]
-    assert training_validation_receipt_ref["audit_bundle_export_id"] == (
-        training_audit_bundle_ref["bundle_id"]
+    assert (
+        training_validation_receipt_ref["audit_bundle_export_id"]
+        == (training_audit_bundle_ref["bundle_id"])
     )
-    assert training_validation_receipt_ref["validation_profile"] == (
-        "audit_bundle_validation_v1"
-    )
+    assert training_validation_receipt_ref["validation_profile"] == ("audit_bundle_validation_v1")
     assert training_validation_receipt_ref["validation_status"] == "passed"
     assert training_validation_receipt_ref["payload_schema_valid"] is True
     assert training_validation_receipt_ref["prov_graph_valid"] is True
@@ -463,6 +620,10 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     assert any(
         edge["usedEntity"].startswith("docling:retrieval_training_run:")
+        for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
+    )
+    assert any(
+        edge["usedEntity"] == f"docling:retrieval_reranker_artifact:{reranker_artifact_id}"
         for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     )
     assert any(
@@ -505,9 +666,10 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         "validation_receipts_ready": True,
         "ready": True,
     }
-    assert readiness_after_export["validation_receipts"][
-        "latest_release_validation_receipt_id"
-    ] == auto_validation_receipt["receipt_id"]
+    assert (
+        readiness_after_export["validation_receipts"]["latest_release_validation_receipt_id"]
+        == auto_validation_receipt["receipt_id"]
+    )
 
     validation_response = postgres_integration_harness.client.post(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
@@ -520,29 +682,19 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         f"{validation_receipt['receipt_id']}"
     )
     assert validation_receipt["validation_status"] == "passed"
-    assert validation_receipt["receipt"]["audit_bundle"]["bundle_id"] == (
-        audit_bundle["bundle_id"]
-    )
-    assert validation_receipt["receipt"]["receipt_sha256"] == (
-        validation_receipt["receipt_sha256"]
-    )
-    assert validation_receipt["prov_jsonld"]["@context"]["prov"] == (
-        "http://www.w3.org/ns/prov#"
-    )
+    assert validation_receipt["receipt"]["audit_bundle"]["bundle_id"] == (audit_bundle["bundle_id"])
+    assert validation_receipt["receipt"]["receipt_sha256"] == (validation_receipt["receipt_sha256"])
+    assert validation_receipt["prov_jsonld"]["@context"]["prov"] == ("http://www.w3.org/ns/prov#")
     assert validation_receipt["prov_jsonld"]["@graph"]
     assert validation_receipt["integrity"]["complete"] is True
     assert validation_receipt["semantic_governance_valid"] is True
-    assert validation_receipt["receipt"]["validation_checks"][
-        "semantic_governance_valid"
-    ] is True
+    assert validation_receipt["receipt"]["validation_checks"]["semantic_governance_valid"] is True
 
     validation_list_response = postgres_integration_harness.client.get(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts"
     )
     assert validation_list_response.status_code == 200
-    assert validation_list_response.json()[0]["receipt_id"] == (
-        validation_receipt["receipt_id"]
-    )
+    assert validation_list_response.json()[0]["receipt_id"] == (validation_receipt["receipt_id"])
 
     validation_detail_response = postgres_integration_harness.client.get(
         validation_response.headers["Location"]

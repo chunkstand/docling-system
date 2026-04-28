@@ -128,13 +128,14 @@ record, judgment set, canonical training payload, every judgment row, every hard
 negative row, source payload hashes, evidence refs, semantic governance events, and a
 PROV-style graph. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
-sets, the associated governance events, and references to the latest signed training
-audit bundle hash for each linked training run. If a linked completed training run has
-no current matching training audit bundle, release-bundle export freezes one before
-signing the release bundle. Release-bundle export also validates every linked training
-audit bundle and embeds the resulting validation-receipt references before signing,
-then validates the signed release bundle itself so the release readiness gate can pass
-without a separate receipt step.
+sets, any linked `retrieval_reranker_artifacts`, the artifact payload hashes,
+change-impact report hashes, the associated governance events, and references to the
+latest signed training audit bundle hash for each linked training run. If a linked
+completed training run has no current matching training audit bundle, release-bundle
+export freezes one before signing the release bundle. Release-bundle export also
+validates every linked training audit bundle and embeds the resulting
+validation-receipt references before signing, then validates the signed release bundle
+itself so the release readiness gate can pass without a separate receipt step.
 Validation receipts are immutable database rows with canonical `receipt.json`,
 standards-facing `prov.jsonld`, schema/source/integrity/semantic-governance check
 flags, receipt hash, PROV export hash, and HMAC signature. Release audit bundles carry
