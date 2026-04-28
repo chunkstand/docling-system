@@ -33,6 +33,8 @@ REPLAY_ACTIVE_STATUSES = {
     AgentTaskStatus.PROCESSING.value,
     AgentTaskStatus.RETRY_WAIT.value,
 }
+REPLAY_PLAN_HASH_FIELD = "replay_task_plan_sha256"
+REPLAY_CLOSURE_HASH_FIELD = "replay_closure_sha256"
 
 
 def _uuid_or_none(value) -> UUID | None:
@@ -66,11 +68,84 @@ def _impact_not_found(change_impact_id: UUID):
 def _get_impact_row(
     session: Session,
     change_impact_id: UUID,
+    *,
+    for_update: bool = False,
 ) -> ClaimSupportPolicyChangeImpact:
-    row = session.get(ClaimSupportPolicyChangeImpact, change_impact_id)
+    statement = select(ClaimSupportPolicyChangeImpact).where(
+        ClaimSupportPolicyChangeImpact.id == change_impact_id
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    row = session.execute(statement).scalar_one_or_none()
     if row is None:
         raise _impact_not_found(change_impact_id)
     return row
+
+
+def _hash_payload_excluding(payload: dict, hash_field: str) -> str:
+    basis = dict(payload or {})
+    basis.pop(hash_field, None)
+    return payload_sha256(basis)
+
+
+def _verify_hash_field(
+    *,
+    payload: dict,
+    hash_field: str,
+    error_code: str,
+    error_message: str,
+    change_impact_id: UUID,
+) -> None:
+    recorded_sha = str((payload or {}).get(hash_field) or "")
+    if not recorded_sha:
+        return
+    expected_sha = _hash_payload_excluding(payload, hash_field)
+    if recorded_sha != expected_sha:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            error_code,
+            error_message,
+            change_impact_id=str(change_impact_id),
+            recorded_sha256=recorded_sha,
+            expected_sha256=expected_sha,
+        )
+
+
+def _verify_replay_plan_integrity(row: ClaimSupportPolicyChangeImpact) -> None:
+    plan = dict(row.replay_task_plan_json or {})
+    if not plan:
+        return
+    _verify_hash_field(
+        payload=plan,
+        hash_field=REPLAY_PLAN_HASH_FIELD,
+        error_code="claim_support_impact_replay_plan_hash_mismatch",
+        error_message="Claim support impact replay task plan hash does not match payload.",
+        change_impact_id=row.id,
+    )
+
+
+def _verify_replay_closure_integrity(row: ClaimSupportPolicyChangeImpact) -> None:
+    closure = dict(row.replay_closure_json or {})
+    if not closure:
+        return
+    _verify_hash_field(
+        payload=closure,
+        hash_field=REPLAY_CLOSURE_HASH_FIELD,
+        error_code="claim_support_impact_replay_closure_hash_mismatch",
+        error_message="Claim support impact replay closure hash does not match payload.",
+        change_impact_id=row.id,
+    )
+    recorded_row_sha = row.replay_closure_sha256
+    recorded_payload_sha = closure.get(REPLAY_CLOSURE_HASH_FIELD)
+    if recorded_row_sha and recorded_payload_sha and recorded_row_sha != recorded_payload_sha:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_closure_row_hash_mismatch",
+            "Claim support impact replay closure row hash does not match payload.",
+            change_impact_id=str(row.id),
+            row_sha256=recorded_row_sha,
+            payload_sha256=recorded_payload_sha,
+        )
 
 
 def _latest_verification_by_task(
@@ -227,6 +302,158 @@ def _require_source_task(
     return task
 
 
+def _recommendation_uuid(
+    recommendation: dict,
+    field_name: str,
+    *,
+    change_impact_id: UUID,
+    recommendation_index: int,
+) -> UUID:
+    raw_value = recommendation.get(field_name)
+    if raw_value in {None, ""}:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_recommendation_invalid",
+            "A replay recommendation is missing a required task identifier.",
+            change_impact_id=str(change_impact_id),
+            recommendation_index=recommendation_index,
+            field_name=field_name,
+        )
+    try:
+        return UUID(str(raw_value))
+    except ValueError as exc:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_recommendation_invalid",
+            "A replay recommendation contains an invalid task identifier.",
+            change_impact_id=str(change_impact_id),
+            recommendation_index=recommendation_index,
+            field_name=field_name,
+            field_value=str(raw_value),
+        ) from exc
+
+
+def _source_task_sha256(task: AgentTask, field_name: str) -> str:
+    return payload_sha256(getattr(task, field_name) or {})
+
+
+def _validate_verify_recommendation_source(
+    source_verify_task: AgentTask,
+    *,
+    source_draft_task_id: UUID,
+    change_impact_id: UUID,
+) -> None:
+    source_target_task_id = (source_verify_task.input_json or {}).get("target_task_id")
+    if str(source_target_task_id) != str(source_draft_task_id):
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_source_verification_mismatch",
+            "A replay verification recommendation does not target its source draft task.",
+            change_impact_id=str(change_impact_id),
+            source_draft_task_id=str(source_draft_task_id),
+            prior_verification_task_id=str(source_verify_task.id),
+            verification_target_task_id=str(source_target_task_id),
+        )
+
+
+def _validated_replay_work_items(
+    session: Session,
+    *,
+    row: ClaimSupportPolicyChangeImpact,
+    recommendations: list[dict],
+) -> list[dict]:
+    draft_items: dict[str, dict] = {}
+    verify_items: dict[tuple[str, str], dict] = {}
+    ordered_items: list[dict] = []
+    for index, recommendation in enumerate(recommendations):
+        action = str(recommendation.get("action") or "")
+        if action == "rerun_draft_technical_report":
+            source_task_id = _recommendation_uuid(
+                recommendation,
+                "target_task_id",
+                change_impact_id=row.id,
+                recommendation_index=index,
+            )
+            source_task = _require_source_task(
+                session,
+                task_id=source_task_id,
+                expected_task_type="draft_technical_report",
+                change_impact_id=row.id,
+            )
+            if str(source_task_id) not in draft_items:
+                item = {
+                    "action": action,
+                    "source_draft_task_id": source_task_id,
+                    "source_draft_task": source_task,
+                    "recommendation": recommendation,
+                }
+                draft_items[str(source_task_id)] = item
+                ordered_items.append(item)
+        elif action == "rerun_verify_technical_report":
+            source_draft_task_id = _recommendation_uuid(
+                recommendation,
+                "target_task_id",
+                change_impact_id=row.id,
+                recommendation_index=index,
+            )
+            prior_verification_task_id = _recommendation_uuid(
+                recommendation,
+                "prior_verification_task_id",
+                change_impact_id=row.id,
+                recommendation_index=index,
+            )
+            source_draft_task = _require_source_task(
+                session,
+                task_id=source_draft_task_id,
+                expected_task_type="draft_technical_report",
+                change_impact_id=row.id,
+            )
+            source_verify_task = _require_source_task(
+                session,
+                task_id=prior_verification_task_id,
+                expected_task_type="verify_technical_report",
+                change_impact_id=row.id,
+            )
+            _validate_verify_recommendation_source(
+                source_verify_task,
+                source_draft_task_id=source_draft_task_id,
+                change_impact_id=row.id,
+            )
+            if str(source_draft_task_id) not in draft_items:
+                draft_item = {
+                    "action": "rerun_draft_technical_report",
+                    "source_draft_task_id": source_draft_task_id,
+                    "source_draft_task": source_draft_task,
+                    "recommendation": {
+                        "reason": "Required before replaying technical-report verification.",
+                        "priority": "high",
+                    },
+                }
+                draft_items[str(source_draft_task_id)] = draft_item
+                ordered_items.append(draft_item)
+            verify_key = (str(source_draft_task_id), str(prior_verification_task_id))
+            if verify_key not in verify_items:
+                item = {
+                    "action": action,
+                    "source_draft_task_id": source_draft_task_id,
+                    "prior_verification_task_id": prior_verification_task_id,
+                    "source_verify_task": source_verify_task,
+                    "recommendation": recommendation,
+                }
+                verify_items[verify_key] = item
+                ordered_items.append(item)
+        else:
+            raise api_error(
+                status.HTTP_409_CONFLICT,
+                "claim_support_impact_replay_action_unknown",
+                "The impact row contains an unsupported replay recommendation action.",
+                change_impact_id=str(row.id),
+                recommendation_index=index,
+                action=action,
+            )
+    return ordered_items
+
+
 def _queue_agent_task(
     session: Session,
     *,
@@ -252,6 +479,7 @@ def _queue_agent_task(
             model=source_task.model,
             model_settings=dict(source_task.model_settings_json or {}),
         ),
+        commit=False,
     )
 
 
@@ -262,7 +490,9 @@ def queue_claim_support_policy_change_impact_replay_tasks(
     requested_by: str,
     parent_task_id: UUID | None = None,
 ) -> ClaimSupportPolicyChangeImpactReplayResponse:
-    row = _get_impact_row(session, change_impact_id)
+    row = _get_impact_row(session, change_impact_id, for_update=True)
+    _verify_replay_plan_integrity(row)
+    _verify_replay_closure_integrity(row)
     if row.replay_recommended_count <= 0:
         return refresh_claim_support_policy_change_impact_replay_status(
             session,
@@ -284,21 +514,27 @@ def queue_claim_support_policy_change_impact_replay_tasks(
         )
 
     parent_task_id = parent_task_id or row.activation_task_id
-    draft_replay_task_ids: dict[str, UUID] = {}
     created_task_specs: list[dict] = []
+    work_items = _validated_replay_work_items(
+        session,
+        row=row,
+        recommendations=recommendations,
+    )
+    if not work_items:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_no_valid_work",
+            "The impact row did not contain any valid replay work after de-duplication.",
+            change_impact_id=str(change_impact_id),
+        )
 
-    for recommendation in recommendations:
-        action = str(recommendation.get("action") or "")
+    draft_replay_task_ids: dict[str, UUID] = {}
+    for item in work_items:
+        action = str(item["action"])
+        recommendation = dict(item.get("recommendation") or {})
         if action == "rerun_draft_technical_report":
-            source_task_id = UUID(str(recommendation["target_task_id"]))
-            source_task = _require_source_task(
-                session,
-                task_id=source_task_id,
-                expected_task_type="draft_technical_report",
-                change_impact_id=change_impact_id,
-            )
-            if str(source_task_id) in draft_replay_task_ids:
-                continue
+            source_task_id = item["source_draft_task_id"]
+            source_task = item["source_draft_task"]
             task_detail = _queue_agent_task(
                 session,
                 source_task=source_task,
@@ -319,48 +555,24 @@ def queue_claim_support_policy_change_impact_replay_tasks(
                     ],
                     "reason": recommendation.get("reason"),
                     "priority": recommendation.get("priority"),
+                    "source_task_input_sha256": _source_task_sha256(source_task, "input_json"),
+                    "source_task_result_sha256": _source_task_sha256(source_task, "result_json"),
+                    "replay_task_input_sha256": payload_sha256(task_detail.input),
                 }
             )
         elif action == "rerun_verify_technical_report":
-            source_draft_task_id = UUID(str(recommendation["target_task_id"]))
+            source_draft_task_id = item["source_draft_task_id"]
             replay_draft_task_id = draft_replay_task_ids.get(str(source_draft_task_id))
             if replay_draft_task_id is None:
-                source_draft_task = _require_source_task(
-                    session,
-                    task_id=source_draft_task_id,
-                    expected_task_type="draft_technical_report",
-                    change_impact_id=change_impact_id,
+                raise api_error(
+                    status.HTTP_409_CONFLICT,
+                    "claim_support_impact_replay_plan_invalid",
+                    "Replay verification work was planned before its draft replay task.",
+                    change_impact_id=str(change_impact_id),
+                    source_draft_task_id=str(source_draft_task_id),
                 )
-                task_detail = _queue_agent_task(
-                    session,
-                    source_task=source_draft_task,
-                    task_type="draft_technical_report",
-                    task_input=dict(source_draft_task.input_json or {}),
-                    parent_task_id=parent_task_id,
-                )
-                replay_draft_task_id = task_detail.task_id
-                draft_replay_task_ids[str(source_draft_task_id)] = replay_draft_task_id
-                created_task_specs.append(
-                    {
-                        "action": "rerun_draft_technical_report",
-                        "source_task_id": str(source_draft_task_id),
-                        "replay_task_id": str(task_detail.task_id),
-                        "task_type": "draft_technical_report",
-                        "status": task_detail.status,
-                        "dependency_task_ids": [
-                            str(value) for value in task_detail.dependency_task_ids
-                        ],
-                        "reason": "Required before replaying technical-report verification.",
-                        "priority": "high",
-                    }
-                )
-            prior_verification_task_id = UUID(str(recommendation["prior_verification_task_id"]))
-            source_task = _require_source_task(
-                session,
-                task_id=prior_verification_task_id,
-                expected_task_type="verify_technical_report",
-                change_impact_id=change_impact_id,
-            )
+            prior_verification_task_id = item["prior_verification_task_id"]
+            source_task = item["source_verify_task"]
             verify_input = dict(source_task.input_json or {})
             verify_input["target_task_id"] = str(replay_draft_task_id)
             task_detail = _queue_agent_task(
@@ -384,18 +596,12 @@ def queue_claim_support_policy_change_impact_replay_tasks(
                     ],
                     "reason": recommendation.get("reason"),
                     "priority": recommendation.get("priority"),
+                    "source_task_input_sha256": _source_task_sha256(source_task, "input_json"),
+                    "source_task_result_sha256": _source_task_sha256(source_task, "result_json"),
+                    "replay_task_input_sha256": payload_sha256(task_detail.input),
                 }
             )
-        else:
-            raise api_error(
-                status.HTTP_409_CONFLICT,
-                "claim_support_impact_replay_action_unknown",
-                "The impact row contains an unsupported replay recommendation action.",
-                change_impact_id=str(change_impact_id),
-                action=action,
-            )
 
-    row = _get_impact_row(session, change_impact_id)
     task_ids = [spec["replay_task_id"] for spec in created_task_specs]
     plan_basis = {
         "schema_name": CLAIM_SUPPORT_IMPACT_REPLAY_PLAN_SCHEMA,
@@ -410,7 +616,7 @@ def queue_claim_support_policy_change_impact_replay_tasks(
     }
     replay_plan = {
         **plan_basis,
-        "replay_task_plan_sha256": payload_sha256(plan_basis),
+        REPLAY_PLAN_HASH_FIELD: payload_sha256(plan_basis),
     }
     row.replay_task_ids_json = task_ids
     row.replay_task_plan_json = replay_plan
@@ -428,7 +634,9 @@ def refresh_claim_support_policy_change_impact_replay_status(
     session: Session,
     change_impact_id: UUID,
 ) -> ClaimSupportPolicyChangeImpactReplayResponse:
-    row = _get_impact_row(session, change_impact_id)
+    row = _get_impact_row(session, change_impact_id, for_update=True)
+    _verify_replay_plan_integrity(row)
+    _verify_replay_closure_integrity(row)
     now = utcnow()
     if row.replay_recommended_count <= 0:
         closure_basis = {
@@ -447,9 +655,9 @@ def refresh_claim_support_policy_change_impact_replay_status(
         row.replay_closed_at = row.replay_closed_at or now
         row.replay_closure_json = {
             **closure_basis,
-            "replay_closure_sha256": payload_sha256(closure_basis),
+            REPLAY_CLOSURE_HASH_FIELD: payload_sha256(closure_basis),
         }
-        row.replay_closure_sha256 = row.replay_closure_json["replay_closure_sha256"]
+        row.replay_closure_sha256 = row.replay_closure_json[REPLAY_CLOSURE_HASH_FIELD]
         session.add(row)
         session.commit()
         return _replay_response(row)
@@ -472,6 +680,29 @@ def refresh_claim_support_policy_change_impact_replay_status(
     )
     tasks_by_id = {task.id: task for task in task_rows}
     plan_tasks = list((row.replay_task_plan_json or {}).get("tasks") or [])
+    if not plan_tasks:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_plan_missing",
+            "Replay task IDs exist but the replay task plan is missing.",
+            change_impact_id=str(row.id),
+            replay_task_ids=[str(task_id) for task_id in replay_task_ids],
+        )
+    plan_task_ids = {
+        str(task_spec.get("replay_task_id"))
+        for task_spec in plan_tasks
+        if task_spec.get("replay_task_id")
+    }
+    replay_task_id_text = {str(task_id) for task_id in replay_task_ids}
+    if plan_task_ids != replay_task_id_text:
+        raise api_error(
+            status.HTTP_409_CONFLICT,
+            "claim_support_impact_replay_plan_task_mismatch",
+            "Replay task IDs do not match the replay task plan.",
+            change_impact_id=str(row.id),
+            replay_task_ids=sorted(replay_task_id_text),
+            plan_task_ids=sorted(plan_task_ids),
+        )
     verification_task_ids = [
         UUID(str(task_spec["replay_task_id"]))
         for task_spec in plan_tasks
@@ -562,9 +793,9 @@ def refresh_claim_support_policy_change_impact_replay_status(
     if replay_status == "closed":
         row.replay_closure_json = {
             **closure_basis,
-            "replay_closure_sha256": payload_sha256(closure_basis),
+            REPLAY_CLOSURE_HASH_FIELD: payload_sha256(closure_basis),
         }
-        row.replay_closure_sha256 = row.replay_closure_json["replay_closure_sha256"]
+        row.replay_closure_sha256 = row.replay_closure_json[REPLAY_CLOSURE_HASH_FIELD]
     else:
         row.replay_closure_json = closure_basis
         row.replay_closure_sha256 = None

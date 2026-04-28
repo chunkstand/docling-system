@@ -74,17 +74,18 @@ The support-judge calibration path is now first-class:
 - operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
 - context builder: `evaluate_claim_support_judge`
 
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. Impact rows now carry replay task IDs, replay plans, replay status, and closure receipts; they do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
+The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with mined failed cases from prior claim-support evaluations and records a mined-failure manifest. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or closure payload hash mismatches before mutating status. Impact rows carry replay task IDs, replay plans, replay status, and closure receipts; they do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
 
 ## Current Agent-Task Catalog Notes
 
-The live action registry currently has 50 task types. The newest catalog additions are:
+The live action registry currently has 51 task types. The newest catalog additions are:
 
 - `evaluate_document_generation_context_pack`
 - `evaluate_claim_support_judge`
 - `draft_claim_support_calibration_policy`
 - `verify_claim_support_calibration_policy`
 - `apply_claim_support_calibration_policy`
+- `queue_claim_support_policy_change_impact_replay`
 
 The durable docs have been updated to include it in the task lists and command examples. Operators can always verify the live catalog with:
 
@@ -105,7 +106,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Result:
 
 ```text
-771 passed in 95.98s
+772 passed in 94.74s
 ```
 
 Focused claim-support verification during this implementation pass:
@@ -126,9 +127,9 @@ Results:
 
 ```text
 4 passed
-12 passed
-1 passed
 13 passed
+1 passed
+14 passed
 alembic current: 0061_claim_impact_replay (head)
 create_all verified by the integration harness against temporary Postgres schemas
 architecture inspection valid: true, violation_count: 0
@@ -146,7 +147,7 @@ Results:
 ```text
 valid: true
 violation_count: 0
-agent_action_count: 50
+agent_action_count: 51
 ```
 
 ## Files Updated In This Pass

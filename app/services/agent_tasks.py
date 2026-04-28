@@ -383,7 +383,12 @@ def _augment_dependency_kinds_for_action(
     return list(dependency_kinds.items())
 
 
-def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> AgentTaskDetailResponse:
+def create_agent_task(
+    session: Session,
+    payload: AgentTaskCreateRequest,
+    *,
+    commit: bool = True,
+) -> AgentTaskDetailResponse:
     from app.services.agent_task_actions import get_agent_task_action, validate_agent_task_input
 
     now = utcnow()
@@ -483,7 +488,10 @@ def create_agent_task(session: Session, payload: AgentTaskCreateRequest) -> Agen
             )
         )
 
-    session.commit()
+    if commit:
+        session.commit()
+    else:
+        session.flush()
     return _build_detail(session, task)
 
 
