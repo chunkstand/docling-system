@@ -416,6 +416,67 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
     evaluation_snapshot: dict = Field(default_factory=dict)
 
 
+class RetrievalLearningCandidateEvaluationRequest(BaseModel):
+    retrieval_training_run_id: UUID | None = None
+    candidate_harness_name: str
+    baseline_harness_name: str = "default_v1"
+    source_types: list[str] = Field(
+        default_factory=lambda: [
+            "evaluation_queries",
+            "feedback",
+            "live_search_gaps",
+            "cross_document_prose_regressions",
+        ]
+    )
+    limit: int = Field(default=25, ge=1, le=200)
+    max_total_regressed_count: int = Field(default=0, ge=0)
+    max_mrr_drop: float = Field(default=0.0, ge=0.0)
+    max_zero_result_count_increase: int = Field(default=0, ge=0)
+    max_foreign_top_result_count_increase: int = Field(default=0, ge=0)
+    min_total_shared_query_count: int = Field(default=1, ge=0)
+    requested_by: str | None = Field(default=None, min_length=1)
+    review_note: str | None = None
+
+
+class RetrievalLearningCandidateEvaluationSummaryResponse(BaseModel):
+    schema_name: str = "retrieval_learning_candidate_evaluation"
+    schema_version: str = "1.0"
+    candidate_evaluation_id: UUID
+    retrieval_training_run_id: UUID
+    judgment_set_id: UUID
+    search_harness_evaluation_id: UUID
+    search_harness_release_id: UUID | None = None
+    semantic_governance_event_id: UUID | None = None
+    training_dataset_sha256: str
+    training_example_count: int = 0
+    positive_count: int = 0
+    negative_count: int = 0
+    missing_count: int = 0
+    hard_negative_count: int = 0
+    baseline_harness_name: str
+    candidate_harness_name: str
+    source_types: list[str] = Field(default_factory=list)
+    limit: int
+    status: str
+    gate_outcome: str | None = None
+    thresholds: dict = Field(default_factory=dict)
+    metrics: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    learning_package_sha256: str
+    created_by: str | None = None
+    review_note: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+
+
+class RetrievalLearningCandidateEvaluationResponse(
+    RetrievalLearningCandidateEvaluationSummaryResponse
+):
+    details: dict = Field(default_factory=dict)
+    evaluation: SearchHarnessEvaluationResponse
+    release: SearchHarnessReleaseResponse | None = None
+
+
 class SearchHarnessReleaseAuditBundleRequest(BaseModel):
     created_by: str | None = Field(default=None, min_length=1)
 

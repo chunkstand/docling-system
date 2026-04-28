@@ -13,6 +13,9 @@ from app.schemas.chat import (
 )
 from app.schemas.search import (
     AuditBundleExportResponse,
+    RetrievalLearningCandidateEvaluationRequest,
+    RetrievalLearningCandidateEvaluationResponse,
+    RetrievalLearningCandidateEvaluationSummaryResponse,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
@@ -38,6 +41,7 @@ from app.services import (
     chat,
     eval_workbench,
     evidence,
+    retrieval_learning,
     search,
     search_harness_evaluations,
     search_history,
@@ -206,6 +210,27 @@ class RetrievalCapability(Protocol):
         *,
         storage_service: StorageService,
     ) -> AuditBundleExportResponse: ...
+
+    def evaluate_retrieval_learning_candidate(
+        self,
+        session: Session,
+        payload: RetrievalLearningCandidateEvaluationRequest,
+    ) -> RetrievalLearningCandidateEvaluationResponse: ...
+
+    def list_retrieval_learning_candidate_evaluations(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        retrieval_training_run_id: UUID | None = None,
+        candidate_harness_name: str | None = None,
+    ) -> list[RetrievalLearningCandidateEvaluationSummaryResponse]: ...
+
+    def get_retrieval_learning_candidate_evaluation_detail(
+        self,
+        session: Session,
+        candidate_evaluation_id: UUID,
+    ) -> RetrievalLearningCandidateEvaluationResponse: ...
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse: ...
 
@@ -440,6 +465,38 @@ class ServicesRetrievalCapability:
             session,
             bundle_id,
             storage_service=storage_service,
+        )
+
+    def evaluate_retrieval_learning_candidate(
+        self,
+        session: Session,
+        payload: RetrievalLearningCandidateEvaluationRequest,
+    ) -> RetrievalLearningCandidateEvaluationResponse:
+        return retrieval_learning.evaluate_retrieval_learning_candidate(session, payload)
+
+    def list_retrieval_learning_candidate_evaluations(
+        self,
+        session: Session,
+        *,
+        limit: int,
+        retrieval_training_run_id: UUID | None = None,
+        candidate_harness_name: str | None = None,
+    ) -> list[RetrievalLearningCandidateEvaluationSummaryResponse]:
+        return retrieval_learning.list_retrieval_learning_candidate_evaluations(
+            session,
+            limit=limit,
+            retrieval_training_run_id=retrieval_training_run_id,
+            candidate_harness_name=candidate_harness_name,
+        )
+
+    def get_retrieval_learning_candidate_evaluation_detail(
+        self,
+        session: Session,
+        candidate_evaluation_id: UUID,
+    ) -> RetrievalLearningCandidateEvaluationResponse:
+        return retrieval_learning.get_retrieval_learning_candidate_evaluation_detail(
+            session,
+            candidate_evaluation_id,
         )
 
     def answer_question(self, session: Session, request: ChatRequest) -> ChatResponse:

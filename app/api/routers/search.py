@@ -24,6 +24,9 @@ from app.schemas.chat import (
 )
 from app.schemas.search import (
     AuditBundleExportResponse,
+    RetrievalLearningCandidateEvaluationRequest,
+    RetrievalLearningCandidateEvaluationResponse,
+    RetrievalLearningCandidateEvaluationSummaryResponse,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
@@ -81,6 +84,13 @@ get_latest_search_harness_release_audit_bundle = (
     retrieval.get_latest_search_harness_release_audit_bundle
 )
 get_audit_bundle_export = retrieval.get_audit_bundle_export
+evaluate_retrieval_learning_candidate = retrieval.evaluate_retrieval_learning_candidate
+list_retrieval_learning_candidate_evaluations = (
+    retrieval.list_retrieval_learning_candidate_evaluations
+)
+get_retrieval_learning_candidate_evaluation_detail = (
+    retrieval.get_retrieval_learning_candidate_evaluation_detail
+)
 explain_search_harness_evaluation = evaluation.explain_search_harness_evaluation
 answer_question = retrieval.answer_question
 record_chat_answer_feedback = retrieval.record_chat_answer_feedback
@@ -432,6 +442,62 @@ def read_search_harness_release(
     session: DbSession,
 ) -> SearchHarnessReleaseResponse:
     return get_search_harness_release_detail(session, release_id)
+
+
+@router.get(
+    "/search/retrieval-learning/candidate-evaluations",
+    response_model=list[RetrievalLearningCandidateEvaluationSummaryResponse],
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_retrieval_learning_candidate_evaluations(
+    session: DbSession,
+    limit: HarnessEvaluationLimitQuery = 20,
+    retrieval_training_run_id: UUID | None = None,
+    candidate_harness_name: str | None = None,
+) -> list[RetrievalLearningCandidateEvaluationSummaryResponse]:
+    return list_retrieval_learning_candidate_evaluations(
+        session,
+        limit=limit,
+        retrieval_training_run_id=retrieval_training_run_id,
+        candidate_harness_name=candidate_harness_name,
+    )
+
+
+@router.post(
+    "/search/retrieval-learning/candidate-evaluations",
+    response_model=RetrievalLearningCandidateEvaluationResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_retrieval_learning_candidate_evaluation(
+    response: Response,
+    payload: RetrievalLearningCandidateEvaluationRequest,
+    session: DbSession,
+) -> RetrievalLearningCandidateEvaluationResponse:
+    candidate_response = evaluate_retrieval_learning_candidate(session, payload)
+    session.commit()
+    candidate_evaluation_id = response_field(candidate_response, "candidate_evaluation_id")
+    response.headers["Location"] = (
+        f"/search/retrieval-learning/candidate-evaluations/{candidate_evaluation_id}"
+    )
+    return candidate_response
+
+
+@router.get(
+    "/search/retrieval-learning/candidate-evaluations/{candidate_evaluation_id}",
+    response_model=RetrievalLearningCandidateEvaluationResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_retrieval_learning_candidate_evaluation(
+    candidate_evaluation_id: UUID,
+    session: DbSession,
+) -> RetrievalLearningCandidateEvaluationResponse:
+    return get_retrieval_learning_candidate_evaluation_detail(
+        session,
+        candidate_evaluation_id,
+    )
 
 
 @router.post(

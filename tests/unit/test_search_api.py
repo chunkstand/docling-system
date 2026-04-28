@@ -679,6 +679,10 @@ def test_search_replays_routes_use_replay_service(monkeypatch) -> None:
 def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     evaluation_id = uuid4()
     release_id = uuid4()
+    learning_candidate_id = uuid4()
+    retrieval_training_run_id = uuid4()
+    judgment_set_id = uuid4()
+    semantic_governance_event_id = uuid4()
     baseline_replay_run_id = uuid4()
     candidate_replay_run_id = uuid4()
 
@@ -800,6 +804,53 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         "review_note": "release gate",
         "created_at": "2026-04-21T00:00:02Z",
     }
+    learning_candidate_payload = {
+        "schema_name": "retrieval_learning_candidate_evaluation",
+        "schema_version": "1.0",
+        "candidate_evaluation_id": str(learning_candidate_id),
+        "retrieval_training_run_id": str(retrieval_training_run_id),
+        "judgment_set_id": str(judgment_set_id),
+        "search_harness_evaluation_id": str(evaluation_id),
+        "search_harness_release_id": str(release_id),
+        "semantic_governance_event_id": str(semantic_governance_event_id),
+        "training_dataset_sha256": "training-sha",
+        "training_example_count": 7,
+        "positive_count": 2,
+        "negative_count": 2,
+        "missing_count": 1,
+        "hard_negative_count": 2,
+        "baseline_harness_name": "default_v1",
+        "candidate_harness_name": "wide_v2",
+        "source_types": ["cross_document_prose_regressions"],
+        "limit": 5,
+        "status": "completed",
+        "gate_outcome": "passed",
+        "thresholds": {"max_total_regressed_count": 0},
+        "metrics": {"total_shared_query_count": 3},
+        "reasons": [],
+        "learning_package_sha256": "learning-package-sha",
+        "created_by": "operator",
+        "review_note": "learning gate",
+        "created_at": "2026-04-21T00:00:04Z",
+        "completed_at": "2026-04-21T00:00:04Z",
+        "details": {"learning_loop_stage": "training_dataset_to_harness_release_gate"},
+        "evaluation": {
+            "evaluation_id": str(evaluation_id),
+            "status": "completed",
+            "baseline_harness_name": "default_v1",
+            "candidate_harness_name": "wide_v2",
+            "limit": 5,
+            "source_types": ["cross_document_prose_regressions"],
+            "total_shared_query_count": 3,
+            "total_improved_count": 1,
+            "total_regressed_count": 0,
+            "total_unchanged_count": 2,
+            "created_at": "2026-04-21T00:00:00Z",
+            "completed_at": "2026-04-21T00:00:01Z",
+            "sources": [],
+        },
+        "release": release_payload,
+    }
     audit_bundle_id = uuid4()
     audit_bundle_payload = {
         "schema_name": "audit_bundle_export",
@@ -838,6 +889,27 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         lambda session, lookup_release_id: {
             **release_payload,
             "release_id": str(lookup_release_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.evaluate_retrieval_learning_candidate",
+        lambda session, payload: {
+            **learning_candidate_payload,
+            "candidate_harness_name": payload.candidate_harness_name,
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.list_retrieval_learning_candidate_evaluations",
+        lambda session,
+        limit=20,
+        retrieval_training_run_id=None,
+        candidate_harness_name=None: [learning_candidate_payload],
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_retrieval_learning_candidate_evaluation_detail",
+        lambda session, lookup_candidate_id: {
+            **learning_candidate_payload,
+            "candidate_evaluation_id": str(lookup_candidate_id),
         },
     )
     monkeypatch.setattr(
@@ -936,6 +1008,39 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         evaluation_id
     )
 
+    learning_response = client.post(
+        "/search/retrieval-learning/candidate-evaluations",
+        json={
+            "retrieval_training_run_id": str(retrieval_training_run_id),
+            "candidate_harness_name": "wide_v2",
+            "baseline_harness_name": "default_v1",
+            "source_types": ["cross_document_prose_regressions"],
+            "limit": 5,
+            "requested_by": "operator",
+            "review_note": "learning gate",
+        },
+    )
+    assert learning_response.status_code == 200
+    assert learning_response.headers["Location"] == (
+        f"/search/retrieval-learning/candidate-evaluations/{learning_candidate_id}"
+    )
+    assert learning_response.json()["training_dataset_sha256"] == "training-sha"
+    assert learning_response.json()["release"]["release_id"] == str(release_id)
+
+    learning_list_response = client.get("/search/retrieval-learning/candidate-evaluations")
+    assert learning_list_response.status_code == 200
+    assert learning_list_response.json()[0]["candidate_evaluation_id"] == str(
+        learning_candidate_id
+    )
+
+    learning_detail_response = client.get(
+        f"/search/retrieval-learning/candidate-evaluations/{learning_candidate_id}"
+    )
+    assert learning_detail_response.status_code == 200
+    assert learning_detail_response.json()["semantic_governance_event_id"] == str(
+        semantic_governance_event_id
+    )
+
     audit_response = client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
         json={"created_by": "operator"},
@@ -1014,6 +1119,34 @@ def test_search_harness_release_detail_route_returns_machine_readable_error(
     assert response.status_code == 404
     assert response.json()["error_code"] == "search_harness_release_not_found"
     assert response.json()["error_context"]["release_id"] == str(release_id)
+
+
+def test_retrieval_learning_candidate_detail_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    candidate_evaluation_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_retrieval_learning_candidate_evaluation_detail",
+        lambda session, lookup_candidate_id: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "retrieval_learning_candidate_evaluation_not_found",
+                "Retrieval learning candidate evaluation not found.",
+                candidate_evaluation_id=str(lookup_candidate_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/search/retrieval-learning/candidate-evaluations/{candidate_evaluation_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "retrieval_learning_candidate_evaluation_not_found"
+    assert response.json()["error_context"]["candidate_evaluation_id"] == str(
+        candidate_evaluation_id
+    )
 
 
 def test_search_audit_bundle_detail_route_returns_machine_readable_error(

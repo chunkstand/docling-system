@@ -82,6 +82,30 @@ Passing a release gate is evidence that the candidate met the configured retriev
 guardrails. It does not mutate corpus truth, weaken evaluation fixtures, or silently
 promote parser behavior.
 
+## Retrieval Learning Candidate Gates
+
+The learning ledger now has a governed handoff into harness evaluation. `POST
+/search/retrieval-learning/candidate-evaluations` binds a completed
+`retrieval_training_run` to a candidate harness evaluation and a persisted release
+gate. The resulting `retrieval_learning_candidate_evaluation` record stores:
+
+- the training run, judgment set, dataset hash, and example counts used as learning input
+- the candidate and baseline harness names, source types, and replay limit
+- the durable `search_harness_evaluation_id` and `search_harness_release_id`
+- gate thresholds, metrics, reasons, evaluation/release snapshots, and `learning_package_sha256`
+- a `retrieval_learning_candidate_evaluated` governance event for trace replay
+
+Inspection surfaces:
+
+- `GET /search/retrieval-learning/candidate-evaluations`
+- `GET /search/retrieval-learning/candidate-evaluations/{candidate_evaluation_id}`
+- `docling-system-evaluate-retrieval-learning-candidate <candidate_harness_name>`
+
+This pass intentionally records the learning influence and gate decision without
+turning handcrafted query rules into the accuracy engine. A future learned reranker can
+use the same table as its promotion evidence by pointing the candidate harness at the
+trained model artifact and preserving the training-run hash.
+
 ## Multivector Retrieval Repair Surface
 
 `multivector_v1` is available as a bounded search harness for high-accuracy retrieval experiments. It adds persisted retrieval evidence span multivectors and a late-interaction max-sim candidate stage without changing canonical chunk, table, or span truth.

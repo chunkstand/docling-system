@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
@@ -11,8 +11,11 @@ from app.db.models import (
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
+    RetrievalLearningCandidateEvaluation,
     RetrievalTrainingRun,
     SearchFeedback,
+    SearchHarnessEvaluation,
+    SearchHarnessRelease,
     SearchReplayQuery,
     SearchReplayRun,
     SearchRequestRecord,
@@ -20,7 +23,15 @@ from app.db.models import (
     SearchRequestResultSpan,
     SemanticGovernanceEvent,
 )
-from app.services.retrieval_learning import materialize_retrieval_learning_dataset
+from app.schemas.search import (
+    RetrievalLearningCandidateEvaluationRequest,
+    SearchHarnessEvaluationResponse,
+    SearchHarnessReleaseResponse,
+)
+from app.services.retrieval_learning import (
+    evaluate_retrieval_learning_candidate,
+    materialize_retrieval_learning_dataset,
+)
 
 pytestmark = pytest.mark.skipif(
     not os.getenv("DOCLING_SYSTEM_RUN_INTEGRATION"),
@@ -90,6 +101,7 @@ def _make_result(
 
 def test_materialize_retrieval_learning_dataset_roundtrip(
     postgres_integration_harness,
+    monkeypatch,
 ) -> None:
     now = datetime.now(UTC)
 
@@ -220,6 +232,104 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
             set_name="integration-retrieval-learning",
             created_by="integration",
         )
+        training_run_id = response["retrieval_training_run_id"]
+        evaluation_id = uuid4()
+        release_id = uuid4()
+        session.add(
+            SearchHarnessEvaluation(
+                id=evaluation_id,
+                status="completed",
+                baseline_harness_name="default_v1",
+                candidate_harness_name="candidate_v2",
+                limit=5,
+                source_types_json=["feedback"],
+                harness_overrides_json={},
+                total_shared_query_count=1,
+                total_improved_count=1,
+                total_regressed_count=0,
+                total_unchanged_count=0,
+                summary_json={},
+                error_message=None,
+                created_at=now,
+                completed_at=now,
+            )
+        )
+        session.flush()
+        session.add(
+            SearchHarnessRelease(
+                id=release_id,
+                search_harness_evaluation_id=evaluation_id,
+                outcome="passed",
+                baseline_harness_name="default_v1",
+                candidate_harness_name="candidate_v2",
+                limit=5,
+                source_types_json=["feedback"],
+                thresholds_json={"max_total_regressed_count": 0},
+                metrics_json={"total_shared_query_count": 1},
+                reasons_json=[],
+                details_json={"evaluation_id": str(evaluation_id)},
+                evaluation_snapshot_json={"evaluation_id": str(evaluation_id)},
+                release_package_sha256="release-package-sha",
+                requested_by="integration",
+                review_note="learning candidate gate",
+                created_at=now,
+            )
+        )
+        session.flush()
+        evaluation_response = SearchHarnessEvaluationResponse(
+            evaluation_id=evaluation_id,
+            status="completed",
+            baseline_harness_name="default_v1",
+            candidate_harness_name="candidate_v2",
+            source_types=["feedback"],
+            limit=5,
+            total_shared_query_count=1,
+            total_improved_count=1,
+            total_regressed_count=0,
+            total_unchanged_count=0,
+            created_at=now,
+            completed_at=now,
+            sources=[],
+        )
+        release_response = SearchHarnessReleaseResponse(
+            release_id=release_id,
+            evaluation_id=evaluation_id,
+            outcome="passed",
+            baseline_harness_name="default_v1",
+            candidate_harness_name="candidate_v2",
+            limit=5,
+            source_types=["feedback"],
+            thresholds={"max_total_regressed_count": 0},
+            metrics={"total_shared_query_count": 1},
+            reasons=[],
+            release_package_sha256="release-package-sha",
+            requested_by="integration",
+            review_note="learning candidate gate",
+            created_at=now,
+            details={"evaluation_id": str(evaluation_id)},
+            evaluation_snapshot=evaluation_response.model_dump(mode="json"),
+        )
+        monkeypatch.setattr(
+            "app.services.retrieval_learning.evaluate_search_harness",
+            lambda session, request: evaluation_response,
+        )
+        monkeypatch.setattr(
+            "app.services.retrieval_learning.record_search_harness_release_gate",
+            lambda session, evaluation, payload, *, requested_by=None, review_note=None: (
+                release_response
+            ),
+        )
+        candidate_response = evaluate_retrieval_learning_candidate(
+            session,
+            RetrievalLearningCandidateEvaluationRequest(
+                retrieval_training_run_id=UUID(training_run_id),
+                candidate_harness_name="candidate_v2",
+                source_types=["feedback"],
+                limit=5,
+                requested_by="integration",
+                review_note="learning candidate gate",
+            ),
+        )
         session.commit()
 
     with postgres_integration_harness.session_factory() as session:
@@ -227,10 +337,14 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
         judgments = session.execute(select(RetrievalJudgment)).scalars().all()
         hard_negatives = session.execute(select(RetrievalHardNegative)).scalars().all()
         training_runs = session.execute(select(RetrievalTrainingRun)).scalars().all()
+        candidate_rows = (
+            session.execute(select(RetrievalLearningCandidateEvaluation)).scalars().all()
+        )
         governance_events = session.execute(select(SemanticGovernanceEvent)).scalars().all()
 
     assert len(judgment_sets) == 1
     assert len(training_runs) == 1
+    assert len(candidate_rows) == 1
     assert response["summary"]["judgment_count"] == 4
     assert response["summary"]["positive_count"] == 1
     assert response["summary"]["negative_count"] == 2
@@ -251,10 +365,34 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
     assert training_runs[0].training_dataset_sha256 == response["training_dataset_sha256"]
     assert training_runs[0].example_count == 7
     assert training_runs[0].training_payload_json["summary"]["training_example_count"] == 7
-    assert training_runs[0].semantic_governance_event_id == governance_events[0].id
-    assert governance_events[0].event_kind == "retrieval_training_run_materialized"
+    training_event = next(
+        row
+        for row in governance_events
+        if row.event_kind == "retrieval_training_run_materialized"
+    )
+    candidate_event = next(
+        row
+        for row in governance_events
+        if row.event_kind == "retrieval_learning_candidate_evaluated"
+    )
+    assert training_runs[0].semantic_governance_event_id == training_event.id
+    assert training_runs[0].search_harness_evaluation_id == (
+        candidate_response.search_harness_evaluation_id
+    )
+    assert training_runs[0].search_harness_release_id == (
+        candidate_response.search_harness_release_id
+    )
+    assert candidate_rows[0].training_dataset_sha256 == response["training_dataset_sha256"]
+    assert candidate_rows[0].learning_package_sha256 == (
+        candidate_response.learning_package_sha256
+    )
+    assert candidate_rows[0].semantic_governance_event_id is not None
+    assert candidate_rows[0].semantic_governance_event_id == candidate_event.id
+    assert training_event.event_payload_json["retrieval_training_run"][
+        "training_dataset_sha256"
+    ] == response["training_dataset_sha256"]
     assert (
-        governance_events[0].event_payload_json["retrieval_training_run"][
+        candidate_event.event_payload_json["retrieval_learning_candidate_evaluation"][
             "training_dataset_sha256"
         ]
         == response["training_dataset_sha256"]

@@ -71,6 +71,7 @@ docling-system-search-harness-release-audit-bundle = "app.cli:run_search_harness
 docling-system-optimize-search-harness = "app.cli:run_optimize_search_harness"
 docling-system-export-ranking-dataset = "app.cli:run_export_ranking_dataset"
 docling-system-materialize-retrieval-learning = "app.cli:run_materialize_retrieval_learning_dataset"
+docling-system-evaluate-retrieval-learning-candidate = "app.cli:run_evaluate_retrieval_learning_candidate"
 docling-system-agent-task-actions = "app.cli:run_agent_task_actions"
 docling-system-agent-task-create = "app.cli:run_agent_task_create"
 docling-system-agent-task-list = "app.cli:run_agent_task_list"
