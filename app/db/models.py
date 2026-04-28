@@ -121,9 +121,7 @@ class SemanticGovernanceEventKind(StrEnum):
     TECHNICAL_REPORT_PROV_EXPORT_FROZEN = "technical_report_prov_export_frozen"
     RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
     RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
-    RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = (
-        "retrieval_reranker_artifact_materialized"
-    )
+    RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = "retrieval_reranker_artifact_materialized"
 
 
 class RetrievalJudgmentKind(StrEnum):
@@ -4325,10 +4323,17 @@ class EvidenceTraceEdge(Base):
 class ClaimEvidenceDerivation(Base):
     __tablename__ = "claim_evidence_derivations"
     __table_args__ = (
+        CheckConstraint(
+            "support_verdict IS NULL OR support_verdict IN "
+            "('supported', 'unsupported', 'insufficient_evidence')",
+            name="ck_claim_evidence_derivations_support_verdict",
+        ),
         Index("ix_claim_evidence_derivations_export_id", "evidence_package_export_id"),
         Index("ix_claim_evidence_derivations_agent_task_id", "agent_task_id"),
         Index("ix_claim_evidence_derivations_claim_id", "claim_id"),
         Index("ix_claim_evidence_derivations_derivation_sha256", "derivation_sha256"),
+        Index("ix_claim_evidence_derivations_support_verdict", "support_verdict"),
+        Index("ix_claim_evidence_derivations_support_judge_run_id", "support_judge_run_id"),
         Index(
             "ix_claim_evidence_derivations_provenance_lock_sha",
             "provenance_lock_sha256",
@@ -4475,6 +4480,20 @@ class ClaimEvidenceDerivation(Base):
         server_default=sql_text("'{}'::jsonb"),
     )
     provenance_lock_sha256: Mapped[str | None] = mapped_column(Text)
+    support_verdict: Mapped[str | None] = mapped_column(Text)
+    support_score: Mapped[float | None] = mapped_column(Float)
+    support_judge_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_operator_runs.id", ondelete="SET NULL"),
+    )
+    support_judgment_json: Mapped[dict] = mapped_column(
+        "support_judgment",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    support_judgment_sha256: Mapped[str | None] = mapped_column(Text)
     evidence_package_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     derivation_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

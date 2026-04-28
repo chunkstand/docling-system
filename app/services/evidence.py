@@ -489,8 +489,7 @@ def _load_multivector_generation_links(
         .where(
             KnowledgeOperatorOutput.target_table == "retrieval_evidence_span_multivectors",
             KnowledgeOperatorOutput.target_id.in_(unique_vector_ids),
-            KnowledgeOperatorRun.operator_name
-            == "retrieval_evidence_span_multivector_generation",
+            KnowledgeOperatorRun.operator_name == "retrieval_evidence_span_multivector_generation",
         )
         .order_by(
             KnowledgeOperatorOutput.target_id.asc(),
@@ -888,9 +887,7 @@ def get_search_evidence_package(session: Session, search_request_id: UUID) -> di
 def _search_evidence_export_values(package: dict[str, Any]) -> dict[str, list[str]]:
     source_evidence = list(package.get("source_evidence") or [])
     retrieval_spans = [
-        span
-        for item in source_evidence
-        for span in item.get("retrieval_evidence_spans", [])
+        span for item in source_evidence for span in item.get("retrieval_evidence_spans", [])
     ]
     late_interaction_vectors = [
         vector
@@ -903,21 +900,14 @@ def _search_evidence_export_values(package: dict[str, Any]) -> dict[str, list[st
             [
                 *(item.get("source_snapshot_sha256") for item in source_evidence),
                 *(span.get("source_snapshot_sha256") for span in retrieval_spans),
-                *(
-                    vector.get("span_vector_snapshot_sha256")
-                    for vector in late_interaction_vectors
-                ),
+                *(vector.get("span_vector_snapshot_sha256") for vector in late_interaction_vectors),
             ]
         ),
-        "operator_run_ids": _string_values(
-            run.get("operator_run_id") for run in operator_runs
-        ),
+        "operator_run_ids": _string_values(run.get("operator_run_id") for run in operator_runs),
         "document_ids": _string_values(
             (item.get("document") or {}).get("id") for item in source_evidence
         ),
-        "run_ids": _string_values(
-            (item.get("run") or {}).get("id") for item in source_evidence
-        ),
+        "run_ids": _string_values((item.get("run") or {}).get("id") for item in source_evidence),
     }
 
 
@@ -1078,9 +1068,7 @@ def _search_export_source_coverage(export: EvidencePackageExport) -> dict[str, A
         )
         for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
             source_payload = source_item.get(payload_key) or {}
-            source_record_keys.append(
-                _source_record_key(source_type, source_payload.get("id"))
-            )
+            source_record_keys.append(_source_record_key(source_type, source_payload.get("id")))
             source_page_spans.append(
                 _source_page_span(
                     document_id=source_payload.get("document_id") or document.get("id"),
@@ -1106,9 +1094,7 @@ def _search_export_source_coverage(export: EvidencePackageExport) -> dict[str, A
         "source_page_spans": [
             span
             for span in {
-                span["key"]: span
-                for span in source_page_spans
-                if span and span.get("key")
+                span["key"]: span for span in source_page_spans if span and span.get("key")
             }.values()
         ],
         "source_result_count": len(package.get("source_evidence") or []),
@@ -1240,9 +1226,7 @@ def technical_report_search_evidence_closure_payload(
         if not claim.get("source_evidence_package_export_ids")
     )
     cited_card_ids = {
-        str(card_id)
-        for claim in claims
-        for card_id in (claim.get("evidence_card_ids") or [])
+        str(card_id) for claim in claims for card_id in (claim.get("evidence_card_ids") or [])
     }
     cited_source_cards = [
         card
@@ -1261,8 +1245,7 @@ def technical_report_search_evidence_closure_payload(
     cited_cards_without_acceptable_source_match = sorted(
         str(card.get("evidence_card_id"))
         for card in cited_source_cards
-        if card.get("source_evidence_match_status")
-        not in _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES
+        if card.get("source_evidence_match_status") not in _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES
     )
     cited_cards_without_source_record_match = sorted(
         str(card.get("evidence_card_id"))
@@ -1303,14 +1286,10 @@ def technical_report_search_evidence_closure_payload(
             recomputed_source_evidence_match_status_counts.get(status, 0) + 1
         )
     expected_source_record_keys = {
-        key
-        for coverage in card_source_coverages
-        for key in coverage["expected_source_record_keys"]
+        key for coverage in card_source_coverages for key in coverage["expected_source_record_keys"]
     }
     matched_source_record_keys = {
-        key
-        for coverage in card_source_coverages
-        for key in coverage["matched_source_record_keys"]
+        key for coverage in card_source_coverages for key in coverage["matched_source_record_keys"]
     }
     source_record_recall = (
         round(len(matched_source_record_keys) / len(expected_source_record_keys), 4)
@@ -1348,9 +1327,7 @@ def technical_report_search_evidence_closure_payload(
         "missing_source_evidence_package_export_count": len(missing_export_ids),
         "non_search_source_evidence_package_export_count": len(non_search_export_ids),
         "incomplete_trace_count": len(incomplete_trace_export_ids),
-        "claims_missing_source_evidence_package_export_count": len(
-            claims_missing_source_exports
-        ),
+        "claims_missing_source_evidence_package_export_count": len(claims_missing_source_exports),
         "cited_cards_missing_source_evidence_package_export_count": len(
             cited_cards_missing_source_exports
         ),
@@ -1369,9 +1346,7 @@ def technical_report_search_evidence_closure_payload(
         "cited_cards_with_expected_record_without_recomputed_record_match_count": len(
             cited_cards_with_expected_record_without_recomputed_record_match
         ),
-        "reported_recomputed_match_mismatch_count": len(
-            reported_recomputed_match_mismatches
-        ),
+        "reported_recomputed_match_mismatch_count": len(reported_recomputed_match_mismatches),
         "source_evidence_match_status_counts": source_evidence_match_status_counts,
         "recomputed_source_evidence_match_status_counts": (
             recomputed_source_evidence_match_status_counts
@@ -1590,9 +1565,7 @@ def _claim_derivation_provenance_lock_contract_mismatches(
     row_values = {
         "source_search_request_ids": row.source_search_request_ids_json or [],
         "source_search_request_result_ids": row.source_search_request_result_ids_json or [],
-        "source_evidence_package_export_ids": (
-            row.source_evidence_package_export_ids_json or []
-        ),
+        "source_evidence_package_export_ids": (row.source_evidence_package_export_ids_json or []),
         "source_evidence_package_sha256s": row.source_evidence_package_sha256s_json or [],
         "source_evidence_trace_sha256s": row.source_evidence_trace_sha256s_json or [],
         "semantic_ontology_snapshot_ids": row.semantic_ontology_snapshot_ids_json or [],
@@ -1603,9 +1576,7 @@ def _claim_derivation_provenance_lock_contract_mismatches(
         "release_validation_receipt_ids": row.release_validation_receipt_ids_json or [],
     }
     for field_name in _CLAIM_PROVENANCE_LOCK_LIST_FIELDS:
-        if _string_values(lock.get(field_name) or []) != _string_values(
-            row_values[field_name]
-        ):
+        if _string_values(lock.get(field_name) or []) != _string_values(row_values[field_name]):
             mismatches.append(field_name)
     coverage = dict(lock.get("coverage") or {})
     coverage_fields = {
@@ -1622,6 +1593,45 @@ def _claim_derivation_provenance_lock_contract_mismatches(
     for coverage_key, field_name in coverage_fields.items():
         if coverage.get(coverage_key) != len(_string_values(lock.get(field_name) or [])):
             mismatches.append(f"coverage.{coverage_key}")
+    return mismatches
+
+
+def _claim_derivation_support_judgment_contract_mismatches(
+    row: ClaimEvidenceDerivation,
+) -> list[str]:
+    judgment = dict(row.support_judgment_json or {})
+    if not judgment:
+        return ["support_judgment"]
+    mismatches: list[str] = []
+    if judgment.get("schema_name") != "technical_report_claim_support_judgment":
+        mismatches.append("schema_name")
+    if judgment.get("schema_version") != "1.0":
+        mismatches.append("schema_version")
+    if judgment.get("judge_kind") != "deterministic_claim_support_v1":
+        mismatches.append("judge_kind")
+    if str(judgment.get("claim_id") or "") != str(row.claim_id):
+        mismatches.append("claim_id")
+    if judgment.get("verdict") != row.support_verdict:
+        mismatches.append("verdict")
+    try:
+        judgment_score = float(judgment.get("support_score"))
+    except (TypeError, ValueError):
+        mismatches.append("support_score")
+    else:
+        if row.support_score is None or abs(judgment_score - row.support_score) > 0.0001:
+            mismatches.append("support_score")
+    if _string_values(judgment.get("source_search_request_result_ids") or []) != (
+        row.source_search_request_result_ids_json or []
+    ):
+        mismatches.append("source_search_request_result_ids")
+    if sorted(_string_values(judgment.get("evidence_card_ids") or [])) != sorted(
+        row.evidence_card_ids_json or []
+    ):
+        mismatches.append("evidence_card_ids")
+    if sorted(_string_values(judgment.get("graph_edge_ids") or [])) != sorted(
+        row.graph_edge_ids_json or []
+    ):
+        mismatches.append("graph_edge_ids")
     return mismatches
 
 
@@ -1657,7 +1667,9 @@ def _apply_technical_report_claim_provenance_locks(
     graph_snapshot_ontology_by_id: dict[str, str] = {}
     if all_graph_snapshot_ids:
         graph_snapshots = session.scalars(
-            select(SemanticGraphSnapshot).where(SemanticGraphSnapshot.id.in_(all_graph_snapshot_ids))
+            select(SemanticGraphSnapshot).where(
+                SemanticGraphSnapshot.id.in_(all_graph_snapshot_ids)
+            )
         )
         graph_snapshot_ontology_by_id = {
             str(row.id): str(row.ontology_snapshot_id)
@@ -1760,10 +1772,7 @@ def _apply_technical_report_claim_provenance_locks(
         )
         semantic_ontology_snapshot_ids = _id_str_values(
             [
-                *[
-                    fact_ontology_by_id.get(str(fact_id))
-                    for fact_id in claim.get("fact_ids") or []
-                ],
+                *[fact_ontology_by_id.get(str(fact_id)) for fact_id in claim.get("fact_ids") or []],
                 *[
                     graph_snapshot_ontology_by_id.get(str(snapshot_id))
                     for snapshot_id in semantic_graph_snapshot_ids
@@ -1807,9 +1816,7 @@ def _apply_technical_report_claim_provenance_locks(
             "semantic_graph_snapshot_ids": semantic_graph_snapshot_ids,
             "retrieval_reranker_artifact_ids": retrieval_reranker_artifact_ids,
             "search_harness_release_ids": claim_release_ids,
-            "source_search_request_release_bindings": (
-                source_search_request_release_bindings
-            ),
+            "source_search_request_release_bindings": (source_search_request_release_bindings),
             "release_audit_bundle_ids": release_audit_bundle_ids,
             "release_validation_receipt_ids": release_validation_receipt_ids,
             "coverage": {
@@ -1873,18 +1880,14 @@ def _apply_technical_report_claim_provenance_locks(
                 for result_id in (claim.get("source_search_request_result_ids") or [])
             )
         ),
-        "semantic_ontology_snapshot_id_count": len(
-            draft_payload["semantic_ontology_snapshot_ids"]
-        ),
+        "semantic_ontology_snapshot_id_count": len(draft_payload["semantic_ontology_snapshot_ids"]),
         "semantic_graph_snapshot_id_count": len(draft_payload["semantic_graph_snapshot_ids"]),
         "retrieval_reranker_artifact_id_count": len(
             draft_payload["retrieval_reranker_artifact_ids"]
         ),
         "search_harness_release_id_count": len(draft_payload["search_harness_release_ids"]),
         "release_audit_bundle_id_count": len(draft_payload["release_audit_bundle_ids"]),
-        "release_validation_receipt_id_count": len(
-            draft_payload["release_validation_receipt_ids"]
-        ),
+        "release_validation_receipt_id_count": len(draft_payload["release_validation_receipt_ids"]),
     }
 
 
@@ -1983,6 +1986,11 @@ def build_technical_report_derivation_package(draft_payload: dict[str, Any]) -> 
                 ),
                 "provenance_lock": dict(claim.get("provenance_lock") or {}),
                 "provenance_lock_sha256": claim.get("provenance_lock_sha256"),
+                "support_verdict": claim.get("support_verdict"),
+                "support_score": claim.get("support_score"),
+                "support_judge_run_id": str(claim.get("support_judge_run_id") or "") or None,
+                "support_judgment": dict(claim.get("support_judgment") or {}),
+                "support_judgment_sha256": claim.get("support_judgment_sha256"),
                 "derivation_rule": "technical_report_claim_contract_v1",
             }
         )
@@ -2138,9 +2146,7 @@ def persist_technical_report_evidence_export(
                 semantic_ontology_snapshot_ids_json=list(
                     derivation["semantic_ontology_snapshot_ids"]
                 ),
-                semantic_graph_snapshot_ids_json=list(
-                    derivation["semantic_graph_snapshot_ids"]
-                ),
+                semantic_graph_snapshot_ids_json=list(derivation["semantic_graph_snapshot_ids"]),
                 retrieval_reranker_artifact_ids_json=list(
                     derivation["retrieval_reranker_artifact_ids"]
                 ),
@@ -2151,6 +2157,11 @@ def persist_technical_report_evidence_export(
                 ),
                 provenance_lock_json=dict(derivation["provenance_lock"]),
                 provenance_lock_sha256=derivation.get("provenance_lock_sha256"),
+                support_verdict=derivation.get("support_verdict"),
+                support_score=derivation.get("support_score"),
+                support_judge_run_id=_uuid_or_none(derivation.get("support_judge_run_id")),
+                support_judgment_json=dict(derivation.get("support_judgment") or {}),
+                support_judgment_sha256=derivation.get("support_judgment_sha256"),
                 evidence_package_sha256=str(derivation["evidence_package_sha256"]),
                 derivation_sha256=str(derivation["derivation_sha256"]),
                 created_at=now,
@@ -2223,9 +2234,7 @@ def _claim_derivation_payload(row: ClaimEvidenceDerivation) -> dict:
         "source_snapshot_sha256s": row.source_snapshot_sha256s_json or [],
         "source_search_request_ids": row.source_search_request_ids_json or [],
         "source_search_request_result_ids": row.source_search_request_result_ids_json or [],
-        "source_evidence_package_export_ids": (
-            row.source_evidence_package_export_ids_json or []
-        ),
+        "source_evidence_package_export_ids": (row.source_evidence_package_export_ids_json or []),
         "source_evidence_package_sha256s": row.source_evidence_package_sha256s_json or [],
         "source_evidence_trace_sha256s": row.source_evidence_trace_sha256s_json or [],
         "semantic_ontology_snapshot_ids": row.semantic_ontology_snapshot_ids_json or [],
@@ -2236,6 +2245,11 @@ def _claim_derivation_payload(row: ClaimEvidenceDerivation) -> dict:
         "release_validation_receipt_ids": row.release_validation_receipt_ids_json or [],
         "provenance_lock": row.provenance_lock_json or {},
         "provenance_lock_sha256": row.provenance_lock_sha256,
+        "support_verdict": row.support_verdict,
+        "support_score": row.support_score,
+        "support_judge_run_id": row.support_judge_run_id,
+        "support_judgment": row.support_judgment_json or {},
+        "support_judgment_sha256": row.support_judgment_sha256,
         "evidence_package_sha256": row.evidence_package_sha256,
         "derivation_sha256": row.derivation_sha256,
         "created_at": row.created_at,
@@ -2522,6 +2536,10 @@ def _technical_report_integrity_payload(
     provenance_lock_mismatched_claim_ids: list[str] = []
     provenance_lock_contract_mismatched_claim_ids: list[str] = []
     missing_provenance_lock_claim_ids: list[str] = []
+    support_judgment_mismatched_claim_ids: list[str] = []
+    support_judgment_contract_mismatched_claim_ids: list[str] = []
+    missing_support_judgment_claim_ids: list[str] = []
+    failed_support_judgment_claim_ids: list[str] = []
     for row in derivations:
         expected_derivation = expected_derivations_by_claim_id.get(str(row.claim_id))
         expected_derivation_sha256 = (
@@ -2547,6 +2565,28 @@ def _technical_report_integrity_payload(
             provenance_lock_mismatched_claim_ids.append(str(row.claim_id))
         if _claim_derivation_provenance_lock_contract_mismatches(row):
             provenance_lock_contract_mismatched_claim_ids.append(str(row.claim_id))
+        expected_support_judgment_sha256 = (
+            str(expected_derivation.get("support_judgment_sha256") or "")
+            if expected_derivation is not None
+            else ""
+        )
+        if (
+            not row.support_verdict
+            or row.support_score is None
+            or not row.support_judge_run_id
+            or not row.support_judgment_json
+            or not row.support_judgment_sha256
+        ):
+            missing_support_judgment_claim_ids.append(str(row.claim_id))
+        elif (
+            row.support_judgment_sha256 != payload_sha256(row.support_judgment_json)
+            or row.support_judgment_sha256 != expected_support_judgment_sha256
+        ):
+            support_judgment_mismatched_claim_ids.append(str(row.claim_id))
+        if _claim_derivation_support_judgment_contract_mismatches(row):
+            support_judgment_contract_mismatched_claim_ids.append(str(row.claim_id))
+        if row.support_verdict != "supported":
+            failed_support_judgment_claim_ids.append(str(row.claim_id))
 
     return {
         "expected_evidence_package_sha256": expected_package_sha256,
@@ -2564,6 +2604,12 @@ def _technical_report_integrity_payload(
             provenance_lock_contract_mismatched_claim_ids
         ),
         "missing_claim_provenance_lock_count": len(missing_provenance_lock_claim_ids),
+        "claim_support_judgment_mismatch_count": len(support_judgment_mismatched_claim_ids),
+        "claim_support_judgment_contract_mismatch_count": len(
+            support_judgment_contract_mismatched_claim_ids
+        ),
+        "missing_claim_support_judgment_count": len(missing_support_judgment_claim_ids),
+        "failed_claim_support_judgment_count": len(failed_support_judgment_claim_ids),
         "missing_claim_derivation_count": len(missing_claim_derivation_ids),
         "mismatched_claim_ids": sorted(mismatched_claim_ids),
         "package_mismatched_claim_ids": sorted(package_mismatched_claim_ids),
@@ -2572,6 +2618,12 @@ def _technical_report_integrity_payload(
             provenance_lock_contract_mismatched_claim_ids
         ),
         "missing_provenance_lock_claim_ids": sorted(missing_provenance_lock_claim_ids),
+        "support_judgment_mismatched_claim_ids": sorted(support_judgment_mismatched_claim_ids),
+        "support_judgment_contract_mismatched_claim_ids": sorted(
+            support_judgment_contract_mismatched_claim_ids
+        ),
+        "missing_support_judgment_claim_ids": sorted(missing_support_judgment_claim_ids),
+        "failed_support_judgment_claim_ids": sorted(failed_support_judgment_claim_ids),
         "missing_claim_derivation_ids": missing_claim_derivation_ids,
     }
 
@@ -2885,6 +2937,32 @@ def _technical_report_provenance_edges(
                     "derivation_sha256": claim.get("derivation_sha256"),
                 }
             )
+        if claim.get("support_judgment_sha256"):
+            edges.append(
+                {
+                    "edge_type": "claim_to_support_judgment",
+                    "from": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                    "to": {
+                        "table": "technical_report_claim_support_judgments",
+                        "id": claim.get("support_judgment_sha256"),
+                    },
+                    "derivation_sha256": claim.get("derivation_sha256"),
+                    "support_verdict": claim.get("support_verdict"),
+                    "support_score": claim.get("support_score"),
+                }
+            )
+        if claim.get("support_judge_run_id"):
+            edges.append(
+                {
+                    "edge_type": "support_judge_run_to_claim",
+                    "from": {
+                        "table": "knowledge_operator_runs",
+                        "id": claim.get("support_judge_run_id"),
+                    },
+                    "to": {"table": "technical_report_claims", "id": claim.get("claim_id")},
+                    "support_judgment_sha256": claim.get("support_judgment_sha256"),
+                }
+            )
         for result_id in claim.get("source_search_request_result_ids") or []:
             edges.append(
                 {
@@ -3117,6 +3195,19 @@ def build_technical_report_evidence_manifest_payload(
         "has_claim_provenance_locks": bool(claims)
         and all(claim.get("provenance_lock_sha256") for claim in claims)
         and audit_bundle["audit_checklist"].get("all_claims_have_provenance_locks", False),
+        "has_claim_support_judgments": bool(claims)
+        and all(
+            claim.get("support_verdict") == "supported"
+            and claim.get("support_score") is not None
+            and claim.get("support_judge_run_id")
+            and claim.get("support_judgment_sha256")
+            for claim in claims
+        )
+        and audit_bundle["audit_checklist"].get("all_claims_have_support_judgments", False)
+        and audit_bundle["audit_checklist"].get(
+            "claim_support_judgment_integrity_verified",
+            False,
+        ),
         "has_claim_source_search_results": bool(claims)
         and all(claim.get("source_search_request_result_ids") for claim in claims)
         and audit_bundle["audit_checklist"].get("all_claims_have_source_search_results", False),
@@ -3127,6 +3218,10 @@ def build_technical_report_evidence_manifest_payload(
         ),
         "has_generation_operator_run": audit_bundle["audit_checklist"].get(
             "has_generation_operator_run",
+            False,
+        ),
+        "has_support_judge_operator_run": audit_bundle["audit_checklist"].get(
+            "has_support_judge_operator_run",
             False,
         ),
         "has_verification_operator_run": audit_bundle["audit_checklist"].get(
@@ -3223,6 +3318,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "technical_report_evidence_cards": "evidence_card",
     "technical_report_claims": "technical_report_claim",
     "technical_report_claim_provenance_locks": "claim_provenance_lock",
+    "technical_report_claim_support_judgments": "claim_support_judgment",
     "claim_evidence_derivations": "claim_derivation",
     "evidence_package_exports": "evidence_package_export",
     "audit_bundle_exports": "audit_bundle_export",
@@ -3618,9 +3714,7 @@ def _build_search_evidence_trace_graph(package: dict[str, Any]) -> dict[str, Any
                 source_table="retrieval_evidence_spans",
                 source_id=span.get("retrieval_evidence_span_id"),
                 payload={
-                    "retrieval_evidence_span_id": str(
-                        span.get("retrieval_evidence_span_id")
-                    ),
+                    "retrieval_evidence_span_id": str(span.get("retrieval_evidence_span_id")),
                     "source_type": span.get("source_type"),
                     "source_id": str(span.get("source_id")),
                     "span_index": span.get("span_index"),
@@ -4036,8 +4130,10 @@ def _search_trace_specs_from_package(
         }
         for edge in graph.get("edges", [])
     ]
-    return node_specs, edge_specs, str(
-        graph.get("trace_sha256") or _search_trace_graph_sha256(node_specs, edge_specs)
+    return (
+        node_specs,
+        edge_specs,
+        str(graph.get("trace_sha256") or _search_trace_graph_sha256(node_specs, edge_specs)),
     )
 
 
@@ -5030,9 +5126,7 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
                 "docling:document_id": source_record.get("document_id"),
                 "docling:run_id": source_record.get("run_id"),
                 "docling:source_type": source_record.get("source_type"),
-                "docling:source_snapshot_sha256": source_record.get(
-                    "source_snapshot_sha256"
-                ),
+                "docling:source_snapshot_sha256": source_record.get("source_snapshot_sha256"),
             },
         )
 
@@ -5085,9 +5179,7 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             **{
                 "docling:evidence_kind": card.get("evidence_kind"),
                 "docling:source_type": card.get("source_type"),
-                "docling:source_evidence_match_status": card.get(
-                    "source_evidence_match_status"
-                ),
+                "docling:source_evidence_match_status": card.get("source_evidence_match_status"),
             },
         )
 
@@ -5100,9 +5192,7 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             entity_type="docling:TechnicalReportClaim",
             **{
                 "docling:claim_text": claim.get("rendered_text"),
-                "docling:source_evidence_match_status": claim.get(
-                    "source_evidence_match_status"
-                ),
+                "docling:source_evidence_match_status": claim.get("source_evidence_match_status"),
             },
         )
 
@@ -5448,18 +5538,14 @@ def _prov_export_receipt_integrity(payload: dict[str, Any] | None) -> dict[str, 
         else:
             signature_verification_status = "signing_key_missing"
 
-    hash_chain_values = [
-        item.get("sha256") for item in receipt.get("hash_chain") or []
-    ]
+    hash_chain_values = [item.get("sha256") for item in receipt.get("hash_chain") or []]
     hash_chain_complete = bool(receipt.get("hash_chain_complete")) and all(hash_chain_values)
-    export_payload_hash_matches = (
-        _receipt_hash_chain_sha256(receipt, "technical_report_prov_export")
-        == frozen_export.get("export_payload_sha256")
-    )
-    prov_hash_basis_matches = (
-        _receipt_hash_chain_sha256(receipt, "prov_hash_basis")
-        == frozen_export.get("prov_hash_basis_sha256")
-    )
+    export_payload_hash_matches = _receipt_hash_chain_sha256(
+        receipt, "technical_report_prov_export"
+    ) == frozen_export.get("export_payload_sha256")
+    prov_hash_basis_matches = _receipt_hash_chain_sha256(
+        receipt, "prov_hash_basis"
+    ) == frozen_export.get("prov_hash_basis_sha256")
     checks = {
         "has_receipt": bool(receipt),
         "receipt_hash_matches": receipt_hash_matches,
@@ -5467,8 +5553,7 @@ def _prov_export_receipt_integrity(payload: dict[str, Any] | None) -> dict[str, 
         "stored_receipt_sha256": stored_receipt_sha256,
         "hash_chain_complete": hash_chain_complete,
         "artifact_id_matches": receipt.get("artifact_id") == frozen_export.get("artifact_id"),
-        "artifact_kind_matches": receipt.get("artifact_kind")
-        == frozen_export.get("artifact_kind"),
+        "artifact_kind_matches": receipt.get("artifact_kind") == frozen_export.get("artifact_kind"),
         "task_id_matches": receipt.get("task_id") == frozen_export.get("task_id"),
         "storage_path_matches": receipt.get("storage_path") == frozen_export.get("storage_path"),
         "export_payload_hash_matches": export_payload_hash_matches,
@@ -5756,9 +5841,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         )
     )
     prov_export_artifacts = [
-        row
-        for row in artifacts
-        if row.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+        row for row in artifacts if row.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
     ]
     prov_export_artifact_ids = [row.id for row in prov_export_artifacts]
     prov_export_receipts = [
@@ -5794,8 +5877,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         artifact_ids=prov_export_artifact_ids,
         evidence_manifest_ids=[row.id for row in evidence_manifests],
         receipt_sha256s=[
-            (row.get("export_receipt") or {}).get("receipt_sha256")
-            for row in prov_export_receipts
+            (row.get("export_receipt") or {}).get("receipt_sha256") for row in prov_export_receipts
         ],
     )
     exports = list(
@@ -5844,16 +5926,18 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and integrity["claim_provenance_lock_mismatch_count"] == 0
         and integrity["claim_provenance_lock_contract_mismatch_count"] == 0
         and integrity["missing_claim_provenance_lock_count"] == 0
+        and integrity["claim_support_judgment_mismatch_count"] == 0
+        and integrity["claim_support_judgment_contract_mismatch_count"] == 0
+        and integrity["missing_claim_support_judgment_count"] == 0
+        and integrity["failed_claim_support_judgment_count"] == 0
         and integrity["missing_claim_derivation_count"] == 0
     )
     source_evidence_trace_integrity_verified = source_evidence_closure["complete"]
     prov_export_receipts_integrity_verified = bool(prov_export_receipts) and all(
-        (row.get("receipt_integrity") or {}).get("complete")
-        for row in prov_export_receipts
+        (row.get("receipt_integrity") or {}).get("complete") for row in prov_export_receipts
     )
     prov_export_receipt_signature_verified = bool(prov_export_receipts) and all(
-        (row.get("receipt_integrity") or {}).get("signature_verification_status")
-        == "verified"
+        (row.get("receipt_integrity") or {}).get("signature_verification_status") == "verified"
         for row in prov_export_receipts
     )
     audit_bundle = {
@@ -5892,6 +5976,23 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "all_claim_provenance_locks_match_claim_fields": (
                 integrity["claim_provenance_lock_contract_mismatch_count"] == 0
             ),
+            "all_claims_have_support_judgments": bool(draft_payload.get("claims"))
+            and all(
+                claim.get("support_verdict") == "supported"
+                and claim.get("support_score") is not None
+                and claim.get("support_judge_run_id")
+                and claim.get("support_judgment")
+                and claim.get("support_judgment_sha256")
+                for claim in draft_payload.get("claims") or []
+            )
+            and integrity["missing_claim_support_judgment_count"] == 0
+            and integrity["failed_claim_support_judgment_count"] == 0,
+            "all_claim_support_judgments_match_claim_fields": (
+                integrity["claim_support_judgment_contract_mismatch_count"] == 0
+            ),
+            "claim_support_judgment_integrity_verified": (
+                integrity["claim_support_judgment_mismatch_count"] == 0
+            ),
             "all_claims_have_source_search_results": bool(draft_payload.get("claims"))
             and all(
                 claim.get("source_search_request_result_ids")
@@ -5909,33 +6010,30 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
                 (row.get("export_receipt") or {}).get("signature_status") == "signed"
                 for row in prov_export_receipts
             ),
-            "prov_export_receipts_integrity_verified": (
-                prov_export_receipts_integrity_verified
-            ),
-            "prov_export_receipt_signature_verified": (
-                prov_export_receipt_signature_verified
-            ),
+            "prov_export_receipts_integrity_verified": (prov_export_receipts_integrity_verified),
+            "prov_export_receipt_signature_verified": (prov_export_receipt_signature_verified),
             "no_prov_export_immutability_events": not prov_export_immutability_events,
-            "has_semantic_governance_chain": semantic_governance_chain["integrity"][
-                "has_events"
+            "has_semantic_governance_chain": semantic_governance_chain["integrity"]["has_events"],
+            "semantic_governance_chain_integrity_verified": semantic_governance_chain["integrity"][
+                "complete"
             ],
-            "semantic_governance_chain_integrity_verified": semantic_governance_chain[
-                "integrity"
-            ]["complete"],
-            "semantic_governance_chain_links_prov_receipt": semantic_governance_chain[
-                "integrity"
-            ]["links_requested_prov_receipt"],
+            "semantic_governance_chain_links_prov_receipt": semantic_governance_chain["integrity"][
+                "links_requested_prov_receipt"
+            ],
             "semantic_governance_chain_change_impact_evaluated": (
                 semantic_governance_chain["integrity"]["change_impact_evaluated"]
             ),
-            "source_evidence_trace_integrity_verified": (
-                source_evidence_trace_integrity_verified
-            ),
+            "source_evidence_trace_integrity_verified": (source_evidence_trace_integrity_verified),
             "generation_evidence_closed": (
                 hash_integrity_verified and source_evidence_trace_integrity_verified
             ),
             "has_generation_operator_run": any(
                 row.operator_kind == "generate" for row in operator_runs
+            ),
+            "has_support_judge_operator_run": any(
+                row.operator_kind == "judge"
+                and row.operator_name == "technical_report_claim_support_judge"
+                for row in operator_runs
             ),
             "has_verification_operator_run": any(
                 row.operator_kind == "verify" for row in operator_runs
@@ -5949,11 +6047,13 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
     audit_bundle["audit_checklist"]["complete"] = (
         audit_bundle["audit_checklist"]["generation_evidence_closed"]
         and audit_bundle["audit_checklist"]["all_claims_have_provenance_locks"]
-        and audit_bundle["audit_checklist"][
-            "all_claim_provenance_locks_match_claim_fields"
-        ]
+        and audit_bundle["audit_checklist"]["all_claim_provenance_locks_match_claim_fields"]
+        and audit_bundle["audit_checklist"]["all_claims_have_support_judgments"]
+        and audit_bundle["audit_checklist"]["all_claim_support_judgments_match_claim_fields"]
+        and audit_bundle["audit_checklist"]["claim_support_judgment_integrity_verified"]
         and audit_bundle["audit_checklist"]["all_claims_have_source_search_results"]
         and audit_bundle["audit_checklist"]["has_generation_operator_run"]
+        and audit_bundle["audit_checklist"]["has_support_judge_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
@@ -5964,9 +6064,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_semantic_governance_chain"]
         and audit_bundle["audit_checklist"]["semantic_governance_chain_integrity_verified"]
         and audit_bundle["audit_checklist"]["semantic_governance_chain_links_prov_receipt"]
-        and audit_bundle["audit_checklist"][
-            "semantic_governance_chain_change_impact_evaluated"
-        ]
+        and audit_bundle["audit_checklist"]["semantic_governance_chain_change_impact_evaluated"]
         and audit_bundle["audit_checklist"]["verification_passed"]
         and audit_bundle["audit_checklist"]["change_impact_clear"]
     )

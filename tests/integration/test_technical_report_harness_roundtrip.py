@@ -225,12 +225,8 @@ def test_technical_report_harness_roundtrip(
         assert draft_payload["source_evidence_package_exports"]
         assert draft_payload["claim_derivations"]
         assert all(claim["derivation_sha256"] for claim in draft_payload["claims"])
-        assert all(
-            claim["source_evidence_package_export_ids"] for claim in draft_payload["claims"]
-        )
-        assert all(
-            claim["source_search_request_result_ids"] for claim in draft_payload["claims"]
-        )
+        assert all(claim["source_evidence_package_export_ids"] for claim in draft_payload["claims"])
+        assert all(claim["source_search_request_result_ids"] for claim in draft_payload["claims"])
         assert all(claim["provenance_lock_sha256"] for claim in draft_payload["claims"])
         assert all(
             claim["provenance_lock_sha256"] == payload_sha256(claim["provenance_lock"])
@@ -246,6 +242,17 @@ def test_technical_report_harness_roundtrip(
             == claim["source_search_request_result_ids"]
             for claim in draft_payload["claims"]
         )
+        assert all(claim["support_verdict"] == "supported" for claim in draft_payload["claims"])
+        assert all(claim["support_score"] >= 0.34 for claim in draft_payload["claims"])
+        assert all(claim["support_judge_run_id"] for claim in draft_payload["claims"])
+        assert all(claim["support_judgment_sha256"] for claim in draft_payload["claims"])
+        assert all(
+            claim["support_judgment_sha256"] == payload_sha256(claim["support_judgment"])
+            for claim in draft_payload["claims"]
+        )
+        assert draft_payload["claim_support_summary"]["claims_with_support_judgment_count"] == len(
+            draft_payload["claims"]
+        )
         assert all(
             "semantic_ontology_snapshot_ids" in claim["provenance_lock"]
             and "semantic_graph_snapshot_ids" in claim["provenance_lock"]
@@ -254,16 +261,14 @@ def test_technical_report_harness_roundtrip(
             and "release_validation_receipt_ids" in claim["provenance_lock"]
             for claim in draft_payload["claims"]
         )
-        assert draft_payload["provenance_lock_summary"][
-            "claims_with_provenance_lock_count"
-        ] == len(draft_payload["claims"])
+        assert draft_payload["provenance_lock_summary"]["claims_with_provenance_lock_count"] == len(
+            draft_payload["claims"]
+        )
         assert draft_payload["provenance_lock_summary"][
             "source_search_request_result_id_count"
         ] >= len(draft_payload["claims"])
         cited_card_ids = {
-            card_id
-            for claim in draft_payload["claims"]
-            for card_id in claim["evidence_card_ids"]
+            card_id for claim in draft_payload["claims"] for card_id in claim["evidence_card_ids"]
         }
         cited_source_cards = [
             card
@@ -273,24 +278,23 @@ def test_technical_report_harness_roundtrip(
         ]
         assert cited_source_cards
         assert all(
-            card["source_evidence_match_status"]
-            in {"matched_source_record", "matched_page_span"}
+            card["source_evidence_match_status"] in {"matched_source_record", "matched_page_span"}
             for card in cited_source_cards
         )
         assert all(card["source_evidence_match_keys"] for card in cited_source_cards)
         assert all(
-            claim["source_evidence_match_status"]
-            in {"matched_source_record", "matched_page_span"}
+            claim["source_evidence_match_status"] in {"matched_source_record", "matched_page_span"}
             for claim in draft_payload["claims"]
         )
         draft_operator_rows = list(
             session.scalars(
-                select(KnowledgeOperatorRun).where(
-                    KnowledgeOperatorRun.agent_task_id == draft_task_id
-                )
+                select(KnowledgeOperatorRun)
+                .where(KnowledgeOperatorRun.agent_task_id == draft_task_id)
+                .order_by(KnowledgeOperatorRun.created_at.asc())
             )
         )
-        assert [row.operator_kind for row in draft_operator_rows] == ["generate"]
+        assert [row.operator_kind for row in draft_operator_rows] == ["judge", "generate"]
+        assert draft_operator_rows[0].operator_name == "technical_report_claim_support_judge"
         export_rows = list(
             session.scalars(
                 select(EvidencePackageExport).where(
@@ -310,9 +314,19 @@ def test_technical_report_harness_roundtrip(
         assert len(derivation_rows) == len(draft_payload["claims"])
         assert all(row.derivation_sha256 for row in derivation_rows)
         assert all(row.provenance_lock_sha256 for row in derivation_rows)
+        assert all(row.support_verdict == "supported" for row in derivation_rows)
+        assert all(
+            row.support_score is not None and row.support_score >= 0.34 for row in derivation_rows
+        )
+        assert all(row.support_judge_run_id for row in derivation_rows)
+        assert all(row.support_judgment_sha256 for row in derivation_rows)
         assert all(row.source_search_request_result_ids_json for row in derivation_rows)
         assert all(
             row.provenance_lock_sha256 == payload_sha256(row.provenance_lock_json)
+            for row in derivation_rows
+        )
+        assert all(
+            row.support_judgment_sha256 == payload_sha256(row.support_judgment_json)
             for row in derivation_rows
         )
 
@@ -329,23 +343,20 @@ def test_technical_report_harness_roundtrip(
         assert verification["metrics"]["derivation_integrity_mismatch_count"] == 0
         assert verification["metrics"]["provenance_lock_integrity_mismatch_count"] == 0
         assert verification["metrics"]["provenance_lock_contract_mismatch_count"] == 0
-        assert (
-            verification["metrics"]["claims_missing_source_search_request_result_count"]
-            == 0
-        )
+        assert verification["metrics"]["missing_support_judgment_count"] == 0
+        assert verification["metrics"]["support_judgment_integrity_mismatch_count"] == 0
+        assert verification["metrics"]["support_judgment_contract_mismatch_count"] == 0
+        assert verification["metrics"]["unsupported_support_judgment_count"] == 0
+        assert verification["metrics"]["claim_support_score_below_threshold_count"] == 0
+        assert verification["metrics"]["claims_missing_source_search_request_result_count"] == 0
         assert verification["metrics"]["source_evidence_closure_complete"] is True
         assert verification["metrics"]["source_evidence_package_trace_incomplete_count"] == 0
         assert verification["metrics"]["source_record_recall"] == 1.0
         assert (
-            verification["metrics"][
-                "cited_cards_without_acceptable_source_evidence_match_count"
-            ]
+            verification["metrics"]["cited_cards_without_acceptable_source_evidence_match_count"]
             == 0
         )
-        assert (
-            verification["metrics"]["cited_cards_without_recomputed_source_coverage_count"]
-            == 0
-        )
+        assert verification["metrics"]["cited_cards_without_recomputed_source_coverage_count"] == 0
         assert (
             verification["metrics"][
                 "cited_cards_with_expected_record_without_recomputed_record_match_count"
@@ -353,10 +364,7 @@ def test_technical_report_harness_roundtrip(
             == 0
         )
         assert verification["metrics"]["reported_recomputed_match_mismatch_count"] == 0
-        assert (
-            verification["metrics"]["cited_cards_with_document_run_fallback_match_count"]
-            == 0
-        )
+        assert verification["metrics"]["cited_cards_with_document_run_fallback_match_count"] == 0
         verify_operator_rows = list(
             session.scalars(
                 select(KnowledgeOperatorRun).where(
@@ -379,9 +387,10 @@ def test_technical_report_harness_roundtrip(
         assert manifest_rows[0].document_ids_json == [str(document_id)]
         assert manifest_rows[0].run_ids_json == [str(run_id)]
         assert manifest_rows[0].manifest_payload_json["audit_checklist"]["complete"] is True
-        assert manifest_rows[0].manifest_payload_json["audit_checklist"][
-            "hash_integrity_verified"
-        ] is True
+        assert (
+            manifest_rows[0].manifest_payload_json["audit_checklist"]["hash_integrity_verified"]
+            is True
+        )
         prov_artifacts = list(
             session.scalars(
                 select(AgentTaskArtifact).where(
@@ -432,35 +441,29 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["has_frozen_evidence_package"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_derivations"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_provenance_locks"] is True
-    assert audit_bundle["audit_checklist"][
-        "all_claim_provenance_locks_match_claim_fields"
-    ] is True
+    assert audit_bundle["audit_checklist"]["all_claim_provenance_locks_match_claim_fields"] is True
+    assert audit_bundle["audit_checklist"]["all_claims_have_support_judgments"] is True
+    assert audit_bundle["audit_checklist"]["all_claim_support_judgments_match_claim_fields"] is True
+    assert audit_bundle["audit_checklist"]["claim_support_judgment_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["all_claims_have_source_search_results"] is True
     assert audit_bundle["audit_checklist"]["hash_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_source_evidence_packages"] is True
     assert audit_bundle["audit_checklist"]["has_frozen_prov_export"] is True
     assert audit_bundle["audit_checklist"]["has_prov_export_receipt"] is True
     assert audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"] is True
-    assert audit_bundle["audit_checklist"][
-        "prov_export_receipts_integrity_verified"
-    ] is True
-    assert audit_bundle["audit_checklist"][
-        "prov_export_receipt_signature_verified"
-    ] is True
+    assert audit_bundle["audit_checklist"]["prov_export_receipts_integrity_verified"] is True
+    assert audit_bundle["audit_checklist"]["prov_export_receipt_signature_verified"] is True
     assert audit_bundle["audit_checklist"]["no_prov_export_immutability_events"] is True
     assert audit_bundle["audit_checklist"]["has_semantic_governance_chain"] is True
-    assert audit_bundle["audit_checklist"][
-        "semantic_governance_chain_integrity_verified"
-    ] is True
-    assert audit_bundle["audit_checklist"][
-        "semantic_governance_chain_links_prov_receipt"
-    ] is True
-    assert audit_bundle["audit_checklist"][
-        "semantic_governance_chain_change_impact_evaluated"
-    ] is True
+    assert audit_bundle["audit_checklist"]["semantic_governance_chain_integrity_verified"] is True
+    assert audit_bundle["audit_checklist"]["semantic_governance_chain_links_prov_receipt"] is True
+    assert (
+        audit_bundle["audit_checklist"]["semantic_governance_chain_change_impact_evaluated"] is True
+    )
     assert audit_bundle["audit_checklist"]["source_evidence_trace_integrity_verified"] is True
     assert audit_bundle["audit_checklist"]["generation_evidence_closed"] is True
     assert audit_bundle["audit_checklist"]["has_generation_operator_run"] is True
+    assert audit_bundle["audit_checklist"]["has_support_judge_operator_run"] is True
     assert audit_bundle["audit_checklist"]["has_verification_operator_run"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
@@ -472,6 +475,10 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["integrity"]["claim_provenance_lock_mismatch_count"] == 0
     assert audit_bundle["integrity"]["claim_provenance_lock_contract_mismatch_count"] == 0
     assert audit_bundle["integrity"]["missing_claim_provenance_lock_count"] == 0
+    assert audit_bundle["integrity"]["claim_support_judgment_mismatch_count"] == 0
+    assert audit_bundle["integrity"]["claim_support_judgment_contract_mismatch_count"] == 0
+    assert audit_bundle["integrity"]["missing_claim_support_judgment_count"] == 0
+    assert audit_bundle["integrity"]["failed_claim_support_judgment_count"] == 0
     report_export = next(
         row
         for row in audit_bundle["evidence_package_exports"]
@@ -508,30 +515,30 @@ def test_technical_report_harness_roundtrip(
     )
     assert audit_bundle["search_evidence_package_traces"]
     assert any(
-        row["artifact_kind"] == "technical_report_prov_export"
-        for row in audit_bundle["artifacts"]
+        row["artifact_kind"] == "technical_report_prov_export" for row in audit_bundle["artifacts"]
     )
     assert len(audit_bundle["provenance_export_receipts"]) == 1
-    assert audit_bundle["provenance_export_receipts"][0]["export_receipt"][
-        "signature_status"
-    ] == "signed"
-    assert audit_bundle["provenance_export_receipts"][0]["receipt_integrity"][
-        "complete"
-    ] is True
-    assert audit_bundle["provenance_export_receipts"][0]["receipt_integrity"][
-        "signature_verification_status"
-    ] == "verified"
+    assert (
+        audit_bundle["provenance_export_receipts"][0]["export_receipt"]["signature_status"]
+        == "signed"
+    )
+    assert audit_bundle["provenance_export_receipts"][0]["receipt_integrity"]["complete"] is True
+    assert (
+        audit_bundle["provenance_export_receipts"][0]["receipt_integrity"][
+            "signature_verification_status"
+        ]
+        == "verified"
+    )
     assert audit_bundle["provenance_export_immutability_events"] == []
     assert audit_bundle["semantic_governance_chain"]["integrity"]["complete"] is True
-    assert audit_bundle["semantic_governance_chain"]["integrity"][
-        "has_technical_report_prov_export_event"
-    ] is True
-    assert audit_bundle["semantic_governance_chain"]["integrity"][
-        "change_impact_evaluated"
-    ] is True
-    assert audit_bundle["semantic_governance_chain"]["integrity"][
-        "change_impact_clear"
-    ] is True
+    assert (
+        audit_bundle["semantic_governance_chain"]["integrity"][
+            "has_technical_report_prov_export_event"
+        ]
+        is True
+    )
+    assert audit_bundle["semantic_governance_chain"]["integrity"]["change_impact_evaluated"] is True
+    assert audit_bundle["semantic_governance_chain"]["integrity"]["change_impact_clear"] is True
     assert any(
         row["event_kind"] == "technical_report_prov_export_frozen"
         and row["receipt_sha256"]
@@ -540,8 +547,7 @@ def test_technical_report_harness_roundtrip(
         for row in audit_bundle["semantic_governance_chain"]["events"]
     )
     assert all(
-        row["trace_integrity"]["complete"]
-        for row in audit_bundle["search_evidence_package_traces"]
+        row["trace_integrity"]["complete"] for row in audit_bundle["search_evidence_package_traces"]
     )
     assert len(audit_bundle["claim_derivations"]) == len(draft_payload["claims"])
     assert audit_bundle["audit_bundle_sha256"]
@@ -557,13 +563,15 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["all_source_documents_hashed"] is True
     assert manifest["audit_checklist"]["all_document_runs_validation_passed"] is True
     assert manifest["audit_checklist"]["has_claim_provenance_locks"] is True
+    assert manifest["audit_checklist"]["has_claim_support_judgments"] is True
+    assert manifest["audit_checklist"]["has_support_judge_operator_run"] is True
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
     assert manifest["document_runs"][0]["artifact_hashes"]["docling_json_sha256"]
-    assert manifest["report_trace"]["evidence_package_integrity"][
-        "draft_package_hash_matches"
-    ] is True
+    assert (
+        manifest["report_trace"]["evidence_package_integrity"]["draft_package_hash_matches"] is True
+    )
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
     assert manifest["retrieval_trace"]["source_evidence_closure"]["source_record_recall"] == 1.0
@@ -577,6 +585,8 @@ def test_technical_report_harness_roundtrip(
     assert manifest["provenance_edges"]
     assert {
         "claim_to_provenance_lock",
+        "claim_to_support_judgment",
+        "support_judge_run_to_claim",
         "search_result_to_claim",
     }.issubset({edge["edge_type"] for edge in manifest["provenance_edges"]})
     assert manifest["manifest_integrity"]["complete"] is True
@@ -605,6 +615,7 @@ def test_technical_report_harness_roundtrip(
         "evidence_card",
         "technical_report_claim",
         "claim_provenance_lock",
+        "claim_support_judgment",
         "claim_derivation",
         "search_result",
         "operator_run",
@@ -612,8 +623,7 @@ def test_technical_report_harness_roundtrip(
         "evidence_manifest",
     }.issubset(node_kinds)
     assert any(
-        edge["payload"].get("source") == "manifest_provenance_edges"
-        for edge in trace["edges"]
+        edge["payload"].get("source") == "manifest_provenance_edges" for edge in trace["edges"]
     )
 
     provenance_response = client.get(f"/agent-tasks/{verify_task_id}/provenance")
@@ -638,9 +648,10 @@ def test_technical_report_harness_roundtrip(
     assert provenance["frozen_export"]["export_receipt"]["hash_chain_complete"] is True
     assert provenance["prov_integrity"]["all_relation_references_declared"] is True
     assert provenance["prov_integrity"]["missing_relation_reference_count"] == 0
-    assert provenance["prov_integrity"]["relation_count"] == provenance["prov_summary"][
-        "relation_count"
-    ]
+    assert (
+        provenance["prov_integrity"]["relation_count"]
+        == provenance["prov_summary"]["relation_count"]
+    )
     assert provenance["entity"]
     assert provenance["activity"]
     assert provenance["agent"]["docling:agent/technical-report-gate"]["prov:type"] == (
@@ -648,9 +659,7 @@ def test_technical_report_harness_roundtrip(
     )
     assert provenance["wasDerivedFrom"]
     assert provenance["used"]
-    artifact_response = client.get(
-        f"/agent-tasks/{verify_task_id}/artifacts/{prov_artifact_id}"
-    )
+    artifact_response = client.get(f"/agent-tasks/{verify_task_id}/artifacts/{prov_artifact_id}")
     assert artifact_response.status_code == 200
     assert artifact_response.json()["frozen_export"]["artifact_id"] == str(prov_artifact_id)
     prov_storage_path = Path(provenance["frozen_export"]["storage_path"])
@@ -691,15 +700,9 @@ def test_technical_report_harness_roundtrip(
     with postgres_integration_harness.session_factory() as session:
         session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
         session.execute(
-            text(
-                revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_FUNCTION_SQL
-            )
+            text(revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_FUNCTION_SQL)
         )
-        session.execute(
-            text(
-                revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_TRIGGER_SQL
-            )
-        )
+        session.execute(text(revision_0044.PREVENT_FROZEN_AGENT_TASK_ARTIFACT_MUTATION_TRIGGER_SQL))
         session.commit()
 
     with postgres_integration_harness.session_factory() as session:
@@ -714,9 +717,7 @@ def test_technical_report_harness_roundtrip(
     with postgres_integration_harness.session_factory() as session:
         prov_artifact = session.get(AgentTaskArtifact, prov_artifact_id)
         assert prov_artifact is not None
-        assert prov_artifact.payload_json["frozen_export"]["artifact_id"] == str(
-            prov_artifact_id
-        )
+        assert prov_artifact.payload_json["frozen_export"]["artifact_id"] == str(prov_artifact_id)
         mutation_events = list(
             session.scalars(
                 select(AgentTaskArtifactImmutabilityEvent).where(
@@ -731,9 +732,7 @@ def test_technical_report_harness_roundtrip(
 
     with postgres_integration_harness.session_factory() as session:
         session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
-        session.execute(
-            delete(AgentTaskArtifact).where(AgentTaskArtifact.id == prov_artifact_id)
-        )
+        session.execute(delete(AgentTaskArtifact).where(AgentTaskArtifact.id == prov_artifact_id))
         session.commit()
 
     with postgres_integration_harness.session_factory() as session:
@@ -906,9 +905,7 @@ def test_technical_report_harness_roundtrip(
     with postgres_integration_harness.session_factory() as session:
         uncovered_verify_task_row = session.get(AgentTask, uncovered_verify_task_id)
         assert uncovered_verify_task_row is not None
-        uncovered_verification = uncovered_verify_task_row.result_json["payload"][
-            "verification"
-        ]
+        uncovered_verification = uncovered_verify_task_row.result_json["payload"]["verification"]
         assert uncovered_verification["outcome"] == "failed"
         assert uncovered_verification["metrics"]["source_evidence_closure_complete"] is False
         assert (
@@ -965,9 +962,7 @@ def test_technical_report_harness_roundtrip(
         for claim in weak_draft["claims"]:
             if weak_card["evidence_card_id"] in claim["evidence_card_ids"]:
                 claim["source_evidence_match_status"] = "matched_document_run_fallback"
-                claim["source_evidence_match_keys"] = list(
-                    weak_card["source_evidence_match_keys"]
-                )
+                claim["source_evidence_match_keys"] = list(weak_card["source_evidence_match_keys"])
         weak_match_result = deepcopy(original_draft_result)
         weak_match_result["payload"]["draft"] = deepcopy(weak_draft)
         draft_task_row.result_json = weak_match_result
@@ -987,14 +982,9 @@ def test_technical_report_harness_roundtrip(
     with postgres_integration_harness.session_factory() as session:
         weak_match_verify_task_row = session.get(AgentTask, weak_match_verify_task_id)
         assert weak_match_verify_task_row is not None
-        weak_match_verification = weak_match_verify_task_row.result_json["payload"][
-            "verification"
-        ]
+        weak_match_verification = weak_match_verify_task_row.result_json["payload"]["verification"]
         assert weak_match_verification["outcome"] == "failed"
-        assert (
-            weak_match_verification["metrics"]["source_evidence_closure_complete"]
-            is False
-        )
+        assert weak_match_verification["metrics"]["source_evidence_closure_complete"] is False
         assert (
             weak_match_verification["metrics"][
                 "cited_cards_without_acceptable_source_evidence_match_count"
@@ -1045,19 +1035,11 @@ def test_technical_report_harness_roundtrip(
     with postgres_integration_harness.session_factory() as session:
         tampered_verify_task_row = session.get(AgentTask, tampered_verify_task_id)
         assert tampered_verify_task_row is not None
-        tampered_verification = tampered_verify_task_row.result_json["payload"][
-            "verification"
-        ]
+        tampered_verification = tampered_verify_task_row.result_json["payload"]["verification"]
         assert tampered_verification["outcome"] == "failed"
+        assert tampered_verification["metrics"]["source_evidence_closure_complete"] is False
         assert (
-            tampered_verification["metrics"]["source_evidence_closure_complete"]
-            is False
-        )
-        assert (
-            tampered_verification["metrics"][
-                "source_evidence_package_trace_incomplete_count"
-            ]
-            == 1
+            tampered_verification["metrics"]["source_evidence_package_trace_incomplete_count"] == 1
         )
         assert any(
             "frozen search evidence packages" in reason

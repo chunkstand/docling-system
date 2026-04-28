@@ -191,8 +191,10 @@ from app.services.semantic_registry import get_semantic_registry, persist_semant
 from app.services.semantics import get_active_semantic_pass_detail
 from app.services.storage import StorageService
 from app.services.technical_reports import (
+    apply_technical_report_claim_support_judgments,
     build_report_evidence_cards,
     draft_technical_report,
+    judge_technical_report_claim_support,
     plan_technical_report,
     prepare_report_agent_harness,
     task_output_context_ref,
@@ -365,9 +367,7 @@ def _draft_harness_config_from_optimization_executor(
             "Harness drafts from optimization must declare the optimizer task "
             "as a source_task dependency."
         ),
-        rerun_message=(
-            "Optimizer task must be rerun after the context migration before drafting."
-        ),
+        rerun_message=("Optimizer task must be rerun after the context migration before drafting."),
     )
     source_output = OptimizeSearchHarnessFromCaseTaskOutput.model_validate(source_context.output)
     optimization = source_output.optimization
@@ -625,10 +625,7 @@ def _source_page_span(
         "run_id": str(run_id),
         "page_from": page_from_value,
         "page_to": page_to_value,
-        "key": (
-            f"page:{document_id}:{run_id}:"
-            f"{page_from_value}:{page_to_value}"
-        ),
+        "key": (f"page:{document_id}:{run_id}:{page_from_value}:{page_to_value}"),
     }
 
 
@@ -637,15 +634,13 @@ def _unique_page_spans(spans: list[dict]) -> list[dict]:
 
 
 def _page_spans_overlap(card_span: dict, source_span: dict) -> bool:
-    if (
-        card_span.get("document_id") != source_span.get("document_id")
-        or card_span.get("run_id") != source_span.get("run_id")
-    ):
+    if card_span.get("document_id") != source_span.get("document_id") or card_span.get(
+        "run_id"
+    ) != source_span.get("run_id"):
         return False
-    return (
-        int(card_span["page_from"]) <= int(source_span["page_to"])
-        and int(source_span["page_from"]) <= int(card_span["page_to"])
-    )
+    return int(card_span["page_from"]) <= int(source_span["page_to"]) and int(
+        source_span["page_from"]
+    ) <= int(card_span["page_to"])
 
 
 def _source_export_summary(export) -> dict:
@@ -671,9 +666,7 @@ def _source_export_summary(export) -> dict:
         )
         for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
             source_payload = source_item.get(payload_key) or {}
-            item_record_keys.append(
-                _source_record_key(source_type, source_payload.get("id"))
-            )
+            item_record_keys.append(_source_record_key(source_type, source_payload.get("id")))
             item_page_spans.append(
                 _source_page_span(
                     document_id=source_payload.get("document_id") or document.get("id"),
@@ -824,9 +817,7 @@ def _match_card_source_exports(
                 if key in (summary.get("source_document_run_keys") or [])
             )
         if matched_summaries:
-            return "matched_document_run_fallback", matched_summaries, _card_document_run_keys(
-                card
-            )
+            return "matched_document_run_fallback", matched_summaries, _card_document_run_keys(card)
 
     return "missing", [], []
 
@@ -888,8 +879,7 @@ def _attach_source_exports_to_evidence_bundle(
         )
         matched_summaries = list(
             {
-                summary["evidence_package_export_id"]: summary
-                for summary in matched_summaries
+                summary["evidence_package_export_id"]: summary for summary in matched_summaries
             }.values()
         )
         card["source_search_request_ids"] = _unique_strings(
@@ -923,9 +913,7 @@ def _attach_source_exports_to_evidence_bundle(
             if card_id in cards_by_id
         ]
         claim["source_search_request_ids"] = _unique_strings(
-            value
-            for card in claim_cards
-            for value in (card.get("source_search_request_ids") or [])
+            value for card in claim_cards for value in (card.get("source_search_request_ids") or [])
         )
         claim["source_search_request_result_ids"] = _unique_strings(
             value
@@ -1157,8 +1145,7 @@ def _draft_technical_report_executor(
         expected_schema_name="prepare_report_agent_harness_output",
         expected_schema_version="1.0",
         dependency_error_message=(
-            "Technical report drafting must declare the report harness "
-            "as a target_task dependency."
+            "Technical report drafting must declare the report harness as a target_task dependency."
         ),
         rerun_message=(
             "Report agent harness must be rerun after the context migration before drafting."
@@ -1176,6 +1163,94 @@ def _draft_technical_report_executor(
     markdown_path = storage_service.get_agent_task_dir(task.id) / "technical_report_draft.md"
     markdown_path.write_text(draft_payload["markdown"])
     draft_payload["markdown_path"] = str(markdown_path)
+    support_judgments_payload = judge_technical_report_claim_support(draft_payload)
+    support_operator_run = record_knowledge_operator_run(
+        session,
+        operator_kind="judge",
+        operator_name="technical_report_claim_support_judge",
+        operator_version="v1",
+        agent_task_id=task.id,
+        config={
+            "judge_kind": support_judgments_payload.get("judge_kind"),
+            "min_support_score": support_judgments_payload.get("min_support_score"),
+        },
+        input_payload={
+            "target_task_id": str(payload.target_task_id),
+            "harness_task_type": harness_context.task_type,
+            "claim_count": len(draft_payload.get("claims") or []),
+            "evidence_card_count": len(draft_payload.get("evidence_cards") or []),
+            "claims": [
+                {
+                    "claim_id": claim.get("claim_id"),
+                    "rendered_text": claim.get("rendered_text"),
+                    "evidence_card_ids": claim.get("evidence_card_ids") or [],
+                    "graph_edge_ids": claim.get("graph_edge_ids") or [],
+                    "source_search_request_result_ids": (
+                        claim.get("source_search_request_result_ids") or []
+                    ),
+                }
+                for claim in draft_payload.get("claims") or []
+            ],
+        },
+        output_payload=support_judgments_payload,
+        metrics={
+            "claim_count": support_judgments_payload.get("claim_count", 0),
+            "supported_claim_count": support_judgments_payload.get(
+                "supported_claim_count",
+                0,
+            ),
+            "unsupported_claim_count": support_judgments_payload.get(
+                "unsupported_claim_count",
+                0,
+            ),
+            "insufficient_evidence_claim_count": support_judgments_payload.get(
+                "insufficient_evidence_claim_count",
+                0,
+            ),
+        },
+        metadata={
+            "audit_role": (
+                "records deterministic claim-level support judgments before "
+                "technical report evidence is frozen"
+            ),
+        },
+        inputs=[
+            {
+                "input_kind": "technical_report_claims_pending_support_judgment",
+                "source_table": "agent_tasks",
+                "source_id": task.id,
+                "payload": {
+                    "claim_count": len(draft_payload.get("claims") or []),
+                    "evidence_card_count": len(draft_payload.get("evidence_cards") or []),
+                },
+            }
+        ],
+        outputs=[
+            {
+                "output_kind": "technical_report_claim_support_judgments",
+                "target_table": "technical_report_claims",
+                "payload": {
+                    "supported_claim_count": support_judgments_payload.get(
+                        "supported_claim_count",
+                        0,
+                    ),
+                    "unsupported_claim_count": support_judgments_payload.get(
+                        "unsupported_claim_count",
+                        0,
+                    ),
+                    "insufficient_evidence_claim_count": support_judgments_payload.get(
+                        "insufficient_evidence_claim_count",
+                        0,
+                    ),
+                },
+            }
+        ],
+    )
+    apply_technical_report_claim_support_judgments(
+        draft_payload,
+        support_judgments_payload,
+        support_judge_run_id=support_operator_run.id if support_operator_run is not None else None,
+    )
     evidence_export = persist_technical_report_evidence_export(
         session,
         draft_payload=draft_payload,
@@ -1259,6 +1334,12 @@ def _draft_technical_report_executor(
             evidence_package_export_id=evidence_export.id,
             operator_run_id=operator_run.id,
         )
+    if support_operator_run is not None:
+        attach_operator_run_to_evidence_export(
+            session,
+            evidence_package_export_id=evidence_export.id,
+            operator_run_id=support_operator_run.id,
+        )
     return {
         "draft": draft_payload,
         "artifact_id": str(artifact.id),
@@ -1267,6 +1348,9 @@ def _draft_technical_report_executor(
         "evidence_package_export_id": str(evidence_export.id),
         "evidence_package_sha256": evidence_export.package_sha256,
         "operator_run_id": str(operator_run.id) if operator_run is not None else None,
+        "support_judge_run_id": str(support_operator_run.id)
+        if support_operator_run is not None
+        else None,
     }
 
 
@@ -1304,6 +1388,8 @@ def _verify_technical_report_executor(
         require_full_concept_coverage=payload.require_full_concept_coverage,
         require_graph_edges_approved=payload.require_graph_edges_approved,
         block_stale_context=payload.block_stale_context,
+        require_claim_support_judgments=payload.require_claim_support_judgments,
+        min_claim_support_score=payload.min_claim_support_score,
     )
     source_evidence_closure = technical_report_search_evidence_closure_payload(
         session,
@@ -1324,9 +1410,7 @@ def _verify_technical_report_executor(
             "claims_missing_source_evidence_package_export_count"
         ],
         "cited_cards_without_acceptable_source_evidence_match_count": (
-            source_evidence_closure[
-                "cited_cards_without_acceptable_source_evidence_match_count"
-            ]
+            source_evidence_closure["cited_cards_without_acceptable_source_evidence_match_count"]
         ),
         "cited_cards_with_document_run_fallback_match_count": source_evidence_closure[
             "cited_cards_with_document_run_fallback_match_count"
@@ -1418,6 +1502,8 @@ def _verify_technical_report_executor(
         config={
             **outcome.verification_details.get("thresholds", {}),
             "require_frozen_source_evidence": payload.require_frozen_source_evidence,
+            "require_claim_support_judgments": payload.require_claim_support_judgments,
+            "min_claim_support_score": payload.min_claim_support_score,
         },
         input_payload={
             "target_task_id": str(payload.target_task_id),
@@ -3563,8 +3649,7 @@ _ACTION_REGISTRY: dict[str, AgentTaskActionDefinition] = {
         capability="evaluation",
         definition_kind="workflow",
         description=(
-            "Run a bounded transient search-harness optimization loop from one "
-            "eval failure case."
+            "Run a bounded transient search-harness optimization loop from one eval failure case."
         ),
         payload_model=OptimizeSearchHarnessFromCaseTaskInput,
         executor=_optimize_search_harness_from_case_executor,

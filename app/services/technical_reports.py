@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -108,6 +109,339 @@ def _claim_provenance_lock_contract_mismatches(claim) -> list[str]:
     return mismatches
 
 
+_CLAIM_SUPPORT_VERDICTS = {"supported", "unsupported", "insufficient_evidence"}
+_CLAIM_SUPPORT_JUDGE_SCHEMA_NAME = "technical_report_claim_support_judgment"
+_CLAIM_SUPPORT_JUDGE_SCHEMA_VERSION = "1.0"
+_CLAIM_SUPPORT_JUDGE_KIND = "deterministic_claim_support_v1"
+_CLAIM_SUPPORT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+_CLAIM_SUPPORT_STOPWORDS = {
+    "about",
+    "above",
+    "after",
+    "against",
+    "also",
+    "and",
+    "are",
+    "because",
+    "between",
+    "but",
+    "can",
+    "claim",
+    "could",
+    "does",
+    "from",
+    "has",
+    "have",
+    "into",
+    "its",
+    "may",
+    "must",
+    "not",
+    "only",
+    "or",
+    "over",
+    "per",
+    "report",
+    "shall",
+    "should",
+    "than",
+    "that",
+    "the",
+    "their",
+    "there",
+    "this",
+    "through",
+    "under",
+    "use",
+    "uses",
+    "using",
+    "with",
+    "within",
+}
+
+
+def _support_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def _support_tokens(*values: Any) -> set[str]:
+    tokens: set[str] = set()
+    for value in values:
+        text = _support_text(value).replace("_", " ").replace("-", " ").lower()
+        for token in _CLAIM_SUPPORT_TOKEN_RE.findall(text):
+            if len(token) < 3 or token in _CLAIM_SUPPORT_STOPWORDS:
+                continue
+            tokens.add(token)
+            if token.endswith("s") and len(token) > 4:
+                tokens.add(token[:-1])
+    return tokens
+
+
+def _evidence_card_support_parts(card: dict[str, Any]) -> list[Any]:
+    metadata = dict(card.get("metadata") or {})
+    return [
+        card.get("evidence_card_id"),
+        card.get("evidence_kind"),
+        card.get("source_type"),
+        card.get("source_locator"),
+        card.get("citation_label"),
+        card.get("source_filename"),
+        card.get("excerpt"),
+        card.get("concept_keys"),
+        card.get("support_level"),
+        card.get("review_status"),
+        card.get("relation_key"),
+        card.get("source_evidence_match_keys"),
+        card.get("source_evidence_match_status"),
+        metadata.get("matched_terms"),
+        metadata.get("source_record_keys"),
+        metadata.get("relation_label"),
+        metadata.get("object_label"),
+        metadata.get("subject_label"),
+    ]
+
+
+def _graph_edge_support_parts(edge: Any) -> list[Any]:
+    return [
+        edge.edge_id,
+        edge.relation_key,
+        edge.relation_label,
+        edge.subject_entity_key,
+        edge.subject_label,
+        edge.object_entity_key,
+        edge.object_label,
+        edge.review_status,
+        edge.support_level,
+        edge.support_ref_ids,
+    ]
+
+
+def _claim_support_judgment_contract_mismatches(
+    claim,
+    *,
+    min_claim_support_score: float,
+) -> list[str]:
+    judgment = dict(claim.support_judgment or {})
+    if not judgment:
+        return ["support_judgment"]
+    mismatches: list[str] = []
+    if judgment.get("schema_name") != _CLAIM_SUPPORT_JUDGE_SCHEMA_NAME:
+        mismatches.append("schema_name")
+    if judgment.get("schema_version") != _CLAIM_SUPPORT_JUDGE_SCHEMA_VERSION:
+        mismatches.append("schema_version")
+    if judgment.get("judge_kind") != _CLAIM_SUPPORT_JUDGE_KIND:
+        mismatches.append("judge_kind")
+    if str(judgment.get("claim_id") or "") != claim.claim_id:
+        mismatches.append("claim_id")
+    if judgment.get("verdict") != claim.support_verdict:
+        mismatches.append("verdict")
+    try:
+        judgment_score = float(judgment.get("support_score"))
+    except (TypeError, ValueError):
+        mismatches.append("support_score")
+    else:
+        if claim.support_score is None or abs(judgment_score - claim.support_score) > 0.0001:
+            mismatches.append("support_score")
+    if (
+        "min_support_score" in judgment
+        and float(judgment.get("min_support_score") or 0.0) != min_claim_support_score
+    ):
+        mismatches.append("min_support_score")
+    if _unique_strings(
+        [str(value) for value in (judgment.get("source_search_request_result_ids") or [])]
+    ) != [str(value) for value in claim.source_search_request_result_ids]:
+        mismatches.append("source_search_request_result_ids")
+    if sorted(
+        _unique_strings([str(value) for value in (judgment.get("evidence_card_ids") or [])])
+    ) != sorted([str(value) for value in claim.evidence_card_ids]):
+        mismatches.append("evidence_card_ids")
+    if sorted(
+        _unique_strings([str(value) for value in (judgment.get("graph_edge_ids") or [])])
+    ) != sorted([str(value) for value in claim.graph_edge_ids]):
+        mismatches.append("graph_edge_ids")
+    return mismatches
+
+
+def judge_technical_report_claim_support(
+    draft_payload: dict[str, Any],
+    *,
+    min_claim_support_score: float = 0.34,
+) -> dict[str, Any]:
+    """Deterministically score each rendered claim against its frozen support refs."""
+
+    draft = TechnicalReportDraftPayload.model_validate(draft_payload)
+    cards_by_id = {
+        card.evidence_card_id: card.model_dump(mode="json") for card in draft.evidence_cards
+    }
+    graph_edges_by_id = {edge.edge_id: edge for edge in draft.graph_context}
+    claim_judgments: list[dict[str, Any]] = []
+
+    for claim in draft.claims:
+        resolved_cards = [
+            cards_by_id[card_id] for card_id in claim.evidence_card_ids if card_id in cards_by_id
+        ]
+        graph_refs = [
+            graph_edges_by_id[edge_id]
+            for edge_id in claim.graph_edge_ids
+            if edge_id in graph_edges_by_id
+        ]
+        graph_approved = bool(graph_refs) and all(
+            edge.review_status == "approved" for edge in graph_refs
+        )
+        source_search_result_ids = _unique_strings(
+            [
+                *[str(value) for value in claim.source_search_request_result_ids],
+                *[
+                    str(value)
+                    for card in resolved_cards
+                    for value in (card.get("source_search_request_result_ids") or [])
+                ],
+            ]
+        )
+        claim_tokens = _support_tokens(claim.rendered_text, claim.concept_keys)
+        evidence_tokens = _support_tokens(
+            *[part for card in resolved_cards for part in _evidence_card_support_parts(card)],
+            *[part for edge in graph_refs for part in _graph_edge_support_parts(edge)],
+        )
+        matched_tokens = sorted(claim_tokens.intersection(evidence_tokens))
+        lexical_overlap_ratio = len(matched_tokens) / len(claim_tokens) if claim_tokens else 0.0
+        score = 0.0
+        reasons: list[str] = []
+        unsupported_reasons: list[str] = []
+        if resolved_cards:
+            score = max(score, 0.55)
+            reasons.append("resolved_evidence_cards")
+        if source_search_result_ids:
+            score = min(1.0, score + 0.2)
+            reasons.append("source_search_results_present")
+        elif resolved_cards:
+            unsupported_reasons.append("missing_source_search_results")
+        if graph_approved:
+            score = max(score, 0.72)
+            reasons.append("approved_graph_edges")
+        elif graph_refs:
+            unsupported_reasons.append("graph_edges_not_approved")
+        if claim.fact_ids or claim.assertion_ids:
+            score = min(1.0, score + 0.05)
+            reasons.append("semantic_fact_or_assertion_refs")
+        if matched_tokens:
+            score = min(1.0, score + min(0.2, lexical_overlap_ratio * 0.35))
+            reasons.append("claim_terms_overlap_evidence")
+
+        if not resolved_cards and not graph_refs:
+            verdict = "insufficient_evidence"
+            unsupported_reasons.append("no_traceable_evidence_refs")
+        elif resolved_cards and not source_search_result_ids:
+            verdict = "insufficient_evidence"
+        elif score < min_claim_support_score:
+            verdict = "unsupported"
+            unsupported_reasons.append("support_score_below_threshold")
+        else:
+            verdict = "supported"
+
+        judgment = {
+            "schema_name": _CLAIM_SUPPORT_JUDGE_SCHEMA_NAME,
+            "schema_version": _CLAIM_SUPPORT_JUDGE_SCHEMA_VERSION,
+            "judge_kind": _CLAIM_SUPPORT_JUDGE_KIND,
+            "claim_id": claim.claim_id,
+            "verdict": verdict,
+            "support_score": round(score, 4),
+            "min_support_score": min_claim_support_score,
+            "evidence_card_ids": list(claim.evidence_card_ids),
+            "resolved_evidence_card_ids": [
+                str(card.get("evidence_card_id")) for card in resolved_cards
+            ],
+            "graph_edge_ids": list(claim.graph_edge_ids),
+            "resolved_graph_edge_ids": [edge.edge_id for edge in graph_refs],
+            "source_search_request_result_ids": source_search_result_ids,
+            "matched_claim_tokens": matched_tokens[:50],
+            "matched_claim_token_count": len(matched_tokens),
+            "claim_token_count": len(claim_tokens),
+            "lexical_overlap_ratio": round(lexical_overlap_ratio, 4),
+            "support_reasons": _unique_strings(reasons),
+            "unsupported_reasons": _unique_strings(unsupported_reasons),
+            "provisional_rule": (
+                "Deterministic v1 support scoring; replaceable by learned or "
+                "model-based judges while preserving this persisted contract."
+            ),
+        }
+        claim_judgments.append(judgment)
+
+    supported_count = sum(1 for row in claim_judgments if row["verdict"] == "supported")
+    return {
+        "schema_name": "technical_report_claim_support_judgments",
+        "schema_version": "1.0",
+        "judge_kind": _CLAIM_SUPPORT_JUDGE_KIND,
+        "min_support_score": min_claim_support_score,
+        "claim_count": len(claim_judgments),
+        "supported_claim_count": supported_count,
+        "unsupported_claim_count": sum(
+            1 for row in claim_judgments if row["verdict"] == "unsupported"
+        ),
+        "insufficient_evidence_claim_count": sum(
+            1 for row in claim_judgments if row["verdict"] == "insufficient_evidence"
+        ),
+        "claim_judgments": claim_judgments,
+    }
+
+
+def apply_technical_report_claim_support_judgments(
+    draft_payload: dict[str, Any],
+    support_judgments_payload: dict[str, Any],
+    *,
+    support_judge_run_id: UUID | str | None,
+) -> dict[str, Any]:
+    judgments_by_claim_id = {
+        str(row.get("claim_id")): row
+        for row in support_judgments_payload.get("claim_judgments") or []
+        if row.get("claim_id")
+    }
+    support_judge_run_id_text = str(support_judge_run_id) if support_judge_run_id else None
+    support_judgment_sha256s: list[str] = []
+    supported_count = 0
+    unsupported_count = 0
+    insufficient_count = 0
+
+    for claim in draft_payload.get("claims") or []:
+        judgment = judgments_by_claim_id.get(str(claim.get("claim_id")))
+        if not judgment:
+            continue
+        judgment_hash = _payload_sha256(judgment)
+        claim["support_verdict"] = judgment.get("verdict")
+        claim["support_score"] = judgment.get("support_score")
+        claim["support_judge_run_id"] = support_judge_run_id_text
+        claim["support_judgment"] = dict(judgment)
+        claim["support_judgment_sha256"] = judgment_hash
+        support_judgment_sha256s.append(judgment_hash)
+        if judgment.get("verdict") == "supported":
+            supported_count += 1
+        elif judgment.get("verdict") == "unsupported":
+            unsupported_count += 1
+        elif judgment.get("verdict") == "insufficient_evidence":
+            insufficient_count += 1
+
+    claim_count = len(draft_payload.get("claims") or [])
+    draft_payload["support_judge_run_id"] = support_judge_run_id_text
+    draft_payload["support_judgment_sha256s"] = _unique_strings(support_judgment_sha256s)
+    draft_payload["claim_support_summary"] = {
+        "schema_name": "technical_report_claim_support_summary",
+        "schema_version": "1.0",
+        "judge_kind": support_judgments_payload.get("judge_kind"),
+        "support_judge_run_id": support_judge_run_id_text,
+        "min_support_score": support_judgments_payload.get("min_support_score"),
+        "claim_count": claim_count,
+        "claims_with_support_judgment_count": len(support_judgment_sha256s),
+        "supported_claim_count": supported_count,
+        "unsupported_claim_count": unsupported_count,
+        "insufficient_evidence_claim_count": insufficient_count,
+    }
+    return draft_payload
+
+
 def _source_evidence_match_status(statuses: list[str]) -> str | None:
     unique_statuses = _unique_strings(statuses)
     if not unique_statuses:
@@ -136,15 +470,13 @@ def _expert_alignment() -> list[dict[str, str]]:
         {
             "expert": "Joshua Yu",
             "principle": (
-                "Graph memory is a governed semantic control plane, "
-                "not a source-of-truth shortcut."
+                "Graph memory is a governed semantic control plane, not a source-of-truth shortcut."
             ),
         },
         {
             "expert": "Steve Yegge",
             "principle": (
-                "The report loop is a reusable platform primitive with "
-                "compact, durable artifacts."
+                "The report loop is a reusable platform primitive with compact, durable artifacts."
             ),
         },
         {
@@ -157,15 +489,13 @@ def _expert_alignment() -> list[dict[str, str]]:
         {
             "expert": "Ryan Lopopolo",
             "principle": (
-                "The harness is agent-legible: one typed packet carries task, "
-                "context, and checks."
+                "The harness is agent-legible: one typed packet carries task, context, and checks."
             ),
         },
         {
             "expert": "Nate B. Jones",
             "principle": (
-                "Context ownership, freshness, and trust boundaries are visible "
-                "at wake-up time."
+                "Context ownership, freshness, and trust boundaries are visible at wake-up time."
             ),
         },
     ]
@@ -251,16 +581,10 @@ def plan_technical_report(
                 f"{', '.join(missing_claim_ids)}."
             )
         section_claims = [
-            claims_by_id[claim_id]
-            for claim_id in section.claim_ids
-            if claim_id in claims_by_id
+            claims_by_id[claim_id] for claim_id in section.claim_ids if claim_id in claims_by_id
         ]
         required_graph_edge_ids = _unique_strings(
-            [
-                graph_edge_id
-                for claim in section_claims
-                for graph_edge_id in claim.graph_edge_ids
-            ]
+            [graph_edge_id for claim in section_claims for graph_edge_id in claim.graph_edge_ids]
         )
         queries = _section_retrieval_queries(
             section.title,
@@ -283,8 +607,7 @@ def plan_technical_report(
                 "section_id": section.section_id,
                 "queries": queries,
                 "document_ids": [
-                    str(document_ref.document_id)
-                    for document_ref in semantic_brief.document_refs
+                    str(document_ref.document_id) for document_ref in semantic_brief.document_refs
                 ],
                 "filters": {
                     "concept_keys": list(section.focus_concept_keys),
@@ -309,9 +632,7 @@ def plan_technical_report(
         "selected_concept_keys": list(semantic_brief.selected_concept_keys),
         "selected_category_keys": list(semantic_brief.selected_category_keys),
         "sections": sections,
-        "expected_claims": [
-            row.model_dump(mode="json") for row in semantic_brief.claim_candidates
-        ],
+        "expected_claims": [row.model_dump(mode="json") for row in semantic_brief.claim_candidates],
         "expected_graph_edge_ids": expected_graph_edge_ids,
         "retrieval_plan": retrieval_plan,
         "semantic_brief": semantic_brief.model_dump(mode="json"),
@@ -623,9 +944,7 @@ def build_report_evidence_cards(
                 "table_card_count": sum(
                     1 for card in evidence_cards if card.get("source_type") == "table"
                 ),
-                "source_types": sorted(
-                    {str(card.get("source_type")) for card in evidence_cards}
-                ),
+                "source_types": sorted({str(card.get("source_type")) for card in evidence_cards}),
             },
         ),
         _success_metric(
@@ -659,8 +978,7 @@ def _default_allowed_tools() -> list[dict[str, Any]]:
         TechnicalReportToolContract(
             tool_name="read_task_artifact",
             purpose=(
-                "Fetch typed report-plan, evidence-card, harness, draft, "
-                "or verification artifacts."
+                "Fetch typed report-plan, evidence-card, harness, draft, or verification artifacts."
             ),
             access_pattern="GET /agent-tasks/{task_id}/artifacts/{artifact_id}",
             input_contract={"task_id": "uuid", "artifact_id": "uuid"},
@@ -670,8 +988,7 @@ def _default_allowed_tools() -> list[dict[str, Any]]:
         TechnicalReportToolContract(
             tool_name="search_corpus",
             purpose=(
-                "Run additional bounded corpus search when a planned section "
-                "has missing support."
+                "Run additional bounded corpus search when a planned section has missing support."
             ),
             access_pattern="POST /search",
             input_contract={"query": "string", "document_id": "optional uuid"},
@@ -781,9 +1098,7 @@ def prepare_report_agent_harness(
             "audience": plan.audience,
             "target_length": plan.target_length,
             "review_policy": plan.review_policy,
-            "document_ids": [
-                str(document_ref.document_id) for document_ref in plan.document_refs
-            ],
+            "document_ids": [str(document_ref.document_id) for document_ref in plan.document_refs],
             "required_concept_keys": list(plan.required_concept_keys),
         },
         "workflow_state": {
@@ -802,13 +1117,9 @@ def prepare_report_agent_harness(
         "allowed_tools": _default_allowed_tools(),
         "required_skills": _default_required_skills(),
         "retrieval_plan": list(evidence_bundle.retrieval_index),
-        "evidence_cards": [
-            card.model_dump(mode="json") for card in evidence_bundle.evidence_cards
-        ],
+        "evidence_cards": [card.model_dump(mode="json") for card in evidence_bundle.evidence_cards],
         "search_evidence_package_exports": list(evidence_bundle.search_evidence_package_exports),
-        "graph_context": [
-            edge.model_dump(mode="json") for edge in evidence_bundle.graph_context
-        ],
+        "graph_context": [edge.model_dump(mode="json") for edge in evidence_bundle.graph_context],
         "claim_contract": list(evidence_bundle.claim_evidence_map),
         "failure_policy": {
             "missing_evidence": "block_claim_and_create_followup",
@@ -849,12 +1160,8 @@ def prepare_report_agent_harness(
                 "assertion_ids",
                 "source_document_ids",
             ],
-            "allowed_tool_names": [
-                tool["tool_name"] for tool in _default_allowed_tools()
-            ],
-            "required_skill_names": [
-                skill["skill_name"] for skill in _default_required_skills()
-            ],
+            "allowed_tool_names": [tool["tool_name"] for tool in _default_allowed_tools()],
+            "required_skill_names": [skill["skill_name"] for skill in _default_required_skills()],
         },
         "source_plan": plan.model_dump(mode="json"),
         "warnings": _unique_strings([*plan.warnings, *evidence_bundle.warnings]),
@@ -921,9 +1228,7 @@ def draft_technical_report(
         evidence_card_ids = list(claim_contract.get("evidence_card_ids") or [])
         graph_edge_ids = list(claim_contract.get("graph_edge_ids") or [])
         fact_ids = [UUID(str(value)) for value in claim_contract.get("fact_ids") or []]
-        assertion_ids = [
-            UUID(str(value)) for value in claim_contract.get("assertion_ids") or []
-        ]
+        assertion_ids = [UUID(str(value)) for value in claim_contract.get("assertion_ids") or []]
         source_document_ids = [
             UUID(str(value)) for value in claim_contract.get("source_document_ids") or []
         ]
@@ -932,9 +1237,7 @@ def draft_technical_report(
                 {
                     "claim_id": claim_contract["claim_id"],
                     "section_id": claim_contract["section_id"],
-                    "reason": (
-                        "No evidence card or graph edge support was available."
-                    ),
+                    "reason": ("No evidence card or graph edge support was available."),
                     "fact_ids": [str(value) for value in fact_ids],
                     "assertion_ids": [str(value) for value in assertion_ids],
                 }
@@ -968,25 +1271,13 @@ def draft_technical_report(
             ]
         )
         source_evidence_package_sha256s = _unique_strings(
-            [
-                sha256
-                for card in claim_cards
-                for sha256 in card.source_evidence_package_sha256s
-            ]
+            [sha256 for card in claim_cards for sha256 in card.source_evidence_package_sha256s]
         )
         source_evidence_trace_sha256s = _unique_strings(
-            [
-                sha256
-                for card in claim_cards
-                for sha256 in card.source_evidence_trace_sha256s
-            ]
+            [sha256 for card in claim_cards for sha256 in card.source_evidence_trace_sha256s]
         )
         source_evidence_match_keys = _unique_strings(
-            [
-                match_key
-                for card in claim_cards
-                for match_key in card.source_evidence_match_keys
-            ]
+            [match_key for card in claim_cards for match_key in card.source_evidence_match_keys]
         )
         source_evidence_match_status = _source_evidence_match_status(
             [
@@ -1079,20 +1370,14 @@ def draft_technical_report(
         "generator_model": generator_model,
         "used_fallback": generator_mode != "llm_adapter" or not llm_draft_markdown,
         "llm_adapter_contract": dict(harness.llm_adapter_contract),
-        "document_refs": [
-            row.model_dump(mode="json") for row in harness.source_plan.document_refs
-        ],
+        "document_refs": [row.model_dump(mode="json") for row in harness.source_plan.document_refs],
         "required_concept_keys": list(harness.source_plan.required_concept_keys),
         "sections": sections,
         "claims": claims,
         "blocked_claims": blocked_claims,
-        "evidence_cards": [
-            card.model_dump(mode="json") for card in harness.evidence_cards
-        ],
+        "evidence_cards": [card.model_dump(mode="json") for card in harness.evidence_cards],
         "source_evidence_package_exports": list(harness.search_evidence_package_exports),
-        "graph_context": [
-            edge.model_dump(mode="json") for edge in harness.graph_context
-        ],
+        "graph_context": [edge.model_dump(mode="json") for edge in harness.graph_context],
         "markdown": markdown,
         "warnings": warnings,
     }
@@ -1145,19 +1430,14 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
             "Every rendered claim resolves to evidence cards and approved graph context.",
             {
                 "traceable_claim_ratio": summary["traceable_claim_ratio"],
-                "unresolved_evidence_card_ref_count": summary[
-                    "unresolved_evidence_card_ref_count"
-                ],
-                "unresolved_graph_edge_ref_count": summary[
-                    "unresolved_graph_edge_ref_count"
-                ],
+                "unresolved_evidence_card_ref_count": summary["unresolved_evidence_card_ref_count"],
+                "unresolved_graph_edge_ref_count": summary["unresolved_graph_edge_ref_count"],
             },
         ),
         _success_metric(
             "explicit_context_gate",
             "Armin Ronacher",
-            summary["context_blocker_count"] == 0
-            and summary["missing_wake_context_count"] == 0,
+            summary["context_blocker_count"] == 0 and summary["missing_wake_context_count"] == 0,
             "Missing and schema-mismatched wake-up context is blocked by the verifier.",
             {
                 "context_blocker_count": summary["context_blocker_count"],
@@ -1204,9 +1484,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 "match recomputation."
             ),
             {
-                "claims_with_derivation_hash_count": summary[
-                    "claims_with_derivation_hash_count"
-                ],
+                "claims_with_derivation_hash_count": summary["claims_with_derivation_hash_count"],
                 "claims_with_evidence_package_hash_count": summary[
                     "claims_with_evidence_package_hash_count"
                 ],
@@ -1234,9 +1512,7 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 "search result identifiers."
             ),
             {
-                "claims_with_provenance_lock_count": summary[
-                    "claims_with_provenance_lock_count"
-                ],
+                "claims_with_provenance_lock_count": summary["claims_with_provenance_lock_count"],
                 "missing_provenance_lock_count": summary["missing_provenance_lock_count"],
                 "provenance_lock_integrity_mismatch_count": summary[
                     "provenance_lock_integrity_mismatch_count"
@@ -1246,6 +1522,34 @@ def _technical_report_verification_metrics(summary: dict[str, Any]) -> list[dict
                 ],
                 "claims_missing_source_search_request_result_count": summary[
                     "claims_missing_source_search_request_result_count"
+                ],
+            },
+        ),
+        _success_metric(
+            "court_grade_claim_support_gate",
+            "Omar Khattab",
+            summary["claims_with_support_judgment_count"] == summary["claim_count"]
+            and summary["missing_support_judgment_count"] == 0
+            and summary["support_judgment_integrity_mismatch_count"] == 0
+            and summary["support_judgment_contract_mismatch_count"] == 0
+            and summary["unsupported_support_judgment_count"] == 0
+            and summary["claim_support_score_below_threshold_count"] == 0,
+            (
+                "Every generated claim carries an auditable support judgment that "
+                "passes the groundedness threshold."
+            ),
+            {
+                "claims_with_support_judgment_count": summary["claims_with_support_judgment_count"],
+                "missing_support_judgment_count": summary["missing_support_judgment_count"],
+                "support_judgment_integrity_mismatch_count": summary[
+                    "support_judgment_integrity_mismatch_count"
+                ],
+                "support_judgment_contract_mismatch_count": summary[
+                    "support_judgment_contract_mismatch_count"
+                ],
+                "unsupported_support_judgment_count": summary["unsupported_support_judgment_count"],
+                "claim_support_score_below_threshold_count": summary[
+                    "claim_support_score_below_threshold_count"
                 ],
             },
         ),
@@ -1260,14 +1564,14 @@ def verify_technical_report(
     require_full_concept_coverage: bool = True,
     require_graph_edges_approved: bool = True,
     block_stale_context: bool = False,
+    require_claim_support_judgments: bool = True,
+    min_claim_support_score: float = 0.34,
 ) -> TechnicalReportVerificationOutcome:
     draft = TechnicalReportDraftPayload.model_validate(draft_payload)
     recomputed_derivation_package = build_technical_report_derivation_package(
         draft.model_dump(mode="json")
     )
-    expected_package_sha256 = str(
-        recomputed_derivation_package.get("package_sha256") or ""
-    )
+    expected_package_sha256 = str(recomputed_derivation_package.get("package_sha256") or "")
     expected_derivations_by_claim_id = {
         str(row.get("claim_id")): row
         for row in recomputed_derivation_package.get("claim_derivations", [])
@@ -1288,6 +1592,11 @@ def verify_technical_report(
     provenance_lock_integrity_mismatch_count = 0
     provenance_lock_contract_mismatch_count = 0
     claims_missing_source_search_request_result_count = 0
+    missing_support_judgment_count = 0
+    support_judgment_integrity_mismatch_count = 0
+    support_judgment_contract_mismatch_count = 0
+    unsupported_support_judgment_count = 0
+    claim_support_score_below_threshold_count = 0
     evidence_package_mismatch_count = 0
     evidence_package_integrity_mismatch_count = 0
     derivation_integrity_mismatch_count = 0
@@ -1350,8 +1659,7 @@ def verify_technical_report(
             if claim.derivation_sha256 != expected_derivation_sha256:
                 derivation_integrity_mismatch_count += 1
                 reasons.append(
-                    f"{claim.claim_id} derivation hash does not match recomputed "
-                    "claim derivation."
+                    f"{claim.claim_id} derivation hash does not match recomputed claim derivation."
                 )
         expected_derivation = expected_derivations_by_claim_id.get(claim.claim_id)
         expected_provenance_lock_sha256 = (
@@ -1367,9 +1675,7 @@ def verify_technical_report(
             or claim.provenance_lock_sha256 != expected_provenance_lock_sha256
         ):
             provenance_lock_integrity_mismatch_count += 1
-            reasons.append(
-                f"{claim.claim_id} provenance lock hash does not match recomputation."
-            )
+            reasons.append(f"{claim.claim_id} provenance lock hash does not match recomputation.")
         lock_contract_mismatches = _claim_provenance_lock_contract_mismatches(claim)
         if lock_contract_mismatches:
             provenance_lock_contract_mismatch_count += 1
@@ -1377,11 +1683,50 @@ def verify_technical_report(
                 f"{claim.claim_id} provenance lock does not match claim fields: "
                 f"{', '.join(lock_contract_mismatches)}."
             )
+        if (
+            not claim.support_verdict
+            or claim.support_score is None
+            or not claim.support_judge_run_id
+            or not claim.support_judgment
+            or not claim.support_judgment_sha256
+        ):
+            missing_support_judgment_count += 1
+            reasons.append(f"{claim.claim_id} is missing a claim support judgment from the judge.")
+        else:
+            if claim.support_verdict not in _CLAIM_SUPPORT_VERDICTS:
+                support_judgment_contract_mismatch_count += 1
+                reasons.append(
+                    f"{claim.claim_id} has an invalid support verdict '{claim.support_verdict}'."
+                )
+            if claim.support_judgment_sha256 != _payload_sha256(claim.support_judgment):
+                support_judgment_integrity_mismatch_count += 1
+                reasons.append(
+                    f"{claim.claim_id} support judgment hash does not match recomputation."
+                )
+            support_contract_mismatches = _claim_support_judgment_contract_mismatches(
+                claim,
+                min_claim_support_score=min_claim_support_score,
+            )
+            if support_contract_mismatches:
+                support_judgment_contract_mismatch_count += 1
+                reasons.append(
+                    f"{claim.claim_id} support judgment does not match claim fields: "
+                    f"{', '.join(support_contract_mismatches)}."
+                )
+            if claim.support_verdict != "supported":
+                unsupported_support_judgment_count += 1
+                reasons.append(
+                    f"{claim.claim_id} support judge verdict is {claim.support_verdict}."
+                )
+            if float(claim.support_score) < min_claim_support_score:
+                claim_support_score_below_threshold_count += 1
+                reasons.append(
+                    f"{claim.claim_id} support score {claim.support_score:.4f} is below "
+                    f"the required threshold {min_claim_support_score:.4f}."
+                )
         if not claim.source_search_request_result_ids:
             claims_missing_source_search_request_result_count += 1
-            reasons.append(
-                f"{claim.claim_id} is missing source search request result identifiers."
-            )
+            reasons.append(f"{claim.claim_id} is missing source search request result identifiers.")
         missing_evidence_card_ids = [
             card_id for card_id in claim.evidence_card_ids if card_id not in card_ids
         ]
@@ -1410,9 +1755,7 @@ def verify_technical_report(
         graph_approved = graph_resolved and all(
             edge.review_status == "approved" for edge in graph_refs
         )
-        unapproved_graph_refs = [
-            edge for edge in graph_refs if edge.review_status != "approved"
-        ]
+        unapproved_graph_refs = [edge for edge in graph_refs if edge.review_status != "approved"]
         if unapproved_graph_refs and require_graph_edges_approved:
             unapproved_graph_claim_count += 1
             reasons.append(
@@ -1431,14 +1774,13 @@ def verify_technical_report(
     required_concept_count = len(required_concept_keys)
     covered_required_concept_count = len(required_concept_keys.intersection(supported_concept_keys))
     required_concept_coverage_ratio = (
-        covered_required_concept_count / required_concept_count
-        if required_concept_count
-        else 1.0
+        covered_required_concept_count / required_concept_count if required_concept_count else 1.0
     )
     graph_claim_count = sum(1 for claim in draft.claims if claim.graph_edge_ids)
     claims_with_evidence_package_hash_count = claim_count - missing_evidence_package_hash_count
     claims_with_derivation_hash_count = claim_count - missing_derivation_hash_count
     claims_with_provenance_lock_count = claim_count - missing_provenance_lock_count
+    claims_with_support_judgment_count = claim_count - missing_support_judgment_count
     if unsupported_claim_count > max_unsupported_claim_count:
         reasons.append(
             f"Unsupported claim count {unsupported_claim_count} exceeds the allowed maximum "
@@ -1467,6 +1809,17 @@ def verify_technical_report(
             "Frozen evidence package, derivation hashes, provenance locks, and source "
             "search result identifiers are required and must match recomputation."
         )
+    if require_claim_support_judgments and (
+        missing_support_judgment_count
+        or support_judgment_integrity_mismatch_count
+        or support_judgment_contract_mismatch_count
+        or unsupported_support_judgment_count
+        or claim_support_score_below_threshold_count
+    ):
+        reasons.append(
+            "Every generated claim must pass the claim support judge with a recomputable "
+            "support judgment and score."
+        )
     if block_stale_context and stale_context_count:
         reasons.append("The report used stale wake-up context while stale blocking was enabled.")
 
@@ -1481,6 +1834,7 @@ def verify_technical_report(
         "claims_with_evidence_package_hash_count": claims_with_evidence_package_hash_count,
         "claims_with_derivation_hash_count": claims_with_derivation_hash_count,
         "claims_with_provenance_lock_count": claims_with_provenance_lock_count,
+        "claims_with_support_judgment_count": claims_with_support_judgment_count,
         "draft_evidence_package_hash_present": bool(draft.evidence_package_sha256),
         "expected_evidence_package_sha256": expected_package_sha256,
         "missing_evidence_package_hash_count": missing_evidence_package_hash_count,
@@ -1489,13 +1843,17 @@ def verify_technical_report(
         "evidence_package_mismatch_count": evidence_package_mismatch_count,
         "evidence_package_integrity_mismatch_count": evidence_package_integrity_mismatch_count,
         "derivation_integrity_mismatch_count": derivation_integrity_mismatch_count,
-        "provenance_lock_integrity_mismatch_count": (
-            provenance_lock_integrity_mismatch_count
-        ),
+        "provenance_lock_integrity_mismatch_count": (provenance_lock_integrity_mismatch_count),
         "provenance_lock_contract_mismatch_count": provenance_lock_contract_mismatch_count,
         "claims_missing_source_search_request_result_count": (
             claims_missing_source_search_request_result_count
         ),
+        "missing_support_judgment_count": missing_support_judgment_count,
+        "support_judgment_integrity_mismatch_count": (support_judgment_integrity_mismatch_count),
+        "support_judgment_contract_mismatch_count": (support_judgment_contract_mismatch_count),
+        "unsupported_support_judgment_count": unsupported_support_judgment_count,
+        "claim_support_score_below_threshold_count": (claim_support_score_below_threshold_count),
+        "min_claim_support_score": min_claim_support_score,
         "traceable_claim_ratio": traceable_claim_ratio,
         "required_concept_count": required_concept_count,
         "covered_required_concept_count": covered_required_concept_count,
@@ -1522,6 +1880,8 @@ def verify_technical_report(
                 "require_full_concept_coverage": require_full_concept_coverage,
                 "require_graph_edges_approved": require_graph_edges_approved,
                 "block_stale_context": block_stale_context,
+                "require_claim_support_judgments": require_claim_support_judgments,
+                "min_claim_support_score": min_claim_support_score,
             }
         },
     )

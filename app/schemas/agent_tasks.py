@@ -1222,6 +1222,14 @@ class TechnicalReportClaim(BaseModel):
     release_validation_receipt_ids: list[UUID] = Field(default_factory=list)
     provenance_lock: dict = Field(default_factory=dict)
     provenance_lock_sha256: str | None = None
+    support_verdict: str | None = Field(
+        default=None,
+        pattern="^(supported|unsupported|insufficient_evidence)$",
+    )
+    support_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    support_judge_run_id: UUID | None = None
+    support_judgment: dict = Field(default_factory=dict)
+    support_judgment_sha256: str | None = None
     derivation_rule: str | None = None
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
@@ -1259,6 +1267,9 @@ class TechnicalReportDraftPayload(BaseModel):
     release_validation_receipt_ids: list[UUID] = Field(default_factory=list)
     provenance_lock_sha256s: list[str] = Field(default_factory=list)
     provenance_lock_summary: dict = Field(default_factory=dict)
+    support_judge_run_id: UUID | None = None
+    support_judgment_sha256s: list[str] = Field(default_factory=list)
+    claim_support_summary: dict = Field(default_factory=dict)
     claim_derivations: list[dict] = Field(default_factory=list)
     markdown: str
     markdown_path: str | None = None
@@ -1284,6 +1295,7 @@ class DraftTechnicalReportTaskOutput(BaseModel):
     evidence_package_export_id: UUID | None = None
     evidence_package_sha256: str | None = None
     operator_run_id: UUID | None = None
+    support_judge_run_id: UUID | None = None
 
 
 class VerifyTechnicalReportTaskInput(BaseModel):
@@ -1294,6 +1306,8 @@ class VerifyTechnicalReportTaskInput(BaseModel):
     require_graph_edges_approved: bool = True
     require_frozen_source_evidence: bool = True
     block_stale_context: bool = False
+    require_claim_support_judgments: bool = True
+    min_claim_support_score: float = Field(default=0.34, ge=0.0, le=1.0)
 
 
 class VerifyTechnicalReportTaskOutput(BaseModel):

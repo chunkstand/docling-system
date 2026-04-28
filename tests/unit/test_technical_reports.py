@@ -6,8 +6,10 @@ from uuid import uuid4
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef
 from app.services.evidence import apply_technical_report_derivation_links, payload_sha256
 from app.services.technical_reports import (
+    apply_technical_report_claim_support_judgments,
     build_report_evidence_cards,
     draft_technical_report,
+    judge_technical_report_claim_support,
     plan_technical_report,
     prepare_report_agent_harness,
     verify_technical_report,
@@ -19,9 +21,9 @@ def _add_unit_provenance_locks(draft: dict) -> dict:
     result_id = str(uuid4())
     for card in draft.get("evidence_cards") or []:
         card["source_search_request_ids"] = card.get("source_search_request_ids") or [request_id]
-        card["source_search_request_result_ids"] = card.get(
-            "source_search_request_result_ids"
-        ) or [result_id]
+        card["source_search_request_result_ids"] = card.get("source_search_request_result_ids") or [
+            result_id
+        ]
     for claim in draft.get("claims") or []:
         claim["source_search_request_ids"] = claim.get("source_search_request_ids") or [request_id]
         claim["source_search_request_result_ids"] = claim.get(
@@ -33,18 +35,13 @@ def _add_unit_provenance_locks(draft: dict) -> dict:
             "claim_id": claim["claim_id"],
             "source_search_request_ids": claim["source_search_request_ids"],
             "source_search_request_result_ids": claim["source_search_request_result_ids"],
-            "source_evidence_package_export_ids": claim.get(
-                "source_evidence_package_export_ids"
-            )
+            "source_evidence_package_export_ids": claim.get("source_evidence_package_export_ids")
             or [],
-            "source_evidence_package_sha256s": claim.get("source_evidence_package_sha256s")
-            or [],
+            "source_evidence_package_sha256s": claim.get("source_evidence_package_sha256s") or [],
             "source_evidence_trace_sha256s": claim.get("source_evidence_trace_sha256s") or [],
-            "semantic_ontology_snapshot_ids": claim.get("semantic_ontology_snapshot_ids")
-            or [],
+            "semantic_ontology_snapshot_ids": claim.get("semantic_ontology_snapshot_ids") or [],
             "semantic_graph_snapshot_ids": claim.get("semantic_graph_snapshot_ids") or [],
-            "retrieval_reranker_artifact_ids": claim.get("retrieval_reranker_artifact_ids")
-            or [],
+            "retrieval_reranker_artifact_ids": claim.get("retrieval_reranker_artifact_ids") or [],
             "search_harness_release_ids": claim.get("search_harness_release_ids") or [],
             "release_audit_bundle_ids": claim.get("release_audit_bundle_ids") or [],
             "release_validation_receipt_ids": claim.get("release_validation_receipt_ids") or [],
@@ -65,12 +62,8 @@ def _add_unit_provenance_locks(draft: dict) -> dict:
                 "retrieval_reranker_artifact_count": len(
                     claim.get("retrieval_reranker_artifact_ids") or []
                 ),
-                "search_harness_release_count": len(
-                    claim.get("search_harness_release_ids") or []
-                ),
-                "release_audit_bundle_count": len(
-                    claim.get("release_audit_bundle_ids") or []
-                ),
+                "search_harness_release_count": len(claim.get("search_harness_release_ids") or []),
+                "release_audit_bundle_count": len(claim.get("release_audit_bundle_ids") or []),
                 "release_validation_receipt_count": len(
                     claim.get("release_validation_receipt_ids") or []
                 ),
@@ -78,6 +71,12 @@ def _add_unit_provenance_locks(draft: dict) -> dict:
         }
         claim["provenance_lock"] = lock
         claim["provenance_lock_sha256"] = payload_sha256(lock)
+    support_judgments = judge_technical_report_claim_support(draft)
+    apply_technical_report_claim_support_judgments(
+        draft,
+        support_judgments,
+        support_judge_run_id=uuid4(),
+    )
     apply_technical_report_derivation_links(draft)
     return draft
 
@@ -335,6 +334,8 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert draft["evidence_package_sha256"]
     assert draft["claims"][0]["evidence_package_sha256"] == draft["evidence_package_sha256"]
     assert draft["claims"][0]["derivation_sha256"]
+    assert all(claim["support_verdict"] == "supported" for claim in draft["claims"])
+    assert all(claim["support_judgment_sha256"] for claim in draft["claims"])
     assert draft["claim_derivations"][0]["derivation_rule"] == "technical_report_claim_contract_v1"
     assert "Evidence Cards" in draft["markdown"]
 
@@ -342,11 +343,16 @@ def test_report_harness_service_roundtrip(monkeypatch) -> None:
     assert verification.verification_outcome == "passed"
     assert verification.summary["context_ref_count"] == 1
     assert verification.summary["missing_derivation_hash_count"] == 0
+    assert verification.summary["missing_support_judgment_count"] == 0
+    assert verification.summary["unsupported_support_judgment_count"] == 0
     assert verification.summary["evidence_package_integrity_mismatch_count"] == 0
     assert verification.summary["derivation_integrity_mismatch_count"] == 0
     assert any(metric["stakeholder"] == "Joshua Yu" for metric in verification.success_metrics)
     assert any(
-        metric["metric_key"] == "frozen_evidence_package"
+        metric["metric_key"] == "frozen_evidence_package" for metric in verification.success_metrics
+    )
+    assert any(
+        metric["metric_key"] == "court_grade_claim_support_gate"
         for metric in verification.success_metrics
     )
 
@@ -403,6 +409,32 @@ def test_verification_fails_when_provenance_lock_does_not_match_claim(monkeypatc
     assert verification.summary["provenance_lock_contract_mismatch_count"] == 1
     assert any(
         "provenance lock does not match claim fields" in reason
+        for reason in verification.verification_reasons
+    )
+
+
+def test_verification_fails_when_claim_support_judgment_is_unsupported(monkeypatch) -> None:
+    draft = _draft_from_semantic_brief(monkeypatch, _semantic_brief_payload())
+    claim = draft["claims"][0]
+    judgment = {
+        **claim["support_judgment"],
+        "verdict": "unsupported",
+        "support_score": 0.01,
+        "unsupported_reasons": ["unit_test_forced_unsupported"],
+    }
+    claim["support_verdict"] = "unsupported"
+    claim["support_score"] = 0.01
+    claim["support_judgment"] = judgment
+    claim["support_judgment_sha256"] = payload_sha256(judgment)
+    apply_technical_report_derivation_links(draft)
+
+    verification = verify_technical_report(draft)
+
+    assert verification.verification_outcome == "failed"
+    assert verification.summary["unsupported_support_judgment_count"] == 1
+    assert verification.summary["claim_support_score_below_threshold_count"] == 1
+    assert any(
+        "support judge verdict is unsupported" in reason
         for reason in verification.verification_reasons
     )
 
