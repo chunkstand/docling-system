@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select
 
 from app.db.models import (
+    AuditBundleExport,
     RetrievalHardNegative,
     RetrievalJudgment,
     RetrievalJudgmentSet,
@@ -332,6 +334,53 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
         )
         session.commit()
 
+    monkeypatch.setattr(
+        "app.services.audit_bundles.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="retrieval-training-secret",
+            audit_bundle_signing_key_id="retrieval-training-key",
+        ),
+    )
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert audit_response.status_code == 200
+    training_audit_bundle = audit_response.json()
+    training_audit_payload = training_audit_bundle["bundle"]["payload"]
+    assert training_audit_bundle["bundle_kind"] == "retrieval_training_run_provenance"
+    assert training_audit_bundle["integrity"]["complete"] is True
+    assert training_audit_payload["audit_checklist"]["complete"] is True
+    assert training_audit_payload["integrity"]["training_dataset_hash_matches"] is True
+    assert training_audit_payload["integrity"]["judgment_count"] == 4
+    assert training_audit_payload["integrity"]["hard_negative_count"] == 3
+    assert len(training_audit_payload["retrieval_judgments"]) == 4
+    assert len(training_audit_payload["retrieval_hard_negatives"]) == 3
+    assert all(
+        row["source_payload_sha256"] for row in training_audit_payload["retrieval_judgments"]
+    )
+    assert all(
+        row["source_payload_sha256"]
+        for row in training_audit_payload["retrieval_hard_negatives"]
+    )
+    assert any(
+        row["evidence_refs"] for row in training_audit_payload["retrieval_hard_negatives"]
+    )
+    assert any(
+        row["event_kind"] == "retrieval_training_run_materialized"
+        for row in training_audit_payload["semantic_governance_events"]
+    )
+    assert training_audit_payload["source_payload_hashes"]
+    assert any(
+        edge["usedEntity"].startswith("docling:retrieval_hard_negative:")
+        for edge in training_audit_payload["prov"]["wasDerivedFrom"]
+    )
+    latest_training_audit_response = postgres_integration_harness.client.get(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles/latest"
+    )
+    assert latest_training_audit_response.status_code == 200
+    assert latest_training_audit_response.json()["bundle_id"] == training_audit_bundle["bundle_id"]
+
     with postgres_integration_harness.session_factory() as session:
         judgment_sets = session.execute(select(RetrievalJudgmentSet)).scalars().all()
         judgments = session.execute(select(RetrievalJudgment)).scalars().all()
@@ -341,10 +390,14 @@ def test_materialize_retrieval_learning_dataset_roundtrip(
             session.execute(select(RetrievalLearningCandidateEvaluation)).scalars().all()
         )
         governance_events = session.execute(select(SemanticGovernanceEvent)).scalars().all()
+        audit_bundle_rows = session.execute(select(AuditBundleExport)).scalars().all()
 
     assert len(judgment_sets) == 1
     assert len(training_runs) == 1
     assert len(candidate_rows) == 1
+    assert len(audit_bundle_rows) == 1
+    assert audit_bundle_rows[0].retrieval_training_run_id == UUID(training_run_id)
+    assert audit_bundle_rows[0].bundle_sha256 == training_audit_bundle["bundle_sha256"]
     assert response["summary"]["judgment_count"] == 4
     assert response["summary"]["positive_count"] == 1
     assert response["summary"]["negative_count"] == 2

@@ -254,6 +254,15 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         "shared_query_count"
     ] == 4
 
+    training_audit_response = postgres_integration_harness.client.post(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert training_audit_response.status_code == 200
+    training_audit_bundle = training_audit_response.json()
+    assert training_audit_bundle["bundle_kind"] == "retrieval_training_run_provenance"
+    assert training_audit_bundle["source_id"] == str(training_run_id)
+
     audit_response = postgres_integration_harness.client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
         json={"created_by": "integration"},
@@ -276,6 +285,9 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["integrity"][
         "training_run_count"
     ] == 1
+    assert audit_bundle["bundle"]["payload"]["integrity"][
+        "training_audit_bundle_count"
+    ] == 1
     assert audit_bundle["bundle"]["payload"]["retrieval_learning_candidates"][0][
         "training_dataset_sha256"
     ] == "training-dataset-sha"
@@ -285,9 +297,16 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert audit_bundle["bundle"]["payload"]["semantic_governance_events"][0][
         "event_kind"
     ] == "retrieval_learning_candidate_evaluated"
+    assert audit_bundle["bundle"]["payload"]["retrieval_training_audit_bundles"][0][
+        "bundle_sha256"
+    ] == training_audit_bundle["bundle_sha256"]
     assert audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     assert any(
         edge["usedEntity"].startswith("docling:retrieval_training_run:")
+        for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
+    )
+    assert any(
+        edge["usedEntity"] == f"docling:audit_bundle_export:{training_audit_bundle['bundle_id']}"
         for edge in audit_bundle["bundle"]["payload"]["prov"]["wasDerivedFrom"]
     )
     assert audit_bundle["signing_key_id"] == "integration-key"

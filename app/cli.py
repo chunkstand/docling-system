@@ -18,6 +18,7 @@ from app.schemas.agent_tasks import (
 )
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
+    RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessEvaluationRequest,
     SearchHarnessOptimizationRequest,
     SearchHarnessReleaseAuditBundleRequest,
@@ -189,6 +190,13 @@ def create_search_harness_release_audit_bundle(*args, **kwargs):
     return _lazy_service_attr(
         "app.services.audit_bundles",
         "create_search_harness_release_audit_bundle",
+    )(*args, **kwargs)
+
+
+def create_retrieval_training_run_audit_bundle(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.audit_bundles",
+        "create_retrieval_training_run_audit_bundle",
     )(*args, **kwargs)
 
 
@@ -1100,6 +1108,27 @@ def run_search_harness_release_audit_bundle() -> None:
             session,
             UUID(args.release_id),
             SearchHarnessReleaseAuditBundleRequest(created_by=args.created_by),
+            storage_service=storage_service,
+        )
+        session.commit()
+    print(json.dumps(bundle.model_dump(mode="json")))
+
+
+def run_retrieval_training_run_audit_bundle() -> None:
+    parser = argparse.ArgumentParser(
+        description="Export a signed immutable audit bundle for one retrieval training run."
+    )
+    parser.add_argument("training_run_id", help="Retrieval training run UUID.")
+    parser.add_argument("--created-by", default=None, help="Optional bundle creator identifier.")
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    storage_service = StorageService()
+    with session_factory() as session:
+        bundle = create_retrieval_training_run_audit_bundle(
+            session,
+            UUID(args.training_run_id),
+            RetrievalTrainingRunAuditBundleRequest(created_by=args.created_by),
             storage_service=storage_service,
         )
         session.commit()

@@ -16,6 +16,7 @@ from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
+    RetrievalTrainingRunAuditBundleRequest,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
@@ -199,6 +200,23 @@ class RetrievalCapability(Protocol):
         self,
         session: Session,
         release_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse: ...
+
+    def create_retrieval_training_run_audit_bundle(
+        self,
+        session: Session,
+        training_run_id: UUID,
+        payload: RetrievalTrainingRunAuditBundleRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse: ...
+
+    def get_latest_retrieval_training_run_audit_bundle(
+        self,
+        session: Session,
+        training_run_id: UUID,
         *,
         storage_service: StorageService,
     ) -> AuditBundleExportResponse: ...
@@ -451,6 +469,34 @@ class ServicesRetrievalCapability:
         return audit_bundles.get_latest_search_harness_release_audit_bundle(
             session,
             release_id,
+            storage_service=storage_service,
+        )
+
+    def create_retrieval_training_run_audit_bundle(
+        self,
+        session: Session,
+        training_run_id: UUID,
+        payload: RetrievalTrainingRunAuditBundleRequest,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse:
+        return audit_bundles.create_retrieval_training_run_audit_bundle(
+            session,
+            training_run_id,
+            payload,
+            storage_service=storage_service,
+        )
+
+    def get_latest_retrieval_training_run_audit_bundle(
+        self,
+        session: Session,
+        training_run_id: UUID,
+        *,
+        storage_service: StorageService,
+    ) -> AuditBundleExportResponse:
+        return audit_bundles.get_latest_retrieval_training_run_audit_bundle(
+            session,
+            training_run_id,
             storage_service=storage_service,
         )
 

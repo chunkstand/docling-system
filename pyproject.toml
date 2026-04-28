@@ -68,6 +68,7 @@ docling-system-search-harness-evaluation-list = "app.cli:run_search_harness_eval
 docling-system-search-harness-evaluation-show = "app.cli:run_search_harness_evaluation_show"
 docling-system-gate-search-harness-release = "app.cli:run_gate_search_harness_release"
 docling-system-search-harness-release-audit-bundle = "app.cli:run_search_harness_release_audit_bundle"
+docling-system-retrieval-training-run-audit-bundle = "app.cli:run_retrieval_training_run_audit_bundle"
 docling-system-optimize-search-harness = "app.cli:run_optimize_search_harness"
 docling-system-export-ranking-dataset = "app.cli:run_export_ranking_dataset"
 docling-system-materialize-retrieval-learning = "app.cli:run_materialize_retrieval_learning_dataset"

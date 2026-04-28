@@ -460,7 +460,7 @@
     },
     {
       "exported_instance": "retrieval",
-      "function_count": 29,
+      "function_count": 31,
       "functions": [
         {
           "name": "answer_question",
@@ -484,7 +484,7 @@
             }
           ],
           "returns": "ChatResponse",
-          "source_lineno": 235
+          "source_lineno": 253
         },
         {
           "name": "compare_search_replay_runs",
@@ -515,7 +515,45 @@
             }
           ],
           "returns": "SearchReplayComparisonResponse",
-          "source_lineno": 121
+          "source_lineno": 122
+        },
+        {
+          "name": "create_retrieval_training_run_audit_bundle",
+          "operation_kind": "write",
+          "owner_module": "app.services.audit_bundles",
+          "owner_symbol": "create_retrieval_training_run_audit_bundle",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "training_run_id",
+              "required": true
+            },
+            {
+              "annotation": "RetrievalTrainingRunAuditBundleRequest",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "payload",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": true
+            }
+          ],
+          "returns": "AuditBundleExportResponse",
+          "source_lineno": 207
         },
         {
           "name": "create_search_harness_release_audit_bundle",
@@ -553,7 +591,7 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 189
+          "source_lineno": 190
         },
         {
           "name": "create_search_harness_release_gate",
@@ -577,7 +615,7 @@
             }
           ],
           "returns": "SearchHarnessReleaseResponse",
-          "source_lineno": 168
+          "source_lineno": 169
         },
         {
           "name": "evaluate_retrieval_learning_candidate",
@@ -601,7 +639,7 @@
             }
           ],
           "returns": "RetrievalLearningCandidateEvaluationResponse",
-          "source_lineno": 214
+          "source_lineno": 232
         },
         {
           "name": "evaluate_search_harness",
@@ -625,7 +663,7 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 156
+          "source_lineno": 157
         },
         {
           "name": "execute_search",
@@ -677,7 +715,7 @@
             }
           ],
           "returns": "search.SearchExecution",
-          "source_lineno": 56
+          "source_lineno": 57
         },
         {
           "name": "explain_search_replay_run",
@@ -701,7 +739,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 135
+          "source_lineno": 136
         },
         {
           "name": "export_search_evidence_package",
@@ -725,7 +763,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 85
+          "source_lineno": 86
         },
         {
           "name": "get_audit_bundle_export",
@@ -756,7 +794,38 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 206
+          "source_lineno": 224
+        },
+        {
+          "name": "get_latest_retrieval_training_run_audit_bundle",
+          "operation_kind": "read",
+          "owner_module": "app.services.audit_bundles",
+          "owner_symbol": "get_latest_retrieval_training_run_audit_bundle",
+          "parameters": [
+            {
+              "annotation": "Session",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "session",
+              "required": true
+            },
+            {
+              "annotation": "UUID",
+              "default": null,
+              "kind": "positional_or_keyword",
+              "name": "training_run_id",
+              "required": true
+            },
+            {
+              "annotation": "StorageService",
+              "default": null,
+              "kind": "keyword_only",
+              "name": "storage_service",
+              "required": true
+            }
+          ],
+          "returns": "AuditBundleExportResponse",
+          "source_lineno": 216
         },
         {
           "name": "get_latest_search_harness_release_audit_bundle",
@@ -787,7 +856,7 @@
             }
           ],
           "returns": "AuditBundleExportResponse",
-          "source_lineno": 198
+          "source_lineno": 199
         },
         {
           "name": "get_retrieval_learning_candidate_evaluation_detail",
@@ -811,7 +880,7 @@
             }
           ],
           "returns": "RetrievalLearningCandidateEvaluationResponse",
-          "source_lineno": 229
+          "source_lineno": 247
         },
         {
           "name": "get_search_evidence_package",
@@ -835,7 +904,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 79
+          "source_lineno": 80
         },
         {
           "name": "get_search_evidence_package_export_trace",
@@ -859,7 +928,7 @@
             }
           ],
           "returns": "dict",
-          "source_lineno": 91
+          "source_lineno": 92
         },
         {
           "name": "get_search_harness_descriptor",
@@ -876,7 +945,7 @@
             }
           ],
           "returns": "SearchHarnessDescriptorResponse",
-          "source_lineno": 143
+          "source_lineno": 144
         },
         {
           "name": "get_search_harness_evaluation_detail",
@@ -900,7 +969,7 @@
             }
           ],
           "returns": "SearchHarnessEvaluationResponse",
-          "source_lineno": 162
+          "source_lineno": 163
         },
         {
           "name": "get_search_harness_release_detail",
@@ -924,7 +993,7 @@
             }
           ],
           "returns": "SearchHarnessReleaseResponse",
-          "source_lineno": 183
+          "source_lineno": 184
         },
         {
           "name": "get_search_replay_run_detail",
@@ -948,7 +1017,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 129
+          "source_lineno": 130
         },
         {
           "name": "get_search_request_detail",
@@ -972,7 +1041,7 @@
             }
           ],
           "returns": "SearchRequestDetailResponse",
-          "source_lineno": 67
+          "source_lineno": 68
         },
         {
           "name": "get_search_request_explanation",
@@ -996,7 +1065,7 @@
             }
           ],
           "returns": "SearchRequestExplanationResponse",
-          "source_lineno": 73
+          "source_lineno": 74
         },
         {
           "name": "list_retrieval_learning_candidate_evaluations",
@@ -1034,7 +1103,7 @@
             }
           ],
           "returns": "list[RetrievalLearningCandidateEvaluationSummaryResponse]",
-          "source_lineno": 220
+          "source_lineno": 238
         },
         {
           "name": "list_search_harness_definitions",
@@ -1043,7 +1112,7 @@
           "owner_symbol": "list_search_harness_definitions",
           "parameters": [],
           "returns": "list[SearchHarnessResponse]",
-          "source_lineno": 141
+          "source_lineno": 142
         },
         {
           "name": "list_search_harness_evaluations",
@@ -1074,7 +1143,7 @@
             }
           ],
           "returns": "list[SearchHarnessEvaluationSummaryResponse]",
-          "source_lineno": 148
+          "source_lineno": 149
         },
         {
           "name": "list_search_harness_releases",
@@ -1112,7 +1181,7 @@
             }
           ],
           "returns": "list[SearchHarnessReleaseSummaryResponse]",
-          "source_lineno": 174
+          "source_lineno": 175
         },
         {
           "name": "list_search_replay_runs",
@@ -1129,7 +1198,7 @@
             }
           ],
           "returns": "list[SearchReplayRunSummaryResponse]",
-          "source_lineno": 110
+          "source_lineno": 111
         },
         {
           "name": "record_chat_answer_feedback",
@@ -1160,7 +1229,7 @@
             }
           ],
           "returns": "ChatAnswerFeedbackResponse",
-          "source_lineno": 237
+          "source_lineno": 255
         },
         {
           "name": "record_search_feedback",
@@ -1191,7 +1260,7 @@
             }
           ],
           "returns": "SearchFeedbackResponse",
-          "source_lineno": 97
+          "source_lineno": 98
         },
         {
           "name": "replay_search_request",
@@ -1215,7 +1284,7 @@
             }
           ],
           "returns": "SearchReplayResponse",
-          "source_lineno": 104
+          "source_lineno": 105
         },
         {
           "name": "run_search_replay_suite",
@@ -1239,7 +1308,7 @@
             }
           ],
           "returns": "SearchReplayRunDetailResponse",
-          "source_lineno": 115
+          "source_lineno": 116
         }
       ],
       "implementation": "ServicesRetrievalCapability",
@@ -2790,7 +2859,7 @@
       "source": "app/services/capabilities/system_governance.py"
     }
   ],
-  "function_count": 97,
+  "function_count": 99,
   "schema_name": "capability_contract_map",
   "schema_version": "1.0"
 }

@@ -70,11 +70,15 @@ Inspection surfaces:
 - `GET /search/harness-releases/{release_id}`
 - `POST /search/harness-releases/{release_id}/audit-bundles`
 - `GET /search/harness-releases/{release_id}/audit-bundles/latest`
+- `POST /search/retrieval-training-runs/{training_run_id}/audit-bundles`
+- `GET /search/retrieval-training-runs/{training_run_id}/audit-bundles/latest`
 - `GET /search/audit-bundles/{bundle_id}`
 - `docling-system-gate-search-harness-release <candidate_harness_name>`, which now
   prints both the evaluation and persisted release gate
 - `docling-system-search-harness-release-audit-bundle <release_id>`, which exports a
   signed immutable audit bundle for a persisted release gate
+- `docling-system-retrieval-training-run-audit-bundle <training_run_id>`, which
+  exports a signed immutable audit bundle for a materialized retrieval training run
 - `verify_search_harness_evaluation`, which writes a release gate when the target
   evaluation is durable and links the `release_id` in verifier details
 
@@ -106,10 +110,15 @@ turning handcrafted query rules into the accuracy engine. A future learned reran
 use the same table as its promotion evidence by pointing the candidate harness at the
 trained model artifact and preserving the training-run hash.
 
-Search harness release audit bundles include any linked
+Retrieval training run audit bundles freeze the full learning input: the training run
+record, judgment set, canonical training payload, every judgment row, every hard
+negative row, source payload hashes, evidence refs, semantic governance events, and a
+PROV-style graph. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
-sets, and the associated governance events. That keeps the signed release package
-traceable from release gate back to the dataset hash that influenced the candidate.
+sets, the associated governance events, and references to the latest signed training
+audit bundle hash for each linked training run. That keeps the signed release package
+traceable from release gate back to the exact auditable dataset that influenced the
+candidate.
 
 ## Multivector Retrieval Repair Surface
 

@@ -481,6 +481,10 @@ class SearchHarnessReleaseAuditBundleRequest(BaseModel):
     created_by: str | None = Field(default=None, min_length=1)
 
 
+class RetrievalTrainingRunAuditBundleRequest(BaseModel):
+    created_by: str | None = Field(default=None, min_length=1)
+
+
 class AuditBundleExportSummaryResponse(BaseModel):
     schema_name: str = "audit_bundle_export"
     schema_version: str = "1.0"

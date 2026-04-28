@@ -2735,11 +2735,14 @@ class AuditBundleExport(Base):
     __tablename__ = "audit_bundle_exports"
     __table_args__ = (
         CheckConstraint(
-            "bundle_kind IN ('search_harness_release_provenance')",
+            "bundle_kind IN ("
+            "'search_harness_release_provenance', "
+            "'retrieval_training_run_provenance'"
+            ")",
             name="ck_audit_bundle_exports_bundle_kind",
         ),
         CheckConstraint(
-            "source_table IN ('search_harness_releases')",
+            "source_table IN ('search_harness_releases', 'retrieval_training_runs')",
             name="ck_audit_bundle_exports_source_table",
         ),
         CheckConstraint(
@@ -2753,6 +2756,11 @@ class AuditBundleExport(Base):
             "search_harness_release_id",
             "created_at",
         ),
+        Index(
+            "ix_audit_bundle_exports_training_run_created_at",
+            "retrieval_training_run_id",
+            "created_at",
+        ),
         Index("ix_audit_bundle_exports_payload_sha256", "payload_sha256"),
         Index("ix_audit_bundle_exports_bundle_sha256", "bundle_sha256"),
     )
@@ -2764,6 +2772,10 @@ class AuditBundleExport(Base):
     search_harness_release_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("search_harness_releases.id", ondelete="RESTRICT"),
+    )
+    retrieval_training_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("retrieval_training_runs.id", ondelete="RESTRICT"),
     )
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)

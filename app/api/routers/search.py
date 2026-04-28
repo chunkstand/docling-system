@@ -27,6 +27,7 @@ from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     RetrievalLearningCandidateEvaluationResponse,
     RetrievalLearningCandidateEvaluationSummaryResponse,
+    RetrievalTrainingRunAuditBundleRequest,
     SearchFeedbackCreateRequest,
     SearchFeedbackResponse,
     SearchHarnessDescriptorResponse,
@@ -82,6 +83,12 @@ create_search_harness_release_audit_bundle = (
 )
 get_latest_search_harness_release_audit_bundle = (
     retrieval.get_latest_search_harness_release_audit_bundle
+)
+create_retrieval_training_run_audit_bundle = (
+    retrieval.create_retrieval_training_run_audit_bundle
+)
+get_latest_retrieval_training_run_audit_bundle = (
+    retrieval.get_latest_retrieval_training_run_audit_bundle
 )
 get_audit_bundle_export = retrieval.get_audit_bundle_export
 evaluate_retrieval_learning_candidate = retrieval.evaluate_retrieval_learning_candidate
@@ -540,6 +547,50 @@ def read_latest_search_harness_release_audit_bundle(
     return get_latest_search_harness_release_audit_bundle(
         session,
         release_id,
+        storage_service=storage_service,
+    )
+
+
+@router.post(
+    "/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+    response_model=AuditBundleExportResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_retrieval_training_run_audit_bundle_route(
+    response: Response,
+    training_run_id: UUID,
+    payload: RetrievalTrainingRunAuditBundleRequest,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleExportResponse:
+    bundle = create_retrieval_training_run_audit_bundle(
+        session,
+        training_run_id,
+        payload,
+        storage_service=storage_service,
+    )
+    session.commit()
+    bundle_id = response_field(bundle, "bundle_id")
+    response.headers["Location"] = f"/search/audit-bundles/{bundle_id}"
+    return bundle
+
+
+@router.get(
+    "/search/retrieval-training-runs/{training_run_id}/audit-bundles/latest",
+    response_model=AuditBundleExportResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_latest_retrieval_training_run_audit_bundle(
+    training_run_id: UUID,
+    session: DbSession,
+    storage_service: StorageDep,
+) -> AuditBundleExportResponse:
+    return get_latest_retrieval_training_run_audit_bundle(
+        session,
+        training_run_id,
         storage_service=storage_service,
     )
 

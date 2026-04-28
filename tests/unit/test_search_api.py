@@ -685,6 +685,7 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     semantic_governance_event_id = uuid4()
     baseline_replay_run_id = uuid4()
     candidate_replay_run_id = uuid4()
+    training_audit_bundle_id = uuid4()
 
     monkeypatch.setattr(
         "app.api.routers.search.list_search_harness_definitions",
@@ -876,6 +877,24 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
         },
         "integrity": {"complete": True},
     }
+    training_audit_bundle_payload = {
+        **audit_bundle_payload,
+        "bundle_id": str(training_audit_bundle_id),
+        "bundle_kind": "retrieval_training_run_provenance",
+        "source_table": "retrieval_training_runs",
+        "source_id": str(retrieval_training_run_id),
+        "payload_sha256": "training-payload-sha",
+        "bundle_sha256": "training-bundle-sha",
+        "bundle": {
+            "schema_name": "audit_bundle_export",
+            "payload": {
+                "schema_name": "retrieval_training_run_audit_payload",
+                "retrieval_judgments": [],
+                "retrieval_hard_negatives": [],
+                "prov": {"wasDerivedFrom": []},
+            },
+        },
+    }
     monkeypatch.setattr(
         "app.api.routers.search.create_search_harness_release_gate",
         lambda session, payload: release_payload,
@@ -919,6 +938,20 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.api.routers.search.get_latest_search_harness_release_audit_bundle",
         lambda session, lookup_release_id, *, storage_service: audit_bundle_payload,
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.create_retrieval_training_run_audit_bundle",
+        lambda session, lookup_training_run_id, payload, *, storage_service: {
+            **training_audit_bundle_payload,
+            "source_id": str(lookup_training_run_id),
+        },
+    )
+    monkeypatch.setattr(
+        "app.api.routers.search.get_latest_retrieval_training_run_audit_bundle",
+        lambda session, lookup_training_run_id, *, storage_service: {
+            **training_audit_bundle_payload,
+            "source_id": str(lookup_training_run_id),
+        },
     )
     monkeypatch.setattr(
         "app.api.routers.search.get_audit_bundle_export",
@@ -1054,6 +1087,22 @@ def test_search_harness_routes_use_harness_services(monkeypatch) -> None:
     )
     assert latest_audit_response.status_code == 200
     assert latest_audit_response.json()["integrity"]["complete"] is True
+
+    training_audit_response = client.post(
+        f"/search/retrieval-training-runs/{retrieval_training_run_id}/audit-bundles",
+        json={"created_by": "operator"},
+    )
+    assert training_audit_response.status_code == 200
+    assert training_audit_response.headers["Location"] == (
+        f"/search/audit-bundles/{training_audit_bundle_id}"
+    )
+    assert training_audit_response.json()["bundle_kind"] == "retrieval_training_run_provenance"
+
+    latest_training_audit_response = client.get(
+        f"/search/retrieval-training-runs/{retrieval_training_run_id}/audit-bundles/latest"
+    )
+    assert latest_training_audit_response.status_code == 200
+    assert latest_training_audit_response.json()["bundle_sha256"] == "training-bundle-sha"
 
     audit_detail_response = client.get(f"/search/audit-bundles/{audit_bundle_id}")
     assert audit_detail_response.status_code == 200
@@ -1200,3 +1249,31 @@ def test_search_audit_bundle_create_route_returns_machine_readable_signing_key_e
     assert response.status_code == 409
     assert response.json()["error_code"] == "audit_bundle_signing_key_missing"
     assert response.json()["error_context"]["release_id"] == str(release_id)
+
+
+def test_retrieval_training_audit_bundle_latest_route_returns_machine_readable_error(
+    monkeypatch,
+) -> None:
+    training_run_id = uuid4()
+    monkeypatch.setattr(
+        "app.api.routers.search.get_latest_retrieval_training_run_audit_bundle",
+        lambda session, lookup_training_run_id, *, storage_service: (_ for _ in ()).throw(
+            api_error(
+                404,
+                "retrieval_training_run_audit_bundle_not_found",
+                "Retrieval training run audit bundle not found.",
+                retrieval_training_run_id=str(lookup_training_run_id),
+            )
+        ),
+    )
+
+    client = TestClient(app)
+    response = client.get(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles/latest"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "retrieval_training_run_audit_bundle_not_found"
+    assert response.json()["error_context"]["retrieval_training_run_id"] == str(
+        training_run_id
+    )
