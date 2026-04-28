@@ -3274,6 +3274,93 @@ def test_claim_support_change_impact_replay_prevalidates_before_creating_tasks(
     )
 
     with postgres_integration_harness.session_factory() as session:
+        active_corpus_row = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(
+                ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id
+                == UUID(promotion_payload["active_replay_fixture_corpus_snapshot_id"])
+            )
+            .order_by(ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc())
+            .limit(1)
+        )
+        assert active_corpus_row is not None
+        original_fixture_sha256 = active_corpus_row.fixture_sha256
+        active_corpus_row.fixture_sha256 = "tampered-corpus-row-fixture"
+        session.commit()
+
+    row_tamper_signal_response = postgres_integration_harness.client.get(
+        "/agent-tasks/analytics/decision-signals"
+    )
+    assert row_tamper_signal_response.status_code == 200
+    row_tamper_signals = row_tamper_signal_response.json()
+    assert any(
+        row["task_type"] == "claim_support_replay_alert_fixture_corpus"
+        and row["threshold_crossed"]
+        == "invalid_claim_support_replay_alert_fixture_corpus_snapshot_governance"
+        for row in row_tamper_signals
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_row_verify_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="verify_claim_support_calibration_policy",
+                input={
+                    "target_task_id": str(draft_task_id),
+                    "fixture_set_name": "integration_replay_alert_row_tamper",
+                    "fixture_set_version": "v1",
+                    "include_replay_alert_fixtures": True,
+                    "replay_alert_fixture_limit": 10,
+                    "require_replay_alert_fixture_coverage": True,
+                    "include_mined_failures": False,
+                },
+                workflow_version="claim_support_policy_replay_alert_coverage",
+            ),
+        )
+        tampered_row_verify_task_id = tampered_row_verify_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_row_verify_row = session.get(AgentTask, tampered_row_verify_task_id)
+        assert tampered_row_verify_row is not None
+        tampered_row_payload = tampered_row_verify_row.result_json["payload"]
+        tampered_row_summary = tampered_row_payload["replay_alert_fixture_summary"]
+        assert tampered_row_payload["verification"]["outcome"] == "failed"
+        assert tampered_row_payload["evaluation"]["summary"][
+            "replay_alert_fixture_coverage_passed"
+        ] is False
+        assert tampered_row_summary[
+            "active_replay_alert_fixture_corpus_governed"
+        ] is False
+        assert (
+            "snapshot_db_row_payload_mismatch"
+            in tampered_row_summary[
+                "active_replay_alert_fixture_corpus_governance_failures"
+            ]
+        )
+        assert (
+            "snapshot_db_fixture_hash_mismatch"
+            in tampered_row_summary[
+                "active_replay_alert_fixture_corpus_governance_failures"
+            ]
+        )
+
+    with postgres_integration_harness.session_factory() as session:
+        active_corpus_row = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(
+                ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id
+                == UUID(promotion_payload["active_replay_fixture_corpus_snapshot_id"])
+            )
+            .order_by(ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc())
+            .limit(1)
+        )
+        assert active_corpus_row is not None
+        active_corpus_row.fixture_sha256 = original_fixture_sha256
+        session.commit()
+
+    with postgres_integration_harness.session_factory() as session:
         tampered_snapshot_governance_event = session.get(
             SemanticGovernanceEvent,
             UUID(promotion_payload["active_replay_fixture_corpus_governance_event_id"]),

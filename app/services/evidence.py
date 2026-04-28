@@ -3106,6 +3106,57 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
     snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
 ) -> dict[str, Any]:
     failures: list[str] = []
+    snapshot_payload = dict(snapshot.snapshot_payload_json or {})
+    if payload_sha256(snapshot_payload) != snapshot.snapshot_sha256:
+        failures.append("snapshot_payload_hash_mismatch")
+    db_rows = list(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .order_by(
+                ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc(),
+                ClaimSupportReplayAlertFixtureCorpusRow.id.asc(),
+            )
+        )
+    )
+    declared_rows = [
+        dict(row)
+        for row in snapshot_payload.get("rows") or []
+        if isinstance(row, dict)
+    ]
+    db_row_payloads = [
+        {
+            "case_id": row.case_id,
+            "case_identity_sha256": row.case_identity_sha256,
+            "fixture_sha256": row.fixture_sha256,
+            "fixture_set_id": str(row.fixture_set_id) if row.fixture_set_id else None,
+            "promotion_event_id": (
+                str(row.promotion_event_id) if row.promotion_event_id else None
+            ),
+            "promotion_artifact_id": (
+                str(row.promotion_artifact_id) if row.promotion_artifact_id else None
+            ),
+            "promotion_receipt_sha256": row.promotion_receipt_sha256,
+            "source_change_impact_ids": list(row.source_change_impact_ids_json or []),
+            "source_escalation_event_ids": list(
+                row.source_escalation_event_ids_json or []
+            ),
+        }
+        for row in db_rows
+    ]
+    if len(declared_rows) != snapshot.fixture_count:
+        failures.append("snapshot_payload_row_count_mismatch")
+    if len(db_rows) != snapshot.fixture_count:
+        failures.append("snapshot_db_row_count_mismatch")
+    if declared_rows != db_row_payloads:
+        failures.append("snapshot_db_row_payload_mismatch")
+    fixture_hash_mismatch_count = sum(
+        1
+        for row in db_rows
+        if payload_sha256(row.fixture_json or {}) != row.fixture_sha256
+    )
+    if fixture_hash_mismatch_count:
+        failures.append("snapshot_db_fixture_hash_mismatch")
     event = (
         session.get(SemanticGovernanceEvent, snapshot.semantic_governance_event_id)
         if snapshot.semantic_governance_event_id is not None
@@ -3182,6 +3233,11 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
             else None
         ),
         "governance_receipt_sha256": snapshot.governance_receipt_sha256,
+        "snapshot_payload_sha256": payload_sha256(snapshot_payload),
+        "stored_snapshot_sha256": snapshot.snapshot_sha256,
+        "declared_row_count": len(declared_rows),
+        "db_row_count": len(db_rows),
+        "fixture_hash_mismatch_count": fixture_hash_mismatch_count,
     }
 
 

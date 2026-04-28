@@ -619,6 +619,42 @@ def record_replay_alert_fixture_corpus_snapshot_governance(
     return event, artifact, True
 
 
+def _snapshot_row_hash_payload_from_db(
+    row: ClaimSupportReplayAlertFixtureCorpusRow,
+) -> dict[str, Any]:
+    return {
+        "case_id": row.case_id,
+        "case_identity_sha256": row.case_identity_sha256,
+        "fixture_sha256": row.fixture_sha256,
+        "fixture_set_id": str(row.fixture_set_id) if row.fixture_set_id else None,
+        "promotion_event_id": (
+            str(row.promotion_event_id) if row.promotion_event_id else None
+        ),
+        "promotion_artifact_id": (
+            str(row.promotion_artifact_id) if row.promotion_artifact_id else None
+        ),
+        "promotion_receipt_sha256": row.promotion_receipt_sha256,
+        "source_change_impact_ids": list(row.source_change_impact_ids_json or []),
+        "source_escalation_event_ids": list(row.source_escalation_event_ids_json or []),
+    }
+
+
+def _snapshot_rows_for_integrity(
+    session: Session,
+    snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot,
+) -> list[ClaimSupportReplayAlertFixtureCorpusRow]:
+    return list(
+        session.scalars(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .order_by(
+                ClaimSupportReplayAlertFixtureCorpusRow.row_index.asc(),
+                ClaimSupportReplayAlertFixtureCorpusRow.id.asc(),
+            )
+        )
+    )
+
+
 def replay_alert_fixture_corpus_snapshot_governance_integrity(
     session: Session,
     snapshot: ClaimSupportReplayAlertFixtureCorpusSnapshot | None,
@@ -629,6 +665,31 @@ def replay_alert_fixture_corpus_snapshot_governance_integrity(
             "failures": ["snapshot_missing"],
         }
     failures: list[str] = []
+    snapshot_payload = dict(snapshot.snapshot_payload_json or {})
+    if payload_sha256(snapshot_payload) != snapshot.snapshot_sha256:
+        failures.append("snapshot_payload_hash_mismatch")
+    declared_rows = [
+        dict(row)
+        for row in snapshot_payload.get("rows") or []
+        if isinstance(row, dict)
+    ]
+    db_rows = _snapshot_rows_for_integrity(session, snapshot)
+    db_row_hash_payloads = [
+        _snapshot_row_hash_payload_from_db(row) for row in db_rows
+    ]
+    if len(declared_rows) != snapshot.fixture_count:
+        failures.append("snapshot_payload_row_count_mismatch")
+    if len(db_rows) != snapshot.fixture_count:
+        failures.append("snapshot_db_row_count_mismatch")
+    if declared_rows != db_row_hash_payloads:
+        failures.append("snapshot_db_row_payload_mismatch")
+    fixture_hash_mismatch_count = sum(
+        1
+        for row in db_rows
+        if payload_sha256(row.fixture_json or {}) != row.fixture_sha256
+    )
+    if fixture_hash_mismatch_count:
+        failures.append("snapshot_db_fixture_hash_mismatch")
     event = (
         session.get(SemanticGovernanceEvent, snapshot.semantic_governance_event_id)
         if snapshot.semantic_governance_event_id is not None
@@ -720,6 +781,11 @@ def replay_alert_fixture_corpus_snapshot_governance_integrity(
             if artifact is not None
             else None
         ),
+        "snapshot_payload_sha256": payload_sha256(snapshot_payload),
+        "stored_snapshot_sha256": snapshot.snapshot_sha256,
+        "declared_row_count": len(declared_rows),
+        "db_row_count": len(db_rows),
+        "fixture_hash_mismatch_count": fixture_hash_mismatch_count,
     }
 
 
