@@ -1,211 +1,148 @@
 # Session Handoff
 
-Date: 2026-04-18 local / 2026-04-18 UTC
+Date: 2026-04-27 local / 2026-04-28 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this handoff update: `0c0ad92` (`Add system review document`)
+Latest committed checkpoint before this handoff update: `5f12b23` (`Harden claim support judge evaluation context`)
 
-## Session Outcome
+## Current Position
 
-This session focused on a full-system review, Priority 1 hardening work, a broader edge-hardening roadmap, and a final gap-closing pass on the newly hardened edge surfaces.
+`main` is aligned with `origin/main` at the latest code checkpoint before this docs update. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
 
-At the end of the session:
+- active-run-gated PDF ingest, parsing, validation, and promotion
+- mixed chunk/table retrieval with replayable evaluations and harness governance
+- figure, table, chunk, and artifact provenance preserved in Postgres plus canonical JSON artifacts
+- authenticated remote mode and capability-gated API surfaces
+- semantic ontology, fact-graph, and graph-memory workflows that stay additive until verified and approved
+- technical-report generation workflows with claim/evidence packaging, verification, and audit bundles
+- claim-support judge calibration with persisted replay evaluations and per-case evidence
+- architecture, hygiene, improvement-case, and audit-bundle governance checks
 
-- local `main` includes the full hardening stack from this session
-- the working tree is clean after this handoff update is committed
-- the current codebase has stronger defaults at the system boundary:
-  - explicit local vs remote API mode semantics
-  - API-key protection for remote mutating and reading access
-  - capability-gated high-power remote routes
-  - storage-owned artifact delivery
-  - shared ingest admission with remote-mode backpressure
-  - command idempotency for document create and reprocess
-  - more consistent machine-readable error responses on exposed search/task edges
+## Recent Milestones Since The Prior Handoff
 
-## What Was Accomplished
+The old handoff captured the April 18 API hardening work. Since then, the repository has moved through retrieval/audit, semantic governance, and technical-report hardening passes.
 
-### 1. Full System Review
+Recent high-signal checkpoints include:
 
-A fresh full-system review was completed and saved in:
+- `c51760c` `Harden retrieval training audit bundle closure`
+- `13f8148` `Add audit bundle validation receipts`
+- `e53690b` `Expose audit bundle receipt history`
+- `4ee9cab` `Add semantic governance release readiness`
+- `992c352` `Auto-validate release audit bundles`
+- `2767944` `Add reranker artifact impact ledger`
+- `c78af3a` `Include reranker artifacts in release audit bundles`
+- `d883590` `Add technical report claim provenance locks`
+- `3d0d810` `Tighten claim provenance lock validation`
+- `ff0b855` `Add technical report claim support gate`
+- `e9dbdef` `Add claim support judge evaluation replay`
+- `5f12b23` `Harden claim support judge evaluation context`
 
-- [docs/system-review-2026-04-18.md](/Users/chunkstand/Documents/docling-system/docs/system-review-2026-04-18.md)
+## Current Technical-Report And Claim-Support State
 
-The review identified the original Priority 1 risks:
+The technical-report workflow is:
 
-- unauthenticated or weakly protected network exposure
-- HTTP ingest skipping some of the stricter admission safeguards
-- race-prone duplicate ingest and reprocess flows
+1. `plan_technical_report`
+2. `build_report_evidence_cards`
+3. `prepare_report_agent_harness`
+4. `draft_technical_report`
+5. `verify_technical_report`
 
-It also identified broader edge concerns around auth, ingress consistency, artifact serving, idempotency, and remote-safe defaults.
+The workflow now preserves claim evidence at several levels:
 
-### 2. Priority 1 Hardening
+- report plans and evidence cards are typed task outputs
+- the report harness is a persisted wake-up packet with evidence cards, graph context, claim contract, allowed tools, required skills, and verifier policy
+- draft tasks record generation operator runs and persist a frozen claim-derivation evidence package
+- claim provenance locks bind generated claims to evidence cards, search result IDs, source records, and hashes
+- claim-support judgments are applied to generated claims before verification
+- verification checks claim traceability, claim-support judgments, graph approval, concept coverage, refreshed context, and evidence closure
+- `GET /agent-tasks/{task_id}/audit-bundle` exposes the draft, verification, evidence package export, claim derivations, operator runs, active-run impact, and signed PROV receipt material when signing is configured
 
-Priority 1 was fixed vertically first.
+The support-judge calibration path is now first-class:
 
-Commit:
+- task type: `evaluate_claim_support_judge`
+- service: `app.services.claim_support_evaluations`
+- persisted tables: `claim_support_evaluations` and `claim_support_evaluation_cases`
+- artifact kind: `claim_support_judge_evaluation`
+- operator run: `technical_report_claim_support_judge_evaluation`
+- context builder: `evaluate_claim_support_judge`
 
-- `19746ab` `Fix priority 1 hardening issues`
+The evaluation task replays fixed hard-case fixtures against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, and typed context summary for review.
 
-What landed:
+## Current Agent-Task Catalog Notes
 
-- safer API exposure defaults
-- upload validation and cleanup hardening
-- concurrency-safe duplicate/reprocess behavior
-- targeted tests for API runtime, document service, cleanup, and document APIs
+The live action registry currently has 46 task types. The newest catalog addition is:
 
-### 3. Edge-Hardening Roadmap Implementation
+- `evaluate_claim_support_judge`
 
-The broader roadmap was then implemented milestone by milestone.
+The durable docs have been updated to include it in the task lists and command examples. Operators can always verify the live catalog with:
 
-Commits:
+```bash
+uv run docling-system-agent-task-actions
+```
 
-- `f91160c` `Add explicit local and remote API modes`
-- `10e3007` `Harden artifact delivery through storage-owned paths`
-- `31acb5f` `Add shared ingest admission with remote backpressure`
-- `dd8bf48` `Add structured errors and command idempotency`
-- `cf4626d` `Gate remote capabilities and expose durable run resources`
+Every registered action declares typed input, output schema metadata, side-effect level, approval requirement, capability, and context-builder name. `tests/unit/test_agent_action_contracts.py` checks that named context builders are registered.
 
-What these milestones changed:
+## Verification Snapshot
 
-- API mode is now explicit:
-  - `local` mode remains loopback-oriented
-  - `remote` mode requires an API key
-  - runtime metadata now exposes resolved API mode
-- artifact delivery no longer trusts raw DB-stored filesystem paths:
-  - canonical storage paths are preferred
-  - out-of-root file serving is blocked
-- ingest admission is now shared across upload and local-file flows:
-  - staged-file admission validates size, PDF shape, page limits, dedupe, and queue entry more consistently
-  - remote mode can reject new document work when inflight run capacity is exhausted
-- document create and reprocess now support idempotency keys:
-  - duplicate retries replay the original durable response
-  - mismatched reuse of the same idempotency key is rejected
-- mutating remote routes now require specific capabilities:
-  - document upload
-  - document reprocess
-  - agent-task writes
-  - search query/feedback/replay/evaluation
-  - chat query/feedback
-- async creation surfaces now return better durable contracts:
-  - `GET /runs/{run_id}` exists
-  - relevant `POST` routes set `Location` headers for the created durable resource
+Latest full code verification before this docs update:
 
-### 4. Follow-Up Gap Closures After Roadmap Implementation
+```bash
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
+```
 
-After the roadmap landed, the edge surfaces were re-audited and three additional high-signal gaps were closed.
+Result:
 
-Commits:
+```text
+749 passed
+```
 
-- `48c1e2e` `Require auth for remote read endpoints`
-- `4520cda` `Gate sensitive remote read surfaces by capability`
-- `f68bdfe` `Normalize search edge error contracts`
+Focused claim-support verification before this docs update:
 
-What these follow-up fixes changed:
+```bash
+uv run python -m pytest tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_claim_support_evaluations.py tests/unit/test_agent_action_contracts.py -q
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run python -m pytest tests/integration/test_claim_support_judge_evaluation_roundtrip.py -q
+```
 
-- remote `GET` and `HEAD` access now requires the API key by default:
-  - `/health` remains public
-  - local mode remains unchanged
-- authenticated remote reads are no longer implicitly trusted:
-  - sensitive read surfaces now require explicit capabilities
-  - this includes runtime diagnostics, quality endpoints, agent-task reads, raw document inspection/artifact routes, and replay/history reads
-- search/task edge failures now return more stable machine-readable errors:
-  - route-level validation wrappers now emit `error_code`
-  - search history and replay not-found/validation failures now emit structured API errors instead of plain strings
+Results:
 
-### 5. Session Artifacts And Docs
+```text
+80 passed
+2 passed
+```
 
-Docs committed in this session:
+Documentation alignment verification during this docs update:
 
-- `0c0ad92` `Add system review document`
+```bash
+uv run docling-system-architecture-inspect
+uv run python -m pytest tests/unit/test_agent_action_contracts.py tests/unit/test_architecture_inspection.py tests/unit/test_architecture_decisions.py -q
+```
 
-This handoff update will be committed after the file is written.
+Results:
 
-## Files Touched During This Session
+```text
+valid: true
+violation_count: 0
+agent_action_count: 46
+31 passed
+```
 
-Primary implementation files:
+## Files Updated In This Documentation Alignment
 
-- [app/api/main.py](/Users/chunkstand/Documents/docling-system/app/api/main.py)
-- [app/core/config.py](/Users/chunkstand/Documents/docling-system/app/core/config.py)
-- [app/api/errors.py](/Users/chunkstand/Documents/docling-system/app/api/errors.py)
-- [app/services/documents.py](/Users/chunkstand/Documents/docling-system/app/services/documents.py)
-- [app/services/storage.py](/Users/chunkstand/Documents/docling-system/app/services/storage.py)
-- [app/services/idempotency.py](/Users/chunkstand/Documents/docling-system/app/services/idempotency.py)
-- [app/services/search_history.py](/Users/chunkstand/Documents/docling-system/app/services/search_history.py)
-- [app/services/search_replays.py](/Users/chunkstand/Documents/docling-system/app/services/search_replays.py)
-- [app/db/models.py](/Users/chunkstand/Documents/docling-system/app/db/models.py)
-- [alembic/versions/0022_api_idempotency_keys.py](/Users/chunkstand/Documents/docling-system/alembic/versions/0022_api_idempotency_keys.py)
+- [README.md](/Users/chunkstand/Documents/docling-system/README.md)
+- [SYSTEM_PLAN.md](/Users/chunkstand/Documents/docling-system/SYSTEM_PLAN.md)
+- [docs/SESSION_HANDOFF.md](/Users/chunkstand/Documents/docling-system/docs/SESSION_HANDOFF.md)
 
-Primary test files added or updated:
+## Next Suggested Pass
 
-- [tests/unit/test_api_runtime.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_api_runtime.py)
-- [tests/unit/test_health.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_health.py)
-- [tests/unit/test_documents_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_documents_api.py)
-- [tests/unit/test_reprocess_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_reprocess_api.py)
-- [tests/unit/test_document_service.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_document_service.py)
-- [tests/unit/test_cleanup.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_cleanup.py)
-- [tests/unit/test_agent_tasks_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_agent_tasks_api.py)
-- [tests/unit/test_search_api.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_search_api.py)
-- [tests/unit/test_idempotency_service.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_idempotency_service.py)
-- [tests/unit/test_search_history.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_search_history.py)
+The remaining useful next pass is not another docs update. It is an end-to-end live operator workflow run for the technical-report path:
 
-## Verification
+1. create a report plan from an active ingested document
+2. build evidence cards
+3. prepare the report harness
+4. draft a technical report
+5. verify the report
+6. export and inspect the audit bundle
+7. run `evaluate_claim_support_judge`
 
-Verification was run after each milestone and again at the end.
-
-Final full-suite result at the end of the session:
-
-- `pytest -q`
-- result: `336 passed, 14 skipped`
-
-Focused milestone verification also ran repeatedly across the touched API and service slices, including:
-
-- API runtime and health
-- documents API and reprocess API
-- document service and cleanup
-- agent-tasks API
-- search API and search history/idempotency slices
-
-## Commits From This Session
-
-Chronological hardening and docs commits from this session:
-
-- `19746ab` `Fix priority 1 hardening issues`
-- `f91160c` `Add explicit local and remote API modes`
-- `10e3007` `Harden artifact delivery through storage-owned paths`
-- `31acb5f` `Add shared ingest admission with remote backpressure`
-- `dd8bf48` `Add structured errors and command idempotency`
-- `cf4626d` `Gate remote capabilities and expose durable run resources`
-- `48c1e2e` `Require auth for remote read endpoints`
-- `4520cda` `Gate sensitive remote read surfaces by capability`
-- `f68bdfe` `Normalize search edge error contracts`
-- `0c0ad92` `Add system review document`
-
-## Current State Of The System
-
-What is now true:
-
-- `local` and `remote` API modes are explicit and enforced
-- non-loopback remote serving requires an API key
-- remote reads as well as remote writes are protected
-- high-power remote read and write surfaces are capability-gated
-- artifact download routes are storage-root-constrained
-- document create/reprocess support idempotent retries
-- document ingest admission is more consistent across entry paths
-- remote ingest can shed load when inflight document runs are already at capacity
-- durable run resources are first-class and directly readable
-- direct application `HTTPException` construction is centralized through `api_error(...)`
-- agent-task creation rejects dependency graphs that already contain cycles
-- search harness evaluations are first-class persisted resources with source replay provenance
-- durable harness evaluation history is inspectable from API, CLI, and the eval UI
-- the current full unit/integration test suite is green in local verification
-
-## Residual Risks And Next Steps
-
-The highest-signal residuals after this session are:
-
-- capability enforcement is still deployment-wide rather than actor-aware authorization
-
-Recommended next step:
-
-1. Only add actor-aware authz if the deployment model becomes genuinely multi-user or hosted.
+That would validate the full document-generation audit chain against live corpus data rather than only fixtures and isolated integration tests.

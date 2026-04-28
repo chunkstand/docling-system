@@ -38,6 +38,7 @@ The system is built to support these current goals:
 - preserve enough provenance to audit parser output, table repair overlays, and figures
 - make retrieval changes measurable through fixed-corpus evaluations, replay suites, and live search telemetry
 - keep orchestration explicit, typed, durable, and inspectable rather than prompt-only
+- make generated document claims replayable, calibrated, and auditable through persisted claim-support judgments and evaluation cases
 
 ## Current Contracts
 
@@ -510,6 +511,7 @@ The current registry includes:
 - `prepare_report_agent_harness`
 - `draft_technical_report`
 - `verify_technical_report`
+- `evaluate_claim_support_judge`
 - `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `refresh_eval_failure_cases`
@@ -620,9 +622,10 @@ Current workflow-heavy paths include:
 - `prepare_semantic_generation_brief` can also expose additive `shadow_candidates` and `shadow_candidate_summary` fields from the candidate layer while keeping grounded drafting tied only to the live dossier
 - `draft_semantic_grounded_document`, which consumes the migrated brief through its `target_task` context ref and emits a grounded document draft plus markdown sidecar without publishing anything live
 - `verify_semantic_grounded_document`, which verifies claim traceability, required-concept coverage, and evidence-pack integrity through its `target_task` context ref
-- `plan_technical_report -> build_report_evidence_cards -> prepare_report_agent_harness -> draft_technical_report -> verify_technical_report`, which turns the semantic dossier and approved graph memory into a report plan, typed evidence cards, an LLM wake-up packet with allowed tools and required skills, a verification-ready report draft, and a verifier gate that checks refreshed context, claim traceability, graph approval, and concept coverage
+- `plan_technical_report -> build_report_evidence_cards -> prepare_report_agent_harness -> draft_technical_report -> verify_technical_report`, which turns the semantic dossier and approved graph memory into a report plan, typed evidence cards, an LLM wake-up packet with allowed tools and required skills, a verification-ready report draft, and a verifier gate that checks refreshed context, claim traceability, claim-support judgments, graph approval, and concept coverage
 - technical-report drafting and verification also write `generate` and `verify` knowledge-operator runs so generated documents carry a database-backed activity trail from harness input through verifier outcome
 - technical-report drafts persist a frozen claim-derivation evidence package and per-claim derivation rows; `GET /agent-tasks/{task_id}/audit-bundle` returns the draft, verification, evidence package export, claim derivations, operator runs, and active-run change-impact status for court-grade review
+- `evaluate_claim_support_judge`, which replays fixed hard-case fixtures against the technical-report claim-support judge, persists `claim_support_evaluations` and `claim_support_evaluation_cases`, records a judge operator run, writes a replay artifact, and exposes a typed context summary with the fixture-set hash and pass/fail gate outcome
 - `draft_harness_config_update`, which creates a review harness artifact without changing live search behavior
 - `verify_draft_harness_config`, which evaluates a draft harness and records a verifier outcome
 - `apply_harness_config_update`, which consumes typed `draft_task` and `verification_task` refs and, after approval, publishes the verified harness into `config/search_harness_overrides.json`

@@ -1,10 +1,10 @@
 # docling-system
 
-Docling-based PDF ingestion and retrieval system for plumbing-code knowledge.
+Docling-based PDF ingestion, retrieval, and auditable document-generation system.
 
 ## What It Does
 
-This system ingests PDF code books, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and an operator browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.
+This system ingests operator-supplied PDFs, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and an operator browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.
 
 The current workflow is operator-driven: use the CLI to ingest local PDFs, then use the API or UI to inspect documents, tables, figures, artifacts, validation status, evaluation status, metrics, and mixed chunk/table search.
 
@@ -14,7 +14,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
-The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, source document checksums, active-run validation state, chunk/table snapshots, table segment provenance, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload.
+The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, source document checksums, active-run validation state, chunk/table snapshots, table segment provenance, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload. Technical-report drafting also records claim-support judgments, claim derivation evidence, signed audit-bundle material, and replayable support-judge evaluation rows so document generation can be reviewed from the final claim back to the exact evidence and calibration cases.
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 
@@ -404,6 +404,7 @@ The current registry includes read-only, draft-change, and approval-gated promot
 - `prepare_report_agent_harness`
 - `draft_technical_report`
 - `verify_technical_report`
+- `evaluate_claim_support_judge`
 - `prepare_semantic_generation_brief`
 - `list_quality_eval_candidates`
 - `refresh_eval_failure_cases`
@@ -483,7 +484,9 @@ The first promotable task is `enqueue_document_reprocess`. It is approval-gated,
 
 The current semantic-generation path is deliberately narrow. `prepare_semantic_generation_brief` builds a typed cross-document semantic dossier and claim/evidence brief, `draft_semantic_grounded_document` renders a bounded `knowledge_brief` draft plus markdown sidecar from that brief, and `verify_semantic_grounded_document` enforces claim traceability, evidence coverage, and required-concept coverage before downstream use.
 
-The technical-report harness extends that path into an LLM-ready report workflow. `plan_technical_report` turns semantic evidence and graph memory into a section, claim, and retrieval plan; `build_report_evidence_cards` converts source evidence, tables, facts, and approved graph edges into stable evidence cards; `prepare_report_agent_harness` writes `report_agent_harness.json`, a wake-up packet containing the report request, context refs, allowed tools, required skills, retrieval plan, evidence cards, graph context, claim contract, failure policy, LLM adapter contract, and verification gate; `draft_technical_report` consumes that harness through a typed `target_task` context ref; and `verify_technical_report` verifies claim traceability, graph approval, concept coverage, and refreshed wake-up context before downstream review.
+The technical-report harness extends that path into an LLM-ready report workflow. `plan_technical_report` turns semantic evidence and graph memory into a section, claim, and retrieval plan; `build_report_evidence_cards` converts source evidence, tables, facts, and approved graph edges into stable evidence cards; `prepare_report_agent_harness` writes `report_agent_harness.json`, a wake-up packet containing the report request, context refs, allowed tools, required skills, retrieval plan, evidence cards, graph context, claim contract, failure policy, LLM adapter contract, and verification gate; `draft_technical_report` consumes that harness through a typed `target_task` context ref; and `verify_technical_report` verifies claim traceability, claim-support judgments, graph approval, concept coverage, and refreshed wake-up context before downstream review.
+
+`evaluate_claim_support_judge` replays fixed hard-case fixtures against the technical-report claim-support judge and persists the calibration record in `claim_support_evaluations` plus per-case rows. The task writes a `claim_support_judge_evaluation` artifact, records a judge `KnowledgeOperatorRun`, exposes a typed task context with the fixture-set SHA and gate outcome, and treats failed gates as completed, auditable evaluation results rather than worker failures.
 
 The current shadow semantic-learning path is also bounded. `export_semantic_supervision_corpus` exports reviewed semantic rows, semantic expectations, and grounded-document verification outcomes as durable JSON/JSONL supervision artifacts; `evaluate_semantic_candidate_extractor` compares a shadow candidate extractor against the lexical baseline on fixed documents and semantic expectations; `triage_semantic_candidate_disagreements` compacts the resulting candidate-only gaps into typed issues, verifier-style metrics, and bounded follow-up recommendations. `prepare_semantic_generation_brief` can also include shadow candidates in additive `shadow_candidates` fields without changing the live semantic dossier or grounded claims.
 
@@ -617,6 +620,7 @@ uv run docling-system-agent-task-create build_report_evidence_cards --input-json
 uv run docling-system-agent-task-create prepare_report_agent_harness --input-json '{"target_task_id":"<evidence_task_id>"}'
 uv run docling-system-agent-task-create draft_technical_report --input-json '{"target_task_id":"<harness_task_id>","generator_mode":"structured_fallback"}'
 uv run docling-system-agent-task-create verify_technical_report --input-json '{"target_task_id":"<draft_task_id>","max_unsupported_claim_count":0,"require_full_claim_traceability":true,"require_full_concept_coverage":true,"require_graph_edges_approved":true}'
+uv run docling-system-agent-task-create evaluate_claim_support_judge --input-json '{"evaluation_name":"claim_support_judge_calibration","fixture_set_name":"default_claim_support_v1","min_support_score":0.34,"min_overall_accuracy":1.0,"min_verdict_precision":1.0,"min_verdict_recall":1.0}'
 uv run docling-system-agent-task-create enqueue_document_reprocess --input-json '{"document_id":"<document_id>","source_task_id":"<triage_task_id>","reason":"shadow-mode triage recommended reprocess"}'
 uv run docling-system-agent-task-list --status queued
 uv run docling-system-agent-task-analytics
