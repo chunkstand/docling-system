@@ -13,8 +13,13 @@ from app.db.models import (
     AgentTask,
     AgentTaskSideEffectLevel,
     AgentTaskVerification,
+    AuditBundleExport,
+    AuditBundleValidationReceipt,
     ClaimSupportCalibrationPolicy,
     KnowledgeOperatorOutput,
+    SearchHarnessRelease,
+    SearchHarnessReleaseReadinessAssessment,
+    SearchRequestRecord,
 )
 from app.schemas.agent_tasks import (
     REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_MAX_HOURS,
@@ -197,7 +202,10 @@ from app.services.search_harness_optimization import run_search_harness_optimiza
 from app.services.search_harness_overrides import upsert_applied_search_harness_override
 from app.services.search_history import replay_search_request
 from app.services.search_legibility import get_search_request_explanation
-from app.services.search_release_gate import evaluate_search_harness_release_gate
+from app.services.search_release_gate import (
+    evaluate_search_harness_release_gate,
+    search_harness_release_readiness_assessment_integrity,
+)
 from app.services.search_replays import (
     compare_search_replay_runs,
     get_search_replay_run_detail,
@@ -654,6 +662,20 @@ def _unique_strings(values) -> list[str]:
     return [str(value) for value in dict.fromkeys(values) if value is not None and value != ""]
 
 
+def _unique_uuids(values) -> list[UUID]:
+    ids: list[UUID] = []
+    for value in values:
+        if value is None or value == "":
+            continue
+        try:
+            parsed = UUID(str(value))
+        except (TypeError, ValueError):
+            continue
+        if parsed not in ids:
+            ids.append(parsed)
+    return ids
+
+
 def _source_record_key(source_type, source_id) -> str | None:
     if source_type is None or source_id is None or source_id == "":
         return None
@@ -775,6 +797,7 @@ def _source_export_summary(export) -> dict:
     return {
         "evidence_package_export_id": str(export.id),
         "search_request_id": str(export.search_request_id) if export.search_request_id else None,
+        "harness_name": search_request.get("harness_name"),
         "package_sha256": export.package_sha256,
         "trace_sha256": export.trace_sha256,
         "query_text": search_request.get("query_text"),
@@ -790,6 +813,382 @@ def _source_export_summary(export) -> dict:
         "source_results": source_results,
         "source_result_count": len(source_evidence),
     }
+
+
+def _latest_passed_release_for_search_request(
+    session: Session,
+    request_row: SearchRequestRecord,
+) -> SearchHarnessRelease | None:
+    harness_name = str(request_row.harness_name or "").strip()
+    if not harness_name:
+        return None
+    return session.scalar(
+        select(SearchHarnessRelease)
+        .where(
+            SearchHarnessRelease.candidate_harness_name == harness_name,
+            SearchHarnessRelease.outcome == "passed",
+            SearchHarnessRelease.created_at <= request_row.created_at,
+        )
+        .order_by(SearchHarnessRelease.created_at.desc(), SearchHarnessRelease.id.asc())
+        .limit(1)
+    )
+
+
+def _latest_release_audit_bundle(
+    session: Session,
+    release_id: UUID,
+) -> AuditBundleExport | None:
+    return session.scalar(
+        select(AuditBundleExport)
+        .where(
+            AuditBundleExport.search_harness_release_id == release_id,
+            AuditBundleExport.bundle_kind == "search_harness_release_provenance",
+            AuditBundleExport.export_status == "completed",
+        )
+        .order_by(AuditBundleExport.created_at.desc(), AuditBundleExport.id.asc())
+        .limit(1)
+    )
+
+
+def _latest_release_validation_receipt(
+    session: Session,
+    audit_bundle_id: UUID,
+) -> AuditBundleValidationReceipt | None:
+    return session.scalar(
+        select(AuditBundleValidationReceipt)
+        .where(AuditBundleValidationReceipt.audit_bundle_export_id == audit_bundle_id)
+        .order_by(
+            AuditBundleValidationReceipt.created_at.desc(),
+            AuditBundleValidationReceipt.id.asc(),
+        )
+        .limit(1)
+    )
+
+
+def _latest_release_readiness_assessment(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseReadinessAssessment | None:
+    return session.scalar(
+        select(SearchHarnessReleaseReadinessAssessment)
+        .where(SearchHarnessReleaseReadinessAssessment.search_harness_release_id == release_id)
+        .order_by(
+            SearchHarnessReleaseReadinessAssessment.created_at.desc(),
+            SearchHarnessReleaseReadinessAssessment.id.asc(),
+        )
+        .limit(1)
+    )
+
+
+def _release_readiness_assessment_selection_status(
+    *,
+    release: SearchHarnessRelease | None,
+    assessment: SearchHarnessReleaseReadinessAssessment | None,
+    integrity: dict,
+    latest_audit_bundle: AuditBundleExport | None,
+    latest_validation_receipt: AuditBundleValidationReceipt | None,
+) -> str:
+    if release is None:
+        return "missing_release"
+    if assessment is None:
+        return "missing_assessment"
+    if assessment.ready is not True or assessment.readiness_status != "ready":
+        return "blocked_assessment"
+    if integrity.get("complete") is not True:
+        return "hash_invalid_assessment"
+    if (
+        latest_audit_bundle is not None
+        and assessment.release_audit_bundle_id != latest_audit_bundle.id
+    ):
+        return "stale_assessment"
+    if (
+        latest_validation_receipt is not None
+        and assessment.release_validation_receipt_id != latest_validation_receipt.id
+    ):
+        return "stale_assessment"
+    return "ready_integrity_complete"
+
+
+def _release_readiness_assessment_ref(
+    *,
+    request_row: SearchRequestRecord,
+    release: SearchHarnessRelease | None,
+    assessment: SearchHarnessReleaseReadinessAssessment | None,
+    latest_audit_bundle: AuditBundleExport | None,
+    latest_validation_receipt: AuditBundleValidationReceipt | None,
+) -> dict:
+    integrity = (
+        search_harness_release_readiness_assessment_integrity(assessment)
+        if assessment is not None
+        else {}
+    )
+    return {
+        "schema_name": "document_generation_release_readiness_assessment_ref",
+        "schema_version": "1.0",
+        "search_request_id": str(request_row.id),
+        "search_request_created_at": request_row.created_at.isoformat(),
+        "harness_name": request_row.harness_name,
+        "search_harness_release_id": str(release.id) if release is not None else None,
+        "release_created_at": release.created_at.isoformat() if release is not None else None,
+        "assessment_id": str(assessment.id) if assessment is not None else None,
+        "readiness_profile": assessment.readiness_profile if assessment is not None else None,
+        "readiness_status": assessment.readiness_status if assessment is not None else None,
+        "ready": assessment.ready if assessment is not None else False,
+        "blockers": list(assessment.blockers_json or []) if assessment is not None else [],
+        "latest_release_audit_bundle_id": (
+            str(latest_audit_bundle.id) if latest_audit_bundle is not None else None
+        ),
+        "assessment_release_audit_bundle_id": (
+            str(assessment.release_audit_bundle_id)
+            if assessment is not None and assessment.release_audit_bundle_id is not None
+            else None
+        ),
+        "latest_release_validation_receipt_id": (
+            str(latest_validation_receipt.id) if latest_validation_receipt is not None else None
+        ),
+        "assessment_release_validation_receipt_id": (
+            str(assessment.release_validation_receipt_id)
+            if assessment is not None and assessment.release_validation_receipt_id is not None
+            else None
+        ),
+        "readiness_payload_sha256": (
+            assessment.readiness_payload_sha256 if assessment is not None else None
+        ),
+        "assessment_payload_sha256": (
+            assessment.assessment_payload_sha256 if assessment is not None else None
+        ),
+        "integrity": integrity,
+        "selection_rule": "latest_passed_release_at_or_before_search_request",
+        "selection_status": _release_readiness_assessment_selection_status(
+            release=release,
+            assessment=assessment,
+            integrity=integrity,
+            latest_audit_bundle=latest_audit_bundle,
+            latest_validation_receipt=latest_validation_receipt,
+        ),
+    }
+
+
+def _release_readiness_assessment_refs_for_exports(
+    session: Session,
+    search_export_summaries: list[dict],
+) -> list[dict]:
+    request_ids = _unique_uuids(
+        summary.get("search_request_id") for summary in search_export_summaries
+    )
+    if not request_ids:
+        return []
+    request_rows = {
+        row.id: row
+        for row in session.scalars(
+            select(SearchRequestRecord)
+            .where(SearchRequestRecord.id.in_(request_ids))
+            .order_by(SearchRequestRecord.created_at.asc(), SearchRequestRecord.id.asc())
+        )
+    }
+    refs: list[dict] = []
+    for request_id in request_ids:
+        request_row = request_rows.get(request_id)
+        if request_row is None:
+            continue
+        release = _latest_passed_release_for_search_request(session, request_row)
+        latest_audit_bundle = (
+            _latest_release_audit_bundle(session, release.id) if release is not None else None
+        )
+        latest_validation_receipt = (
+            _latest_release_validation_receipt(session, latest_audit_bundle.id)
+            if latest_audit_bundle is not None
+            else None
+        )
+        assessment = (
+            _latest_release_readiness_assessment(session, release.id)
+            if release is not None
+            else None
+        )
+        refs.append(
+            _release_readiness_assessment_ref(
+                request_row=request_row,
+                release=release,
+                assessment=assessment,
+                latest_audit_bundle=latest_audit_bundle,
+                latest_validation_receipt=latest_validation_receipt,
+            )
+        )
+    return refs
+
+
+def _context_pack_release_readiness_refs(context_pack_payload: dict) -> list[dict]:
+    audit_refs = context_pack_payload.get("audit_refs") or {}
+    return [
+        dict(ref)
+        for ref in audit_refs.get("release_readiness_assessments") or []
+        if isinstance(ref, dict)
+    ]
+
+
+def _context_pack_source_search_request_ids(context_pack_payload: dict) -> list[str]:
+    audit_refs = context_pack_payload.get("audit_refs") or {}
+    return _unique_strings(audit_refs.get("source_search_request_ids") or [])
+
+
+def _context_pack_release_readiness_db_summary(
+    session: Session,
+    context_pack_payload: dict,
+) -> dict:
+    source_search_request_ids = _context_pack_source_search_request_ids(context_pack_payload)
+    refs = _context_pack_release_readiness_refs(context_pack_payload)
+    refs_by_request_id = {
+        str(ref.get("search_request_id")): ref
+        for ref in refs
+        if ref.get("search_request_id")
+    }
+    missing_ref_request_ids: list[str] = []
+    invalid_assessment_id_request_ids: list[str] = []
+    missing_assessment_row_ids: list[str] = []
+    failed_integrity_assessment_ids: list[str] = []
+    blocked_assessment_ids: list[str] = []
+    stale_assessment_ids: list[str] = []
+    hash_mismatch_assessment_ids: list[str] = []
+    release_basis_mismatch_request_ids: list[str] = []
+    missing_search_request_ids: list[str] = []
+    verified_request_ids: list[str] = []
+
+    for search_request_id in source_search_request_ids:
+        ref = refs_by_request_id.get(search_request_id)
+        if ref is None:
+            missing_ref_request_ids.append(search_request_id)
+            continue
+        try:
+            request_uuid = UUID(search_request_id)
+        except ValueError:
+            missing_search_request_ids.append(search_request_id)
+            continue
+        request_row = session.get(SearchRequestRecord, request_uuid)
+        if request_row is None:
+            missing_search_request_ids.append(search_request_id)
+            continue
+        assessment_id = ref.get("assessment_id")
+        try:
+            assessment_uuid = UUID(str(assessment_id))
+        except (TypeError, ValueError):
+            invalid_assessment_id_request_ids.append(search_request_id)
+            continue
+        assessment = session.get(SearchHarnessReleaseReadinessAssessment, assessment_uuid)
+        if assessment is None:
+            missing_assessment_row_ids.append(str(assessment_uuid))
+            continue
+        expected_release = _latest_passed_release_for_search_request(session, request_row)
+        if (
+            expected_release is None
+            or str(assessment.search_harness_release_id) != str(expected_release.id)
+            or str(ref.get("search_harness_release_id") or "")
+            != str(assessment.search_harness_release_id)
+        ):
+            release_basis_mismatch_request_ids.append(search_request_id)
+            continue
+        integrity = search_harness_release_readiness_assessment_integrity(assessment)
+        if integrity.get("complete") is not True:
+            failed_integrity_assessment_ids.append(str(assessment.id))
+            continue
+        if assessment.ready is not True or assessment.readiness_status != "ready":
+            blocked_assessment_ids.append(str(assessment.id))
+            continue
+        if ref.get("assessment_payload_sha256") != assessment.assessment_payload_sha256:
+            hash_mismatch_assessment_ids.append(str(assessment.id))
+            continue
+        latest_audit_bundle = _latest_release_audit_bundle(
+            session,
+            assessment.search_harness_release_id,
+        )
+        latest_validation_receipt = (
+            _latest_release_validation_receipt(session, latest_audit_bundle.id)
+            if latest_audit_bundle is not None
+            else None
+        )
+        if (
+            latest_audit_bundle is None
+            or assessment.release_audit_bundle_id != latest_audit_bundle.id
+            or latest_validation_receipt is None
+            or assessment.release_validation_receipt_id != latest_validation_receipt.id
+        ):
+            stale_assessment_ids.append(str(assessment.id))
+            continue
+        verified_request_ids.append(search_request_id)
+
+    failure_count = sum(
+        len(values)
+        for values in (
+            missing_ref_request_ids,
+            invalid_assessment_id_request_ids,
+            missing_assessment_row_ids,
+            failed_integrity_assessment_ids,
+            blocked_assessment_ids,
+            stale_assessment_ids,
+            hash_mismatch_assessment_ids,
+            release_basis_mismatch_request_ids,
+            missing_search_request_ids,
+        )
+    )
+    return {
+        "source_search_request_count": len(source_search_request_ids),
+        "readiness_assessment_ref_count": len(refs),
+        "verified_request_count": len(verified_request_ids),
+        "failure_count": failure_count,
+        "missing_ref_request_ids": missing_ref_request_ids,
+        "invalid_assessment_id_request_ids": invalid_assessment_id_request_ids,
+        "missing_assessment_row_ids": missing_assessment_row_ids,
+        "failed_integrity_assessment_ids": failed_integrity_assessment_ids,
+        "blocked_assessment_ids": blocked_assessment_ids,
+        "stale_assessment_ids": stale_assessment_ids,
+        "hash_mismatch_assessment_ids": hash_mismatch_assessment_ids,
+        "release_basis_mismatch_request_ids": release_basis_mismatch_request_ids,
+        "missing_search_request_ids": missing_search_request_ids,
+        "verified_request_ids": verified_request_ids,
+        "complete": failure_count == 0
+        and (
+            not source_search_request_ids
+            or len(verified_request_ids) == len(source_search_request_ids)
+        ),
+    }
+
+
+def _enforce_context_pack_release_readiness_db_gate(
+    session: Session,
+    *,
+    context_pack_payload: dict,
+    evaluation_payload: dict,
+    required: bool,
+) -> None:
+    db_summary = _context_pack_release_readiness_db_summary(session, context_pack_payload)
+    check = {
+        "check_key": "release_readiness_assessment_db_integrity",
+        "passed": (not required or not db_summary["source_search_request_count"])
+        or db_summary["complete"],
+        "observed": db_summary,
+        "required": required,
+    }
+    evaluation_payload.setdefault("checks", []).append(check)
+    if not check["passed"]:
+        evaluation_payload.setdefault("reasons", []).append(
+            f"{check['check_key']} failed: observed {db_summary!r}."
+        )
+    failed_checks = [
+        row for row in evaluation_payload.get("checks") or [] if row.get("passed") is not True
+    ]
+    summary = evaluation_payload.setdefault("summary", {})
+    summary["gate_outcome"] = "failed" if failed_checks else "passed"
+    summary["check_count"] = len(evaluation_payload.get("checks") or [])
+    summary["passed_check_count"] = summary["check_count"] - len(failed_checks)
+    summary["failed_check_count"] = len(failed_checks)
+    summary["release_readiness_db_verified_request_count"] = db_summary[
+        "verified_request_count"
+    ]
+    summary["release_readiness_db_failure_count"] = db_summary["failure_count"]
+    summary["release_readiness_db_complete"] = db_summary["complete"]
+    evaluation_payload["gate_outcome"] = summary["gate_outcome"]
+    evaluation_payload.setdefault("trace", {})[
+        "release_readiness_db_summary"
+    ] = db_summary
 
 
 def _card_document_run_keys(card: dict) -> list[str]:
@@ -1159,6 +1558,10 @@ def _prepare_report_agent_harness_executor(
         ),
     )
     evidence_output = BuildReportEvidenceCardsTaskOutput.model_validate(evidence_context.output)
+    release_readiness_assessments = _release_readiness_assessment_refs_for_exports(
+        session,
+        list(evidence_output.evidence_bundle.search_evidence_package_exports),
+    )
     upstream_context_refs = [
         task_output_context_ref(
             ref_key="evidence_cards_task_output",
@@ -1177,6 +1580,7 @@ def _prepare_report_agent_harness_executor(
         harness_task_id=task.id,
         evidence_task_id=payload.target_task_id,
         upstream_context_refs=upstream_context_refs,
+        release_readiness_assessments=release_readiness_assessments,
     )
     context_pack_payload = harness_payload["document_generation_context_pack"]
     storage_service = StorageService()
@@ -1251,7 +1655,14 @@ def _evaluate_document_generation_context_pack_executor(
         min_context_ref_count=payload.min_context_ref_count,
         max_blocked_step_count=payload.max_blocked_step_count,
         require_source_evidence_packages=payload.require_source_evidence_packages,
+        require_release_readiness_assessments=payload.require_release_readiness_assessments,
         require_fresh_context=payload.require_fresh_context,
+    )
+    _enforce_context_pack_release_readiness_db_gate(
+        session,
+        context_pack_payload=context_pack_payload,
+        evaluation_payload=evaluation_payload,
+        required=payload.require_release_readiness_assessments,
     )
     verification = create_agent_task_verification_record(
         session,
@@ -1402,6 +1813,26 @@ def _require_passed_context_pack_gate(
             "Technical report drafting requires the passed context-pack gate to match "
             "the current report harness context_pack_sha256."
         )
+    readiness_check_passed = any(
+        check.get("check_key") == "release_readiness_assessments"
+        and check.get("passed") is True
+        for check in (latest_gate.details_json or {}).get("checks") or []
+    )
+    if not readiness_check_passed:
+        raise ValueError(
+            "Technical report drafting requires the context-pack gate to verify ready, "
+            "integrity-complete release-readiness assessments."
+        )
+    readiness_db_check_passed = any(
+        check.get("check_key") == "release_readiness_assessment_db_integrity"
+        and check.get("passed") is True
+        for check in (latest_gate.details_json or {}).get("checks") or []
+    )
+    if not readiness_db_check_passed:
+        raise ValueError(
+            "Technical report drafting requires the context-pack gate to verify "
+            "release-readiness assessments against the database."
+        )
     return latest_gate
 
 
@@ -1446,6 +1877,11 @@ def _draft_technical_report_executor(
             "outcome": context_pack_gate.outcome,
             "context_pack_sha256": (context_pack_gate.details_json or {}).get(
                 "context_pack_sha256"
+            ),
+            "release_readiness_summary": (
+                ((context_pack_gate.details_json or {}).get("trace") or {}).get(
+                    "release_readiness_summary"
+                )
             ),
         },
     }

@@ -83,6 +83,40 @@ def _add_unit_provenance_locks(draft: dict) -> dict:
     return draft
 
 
+def _ready_release_readiness_ref(search_request_id: str) -> dict:
+    release_id = uuid4()
+    assessment_id = uuid4()
+    audit_bundle_id = uuid4()
+    validation_receipt_id = uuid4()
+    return {
+        "schema_name": "document_generation_release_readiness_assessment_ref",
+        "schema_version": "1.0",
+        "search_request_id": search_request_id,
+        "search_request_created_at": datetime.now(UTC).isoformat(),
+        "harness_name": "default_v1",
+        "search_harness_release_id": str(release_id),
+        "release_created_at": datetime.now(UTC).isoformat(),
+        "assessment_id": str(assessment_id),
+        "readiness_profile": "search_harness_release_readiness_v1",
+        "readiness_status": "ready",
+        "ready": True,
+        "blockers": [],
+        "latest_release_audit_bundle_id": str(audit_bundle_id),
+        "assessment_release_audit_bundle_id": str(audit_bundle_id),
+        "latest_release_validation_receipt_id": str(validation_receipt_id),
+        "assessment_release_validation_receipt_id": str(validation_receipt_id),
+        "readiness_payload_sha256": "readiness-sha",
+        "assessment_payload_sha256": "assessment-sha",
+        "integrity": {
+            "schema_name": "search_harness_release_readiness_assessment_integrity",
+            "schema_version": "1.0",
+            "complete": True,
+        },
+        "selection_rule": "latest_passed_release_at_or_before_search_request",
+        "selection_status": "ready_integrity_complete",
+    }
+
+
 def _semantic_brief_payload() -> dict:
     document_id = uuid4()
     run_id = uuid4()
@@ -374,10 +408,12 @@ def test_document_generation_context_pack_can_be_evaluated_before_drafting(
 ) -> None:
     plan = _plan_from_semantic_brief(monkeypatch, _semantic_brief_payload())
     evidence_bundle = build_report_evidence_cards(plan, plan_task_id=uuid4())
+    search_request_id = str(uuid4())
     evidence_bundle["search_evidence_package_exports"] = [
         {
             "evidence_package_export_id": str(uuid4()),
-            "search_request_id": str(uuid4()),
+            "search_request_id": search_request_id,
+            "harness_name": "default_v1",
             "package_sha256": "source-package-sha",
             "trace_sha256": "source-trace-sha",
         }
@@ -388,6 +424,7 @@ def test_document_generation_context_pack_can_be_evaluated_before_drafting(
         harness_task_id=uuid4(),
         evidence_task_id=context_ref.task_id,
         upstream_context_refs=[context_ref],
+        release_readiness_assessments=[_ready_release_readiness_ref(search_request_id)],
     )
 
     context_pack = build_document_generation_context_pack(harness)
@@ -400,6 +437,7 @@ def test_document_generation_context_pack_can_be_evaluated_before_drafting(
     assert evaluation["gate_outcome"] == "passed"
     assert evaluation["summary"]["traceable_claim_ratio"] == 1.0
     assert evaluation["summary"]["source_evidence_package_count"] == 1
+    assert evaluation["summary"]["release_readiness_failed_ref_count"] == 0
     assert any(
         metric["stakeholder"] == "Jerry Liu" for metric in context_pack["success_metrics"]
     )

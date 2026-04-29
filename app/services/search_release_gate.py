@@ -228,6 +228,12 @@ def _readiness_assessment_integrity(
     }
 
 
+def search_harness_release_readiness_assessment_integrity(
+    row: SearchHarnessReleaseReadinessAssessment,
+) -> dict:
+    return _readiness_assessment_integrity(row)
+
+
 def _to_readiness_assessment_response(
     row: SearchHarnessReleaseReadinessAssessment,
 ) -> SearchHarnessReleaseReadinessAssessmentResponse:

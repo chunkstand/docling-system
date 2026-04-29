@@ -1208,6 +1208,7 @@ class ReportAgentHarnessPayload(BaseModel):
     retrieval_plan: list[dict] = Field(default_factory=list)
     evidence_cards: list[TechnicalReportEvidenceCard] = Field(default_factory=list)
     search_evidence_package_exports: list[dict] = Field(default_factory=list)
+    release_readiness_assessments: list[dict] = Field(default_factory=list)
     graph_context: list[SemanticGenerationGraphEdgeRef] = Field(default_factory=list)
     claim_contract: list[dict] = Field(default_factory=list)
     failure_policy: dict = Field(default_factory=dict)
@@ -1240,6 +1241,7 @@ class EvaluateDocumentGenerationContextPackTaskInput(BaseModel):
     min_context_ref_count: int = Field(default=1, ge=0)
     max_blocked_step_count: int = Field(default=0, ge=0)
     require_source_evidence_packages: bool = True
+    require_release_readiness_assessments: bool = True
     require_fresh_context: bool = False
 
 

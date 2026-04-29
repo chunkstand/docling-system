@@ -2485,6 +2485,95 @@ def _context_pack_sha256s_from_artifacts(
     return _string_values(values)
 
 
+def _context_pack_audit_refs(payload: dict[str, Any]) -> dict[str, Any]:
+    audit_refs = payload.get("audit_refs") or {}
+    return audit_refs if isinstance(audit_refs, dict) else {}
+
+
+def _release_readiness_ref_key(ref: dict[str, Any]) -> tuple[str, str, str]:
+    return (
+        str(ref.get("search_request_id") or ""),
+        str(ref.get("search_harness_release_id") or ""),
+        str(ref.get("assessment_id") or ref.get("selection_status") or ""),
+    )
+
+
+def _release_readiness_assessment_ready(ref: dict[str, Any]) -> bool:
+    integrity = ref.get("integrity") if isinstance(ref.get("integrity"), dict) else {}
+    return (
+        ref.get("selection_status") == "ready_integrity_complete"
+        and ref.get("ready") is True
+        and ref.get("readiness_status") == "ready"
+        and bool(ref.get("assessment_id"))
+        and bool(ref.get("assessment_payload_sha256"))
+        and integrity.get("complete") is True
+    )
+
+
+def _release_readiness_refs_from_context_pack_artifacts(
+    context_pack_artifacts: list[AgentTaskArtifact],
+) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    for artifact in context_pack_artifacts:
+        payload = artifact.payload_json or {}
+        for ref in _context_pack_audit_refs(payload).get("release_readiness_assessments") or []:
+            if isinstance(ref, dict):
+                refs.append(dict(ref))
+    return list({_release_readiness_ref_key(ref): ref for ref in refs}.values())
+
+
+def _source_search_request_ids_from_context_pack_artifacts(
+    context_pack_artifacts: list[AgentTaskArtifact],
+) -> list[str]:
+    values: list[Any] = []
+    for artifact in context_pack_artifacts:
+        payload = artifact.payload_json or {}
+        values.extend(_context_pack_audit_refs(payload).get("source_search_request_ids") or [])
+    return _string_values(values)
+
+
+def _release_readiness_audit_summary(
+    *,
+    source_search_request_ids: list[str],
+    refs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    refs_by_request_id = {
+        str(ref.get("search_request_id")): ref
+        for ref in refs
+        if ref.get("search_request_id")
+    }
+    ready_request_ids = {
+        request_id
+        for request_id, ref in refs_by_request_id.items()
+        if _release_readiness_assessment_ready(ref)
+    }
+    missing_source_search_request_ids = [
+        request_id
+        for request_id in source_search_request_ids
+        if request_id not in ready_request_ids
+    ]
+    failed_refs = [
+        ref
+        for ref in refs
+        if ref.get("search_request_id") in source_search_request_ids
+        and not _release_readiness_assessment_ready(ref)
+    ]
+    failed_selection_status_counts: dict[str, int] = {}
+    for ref in failed_refs:
+        status = str(ref.get("selection_status") or "unknown")
+        failed_selection_status_counts[status] = (
+            failed_selection_status_counts.get(status, 0) + 1
+        )
+    return {
+        "source_search_request_count": len(source_search_request_ids),
+        "readiness_assessment_ref_count": len(refs),
+        "ready_assessment_ref_count": len(ready_request_ids),
+        "failed_ref_count": len(failed_refs),
+        "missing_source_search_request_ids": missing_source_search_request_ids,
+        "failed_selection_status_counts": failed_selection_status_counts,
+    }
+
+
 def _technical_report_context_pack_audit_payload(
     *,
     harness_task_id: UUID | None,
@@ -2515,6 +2604,16 @@ def _technical_report_context_pack_audit_payload(
         evaluation_artifacts,
         verification_rows,
     )
+    release_readiness_assessments = _release_readiness_refs_from_context_pack_artifacts(
+        context_pack_artifacts
+    )
+    source_search_request_ids = _source_search_request_ids_from_context_pack_artifacts(
+        context_pack_artifacts
+    )
+    release_readiness_summary = _release_readiness_audit_summary(
+        source_search_request_ids=source_search_request_ids,
+        refs=release_readiness_assessments,
+    )
     latest_verification = verification_rows[-1] if verification_rows else None
     integrity = {
         "has_context_pack_artifact": bool(context_pack_artifacts),
@@ -2530,6 +2629,23 @@ def _technical_report_context_pack_audit_payload(
             for row in verification_rows
         ),
         "context_pack_sha256_consistent": bool(sha256s) and len(sha256s) == 1,
+        "has_release_readiness_assessments": bool(release_readiness_assessments),
+        "release_readiness_assessments_cover_source_requests": (
+            not source_search_request_ids
+            or not release_readiness_summary["missing_source_search_request_ids"]
+        ),
+        "release_readiness_assessments_ready": (
+            release_readiness_summary["failed_ref_count"] == 0
+            and (
+                not source_search_request_ids
+                or release_readiness_summary["ready_assessment_ref_count"]
+                == len(source_search_request_ids)
+            )
+        ),
+        "release_readiness_assessment_integrity_verified": any(
+            _verification_check_passed(row, "release_readiness_assessment_db_integrity")
+            for row in verification_rows
+        ),
     }
     integrity["complete"] = all(integrity.values())
     return {
@@ -2542,6 +2658,8 @@ def _technical_report_context_pack_audit_payload(
         "evaluation_artifacts": [_artifact_payload(row) for row in evaluation_artifacts],
         "verifications": [_verification_payload(row) for row in verification_rows],
         "operator_runs": [_operator_run_summary(row) for row in context_pack_operator_runs],
+        "release_readiness_assessments": release_readiness_assessments,
+        "release_readiness_summary": release_readiness_summary,
         "integrity": integrity,
     }
 
@@ -4216,6 +4334,9 @@ def _technical_report_provenance_edges(
     evaluation_artifacts = list(context_pack_audit.get("evaluation_artifacts") or [])
     context_pack_verifications = list(context_pack_audit.get("verifications") or [])
     context_pack_operator_runs = list(context_pack_audit.get("operator_runs") or [])
+    release_readiness_assessments = list(
+        context_pack_audit.get("release_readiness_assessments") or []
+    )
     for artifact in context_pack_artifacts:
         artifact_id = artifact.get("artifact_id")
         if harness_task_id and artifact_id:
@@ -4280,6 +4401,49 @@ def _technical_report_provenance_edges(
                     {
                         "edge_type": "context_pack_eval_operator_to_verifier_record",
                         "from": {"table": "knowledge_operator_runs", "id": operator_run_id},
+                        "to": {"table": "agent_task_verifications", "id": verification_id},
+                    }
+                )
+    for readiness_ref in release_readiness_assessments:
+        assessment_id = readiness_ref.get("assessment_id")
+        release_id = readiness_ref.get("search_harness_release_id")
+        if release_id and assessment_id:
+            edges.append(
+                {
+                    "edge_type": "search_harness_release_to_readiness_assessment",
+                    "from": {"table": "search_harness_releases", "id": release_id},
+                    "to": {
+                        "table": "search_harness_release_readiness_assessments",
+                        "id": assessment_id,
+                    },
+                }
+            )
+        for artifact in context_pack_artifacts:
+            artifact_id = artifact.get("artifact_id")
+            if assessment_id and artifact_id:
+                edges.append(
+                    {
+                        "edge_type": "release_readiness_assessment_to_context_pack_artifact",
+                        "from": {
+                            "table": "search_harness_release_readiness_assessments",
+                            "id": assessment_id,
+                        },
+                        "to": {"table": "agent_task_artifacts", "id": artifact_id},
+                        "assessment_payload_sha256": readiness_ref.get(
+                            "assessment_payload_sha256"
+                        ),
+                    }
+                )
+        for verification in context_pack_verifications:
+            verification_id = verification.get("verification_id")
+            if assessment_id and verification_id:
+                edges.append(
+                    {
+                        "edge_type": "release_readiness_assessment_to_context_pack_verifier_record",
+                        "from": {
+                            "table": "search_harness_release_readiness_assessments",
+                            "id": assessment_id,
+                        },
                         "to": {"table": "agent_task_verifications", "id": verification_id},
                     }
                 )
@@ -4670,6 +4834,20 @@ def build_technical_report_evidence_manifest_payload(
             "context_pack_hash_verified",
             False,
         ),
+        "has_release_readiness_assessments": audit_bundle["audit_checklist"].get(
+            "has_release_readiness_assessments",
+            False,
+        ),
+        "release_readiness_assessments_cover_source_requests": audit_bundle[
+            "audit_checklist"
+        ].get("release_readiness_assessments_cover_source_requests", False),
+        "release_readiness_assessments_ready": audit_bundle["audit_checklist"].get(
+            "release_readiness_assessments_ready",
+            False,
+        ),
+        "release_readiness_assessment_integrity_verified": audit_bundle[
+            "audit_checklist"
+        ].get("release_readiness_assessment_integrity_verified", False),
         "verification_passed": audit_bundle["audit_checklist"].get(
             "verification_passed",
             False,
@@ -4811,6 +4989,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "retrieval_evidence_span_multivectors": "retrieval_evidence_span_multivector",
     "retrieval_reranker_artifacts": "retrieval_reranker_artifact",
     "search_harness_releases": "search_harness_release",
+    "search_harness_release_readiness_assessments": "release_readiness_assessment",
     "evidence_manifests": "evidence_manifest",
     "semantic_governance_events": "semantic_governance_event",
 }
@@ -5432,6 +5611,13 @@ def _build_evidence_trace_graph_specs(
             source_table="agent_task_verifications",
             source_id=verification.get("verification_id"),
             payload=verification,
+        )
+    for readiness_ref in context_pack_audit.get("release_readiness_assessments") or []:
+        _put_trace_node_from_id(
+            nodes,
+            source_table="search_harness_release_readiness_assessments",
+            source_id=readiness_ref.get("assessment_id"),
+            payload=readiness_ref,
         )
     for operator_run in report_trace.get("operator_runs") or []:
         _put_trace_node_from_id(
@@ -6907,6 +7093,46 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
                 sequence=len(used) + 1,
                 **{"prov:activity": eval_activity_id, "prov:entity": context_entity_id},
             )
+    for readiness_ref in context_pack_audit.get("release_readiness_assessments") or []:
+        entity_id = _prov_identifier(
+            "search_harness_release_readiness_assessments",
+            readiness_ref.get("assessment_id"),
+        )
+        if entity_id is None:
+            continue
+        _prov_entity(
+            entities,
+            entity_id,
+            label="Search harness release readiness assessment",
+            entity_type="docling:SearchHarnessReleaseReadinessAssessment",
+            **{
+                "docling:search_harness_release_id": readiness_ref.get(
+                    "search_harness_release_id"
+                ),
+                "docling:harness_name": readiness_ref.get("harness_name"),
+                "docling:readiness_status": readiness_ref.get("readiness_status"),
+                "docling:ready": readiness_ref.get("ready"),
+                "docling:selection_status": readiness_ref.get("selection_status"),
+                "docling:assessment_payload_sha256": readiness_ref.get(
+                    "assessment_payload_sha256"
+                ),
+            },
+        )
+        if harness_activity_id:
+            _prov_relation(
+                used,
+                "used",
+                sequence=len(used) + 1,
+                **{"prov:activity": harness_activity_id, "prov:entity": entity_id},
+            )
+        for eval_task_id in context_pack_audit.get("evaluation_task_ids") or []:
+            eval_activity_id = _prov_identifier("agent_tasks", eval_task_id)
+            _prov_relation(
+                used,
+                "used",
+                sequence=len(used) + 1,
+                **{"prov:activity": eval_activity_id, "prov:entity": entity_id},
+            )
 
     verification_activity_id = _prov_identifier(
         "agent_tasks",
@@ -7967,6 +8193,18 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "context_pack_hash_verified": context_pack_audit["integrity"][
                 "context_pack_hash_verified"
             ],
+            "has_release_readiness_assessments": context_pack_audit["integrity"][
+                "has_release_readiness_assessments"
+            ],
+            "release_readiness_assessments_cover_source_requests": context_pack_audit[
+                "integrity"
+            ]["release_readiness_assessments_cover_source_requests"],
+            "release_readiness_assessments_ready": context_pack_audit["integrity"][
+                "release_readiness_assessments_ready"
+            ],
+            "release_readiness_assessment_integrity_verified": context_pack_audit[
+                "integrity"
+            ]["release_readiness_assessment_integrity_verified"],
             "context_pack_audit_complete": context_pack_audit["integrity"]["complete"],
             "verification_passed": (
                 verification_row.outcome == "passed" if verification_row is not None else False
@@ -8020,6 +8258,10 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["has_support_judge_operator_run"]
         and audit_bundle["audit_checklist"]["has_verification_operator_run"]
         and audit_bundle["audit_checklist"]["context_pack_audit_complete"]
+        and audit_bundle["audit_checklist"]["has_release_readiness_assessments"]
+        and audit_bundle["audit_checklist"]["release_readiness_assessments_cover_source_requests"]
+        and audit_bundle["audit_checklist"]["release_readiness_assessments_ready"]
+        and audit_bundle["audit_checklist"]["release_readiness_assessment_integrity_verified"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
         and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]

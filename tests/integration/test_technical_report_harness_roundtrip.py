@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -21,6 +22,9 @@ from app.db.models import (
     EvidenceTraceEdge,
     EvidenceTraceNode,
     KnowledgeOperatorRun,
+    SearchHarnessEvaluation,
+    SearchHarnessEvaluationSource,
+    SearchReplayRun,
     SemanticGovernanceEvent,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
@@ -65,6 +69,160 @@ def _process_next_task(postgres_integration_harness) -> UUID:
         return task.id
 
 
+def _search_replay_run(
+    *,
+    replay_run_id: UUID,
+    harness_name: str,
+    now: datetime,
+) -> SearchReplayRun:
+    return SearchReplayRun(
+        id=replay_run_id,
+        source_type="evaluation_queries",
+        status="completed",
+        harness_name=harness_name,
+        reranker_name="linear_feature_reranker",
+        reranker_version="v1",
+        retrieval_profile_name=harness_name,
+        harness_config_json={},
+        query_count=2,
+        passed_count=2,
+        failed_count=0,
+        zero_result_count=0,
+        table_hit_count=1,
+        top_result_changes=0,
+        max_rank_shift=0,
+        summary_json={"rank_metrics": {"mrr": 1.0, "foreign_top_result_count": 0}},
+        error_message=None,
+        created_at=now,
+        completed_at=now + timedelta(seconds=1),
+    )
+
+
+def _create_default_harness_release_with_validation(postgres_integration_harness) -> dict:
+    now = datetime.now(UTC)
+    evaluation_id = uuid4()
+    baseline_replay_run_id = uuid4()
+    candidate_replay_run_id = uuid4()
+    with postgres_integration_harness.session_factory() as session:
+        session.add_all(
+            [
+                _search_replay_run(
+                    replay_run_id=baseline_replay_run_id,
+                    harness_name="default_v1",
+                    now=now,
+                ),
+                _search_replay_run(
+                    replay_run_id=candidate_replay_run_id,
+                    harness_name="default_v1",
+                    now=now,
+                ),
+                SearchHarnessEvaluation(
+                    id=evaluation_id,
+                    status="completed",
+                    baseline_harness_name="default_v1",
+                    candidate_harness_name="default_v1",
+                    limit=2,
+                    source_types_json=["evaluation_queries"],
+                    harness_overrides_json={},
+                    total_shared_query_count=2,
+                    total_improved_count=0,
+                    total_regressed_count=0,
+                    total_unchanged_count=2,
+                    summary_json={},
+                    error_message=None,
+                    created_at=now,
+                    completed_at=now + timedelta(seconds=2),
+                ),
+            ]
+        )
+        session.flush()
+        session.add(
+            SearchHarnessEvaluationSource(
+                id=uuid4(),
+                search_harness_evaluation_id=evaluation_id,
+                source_index=0,
+                source_type="evaluation_queries",
+                baseline_replay_run_id=baseline_replay_run_id,
+                candidate_replay_run_id=candidate_replay_run_id,
+                baseline_status="completed",
+                candidate_status="completed",
+                baseline_query_count=2,
+                candidate_query_count=2,
+                baseline_passed_count=2,
+                candidate_passed_count=2,
+                baseline_zero_result_count=0,
+                candidate_zero_result_count=0,
+                baseline_table_hit_count=1,
+                candidate_table_hit_count=1,
+                baseline_top_result_changes=0,
+                candidate_top_result_changes=0,
+                baseline_mrr=1.0,
+                candidate_mrr=1.0,
+                baseline_foreign_top_result_count=0,
+                candidate_foreign_top_result_count=0,
+                acceptance_checks_json={"no_regressions": True},
+                shared_query_count=2,
+                improved_count=0,
+                regressed_count=0,
+                unchanged_count=2,
+                created_at=now,
+            )
+        )
+        session.commit()
+
+    release_response = postgres_integration_harness.client.post(
+        "/search/harness-releases",
+        json={
+            "evaluation_id": str(evaluation_id),
+            "max_total_regressed_count": 0,
+            "min_total_shared_query_count": 1,
+            "requested_by": "technical-report-integration",
+            "review_note": "default harness release for document-generation context packs",
+        },
+    )
+    assert release_response.status_code == 200
+    release = release_response.json()
+    assert release["outcome"] == "passed"
+
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release['release_id']}/audit-bundles",
+        json={"created_by": "technical-report-integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
+
+    validation_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "technical-report-integration"},
+    )
+    assert validation_response.status_code == 200
+    validation_receipt = validation_response.json()
+    assert validation_receipt["validation_status"] == "passed"
+
+    return {
+        "release": release,
+        "audit_bundle": audit_bundle,
+        "validation_receipt": validation_receipt,
+    }
+
+
+def _freeze_release_readiness_assessment(postgres_integration_harness, release_id: str) -> dict:
+    assessment_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/readiness-assessments",
+        json={
+            "created_by": "technical-report-integration",
+            "review_note": "freeze ready release for document generation",
+        },
+    )
+    assert assessment_response.status_code == 200
+    assessment = assessment_response.json()
+    assert assessment["ready"] is True
+    assert assessment["readiness_status"] == "ready"
+    assert assessment["integrity"]["complete"] is True
+    return assessment
+
+
 def test_technical_report_harness_roundtrip(
     postgres_integration_harness,
     postgres_schema_engine,
@@ -81,6 +239,11 @@ def test_technical_report_harness_roundtrip(
     monkeypatch.setenv("DOCLING_SYSTEM_AUDIT_BUNDLE_SIGNING_KEY_ID", "technical-report-key")
     get_settings.cache_clear()
     clear_semantic_registry_cache()
+
+    release_fixture = _create_default_harness_release_with_validation(
+        postgres_integration_harness
+    )
+    release_id = release_fixture["release"]["release_id"]
 
     client = postgres_integration_harness.client
     create_response = client.post(
@@ -136,6 +299,88 @@ def test_technical_report_harness_roundtrip(
     _process_next_task(postgres_integration_harness)
 
     with postgres_integration_harness.session_factory() as session:
+        blocked_harness_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="prepare_report_agent_harness",
+                input={"target_task_id": str(evidence_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        blocked_harness_task_id = blocked_harness_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    blocked_harness_context_response = client.get(
+        f"/agent-tasks/{blocked_harness_task_id}/context"
+    )
+    assert blocked_harness_context_response.status_code == 200
+    blocked_harness_output = blocked_harness_context_response.json()["output"]["harness"]
+    blocked_readiness_refs = blocked_harness_output["document_generation_context_pack"][
+        "audit_refs"
+    ]["release_readiness_assessments"]
+    assert blocked_readiness_refs
+    assert {ref["selection_status"] for ref in blocked_readiness_refs} == {
+        "missing_assessment"
+    }
+
+    with postgres_integration_harness.session_factory() as session:
+        blocked_context_pack_eval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_document_generation_context_pack",
+                input={"target_task_id": str(blocked_harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        blocked_context_pack_eval_task_id = blocked_context_pack_eval_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    blocked_context_pack_eval_context_response = client.get(
+        f"/agent-tasks/{blocked_context_pack_eval_task_id}/context"
+    )
+    assert blocked_context_pack_eval_context_response.status_code == 200
+    blocked_context_pack_eval_context = blocked_context_pack_eval_context_response.json()
+    assert blocked_context_pack_eval_context["summary"]["verification_state"] == "failed"
+    assert (
+        blocked_context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "failed"
+    )
+    assert any(
+        check["check_key"] == "release_readiness_assessments"
+        and check["passed"] is False
+        for check in blocked_context_pack_eval_context["output"]["evaluation"]["checks"]
+    )
+    assert any(
+        "release_readiness_assessments failed" in reason
+        for reason in blocked_context_pack_eval_context["output"]["evaluation"]["reasons"]
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        blocked_draft_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="draft_technical_report",
+                input={"target_task_id": str(blocked_harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        blocked_draft_task_id = blocked_draft_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    with postgres_integration_harness.session_factory() as session:
+        blocked_draft_row = session.get(AgentTask, blocked_draft_task_id)
+        assert blocked_draft_row is not None
+        assert blocked_draft_row.status == "failed"
+        assert "context-pack gate to pass" in (blocked_draft_row.error_message or "")
+
+    release_readiness_assessment = _freeze_release_readiness_assessment(
+        postgres_integration_harness,
+        release_id,
+    )
+
+    with postgres_integration_harness.session_factory() as session:
         harness_task = create_agent_task(
             session,
             AgentTaskCreateRequest(
@@ -174,6 +419,15 @@ def test_technical_report_harness_roundtrip(
     assert harness_output["evidence_cards"]
     assert harness_output["claim_contract"]
     assert harness_output["search_evidence_package_exports"]
+    assert harness_output["release_readiness_assessments"]
+    assert {
+        ref["assessment_id"] for ref in harness_output["release_readiness_assessments"]
+    } == {release_readiness_assessment["assessment_id"]}
+    assert all(
+        ref["selection_status"] == "ready_integrity_complete"
+        and ref["integrity"]["complete"] is True
+        for ref in harness_output["release_readiness_assessments"]
+    )
     assert harness_output["llm_adapter_contract"]["harness_context_refs"]
 
     harness_artifact_ref = next(
@@ -189,6 +443,12 @@ def test_technical_report_harness_roundtrip(
     assert artifact_payload["document_generation_context_pack"]["schema_name"] == (
         "document_generation_context_pack"
     )
+    assert artifact_payload["document_generation_context_pack"]["audit_refs"][
+        "release_readiness_assessment_ids"
+    ] == [release_readiness_assessment["assessment_id"]]
+    assert artifact_payload["document_generation_context_pack"]["audit_refs"][
+        "release_readiness_assessment_sha256s"
+    ] == [release_readiness_assessment["assessment_payload_sha256"]]
     assert artifact_payload["llm_adapter_contract"]["primary_context_schema"] == (
         "document_generation_context_pack"
     )
@@ -234,7 +494,28 @@ def test_technical_report_harness_roundtrip(
     context_pack_eval_context = context_pack_eval_context_response.json()
     assert context_pack_eval_context["summary"]["verification_state"] == "passed"
     assert context_pack_eval_context["summary"]["metrics"]["traceable_claim_ratio"] == 1.0
+    assert (
+        context_pack_eval_context["output"]["evaluation"]["summary"][
+            "release_readiness_failed_ref_count"
+        ]
+        == 0
+    )
     assert context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "passed"
+    assert any(
+        check["check_key"] == "release_readiness_assessments" and check["passed"] is True
+        for check in context_pack_eval_context["output"]["evaluation"]["checks"]
+    )
+    assert any(
+        check["check_key"] == "release_readiness_assessment_db_integrity"
+        and check["passed"] is True
+        for check in context_pack_eval_context["output"]["evaluation"]["checks"]
+    )
+    assert context_pack_eval_context["output"]["evaluation"]["trace"][
+        "release_readiness_db_summary"
+    ]["complete"] is True
+    assert context_pack_eval_context["output"]["evaluation"]["trace"][
+        "release_readiness_assessments"
+    ][0]["assessment_id"] == release_readiness_assessment["assessment_id"]
     assert context_pack_eval_context["output"]["context_pack"]["context_pack_sha256"]
     context_pack_sha256 = context_pack_eval_context["output"]["context_pack"][
         "context_pack_sha256"
@@ -287,6 +568,9 @@ def test_technical_report_harness_roundtrip(
             draft_payload["llm_adapter_contract"]["context_pack_gate"]["context_pack_sha256"]
             == context_pack_sha256
         )
+        assert draft_payload["llm_adapter_contract"]["context_pack_gate"][
+            "release_readiness_summary"
+        ]["failed_ref_count"] == 0
         assert draft_payload["evidence_package_sha256"]
         assert draft_payload["evidence_package_export_id"]
         assert draft_payload["source_evidence_package_exports"]
@@ -538,11 +822,27 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["has_context_pack_evaluation_operator_run"] is True
     assert audit_bundle["audit_checklist"]["context_pack_evaluation_passed"] is True
     assert audit_bundle["audit_checklist"]["context_pack_hash_verified"] is True
+    assert audit_bundle["audit_checklist"]["has_release_readiness_assessments"] is True
+    assert (
+        audit_bundle["audit_checklist"]["release_readiness_assessments_cover_source_requests"]
+        is True
+    )
+    assert audit_bundle["audit_checklist"]["release_readiness_assessments_ready"] is True
+    assert (
+        audit_bundle["audit_checklist"]["release_readiness_assessment_integrity_verified"]
+        is True
+    )
     assert audit_bundle["audit_checklist"]["context_pack_audit_complete"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
     assert audit_bundle["context_pack_audit"]["integrity"]["complete"] is True
     assert audit_bundle["context_pack_audit"]["context_pack_sha256s"] == [context_pack_sha256]
+    assert audit_bundle["context_pack_audit"]["release_readiness_assessments"][0][
+        "assessment_id"
+    ] == release_readiness_assessment["assessment_id"]
+    assert audit_bundle["context_pack_audit"]["release_readiness_summary"][
+        "failed_ref_count"
+    ] == 0
     assert audit_bundle["context_pack_audit"]["evaluation_task_ids"] == [
         str(context_pack_eval_task_id)
     ]
@@ -660,6 +960,12 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["has_context_pack_evaluation_operator_run"] is True
     assert manifest["audit_checklist"]["context_pack_evaluation_passed"] is True
     assert manifest["audit_checklist"]["context_pack_hash_verified"] is True
+    assert manifest["audit_checklist"]["has_release_readiness_assessments"] is True
+    assert manifest["audit_checklist"]["release_readiness_assessments_ready"] is True
+    assert (
+        manifest["audit_checklist"]["release_readiness_assessment_integrity_verified"]
+        is True
+    )
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
@@ -672,6 +978,9 @@ def test_technical_report_harness_roundtrip(
     assert manifest["report_trace"]["context_pack_audit"]["context_pack_sha256s"] == [
         context_pack_sha256
     ]
+    assert manifest["report_trace"]["context_pack_audit"]["release_readiness_assessments"][
+        0
+    ]["assessment_id"] == release_readiness_assessment["assessment_id"]
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
     assert manifest["retrieval_trace"]["source_evidence_closure"]["source_record_recall"] == 1.0
     assert (
@@ -692,6 +1001,9 @@ def test_technical_report_harness_roundtrip(
         "context_pack_artifact_to_verifier_record",
         "context_pack_eval_task_to_evaluation_artifact",
         "context_pack_eval_operator_to_verifier_record",
+        "search_harness_release_to_readiness_assessment",
+        "release_readiness_assessment_to_context_pack_artifact",
+        "release_readiness_assessment_to_context_pack_verifier_record",
     }.issubset({edge["edge_type"] for edge in manifest["provenance_edges"]})
     assert manifest["manifest_integrity"]["complete"] is True
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
@@ -726,6 +1038,7 @@ def test_technical_report_harness_roundtrip(
         "verification_record",
         "agent_task_artifact",
         "context_pack_evaluation_task",
+        "release_readiness_assessment",
         "evidence_manifest",
     }.issubset(node_kinds)
     assert any(
@@ -769,6 +1082,12 @@ def test_technical_report_harness_roundtrip(
     assert any(
         entity.get("prov:type") == "docling:DocumentGenerationContextPack"
         and entity.get("docling:context_pack_sha256") == context_pack_sha256
+        for entity in provenance["entity"].values()
+    )
+    assert any(
+        entity.get("prov:type") == "docling:SearchHarnessReleaseReadinessAssessment"
+        and entity.get("docling:assessment_payload_sha256")
+        == release_readiness_assessment["assessment_payload_sha256"]
         for entity in provenance["entity"].values()
     )
     assert any(

@@ -1142,8 +1142,62 @@ def _claim_has_traceable_support(row: dict[str, Any]) -> bool:
     )
 
 
+def _release_readiness_assessment_ready(ref: dict[str, Any]) -> bool:
+    integrity = ref.get("integrity") if isinstance(ref.get("integrity"), dict) else {}
+    return (
+        ref.get("selection_status") == "ready_integrity_complete"
+        and ref.get("ready") is True
+        and ref.get("readiness_status") == "ready"
+        and bool(ref.get("assessment_id"))
+        and bool(ref.get("assessment_payload_sha256"))
+        and integrity.get("complete") is True
+    )
+
+
+def _release_readiness_assessment_eval_summary(
+    *,
+    source_search_request_ids: list[str],
+    refs: list[dict[str, Any]],
+) -> dict[str, Any]:
+    refs_by_request_id = {
+        str(ref.get("search_request_id")): ref
+        for ref in refs
+        if ref.get("search_request_id")
+    }
+    ready_request_ids = {
+        request_id
+        for request_id, ref in refs_by_request_id.items()
+        if _release_readiness_assessment_ready(ref)
+    }
+    missing_request_ids = [
+        request_id
+        for request_id in source_search_request_ids
+        if request_id not in ready_request_ids
+    ]
+    failed_refs = [
+        ref
+        for ref in refs
+        if ref.get("search_request_id") in source_search_request_ids
+        and not _release_readiness_assessment_ready(ref)
+    ]
+    failed_status_counts: dict[str, int] = {}
+    for ref in failed_refs:
+        status = str(ref.get("selection_status") or "unknown")
+        failed_status_counts[status] = failed_status_counts.get(status, 0) + 1
+    return {
+        "source_search_request_count": len(source_search_request_ids),
+        "readiness_assessment_ref_count": len(refs),
+        "ready_assessment_ref_count": len(ready_request_ids),
+        "missing_source_search_request_ids": missing_request_ids,
+        "failed_ref_count": len(failed_refs),
+        "failed_selection_status_counts": failed_status_counts,
+    }
+
+
 def build_document_generation_context_pack(
     harness_payload: dict[str, Any],
+    *,
+    release_readiness_assessments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     harness = ReportAgentHarnessPayload.model_validate(harness_payload)
     workflow_state = dict(harness.workflow_state or {})
@@ -1171,6 +1225,29 @@ def build_document_generation_context_pack(
             for export in harness.search_evidence_package_exports
             if export.get("search_request_id")
         ]
+    )
+    release_readiness_assessment_refs = list(
+        release_readiness_assessments
+        if release_readiness_assessments is not None
+        else harness.release_readiness_assessments
+    )
+    release_readiness_assessment_ids = _unique_strings(
+        [
+            str(ref.get("assessment_id"))
+            for ref in release_readiness_assessment_refs
+            if ref.get("assessment_id")
+        ]
+    )
+    release_readiness_assessment_sha256s = _unique_strings(
+        [
+            str(ref.get("assessment_payload_sha256"))
+            for ref in release_readiness_assessment_refs
+            if ref.get("assessment_payload_sha256")
+        ]
+    )
+    release_readiness_summary = _release_readiness_assessment_eval_summary(
+        source_search_request_ids=source_search_request_ids,
+        refs=release_readiness_assessment_refs,
     )
     context_pack = {
         "context_pack_id": (
@@ -1206,6 +1283,9 @@ def build_document_generation_context_pack(
             "source_search_request_ids": source_search_request_ids,
             "source_evidence_package_export_ids": source_evidence_package_export_ids,
             "source_evidence_package_sha256s": source_evidence_package_sha256s,
+            "release_readiness_assessments": release_readiness_assessment_refs,
+            "release_readiness_assessment_ids": release_readiness_assessment_ids,
+            "release_readiness_assessment_sha256s": release_readiness_assessment_sha256s,
             "context_ref_sha256s": _unique_strings(
                 [
                     str(ref.get("observed_sha256"))
@@ -1264,12 +1344,28 @@ def build_document_generation_context_pack(
         _success_metric(
             "audit_refs_packaged",
             "Luc Moreau / James Cheney",
-            bool(source_evidence_package_sha256s),
-            "The context pack records stable evidence package hashes for later audit replay.",
+            bool(source_evidence_package_sha256s)
+            and not release_readiness_summary["missing_source_search_request_ids"],
+            (
+                "The context pack records stable evidence package hashes and release-readiness "
+                "assessment refs for later audit replay."
+            ),
             {
                 "source_evidence_package_export_count": len(source_evidence_package_export_ids),
                 "source_evidence_package_sha256_count": len(source_evidence_package_sha256s),
+                "release_readiness_assessment_count": len(release_readiness_assessment_ids),
             },
+        ),
+        _success_metric(
+            "release_readiness_assessments_bound",
+            "Jon Bratseth",
+            not release_readiness_summary["missing_source_search_request_ids"]
+            and release_readiness_summary["failed_ref_count"] == 0,
+            (
+                "Every source search request is bound to a ready, integrity-complete release "
+                "readiness assessment before generation."
+            ),
+            release_readiness_summary,
         ),
         _success_metric(
             "governed_graph_lifecycle_visible",
@@ -1305,6 +1401,7 @@ def evaluate_document_generation_context_pack(
     min_context_ref_count: int = 1,
     max_blocked_step_count: int = 0,
     require_source_evidence_packages: bool = True,
+    require_release_readiness_assessments: bool = True,
     require_fresh_context: bool = False,
 ) -> dict[str, Any]:
     context_pack = DocumentGenerationContextPackPayload.model_validate(context_pack_payload)
@@ -1313,7 +1410,15 @@ def evaluate_document_generation_context_pack(
     traceable_claim_ratio = float(quality_contract.get("traceable_claim_ratio") or 0.0)
     context_ref_count = int(freshness_summary.get("context_ref_count") or 0)
     blocked_steps = list(quality_contract.get("blocked_steps") or [])
+    source_search_request_ids = list(context_pack.audit_refs.get("source_search_request_ids") or [])
     source_package_count = len(context_pack.audit_refs.get("source_evidence_package_sha256s") or [])
+    release_readiness_assessments = list(
+        context_pack.audit_refs.get("release_readiness_assessments") or []
+    )
+    release_readiness_summary = _release_readiness_assessment_eval_summary(
+        source_search_request_ids=source_search_request_ids,
+        refs=release_readiness_assessments,
+    )
     stale_count = int(freshness_summary.get("stale_context_ref_count") or 0)
     missing_count = int(freshness_summary.get("missing_context_ref_count") or 0)
     schema_mismatch_count = int(freshness_summary.get("schema_mismatch_context_ref_count") or 0)
@@ -1352,6 +1457,19 @@ def evaluate_document_generation_context_pack(
             "required": require_source_evidence_packages,
         },
         {
+            "check_key": "release_readiness_assessments",
+            "passed": (
+                not require_release_readiness_assessments
+                or not source_search_request_ids
+                or (
+                    not release_readiness_summary["missing_source_search_request_ids"]
+                    and release_readiness_summary["failed_ref_count"] == 0
+                )
+            ),
+            "observed": release_readiness_summary,
+            "required": require_release_readiness_assessments,
+        },
+        {
             "check_key": "freshness_blockers",
             "passed": missing_count == 0 and schema_mismatch_count == 0,
             "observed": {
@@ -1382,6 +1500,16 @@ def evaluate_document_generation_context_pack(
         "context_ref_count": context_ref_count,
         "blocked_step_count": len(blocked_steps),
         "source_evidence_package_count": source_package_count,
+        "release_readiness_assessment_ref_count": release_readiness_summary[
+            "readiness_assessment_ref_count"
+        ],
+        "release_readiness_ready_ref_count": release_readiness_summary[
+            "ready_assessment_ref_count"
+        ],
+        "release_readiness_failed_ref_count": release_readiness_summary["failed_ref_count"],
+        "release_readiness_missing_source_request_count": len(
+            release_readiness_summary["missing_source_search_request_ids"]
+        ),
         "stale_context_ref_count": stale_count,
         "missing_context_ref_count": missing_count,
         "schema_mismatch_context_ref_count": schema_mismatch_count,
@@ -1397,6 +1525,7 @@ def evaluate_document_generation_context_pack(
             "min_context_ref_count": min_context_ref_count,
             "max_blocked_step_count": max_blocked_step_count,
             "require_source_evidence_packages": require_source_evidence_packages,
+            "require_release_readiness_assessments": require_release_readiness_assessments,
             "require_fresh_context": require_fresh_context,
         },
         "summary": summary,
@@ -1410,8 +1539,10 @@ def evaluate_document_generation_context_pack(
                 context_pack.audit_refs.get("source_evidence_package_export_ids") or []
             ),
             "source_search_request_ids": list(
-                context_pack.audit_refs.get("source_search_request_ids") or []
+                source_search_request_ids
             ),
+            "release_readiness_assessments": release_readiness_assessments,
+            "release_readiness_summary": release_readiness_summary,
         },
         "success_metrics": [
             _success_metric(
@@ -1432,7 +1563,18 @@ def evaluate_document_generation_context_pack(
                     "source_evidence_package_count": source_package_count,
                     "missing_context_ref_count": missing_count,
                     "schema_mismatch_context_ref_count": schema_mismatch_count,
+                    "release_readiness_assessment_ref_count": release_readiness_summary[
+                        "readiness_assessment_ref_count"
+                    ],
                 },
+            ),
+            _success_metric(
+                "release_readiness_gate",
+                "Jon Bratseth",
+                not release_readiness_summary["missing_source_search_request_ids"]
+                and release_readiness_summary["failed_ref_count"] == 0,
+                "Source retrieval evidence is bound to ready release assessments.",
+                release_readiness_summary,
             ),
         ],
     }
@@ -1447,6 +1589,7 @@ def prepare_report_agent_harness(
     harness_task_id: UUID,
     evidence_task_id: UUID,
     upstream_context_refs: list[ContextRef],
+    release_readiness_assessments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     evidence_bundle = TechnicalReportEvidenceBundlePayload.model_validate(evidence_bundle_payload)
     plan = evidence_bundle.plan
@@ -1460,6 +1603,7 @@ def prepare_report_agent_harness(
             ContextFreshnessStatus.SCHEMA_MISMATCH.value,
         }
     ]
+    release_readiness_assessment_refs = list(release_readiness_assessments or [])
     blocked_steps: list[dict[str, Any]] = []
     if not context_refs:
         blocked_steps.append(
@@ -1506,6 +1650,7 @@ def prepare_report_agent_harness(
         "retrieval_plan": list(evidence_bundle.retrieval_index),
         "evidence_cards": [card.model_dump(mode="json") for card in evidence_bundle.evidence_cards],
         "search_evidence_package_exports": list(evidence_bundle.search_evidence_package_exports),
+        "release_readiness_assessments": release_readiness_assessment_refs,
         "graph_context": [edge.model_dump(mode="json") for edge in evidence_bundle.graph_context],
         "claim_contract": list(evidence_bundle.claim_evidence_map),
         "failure_policy": {
@@ -1522,6 +1667,7 @@ def prepare_report_agent_harness(
             "require_full_concept_coverage": True,
             "require_graph_edges_approved": True,
             "require_frozen_source_evidence": True,
+            "require_release_readiness_assessments": True,
             "block_stale_context": False,
         },
         "llm_adapter_contract": {
@@ -1596,7 +1742,10 @@ def prepare_report_agent_harness(
             {"schema_version": harness["schema_version"]},
         ),
     ]
-    context_pack = build_document_generation_context_pack(harness)
+    context_pack = build_document_generation_context_pack(
+        harness,
+        release_readiness_assessments=release_readiness_assessment_refs,
+    )
     harness["document_generation_context_pack"] = context_pack
     harness["llm_adapter_contract"]["context_pack_sha256"] = context_pack[
         "context_pack_sha256"
