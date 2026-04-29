@@ -53,6 +53,9 @@ def test_capability_contract_map_captures_owner_modules_and_operation_kind() -> 
     retrieval = next(facade for facade in payload["facades"] if facade["name"] == "retrieval")
     functions = {row["name"]: row for row in retrieval["functions"]}
 
+    assert retrieval["source"] == "app/services/capabilities/retrieval.py"
+    assert retrieval["protocol_source"] == "app/services/capabilities/retrieval_contract.py"
+    assert retrieval["implementation_source"] == "app/services/capabilities/retrieval_services.py"
     assert "app.services.search" in retrieval["owner_modules"]
     assert functions["execute_search"]["owner_module"] == "app.services.search"
     assert functions["execute_search"]["owner_symbol"] == "execute_search"

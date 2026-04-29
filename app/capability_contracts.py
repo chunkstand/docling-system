@@ -65,8 +65,24 @@ def _facade_module_path(project_root: Path, facade_name: str) -> Path:
     return project_root / "app" / "services" / "capabilities" / f"{facade_name}.py"
 
 
+def _facade_module_sources(project_root: Path, facade_name: str) -> list[tuple[Path, ast.Module]]:
+    capability_dir = project_root / "app" / "services" / "capabilities"
+    paths = (
+        capability_dir / f"{facade_name}.py",
+        capability_dir / f"{facade_name}_contract.py",
+        capability_dir / f"{facade_name}_services.py",
+    )
+    return [
+        (path, ast.parse(path.read_text(), filename=str(path))) for path in paths if path.exists()
+    ]
+
+
 def _facade_class_prefix(facade_name: str) -> str:
     return "".join(part.capitalize() for part in facade_name.split("_"))
+
+
+def _relative_source(project_root: Path, source_path: Path) -> str:
+    return source_path.resolve().relative_to(project_root.resolve()).as_posix()
 
 
 def _annotation(node: ast.AST | None) -> str | None:
@@ -139,13 +155,20 @@ def _operation_kind(function_name: str) -> str:
 
 def _class_def(tree: ast.Module, class_name: str) -> ast.ClassDef | None:
     return next(
-        (
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef) and node.name == class_name
-        ),
+        (node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == class_name),
         None,
     )
+
+
+def _class_def_with_source(
+    sources: list[tuple[Path, ast.Module]],
+    class_name: str,
+) -> tuple[Path | None, ast.Module | None, ast.ClassDef | None]:
+    for source_path, tree in sources:
+        class_node = _class_def(tree, class_name)
+        if class_node is not None:
+            return source_path, tree, class_node
+    return None, None, None
 
 
 def _public_methods(class_node: ast.ClassDef | None) -> dict[str, ast.FunctionDef]:
@@ -201,13 +224,21 @@ def _owner_call(
 
 def _facade_contract(project_root: Path, facade_name: str) -> dict[str, object]:
     source_path = _facade_module_path(project_root, facade_name)
-    tree = ast.parse(source_path.read_text(), filename=str(source_path))
+    facade_sources = _facade_module_sources(project_root, facade_name)
     class_prefix = _facade_class_prefix(facade_name)
     protocol_name = f"{class_prefix}Capability"
     implementation_name = f"Services{class_prefix}Capability"
-    protocol_methods = _public_methods(_class_def(tree, protocol_name))
-    implementation_methods = _public_methods(_class_def(tree, implementation_name))
-    owner_imports = _owner_imports(tree)
+    protocol_path, _protocol_tree, protocol_class = _class_def_with_source(
+        facade_sources,
+        protocol_name,
+    )
+    implementation_path, implementation_tree, implementation_class = _class_def_with_source(
+        facade_sources,
+        implementation_name,
+    )
+    protocol_methods = _public_methods(protocol_class)
+    implementation_methods = _public_methods(implementation_class)
+    owner_imports = _owner_imports(implementation_tree) if implementation_tree is not None else {}
 
     functions = []
     for method_name, protocol_method in sorted(protocol_methods.items()):
@@ -225,11 +256,23 @@ def _facade_contract(project_root: Path, facade_name: str) -> dict[str, object]:
             }
         )
 
-    relative_source = source_path.resolve().relative_to(project_root.resolve()).as_posix()
+    relative_source = _relative_source(project_root, source_path)
+    protocol_source = (
+        _relative_source(project_root, protocol_path)
+        if protocol_path is not None
+        else relative_source
+    )
+    implementation_source = (
+        _relative_source(project_root, implementation_path)
+        if implementation_path is not None
+        else relative_source
+    )
     return {
         "name": facade_name,
         "module": f"app.services.capabilities.{facade_name}",
         "source": relative_source,
+        "protocol_source": protocol_source,
+        "implementation_source": implementation_source,
         "protocol": protocol_name,
         "implementation": implementation_name,
         "exported_instance": facade_name,
@@ -270,15 +313,32 @@ def _validate_facade_contract(
     facade_name: str,
 ) -> list[CapabilityContractIssue]:
     source_path = _facade_module_path(project_root, facade_name)
-    relative_source = source_path.resolve().relative_to(project_root.resolve()).as_posix()
-    tree = ast.parse(source_path.read_text(), filename=str(source_path))
+    relative_source = _relative_source(project_root, source_path)
+    facade_sources = _facade_module_sources(project_root, facade_name)
+    facade_tree = facade_sources[0][1]
     class_prefix = _facade_class_prefix(facade_name)
     protocol_name = f"{class_prefix}Capability"
     implementation_name = f"Services{class_prefix}Capability"
-    protocol_class = _class_def(tree, protocol_name)
-    implementation_class = _class_def(tree, implementation_name)
+    protocol_path, _protocol_tree, protocol_class = _class_def_with_source(
+        facade_sources,
+        protocol_name,
+    )
+    implementation_path, _implementation_tree, implementation_class = _class_def_with_source(
+        facade_sources,
+        implementation_name,
+    )
     protocol_methods = _public_methods(protocol_class)
     implementation_methods = _public_methods(implementation_class)
+    protocol_relative_source = (
+        _relative_source(project_root, protocol_path)
+        if protocol_path is not None
+        else relative_source
+    )
+    implementation_relative_source = (
+        _relative_source(project_root, implementation_path)
+        if implementation_path is not None
+        else relative_source
+    )
     issues: list[CapabilityContractIssue] = []
 
     if protocol_class is None:
@@ -301,7 +361,7 @@ def _validate_facade_contract(
                 message="Capability facade is missing its Services implementation class.",
             )
         )
-    if not _exports_instance(tree, facade_name, protocol_name):
+    if not _exports_instance(facade_tree, facade_name, protocol_name):
         issues.append(
             CapabilityContractIssue(
                 contract="capability_surface_contracts",
@@ -317,7 +377,7 @@ def _validate_facade_contract(
                 CapabilityContractIssue(
                     contract="capability_surface_contracts",
                     field="return_annotation",
-                    relative_path=relative_source,
+                    relative_path=protocol_relative_source,
                     lineno=protocol_method.lineno,
                     symbol=method_name,
                     message="Capability protocol methods must declare return annotations.",
@@ -329,7 +389,7 @@ def _validate_facade_contract(
                     CapabilityContractIssue(
                         contract="capability_surface_contracts",
                         field="parameter_annotation",
-                        relative_path=relative_source,
+                        relative_path=protocol_relative_source,
                         lineno=protocol_method.lineno,
                         symbol=f"{method_name}.{parameter['name']}",
                         message="Capability protocol parameters must declare annotations.",
@@ -340,7 +400,7 @@ def _validate_facade_contract(
                 CapabilityContractIssue(
                     contract="capability_surface_contracts",
                     field="implementation_method",
-                    relative_path=relative_source,
+                    relative_path=protocol_relative_source,
                     lineno=protocol_method.lineno,
                     symbol=method_name,
                     message="Capability implementation is missing a protocol method.",
@@ -353,12 +413,11 @@ def _validate_facade_contract(
                 CapabilityContractIssue(
                     contract="capability_surface_contracts",
                     field="extra_implementation_method",
-                    relative_path=relative_source,
+                    relative_path=implementation_relative_source,
                     lineno=implementation_method.lineno,
                     symbol=method_name,
                     message=(
-                        "Capability implementation exposes a public method outside "
-                        "the Protocol."
+                        "Capability implementation exposes a public method outside the Protocol."
                     ),
                 )
             )

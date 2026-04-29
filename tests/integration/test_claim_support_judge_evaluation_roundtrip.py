@@ -1516,7 +1516,7 @@ def test_claim_support_policy_activation_blocks_expired_replay_alert_coverage_wa
         )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.utcnow",
+        "app.services.agent_actions.claim_support_activation.utcnow",
         lambda: waiver_expires_at + timedelta(minutes=1),
     )
     _process_next_task(postgres_integration_harness)

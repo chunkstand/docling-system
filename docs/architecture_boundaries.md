@@ -27,6 +27,10 @@ facade changes. The map records each facade's Protocol methods, implementation
 owner modules, operation kind, parameter annotations, and return annotations.
 Protocol methods are the public surface. The concrete `Services*Capability`
 classes must not expose extra public methods outside the Protocol.
+When a facade grows past the hygiene budget, keep the stable
+`app.services.capabilities.<facade>` import and split the surface into focused
+`<facade>_contract.py` and `<facade>_services.py` companion modules; the
+contract map records those sources separately.
 
 ## Guardrail
 

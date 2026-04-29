@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from app.db.models import AgentTaskArtifact, SemanticGovernanceEvent
-from app.services.agent_tasks import _valid_replay_alert_fixture_coverage_waiver_closure_event
+from app.services.agent_task_decision_signal_integrity import (
+    _valid_replay_alert_fixture_coverage_waiver_closure_event,
+)
 from app.services.evidence import _waiver_closure_event_integrity, payload_sha256
 
 WAIVER_ARTIFACT_KIND = "claim_support_replay_alert_fixture_coverage_waiver"
