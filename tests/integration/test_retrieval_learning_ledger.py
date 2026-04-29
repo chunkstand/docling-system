@@ -37,6 +37,7 @@ from app.db.models import (
     SearchRequestResult,
     SearchRequestResultSpan,
     SemanticGovernanceEvent,
+    TechnicalReportClaimRetrievalFeedback,
 )
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
@@ -577,6 +578,184 @@ def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpu
     receipt_payload = receipt_response.json()
     assert receipt_payload["validation_status"] == "passed"
     assert receipt_payload["semantic_governance_valid"] is True
+
+
+def test_materialize_retrieval_learning_dataset_from_claim_feedback_ledger(
+    postgres_integration_harness,
+) -> None:
+    now = datetime.now(UTC)
+    verification_task_id = uuid4()
+
+    with postgres_integration_harness.session_factory() as session:
+        request = _make_search_request(now=now)
+        result = _make_result(request_id=request.id, rank=1, result_type="chunk", now=now)
+        span = SearchRequestResultSpan(
+            id=uuid4(),
+            search_request_id=request.id,
+            search_request_result_id=result.id,
+            retrieval_evidence_span_id=None,
+            span_rank=1,
+            score_kind="lexical",
+            score=0.93,
+            source_type="chunk",
+            source_id=result.chunk_id,
+            span_index=0,
+            page_from=1,
+            page_to=1,
+            text_excerpt="The cited result does not support the generated claim.",
+            content_sha256="claim-feedback-span-sha",
+            source_snapshot_sha256="claim-feedback-source-sha",
+            metadata_json={"fixture": "technical_report_claim_feedback"},
+            created_at=now,
+        )
+        verification_task = AgentTask(
+            id=verification_task_id,
+            task_type="verify_technical_report",
+            status="completed",
+            input_json={},
+            result_json={},
+            created_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+        source_payload = {
+            "schema_name": "technical_report_claim_retrieval_feedback_source",
+            "schema_version": "1.0",
+            "technical_report_verification_task_id": str(verification_task_id),
+            "claim_id": "claim:unsupported",
+            "claim_text": "The generated claim overstates the cited evidence.",
+            "support_verdict": "unsupported",
+            "support_score": 0.12,
+            "feedback_status": "rejected",
+            "learning_label": "negative",
+            "hard_negative_kind": "explicit_irrelevant",
+            "source_search_request_ids": [str(request.id)],
+            "source_search_request_result_ids": [str(result.id)],
+            "search_request_result_span_ids": [str(span.id)],
+            "retrieval_evidence_span_ids": [],
+        }
+        source_payload_sha256 = str(payload_sha256(source_payload))
+        feedback_payload = {
+            "schema_name": "technical_report_claim_retrieval_feedback",
+            "schema_version": "1.0",
+            "feedback_kind": "generation_claim_retrieval_feedback",
+            "technical_report_verification_task_id": str(verification_task_id),
+            "claim_id": "claim:unsupported",
+            "feedback_status": "rejected",
+            "learning_label": "negative",
+            "hard_negative_kind": "explicit_irrelevant",
+            "source_payload_sha256": source_payload_sha256,
+            "source": source_payload,
+        }
+        feedback = TechnicalReportClaimRetrievalFeedback(
+            id=uuid4(),
+            technical_report_verification_task_id=verification_task_id,
+            claim_id="claim:unsupported",
+            claim_text="The generated claim overstates the cited evidence.",
+            support_verdict="unsupported",
+            support_score=0.12,
+            feedback_status="rejected",
+            learning_label="negative",
+            hard_negative_kind="explicit_irrelevant",
+            source_search_request_id=request.id,
+            search_request_result_id=result.id,
+            source_search_request_ids_json=[str(request.id)],
+            source_search_request_result_ids_json=[str(result.id)],
+            search_request_result_span_ids_json=[str(span.id)],
+            retrieval_evidence_span_ids_json=[],
+            semantic_ontology_snapshot_ids_json=[],
+            semantic_graph_snapshot_ids_json=[],
+            retrieval_reranker_artifact_ids_json=[],
+            search_harness_release_ids_json=[],
+            release_audit_bundle_ids_json=[],
+            release_validation_receipt_ids_json=[],
+            evidence_refs_json=[
+                {
+                    "search_request_result_span_id": str(span.id),
+                    "search_request_id": str(request.id),
+                    "search_request_result_id": str(result.id),
+                    "span_rank": 1,
+                    "score_kind": "lexical",
+                    "score": 0.93,
+                    "source_type": "chunk",
+                    "source_id": str(result.chunk_id),
+                    "span_index": 0,
+                    "page_from": 1,
+                    "page_to": 1,
+                    "text_excerpt": span.text_excerpt,
+                    "content_sha256": span.content_sha256,
+                    "source_snapshot_sha256": span.source_snapshot_sha256,
+                    "metadata": span.metadata_json,
+                }
+            ],
+            retrieval_context_json={
+                "primary_query_text": request.query_text,
+                "primary_mode": request.mode,
+                "primary_harness_name": request.harness_name,
+                "primary_reranker_name": request.reranker_name,
+                "primary_reranker_version": request.reranker_version,
+                "primary_retrieval_profile_name": request.retrieval_profile_name,
+                "primary_harness_config": request.harness_config_json,
+            },
+            feedback_payload_json=feedback_payload,
+            feedback_payload_sha256=str(payload_sha256(feedback_payload)),
+            source_payload_json=source_payload,
+            source_payload_sha256=source_payload_sha256,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add_all([request, result, span, verification_task, feedback])
+        session.flush()
+        response = materialize_retrieval_learning_dataset(
+            session,
+            limit=10,
+            source_types=["technical_report_claim_feedback"],
+            set_name="integration-claim-feedback-learning",
+            created_by="integration",
+        )
+        judgment_set_id = UUID(response["judgment_set_id"])
+        request_id = request.id
+        result_id = result.id
+        session.commit()
+
+    assert response["summary"]["source_types"] == ["technical_report_claim_feedback"]
+    assert response["summary"]["judgment_count"] == 1
+    assert response["summary"]["negative_count"] == 1
+    assert response["summary"]["hard_negative_count"] == 1
+    assert response["summary"]["judgment_counts_by_source_type"] == {
+        "technical_report_claim_feedback": 1
+    }
+
+    with postgres_integration_harness.session_factory() as session:
+        judgment = session.scalar(
+            select(RetrievalJudgment).where(RetrievalJudgment.judgment_set_id == judgment_set_id)
+        )
+        hard_negative = session.scalar(
+            select(RetrievalHardNegative).where(
+                RetrievalHardNegative.judgment_set_id == judgment_set_id
+            )
+        )
+        training_run = session.scalar(
+            select(RetrievalTrainingRun).where(
+                RetrievalTrainingRun.judgment_set_id == judgment_set_id
+            )
+        )
+
+    assert judgment is not None
+    assert judgment.source_type == "technical_report_claim_feedback"
+    assert judgment.judgment_kind == "negative"
+    assert judgment.search_request_id == request_id
+    assert judgment.search_request_result_id == result_id
+    assert judgment.evidence_refs_json
+    assert judgment.payload_json["source_details"]["feedback_status"] == "rejected"
+    assert hard_negative is not None
+    assert hard_negative.source_type == "technical_report_claim_feedback"
+    assert hard_negative.hard_negative_kind == "explicit_irrelevant"
+    assert hard_negative.search_request_result_id == result_id
+    assert training_run is not None
+    assert training_run.training_payload_json["judgment_set"]["criteria"][
+        "technical_report_claim_feedback"
+    ]["feedback_payload_hash_required"] is True
 
 
 def test_retrieval_training_audit_bundle_flags_tampered_replay_alert_corpus_lineage(

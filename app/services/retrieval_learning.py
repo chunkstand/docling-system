@@ -40,6 +40,7 @@ from app.db.models import (
     SearchRequestResultSpan,
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
+    TechnicalReportClaimRetrievalFeedback,
 )
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
@@ -72,10 +73,14 @@ RETRIEVAL_LEARNING_SOURCE_REPLAY = "replay"
 RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS = (
     "claim_support_replay_alert_corpus"
 )
+RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK = (
+    "technical_report_claim_feedback"
+)
 RETRIEVAL_LEARNING_SOURCES = {
     RETRIEVAL_LEARNING_SOURCE_FEEDBACK,
     RETRIEVAL_LEARNING_SOURCE_REPLAY,
     RETRIEVAL_LEARNING_SOURCE_CLAIM_SUPPORT_REPLAY_ALERT_CORPUS,
+    RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK,
 }
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA = "retrieval_reranker_artifact"
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA_VERSION = "1.0"
@@ -1562,6 +1567,149 @@ def _collect_claim_support_replay_alert_corpus_sources(
     return judgments, hard_negatives
 
 
+def _collect_technical_report_claim_feedback_sources(
+    session: Session,
+    *,
+    judgment_set_id: UUID,
+    limit: int,
+    created_at: datetime,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    feedback_rows = list(
+        session.scalars(
+            select(TechnicalReportClaimRetrievalFeedback)
+            .order_by(TechnicalReportClaimRetrievalFeedback.created_at.desc())
+            .limit(limit)
+        )
+    )
+    request_ids = {
+        row.source_search_request_id
+        for row in feedback_rows
+        if row.source_search_request_id is not None
+    }
+    result_ids = {
+        row.search_request_result_id
+        for row in feedback_rows
+        if row.search_request_result_id is not None
+    }
+    requests_by_id = _load_by_ids(session, SearchRequestRecord, request_ids)
+    results_by_id = _load_by_ids(session, SearchRequestResult, result_ids)
+    evidence_by_result_id = _evidence_refs_by_result_id(session, result_ids)
+
+    judgments: list[dict[str, Any]] = []
+    hard_negatives: list[dict[str, Any]] = []
+    for feedback in feedback_rows:
+        request = (
+            requests_by_id.get(feedback.source_search_request_id)
+            if feedback.source_search_request_id is not None
+            else None
+        )
+        result = (
+            results_by_id.get(feedback.search_request_result_id)
+            if feedback.search_request_result_id is not None
+            else None
+        )
+        query = _request_fields(request)
+        if not query["query_text"]:
+            query = {
+                **query,
+                "query_text": feedback.claim_text or feedback.claim_id,
+                "mode": "hybrid",
+                "filters": {},
+            }
+        retrieval_context = feedback.retrieval_context_json or {}
+        primary_context = {
+            "harness_name": retrieval_context.get("primary_harness_name"),
+            "reranker_name": retrieval_context.get("primary_reranker_name"),
+            "reranker_version": retrieval_context.get("primary_reranker_version"),
+            "retrieval_profile_name": retrieval_context.get("primary_retrieval_profile_name"),
+            "harness_config": retrieval_context.get("primary_harness_config") or {},
+        }
+        query = {**query, **{key: value for key, value in primary_context.items() if value}}
+        evidence_refs = (
+            list(feedback.evidence_refs_json or [])
+            or evidence_by_result_id.get(feedback.search_request_result_id, [])
+        )
+        if feedback.learning_label == RetrievalJudgmentKind.POSITIVE.value:
+            judgment_kind = RetrievalJudgmentKind.POSITIVE.value
+            judgment_label = "technical_report_claim_supported"
+            rationale = "Technical-report verification judged this cited claim supported."
+        elif feedback.learning_label == RetrievalJudgmentKind.MISSING.value:
+            judgment_kind = RetrievalJudgmentKind.MISSING.value
+            judgment_label = "technical_report_claim_missing_evidence"
+            rationale = "Technical-report verification found missing traceable retrieval evidence."
+        else:
+            judgment_kind = RetrievalJudgmentKind.NEGATIVE.value
+            judgment_label = f"technical_report_claim_{feedback.feedback_status}"
+            rationale = "Technical-report verification rejected or contradicted the cited evidence."
+
+        source_details = _json_payload(
+            {
+                "source_family": RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK,
+                "feedback_id": feedback.id,
+                "technical_report_verification_task_id": (
+                    feedback.technical_report_verification_task_id
+                ),
+                "claim_id": feedback.claim_id,
+                "claim_text": feedback.claim_text,
+                "claim_evidence_derivation_id": feedback.claim_evidence_derivation_id,
+                "evidence_manifest_id": feedback.evidence_manifest_id,
+                "prov_export_artifact_id": feedback.prov_export_artifact_id,
+                "release_readiness_db_gate_id": feedback.release_readiness_db_gate_id,
+                "semantic_governance_event_id": feedback.semantic_governance_event_id,
+                "support_verdict": feedback.support_verdict,
+                "support_score": feedback.support_score,
+                "feedback_status": feedback.feedback_status,
+                "learning_label": feedback.learning_label,
+                "hard_negative_kind": feedback.hard_negative_kind,
+                "feedback_payload_sha256": feedback.feedback_payload_sha256,
+                "source_payload_sha256": feedback.source_payload_sha256,
+                "source_payload": feedback.source_payload_json or {},
+            }
+        )
+        judgment = _make_judgment_row(
+            judgment_set_id=judgment_set_id,
+            source_type=RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK,
+            source_ref_id=feedback.id,
+            judgment_kind=judgment_kind,
+            judgment_label=judgment_label,
+            query=query,
+            result=result,
+            evidence_refs=evidence_refs,
+            created_at=created_at,
+            rationale=rationale,
+            source_search_request_id=feedback.source_search_request_id,
+            search_request_id=feedback.source_search_request_id,
+            expected_result_type=(result.result_type if result is not None else None),
+            expected_top_n=1 if result is not None else None,
+            details=source_details,
+        )
+        judgments.append(judgment)
+
+        if judgment_kind == RetrievalJudgmentKind.NEGATIVE.value and result is not None:
+            hard_negatives.append(
+                _make_hard_negative_row(
+                    judgment_set_id=judgment_set_id,
+                    judgment_id=judgment["id"],
+                    hard_negative_kind=(
+                        feedback.hard_negative_kind
+                        or RetrievalHardNegativeKind.EXPLICIT_IRRELEVANT.value
+                    ),
+                    source_type=RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK,
+                    source_ref_id=feedback.id,
+                    query=query,
+                    result=result,
+                    created_at=created_at,
+                    reason="Claim feedback labels this retrieved evidence as unsuitable support.",
+                    source_search_request_id=feedback.source_search_request_id,
+                    expected_result_type=result.result_type,
+                    expected_top_n=1,
+                    evidence_refs=evidence_refs,
+                    details=source_details,
+                )
+            )
+    return judgments, hard_negatives
+
+
 def _summary(
     *,
     source_types: list[str],
@@ -1643,6 +1791,17 @@ def materialize_retrieval_learning_dataset(
         )
         judgments.extend(corpus_judgments)
         hard_negatives.extend(corpus_hard_negatives)
+    if RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK in normalized_source_types:
+        claim_feedback_judgments, claim_feedback_hard_negatives = (
+            _collect_technical_report_claim_feedback_sources(
+                session,
+                judgment_set_id=judgment_set_id,
+                limit=limit,
+                created_at=created_at,
+            )
+        )
+        judgments.extend(claim_feedback_judgments)
+        hard_negatives.extend(claim_feedback_hard_negatives)
 
     judgments.sort(key=lambda row: row["deduplication_key"])
     hard_negatives.sort(key=lambda row: row["deduplication_key"])
@@ -1696,6 +1855,16 @@ def materialize_retrieval_learning_dataset(
                             "negative_judgment_with_explicit_irrelevant_hard_negative"
                         ),
                         "insufficient_evidence_verdict": "missing_judgment",
+                    },
+                    RETRIEVAL_LEARNING_SOURCE_TECHNICAL_REPORT_CLAIM_FEEDBACK: {
+                        "ledger_table": "technical_report_claim_retrieval_feedback",
+                        "feedback_payload_hash_required": True,
+                        "source_payload_hash_required": True,
+                        "claim_supported_label": "positive_judgment",
+                        "claim_rejected_or_contradicted_label": (
+                            "negative_judgment_with_explicit_irrelevant_hard_negative"
+                        ),
+                        "claim_missing_label": "missing_judgment",
                     },
                 },
             },

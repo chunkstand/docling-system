@@ -2,7 +2,11 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import AgentTaskVerification, TechnicalReportReleaseReadinessDbGate
+from app.db.models import (
+    AgentTaskVerification,
+    TechnicalReportClaimRetrievalFeedback,
+    TechnicalReportReleaseReadinessDbGate,
+)
 from app.services.evidence import (
     RELEASE_READINESS_DB_GATE_CHECK_KEY,
     _frozen_prov_export_payload,
@@ -10,6 +14,7 @@ from app.services.evidence import (
     _prov_export_integrity_payload,
     _prov_export_receipt_integrity,
     _release_readiness_db_gate_payload,
+    _technical_report_claim_feedback_row_integrity,
     _technical_report_release_readiness_db_gate_row_integrity,
     payload_sha256,
 )
@@ -238,6 +243,80 @@ def test_release_readiness_db_gate_row_integrity_detects_tampered_payload() -> N
     assert tampered_integrity["complete"] is False
     assert tampered_integrity["stored_payload_hash_matches"] is False
     assert tampered_integrity["stored_payload_matches_current_gate"] is False
+
+
+def test_claim_retrieval_feedback_row_integrity_detects_tamper() -> None:
+    now = datetime(2026, 4, 29, 12, tzinfo=UTC)
+    claim_id = "claim:retrieval-feedback"
+    verification_task_id = uuid4()
+    source_payload = {
+        "schema_name": "technical_report_claim_retrieval_feedback_source",
+        "schema_version": "1.0",
+        "technical_report_verification_task_id": str(verification_task_id),
+        "claim_id": claim_id,
+        "support_verdict": "supported",
+        "support_score": 0.91,
+        "feedback_status": "supported",
+        "learning_label": "positive",
+        "source_search_request_ids": [str(uuid4())],
+        "source_search_request_result_ids": [str(uuid4())],
+    }
+    source_payload_sha256 = str(payload_sha256(source_payload))
+    feedback_payload = {
+        "schema_name": "technical_report_claim_retrieval_feedback",
+        "schema_version": "1.0",
+        "feedback_kind": "generation_claim_retrieval_feedback",
+        "technical_report_verification_task_id": str(verification_task_id),
+        "claim_id": claim_id,
+        "feedback_status": "supported",
+        "learning_label": "positive",
+        "hard_negative_kind": None,
+        "source_payload_sha256": source_payload_sha256,
+        "source": source_payload,
+    }
+    row = TechnicalReportClaimRetrievalFeedback(
+        id=uuid4(),
+        technical_report_verification_task_id=verification_task_id,
+        claim_id=claim_id,
+        claim_text="The claim is supported by the cited result.",
+        support_verdict="supported",
+        support_score=0.91,
+        feedback_status="supported",
+        learning_label="positive",
+        hard_negative_kind=None,
+        source_search_request_ids_json=source_payload["source_search_request_ids"],
+        source_search_request_result_ids_json=source_payload[
+            "source_search_request_result_ids"
+        ],
+        search_request_result_span_ids_json=[],
+        retrieval_evidence_span_ids_json=[],
+        semantic_ontology_snapshot_ids_json=[],
+        semantic_graph_snapshot_ids_json=[],
+        retrieval_reranker_artifact_ids_json=[],
+        search_harness_release_ids_json=[],
+        release_audit_bundle_ids_json=[],
+        release_validation_receipt_ids_json=[],
+        evidence_refs_json=[],
+        retrieval_context_json={},
+        feedback_payload_json=feedback_payload,
+        feedback_payload_sha256=str(payload_sha256(feedback_payload)),
+        source_payload_json=source_payload,
+        source_payload_sha256=source_payload_sha256,
+        created_at=now,
+        updated_at=now,
+    )
+
+    integrity = _technical_report_claim_feedback_row_integrity(row)
+
+    assert integrity["complete"] is True
+    assert integrity["feedback_payload_hash_matches"] is True
+    assert integrity["source_payload_hash_matches"] is True
+
+    row.feedback_payload_json = {**feedback_payload, "learning_label": "negative"}
+    tampered = _technical_report_claim_feedback_row_integrity(row)
+
+    assert tampered["complete"] is False
+    assert tampered["feedback_payload_hash_matches"] is False
 
 
 def test_release_binding_uses_latest_release_before_search_request() -> None:

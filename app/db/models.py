@@ -125,6 +125,9 @@ class SemanticGovernanceEventKind(StrEnum):
     TECHNICAL_REPORT_READINESS_DB_GATE_RECORDED = (
         "technical_report_readiness_db_gate_recorded"
     )
+    TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_RECORDED = (
+        "technical_report_claim_retrieval_feedback_recorded"
+    )
     RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
     RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
     RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = "retrieval_reranker_artifact_materialized"
@@ -163,6 +166,20 @@ class RetrievalHardNegativeKind(StrEnum):
 class RetrievalTrainingRunStatus(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class TechnicalReportClaimRetrievalFeedbackStatus(StrEnum):
+    SUPPORTED = "supported"
+    WEAK = "weak"
+    MISSING = "missing"
+    CONTRADICTED = "contradicted"
+    REJECTED = "rejected"
+
+
+class TechnicalReportClaimRetrievalLearningLabel(StrEnum):
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    MISSING = "missing"
 
 
 class RetrievalLearningCandidateStatus(StrEnum):
@@ -2329,7 +2346,8 @@ class RetrievalJudgmentSet(Base):
             "'replay', "
             "'mixed', "
             "'training', "
-            "'claim_support_replay_alert_corpus'"
+            "'claim_support_replay_alert_corpus', "
+            "'technical_report_claim_feedback'"
             ")",
             name="ck_retrieval_judgment_sets_set_kind",
         ),
@@ -2397,7 +2415,12 @@ class RetrievalJudgment(Base):
             name="ck_retrieval_judgments_kind",
         ),
         CheckConstraint(
-            "source_type IN ('feedback', 'replay', 'claim_support_replay_alert_corpus')",
+            "source_type IN ("
+            "'feedback', "
+            "'replay', "
+            "'claim_support_replay_alert_corpus', "
+            "'technical_report_claim_feedback'"
+            ")",
             name="ck_retrieval_judgments_source_type",
         ),
         CheckConstraint(
@@ -2520,7 +2543,12 @@ class RetrievalHardNegative(Base):
             name="ck_retrieval_hard_negatives_kind",
         ),
         CheckConstraint(
-            "source_type IN ('feedback', 'replay', 'claim_support_replay_alert_corpus')",
+            "source_type IN ("
+            "'feedback', "
+            "'replay', "
+            "'claim_support_replay_alert_corpus', "
+            "'technical_report_claim_feedback'"
+            ")",
             name="ck_retrieval_hard_negatives_source_type",
         ),
         CheckConstraint(
@@ -3822,6 +3850,7 @@ class SemanticGovernanceEvent(Base):
             "'search_harness_release_readiness_assessed', "
             "'technical_report_prov_export_frozen', "
             "'technical_report_readiness_db_gate_recorded', "
+            "'technical_report_claim_retrieval_feedback_recorded', "
             "'retrieval_training_run_materialized', "
             "'retrieval_learning_candidate_evaluated', "
             "'retrieval_reranker_artifact_materialized', "
@@ -4684,6 +4713,206 @@ class TechnicalReportReleaseReadinessDbGate(Base):
         server_default=sql_text("'{}'::jsonb"),
     )
     gate_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TechnicalReportClaimRetrievalFeedback(Base):
+    __tablename__ = "technical_report_claim_retrieval_feedback"
+    __table_args__ = (
+        CheckConstraint(
+            "support_verdict IN ('supported', 'unsupported', 'insufficient_evidence')",
+            name="ck_tr_claim_feedback_support_verdict",
+        ),
+        CheckConstraint(
+            "feedback_status IN ('supported', 'weak', 'missing', 'contradicted', 'rejected')",
+            name="ck_tr_claim_feedback_status",
+        ),
+        CheckConstraint(
+            "learning_label IN ('positive', 'negative', 'missing')",
+            name="ck_tr_claim_feedback_learning_label",
+        ),
+        CheckConstraint(
+            "hard_negative_kind IS NULL OR hard_negative_kind IN ("
+            "'explicit_irrelevant', "
+            "'missing_expected', "
+            "'failed_replay_top_result', "
+            "'wrong_result_type', "
+            "'no_answer_returned'"
+            ")",
+            name="ck_tr_claim_feedback_hard_negative_kind",
+        ),
+        CheckConstraint(
+            "char_length(feedback_payload_sha256) = 64",
+            name="ck_tr_claim_feedback_payload_sha_length",
+        ),
+        CheckConstraint(
+            "char_length(source_payload_sha256) = 64",
+            name="ck_tr_claim_feedback_source_sha_length",
+        ),
+        UniqueConstraint(
+            "technical_report_verification_task_id",
+            "claim_id",
+            name="uq_tr_claim_feedback_verification_claim",
+        ),
+        Index(
+            "ix_tr_claim_feedback_verification_task",
+            "technical_report_verification_task_id",
+        ),
+        Index("ix_tr_claim_feedback_claim", "claim_id"),
+        Index("ix_tr_claim_feedback_derivation", "claim_evidence_derivation_id"),
+        Index("ix_tr_claim_feedback_manifest", "evidence_manifest_id"),
+        Index("ix_tr_claim_feedback_prov_artifact", "prov_export_artifact_id"),
+        Index("ix_tr_claim_feedback_release_gate", "release_readiness_db_gate_id"),
+        Index("ix_tr_claim_feedback_governance", "semantic_governance_event_id"),
+        Index("ix_tr_claim_feedback_source_request", "source_search_request_id"),
+        Index("ix_tr_claim_feedback_search_result", "search_request_result_id"),
+        Index("ix_tr_claim_feedback_status_label", "feedback_status", "learning_label"),
+        Index("ix_tr_claim_feedback_payload_sha", "feedback_payload_sha256"),
+        Index("ix_tr_claim_feedback_created", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    technical_report_verification_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    claim_evidence_derivation_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("claim_evidence_derivations.id", ondelete="SET NULL"),
+    )
+    evidence_manifest_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_manifests.id", ondelete="SET NULL"),
+    )
+    prov_export_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_artifacts.id", ondelete="SET NULL"),
+    )
+    release_readiness_db_gate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("technical_report_release_readiness_db_gates.id", ondelete="SET NULL"),
+    )
+    semantic_governance_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_governance_events.id", ondelete="SET NULL"),
+    )
+    claim_id: Mapped[str] = mapped_column(Text, nullable=False)
+    claim_text: Mapped[str | None] = mapped_column(Text)
+    support_verdict: Mapped[str] = mapped_column(Text, nullable=False)
+    support_score: Mapped[float | None] = mapped_column(Float)
+    feedback_status: Mapped[str] = mapped_column(Text, nullable=False)
+    learning_label: Mapped[str] = mapped_column(Text, nullable=False)
+    hard_negative_kind: Mapped[str | None] = mapped_column(Text)
+    source_search_request_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_requests.id", ondelete="SET NULL"),
+    )
+    search_request_result_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_request_results.id", ondelete="SET NULL"),
+    )
+    source_search_request_ids_json: Mapped[list] = mapped_column(
+        "source_search_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    source_search_request_result_ids_json: Mapped[list] = mapped_column(
+        "source_search_request_result_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    search_request_result_span_ids_json: Mapped[list] = mapped_column(
+        "search_request_result_span_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    retrieval_evidence_span_ids_json: Mapped[list] = mapped_column(
+        "retrieval_evidence_span_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    semantic_ontology_snapshot_ids_json: Mapped[list] = mapped_column(
+        "semantic_ontology_snapshot_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    semantic_graph_snapshot_ids_json: Mapped[list] = mapped_column(
+        "semantic_graph_snapshot_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    retrieval_reranker_artifact_ids_json: Mapped[list] = mapped_column(
+        "retrieval_reranker_artifact_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    search_harness_release_ids_json: Mapped[list] = mapped_column(
+        "search_harness_release_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    release_audit_bundle_ids_json: Mapped[list] = mapped_column(
+        "release_audit_bundle_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    release_validation_receipt_ids_json: Mapped[list] = mapped_column(
+        "release_validation_receipt_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    evidence_refs_json: Mapped[list] = mapped_column(
+        "evidence_refs",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    retrieval_context_json: Mapped[dict] = mapped_column(
+        "retrieval_context",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    feedback_payload_json: Mapped[dict] = mapped_column(
+        "feedback_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    feedback_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    source_payload_json: Mapped[dict] = mapped_column(
+        "source_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    source_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

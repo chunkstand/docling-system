@@ -26,6 +26,7 @@ from app.db.models import (
     SearchHarnessEvaluationSource,
     SearchReplayRun,
     SemanticGovernanceEvent,
+    TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
@@ -902,6 +903,7 @@ def test_technical_report_harness_roundtrip(
         assert set(governance_events_by_kind) == {
             "technical_report_prov_export_frozen",
             "technical_report_readiness_db_gate_recorded",
+            "technical_report_claim_retrieval_feedback_recorded",
         }
         prov_governance_event = governance_events_by_kind["technical_report_prov_export_frozen"]
         assert prov_governance_event.receipt_sha256 == receipt["receipt_sha256"]
@@ -1154,6 +1156,28 @@ def test_technical_report_harness_roundtrip(
         row["trace_integrity"]["complete"] for row in audit_bundle["search_evidence_package_traces"]
     )
     assert len(audit_bundle["claim_derivations"]) == len(draft_payload["claims"])
+    assert len(audit_bundle["claim_retrieval_feedback"]) == len(draft_payload["claims"])
+    assert audit_bundle["claim_retrieval_feedback_integrity"]["complete"] is True
+    assert audit_bundle["claim_retrieval_feedback_integrity"]["coverage_complete"] is True
+    assert audit_bundle["claim_retrieval_feedback_integrity"]["integrity_verified"] is True
+    assert audit_bundle["audit_checklist"]["has_claim_retrieval_feedback_ledger"] is True
+    assert audit_bundle["audit_checklist"]["claim_retrieval_feedback_coverage_complete"] is True
+    assert audit_bundle["audit_checklist"]["claim_retrieval_feedback_integrity_verified"] is True
+    feedback_payload = audit_bundle["claim_retrieval_feedback"][0]
+    assert feedback_payload["feedback_payload_sha256"]
+    assert feedback_payload["source_payload_sha256"]
+    assert feedback_payload["learning_label"] == "positive"
+    assert feedback_payload["source_search_request_ids"]
+    assert feedback_payload["source_search_request_result_ids"]
+    assert feedback_payload["evidence_refs"]
+    assert feedback_payload["release_readiness_db_gate_id"] == str(release_readiness_db_gate_id)
+    assert feedback_payload["prov_export_artifact_id"] == str(prov_artifact_id)
+    assert feedback_payload["semantic_governance_event_id"]
+    assert any(
+        row["event_kind"] == "technical_report_claim_retrieval_feedback_recorded"
+        and row["subject_table"] == "technical_report_claim_retrieval_feedback"
+        for row in audit_bundle["semantic_governance_chain"]["events"]
+    )
     assert audit_bundle["audit_bundle_sha256"]
 
     manifest_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-manifest")
@@ -1189,6 +1213,9 @@ def test_technical_report_harness_roundtrip(
         is True
     )
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
+    assert manifest["audit_checklist"]["has_claim_retrieval_feedback_ledger"] is True
+    assert manifest["audit_checklist"]["claim_retrieval_feedback_coverage_complete"] is True
+    assert manifest["audit_checklist"]["claim_retrieval_feedback_integrity_verified"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
     assert manifest["document_runs"][0]["artifact_hashes"]["docling_json_sha256"]
@@ -1196,6 +1223,13 @@ def test_technical_report_harness_roundtrip(
         manifest["report_trace"]["evidence_package_integrity"]["draft_package_hash_matches"] is True
     )
     assert manifest["report_trace"]["verification"]["outcome"] == "passed"
+    assert len(manifest["report_trace"]["claim_retrieval_feedback"]) == len(
+        draft_payload["claims"]
+    )
+    assert (
+        manifest["report_trace"]["claim_retrieval_feedback_integrity"]["complete"]
+        is True
+    )
     assert manifest["report_trace"]["context_pack_audit"]["integrity"]["complete"] is True
     assert manifest["report_trace"]["context_pack_audit"]["context_pack_sha256s"] == [
         context_pack_sha256
@@ -1234,8 +1268,11 @@ def test_technical_report_harness_roundtrip(
     assert {
         "claim_to_provenance_lock",
         "claim_to_support_judgment",
+        "claim_to_retrieval_feedback",
         "support_judge_run_to_claim",
         "search_result_to_claim",
+        "search_result_to_claim_retrieval_feedback",
+        "selected_span_to_claim_retrieval_feedback",
         "harness_task_to_context_pack_artifact",
         "context_pack_eval_task_to_verifier_record",
         "context_pack_artifact_to_verifier_record",
@@ -1257,6 +1294,26 @@ def test_technical_report_harness_roundtrip(
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
     assert manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        feedback_rows = list(
+            session.scalars(
+                select(TechnicalReportClaimRetrievalFeedback).where(
+                    TechnicalReportClaimRetrievalFeedback.technical_report_verification_task_id
+                    == verify_task_id
+                )
+            )
+        )
+        assert len(feedback_rows) == len(draft_payload["claims"])
+        assert all(row.feedback_payload_sha256 for row in feedback_rows)
+        assert all(row.source_payload_sha256 for row in feedback_rows)
+        assert all(row.evidence_manifest_id for row in feedback_rows)
+        assert all(row.prov_export_artifact_id == prov_artifact_id for row in feedback_rows)
+        assert all(
+            row.release_readiness_db_gate_id == release_readiness_db_gate_id
+            for row in feedback_rows
+        )
+        assert all(row.semantic_governance_event_id for row in feedback_rows)
 
     with postgres_integration_harness.session_factory() as session:
         gate_row = session.get(
@@ -1297,6 +1354,49 @@ def test_technical_report_harness_roundtrip(
         gate_row.gate_payload_json = original_gate_payload
         session.commit()
 
+    with postgres_integration_harness.session_factory() as session:
+        feedback_row = session.scalar(
+            select(TechnicalReportClaimRetrievalFeedback).where(
+                TechnicalReportClaimRetrievalFeedback.technical_report_verification_task_id
+                == verify_task_id
+            )
+        )
+        assert feedback_row is not None
+        original_feedback_payload = deepcopy(feedback_row.feedback_payload_json)
+        feedback_row.feedback_payload_json = {
+            **original_feedback_payload,
+            "learning_label": "negative",
+        }
+        session.commit()
+
+    tampered_feedback_audit_response = client.get(f"/agent-tasks/{verify_task_id}/audit-bundle")
+    assert tampered_feedback_audit_response.status_code == 200
+    tampered_feedback_audit = tampered_feedback_audit_response.json()
+    assert (
+        tampered_feedback_audit["claim_retrieval_feedback_integrity"][
+            "feedback_payload_hash_mismatch_count"
+        ]
+        == 1
+    )
+    assert (
+        tampered_feedback_audit["audit_checklist"][
+            "claim_retrieval_feedback_integrity_verified"
+        ]
+        is False
+    )
+    assert tampered_feedback_audit["audit_checklist"]["complete"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        feedback_row = session.scalar(
+            select(TechnicalReportClaimRetrievalFeedback).where(
+                TechnicalReportClaimRetrievalFeedback.technical_report_verification_task_id
+                == verify_task_id
+            )
+        )
+        assert feedback_row is not None
+        feedback_row.feedback_payload_json = original_feedback_payload
+        session.commit()
+
     trace_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-trace")
     assert trace_response.status_code == 200
     trace = trace_response.json()
@@ -1320,6 +1420,7 @@ def test_technical_report_harness_roundtrip(
         "claim_provenance_lock",
         "claim_support_judgment",
         "claim_derivation",
+        "claim_retrieval_feedback",
         "search_result",
         "operator_run",
         "verification_record",
@@ -1355,6 +1456,10 @@ def test_technical_report_harness_roundtrip(
         provenance["prov_summary"]["release_readiness_db_source_search_request_count"]
         == context_pack_release_readiness_db_summary["source_search_request_count"]
     )
+    assert provenance["prov_summary"]["claim_retrieval_feedback_count"] == len(
+        draft_payload["claims"]
+    )
+    assert provenance["prov_summary"]["claim_retrieval_feedback_integrity_complete"] is True
     assert provenance["retrieval_evaluation"]["complete"] is True
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
     assert provenance["audit"]["release_readiness_db_gate"]["complete"] is True
@@ -1405,6 +1510,12 @@ def test_technical_report_harness_roundtrip(
         and entity.get("docling:gate_id") == str(release_readiness_db_gate_id)
         and entity.get("docling:gate_payload_sha256")
         == release_readiness_db_gate_payload_sha256
+        for entity in provenance["entity"].values()
+    )
+    assert any(
+        entity.get("prov:type") == "docling:ClaimRetrievalFeedback"
+        and entity.get("docling:learning_label") == "positive"
+        and entity.get("docling:feedback_payload_sha256")
         for entity in provenance["entity"].values()
     )
     assert (

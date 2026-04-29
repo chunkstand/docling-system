@@ -21,6 +21,7 @@ from app.db.models import (
     SemanticGovernanceEventKind,
     SemanticGraphSnapshot,
     SemanticOntologySnapshot,
+    TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
     WorkspaceSemanticGraphState,
     WorkspaceSemanticState,
@@ -669,6 +670,76 @@ def record_technical_report_release_readiness_db_gate_event(
             "technical_report_readiness_db_gate_recorded:"
             f"{gate.id}:{gate.gate_payload_sha256}:"
             f"{gate.evidence_manifest_id}:{gate.prov_export_artifact_id}"
+        ),
+        created_by="technical_report_verification",
+    )
+
+
+def record_technical_report_claim_retrieval_feedback_event(
+    session: Session,
+    *,
+    feedback: TechnicalReportClaimRetrievalFeedback,
+) -> SemanticGovernanceEvent:
+    semantic_basis = _active_semantic_basis(session)
+    ontology_snapshot_id = _uuid_or_none(semantic_basis.get("active_ontology_snapshot_id"))
+    graph_snapshot_id = _uuid_or_none(semantic_basis.get("active_semantic_graph_snapshot_id"))
+    return record_semantic_governance_event(
+        session,
+        event_kind=(
+            SemanticGovernanceEventKind
+            .TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_RECORDED
+            .value
+        ),
+        governance_scope=f"agent_task:{feedback.technical_report_verification_task_id}",
+        subject_table="technical_report_claim_retrieval_feedback",
+        subject_id=feedback.id,
+        task_id=feedback.technical_report_verification_task_id,
+        ontology_snapshot_id=ontology_snapshot_id,
+        semantic_graph_snapshot_id=graph_snapshot_id,
+        evidence_manifest_id=feedback.evidence_manifest_id,
+        agent_task_artifact_id=feedback.prov_export_artifact_id,
+        receipt_sha256=feedback.feedback_payload_sha256,
+        event_payload={
+            "technical_report_claim_retrieval_feedback": {
+                "feedback_id": str(feedback.id),
+                "technical_report_verification_task_id": str(
+                    feedback.technical_report_verification_task_id
+                ),
+                "claim_id": feedback.claim_id,
+                "claim_evidence_derivation_id": _uuid_text(
+                    feedback.claim_evidence_derivation_id
+                ),
+                "evidence_manifest_id": _uuid_text(feedback.evidence_manifest_id),
+                "prov_export_artifact_id": _uuid_text(feedback.prov_export_artifact_id),
+                "release_readiness_db_gate_id": _uuid_text(
+                    feedback.release_readiness_db_gate_id
+                ),
+                "support_verdict": feedback.support_verdict,
+                "support_score": feedback.support_score,
+                "feedback_status": feedback.feedback_status,
+                "learning_label": feedback.learning_label,
+                "hard_negative_kind": feedback.hard_negative_kind,
+                "source_search_request_ids": list(
+                    feedback.source_search_request_ids_json or []
+                ),
+                "source_search_request_result_ids": list(
+                    feedback.source_search_request_result_ids_json or []
+                ),
+                "search_request_result_span_ids": list(
+                    feedback.search_request_result_span_ids_json or []
+                ),
+                "retrieval_evidence_span_ids": list(
+                    feedback.retrieval_evidence_span_ids_json or []
+                ),
+                "feedback_payload_sha256": feedback.feedback_payload_sha256,
+                "source_payload_sha256": feedback.source_payload_sha256,
+            },
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=(
+            "technical_report_claim_retrieval_feedback_recorded:"
+            f"{feedback.id}:{feedback.feedback_payload_sha256}:"
+            f"{feedback.evidence_manifest_id}:{feedback.prov_export_artifact_id}"
         ),
         created_by="technical_report_verification",
     )
