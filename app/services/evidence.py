@@ -2711,6 +2711,9 @@ def _claim_retrieval_feedback_payload(
 
 def _technical_report_claim_feedback_row_integrity(
     row: TechnicalReportClaimRetrievalFeedback,
+    *,
+    session: Session | None = None,
+    require_live_links: bool = False,
 ) -> dict[str, Any]:
     stored_feedback_hash = str(payload_sha256(row.feedback_payload_json or {}))
     stored_source_hash = str(payload_sha256(row.source_payload_json or {}))
@@ -2718,6 +2721,97 @@ def _technical_report_claim_feedback_row_integrity(
     feedback_payload_hash_matches = stored_feedback_hash == row.feedback_payload_sha256
     feedback_source_hash = (row.feedback_payload_json or {}).get("source_payload_sha256")
     feedback_source_hash_matches = feedback_source_hash == row.source_payload_sha256
+    source_payload = row.source_payload_json or {}
+    source_payload_column_checks = {
+        "claim_id_matches": source_payload.get("claim_id") == row.claim_id,
+        "support_verdict_matches": source_payload.get("support_verdict") == row.support_verdict,
+        "feedback_status_matches": source_payload.get("feedback_status") == row.feedback_status,
+        "learning_label_matches": source_payload.get("learning_label") == row.learning_label,
+        "hard_negative_kind_matches": (
+            source_payload.get("hard_negative_kind") == row.hard_negative_kind
+        ),
+        "release_readiness_db_gate_id_matches": (
+            source_payload.get("release_readiness_db_gate_id")
+            == (str(row.release_readiness_db_gate_id) if row.release_readiness_db_gate_id else None)
+        ),
+        "source_search_request_ids_match": (
+            _string_values(source_payload.get("source_search_request_ids") or [])
+            == _string_values(row.source_search_request_ids_json or [])
+        ),
+        "source_search_request_result_ids_match": (
+            _string_values(source_payload.get("source_search_request_result_ids") or [])
+            == _string_values(row.source_search_request_result_ids_json or [])
+        ),
+        "search_request_result_span_ids_match": (
+            _string_values(source_payload.get("search_request_result_span_ids") or [])
+            == _string_values(row.search_request_result_span_ids_json or [])
+        ),
+        "retrieval_evidence_span_ids_match": (
+            _string_values(source_payload.get("retrieval_evidence_span_ids") or [])
+            == _string_values(row.retrieval_evidence_span_ids_json or [])
+        ),
+    }
+    source_payload_columns_match = all(source_payload_column_checks.values())
+    live_link_checks: dict[str, bool] = {}
+    if require_live_links:
+        live_link_checks = {
+            "has_evidence_manifest_link": row.evidence_manifest_id is not None,
+            "has_prov_export_artifact_link": row.prov_export_artifact_id is not None,
+            "has_release_readiness_db_gate_link": row.release_readiness_db_gate_id is not None,
+            "has_semantic_governance_event_link": row.semantic_governance_event_id is not None,
+            "evidence_manifest_matches_feedback": False,
+            "prov_export_artifact_matches_feedback": False,
+            "release_readiness_db_gate_matches_feedback": False,
+            "semantic_governance_event_matches_feedback": False,
+        }
+    if require_live_links and session is not None:
+        if row.evidence_manifest_id is not None:
+            manifest = session.get(EvidenceManifest, row.evidence_manifest_id)
+            live_link_checks["evidence_manifest_matches_feedback"] = bool(
+                manifest is not None
+                and manifest.verification_task_id == row.technical_report_verification_task_id
+            )
+        if row.prov_export_artifact_id is not None:
+            artifact = session.get(AgentTaskArtifact, row.prov_export_artifact_id)
+            live_link_checks["prov_export_artifact_matches_feedback"] = bool(
+                artifact is not None
+                and artifact.task_id == row.technical_report_verification_task_id
+                and artifact.artifact_kind == TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+            )
+        if row.release_readiness_db_gate_id is not None:
+            gate = session.get(
+                TechnicalReportReleaseReadinessDbGate,
+                row.release_readiness_db_gate_id,
+            )
+            live_link_checks["release_readiness_db_gate_matches_feedback"] = bool(
+                gate is not None
+                and gate.technical_report_verification_task_id
+                == row.technical_report_verification_task_id
+                and gate.gate_payload_sha256
+                == source_payload.get("release_readiness_db_gate_payload_sha256")
+            )
+        if row.semantic_governance_event_id is not None:
+            event = session.get(SemanticGovernanceEvent, row.semantic_governance_event_id)
+            event_payload = (event.event_payload_json if event is not None else None) or {}
+            feedback_payload = event_payload.get("technical_report_claim_retrieval_feedback") or {}
+            live_link_checks["semantic_governance_event_matches_feedback"] = bool(
+                event is not None
+                and event.event_kind == "technical_report_claim_retrieval_feedback_recorded"
+                and event.subject_table == TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_TABLE
+                and event.subject_id == row.id
+                and event.task_id == row.technical_report_verification_task_id
+                and event.evidence_manifest_id == row.evidence_manifest_id
+                and event.agent_task_artifact_id == row.prov_export_artifact_id
+                and event.receipt_sha256 == row.feedback_payload_sha256
+                and feedback_payload.get("feedback_id") == str(row.id)
+                and feedback_payload.get("claim_id") == row.claim_id
+            )
+    live_link_integrity_verified = all(live_link_checks.values()) if require_live_links else True
+    core_hash_integrity_verified = bool(
+        feedback_payload_hash_matches
+        and source_payload_hash_matches
+        and feedback_source_hash_matches
+    )
     return {
         "schema_name": "technical_report_claim_retrieval_feedback_row_integrity",
         "schema_version": "1.0",
@@ -2730,12 +2824,18 @@ def _technical_report_claim_feedback_row_integrity(
         "feedback_payload_hash_matches": feedback_payload_hash_matches,
         "source_payload_hash_matches": source_payload_hash_matches,
         "feedback_source_hash_matches": feedback_source_hash_matches,
+        "source_payload_column_checks": source_payload_column_checks,
+        "source_payload_columns_match": source_payload_columns_match,
+        "live_link_checks": live_link_checks,
+        "live_link_integrity_required": require_live_links,
+        "live_link_integrity_verified": live_link_integrity_verified,
+        "core_hash_integrity_verified": core_hash_integrity_verified,
         "has_search_request_ids": bool(row.source_search_request_ids_json),
         "has_search_request_result_ids": bool(row.source_search_request_result_ids_json),
         "complete": bool(
-            feedback_payload_hash_matches
-            and source_payload_hash_matches
-            and feedback_source_hash_matches
+            core_hash_integrity_verified
+            and source_payload_columns_match
+            and live_link_integrity_verified
         ),
     }
 
@@ -2743,6 +2843,9 @@ def _technical_report_claim_feedback_row_integrity(
 def _technical_report_claim_feedback_integrity_payload(
     draft_payload: dict[str, Any],
     rows: list[TechnicalReportClaimRetrievalFeedback],
+    *,
+    session: Session | None = None,
+    require_live_links: bool = False,
 ) -> dict[str, Any]:
     claim_ids = sorted(
         str(claim.get("claim_id") or "")
@@ -2752,9 +2855,29 @@ def _technical_report_claim_feedback_integrity_payload(
     row_claim_ids = sorted(row.claim_id for row in rows)
     missing_claim_ids = sorted(set(claim_ids) - set(row_claim_ids))
     unexpected_claim_ids = sorted(set(row_claim_ids) - set(claim_ids))
-    row_integrities = [_technical_report_claim_feedback_row_integrity(row) for row in rows]
+    row_integrities = [
+        _technical_report_claim_feedback_row_integrity(
+            row,
+            session=session,
+            require_live_links=require_live_links,
+        )
+        for row in rows
+    ]
     coverage_complete = bool(claim_ids) and not missing_claim_ids and not unexpected_claim_ids
-    integrity_verified = bool(rows) and all(row["complete"] for row in row_integrities)
+    core_hash_integrity_verified = bool(rows) and all(
+        row["core_hash_integrity_verified"] for row in row_integrities
+    )
+    source_payload_columns_match = bool(rows) and all(
+        row["source_payload_columns_match"] for row in row_integrities
+    )
+    live_link_integrity_verified = bool(rows) and all(
+        row["live_link_integrity_verified"] for row in row_integrities
+    )
+    integrity_verified = (
+        core_hash_integrity_verified
+        and source_payload_columns_match
+        and live_link_integrity_verified
+    )
     return {
         "schema_name": "technical_report_claim_retrieval_feedback_integrity",
         "schema_version": "1.0",
@@ -2762,6 +2885,10 @@ def _technical_report_claim_feedback_integrity_payload(
         "feedback_row_count": len(rows),
         "coverage_complete": coverage_complete,
         "integrity_verified": integrity_verified,
+        "core_hash_integrity_verified": core_hash_integrity_verified,
+        "source_payload_columns_match": source_payload_columns_match,
+        "live_link_integrity_required": require_live_links,
+        "live_link_integrity_verified": live_link_integrity_verified,
         "missing_claim_ids": missing_claim_ids,
         "unexpected_claim_ids": unexpected_claim_ids,
         "missing_claim_count": len(missing_claim_ids),
@@ -2774,6 +2901,12 @@ def _technical_report_claim_feedback_integrity_payload(
         ),
         "feedback_source_hash_mismatch_count": sum(
             1 for row in row_integrities if not row["feedback_source_hash_matches"]
+        ),
+        "source_payload_column_mismatch_count": sum(
+            1 for row in row_integrities if not row["source_payload_columns_match"]
+        ),
+        "live_link_mismatch_count": sum(
+            1 for row in row_integrities if not row["live_link_integrity_verified"]
         ),
         "status_counts": {
             status: sum(1 for row in rows if row.feedback_status == status)
@@ -2802,6 +2935,26 @@ def _claim_retrieval_feedback_rows_for_verification_task(
             .order_by(TechnicalReportClaimRetrievalFeedback.claim_id.asc())
         )
     )
+
+
+def _set_claim_feedback_append_only_link(
+    row: TechnicalReportClaimRetrievalFeedback,
+    *,
+    field_name: str,
+    value: UUID | None,
+) -> bool:
+    if value is None:
+        return False
+    current_value = getattr(row, field_name)
+    if current_value is not None and current_value != value:
+        raise ValueError(
+            "Technical report claim retrieval feedback live links are append-only: "
+            f"{field_name} for feedback row '{row.id}' is already set."
+        )
+    if current_value == value:
+        return False
+    setattr(row, field_name, value)
+    return True
 
 
 def persist_technical_report_claim_retrieval_feedback_ledger(
@@ -2883,25 +3036,24 @@ def persist_technical_report_claim_retrieval_feedback_ledger(
                     "Existing claim retrieval feedback row does not match the "
                     f"current verified claim payload: {desired['claim_id']}"
                 )
-            changed = False
-            if (
-                evidence_manifest is not None
-                and existing.evidence_manifest_id != evidence_manifest.id
-            ):
-                existing.evidence_manifest_id = evidence_manifest.id
-                changed = True
-            if (
-                prov_export_artifact is not None
-                and existing.prov_export_artifact_id != prov_export_artifact.id
-            ):
-                existing.prov_export_artifact_id = prov_export_artifact.id
-                changed = True
-            if (
-                release_gate is not None
-                and existing.release_readiness_db_gate_id != release_gate.id
-            ):
-                existing.release_readiness_db_gate_id = release_gate.id
-                changed = True
+            changed_links = [
+                _set_claim_feedback_append_only_link(
+                    existing,
+                    field_name="evidence_manifest_id",
+                    value=evidence_manifest.id if evidence_manifest is not None else None,
+                ),
+                _set_claim_feedback_append_only_link(
+                    existing,
+                    field_name="prov_export_artifact_id",
+                    value=prov_export_artifact.id if prov_export_artifact is not None else None,
+                ),
+                _set_claim_feedback_append_only_link(
+                    existing,
+                    field_name="release_readiness_db_gate_id",
+                    value=release_gate.id if release_gate is not None else None,
+                ),
+            ]
+            changed = any(changed_links)
             if changed:
                 existing.updated_at = now
             continue
@@ -9608,6 +9760,8 @@ def get_agent_task_audit_bundle(
         _technical_report_claim_feedback_integrity_payload(
             draft_payload,
             claim_retrieval_feedback_rows,
+            session=session,
+            require_live_links=include_live_claim_retrieval_feedback_links,
         )
     )
     source_evidence_closure = technical_report_search_evidence_closure_payload(

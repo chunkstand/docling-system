@@ -311,6 +311,20 @@ def test_claim_retrieval_feedback_row_integrity_detects_tamper() -> None:
     assert integrity["complete"] is True
     assert integrity["feedback_payload_hash_matches"] is True
     assert integrity["source_payload_hash_matches"] is True
+    assert integrity["source_payload_columns_match"] is True
+    assert integrity["live_link_integrity_verified"] is True
+
+    row.release_readiness_db_gate_id = uuid4()
+    relinked = _technical_report_claim_feedback_row_integrity(row)
+
+    assert relinked["complete"] is False
+    assert (
+        relinked["source_payload_column_checks"][
+            "release_readiness_db_gate_id_matches"
+        ]
+        is False
+    )
+    row.release_readiness_db_gate_id = None
 
     row.feedback_payload_json = {**feedback_payload, "learning_label": "negative"}
     tampered = _technical_report_claim_feedback_row_integrity(row)

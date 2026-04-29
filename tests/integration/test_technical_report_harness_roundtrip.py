@@ -1160,6 +1160,14 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["claim_retrieval_feedback_integrity"]["complete"] is True
     assert audit_bundle["claim_retrieval_feedback_integrity"]["coverage_complete"] is True
     assert audit_bundle["claim_retrieval_feedback_integrity"]["integrity_verified"] is True
+    assert (
+        audit_bundle["claim_retrieval_feedback_integrity"]["live_link_integrity_required"]
+        is True
+    )
+    assert (
+        audit_bundle["claim_retrieval_feedback_integrity"]["live_link_integrity_verified"]
+        is True
+    )
     assert audit_bundle["audit_checklist"]["has_claim_retrieval_feedback_ledger"] is True
     assert audit_bundle["audit_checklist"]["claim_retrieval_feedback_coverage_complete"] is True
     assert audit_bundle["audit_checklist"]["claim_retrieval_feedback_integrity_verified"] is True
@@ -1229,6 +1237,12 @@ def test_technical_report_harness_roundtrip(
     assert (
         manifest["report_trace"]["claim_retrieval_feedback_integrity"]["complete"]
         is True
+    )
+    assert (
+        manifest["report_trace"]["claim_retrieval_feedback_integrity"][
+            "live_link_integrity_required"
+        ]
+        is False
     )
     assert manifest["report_trace"]["context_pack_audit"]["integrity"]["complete"] is True
     assert manifest["report_trace"]["context_pack_audit"]["context_pack_sha256s"] == [
@@ -1314,6 +1328,54 @@ def test_technical_report_harness_roundtrip(
             for row in feedback_rows
         )
         assert all(row.semantic_governance_event_id for row in feedback_rows)
+
+    with postgres_integration_harness.session_factory() as session:
+        feedback_row = session.scalar(
+            select(TechnicalReportClaimRetrievalFeedback).where(
+                TechnicalReportClaimRetrievalFeedback.technical_report_verification_task_id
+                == verify_task_id
+            )
+        )
+        assert feedback_row is not None
+        original_feedback_gate_id = feedback_row.release_readiness_db_gate_id
+        feedback_row.release_readiness_db_gate_id = None
+        session.commit()
+
+    tampered_feedback_link_audit_response = client.get(
+        f"/agent-tasks/{verify_task_id}/audit-bundle"
+    )
+    assert tampered_feedback_link_audit_response.status_code == 200
+    tampered_feedback_link_audit = tampered_feedback_link_audit_response.json()
+    assert (
+        tampered_feedback_link_audit["claim_retrieval_feedback_integrity"][
+            "source_payload_column_mismatch_count"
+        ]
+        == 1
+    )
+    assert (
+        tampered_feedback_link_audit["claim_retrieval_feedback_integrity"][
+            "live_link_mismatch_count"
+        ]
+        == 1
+    )
+    assert (
+        tampered_feedback_link_audit["audit_checklist"][
+            "claim_retrieval_feedback_integrity_verified"
+        ]
+        is False
+    )
+    assert tampered_feedback_link_audit["audit_checklist"]["complete"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        feedback_row = session.scalar(
+            select(TechnicalReportClaimRetrievalFeedback).where(
+                TechnicalReportClaimRetrievalFeedback.technical_report_verification_task_id
+                == verify_task_id
+            )
+        )
+        assert feedback_row is not None
+        feedback_row.release_readiness_db_gate_id = original_feedback_gate_id
+        session.commit()
 
     with postgres_integration_harness.session_factory() as session:
         gate_row = session.get(
