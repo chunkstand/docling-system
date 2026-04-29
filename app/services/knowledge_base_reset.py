@@ -496,10 +496,54 @@ def _pg_dump_command_and_env(
     return command_args, env
 
 
-def _run_pg_dump(database_url: str, dump_path: Path) -> None:
-    if shutil.which("pg_dump") is None:
-        raise KnowledgeBaseResetError("pg_dump is required for reset archives but was not found.")
+def _compose_pg_dump_command_and_env(database_url: str) -> tuple[list[str], dict[str, str]]:
+    url = make_url(database_url)
+    command_args = ["docker", "compose", "exec", "-T"]
+    env = os.environ.copy()
+    if url.password:
+        env["PGPASSWORD"] = url.password
+        command_args.extend(["--env", "PGPASSWORD"])
+    command_args.extend(["db", "pg_dump", "--format=custom"])
+    if url.host:
+        host = "localhost" if url.host in {"localhost", "127.0.0.1", "::1"} else url.host
+        command_args.extend(["--host", host])
+    if url.port:
+        command_args.extend(["--port", str(url.port)])
+    if url.username:
+        command_args.extend(["--username", url.username])
+    if url.database:
+        command_args.append(url.database)
+    return command_args, env
+
+
+def _run_pg_dump(
+    database_url: str,
+    dump_path: Path,
+    *,
+    project_root: Path | None = None,
+) -> None:
     dump_path.parent.mkdir(parents=True, exist_ok=True)
+    if shutil.which("pg_dump") is None:
+        if project_root is None or shutil.which("docker") is None:
+            raise KnowledgeBaseResetError(
+                "pg_dump is required for reset archives but was not found."
+            )
+        command_args, env = _compose_pg_dump_command_and_env(database_url)
+        with dump_path.open("wb") as output_file:
+            result = subprocess.run(
+                command_args,
+                cwd=str(project_root),
+                check=False,
+                stdout=output_file,
+                stderr=subprocess.PIPE,
+                env=env,
+            )
+        if result.returncode != 0:
+            dump_path.unlink(missing_ok=True)
+            stderr = result.stderr.decode(errors="replace").strip()
+            raise KnowledgeBaseResetError(f"container pg_dump failed: {stderr}")
+        return
+
     command_args, env = _pg_dump_command_and_env(database_url, dump_path)
     result = subprocess.run(
         command_args,
@@ -659,7 +703,11 @@ def execute_knowledge_base_reset(options: KnowledgeBaseResetOptions) -> dict[str
 
     archive_root.mkdir(parents=True, exist_ok=True)
     _write_json(archive_root / "manifest.json", manifest)
-    _run_pg_dump(database_url, Path(manifest["archive_paths"]["database_dump"]))
+    _run_pg_dump(
+        database_url,
+        Path(manifest["archive_paths"]["database_dump"]),
+        project_root=options.project_root,
+    )
     _create_database(database_url, new_database_name)
     _backup_and_update_env(options.project_root, archive_root, new_database_name)
     _run_alembic_upgrade(options.project_root)

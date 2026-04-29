@@ -11,6 +11,7 @@ from app.services.knowledge_base_reset import (
     KnowledgeBaseResetError,
     KnowledgeBaseResetOptions,
     _backup_and_update_env,
+    _compose_pg_dump_command_and_env,
     _pg_dump_command_and_env,
     _post_reset_checks,
     _require_safe_to_execute,
@@ -47,6 +48,17 @@ def test_pg_dump_command_keeps_password_out_of_process_args(tmp_path) -> None:
 
     assert "secret" not in " ".join(args)
     assert env["PGPASSWORD"] == "secret"
+    assert args[-1] == "docling_system"
+
+
+def test_compose_pg_dump_keeps_password_out_of_process_args() -> None:
+    args, env = _compose_pg_dump_command_and_env(
+        "postgresql+psycopg://docling:secret@localhost:5432/docling_system",
+    )
+
+    assert "secret" not in " ".join(args)
+    assert env["PGPASSWORD"] == "secret"
+    assert args[:5] == ["docker", "compose", "exec", "-T", "--env"]
     assert args[-1] == "docling_system"
 
 
