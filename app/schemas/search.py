@@ -418,11 +418,12 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
 
 class SearchHarnessReleaseReadinessResponse(BaseModel):
     schema_name: str = "search_harness_release_readiness"
-    schema_version: str = "1.1"
+    schema_version: str = "1.2"
     release_id: UUID
     readiness_profile: str
     ready: bool
     blockers: list[str] = Field(default_factory=list)
+    blocker_details: list[dict] = Field(default_factory=list)
     retrieval: dict = Field(default_factory=dict)
     provenance: dict = Field(default_factory=dict)
     semantic_governance: dict = Field(default_factory=dict)

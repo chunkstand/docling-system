@@ -262,6 +262,20 @@ def test_semantic_governance_ledger_records_lifecycle_events_and_is_append_only(
         "provenance_ready",
         "validation_receipts_ready",
     }
+    assert [row["blocker"] for row in readiness_before_audit["blocker_details"]] == [
+        "provenance_ready",
+        "validation_receipts_ready",
+    ]
+    assert readiness_before_audit["blocker_details"][0]["reasons"] == [
+        "release_audit_bundle_missing",
+        "release_audit_bundle_not_completed",
+    ]
+    assert readiness_before_audit["blocker_details"][1]["reasons"] == [
+        "release_validation_receipt_missing"
+    ]
+    assert readiness_before_audit["diagnostics"]["release_audit_bundle_present"] is False
+    assert readiness_before_audit["diagnostics"]["validation_error_codes"] == []
+    assert readiness_before_audit["lineage_remediation"]["status"] == "clear"
 
     audit_response = postgres_integration_harness.client.post(
         f"/search/harness-releases/{release_id}/audit-bundles",
@@ -292,6 +306,7 @@ def test_semantic_governance_ledger_records_lifecycle_events_and_is_append_only(
     assert readiness_after_audit_response.status_code == 200
     readiness_after_audit = readiness_after_audit_response.json()
     assert readiness_after_audit["ready"] is True
+    assert readiness_after_audit["blocker_details"] == []
     assert readiness_after_audit["semantic_governance"]["semantic_coverage_claimed"] is True
     assert readiness_after_audit["validation_receipts"]["semantic_governance_valid"] is True
 

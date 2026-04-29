@@ -938,6 +938,22 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
     assert readiness["ready"] is False
     assert readiness["blockers"] == ["validation_receipts_ready"]
     assert readiness["checks"]["validation_receipts_ready"] is False
+    assert len(readiness["blocker_details"]) == 1
+    blocker_detail = readiness["blocker_details"][0]
+    assert blocker_detail["blocker"] == "validation_receipts_ready"
+    assert blocker_detail["reasons"] == [
+        "release_validation_receipt_failed",
+        "payload_schema_invalid",
+    ]
+    assert blocker_detail["validation_error_codes"] == [
+        "audit_checklist_incomplete",
+        "training_bundle_corpus_lineage_incomplete",
+    ]
+    assert blocker_detail["audit_checklist_failed"] == [
+        "training_audit_bundle_corpus_lineage_complete",
+        "training_audit_bundle_validation_receipts_complete",
+    ]
+    assert blocker_detail["lineage_remediation_required"] is True
     assert readiness["validation_receipts"]["release_validation_receipt_passed"] is False
     assert readiness["validation_receipts"]["validation_error_codes"] == [
         "audit_checklist_incomplete",

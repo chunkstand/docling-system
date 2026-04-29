@@ -158,9 +158,10 @@ readiness endpoint combines retrieval gate status, latest release audit bundle s
 release validation receipt status, and semantic governance policy status into one
 document-generation gate. It also returns a machine-readable diagnostics envelope with
 latest validation errors, failed audit-checklist keys, linked training-bundle lineage
-match checks, and replay-alert corpus remediation items so operators can see which
-training run, audit bundle, and corpus source need repair before retrying the release
-audit export. The database enforces that audit bundle source IDs match
+match checks, blocker details with normalized reason codes, and replay-alert corpus
+remediation items so operators can see which training run, audit bundle, and corpus
+source need repair before retrying the release audit export. The database enforces
+that audit bundle source IDs match
 their concrete release or training-run foreign keys. That keeps the signed release
 package traceable from release gate back to the exact auditable dataset that
 influenced the candidate, and gives downstream document-generation workflows a

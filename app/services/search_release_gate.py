@@ -559,6 +559,114 @@ def _lineage_remediation(payload: dict) -> dict:
     }
 
 
+def _false_check_reasons(checks: dict) -> list[str]:
+    return sorted(
+        key
+        for key, value in checks.items()
+        if key != "complete" and value is False
+    )
+
+
+def _readiness_blocker_details(
+    *,
+    checks: dict,
+    retrieval: dict,
+    provenance: dict,
+    validation_receipts: dict,
+    semantic_governance: dict,
+    diagnostics: dict,
+    lineage_remediation: dict,
+) -> list[dict]:
+    details: list[dict] = []
+    if checks.get("retrieval_ready") is False:
+        reasons = []
+        if retrieval.get("release_passed") is not True:
+            reasons.append("release_gate_not_passed")
+        if retrieval.get("evaluation_snapshot_present") is not True:
+            reasons.append("evaluation_snapshot_missing")
+        if retrieval.get("release_package_hash_matches") is not True:
+            reasons.append("release_package_hash_mismatch")
+        details.append(
+            {
+                "blocker": "retrieval_ready",
+                "reasons": reasons,
+                "suggested_operator_action": (
+                    "Inspect the release gate result and recreate the release from a "
+                    "passed evaluation with an intact release package."
+                ),
+            }
+        )
+    if checks.get("provenance_ready") is False:
+        reasons = []
+        if provenance.get("release_audit_bundle_present") is not True:
+            reasons.append("release_audit_bundle_missing")
+        if provenance.get("release_audit_bundle_completed") is not True:
+            reasons.append("release_audit_bundle_not_completed")
+        details.append(
+            {
+                "blocker": "provenance_ready",
+                "reasons": reasons,
+                "release_audit_bundle_id": provenance.get("latest_release_audit_bundle_id"),
+                "suggested_operator_action": (
+                    "Create or refresh the release audit bundle before using this release "
+                    "for document generation."
+                ),
+            }
+        )
+    if checks.get("semantic_governance_ready") is False:
+        semantic_checks = semantic_governance.get("checks") or {}
+        details.append(
+            {
+                "blocker": "semantic_governance_ready",
+                "reasons": _false_check_reasons(semantic_checks),
+                "suggested_operator_action": (
+                    "Repair the semantic governance policy references and recreate the "
+                    "release audit bundle."
+                ),
+            }
+        )
+    if checks.get("validation_receipts_ready") is False:
+        reasons = []
+        if validation_receipts.get("release_validation_receipt_present") is not True:
+            reasons.append("release_validation_receipt_missing")
+        else:
+            if validation_receipts.get("release_validation_receipt_passed") is not True:
+                reasons.append("release_validation_receipt_failed")
+            if validation_receipts.get("payload_schema_valid") is not True:
+                reasons.append("payload_schema_invalid")
+            if validation_receipts.get("prov_graph_valid") is not True:
+                reasons.append("prov_graph_invalid")
+            if validation_receipts.get("bundle_integrity_valid") is not True:
+                reasons.append("bundle_integrity_invalid")
+            if validation_receipts.get("source_integrity_valid") is not True:
+                reasons.append("source_integrity_invalid")
+            if validation_receipts.get("semantic_governance_valid") is not True:
+                reasons.append("semantic_governance_invalid")
+        details.append(
+            {
+                "blocker": "validation_receipts_ready",
+                "reasons": reasons,
+                "release_validation_receipt_id": (
+                    validation_receipts.get("latest_release_validation_receipt_id")
+                ),
+                "validation_error_codes": list(
+                    validation_receipts.get("validation_error_codes") or []
+                ),
+                "audit_checklist_failed": list(
+                    diagnostics.get("audit_checklist_failed") or []
+                ),
+                "lineage_remediation_required": bool(
+                    lineage_remediation.get("action_required")
+                ),
+                "suggested_operator_action": (
+                    "Resolve validation errors, then recreate the release audit bundle "
+                    "and validation receipt."
+                ),
+            }
+        )
+    return details
+
+
 def get_search_harness_release_readiness(
     session: Session,
     release_id: UUID,
@@ -652,11 +760,21 @@ def get_search_harness_release_readiness(
     }
     checks["ready"] = all(checks.values())
     blockers = [key for key, value in checks.items() if key != "ready" and not value]
+    blocker_details = _readiness_blocker_details(
+        checks=checks,
+        retrieval=retrieval,
+        provenance=provenance,
+        validation_receipts=validation_receipts,
+        semantic_governance=semantic_governance,
+        diagnostics=diagnostics,
+        lineage_remediation=lineage_remediation,
+    )
     return SearchHarnessReleaseReadinessResponse(
         release_id=release.id,
         readiness_profile=READINESS_PROFILE,
         ready=checks["ready"],
         blockers=blockers,
+        blocker_details=blocker_details,
         retrieval=retrieval,
         provenance=provenance,
         semantic_governance=semantic_governance,

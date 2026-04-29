@@ -658,7 +658,9 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     )
     assert readiness_after_export_response.status_code == 200
     readiness_after_export = readiness_after_export_response.json()
+    assert readiness_after_export["schema_version"] == "1.2"
     assert readiness_after_export["ready"] is True
+    assert readiness_after_export["blocker_details"] == []
     assert readiness_after_export["checks"] == {
         "retrieval_ready": True,
         "provenance_ready": True,
@@ -670,6 +672,8 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         readiness_after_export["validation_receipts"]["latest_release_validation_receipt_id"]
         == auto_validation_receipt["receipt_id"]
     )
+    assert readiness_after_export["diagnostics"]["validation_error_codes"] == []
+    assert readiness_after_export["lineage_remediation"]["status"] == "clear"
 
     validation_response = postgres_integration_harness.client.post(
         f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
@@ -714,6 +718,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert readiness_response.status_code == 200
     readiness = readiness_response.json()
     assert readiness["ready"] is True
+    assert readiness["blocker_details"] == []
     assert readiness["checks"] == {
         "retrieval_ready": True,
         "provenance_ready": True,
