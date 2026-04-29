@@ -172,10 +172,13 @@ operators freeze the live readiness result with `POST
 `search_harness_release_readiness_assessment` row is immutable, links the release,
 latest release audit bundle, latest validation receipt, and semantic governance
 event, stores the full readiness payload plus assessment wrapper, and records stable
-SHA-256 hashes for both. `GET /search/harness-releases/{release_id}/readiness` stays
-live and reports the latest frozen assessment reference when one exists; downstream
-document generation should cite the frozen assessment ID and hash, not only a freshly
-recomputed readiness response. The database enforces that audit bundle source IDs match
+SHA-256 hashes for both. Assessment detail responses include an `integrity` envelope
+that recomputes the stored readiness/assessment payload hashes and checks that the
+embedded release, audit-bundle, validation-receipt, readiness-status, and blocker
+links still match the row. `GET /search/harness-releases/{release_id}/readiness`
+stays live and reports the latest frozen assessment reference when one exists;
+downstream document generation should cite the frozen assessment ID and hash, not only
+a freshly recomputed readiness response. The database enforces that audit bundle source IDs match
 their concrete release or training-run foreign keys. That keeps the signed release
 package traceable from release gate back to the exact auditable dataset that
 influenced the candidate, and gives downstream document-generation workflows a

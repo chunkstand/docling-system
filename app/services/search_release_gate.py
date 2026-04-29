@@ -176,11 +176,64 @@ def _to_readiness_assessment_summary(
     )
 
 
+def _uuid_matches(payload_value: object, row_value: UUID | None) -> bool:
+    return payload_value == (str(row_value) if row_value is not None else None)
+
+
+def _readiness_assessment_integrity(
+    row: SearchHarnessReleaseReadinessAssessment,
+) -> dict:
+    readiness_payload = row.readiness_payload_json or {}
+    assessment_payload = row.assessment_payload_json or {}
+    embedded_readiness = assessment_payload.get("readiness") or {}
+    checks = {
+        "readiness_payload_hash_matches": (
+            _payload_sha256(readiness_payload) == row.readiness_payload_sha256
+        ),
+        "assessment_payload_hash_matches": (
+            _payload_sha256(assessment_payload) == row.assessment_payload_sha256
+        ),
+        "assessment_payload_embeds_readiness_hash": (
+            _payload_sha256(embedded_readiness) == row.readiness_payload_sha256
+        ),
+        "assessment_id_matches": assessment_payload.get("assessment_id") == str(row.id),
+        "release_id_matches": _uuid_matches(
+            assessment_payload.get("search_harness_release_id"),
+            row.search_harness_release_id,
+        ),
+        "readiness_release_id_matches": _uuid_matches(
+            readiness_payload.get("release_id"),
+            row.search_harness_release_id,
+        ),
+        "release_audit_bundle_id_matches": _uuid_matches(
+            assessment_payload.get("latest_release_audit_bundle_id"),
+            row.release_audit_bundle_id,
+        ),
+        "release_validation_receipt_id_matches": _uuid_matches(
+            assessment_payload.get("latest_release_validation_receipt_id"),
+            row.release_validation_receipt_id,
+        ),
+        "readiness_status_matches": (
+            assessment_payload.get("readiness_status") == row.readiness_status
+        ),
+        "ready_matches": assessment_payload.get("ready") == row.ready,
+        "blockers_match": list(assessment_payload.get("blockers") or [])
+        == list(row.blockers_json or []),
+    }
+    return {
+        "schema_name": "search_harness_release_readiness_assessment_integrity",
+        "schema_version": "1.0",
+        **checks,
+        "complete": all(checks.values()),
+    }
+
+
 def _to_readiness_assessment_response(
     row: SearchHarnessReleaseReadinessAssessment,
 ) -> SearchHarnessReleaseReadinessAssessmentResponse:
     summary = _to_readiness_assessment_summary(row).model_dump()
     summary["schema_name"] = "search_harness_release_readiness_assessment"
+    summary["schema_version"] = "1.1"
     return SearchHarnessReleaseReadinessAssessmentResponse(
         **summary,
         blocker_details=list(row.blocker_details_json or []),
@@ -189,6 +242,7 @@ def _to_readiness_assessment_response(
         lineage_remediation=row.lineage_remediation_json or {},
         readiness=row.readiness_payload_json or {},
         assessment=row.assessment_payload_json or {},
+        integrity=_readiness_assessment_integrity(row),
     )
 
 

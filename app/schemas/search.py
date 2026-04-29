@@ -444,12 +444,14 @@ class SearchHarnessReleaseReadinessAssessmentResponse(
     SearchHarnessReleaseReadinessAssessmentSummaryResponse
 ):
     schema_name: str = "search_harness_release_readiness_assessment"
+    schema_version: str = "1.1"
     blocker_details: list[dict] = Field(default_factory=list)
     checks: dict = Field(default_factory=dict)
     diagnostics: dict = Field(default_factory=dict)
     lineage_remediation: dict = Field(default_factory=dict)
     readiness: dict = Field(default_factory=dict)
     assessment: dict = Field(default_factory=dict)
+    integrity: dict = Field(default_factory=dict)
 
 
 class SearchHarnessReleaseReadinessResponse(BaseModel):

@@ -998,6 +998,7 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
     )
     assert assessment_response.status_code == 200
     assessment = assessment_response.json()
+    assert assessment["schema_version"] == "1.1"
     assert assessment["readiness_status"] == "blocked"
     assert assessment["ready"] is False
     assert assessment["blockers"] == ["validation_receipts_ready"]
@@ -1012,6 +1013,11 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
     assert assessment["readiness"]["ready"] is False
     assert assessment["readiness"]["latest_readiness_assessment"] is None
     assert assessment["semantic_governance_event_id"]
+    assert assessment["integrity"]["complete"] is True
+    assert assessment["integrity"]["readiness_payload_hash_matches"] is True
+    assert assessment["integrity"]["assessment_payload_hash_matches"] is True
+    assert assessment["integrity"]["assessment_payload_embeds_readiness_hash"] is True
+    assert assessment["integrity"]["readiness_status_matches"] is True
 
     latest_assessment_response = postgres_integration_harness.client.get(
         f"/search/harness-releases/{release_id}/readiness-assessments/latest"
@@ -1020,6 +1026,7 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
     assert latest_assessment_response.json()["assessment_id"] == (
         assessment["assessment_id"]
     )
+    assert latest_assessment_response.json()["integrity"]["complete"] is True
 
     readiness_after_assessment_response = postgres_integration_harness.client.get(
         f"/search/harness-releases/{release_id}/readiness"

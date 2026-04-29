@@ -751,6 +751,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
         f"{assessment['assessment_id']}"
     )
     assert assessment["schema_name"] == "search_harness_release_readiness_assessment"
+    assert assessment["schema_version"] == "1.1"
     assert assessment["readiness_status"] == "ready"
     assert assessment["ready"] is True
     assert assessment["blockers"] == []
@@ -765,6 +766,12 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert assessment["readiness"]["ready"] is True
     assert assessment["readiness"]["latest_readiness_assessment"] is None
     assert assessment["assessment"]["readiness_status"] == "ready"
+    assert assessment["integrity"]["complete"] is True
+    assert assessment["integrity"]["readiness_payload_hash_matches"] is True
+    assert assessment["integrity"]["assessment_payload_hash_matches"] is True
+    assert assessment["integrity"]["assessment_payload_embeds_readiness_hash"] is True
+    assert assessment["integrity"]["release_audit_bundle_id_matches"] is True
+    assert assessment["integrity"]["release_validation_receipt_id_matches"] is True
 
     latest_assessment_response = postgres_integration_harness.client.get(
         f"/search/harness-releases/{release_id}/readiness-assessments/latest"
@@ -773,6 +780,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert latest_assessment_response.json()["assessment_id"] == (
         assessment["assessment_id"]
     )
+    assert latest_assessment_response.json()["integrity"]["complete"] is True
 
     assessment_detail_response = postgres_integration_harness.client.get(
         assessment_response.headers["Location"]
@@ -781,6 +789,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     assert assessment_detail_response.json()["assessment_id"] == (
         assessment["assessment_id"]
     )
+    assert assessment_detail_response.json()["integrity"]["complete"] is True
 
     readiness_with_assessment_response = postgres_integration_harness.client.get(
         f"/search/harness-releases/{release_id}/readiness"
