@@ -930,6 +930,50 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
         error["code"] == "training_bundle_corpus_lineage_incomplete"
         for error in latest_release_receipt["validation_errors"]
     )
+    readiness_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_response.status_code == 200
+    readiness = readiness_response.json()
+    assert readiness["ready"] is False
+    assert readiness["blockers"] == ["validation_receipts_ready"]
+    assert readiness["checks"]["validation_receipts_ready"] is False
+    assert readiness["validation_receipts"]["release_validation_receipt_passed"] is False
+    assert readiness["validation_receipts"]["validation_error_codes"] == [
+        "audit_checklist_incomplete",
+        "training_bundle_corpus_lineage_incomplete",
+    ]
+    diagnostics = readiness["diagnostics"]
+    assert diagnostics["release_audit_bundle_id"] == release_audit_bundle["bundle_id"]
+    assert diagnostics["release_validation_receipt_id"] == latest_release_receipt["receipt_id"]
+    assert diagnostics["release_validation_status"] == "failed"
+    assert diagnostics["validation_error_codes"] == [
+        "audit_checklist_incomplete",
+        "training_bundle_corpus_lineage_incomplete",
+    ]
+    assert "training_audit_bundle_corpus_lineage_complete" in (
+        diagnostics["audit_checklist_failed"]
+    )
+    diagnostic_match_check = diagnostics["training_audit_bundle_match_checks"][0]
+    assert diagnostic_match_check["retrieval_training_run_id"] == str(training_run_id)
+    assert diagnostic_match_check["claim_support_replay_alert_corpus_lineage_complete"] is False
+    remediation = readiness["lineage_remediation"]
+    assert remediation["status"] == "action_required"
+    assert remediation["action_required"] is True
+    assert remediation["affected_training_run_count"] == 1
+    remediation_item = remediation["replay_alert_corpus"]["items"][0]
+    assert remediation_item["retrieval_training_run_id"] == str(training_run_id)
+    assert remediation_item["training_audit_bundle_id"] == training_bundle_ref["bundle_id"]
+    assert remediation_item["bundle_lineage_complete"] is False
+    assert remediation_item["current_lineage_complete"] is False
+    assert remediation_item["source_reference_counts_match"] is True
+    assert remediation_item["failure_reasons"] == [
+        "training_bundle_lineage_incomplete",
+        "current_corpus_lineage_incomplete",
+    ]
+    assert "recreate the release audit bundle" in (
+        remediation_item["suggested_operator_action"]
+    )
 
     with postgres_integration_harness.session_factory() as session:
         refreshed_training_bundle = session.get(

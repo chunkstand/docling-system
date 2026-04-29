@@ -424,6 +424,141 @@ def _latest_validation_receipt(
     )
 
 
+def _release_audit_payload(row: AuditBundleExport | None) -> dict:
+    if row is None:
+        return {}
+    bundle = row.bundle_payload_json if isinstance(row.bundle_payload_json, dict) else {}
+    payload = bundle.get("payload") or {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _validation_errors(row: AuditBundleValidationReceipt | None) -> list[dict]:
+    if row is None:
+        return []
+    return [error for error in row.validation_errors_json or [] if isinstance(error, dict)]
+
+
+def _validation_error_codes(errors: list[dict]) -> list[str]:
+    return sorted(
+        {
+            str(error["code"])
+            for error in errors
+            if error.get("code") not in {None, ""}
+        }
+    )
+
+
+def _failed_audit_check_keys(audit_checklist: dict) -> list[str]:
+    return sorted(
+        key
+        for key, value in audit_checklist.items()
+        if key != "complete" and value is False
+    )
+
+
+def _training_audit_bundle_match_checks(payload: dict) -> list[dict]:
+    integrity = payload.get("integrity") or {}
+    checks = integrity.get("training_audit_bundle_match_checks") or []
+    return [row for row in checks if isinstance(row, dict)]
+
+
+def _readiness_diagnostics(
+    *,
+    audit_bundle: AuditBundleExport | None,
+    validation_receipt: AuditBundleValidationReceipt | None,
+    payload: dict,
+) -> dict:
+    audit_checklist = payload.get("audit_checklist") or {}
+    audit_checklist = audit_checklist if isinstance(audit_checklist, dict) else {}
+    errors = _validation_errors(validation_receipt)
+    match_checks = _training_audit_bundle_match_checks(payload)
+    return {
+        "schema_name": "search_harness_release_readiness_diagnostics",
+        "schema_version": "1.0",
+        "release_audit_bundle_id": str(audit_bundle.id) if audit_bundle else None,
+        "release_audit_bundle_present": audit_bundle is not None,
+        "release_validation_receipt_id": (
+            str(validation_receipt.id) if validation_receipt else None
+        ),
+        "release_validation_status": (
+            validation_receipt.validation_status if validation_receipt else None
+        ),
+        "validation_error_count": len(errors),
+        "validation_error_codes": _validation_error_codes(errors),
+        "validation_errors": errors,
+        "audit_checklist_complete": audit_checklist.get("complete"),
+        "audit_checklist_failed": _failed_audit_check_keys(audit_checklist),
+        "training_audit_bundle_match_checks": match_checks,
+    }
+
+
+def _lineage_failure_reasons(check: dict) -> list[str]:
+    reasons: list[str] = []
+    if check.get("hashes_match_training_run") is False:
+        reasons.append("training_bundle_hash_mismatch")
+    if check.get("claim_support_replay_alert_corpus_lineage_bundle_complete") is False:
+        reasons.append("training_bundle_lineage_incomplete")
+    if check.get("claim_support_replay_alert_corpus_lineage_current_complete") is False:
+        reasons.append("current_corpus_lineage_incomplete")
+    if check.get("claim_support_replay_alert_corpus_source_reference_counts_match") is False:
+        reasons.append("source_reference_count_mismatch")
+    if not reasons and check.get("claim_support_replay_alert_corpus_lineage_complete") is False:
+        reasons.append("claim_support_replay_alert_corpus_lineage_incomplete")
+    return reasons
+
+
+def _lineage_remediation(payload: dict) -> dict:
+    match_checks = _training_audit_bundle_match_checks(payload)
+    affected = []
+    for check in match_checks:
+        if check.get("claim_support_replay_alert_corpus_lineage_required") is not True:
+            continue
+        if check.get("claim_support_replay_alert_corpus_lineage_complete") is True:
+            continue
+        affected.append(
+            {
+                "retrieval_training_run_id": check.get("retrieval_training_run_id"),
+                "training_audit_bundle_id": check.get("audit_bundle_id"),
+                "training_dataset_sha256": check.get("training_dataset_sha256"),
+                "hashes_match_training_run": check.get("hashes_match_training_run"),
+                "bundle_lineage_complete": check.get(
+                    "claim_support_replay_alert_corpus_lineage_bundle_complete"
+                ),
+                "current_lineage_complete": check.get(
+                    "claim_support_replay_alert_corpus_lineage_current_complete"
+                ),
+                "source_reference_count": check.get(
+                    "claim_support_replay_alert_corpus_source_reference_count"
+                ),
+                "payload_source_reference_count": check.get(
+                    "payload_claim_support_replay_alert_corpus_source_reference_count"
+                ),
+                "source_reference_counts_match": check.get(
+                    "claim_support_replay_alert_corpus_source_reference_counts_match"
+                ),
+                "current_failures": list(
+                    check.get("claim_support_replay_alert_corpus_current_failures") or []
+                ),
+                "failure_reasons": _lineage_failure_reasons(check),
+                "suggested_operator_action": (
+                    "Repair or repromote the governed replay-alert fixture corpus, "
+                    "then recreate the release audit bundle and validation receipt."
+                ),
+            }
+        )
+    return {
+        "schema_name": "search_harness_release_lineage_remediation",
+        "schema_version": "1.0",
+        "status": "action_required" if affected else "clear",
+        "action_required": bool(affected),
+        "affected_training_run_count": len(affected),
+        "replay_alert_corpus": {
+            "affected_training_run_count": len(affected),
+            "items": affected,
+        },
+    }
+
+
 def get_search_harness_release_readiness(
     session: Session,
     release_id: UUID,
@@ -480,9 +615,19 @@ def get_search_harness_release_readiness(
             validation_receipt.semantic_governance_valid if validation_receipt else False
         ),
     }
+    validation_errors = _validation_errors(validation_receipt)
+    validation_receipts["validation_error_count"] = len(validation_errors)
+    validation_receipts["validation_error_codes"] = _validation_error_codes(validation_errors)
 
     semantic_context = search_harness_release_semantic_governance_context(session, release)
     semantic_governance = semantic_context["policy"]
+    release_audit_payload = _release_audit_payload(audit_bundle)
+    diagnostics = _readiness_diagnostics(
+        audit_bundle=audit_bundle,
+        validation_receipt=validation_receipt,
+        payload=release_audit_payload,
+    )
+    lineage_remediation = _lineage_remediation(release_audit_payload)
 
     checks = {
         "retrieval_ready": (
@@ -516,6 +661,8 @@ def get_search_harness_release_readiness(
         provenance=provenance,
         semantic_governance=semantic_governance,
         validation_receipts=validation_receipts,
+        diagnostics=diagnostics,
+        lineage_remediation=lineage_remediation,
         checks=checks,
         generated_at=utcnow(),
     )

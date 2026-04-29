@@ -418,7 +418,7 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
 
 class SearchHarnessReleaseReadinessResponse(BaseModel):
     schema_name: str = "search_harness_release_readiness"
-    schema_version: str = "1.0"
+    schema_version: str = "1.1"
     release_id: UUID
     readiness_profile: str
     ready: bool
@@ -427,6 +427,8 @@ class SearchHarnessReleaseReadinessResponse(BaseModel):
     provenance: dict = Field(default_factory=dict)
     semantic_governance: dict = Field(default_factory=dict)
     validation_receipts: dict = Field(default_factory=dict)
+    diagnostics: dict = Field(default_factory=dict)
+    lineage_remediation: dict = Field(default_factory=dict)
     checks: dict = Field(default_factory=dict)
     generated_at: datetime
 
