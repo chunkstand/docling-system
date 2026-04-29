@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -22,27 +21,26 @@ from app.db.base import Base
 from app.db.models import AgentTask, AgentTaskStatus, DocumentRun, RunStatus
 from app.db.session import get_engine, get_session_factory
 from app.services.evaluations import AUTO_CORPUS_FILENAME
+from app.services.knowledge_base_reset_contracts import KnowledgeBaseResetError
+from app.services.knowledge_base_reset_environment import (
+    admin_database_url,
+    current_database_name,
+    generated_database_name,
+    git_sha,
+    is_local_database_url,
+    new_database_url,
+    redact_database_url,
+    run_command,
+    running_service_reports,
+    sanitize_database_name,
+    scan_old_data_references,
+    settings_payload,
+    utc_stamp,
+)
 from app.services.semantic_ontology import initialize_workspace_ontology
 from app.services.semantic_registry import clear_semantic_registry_cache
 
 RESET_CONFIRMATION = "CLEAR_KNOWLEDGE_BASE"
-OLD_DATA_PATTERNS = (
-    "UPC",
-    "The Bitter Lesson",
-    "TEST_PDF",
-    "debug.pdf",
-    "integration-report",
-    "integration_threshold",
-    "system_diagram",
-)
-RUNTIME_SCAN_PATHS = (
-    "app",
-    "config",
-    "docs",
-    "README.md",
-    "SYSTEM_PLAN.md",
-    "AGENTS.md",
-)
 SEMANTIC_ONTOLOGY_BOOTSTRAP_TABLES = frozenset(
     {
         "semantic_ontology_snapshots",
@@ -72,10 +70,6 @@ RUNNING_RUN_STATUSES = (
 )
 
 
-class KnowledgeBaseResetError(RuntimeError):
-    pass
-
-
 @dataclass(frozen=True)
 class KnowledgeBaseResetOptions:
     execute: bool = False
@@ -86,75 +80,6 @@ class KnowledgeBaseResetOptions:
     archive_root: Path | None = None
     new_database_name: str | None = None
     project_root: Path = Path.cwd()
-
-
-def _utc_stamp() -> str:
-    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-
-
-def _settings_payload() -> dict[str, Any]:
-    settings = get_settings()
-    return {
-        "env": settings.env,
-        "database_url": _redact_database_url(settings.database_url),
-        "storage_root": str(settings.storage_root.expanduser().resolve()),
-        "embedding_contract": {
-            "model": settings.openai_embedding_model,
-            "dimension": settings.embedding_dim,
-        },
-        "semantics_enabled": bool(settings.semantics_enabled),
-        "upper_ontology_path": str(settings.upper_ontology_path),
-        "semantic_registry_path": str(settings.semantic_registry_path)
-        if settings.semantic_registry_path
-        else None,
-    }
-
-
-def _redact_database_url(database_url: str) -> str:
-    try:
-        return make_url(database_url).render_as_string(hide_password=True)
-    except Exception:
-        return "<unparseable>"
-
-
-def _is_local_database_url(database_url: str) -> bool:
-    try:
-        url = make_url(database_url)
-    except Exception:
-        return False
-    if not url.drivername.startswith("postgresql"):
-        return False
-    return (url.host or "localhost") in {"localhost", "127.0.0.1", "::1"}
-
-
-def _new_database_url(database_url: str, database_name: str) -> str:
-    return make_url(database_url).set(database=database_name).render_as_string(hide_password=False)
-
-
-def _admin_database_url(database_url: str) -> str:
-    return make_url(database_url).set(database="postgres").render_as_string(hide_password=False)
-
-
-def _current_database_name(database_url: str) -> str:
-    database = make_url(database_url).database
-    if not database:
-        raise KnowledgeBaseResetError("Database URL does not include a database name.")
-    return database
-
-
-def _sanitize_database_name(value: str) -> str:
-    candidate = re.sub(r"[^A-Za-z0-9_]+", "_", value).strip("_").lower()
-    if not candidate:
-        raise KnowledgeBaseResetError("New database name resolved to an empty value.")
-    if len(candidate) > 63:
-        candidate = candidate[:63].rstrip("_")
-    if not re.match(r"^[a-z_][a-z0-9_]*$", candidate):
-        candidate = f"kb_{candidate}"
-    return candidate
-
-
-def _generated_database_name(current_name: str, stamp: str) -> str:
-    return _sanitize_database_name(f"{current_name}_clean_{stamp.lower()}")
 
 
 def _count_rows(session: Session) -> dict[str, int | None]:
@@ -195,104 +120,8 @@ def _active_work_counts(session: Session) -> dict[str, int]:
     return {"document_runs": run_count, "agent_tasks": task_count}
 
 
-def _run_command(args: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        args,
-        cwd=str(cwd) if cwd is not None else None,
-        check=False,
-        text=True,
-        capture_output=True,
-    )
-
-
-def _git_sha(project_root: Path) -> str | None:
-    result = _run_command(["git", "rev-parse", "HEAD"], cwd=project_root)
-    if result.returncode != 0:
-        return None
-    return result.stdout.strip() or None
-
-
-def _running_local_processes() -> list[dict[str, str]]:
-    result = _run_command(
-        ["pgrep", "-fl", r"docling-system-(api|worker|agent-worker)"],
-    )
-    if result.returncode not in {0, 1}:
-        return []
-    processes: list[dict[str, str]] = []
-    for line in result.stdout.splitlines():
-        if not line.strip() or "docling-system-knowledge-base-reset" in line:
-            continue
-        pid, _, command_line = line.partition(" ")
-        processes.append({"kind": "process", "pid": pid, "command": command_line})
-    return processes
-
-
-def _running_compose_services(project_root: Path) -> list[dict[str, str]]:
-    compose_file = project_root / "docker-compose.yml"
-    if not compose_file.exists():
-        return []
-    result = _run_command(["docker", "compose", "ps", "--format", "json"], cwd=project_root)
-    if result.returncode != 0:
-        return []
-    rows: list[dict[str, Any]] = []
-    raw = result.stdout.strip()
-    if not raw:
-        return []
-    try:
-        decoded = json.loads(raw)
-        rows = decoded if isinstance(decoded, list) else [decoded]
-    except json.JSONDecodeError:
-        for line in raw.splitlines():
-            try:
-                decoded = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if isinstance(decoded, dict):
-                rows.append(decoded)
-    services: list[dict[str, str]] = []
-    for row in rows:
-        service = str(row.get("Service") or row.get("Name") or "")
-        state = str(row.get("State") or row.get("Status") or "").lower()
-        if service in {"api", "worker", "agent-worker"} and "running" in state:
-            services.append({"kind": "compose", "service": service, "state": state})
-    return services
-
-
-def running_service_reports(project_root: Path) -> list[dict[str, str]]:
-    return [*_running_local_processes(), *_running_compose_services(project_root)]
-
-
-def scan_old_data_references(project_root: Path) -> dict[str, list[dict[str, Any]]]:
-    results: dict[str, list[dict[str, Any]]] = {pattern: [] for pattern in OLD_DATA_PATTERNS}
-    for relative in RUNTIME_SCAN_PATHS:
-        root = project_root / relative
-        if not root.exists():
-            continue
-        paths = [root] if root.is_file() else [path for path in root.rglob("*") if path.is_file()]
-        for path in paths:
-            if path.parts and "__pycache__" in path.parts:
-                continue
-            try:
-                text_value = path.read_text(errors="ignore")
-            except OSError:
-                continue
-            if path.relative_to(project_root).as_posix() == "app/services/knowledge_base_reset.py":
-                continue
-            for line_number, line in enumerate(text_value.splitlines(), start=1):
-                for pattern in OLD_DATA_PATTERNS:
-                    if pattern in line:
-                        results[pattern].append(
-                            {
-                                "path": str(path.relative_to(project_root)),
-                                "line": line_number,
-                                "text": line.strip()[:220],
-                            }
-                        )
-    return results
-
-
 def _alembic_current(project_root: Path) -> str | None:
-    result = _run_command(["uv", "run", "alembic", "current"], cwd=project_root)
+    result = run_command(["uv", "run", "alembic", "current"], cwd=project_root)
     if result.returncode != 0:
         return None
     for line in reversed(result.stdout.splitlines()):
@@ -303,7 +132,7 @@ def _alembic_current(project_root: Path) -> str | None:
 
 
 def _alembic_heads(project_root: Path) -> list[str]:
-    result = _run_command(["uv", "run", "alembic", "heads"], cwd=project_root)
+    result = run_command(["uv", "run", "alembic", "heads"], cwd=project_root)
     if result.returncode != 0:
         return []
     return [
@@ -314,15 +143,15 @@ def _alembic_heads(project_root: Path) -> list[str]:
 
 
 def build_reset_manifest(options: KnowledgeBaseResetOptions, *, stamp: str | None = None) -> dict:
-    stamp = stamp or _utc_stamp()
+    stamp = stamp or utc_stamp()
     settings = get_settings()
     storage_root = settings.storage_root.expanduser().resolve()
     database_url = settings.database_url
-    current_database_name = _current_database_name(database_url)
+    current_name = current_database_name(database_url)
     new_database_name = (
-        _sanitize_database_name(options.new_database_name)
+        sanitize_database_name(options.new_database_name)
         if options.new_database_name
-        else _generated_database_name(current_database_name, stamp)
+        else generated_database_name(current_name, stamp)
     )
     archive_root = (
         options.archive_root.expanduser().resolve()
@@ -338,14 +167,14 @@ def build_reset_manifest(options: KnowledgeBaseResetOptions, *, stamp: str | Non
         "generated_at": datetime.now(UTC).isoformat(),
         "mode": "execute" if options.execute else "dry_run",
         "project_root": str(options.project_root.resolve()),
-        "git_sha": _git_sha(options.project_root),
-        "settings": _settings_payload(),
+        "git_sha": git_sha(options.project_root),
+        "settings": settings_payload(),
         "database": {
-            "old_url": _redact_database_url(database_url),
-            "old_name": current_database_name,
-            "new_url": _redact_database_url(_new_database_url(database_url, new_database_name)),
+            "old_url": redact_database_url(database_url),
+            "old_name": current_name,
+            "new_url": redact_database_url(new_database_url(database_url, new_database_name)),
             "new_name": new_database_name,
-            "is_local_postgres": _is_local_database_url(database_url),
+            "is_local_postgres": is_local_database_url(database_url),
             "alembic_current": _alembic_current(options.project_root),
             "alembic_heads": _alembic_heads(options.project_root),
         },
@@ -356,7 +185,7 @@ def build_reset_manifest(options: KnowledgeBaseResetOptions, *, stamp: str | Non
             "old_root_exists": storage_root.exists(),
         },
         "archive_paths": {
-            "database_dump": str(archive_root / f"{current_database_name}.{stamp}.dump"),
+            "database_dump": str(archive_root / f"{current_name}.{stamp}.dump"),
             "env_backup": str(archive_root / ".env.before-reset"),
             "storage_archive": str(archive_root / "storage"),
             "manifest": str(archive_root / "manifest.json"),
@@ -422,9 +251,9 @@ def _backup_and_update_env(project_root: Path, archive_root: Path, new_database_
         lines = []
 
     database_url = get_settings().database_url
-    new_database_url = _new_database_url(database_url, new_database_name)
+    updated_database_url = new_database_url(database_url, new_database_name)
     updates = {
-        "DOCLING_SYSTEM_DATABASE_URL": new_database_url,
+        "DOCLING_SYSTEM_DATABASE_URL": updated_database_url,
         "DOCLING_SYSTEM_POSTGRES_DB": new_database_name,
     }
     seen: set[str] = set()
@@ -443,7 +272,7 @@ def _backup_and_update_env(project_root: Path, archive_root: Path, new_database_
         if key not in seen:
             updated_lines.append(f"{key}={value}")
     env_path.write_text("\n".join(updated_lines).rstrip() + "\n")
-    os.environ["DOCLING_SYSTEM_DATABASE_URL"] = new_database_url
+    os.environ["DOCLING_SYSTEM_DATABASE_URL"] = updated_database_url
     os.environ["DOCLING_SYSTEM_POSTGRES_DB"] = new_database_name
     get_settings.cache_clear()
     get_engine.cache_clear()
@@ -453,7 +282,7 @@ def _backup_and_update_env(project_root: Path, archive_root: Path, new_database_
 
 def _create_database(database_url: str, database_name: str) -> None:
     admin_engine = create_engine(
-        _admin_database_url(database_url),
+        admin_database_url(database_url),
         future=True,
         isolation_level="AUTOCOMMIT",
     )
@@ -591,10 +420,7 @@ def _yaml_document_count(path: Path) -> int | None:
 
 
 def _post_reset_storage_checks(storage_root: Path, project_root: Path) -> dict[str, Any]:
-    directory_presence = {
-        name: (storage_root / name).is_dir()
-        for name in STORAGE_DIRECTORIES
-    }
+    directory_presence = {name: (storage_root / name).is_dir() for name in STORAGE_DIRECTORIES}
     auto_corpus_path = storage_root / AUTO_CORPUS_FILENAME
     manual_corpus_path = project_root / "docs" / "evaluation_corpus.yaml"
     semantic_corpus_path = project_root / "docs" / "semantic_evaluation_corpus.yaml"
@@ -619,10 +445,9 @@ def _post_reset_checks(
         if table_name not in SEMANTIC_ONTOLOGY_BOOTSTRAP_TABLES and count not in {0, None}
     }
     storage_checks = _post_reset_storage_checks(storage_root, project_root)
-    ontology_initialized = (
-        (table_counts.get("semantic_ontology_snapshots") or 0) >= 1
-        and (table_counts.get("workspace_semantic_state") or 0) >= 1
-    )
+    ontology_initialized = (table_counts.get("semantic_ontology_snapshots") or 0) >= 1 and (
+        table_counts.get("workspace_semantic_state") or 0
+    ) >= 1
     semantic_graph_empty = all(
         (table_counts.get(table_name) or 0) == 0
         for table_name in (
@@ -668,8 +493,8 @@ def _post_reset_manifest(project_root: Path, storage_root: Path) -> dict[str, An
     alembic_heads = _alembic_heads(project_root)
     return {
         "database": {
-            "url": _redact_database_url(settings.database_url),
-            "name": _current_database_name(settings.database_url),
+            "url": redact_database_url(settings.database_url),
+            "name": current_database_name(settings.database_url),
             "alembic_current": alembic_current,
             "alembic_heads": alembic_heads,
         },
@@ -689,7 +514,7 @@ def _post_reset_manifest(project_root: Path, storage_root: Path) -> dict[str, An
 
 
 def execute_knowledge_base_reset(options: KnowledgeBaseResetOptions) -> dict[str, Any]:
-    stamp = _utc_stamp()
+    stamp = utc_stamp()
     manifest = build_reset_manifest(options, stamp=stamp)
     if not options.execute:
         return manifest

@@ -1,0 +1,295 @@
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from uuid import UUID
+
+from app.core.hashes import payload_sha256
+from app.db.models import DocumentChunk, DocumentTable, RetrievalEvidenceSpan
+
+SPAN_SCHEMA_VERSION = "retrieval_evidence_span_v1"
+SPAN_WORD_WINDOW = 80
+SPAN_WORD_OVERLAP = 20
+SPAN_MIN_TRAILING_WORDS = 20
+MULTIVECTOR_SCHEMA_VERSION = "retrieval_evidence_span_multivector_v1"
+MULTIVECTOR_WORD_WINDOW = 16
+MULTIVECTOR_WORD_OVERLAP = 8
+MULTIVECTOR_MIN_TRAILING_WORDS = 6
+
+
+@dataclass(frozen=True)
+class SourceSpanSpec:
+    source_type: str
+    source_id: UUID
+    chunk_id: UUID | None
+    table_id: UUID | None
+    span_index: int
+    span_text: str
+    heading: str | None
+    page_from: int | None
+    page_to: int | None
+    content_sha256: str
+    source_snapshot_sha256: str
+    metadata: dict
+
+
+@dataclass(frozen=True)
+class SpanMultiVectorSpec:
+    retrieval_evidence_span_id: UUID
+    document_id: UUID
+    run_id: UUID
+    source_type: str
+    source_id: UUID
+    vector_index: int
+    token_start: int
+    token_end: int
+    vector_text: str
+    content_sha256: str
+    metadata: dict
+
+
+def _normalize_span_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def _window_word_ranges(
+    value: str,
+    *,
+    word_window: int,
+    word_overlap: int,
+    min_trailing_words: int,
+) -> list[tuple[int, int, str]]:
+    normalized = _normalize_span_text(value)
+    if not normalized:
+        return []
+
+    words = normalized.split()
+    if len(words) <= word_window:
+        return [(0, len(words), normalized)]
+
+    windows: list[tuple[int, int, str]] = []
+    step = max(word_window - word_overlap, 1)
+    start = 0
+    while start < len(words):
+        end = min(start + word_window, len(words))
+        if end == len(words) and windows and end - start < min_trailing_words:
+            previous_start, _previous_end, _ = windows[-1]
+            windows[-1] = (previous_start, end, " ".join(words[previous_start:end]))
+            break
+        windows.append((start, end, " ".join(words[start:end])))
+        if end == len(words):
+            break
+        start += step
+    return windows
+
+
+def _window_text(value: str) -> list[tuple[int, str]]:
+    return [
+        (start, text)
+        for start, _end, text in _window_word_ranges(
+            value,
+            word_window=SPAN_WORD_WINDOW,
+            word_overlap=SPAN_WORD_OVERLAP,
+            min_trailing_words=SPAN_MIN_TRAILING_WORDS,
+        )
+    ]
+
+
+def _chunk_source_snapshot(chunk: DocumentChunk) -> dict:
+    return {
+        "schema_name": "retrieval_source_snapshot",
+        "schema_version": "1.0",
+        "source_type": "chunk",
+        "source_id": chunk.id,
+        "document_id": chunk.document_id,
+        "run_id": chunk.run_id,
+        "chunk_index": chunk.chunk_index,
+        "heading": chunk.heading,
+        "page_from": chunk.page_from,
+        "page_to": chunk.page_to,
+        "text": chunk.text,
+        "metadata": chunk.metadata_json or {},
+    }
+
+
+def _table_source_snapshot(table: DocumentTable) -> dict:
+    return {
+        "schema_name": "retrieval_source_snapshot",
+        "schema_version": "1.0",
+        "source_type": "table",
+        "source_id": table.id,
+        "document_id": table.document_id,
+        "run_id": table.run_id,
+        "table_index": table.table_index,
+        "title": table.title,
+        "heading": table.heading,
+        "logical_table_key": table.logical_table_key,
+        "table_version": table.table_version,
+        "lineage_group": table.lineage_group,
+        "page_from": table.page_from,
+        "page_to": table.page_to,
+        "row_count": table.row_count,
+        "col_count": table.col_count,
+        "search_text": table.search_text,
+        "preview_text": table.preview_text,
+        "metadata": table.metadata_json or {},
+    }
+
+
+def _span_content_sha256(
+    *,
+    source_type: str,
+    source_id: UUID,
+    span_index: int,
+    span_text: str,
+    source_snapshot_sha256: str,
+) -> str:
+    return payload_sha256(
+        {
+            "schema_name": "retrieval_evidence_span_content",
+            "schema_version": "1.0",
+            "source_type": source_type,
+            "source_id": source_id,
+            "span_index": span_index,
+            "span_text": span_text,
+            "source_snapshot_sha256": source_snapshot_sha256,
+        }
+    )
+
+
+def _span_multivector_content_sha256(
+    *,
+    retrieval_evidence_span_id: UUID,
+    vector_index: int,
+    token_start: int,
+    token_end: int,
+    vector_text: str,
+    span_content_sha256: str,
+    source_snapshot_sha256: str,
+) -> str:
+    return payload_sha256(
+        {
+            "schema_name": "retrieval_evidence_span_multivector_content",
+            "schema_version": "1.0",
+            "retrieval_evidence_span_id": retrieval_evidence_span_id,
+            "vector_index": vector_index,
+            "token_start": token_start,
+            "token_end": token_end,
+            "vector_text": vector_text,
+            "span_content_sha256": span_content_sha256,
+            "source_snapshot_sha256": source_snapshot_sha256,
+        }
+    )
+
+
+def build_chunk_span_specs(chunk: DocumentChunk) -> list[SourceSpanSpec]:
+    source_snapshot_sha256 = payload_sha256(_chunk_source_snapshot(chunk))
+    specs: list[SourceSpanSpec] = []
+    for span_index, (word_start, span_text) in enumerate(_window_text(chunk.text)):
+        specs.append(
+            SourceSpanSpec(
+                source_type="chunk",
+                source_id=chunk.id,
+                chunk_id=chunk.id,
+                table_id=None,
+                span_index=span_index,
+                span_text=span_text,
+                heading=chunk.heading,
+                page_from=chunk.page_from,
+                page_to=chunk.page_to,
+                content_sha256=_span_content_sha256(
+                    source_type="chunk",
+                    source_id=chunk.id,
+                    span_index=span_index,
+                    span_text=span_text,
+                    source_snapshot_sha256=source_snapshot_sha256,
+                ),
+                source_snapshot_sha256=source_snapshot_sha256,
+                metadata={
+                    "schema_name": SPAN_SCHEMA_VERSION,
+                    "source_chunk_index": chunk.chunk_index,
+                    "word_start": word_start,
+                    "word_count": len(span_text.split()),
+                },
+            )
+        )
+    return specs
+
+
+def build_table_span_specs(table: DocumentTable) -> list[SourceSpanSpec]:
+    source_snapshot_sha256 = payload_sha256(_table_source_snapshot(table))
+    heading = " ".join(part for part in (table.title, table.heading) if part) or None
+    specs: list[SourceSpanSpec] = []
+    for span_index, (word_start, span_text) in enumerate(_window_text(table.search_text)):
+        specs.append(
+            SourceSpanSpec(
+                source_type="table",
+                source_id=table.id,
+                chunk_id=None,
+                table_id=table.id,
+                span_index=span_index,
+                span_text=span_text,
+                heading=heading,
+                page_from=table.page_from,
+                page_to=table.page_to,
+                content_sha256=_span_content_sha256(
+                    source_type="table",
+                    source_id=table.id,
+                    span_index=span_index,
+                    span_text=span_text,
+                    source_snapshot_sha256=source_snapshot_sha256,
+                ),
+                source_snapshot_sha256=source_snapshot_sha256,
+                metadata={
+                    "schema_name": SPAN_SCHEMA_VERSION,
+                    "source_table_index": table.table_index,
+                    "logical_table_key": table.logical_table_key,
+                    "word_start": word_start,
+                    "word_count": len(span_text.split()),
+                },
+            )
+        )
+    return specs
+
+
+def build_span_multivector_specs(span: RetrievalEvidenceSpan) -> list[SpanMultiVectorSpec]:
+    specs: list[SpanMultiVectorSpec] = []
+    for vector_index, (token_start, token_end, vector_text) in enumerate(
+        _window_word_ranges(
+            span.span_text,
+            word_window=MULTIVECTOR_WORD_WINDOW,
+            word_overlap=MULTIVECTOR_WORD_OVERLAP,
+            min_trailing_words=MULTIVECTOR_MIN_TRAILING_WORDS,
+        )
+    ):
+        specs.append(
+            SpanMultiVectorSpec(
+                retrieval_evidence_span_id=span.id,
+                document_id=span.document_id,
+                run_id=span.run_id,
+                source_type=span.source_type,
+                source_id=span.source_id,
+                vector_index=vector_index,
+                token_start=token_start,
+                token_end=token_end,
+                vector_text=vector_text,
+                content_sha256=_span_multivector_content_sha256(
+                    retrieval_evidence_span_id=span.id,
+                    vector_index=vector_index,
+                    token_start=token_start,
+                    token_end=token_end,
+                    vector_text=vector_text,
+                    span_content_sha256=span.content_sha256,
+                    source_snapshot_sha256=span.source_snapshot_sha256,
+                ),
+                metadata={
+                    "schema_name": MULTIVECTOR_SCHEMA_VERSION,
+                    "source_span_content_sha256": span.content_sha256,
+                    "source_snapshot_sha256": span.source_snapshot_sha256,
+                    "word_window": MULTIVECTOR_WORD_WINDOW,
+                    "word_overlap": MULTIVECTOR_WORD_OVERLAP,
+                    "token_count": token_end - token_start,
+                },
+            )
+        )
+    return specs
