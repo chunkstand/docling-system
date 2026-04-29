@@ -80,8 +80,20 @@ RETRIEVAL_LEARNING_SOURCES = {
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA = "retrieval_reranker_artifact"
 RETRIEVAL_RERANKER_ARTIFACT_SCHEMA_VERSION = "1.0"
 RETRIEVAL_RERANKER_ARTIFACT_KIND = "linear_feature_weight_candidate"
+CLAIM_SUPPORT_FIXTURE_PROMOTION_ARTIFACT_KIND = (
+    "claim_support_policy_impact_fixture_promotion"
+)
 CLAIM_SUPPORT_FIXTURE_PROMOTION_EVENT_KIND = "claim_support_policy_impact_fixture_promoted"
 CLAIM_SUPPORT_REPLAY_ESCALATION_EVENT_KIND = "claim_support_policy_impact_replay_escalated"
+CLAIM_SUPPORT_EXPECTED_VERDICTS = {
+    "supported",
+    "unsupported",
+    "insufficient_evidence",
+}
+CLAIM_SUPPORT_RESULT_REQUIRED_VERDICTS = {
+    "supported",
+    "unsupported",
+}
 
 
 def _json_default(value: Any) -> str:
@@ -101,6 +113,15 @@ def _payload_sha256(payload: Any) -> str:
         separators=(",", ":"),
     ).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+def _payload_hash_matches_embedded_field(payload: dict[str, Any], *, hash_field: str) -> bool:
+    expected_hash = str(payload.get(hash_field) or "")
+    if not expected_hash:
+        return False
+    basis = dict(payload)
+    basis.pop(hash_field, None)
+    return _payload_sha256(basis) == expected_hash
 
 
 def _uuid_text(value: UUID | None) -> str | None:
@@ -1047,28 +1068,7 @@ def _claim_support_evidence_cards(fixture: dict[str, Any]) -> list[dict[str, Any
     return [card for card in draft_payload.get("evidence_cards") or [] if isinstance(card, dict)]
 
 
-def _claim_support_result_fields(fixture: dict[str, Any]) -> dict[str, Any]:
-    for card in _claim_support_evidence_cards(fixture):
-        result_type = str(card.get("source_type") or "").strip()
-        if result_type not in {"chunk", "table"}:
-            continue
-        source_id_key = "chunk_id" if result_type == "chunk" else "table_id"
-        result_id = _maybe_uuid(card.get(source_id_key))
-        if result_id is None:
-            result_id = _maybe_uuid(card.get("source_id"))
-        if result_id is None:
-            result_ids = card.get("source_search_request_result_ids") or []
-            result_id = _maybe_uuid(next(iter(result_ids), None))
-        return {
-            "result_rank": None,
-            "result_type": result_type,
-            "result_id": result_id,
-            "document_id": _maybe_uuid(card.get("document_id")),
-            "run_id": _maybe_uuid(card.get("run_id")),
-            "score": None,
-            "rerank_features_json": {},
-            "evidence_refs_json": _claim_support_evidence_refs(fixture),
-        }
+def _empty_claim_support_result_fields(fixture: dict[str, Any]) -> dict[str, Any]:
     return {
         "result_rank": None,
         "result_type": None,
@@ -1079,6 +1079,34 @@ def _claim_support_result_fields(fixture: dict[str, Any]) -> dict[str, Any]:
         "rerank_features_json": {},
         "evidence_refs_json": _claim_support_evidence_refs(fixture),
     }
+
+
+def _claim_support_result_fields(
+    fixture: dict[str, Any],
+    *,
+    include_result: bool = True,
+) -> dict[str, Any]:
+    if not include_result:
+        return _empty_claim_support_result_fields(fixture)
+    for card in _claim_support_evidence_cards(fixture):
+        result_type = str(card.get("source_type") or "").strip()
+        if result_type not in {"chunk", "table"}:
+            continue
+        source_id_key = "chunk_id" if result_type == "chunk" else "table_id"
+        result_id = _maybe_uuid(card.get(source_id_key))
+        if result_id is None:
+            result_id = _maybe_uuid(card.get("source_id"))
+        return {
+            "result_rank": None,
+            "result_type": result_type,
+            "result_id": result_id,
+            "document_id": _maybe_uuid(card.get("document_id")),
+            "run_id": _maybe_uuid(card.get("run_id")),
+            "score": None,
+            "rerank_features_json": {},
+            "evidence_refs_json": _claim_support_evidence_refs(fixture),
+        }
+    return _empty_claim_support_result_fields(fixture)
 
 
 def _claim_support_evidence_refs(fixture: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1097,6 +1125,9 @@ def _claim_support_evidence_refs(fixture: dict[str, Any]) -> list[dict[str, Any]
                     "source_search_request_result_ids": result_ids,
                     "document_id": card.get("document_id"),
                     "run_id": card.get("run_id"),
+                    "chunk_id": card.get("chunk_id"),
+                    "table_id": card.get("table_id"),
+                    "source_id": card.get("source_id"),
                     "page_from": card.get("page_from"),
                     "page_to": card.get("page_to"),
                     "text_excerpt": card.get("excerpt"),
@@ -1129,6 +1160,10 @@ def _claim_support_expected_judgment(fixture: dict[str, Any]) -> tuple[str, str,
         RetrievalJudgmentKind.MISSING.value,
         "claim_support_expected_insufficient_evidence",
         "Claim-support replay-alert fixture expects insufficient traceable evidence.",
+    )
+    raise ValueError(
+        "Unsupported claim-support replay-alert fixture expected_verdict: "
+        f"{expected_verdict or '<missing>'}."
     )
 
 
@@ -1179,6 +1214,74 @@ def _claim_support_corpus_details(
     )
 
 
+def _uuid_list_with_failures(
+    values: list[Any],
+    *,
+    row_prefix: str,
+    field_name: str,
+    failures: list[str],
+) -> set[UUID]:
+    parsed: set[UUID] = set()
+    for value in values or []:
+        parsed_value = _maybe_uuid(value)
+        if parsed_value is None:
+            failures.append(f"{row_prefix}:{field_name}_invalid")
+            continue
+        parsed.add(parsed_value)
+    return parsed
+
+
+def _claim_support_fixture_lineage_failures(
+    *,
+    row_prefix: str,
+    row: ClaimSupportReplayAlertFixtureCorpusRow,
+    fixture: dict[str, Any],
+) -> list[str]:
+    failures: list[str] = []
+    if not fixture.get("case_id"):
+        failures.append(f"{row_prefix}:fixture_case_id_missing")
+    expected_verdict = str(fixture.get("expected_verdict") or "").strip()
+    if not expected_verdict:
+        failures.append(f"{row_prefix}:fixture_expected_verdict_missing")
+    elif expected_verdict not in CLAIM_SUPPORT_EXPECTED_VERDICTS:
+        failures.append(f"{row_prefix}:fixture_expected_verdict_invalid")
+    if not fixture.get("hard_case_kind"):
+        failures.append(f"{row_prefix}:fixture_hard_case_kind_missing")
+    if not _claim_support_query_text(fixture, row):
+        failures.append(f"{row_prefix}:fixture_query_text_missing")
+    if _payload_sha256(fixture) != row.fixture_sha256:
+        failures.append(f"{row_prefix}:fixture_hash_mismatch")
+    if not row.source_change_impact_ids_json:
+        failures.append(f"{row_prefix}:source_change_impact_ids_missing")
+    if not row.source_escalation_event_ids_json:
+        failures.append(f"{row_prefix}:source_escalation_event_ids_missing")
+    if not row.replay_alert_source_json:
+        failures.append(f"{row_prefix}:replay_alert_source_missing")
+
+    evidence_cards = _claim_support_evidence_cards(fixture)
+    if expected_verdict in CLAIM_SUPPORT_RESULT_REQUIRED_VERDICTS:
+        result_fields = _claim_support_result_fields(fixture)
+        if not evidence_cards:
+            failures.append(f"{row_prefix}:evidence_cards_missing")
+        if result_fields["result_type"] is None:
+            failures.append(f"{row_prefix}:evidence_result_type_missing")
+        if result_fields["result_id"] is None:
+            failures.append(f"{row_prefix}:evidence_object_id_missing")
+    for card_index, card in enumerate(evidence_cards, start=1):
+        card_prefix = f"{row_prefix}:evidence_card_{card_index}"
+        result_type = str(card.get("source_type") or "").strip()
+        if result_type and result_type not in {"chunk", "table"}:
+            failures.append(f"{card_prefix}:source_type_invalid")
+        for field_name in ("source_search_request_ids", "source_search_request_result_ids"):
+            for value in card.get(field_name) or []:
+                if _maybe_uuid(value) is None:
+                    failures.append(f"{card_prefix}:{field_name}_invalid")
+        for field_name in ("document_id", "run_id", "chunk_id", "table_id", "source_id"):
+            if card.get(field_name) and _maybe_uuid(card.get(field_name)) is None:
+                failures.append(f"{card_prefix}:{field_name}_invalid")
+    return failures
+
+
 def _claim_support_corpus_lineage_failures(
     session: Session,
     *,
@@ -1188,17 +1291,36 @@ def _claim_support_corpus_lineage_failures(
     failures: list[str] = []
     if int(snapshot.invalid_promotion_event_count or 0):
         failures.append("snapshot_has_invalid_promotion_events")
+        for invalid_event in (snapshot.snapshot_payload_json or {}).get(
+            "invalid_promotion_events"
+        ) or []:
+            if not isinstance(invalid_event, dict):
+                continue
+            event_id = str(invalid_event.get("event_id") or "unknown")
+            for failure in invalid_event.get("failures") or []:
+                failures.append(f"snapshot_invalid_promotion_event:{event_id}:{failure}")
 
     promotion_event_ids = {row.promotion_event_id for row in rows if row.promotion_event_id}
     promotion_artifact_ids = {
         row.promotion_artifact_id for row in rows if row.promotion_artifact_id
     }
-    escalation_event_ids = {
-        event_id
-        for row in rows
-        for event_id in (_maybe_uuid(value) for value in row.source_escalation_event_ids_json or [])
-        if event_id is not None
-    }
+    escalation_event_ids = set()
+    for row in rows:
+        row_prefix = f"row_{row.row_index}_{row.case_id}"
+        escalation_event_ids.update(
+            _uuid_list_with_failures(
+                row.source_escalation_event_ids_json,
+                row_prefix=row_prefix,
+                field_name="source_escalation_event_id",
+                failures=failures,
+            )
+        )
+        _uuid_list_with_failures(
+            row.source_change_impact_ids_json,
+            row_prefix=row_prefix,
+            field_name="source_change_impact_id",
+            failures=failures,
+        )
     promotion_events = _load_by_ids(session, SemanticGovernanceEvent, promotion_event_ids)
     promotion_artifacts = _load_by_ids(session, AgentTaskArtifact, promotion_artifact_ids)
     escalation_events = _load_by_ids(session, SemanticGovernanceEvent, escalation_event_ids)
@@ -1206,20 +1328,18 @@ def _claim_support_corpus_lineage_failures(
     for row in rows:
         row_prefix = f"row_{row.row_index}_{row.case_id}"
         fixture = dict(row.fixture_json or {})
-        if not fixture.get("case_id"):
-            failures.append(f"{row_prefix}:fixture_case_id_missing")
-        if not fixture.get("expected_verdict"):
-            failures.append(f"{row_prefix}:fixture_expected_verdict_missing")
-        if not fixture.get("hard_case_kind"):
-            failures.append(f"{row_prefix}:fixture_hard_case_kind_missing")
-        if _payload_sha256(fixture) != row.fixture_sha256:
-            failures.append(f"{row_prefix}:fixture_hash_mismatch")
-        if not row.source_change_impact_ids_json:
-            failures.append(f"{row_prefix}:source_change_impact_ids_missing")
-        if not row.source_escalation_event_ids_json:
-            failures.append(f"{row_prefix}:source_escalation_event_ids_missing")
-        if not row.replay_alert_source_json:
-            failures.append(f"{row_prefix}:replay_alert_source_missing")
+        failures.extend(
+            _claim_support_fixture_lineage_failures(
+                row_prefix=row_prefix,
+                row=row,
+                fixture=fixture,
+            )
+        )
+        row_change_impact_ids = {
+            value
+            for value in (_maybe_uuid(raw) for raw in row.source_change_impact_ids_json or [])
+            if value is not None
+        }
 
         if row.promotion_event_id is None:
             failures.append(f"{row_prefix}:promotion_event_missing")
@@ -1229,16 +1349,41 @@ def _claim_support_corpus_lineage_failures(
                 failures.append(f"{row_prefix}:promotion_event_not_found")
             elif promotion_event.event_kind != CLAIM_SUPPORT_FIXTURE_PROMOTION_EVENT_KIND:
                 failures.append(f"{row_prefix}:promotion_event_kind_mismatch")
-            elif (
-                row.promotion_receipt_sha256
-                and promotion_event.receipt_sha256 != row.promotion_receipt_sha256
-            ):
-                failures.append(f"{row_prefix}:promotion_event_receipt_mismatch")
+            else:
+                if (
+                    promotion_event.subject_table != "claim_support_fixture_sets"
+                    or promotion_event.subject_id != row.fixture_set_id
+                ):
+                    failures.append(f"{row_prefix}:promotion_event_subject_mismatch")
+                if promotion_event.agent_task_artifact_id != row.promotion_artifact_id:
+                    failures.append(f"{row_prefix}:promotion_event_artifact_mismatch")
+                if not row.promotion_receipt_sha256:
+                    failures.append(f"{row_prefix}:promotion_receipt_missing")
+                elif promotion_event.receipt_sha256 != row.promotion_receipt_sha256:
+                    failures.append(f"{row_prefix}:promotion_event_receipt_mismatch")
 
         if row.promotion_artifact_id is None:
             failures.append(f"{row_prefix}:promotion_artifact_missing")
-        elif row.promotion_artifact_id not in promotion_artifacts:
-            failures.append(f"{row_prefix}:promotion_artifact_not_found")
+        else:
+            promotion_artifact = promotion_artifacts.get(row.promotion_artifact_id)
+            if promotion_artifact is None:
+                failures.append(f"{row_prefix}:promotion_artifact_not_found")
+            else:
+                if (
+                    promotion_artifact.artifact_kind
+                    != CLAIM_SUPPORT_FIXTURE_PROMOTION_ARTIFACT_KIND
+                ):
+                    failures.append(f"{row_prefix}:promotion_artifact_kind_mismatch")
+                artifact_payload = dict(promotion_artifact.payload_json or {})
+                if not row.promotion_receipt_sha256:
+                    failures.append(f"{row_prefix}:promotion_artifact_receipt_missing")
+                elif artifact_payload.get("receipt_sha256") != row.promotion_receipt_sha256:
+                    failures.append(f"{row_prefix}:promotion_artifact_receipt_mismatch")
+                if not _payload_hash_matches_embedded_field(
+                    artifact_payload,
+                    hash_field="receipt_sha256",
+                ):
+                    failures.append(f"{row_prefix}:promotion_artifact_hash_mismatch")
 
         for escalation_event_id in (
             _maybe_uuid(value) for value in row.source_escalation_event_ids_json or []
@@ -1251,6 +1396,14 @@ def _claim_support_corpus_lineage_failures(
                 failures.append(f"{row_prefix}:source_escalation_event_not_found")
             elif escalation_event.event_kind != CLAIM_SUPPORT_REPLAY_ESCALATION_EVENT_KIND:
                 failures.append(f"{row_prefix}:source_escalation_event_kind_mismatch")
+            else:
+                if escalation_event.subject_table != "claim_support_policy_change_impacts":
+                    failures.append(f"{row_prefix}:source_escalation_event_subject_mismatch")
+                if (
+                    row_change_impact_ids
+                    and escalation_event.subject_id not in row_change_impact_ids
+                ):
+                    failures.append(f"{row_prefix}:source_escalation_event_impact_mismatch")
 
     return failures
 
@@ -1305,7 +1458,10 @@ def _collect_claim_support_replay_alert_corpus_sources(
         fixture = dict(corpus_row.fixture_json or {})
         query_text = _claim_support_query_text(fixture, corpus_row)
         judgment_kind, judgment_label, rationale = _claim_support_expected_judgment(fixture)
-        result_fields = _claim_support_result_fields(fixture)
+        result_fields = _claim_support_result_fields(
+            fixture,
+            include_result=judgment_kind != RetrievalJudgmentKind.MISSING.value,
+        )
         details = _claim_support_corpus_details(
             snapshot=snapshot,
             row=corpus_row,

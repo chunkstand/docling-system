@@ -361,13 +361,13 @@ def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpu
             expected_verdict="insufficient_evidence",
             hard_case_kind="policy_change_insufficient_evidence",
             rendered_text="The policy exception lacks traceable source support.",
-            evidence_excerpt=None,
+            evidence_excerpt="The cited record does not resolve the policy exception.",
         ),
     ]
     expected_chunk_ids = {
         fixture["draft_payload"]["evidence_cards"][0]["chunk_id"]
         for fixture in fixtures
-        if fixture["draft_payload"]["evidence_cards"]
+        if fixture["expected_verdict"] in {"supported", "unsupported"}
     }
     source_search_result_ids = {
         fixture["draft_payload"]["evidence_cards"][0]["source_search_request_result_ids"][0]
@@ -450,6 +450,8 @@ def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpu
         "missing",
     }
     assert {str(row.result_id) for row in judgments if row.result_id} == expected_chunk_ids
+    assert all(row.result_id is None for row in judgments if row.judgment_kind == "missing")
+    assert all(row.evidence_refs_json for row in judgments)
     assert not {
         str(row.result_id)
         for row in judgments
@@ -533,6 +535,83 @@ def test_materialize_retrieval_learning_dataset_rejects_tampered_replay_alert_co
                 limit=10,
                 source_types=["claim_support_replay_alert_corpus"],
                 set_name="tampered-replay-alert-corpus-learning",
+                created_by="integration",
+            )
+        session.rollback()
+
+
+def test_materialize_retrieval_learning_dataset_rejects_unusable_replay_alert_result(
+    postgres_integration_harness,
+) -> None:
+    now = datetime.now(UTC)
+    fixture = _claim_support_learning_fixture(
+        case_id="replay-alert-missing-object-id",
+        expected_verdict="unsupported",
+        hard_case_kind="policy_change_unsupported",
+        rendered_text="The policy exception is not supported by the cited record.",
+        evidence_excerpt="The cited record discusses a different policy.",
+    )
+    fixture["draft_payload"]["evidence_cards"][0].pop("chunk_id")
+    fixtures = [fixture]
+
+    with postgres_integration_harness.session_factory() as session:
+        _seed_governed_claim_support_replay_alert_corpus(
+            session,
+            now=now,
+            fixtures=fixtures,
+        )
+
+        with pytest.raises(ValueError, match="evidence_object_id_missing"):
+            materialize_retrieval_learning_dataset(
+                session,
+                limit=10,
+                source_types=["claim_support_replay_alert_corpus"],
+                set_name="invalid-replay-alert-corpus-result-learning",
+                created_by="integration",
+            )
+        session.rollback()
+
+
+def test_materialize_retrieval_learning_dataset_rechecks_promotion_artifact_integrity(
+    postgres_integration_harness,
+) -> None:
+    now = datetime.now(UTC)
+    fixtures = [
+        _claim_support_learning_fixture(
+            case_id="replay-alert-artifact-tampered",
+            expected_verdict="supported",
+            hard_case_kind="policy_change_supported",
+            rendered_text="The policy exception is supported by the cited record.",
+            evidence_excerpt="The record states the exception is authorized.",
+        )
+    ]
+
+    with postgres_integration_harness.session_factory() as session:
+        snapshot = _seed_governed_claim_support_replay_alert_corpus(
+            session,
+            now=now,
+            fixtures=fixtures,
+        )
+        row = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .limit(1)
+        )
+        assert row is not None
+        artifact = session.get(AgentTaskArtifact, row.promotion_artifact_id)
+        assert artifact is not None
+        artifact.payload_json = {
+            **artifact.payload_json,
+            "candidate_count": 999,
+        }
+        session.flush()
+
+        with pytest.raises(ValueError, match="promotion_artifact_hash_mismatch"):
+            materialize_retrieval_learning_dataset(
+                session,
+                limit=10,
+                source_types=["claim_support_replay_alert_corpus"],
+                set_name="tampered-promotion-artifact-learning",
                 created_by="integration",
             )
         session.rollback()

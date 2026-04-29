@@ -123,6 +123,13 @@ Stored lineage:
 
 The materializer refuses to use this source when snapshot governance is incomplete, fixture hashes do not match stored corpus rows, promotion lineage is missing, or escalation event lineage is missing. This keeps court-facing training data traceable back to the exact governed replay-alert source that caused the learning signal.
 
+Additional hardening rules:
+
+- `expected_verdict` must be one of `supported`, `unsupported`, or `insufficient_evidence`.
+- `supported` and `unsupported` rows must include a traceable chunk/table object ID; source search-result row IDs are preserved as evidence references, not substituted as retrieved object IDs.
+- `insufficient_evidence` rows are materialized as missing judgments even when the fixture includes examined evidence-card references.
+- Promotion artifacts must still hash to their embedded receipt at materialization time, and replay escalation events must point back to the policy-change impact IDs carried by the corpus row.
+
 ## Intended Use
 
 Use this export to:
