@@ -15,6 +15,7 @@ from app.db.models import (
     AgentTaskArtifact,
     EvidenceManifest,
     SearchHarnessRelease,
+    SearchHarnessReleaseReadinessAssessment,
     SearchRequestRecord,
     SemanticGovernanceEvent,
     SemanticGovernanceEventKind,
@@ -394,6 +395,53 @@ def record_search_harness_release_governance_event(
         },
         deduplication_key=f"search_harness_release_recorded:{release.id}",
         created_by=release.requested_by,
+    )
+
+
+def record_search_harness_release_readiness_assessment_event(
+    session: Session,
+    *,
+    assessment: SearchHarnessReleaseReadinessAssessment,
+) -> SemanticGovernanceEvent:
+    semantic_basis = _active_semantic_basis(session)
+    ontology_snapshot_id = _uuid_or_none(semantic_basis.get("active_ontology_snapshot_id"))
+    graph_snapshot_id = _uuid_or_none(semantic_basis.get("active_semantic_graph_snapshot_id"))
+    return record_semantic_governance_event(
+        session,
+        event_kind=(
+            SemanticGovernanceEventKind.SEARCH_HARNESS_RELEASE_READINESS_ASSESSED.value
+        ),
+        governance_scope=f"search_harness_release:{assessment.search_harness_release_id}",
+        subject_table="search_harness_release_readiness_assessments",
+        subject_id=assessment.id,
+        ontology_snapshot_id=ontology_snapshot_id,
+        semantic_graph_snapshot_id=graph_snapshot_id,
+        search_harness_release_id=assessment.search_harness_release_id,
+        receipt_sha256=assessment.assessment_payload_sha256,
+        event_payload={
+            "search_harness_release_readiness_assessment": {
+                "assessment_id": str(assessment.id),
+                "search_harness_release_id": str(assessment.search_harness_release_id),
+                "release_audit_bundle_id": _uuid_text(assessment.release_audit_bundle_id),
+                "release_validation_receipt_id": _uuid_text(
+                    assessment.release_validation_receipt_id
+                ),
+                "readiness_profile": assessment.readiness_profile,
+                "readiness_status": assessment.readiness_status,
+                "ready": assessment.ready,
+                "blockers": list(assessment.blockers_json or []),
+                "readiness_payload_sha256": assessment.readiness_payload_sha256,
+                "assessment_payload_sha256": assessment.assessment_payload_sha256,
+                "created_by": assessment.created_by,
+                "review_note": assessment.review_note,
+            },
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=(
+            "search_harness_release_readiness_assessed:"
+            f"{assessment.id}:{assessment.assessment_payload_sha256}"
+        ),
+        created_by=assessment.created_by,
     )
 
 

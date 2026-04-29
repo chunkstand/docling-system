@@ -31,6 +31,8 @@ from app.schemas.search import (
     SearchHarnessEvaluationSummaryResponse,
     SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessAssessmentRequest,
+    SearchHarnessReleaseReadinessAssessmentResponse,
     SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
@@ -199,6 +201,26 @@ class RetrievalCapability(Protocol):
         session: Session,
         release_id: UUID,
     ) -> SearchHarnessReleaseReadinessResponse: ...
+
+    def create_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+        payload: SearchHarnessReleaseReadinessAssessmentRequest,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse: ...
+
+    def get_latest_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse: ...
+
+    def get_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+        assessment_id: UUID,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse: ...
 
     def create_search_harness_release_audit_bundle(
         self,
@@ -516,6 +538,40 @@ class ServicesRetrievalCapability:
         release_id: UUID,
     ) -> SearchHarnessReleaseReadinessResponse:
         return search_release_gate.get_search_harness_release_readiness(session, release_id)
+
+    def create_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+        payload: SearchHarnessReleaseReadinessAssessmentRequest,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse:
+        return search_release_gate.create_search_harness_release_readiness_assessment(
+            session,
+            release_id,
+            payload,
+        )
+
+    def get_latest_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse:
+        return search_release_gate.get_latest_search_harness_release_readiness_assessment(
+            session,
+            release_id,
+        )
+
+    def get_search_harness_release_readiness_assessment(
+        self,
+        session: Session,
+        release_id: UUID,
+        assessment_id: UUID,
+    ) -> SearchHarnessReleaseReadinessAssessmentResponse:
+        return search_release_gate.get_search_harness_release_readiness_assessment(
+            session,
+            release_id,
+            assessment_id,
+        )
 
     def create_search_harness_release_audit_bundle(
         self,

@@ -18,11 +18,15 @@ from app.db.models import (
     AuditBundleExport,
     AuditBundleValidationReceipt,
     SearchHarnessRelease,
+    SearchHarnessReleaseReadinessAssessment,
     SearchReplayRun,
 )
 from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessAssessmentRequest,
+    SearchHarnessReleaseReadinessAssessmentResponse,
+    SearchHarnessReleaseReadinessAssessmentSummaryResponse,
     SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
@@ -30,6 +34,7 @@ from app.schemas.search import (
 from app.services.search_harness_evaluations import get_search_harness_evaluation_detail
 from app.services.semantic_governance import (
     record_search_harness_release_governance_event,
+    record_search_harness_release_readiness_assessment_event,
     search_harness_release_semantic_governance_context,
 )
 
@@ -147,6 +152,58 @@ def _to_release_response(row: SearchHarnessRelease) -> SearchHarnessReleaseRespo
         **_to_release_summary(row).model_dump(),
         details=row.details_json or {},
         evaluation_snapshot=row.evaluation_snapshot_json or {},
+    )
+
+
+def _to_readiness_assessment_summary(
+    row: SearchHarnessReleaseReadinessAssessment,
+) -> SearchHarnessReleaseReadinessAssessmentSummaryResponse:
+    return SearchHarnessReleaseReadinessAssessmentSummaryResponse(
+        assessment_id=row.id,
+        release_id=row.search_harness_release_id,
+        readiness_profile=row.readiness_profile,
+        readiness_status=row.readiness_status,
+        ready=row.ready,
+        blockers=list(row.blockers_json or []),
+        latest_release_audit_bundle_id=row.release_audit_bundle_id,
+        latest_release_validation_receipt_id=row.release_validation_receipt_id,
+        semantic_governance_event_id=row.semantic_governance_event_id,
+        readiness_payload_sha256=row.readiness_payload_sha256,
+        assessment_payload_sha256=row.assessment_payload_sha256,
+        created_by=row.created_by,
+        review_note=row.review_note,
+        created_at=row.created_at,
+    )
+
+
+def _to_readiness_assessment_response(
+    row: SearchHarnessReleaseReadinessAssessment,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    summary = _to_readiness_assessment_summary(row).model_dump()
+    summary["schema_name"] = "search_harness_release_readiness_assessment"
+    return SearchHarnessReleaseReadinessAssessmentResponse(
+        **summary,
+        blocker_details=list(row.blocker_details_json or []),
+        checks=row.checks_json or {},
+        diagnostics=row.diagnostics_json or {},
+        lineage_remediation=row.lineage_remediation_json or {},
+        readiness=row.readiness_payload_json or {},
+        assessment=row.assessment_payload_json or {},
+    )
+
+
+def _latest_readiness_assessment(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseReadinessAssessment | None:
+    return session.scalar(
+        select(SearchHarnessReleaseReadinessAssessment)
+        .where(SearchHarnessReleaseReadinessAssessment.search_harness_release_id == release_id)
+        .order_by(
+            SearchHarnessReleaseReadinessAssessment.created_at.desc(),
+            SearchHarnessReleaseReadinessAssessment.id.asc(),
+        )
+        .limit(1)
     )
 
 
@@ -667,9 +724,11 @@ def _readiness_blocker_details(
     return details
 
 
-def get_search_harness_release_readiness(
+def _build_search_harness_release_readiness(
     session: Session,
     release_id: UUID,
+    *,
+    include_latest_assessment: bool,
 ) -> SearchHarnessReleaseReadinessResponse:
     release = session.get(SearchHarnessRelease, release_id)
     if release is None:
@@ -769,6 +828,9 @@ def get_search_harness_release_readiness(
         diagnostics=diagnostics,
         lineage_remediation=lineage_remediation,
     )
+    latest_assessment = (
+        _latest_readiness_assessment(session, release.id) if include_latest_assessment else None
+    )
     return SearchHarnessReleaseReadinessResponse(
         release_id=release.id,
         readiness_profile=READINESS_PROFILE,
@@ -782,8 +844,155 @@ def get_search_harness_release_readiness(
         diagnostics=diagnostics,
         lineage_remediation=lineage_remediation,
         checks=checks,
+        latest_readiness_assessment=(
+            _to_readiness_assessment_summary(latest_assessment)
+            if latest_assessment is not None
+            else None
+        ),
         generated_at=utcnow(),
     )
+
+
+def get_search_harness_release_readiness(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseReadinessResponse:
+    return _build_search_harness_release_readiness(
+        session,
+        release_id,
+        include_latest_assessment=True,
+    )
+
+
+def _assessment_payload(
+    *,
+    assessment_id: UUID,
+    readiness: SearchHarnessReleaseReadinessResponse,
+    created_by: str | None,
+    review_note: str | None,
+    created_at,
+) -> dict:
+    readiness_payload = readiness.model_dump(mode="json")
+    return {
+        "schema_name": "search_harness_release_readiness_assessment",
+        "schema_version": "1.0",
+        "assessment_id": str(assessment_id),
+        "search_harness_release_id": str(readiness.release_id),
+        "readiness_profile": readiness.readiness_profile,
+        "readiness_status": "ready" if readiness.ready else "blocked",
+        "ready": readiness.ready,
+        "blockers": list(readiness.blockers),
+        "latest_release_audit_bundle_id": readiness.provenance.get(
+            "latest_release_audit_bundle_id"
+        ),
+        "latest_release_validation_receipt_id": readiness.validation_receipts.get(
+            "latest_release_validation_receipt_id"
+        ),
+        "readiness": readiness_payload,
+        "created_by": created_by,
+        "review_note": review_note,
+        "created_at": created_at.isoformat(),
+    }
+
+
+def create_search_harness_release_readiness_assessment(
+    session: Session,
+    release_id: UUID,
+    payload: SearchHarnessReleaseReadinessAssessmentRequest,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    readiness = _build_search_harness_release_readiness(
+        session,
+        release_id,
+        include_latest_assessment=False,
+    )
+    assessment_id = uuid.uuid4()
+    created_at = utcnow()
+    assessment_payload = _assessment_payload(
+        assessment_id=assessment_id,
+        readiness=readiness,
+        created_by=payload.created_by,
+        review_note=payload.review_note,
+        created_at=created_at,
+    )
+    readiness_payload = assessment_payload["readiness"]
+    row = SearchHarnessReleaseReadinessAssessment(
+        id=assessment_id,
+        search_harness_release_id=readiness.release_id,
+        release_audit_bundle_id=(
+            UUID(str(readiness.provenance["latest_release_audit_bundle_id"]))
+            if readiness.provenance.get("latest_release_audit_bundle_id")
+            else None
+        ),
+        release_validation_receipt_id=(
+            UUID(str(readiness.validation_receipts["latest_release_validation_receipt_id"]))
+            if readiness.validation_receipts.get("latest_release_validation_receipt_id")
+            else None
+        ),
+        readiness_profile=readiness.readiness_profile,
+        readiness_status="ready" if readiness.ready else "blocked",
+        ready=readiness.ready,
+        blockers_json=list(readiness.blockers),
+        blocker_details_json=list(readiness.blocker_details),
+        checks_json=readiness.checks,
+        diagnostics_json=readiness.diagnostics,
+        lineage_remediation_json=readiness.lineage_remediation,
+        readiness_payload_json=readiness_payload,
+        assessment_payload_json=assessment_payload,
+        readiness_payload_sha256=_payload_sha256(readiness_payload),
+        assessment_payload_sha256=_payload_sha256(assessment_payload),
+        created_by=payload.created_by,
+        review_note=payload.review_note,
+        created_at=created_at,
+    )
+    governance_event = record_search_harness_release_readiness_assessment_event(
+        session,
+        assessment=row,
+    )
+    row.semantic_governance_event_id = governance_event.id
+    session.add(row)
+    session.flush()
+    return _to_readiness_assessment_response(row)
+
+
+def get_latest_search_harness_release_readiness_assessment(
+    session: Session,
+    release_id: UUID,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    release = session.get(SearchHarnessRelease, release_id)
+    if release is None:
+        raise _search_harness_release_not_found(release_id)
+    assessment = _latest_readiness_assessment(session, release_id)
+    if assessment is None:
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "search_harness_release_readiness_assessment_not_found",
+            "Search harness release readiness assessment not found.",
+            release_id=str(release_id),
+        )
+    return _to_readiness_assessment_response(assessment)
+
+
+def get_search_harness_release_readiness_assessment(
+    session: Session,
+    release_id: UUID,
+    assessment_id: UUID,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    release = session.get(SearchHarnessRelease, release_id)
+    if release is None:
+        raise _search_harness_release_not_found(release_id)
+    assessment = session.get(SearchHarnessReleaseReadinessAssessment, assessment_id)
+    if (
+        assessment is None
+        or assessment.search_harness_release_id != release_id
+    ):
+        raise api_error(
+            status.HTTP_404_NOT_FOUND,
+            "search_harness_release_readiness_assessment_not_found",
+            "Search harness release readiness assessment not found.",
+            release_id=str(release_id),
+            assessment_id=str(assessment_id),
+        )
+    return _to_readiness_assessment_response(assessment)
 
 
 def list_search_harness_releases(

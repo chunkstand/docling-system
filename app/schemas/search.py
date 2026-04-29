@@ -416,9 +416,45 @@ class SearchHarnessReleaseResponse(SearchHarnessReleaseSummaryResponse):
     evaluation_snapshot: dict = Field(default_factory=dict)
 
 
+class SearchHarnessReleaseReadinessAssessmentRequest(BaseModel):
+    created_by: str | None = Field(default=None, min_length=1)
+    review_note: str | None = None
+
+
+class SearchHarnessReleaseReadinessAssessmentSummaryResponse(BaseModel):
+    schema_name: str = "search_harness_release_readiness_assessment_summary"
+    schema_version: str = "1.0"
+    assessment_id: UUID
+    release_id: UUID
+    readiness_profile: str
+    readiness_status: str
+    ready: bool
+    blockers: list[str] = Field(default_factory=list)
+    latest_release_audit_bundle_id: UUID | None = None
+    latest_release_validation_receipt_id: UUID | None = None
+    semantic_governance_event_id: UUID | None = None
+    readiness_payload_sha256: str
+    assessment_payload_sha256: str
+    created_by: str | None = None
+    review_note: str | None = None
+    created_at: datetime
+
+
+class SearchHarnessReleaseReadinessAssessmentResponse(
+    SearchHarnessReleaseReadinessAssessmentSummaryResponse
+):
+    schema_name: str = "search_harness_release_readiness_assessment"
+    blocker_details: list[dict] = Field(default_factory=list)
+    checks: dict = Field(default_factory=dict)
+    diagnostics: dict = Field(default_factory=dict)
+    lineage_remediation: dict = Field(default_factory=dict)
+    readiness: dict = Field(default_factory=dict)
+    assessment: dict = Field(default_factory=dict)
+
+
 class SearchHarnessReleaseReadinessResponse(BaseModel):
     schema_name: str = "search_harness_release_readiness"
-    schema_version: str = "1.2"
+    schema_version: str = "1.3"
     release_id: UUID
     readiness_profile: str
     ready: bool
@@ -431,6 +467,9 @@ class SearchHarnessReleaseReadinessResponse(BaseModel):
     diagnostics: dict = Field(default_factory=dict)
     lineage_remediation: dict = Field(default_factory=dict)
     checks: dict = Field(default_factory=dict)
+    latest_readiness_assessment: (
+        SearchHarnessReleaseReadinessAssessmentSummaryResponse | None
+    ) = None
     generated_at: datetime
 
 

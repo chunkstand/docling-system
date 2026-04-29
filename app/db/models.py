@@ -118,6 +118,9 @@ class SemanticGovernanceEventKind(StrEnum):
     SEMANTIC_GRAPH_SNAPSHOT_RECORDED = "semantic_graph_snapshot_recorded"
     SEMANTIC_GRAPH_SNAPSHOT_ACTIVATED = "semantic_graph_snapshot_activated"
     SEARCH_HARNESS_RELEASE_RECORDED = "search_harness_release_recorded"
+    SEARCH_HARNESS_RELEASE_READINESS_ASSESSED = (
+        "search_harness_release_readiness_assessed"
+    )
     TECHNICAL_REPORT_PROV_EXPORT_FROZEN = "technical_report_prov_export_frozen"
     RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
     RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
@@ -2196,6 +2199,124 @@ class SearchHarnessRelease(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class SearchHarnessReleaseReadinessAssessment(Base):
+    __tablename__ = "search_harness_release_readiness_assessments"
+    __table_args__ = (
+        CheckConstraint(
+            "readiness_status IN ('ready', 'blocked')",
+            name="ck_search_harness_release_readiness_assessments_status",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_release_created",
+            "search_harness_release_id",
+            "created_at",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_status_created",
+            "readiness_status",
+            "created_at",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_bundle_created",
+            "release_audit_bundle_id",
+            "created_at",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_receipt_created",
+            "release_validation_receipt_id",
+            "created_at",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_governance",
+            "semantic_governance_event_id",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_payload_sha",
+            "assessment_payload_sha256",
+        ),
+        Index(
+            "ix_shr_readiness_assessments_readiness_sha",
+            "readiness_payload_sha256",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    search_harness_release_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("search_harness_releases.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    release_audit_bundle_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("audit_bundle_exports.id", ondelete="RESTRICT"),
+    )
+    release_validation_receipt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("audit_bundle_validation_receipts.id", ondelete="RESTRICT"),
+    )
+    semantic_governance_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_governance_events.id", ondelete="SET NULL"),
+    )
+    readiness_profile: Mapped[str] = mapped_column(Text, nullable=False)
+    readiness_status: Mapped[str] = mapped_column(Text, nullable=False)
+    ready: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    blockers_json: Mapped[list] = mapped_column(
+        "blockers",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    blocker_details_json: Mapped[list] = mapped_column(
+        "blocker_details",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    checks_json: Mapped[dict] = mapped_column(
+        "checks",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    diagnostics_json: Mapped[dict] = mapped_column(
+        "diagnostics",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    lineage_remediation_json: Mapped[dict] = mapped_column(
+        "lineage_remediation",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    readiness_payload_json: Mapped[dict] = mapped_column(
+        "readiness_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    assessment_payload_json: Mapped[dict] = mapped_column(
+        "assessment_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    readiness_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    assessment_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(Text)
+    review_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class RetrievalJudgmentSet(Base):
     __tablename__ = "retrieval_judgment_sets"
     __table_args__ = (
@@ -3695,6 +3816,7 @@ class SemanticGovernanceEvent(Base):
             "'semantic_graph_snapshot_recorded', "
             "'semantic_graph_snapshot_activated', "
             "'search_harness_release_recorded', "
+            "'search_harness_release_readiness_assessed', "
             "'technical_report_prov_export_frozen', "
             "'retrieval_training_run_materialized', "
             "'retrieval_learning_candidate_evaluated', "

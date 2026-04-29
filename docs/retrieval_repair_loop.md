@@ -24,6 +24,7 @@ The loop improves search harnesses without giving an agent open-ended control ov
 - `search_request_explanation`: returned by the explain route and embeddable in repair evidence.
 - `search_harness_evaluation`: persisted DB resource returned by `GET /search/harness-evaluations/{evaluation_id}`.
 - `search_harness_release_gate`: persisted release decision returned by `GET /search/harness-releases/{release_id}`.
+- `search_harness_release_readiness_assessment`: immutable DB resource that freezes the live release-readiness decision, blocker details, lineage remediation, linked audit bundle, linked validation receipt, payload hashes, and semantic governance event.
 - `repair_case.json`: written by `triage_replay_regression`.
 - `harness_config_draft.json`: written by `draft_harness_config_update`.
 - `harness_config_draft_verification.json`: written by `verify_draft_harness_config`.
@@ -69,6 +70,9 @@ Inspection surfaces:
 - `GET /search/harness-releases`
 - `GET /search/harness-releases/{release_id}`
 - `GET /search/harness-releases/{release_id}/readiness`
+- `POST /search/harness-releases/{release_id}/readiness-assessments`
+- `GET /search/harness-releases/{release_id}/readiness-assessments/latest`
+- `GET /search/harness-releases/{release_id}/readiness-assessments/{assessment_id}`
 - `POST /search/harness-releases/{release_id}/audit-bundles`
 - `GET /search/harness-releases/{release_id}/audit-bundles/latest`
 - `POST /search/retrieval-training-runs/{training_run_id}/audit-bundles`
@@ -156,12 +160,22 @@ coverage by linking active semantic state, the policy requires ontology and sema
 graph snapshot references plus a closed governance-event hash chain. The release
 readiness endpoint combines retrieval gate status, latest release audit bundle status,
 release validation receipt status, and semantic governance policy status into one
-document-generation gate. It also returns a machine-readable diagnostics envelope with
-latest validation errors, failed audit-checklist keys, linked training-bundle lineage
-match checks, blocker details with normalized reason codes, and replay-alert corpus
-remediation items so operators can see which training run, audit bundle, and corpus
-source need repair before retrying the release audit export. The database enforces
-that audit bundle source IDs match
+live document-generation gate. It also returns a machine-readable diagnostics envelope
+with latest validation errors, failed audit-checklist keys, linked training-bundle
+lineage match checks, blocker details with normalized reason codes, and replay-alert
+corpus remediation items so operators can see which training run, audit bundle, and
+corpus source need repair before retrying the release audit export.
+
+When a release readiness decision needs to be used as court-facing generation input,
+operators freeze the live readiness result with `POST
+/search/harness-releases/{release_id}/readiness-assessments`. The resulting
+`search_harness_release_readiness_assessment` row is immutable, links the release,
+latest release audit bundle, latest validation receipt, and semantic governance
+event, stores the full readiness payload plus assessment wrapper, and records stable
+SHA-256 hashes for both. `GET /search/harness-releases/{release_id}/readiness` stays
+live and reports the latest frozen assessment reference when one exists; downstream
+document generation should cite the frozen assessment ID and hash, not only a freshly
+recomputed readiness response. The database enforces that audit bundle source IDs match
 their concrete release or training-run foreign keys. That keeps the signed release
 package traceable from release gate back to the exact auditable dataset that
 influenced the candidate, and gives downstream document-generation workflows a

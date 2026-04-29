@@ -42,6 +42,8 @@ from app.schemas.search import (
     SearchHarnessEvaluationSummaryResponse,
     SearchHarnessReleaseAuditBundleRequest,
     SearchHarnessReleaseGateRequest,
+    SearchHarnessReleaseReadinessAssessmentRequest,
+    SearchHarnessReleaseReadinessAssessmentResponse,
     SearchHarnessReleaseReadinessResponse,
     SearchHarnessReleaseResponse,
     SearchHarnessReleaseSummaryResponse,
@@ -86,6 +88,15 @@ create_search_harness_release_gate = retrieval.create_search_harness_release_gat
 list_search_harness_releases = retrieval.list_search_harness_releases
 get_search_harness_release_detail = retrieval.get_search_harness_release_detail
 get_search_harness_release_readiness = retrieval.get_search_harness_release_readiness
+create_search_harness_release_readiness_assessment = (
+    retrieval.create_search_harness_release_readiness_assessment
+)
+get_latest_search_harness_release_readiness_assessment = (
+    retrieval.get_latest_search_harness_release_readiness_assessment
+)
+get_search_harness_release_readiness_assessment = (
+    retrieval.get_search_harness_release_readiness_assessment
+)
 create_search_harness_release_audit_bundle = (
     retrieval.create_search_harness_release_audit_bundle
 )
@@ -478,6 +489,62 @@ def read_search_harness_release_readiness(
     session: DbSession,
 ) -> SearchHarnessReleaseReadinessResponse:
     return get_search_harness_release_readiness(session, release_id)
+
+
+@router.post(
+    "/search/harness-releases/{release_id}/readiness-assessments",
+    response_model=SearchHarnessReleaseReadinessAssessmentResponse,
+    dependencies=[
+        Depends(require_api_key_for_mutations),
+        Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE)),
+    ],
+)
+def create_search_harness_release_readiness_assessment_route(
+    response: Response,
+    release_id: UUID,
+    payload: SearchHarnessReleaseReadinessAssessmentRequest,
+    session: DbSession,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    assessment = create_search_harness_release_readiness_assessment(
+        session,
+        release_id,
+        payload,
+    )
+    session.commit()
+    assessment_id = response_field(assessment, "assessment_id")
+    response.headers["Location"] = (
+        f"/search/harness-releases/{release_id}/readiness-assessments/{assessment_id}"
+    )
+    return assessment
+
+
+@router.get(
+    "/search/harness-releases/{release_id}/readiness-assessments/latest",
+    response_model=SearchHarnessReleaseReadinessAssessmentResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_latest_search_harness_release_readiness_assessment(
+    release_id: UUID,
+    session: DbSession,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    return get_latest_search_harness_release_readiness_assessment(session, release_id)
+
+
+@router.get(
+    "/search/harness-releases/{release_id}/readiness-assessments/{assessment_id}",
+    response_model=SearchHarnessReleaseReadinessAssessmentResponse,
+    dependencies=[Depends(require_api_capability(api_capabilities.SEARCH_EVALUATE))],
+)
+def read_search_harness_release_readiness_assessment(
+    release_id: UUID,
+    assessment_id: UUID,
+    session: DbSession,
+) -> SearchHarnessReleaseReadinessAssessmentResponse:
+    return get_search_harness_release_readiness_assessment(
+        session,
+        release_id,
+        assessment_id,
+    )
 
 
 @router.get(

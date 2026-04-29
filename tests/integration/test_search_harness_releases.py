@@ -21,7 +21,9 @@ from app.db.models import (
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchHarnessRelease,
+    SearchHarnessReleaseReadinessAssessment,
     SearchReplayRun,
+    SemanticGovernanceEvent,
 )
 from app.services.semantic_governance import record_semantic_governance_event
 
@@ -658,7 +660,7 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     )
     assert readiness_after_export_response.status_code == 200
     readiness_after_export = readiness_after_export_response.json()
-    assert readiness_after_export["schema_version"] == "1.2"
+    assert readiness_after_export["schema_version"] == "1.3"
     assert readiness_after_export["ready"] is True
     assert readiness_after_export["blocker_details"] == []
     assert readiness_after_export["checks"] == {
@@ -728,6 +730,67 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
     }
     assert readiness["semantic_governance"]["checks"]["has_release_governance_event"] is True
     assert readiness["validation_receipts"]["semantic_governance_valid"] is True
+    assert readiness["latest_readiness_assessment"] is None
+
+    missing_assessment_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness-assessments/latest"
+    )
+    assert missing_assessment_response.status_code == 404
+    assert missing_assessment_response.json()["error_code"] == (
+        "search_harness_release_readiness_assessment_not_found"
+    )
+
+    assessment_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/readiness-assessments",
+        json={"created_by": "integration", "review_note": "freeze passed readiness"},
+    )
+    assert assessment_response.status_code == 200
+    assessment = assessment_response.json()
+    assert assessment_response.headers["Location"] == (
+        f"/search/harness-releases/{release_id}/readiness-assessments/"
+        f"{assessment['assessment_id']}"
+    )
+    assert assessment["schema_name"] == "search_harness_release_readiness_assessment"
+    assert assessment["readiness_status"] == "ready"
+    assert assessment["ready"] is True
+    assert assessment["blockers"] == []
+    assert assessment["latest_release_audit_bundle_id"] == audit_bundle["bundle_id"]
+    assert (
+        assessment["latest_release_validation_receipt_id"]
+        == validation_receipt["receipt_id"]
+    )
+    assert assessment["semantic_governance_event_id"]
+    assert assessment["readiness_payload_sha256"]
+    assert assessment["assessment_payload_sha256"]
+    assert assessment["readiness"]["ready"] is True
+    assert assessment["readiness"]["latest_readiness_assessment"] is None
+    assert assessment["assessment"]["readiness_status"] == "ready"
+
+    latest_assessment_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness-assessments/latest"
+    )
+    assert latest_assessment_response.status_code == 200
+    assert latest_assessment_response.json()["assessment_id"] == (
+        assessment["assessment_id"]
+    )
+
+    assessment_detail_response = postgres_integration_harness.client.get(
+        assessment_response.headers["Location"]
+    )
+    assert assessment_detail_response.status_code == 200
+    assert assessment_detail_response.json()["assessment_id"] == (
+        assessment["assessment_id"]
+    )
+
+    readiness_with_assessment_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_with_assessment_response.status_code == 200
+    readiness_with_assessment = readiness_with_assessment_response.json()
+    assert readiness_with_assessment["latest_readiness_assessment"]["assessment_id"] == (
+        assessment["assessment_id"]
+    )
+    assert readiness_with_assessment["latest_readiness_assessment"]["ready"] is True
 
     with postgres_integration_harness.session_factory() as session:
         row = session.get(AuditBundleExport, audit_bundle["bundle_id"])
@@ -747,6 +810,30 @@ def test_search_harness_release_gate_roundtrip(postgres_integration_harness, mon
             UUID(training_audit_bundle_ref["bundle_id"]),
             UUID(audit_bundle["bundle_id"]),
         }
+        assessment_row = session.get(
+            SearchHarnessReleaseReadinessAssessment,
+            UUID(assessment["assessment_id"]),
+        )
+        assert assessment_row is not None
+        assert assessment_row.ready is True
+        assert assessment_row.release_audit_bundle_id == UUID(audit_bundle["bundle_id"])
+        assert assessment_row.release_validation_receipt_id == (
+            UUID(validation_receipt["receipt_id"])
+        )
+        assert assessment_row.semantic_governance_event_id == UUID(
+            assessment["semantic_governance_event_id"]
+        )
+        event_row = session.get(
+            SemanticGovernanceEvent,
+            assessment_row.semantic_governance_event_id,
+        )
+        assert event_row is not None
+        assert event_row.event_kind == "search_harness_release_readiness_assessed"
+        assert event_row.subject_table == (
+            "search_harness_release_readiness_assessments"
+        )
+        assert event_row.subject_id == assessment_row.id
+        assert event_row.search_harness_release_id == UUID(release_id)
         storage_path = Path(row.storage_path)
 
     stored_bundle = json.loads(storage_path.read_text())

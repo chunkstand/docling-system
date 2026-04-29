@@ -30,6 +30,7 @@ from app.db.models import (
     SearchHarnessEvaluation,
     SearchHarnessEvaluationSource,
     SearchHarnessRelease,
+    SearchHarnessReleaseReadinessAssessment,
     SearchReplayQuery,
     SearchReplayRun,
     SearchRequestRecord,
@@ -991,6 +992,45 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
         remediation_item["suggested_operator_action"]
     )
 
+    assessment_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/readiness-assessments",
+        json={"created_by": "integration", "review_note": "freeze blocked readiness"},
+    )
+    assert assessment_response.status_code == 200
+    assessment = assessment_response.json()
+    assert assessment["readiness_status"] == "blocked"
+    assert assessment["ready"] is False
+    assert assessment["blockers"] == ["validation_receipts_ready"]
+    assert assessment["latest_release_audit_bundle_id"] == (
+        release_audit_bundle["bundle_id"]
+    )
+    assert assessment["latest_release_validation_receipt_id"] == (
+        latest_release_receipt["receipt_id"]
+    )
+    assert assessment["blocker_details"][0]["lineage_remediation_required"] is True
+    assert assessment["lineage_remediation"]["status"] == "action_required"
+    assert assessment["readiness"]["ready"] is False
+    assert assessment["readiness"]["latest_readiness_assessment"] is None
+    assert assessment["semantic_governance_event_id"]
+
+    latest_assessment_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness-assessments/latest"
+    )
+    assert latest_assessment_response.status_code == 200
+    assert latest_assessment_response.json()["assessment_id"] == (
+        assessment["assessment_id"]
+    )
+
+    readiness_after_assessment_response = postgres_integration_harness.client.get(
+        f"/search/harness-releases/{release_id}/readiness"
+    )
+    assert readiness_after_assessment_response.status_code == 200
+    readiness_after_assessment = readiness_after_assessment_response.json()
+    assert readiness_after_assessment["latest_readiness_assessment"]["ready"] is False
+    assert readiness_after_assessment["latest_readiness_assessment"]["assessment_id"] == (
+        assessment["assessment_id"]
+    )
+
     with postgres_integration_harness.session_factory() as session:
         refreshed_training_bundle = session.get(
             AuditBundleExport,
@@ -1004,6 +1044,25 @@ def test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundl
         assert refreshed_integrity["complete"] is False
         assert refreshed_integrity["reference_row_identity_hashes_match"] is False
         assert refreshed_integrity["row_fixture_hashes_match"] is True
+        assessment_row = session.get(
+            SearchHarnessReleaseReadinessAssessment,
+            UUID(assessment["assessment_id"]),
+        )
+        assert assessment_row is not None
+        assert assessment_row.ready is False
+        assert assessment_row.release_audit_bundle_id == UUID(
+            release_audit_bundle["bundle_id"]
+        )
+        assert assessment_row.release_validation_receipt_id == UUID(
+            latest_release_receipt["receipt_id"]
+        )
+        event = session.get(
+            SemanticGovernanceEvent,
+            assessment_row.semantic_governance_event_id,
+        )
+        assert event is not None
+        assert event.event_kind == "search_harness_release_readiness_assessed"
+        assert event.search_harness_release_id == release_id
 
 
 def test_materialize_retrieval_learning_dataset_rejects_tampered_replay_alert_corpus(
