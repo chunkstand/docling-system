@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -9,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.hashes import payload_sha256
 from app.core.time import utcnow
 from app.db.models import EvalFailureCase, EvalObservation
 from app.schemas.agent_tasks import AgentTaskCreateRequest
@@ -51,19 +50,8 @@ BLOCKED_REPAIR_SURFACES = [
     "yaml_as_source_of_truth",
 ]
 
-
-def _payload_fingerprint(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
 def _case_key(parts: dict) -> str:
-    return _payload_fingerprint(parts)
+    return payload_sha256(parts)
 
 
 def _case_not_found(case_id: UUID) -> HTTPException:

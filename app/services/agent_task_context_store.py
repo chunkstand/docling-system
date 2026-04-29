@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
 from uuid import UUID
 
@@ -10,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -20,16 +19,6 @@ from app.db.models import (
 )
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.storage import StorageService
-
-
-def _payload_sha256(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _artifact_context_ref(
@@ -145,7 +134,7 @@ def get_agent_task_context_yaml_path(
     return storage_service.get_agent_task_context_yaml_path(task_id)
 
 
-def _verification_payload(row: AgentTaskVerification) -> dict:
+def _context_verification_payload(row: AgentTaskVerification) -> dict:
     return {
         "verification_id": str(row.id),
         "target_task_id": str(row.target_task_id),
@@ -306,7 +295,7 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
         if verification_row is None:
             updated.freshness_status = ContextFreshnessStatus.MISSING
             return updated
-        current_hash = _payload_sha256(_verification_payload(verification_row))
+        current_hash = _payload_sha256(_context_verification_payload(verification_row))
         if current_hash != ref.observed_sha256:
             updated.freshness_status = ContextFreshnessStatus.STALE
             return updated
@@ -366,6 +355,6 @@ artifact_context_ref = _artifact_context_ref
 task_output_context_ref = _task_output_context_ref
 derive_freshness_status = _derive_freshness_status
 get_context_artifact_row = _get_context_artifact_row
-verification_payload = _verification_payload
+verification_payload = _context_verification_payload
 search_replay_run_payload = _search_replay_run_payload
 search_harness_evaluation_context_ref = _search_harness_evaluation_context_ref

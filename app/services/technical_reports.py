@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -9,6 +8,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.coercion import unique_strings as _unique_strings
+from app.core.coercion import unique_uuids as _unique_uuids
+from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.text import collapse_whitespace
 from app.core.time import utcnow
 from app.schemas.agent_tasks import (
@@ -31,6 +33,10 @@ from app.services.evidence import (
     apply_technical_report_derivation_links,
     build_technical_report_derivation_package,
 )
+from app.services.report_shared import (
+    release_readiness_assessment_ready as _release_readiness_assessment_ready,
+)
+from app.services.report_shared import source_evidence_match_status as _source_evidence_match_status
 from app.services.semantic_generation import prepare_semantic_generation_brief
 
 
@@ -42,25 +48,6 @@ class TechnicalReportVerificationOutcome:
     verification_metrics: dict[str, Any]
     verification_reasons: list[str]
     verification_details: dict[str, Any]
-
-
-def _payload_sha256(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _unique_strings(values: list[str]) -> list[str]:
-    return [value for value in dict.fromkeys(values) if value]
-
-
-def _unique_uuids(values: list[UUID]) -> list[UUID]:
-    return [value for value in dict.fromkeys(values) if value is not None]
-
 
 _CLAIM_PROVENANCE_LOCK_LIST_FIELDS = (
     "source_search_request_ids",
@@ -470,19 +457,6 @@ def apply_technical_report_claim_support_judgments(
         "insufficient_evidence_claim_count": insufficient_count,
     }
     return draft_payload
-
-
-def _source_evidence_match_status(statuses: list[str]) -> str | None:
-    unique_statuses = _unique_strings(statuses)
-    if not unique_statuses:
-        return None
-    status_order = {
-        "missing": 0,
-        "matched_document_run_fallback": 1,
-        "matched_page_span": 2,
-        "matched_source_record": 3,
-    }
-    return min(unique_statuses, key=lambda status: status_order.get(status, -1))
 
 
 def _card_requires_source_match(card: TechnicalReportEvidenceCard) -> bool:
@@ -1139,18 +1113,6 @@ def _claim_has_traceable_support(row: dict[str, Any]) -> bool:
             "missing_fact_ids",
             "missing_assertion_ids",
         )
-    )
-
-
-def _release_readiness_assessment_ready(ref: dict[str, Any]) -> bool:
-    integrity = ref.get("integrity") if isinstance(ref.get("integrity"), dict) else {}
-    return (
-        ref.get("selection_status") == "ready_integrity_complete"
-        and ref.get("ready") is True
-        and ref.get("readiness_status") == "ready"
-        and bool(ref.get("assessment_id"))
-        and bool(ref.get("assessment_payload_sha256"))
-        and integrity.get("complete") is True
     )
 
 

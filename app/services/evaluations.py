@@ -37,6 +37,7 @@ from app.services.evaluation_execution import (
     execute_answer_queries,
     execute_retrieval_queries,
 )
+from app.services.evaluation_fixture_cache import load_corpus_documents_cached
 from app.services.search import search_documents
 
 EVAL_VERSION = 1
@@ -182,11 +183,7 @@ def _configured_manual_corpus_path() -> Path | None:
 
 
 def _load_corpus_documents(path: Path) -> list[dict]:
-    if not path.exists():
-        return []
-    config = yaml.safe_load(path.read_text()) or {}
-    documents = config.get("documents") or []
-    return [document for document in documents if isinstance(document, dict)]
+    return load_corpus_documents_cached(path)
 
 
 def _write_corpus_documents(path: Path, documents: list[dict]) -> None:
@@ -1900,6 +1897,7 @@ def evaluate_run(
     baseline_run_id: UUID | None = None,
     corpus_path: Path | None = None,
     corpus_name: str = DEFAULT_CORPUS_NAME,
+    refresh_auto_fixture: bool = True,
 ) -> DocumentRunEvaluation:
     active_corpus_path = corpus_path or _configured_manual_corpus_path() or _auto_corpus_path()
     baseline_run_id = resolve_baseline_run_id(
@@ -1919,7 +1917,7 @@ def evaluate_run(
     fixture = None
     try:
         fixture = fixture_for_document(document, active_corpus_path)
-        if fixture is None or fixture.kind == AUTO_FIXTURE_KIND:
+        if fixture is None or (refresh_auto_fixture and fixture.kind == AUTO_FIXTURE_KIND):
             ensure_auto_evaluation_fixture(session, document, run)
             fixture = fixture_for_document(document, active_corpus_path)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from app.services.embeddings import OpenAIEmbeddingProvider
+from app.services.embeddings import OpenAIEmbeddingProvider, get_embedding_provider
 
 
 class FakeEmbeddingsAPI:
@@ -90,3 +90,27 @@ def test_openai_embedding_provider_configures_timeout_and_retries(monkeypatch) -
         "timeout": 12.5,
         "max_retries": 4,
     }
+
+
+def test_get_embedding_provider_uses_configured_cache_size(monkeypatch) -> None:
+    get_embedding_provider.cache_clear()
+    monkeypatch.setattr(
+        "app.services.embeddings.get_settings",
+        lambda: SimpleNamespace(
+            openai_api_key="test-key",
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=2,
+            embedding_cache_size=32,
+            openai_timeout_seconds=12.5,
+            openai_max_retries=4,
+        ),
+    )
+    monkeypatch.setattr(
+        "app.services.embeddings.OpenAI",
+        lambda **_kwargs: SimpleNamespace(embeddings=SimpleNamespace(create=lambda **kwargs: None)),
+    )
+
+    provider = get_embedding_provider()
+
+    assert provider.cache_size == 32
+    get_embedding_provider.cache_clear()

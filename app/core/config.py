@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = 30.0
     openai_max_retries: int = 2
     embedding_dim: int = 1536
+    embedding_cache_size: int = 4096
     worker_poll_seconds: int = 2
     worker_lease_timeout_seconds: int = 300
     worker_max_attempts: int = 3

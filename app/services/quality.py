@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import Date, String, and_, case, cast, func, literal, null, or_, select, union_all
 from sqlalchemy.orm import Session
 
+from app.core.coercion import maybe_uuid as _maybe_uuid
 from app.db.models import (
     ChatAnswerFeedback,
     ChatAnswerRecord,
@@ -324,17 +325,6 @@ def get_quality_failures(session: Session) -> QualityFailuresResponse:
         evaluation_failures=evaluation_failures,
         run_failures=run_failures,
     )
-
-
-def _maybe_uuid(value: object) -> UUID | None:
-    if isinstance(value, UUID):
-        return value
-    if not value:
-        return None
-    try:
-        return UUID(str(value))
-    except (TypeError, ValueError):
-        return None
 
 
 def _candidate_key(

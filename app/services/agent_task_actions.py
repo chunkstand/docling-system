@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.coercion import unique_strings as _unique_strings
+from app.core.coercion import unique_uuids as _unique_uuids
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -196,6 +198,9 @@ from app.services.evidence import (
     technical_report_search_evidence_closure_payload,
 )
 from app.services.quality import list_quality_eval_candidates
+from app.services.report_shared import (
+    source_evidence_match_status as _aggregate_source_match_status,
+)
 from app.services.search import execute_search, get_search_harness, list_search_harnesses
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_harness_optimization import run_search_harness_optimization_loop
@@ -205,6 +210,12 @@ from app.services.search_legibility import get_search_request_explanation
 from app.services.search_release_gate import (
     evaluate_search_harness_release_gate,
     search_harness_release_readiness_assessment_integrity,
+)
+from app.services.search_release_shared import (
+    latest_audit_bundle_validation_receipt as _latest_release_validation_receipt,
+)
+from app.services.search_release_shared import (
+    latest_release_readiness_assessment as _latest_release_readiness_assessment,
 )
 from app.services.search_replays import (
     compare_search_replay_runs,
@@ -658,25 +669,7 @@ def _plan_technical_report_executor(
     }
 
 
-def _unique_strings(values) -> list[str]:
-    return [str(value) for value in dict.fromkeys(values) if value is not None and value != ""]
-
-
-def _unique_uuids(values) -> list[UUID]:
-    ids: list[UUID] = []
-    for value in values:
-        if value is None or value == "":
-            continue
-        try:
-            parsed = UUID(str(value))
-        except (TypeError, ValueError):
-            continue
-        if parsed not in ids:
-            ids.append(parsed)
-    return ids
-
-
-def _source_record_key(source_type, source_id) -> str | None:
+def _task_source_record_key(source_type, source_id) -> str | None:
     if source_type is None or source_id is None or source_id == "":
         return None
     source_type_value = str(source_type).strip().lower()
@@ -685,7 +678,7 @@ def _source_record_key(source_type, source_id) -> str | None:
     return f"source:{source_type_value}:{source_id}"
 
 
-def _int_or_none(value) -> int | None:
+def _task_int_or_none(value) -> int | None:
     if value is None or value == "":
         return None
     try:
@@ -694,17 +687,17 @@ def _int_or_none(value) -> int | None:
         return None
 
 
-def _source_page_span(
+def _task_source_page_span(
     *,
     document_id,
     run_id,
     page_from,
     page_to,
 ) -> dict | None:
-    page_from_value = _int_or_none(page_from)
+    page_from_value = _task_int_or_none(page_from)
     if page_from_value is None or document_id is None or run_id is None:
         return None
-    page_to_value = _int_or_none(page_to) or page_from_value
+    page_to_value = _task_int_or_none(page_to) or page_from_value
     return {
         "document_id": str(document_id),
         "run_id": str(run_id),
@@ -718,7 +711,7 @@ def _unique_page_spans(spans: list[dict]) -> list[dict]:
     return list({span["key"]: span for span in spans if span and span.get("key")}.values())
 
 
-def _page_spans_overlap(card_span: dict, source_span: dict) -> bool:
+def _task_page_spans_overlap(card_span: dict, source_span: dict) -> bool:
     if card_span.get("document_id") != source_span.get("document_id") or card_span.get(
         "run_id"
     ) != source_span.get("run_id"):
@@ -747,13 +740,13 @@ def _source_export_summary(export) -> dict:
         item_record_keys: list[str] = []
         item_page_spans: list[dict] = []
         item_record_keys.append(
-            _source_record_key(source_item.get("result_type"), source_item.get("source_id"))
+            _task_source_record_key(source_item.get("result_type"), source_item.get("source_id"))
         )
         for source_type, payload_key in (("chunk", "chunk"), ("table", "table")):
             source_payload = source_item.get(payload_key) or {}
-            item_record_keys.append(_source_record_key(source_type, source_payload.get("id")))
+            item_record_keys.append(_task_source_record_key(source_type, source_payload.get("id")))
             item_page_spans.append(
-                _source_page_span(
+                _task_source_page_span(
                     document_id=source_payload.get("document_id") or document.get("id"),
                     run_id=source_payload.get("run_id") or run.get("id"),
                     page_from=source_payload.get("page_from"),
@@ -762,10 +755,10 @@ def _source_export_summary(export) -> dict:
             )
         for span in source_item.get("retrieval_evidence_spans") or []:
             item_record_keys.append(
-                _source_record_key(span.get("source_type"), span.get("source_id"))
+                _task_source_record_key(span.get("source_type"), span.get("source_id"))
             )
             item_page_spans.append(
-                _source_page_span(
+                _task_source_page_span(
                     document_id=document.get("id"),
                     run_id=run.get("id"),
                     page_from=span.get("page_from"),
@@ -834,7 +827,7 @@ def _latest_passed_release_for_search_request(
     )
 
 
-def _latest_release_audit_bundle(
+def _latest_completed_release_audit_bundle(
     session: Session,
     release_id: UUID,
 ) -> AuditBundleExport | None:
@@ -846,36 +839,6 @@ def _latest_release_audit_bundle(
             AuditBundleExport.export_status == "completed",
         )
         .order_by(AuditBundleExport.created_at.desc(), AuditBundleExport.id.asc())
-        .limit(1)
-    )
-
-
-def _latest_release_validation_receipt(
-    session: Session,
-    audit_bundle_id: UUID,
-) -> AuditBundleValidationReceipt | None:
-    return session.scalar(
-        select(AuditBundleValidationReceipt)
-        .where(AuditBundleValidationReceipt.audit_bundle_export_id == audit_bundle_id)
-        .order_by(
-            AuditBundleValidationReceipt.created_at.desc(),
-            AuditBundleValidationReceipt.id.asc(),
-        )
-        .limit(1)
-    )
-
-
-def _latest_release_readiness_assessment(
-    session: Session,
-    release_id: UUID,
-) -> SearchHarnessReleaseReadinessAssessment | None:
-    return session.scalar(
-        select(SearchHarnessReleaseReadinessAssessment)
-        .where(SearchHarnessReleaseReadinessAssessment.search_harness_release_id == release_id)
-        .order_by(
-            SearchHarnessReleaseReadinessAssessment.created_at.desc(),
-            SearchHarnessReleaseReadinessAssessment.id.asc(),
-        )
         .limit(1)
     )
 
@@ -993,7 +956,9 @@ def _release_readiness_assessment_refs_for_exports(
             continue
         release = _latest_passed_release_for_search_request(session, request_row)
         latest_audit_bundle = (
-            _latest_release_audit_bundle(session, release.id) if release is not None else None
+            _latest_completed_release_audit_bundle(session, release.id)
+            if release is not None
+            else None
         )
         latest_validation_receipt = (
             _latest_release_validation_receipt(session, latest_audit_bundle.id)
@@ -1161,7 +1126,7 @@ def _context_pack_release_readiness_db_summary(
         if ref.get("assessment_payload_sha256") != assessment.assessment_payload_sha256:
             hash_mismatch_assessment_ids.append(str(assessment.id))
             continue
-        latest_audit_bundle = _latest_release_audit_bundle(
+        latest_audit_bundle = _latest_completed_release_audit_bundle(
             session,
             assessment.search_harness_release_id,
         )
@@ -1289,16 +1254,16 @@ def _card_document_run_keys(card: dict) -> list[str]:
     return [f"{document_id}:{run_id}" for document_id in document_ids for run_id in run_ids]
 
 
-def _card_source_record_keys(card: dict) -> list[str]:
+def _task_card_source_record_keys(card: dict) -> list[str]:
     metadata = card.get("metadata") or {}
     source_type = str(card.get("source_type") or "").strip().lower()
     source_record_keys: list[str] = [
-        _source_record_key("chunk", card.get("chunk_id") or metadata.get("chunk_id")),
-        _source_record_key("table", card.get("table_id") or metadata.get("table_id")),
+        _task_source_record_key("chunk", card.get("chunk_id") or metadata.get("chunk_id")),
+        _task_source_record_key("table", card.get("table_id") or metadata.get("table_id")),
     ]
     if source_type in {"chunk", "table"}:
         source_record_keys.append(
-            _source_record_key(
+            _task_source_record_key(
                 source_type,
                 card.get("source_locator") or metadata.get("source_locator"),
             )
@@ -1306,7 +1271,7 @@ def _card_source_record_keys(card: dict) -> list[str]:
     return _unique_strings(source_record_keys)
 
 
-def _card_requires_source_match(card: dict) -> bool:
+def _task_card_requires_source_match(card: dict) -> bool:
     source_type = str(card.get("source_type") or "").strip().lower()
     evidence_kind = str(card.get("evidence_kind") or "").strip().lower()
     return (
@@ -1316,8 +1281,8 @@ def _card_requires_source_match(card: dict) -> bool:
     )
 
 
-def _card_page_span(card: dict) -> dict | None:
-    return _source_page_span(
+def _task_card_page_span(card: dict) -> dict | None:
+    return _task_source_page_span(
         document_id=card.get("document_id"),
         run_id=card.get("run_id"),
         page_from=card.get("page_from"),
@@ -1329,7 +1294,7 @@ def _match_card_source_exports(
     card: dict,
     search_export_summaries: list[dict],
 ) -> tuple[str, list[dict], list[str]]:
-    source_record_keys = set(_card_source_record_keys(card))
+    source_record_keys = set(_task_card_source_record_keys(card))
     if source_record_keys:
         matched_summaries: list[dict] = []
         matched_keys: list[str] = []
@@ -1342,7 +1307,7 @@ def _match_card_source_exports(
         if matched_summaries:
             return "matched_source_record", matched_summaries, _unique_strings(matched_keys)
 
-    card_page_span = _card_page_span(card)
+    card_page_span = _task_card_page_span(card)
     if card_page_span:
         matched_summaries = []
         matched_keys = []
@@ -1350,7 +1315,7 @@ def _match_card_source_exports(
             overlapping_source_spans = [
                 span
                 for span in summary.get("source_page_spans") or []
-                if _page_spans_overlap(card_page_span, span)
+                if _task_page_spans_overlap(card_page_span, span)
             ]
             if overlapping_source_spans:
                 matched_summaries.append(summary)
@@ -1372,19 +1337,6 @@ def _match_card_source_exports(
     return "missing", [], []
 
 
-def _aggregate_source_match_status(statuses: list[str]) -> str | None:
-    unique_statuses = _unique_strings(statuses)
-    if not unique_statuses:
-        return None
-    status_order = {
-        "missing": 0,
-        "matched_document_run_fallback": 1,
-        "matched_page_span": 2,
-        "matched_source_record": 3,
-    }
-    return min(unique_statuses, key=lambda status: status_order.get(status, -1))
-
-
 def _card_targeted_query(card: dict) -> str | None:
     excerpt = str(card.get("excerpt") or "").strip()
     if excerpt:
@@ -1399,8 +1351,8 @@ def _attach_source_exports_to_evidence_bundle(
     search_export_summaries: list[dict],
 ) -> None:
     def matched_result_ids(card: dict, summaries: list[dict]) -> list[str]:
-        card_source_record_keys = set(_card_source_record_keys(card))
-        card_page_span = _card_page_span(card)
+        card_source_record_keys = set(_task_card_source_record_keys(card))
+        card_page_span = _task_card_page_span(card)
         result_ids: list[str] = []
         for summary in summaries:
             for result in summary.get("source_results") or []:
@@ -1413,7 +1365,7 @@ def _attach_source_exports_to_evidence_bundle(
                     result_ids.append(result_id)
                     continue
                 if card_page_span and any(
-                    _page_spans_overlap(card_page_span, span) for span in result_page_spans
+                    _task_page_spans_overlap(card_page_span, span) for span in result_page_spans
                 ):
                     result_ids.append(result_id)
                     continue
@@ -1451,8 +1403,8 @@ def _attach_source_exports_to_evidence_bundle(
         card["source_evidence_match_keys"] = source_match_keys
         card["source_evidence_match_status"] = source_match_status
         card_metadata = dict(card.get("metadata") or {})
-        card_metadata["source_record_keys"] = _card_source_record_keys(card)
-        card_metadata["source_page_span"] = _card_page_span(card)
+        card_metadata["source_record_keys"] = _task_card_source_record_keys(card)
+        card_metadata["source_page_span"] = _task_card_page_span(card)
         card["metadata"] = card_metadata
         cards_by_id[str(card.get("evidence_card_id"))] = card
 
@@ -1494,7 +1446,7 @@ def _attach_source_exports_to_evidence_bundle(
             [
                 card.get("source_evidence_match_status")
                 for card in claim_cards
-                if _card_requires_source_match(card)
+                if _task_card_requires_source_match(card)
                 if card.get("source_evidence_match_status")
             ]
         )
@@ -2437,7 +2389,7 @@ def _require_policy_row_matches_draft_output(
         raise ValueError("Draft policy payload no longer matches the draft task output.")
 
 
-def _coerce_utc_datetime(value: object, *, field_name: str) -> datetime:
+def _require_utc_datetime(value: object, *, field_name: str) -> datetime:
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, str):
@@ -2495,7 +2447,7 @@ def _require_active_replay_alert_fixture_coverage_waiver(
         raise ValueError(
             "Replay-alert fixture coverage waiver hash does not match its payload."
         )
-    expires_at = _coerce_utc_datetime(
+    expires_at = _require_utc_datetime(
         waiver.get("waiver_expires_at"),
         field_name="replay_alert_fixture_coverage_waiver.waiver_expires_at",
     )

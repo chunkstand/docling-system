@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import json
 import uuid
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -13,7 +12,11 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.coercion import maybe_uuid as _uuid_or_none
 from app.core.config import get_settings
+from app.core.hashes import embedded_payload_hash_matches as _payload_hash_matches_embedded_field
+from app.core.hashes import file_sha256 as _file_sha256
+from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
 from app.db.models import (
     AgentTaskArtifact,
@@ -42,6 +45,11 @@ from app.schemas.search import (
     RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessReleaseAuditBundleRequest,
 )
+from app.services.query_utils import load_by_ids as _load_by_ids
+from app.services.search_release_shared import release_package_sha256 as _release_package_sha256
+from app.services.search_release_shared import (
+    search_harness_release_not_found_error as _release_not_found,
+)
 from app.services.semantic_governance import (
     search_harness_release_semantic_governance_context,
     semantic_governance_event_payload,
@@ -69,40 +77,6 @@ CLAIM_SUPPORT_REPLAY_ALERT_CORPUS_SNAPSHOT_EVENT_KIND = (
 )
 
 
-def _payload_sha256(payload: Any) -> str:
-    return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
-    ).hexdigest()
-
-
-def _payload_hash_matches_embedded_field(payload: dict[str, Any], *, hash_field: str) -> bool:
-    expected_hash = str(payload.get(hash_field) or "")
-    if not expected_hash:
-        return False
-    basis = dict(payload)
-    basis.pop(hash_field, None)
-    return _payload_sha256(basis) == expected_hash
-
-
-def _uuid_or_none(value: object) -> UUID | None:
-    if value in {None, ""}:
-        return None
-    try:
-        return UUID(str(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _file_sha256(path: Path | None) -> str | None:
-    if path is None or not path.exists() or not path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _canonical_json_bytes(payload: Any) -> bytes:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
 
@@ -128,15 +102,6 @@ def _audit_bundle_validation_receipt_not_found(
         "audit_bundle_validation_receipt_not_found",
         "Audit bundle validation receipt not found.",
         **context,
-    )
-
-
-def _release_not_found(release_id: UUID) -> HTTPException:
-    return api_error(
-        status.HTTP_404_NOT_FOUND,
-        "search_harness_release_not_found",
-        "Search harness release gate not found.",
-        release_id=str(release_id),
     )
 
 
@@ -638,15 +603,6 @@ def _load_training_run_governance_events(
         .all()
     )
     return _load_governance_event_chain(session, seed_events)
-
-
-def _load_by_ids(session: Session, model, ids: set[UUID]) -> dict[UUID, Any]:
-    if not ids:
-        return {}
-    return {
-        row.id: row
-        for row in session.execute(select(model).where(model.id.in_(ids))).scalars().all()
-    }
 
 
 def _claim_support_source_details(row: RetrievalJudgment | RetrievalHardNegative) -> dict[str, Any]:
@@ -1740,7 +1696,7 @@ def _prov_jsonld_node(node_id: str, attrs: dict[str, Any], fallback_type: str) -
     return node
 
 
-def _edge_id(edge_type: str, edge: dict[str, Any]) -> str:
+def _prov_edge_id(edge_type: str, edge: dict[str, Any]) -> str:
     return "docling:edge:" + _payload_sha256({"edge_type": edge_type, "edge": edge})[:32]
 
 
@@ -1760,7 +1716,7 @@ def _prov_jsonld_from_graph(prov: dict[str, Any]) -> dict[str, Any]:
     )
     for edge_key, edge_type in edge_specs:
         for edge in prov.get(edge_key) or []:
-            node = {"@id": _edge_id(edge_key, edge), "@type": edge_type}
+            node = {"@id": _prov_edge_id(edge_key, edge), "@type": edge_type}
             for key, value in sorted(edge.items()):
                 if isinstance(value, str) and key in {
                     "entity",
@@ -1878,22 +1834,6 @@ def _validate_prov_graph(bundle: dict[str, Any]) -> tuple[dict[str, Any], list[d
                 )
             )
     return _prov_jsonld_from_graph(prov), errors
-
-
-def _release_package_sha256(row: SearchHarnessRelease) -> str:
-    package = {
-        "schema_name": "search_harness_release_package",
-        "schema_version": "1.0",
-        "evaluation": row.evaluation_snapshot_json or {},
-        "gate": {
-            "outcome": row.outcome,
-            "metrics": row.metrics_json or {},
-            "reasons": row.reasons_json or [],
-            "details": row.details_json or {},
-        },
-        "thresholds": row.thresholds_json or {},
-    }
-    return _payload_sha256(package)
 
 
 def _prov_graph(

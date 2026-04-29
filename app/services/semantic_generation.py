@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.coercion import unique_uuids as _unique_uuids
 from app.core.text import collapse_whitespace
 from app.db.models import Document
 from app.schemas.agent_tasks import (
@@ -50,10 +51,6 @@ class SemanticGroundedDocumentVerificationOutcome:
     verification_metrics: dict[str, Any]
     verification_reasons: list[str]
     verification_details: dict[str, Any]
-
-
-def _unique_uuids(values: list[UUID]) -> list[UUID]:
-    return list(dict.fromkeys(values))
 
 
 def _sorted_unique_strings(values: list[str]) -> list[str]:

@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import hashlib
-import hmac
-import json
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.coercion import unique_strings as _unique_strings
+from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.config import get_settings
+from app.core.hashes import hmac_sha256_hex as _signature_value
+from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -57,30 +58,6 @@ TECHNICAL_REPORT_DRAFT_ARTIFACT_KIND = "technical_report_draft"
 TECHNICAL_REPORT_GATE_VERIFIER_TYPE = "technical_report_gate"
 
 
-def _unique_strings(values: list[Any]) -> list[str]:
-    seen: set[str] = set()
-    output: list[str] = []
-    for value in values:
-        if value is None:
-            continue
-        text = str(value)
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        output.append(text)
-    return output
-
-
-def _json_payload(payload: Any | None) -> dict:
-    if payload is None:
-        return {}
-    if isinstance(payload, dict):
-        value = payload
-    else:
-        value = {"value": payload}
-    return json.loads(json.dumps(value, sort_keys=True, default=str))
-
-
 def _value_sha256(value: Any | None) -> str | None:
     return str(payload_sha256(value)) if value is not None else None
 
@@ -89,14 +66,6 @@ def claim_support_policy_change_impact_payload_sha256(payload: dict[str, Any]) -
     payload_basis = _json_payload(payload)
     payload_basis.pop(CLAIM_SUPPORT_POLICY_CHANGE_IMPACT_HASH_FIELD, None)
     return str(payload_sha256(payload_basis))
-
-
-def _signature_value(receipt_sha256: str, signing_key: str) -> str:
-    return hmac.new(
-        signing_key.encode("utf-8"),
-        receipt_sha256.encode("ascii"),
-        hashlib.sha256,
-    ).hexdigest()
 
 
 def _signature_payload(receipt_sha256: str) -> dict[str, Any]:
@@ -685,14 +654,6 @@ def _evaluation_snapshot(row: ClaimSupportEvaluation | None) -> dict[str, Any] |
         "created_at": row.created_at.isoformat(),
         "completed_at": row.completed_at.isoformat() if row.completed_at else None,
     }
-
-
-def _uuid_or_none(value: Any | None) -> UUID | None:
-    if not value:
-        return None
-    if isinstance(value, UUID):
-        return value
-    return UUID(str(value))
 
 
 def _prov_jsonld(

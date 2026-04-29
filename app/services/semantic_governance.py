@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
 from collections.abc import Iterable
 from typing import Any
@@ -10,6 +8,10 @@ from uuid import UUID
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.coercion import uuid_or_none as _uuid_or_none
+from app.core.coercion import uuid_text as _uuid_text
+from app.core.hashes import payload_sha256 as _payload_sha256
+from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
 from app.db.models import (
     AgentTaskArtifact,
@@ -38,44 +40,12 @@ SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_SCHEMA = (
 SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_PROFILE = "release_semantic_governance_v1"
 
 
-def _json_payload(payload: Any | None) -> dict:
-    if payload is None:
-        return {}
-    if isinstance(payload, dict):
-        value = payload
-    else:
-        value = {"value": payload}
-    return json.loads(json.dumps(value, default=str, sort_keys=True))
-
-
-def _payload_sha256(payload: Any | None) -> str:
-    encoded = json.dumps(
-        payload if payload is not None else {},
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _uuid_text(value: UUID | None) -> str | None:
-    return str(value) if value is not None else None
-
-
 def _created_at_text(value: Any) -> str | None:
     if value is None:
         return None
     if hasattr(value, "isoformat"):
         return value.isoformat()
     return str(value)
-
-
-def _uuid_or_none(value: Any | None) -> UUID | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, UUID):
-        return value
-    return UUID(str(value))
 
 
 def _uuids(values: Iterable[Any] | None) -> list[UUID]:

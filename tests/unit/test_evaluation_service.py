@@ -225,7 +225,19 @@ documents:
     assert fixture.name == "auto_duplicate"
 
 
-def test_fixture_for_document_does_not_match_manual_fixture_by_source_filename_by_default() -> None:
+def test_fixture_for_document_does_not_match_manual_fixture_by_source_filename_by_default(
+    monkeypatch, tmp_path
+) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
     document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")
 
     fixture = fixture_for_document(document)
@@ -233,7 +245,17 @@ def test_fixture_for_document_does_not_match_manual_fixture_by_source_filename_b
     assert fixture is None
 
 
-def test_fixture_for_document_can_opt_into_manual_filename_fallback() -> None:
+def test_fixture_for_document_can_opt_into_manual_filename_fallback(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
     document = SimpleNamespace(source_filename="UPC_Appendix_N.pdf")
 
     fixture = fixture_for_document(
@@ -1498,6 +1520,75 @@ def test_evaluate_run_refreshes_existing_auto_fixture(monkeypatch) -> None:
     assert evaluation.status == "completed"
     assert evaluation.summary_json["query_count"] == 0
     assert evaluation.summary_json["structural_passed"] is True
+
+
+def test_evaluate_run_can_reuse_existing_auto_fixture(monkeypatch) -> None:
+    run_id = uuid4()
+    document_id = uuid4()
+    evaluation_row = SimpleNamespace(
+        id=uuid4(),
+        fixture_name=None,
+        status=None,
+        summary_json=None,
+        completed_at=None,
+    )
+    fixture = SimpleNamespace(
+        name="auto_test_pdf",
+        kind=AUTO_FIXTURE_KIND,
+        queries=[],
+        answer_queries=[],
+        thresholds=SimpleNamespace(),
+    )
+    state = {"refresh_count": 0, "fixture_calls": 0}
+
+    class FakeSession:
+        def add(self, _row) -> None:
+            return None
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+    def fake_fixture_for_document(*_args, **_kwargs):
+        state["fixture_calls"] += 1
+        return fixture
+
+    monkeypatch.setattr(
+        "app.services.evaluations._upsert_evaluation_row", lambda *args, **kwargs: evaluation_row
+    )
+    monkeypatch.setattr("app.services.evaluations.fixture_for_document", fake_fixture_for_document)
+    monkeypatch.setattr(
+        "app.services.evaluations.ensure_auto_evaluation_fixture",
+        lambda *args, **kwargs: state.__setitem__("refresh_count", state["refresh_count"] + 1),
+    )
+    monkeypatch.setattr(
+        "app.services.evaluations._evaluate_structural_checks",
+        lambda *args, **kwargs: {
+            "check_count": 0,
+            "passed_checks": 0,
+            "failed_checks": 0,
+            "passed": True,
+            "checks": [],
+        },
+    )
+
+    evaluation = evaluate_run(
+        FakeSession(),
+        document=SimpleNamespace(
+            id=document_id,
+            source_filename="TEST_PDF.pdf",
+            active_run_id=run_id,
+        ),
+        run=SimpleNamespace(id=run_id, document_id=document_id),
+        refresh_auto_fixture=False,
+    )
+
+    assert state["refresh_count"] == 0
+    assert state["fixture_calls"] == 1
+    assert evaluation.fixture_name == "auto_test_pdf"
+    assert evaluation.status == "completed"
 
 
 def test_evaluate_run_uses_auto_corpus_by_default(monkeypatch, tmp_path) -> None:

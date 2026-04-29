@@ -8,6 +8,9 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.core.coercion import maybe_uuid as _uuid_or_none
+from app.core.coercion import unique_strings as _string_list
+from app.core.hashes import embedded_payload_hash_matches as _hash_matches_embedded_receipt
 from app.core.time import utcnow
 from app.db.models import (
     AgentTaskArtifact,
@@ -18,6 +21,9 @@ from app.db.models import (
     SemanticGovernanceEventKind,
 )
 from app.services.agent_task_artifacts import create_agent_task_artifact
+from app.services.claim_support_payloads import (
+    claim_support_fixture_promotion_payload as _promotion_payload,
+)
 from app.services.evidence import payload_sha256
 from app.services.semantic_governance import (
     active_semantic_basis,
@@ -62,47 +68,6 @@ class ReplayAlertFixturePromotionContext:
     promotion_payload: dict[str, Any]
     fixture_set: ClaimSupportFixtureSet
     artifact: AgentTaskArtifact
-
-
-def _uuid_or_none(value: object) -> UUID | None:
-    if value in {None, ""}:
-        return None
-    try:
-        return UUID(str(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _string_list(values) -> list[str]:
-    seen: set[str] = set()
-    rows: list[str] = []
-    for value in values or []:
-        if value in {None, ""}:
-            continue
-        text = str(value)
-        if text in seen:
-            continue
-        seen.add(text)
-        rows.append(text)
-    return rows
-
-
-def _promotion_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
-    return dict(
-        (event.event_payload_json or {}).get(
-            "claim_support_policy_impact_fixture_promotion"
-        )
-        or {}
-    )
-
-
-def _hash_matches_embedded_receipt(payload: dict[str, Any], *, hash_field: str) -> bool:
-    expected_hash = str(payload.get(hash_field) or "")
-    if not expected_hash:
-        return False
-    basis = dict(payload)
-    basis.pop(hash_field, None)
-    return payload_sha256(basis) == expected_hash
 
 
 def _fixture_by_candidate(

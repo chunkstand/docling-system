@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import uuid
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 from uuid import UUID
 
@@ -13,6 +12,11 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.coercion import maybe_uuid as _maybe_uuid
+from app.core.coercion import uuid_text as _uuid_text
+from app.core.hashes import embedded_payload_hash_matches as _payload_hash_matches_embedded_field
+from app.core.hashes import payload_sha256 as _payload_sha256
+from app.core.json_utils import canonical_json_value as _json_payload
 from app.core.time import utcnow
 from app.db.models import (
     AgentTaskArtifact,
@@ -58,6 +62,7 @@ from app.services.claim_support_replay_alert_fixture_corpus import (
     active_replay_alert_fixture_corpus_rows,
     replay_alert_fixture_corpus_snapshot_governance_integrity,
 )
+from app.services.query_utils import load_by_ids as _load_by_ids
 from app.services.search import get_search_harness
 from app.services.search_harness_evaluations import evaluate_search_harness
 from app.services.search_release_gate import record_search_harness_release_gate
@@ -101,39 +106,9 @@ CLAIM_SUPPORT_RESULT_REQUIRED_VERDICTS = {
 }
 
 
-def _json_default(value: Any) -> str:
-    if isinstance(value, UUID | datetime | date):
-        return value.isoformat() if hasattr(value, "isoformat") else str(value)
-    return str(value)
-
-
-def _json_payload(payload: Any) -> Any:
-    return json.loads(json.dumps(payload, default=_json_default, sort_keys=True))
-
-
-def _payload_sha256(payload: Any) -> str:
-    raw = json.dumps(
-        _json_payload(payload),
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
-
-
-def _payload_hash_matches_embedded_field(payload: dict[str, Any], *, hash_field: str) -> bool:
-    expected_hash = str(payload.get(hash_field) or "")
-    if not expected_hash:
-        return False
-    basis = dict(payload)
-    basis.pop(hash_field, None)
-    return _payload_sha256(basis) == expected_hash
-
-
-def _uuid_text(value: UUID | None) -> str | None:
-    return str(value) if value is not None else None
-
-
-def _normalize_source_types(source_types: list[str] | tuple[str, ...] | None) -> list[str]:
+def _normalize_retrieval_learning_source_types(
+    source_types: list[str] | tuple[str, ...] | None,
+) -> list[str]:
     if source_types is None:
         return ["feedback", "replay"]
     normalized = []
@@ -151,15 +126,6 @@ def _set_kind(source_types: list[str]) -> str:
     if len(source_types) == 1:
         return source_types[0]
     return "mixed"
-
-
-def _load_by_ids(session: Session, model, ids: set[UUID]) -> dict[UUID, Any]:
-    if not ids:
-        return {}
-    return {
-        row.id: row
-        for row in session.execute(select(model).where(model.id.in_(ids))).scalars().all()
-    }
 
 
 def _result_source_id(row: SearchRequestResult | None) -> UUID | None:
@@ -1161,11 +1127,12 @@ def _claim_support_expected_judgment(fixture: dict[str, Any]) -> tuple[str, str,
                 "not to support the claim."
             ),
         )
-    return (
-        RetrievalJudgmentKind.MISSING.value,
-        "claim_support_expected_insufficient_evidence",
-        "Claim-support replay-alert fixture expects insufficient traceable evidence.",
-    )
+    if expected_verdict == "insufficient_evidence":
+        return (
+            RetrievalJudgmentKind.MISSING.value,
+            "claim_support_expected_insufficient_evidence",
+            "Claim-support replay-alert fixture expects insufficient traceable evidence.",
+        )
     raise ValueError(
         "Unsupported claim-support replay-alert fixture expected_verdict: "
         f"{expected_verdict or '<missing>'}."
@@ -1748,7 +1715,7 @@ def materialize_retrieval_learning_dataset(
     if limit <= 0:
         raise ValueError("limit must be greater than zero.")
 
-    normalized_source_types = _normalize_source_types(source_types)
+    normalized_source_types = _normalize_retrieval_learning_source_types(source_types)
     created_at = utcnow()
     judgment_set_id = uuid.uuid4()
     training_run_id = uuid.uuid4()
@@ -2242,15 +2209,6 @@ def _feature_weight_candidate(
     }
     harness_overrides = {candidate_harness_name: override_spec}
     return feature_weights, harness_overrides, override_spec
-
-
-def _maybe_uuid(value: Any) -> UUID | None:
-    if value is None:
-        return None
-    try:
-        return UUID(str(value))
-    except (TypeError, ValueError):
-        return None
 
 
 def _training_reference_set(training_run: RetrievalTrainingRun) -> dict[str, Any]:

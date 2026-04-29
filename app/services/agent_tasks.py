@@ -12,6 +12,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.hashes import embedded_payload_hash_matches as _hash_matches_embedded_receipt
+from app.core.time import coerce_utc_datetime as _coerce_utc_datetime
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -68,7 +70,6 @@ from app.services.agent_task_verifications import (
 from app.services.claim_support_replay_alert_fixture_corpus import (
     active_replay_alert_fixture_corpus_snapshot_summary,
 )
-from app.services.evidence import payload_sha256
 
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
     "claim_support_policy_impact_replay_escalated"
@@ -100,21 +101,6 @@ def _agent_task_not_found(task_id: UUID) -> HTTPException:
     )
 
 
-def _coerce_utc_datetime(value: object) -> datetime | None:
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str) and value:
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    else:
-        return None
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return None
-    return parsed.astimezone(UTC)
-
-
 def _uuid_from_value(value: object) -> UUID | None:
     if value in {None, ""}:
         return None
@@ -124,7 +110,7 @@ def _uuid_from_value(value: object) -> UUID | None:
         return None
 
 
-def _uuid_values(values: object) -> list[UUID]:
+def _waiver_uuid_values(values: object) -> list[UUID]:
     uuids: list[UUID] = []
     for value in values or []:
         parsed = _uuid_from_value(value)
@@ -133,17 +119,8 @@ def _uuid_values(values: object) -> list[UUID]:
     return uuids
 
 
-def _string_values(values: object) -> set[str]:
+def _waiver_string_values(values: object) -> set[str]:
     return {str(value) for value in values or [] if value not in {None, ""}}
-
-
-def _hash_matches_embedded_receipt(payload: dict, *, hash_field: str) -> bool:
-    expected_hash = str(payload.get(hash_field) or "")
-    if not expected_hash:
-        return False
-    basis = dict(payload)
-    basis.pop(hash_field, None)
-    return payload_sha256(basis) == expected_hash
 
 
 def _valid_replay_alert_fixture_coverage_waiver_closure_event(
@@ -215,11 +192,11 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
     covered_event_ids = {
         str(value) for value in closure_payload.get("covered_escalation_event_ids") or []
     }
-    raw_coverage_promotion_artifact_ids = _string_values(
+    raw_coverage_promotion_artifact_ids = _waiver_string_values(
         closure_payload.get("coverage_promotion_artifact_ids") or []
     )
     coverage_promotion_artifact_ids = set(
-        _uuid_values(raw_coverage_promotion_artifact_ids)
+        _waiver_uuid_values(raw_coverage_promotion_artifact_ids)
     )
     if (
         raw_coverage_promotion_artifact_ids
@@ -230,7 +207,7 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
     if coverage_promotion_artifact_ids:
         coverage_promotion_artifact_ids.add(promotion_artifact_id)
         source_promotion_event_ids: set[str] = set()
-        coverage_receipt_sha256s = _string_values(
+        coverage_receipt_sha256s = _waiver_string_values(
             closure_payload.get("coverage_promotion_receipt_sha256s") or []
         )
         actual_receipt_sha256s: set[str] = set()
@@ -254,11 +231,11 @@ def _valid_replay_alert_fixture_coverage_waiver_closure_event(
             )
         if coverage_receipt_sha256s and coverage_receipt_sha256s != actual_receipt_sha256s:
             return None
-        raw_coverage_promotion_event_ids = _string_values(
+        raw_coverage_promotion_event_ids = _waiver_string_values(
             closure_payload.get("coverage_promotion_event_ids") or []
         )
         coverage_promotion_event_ids = set(
-            _uuid_values(raw_coverage_promotion_event_ids)
+            _waiver_uuid_values(raw_coverage_promotion_event_ids)
         )
         if (
             raw_coverage_promotion_event_ids

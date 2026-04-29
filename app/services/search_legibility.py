@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import hashlib
-import json
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.hashes import payload_sha256
 from app.schemas.search import (
     SearchHarnessDescriptorResponse,
     SearchRequestDiagnosis,
@@ -19,16 +18,6 @@ from app.services.search import (
     get_search_harness,
 )
 from app.services.search_history import get_search_request_detail
-
-
-def _payload_fingerprint(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def _top_result_snapshot(results) -> list[SearchRequestExplanationResult]:
@@ -273,7 +262,7 @@ def get_search_request_explanation(
             {
                 "ref_kind": "harness_config",
                 "harness_name": detail.harness_name,
-                "config_fingerprint": _payload_fingerprint(detail.harness_config),
+                "config_fingerprint": payload_sha256(detail.harness_config),
                 "summary": "Harness snapshot captured when the request executed.",
             },
         ],
@@ -318,7 +307,7 @@ def get_search_harness_descriptor(
         harness_name=harness.name,
         base_harness_name=harness.base_harness_name,
         is_default=harness.name == DEFAULT_SEARCH_HARNESS_NAME,
-        config_fingerprint=_payload_fingerprint(config),
+        config_fingerprint=payload_sha256(config),
         reranker_name=harness.reranker_name,
         reranker_version=harness.reranker_version,
         retrieval_profile_name=harness.retrieval_profile_name,

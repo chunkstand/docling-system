@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 import uuid
 from collections import Counter
@@ -15,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import Float, Select, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
 from app.db.models import (
     Document,
@@ -1389,17 +1388,6 @@ def _run_semantic_span_table_search(
         "semantic",
         retrieval_source="span_semantic",
     )
-
-
-def _payload_sha256(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
 
 def _query_multivector_windows(query: str) -> list[dict]:
     normalized = re.sub(r"\s+", " ", query or "").strip()

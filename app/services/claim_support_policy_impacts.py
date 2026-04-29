@@ -10,6 +10,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.errors import api_error
+from app.core.coercion import compact_strings as _string_list
+from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -46,6 +48,9 @@ from app.services.agent_task_artifacts import create_agent_task_artifact
 from app.services.claim_support_evaluations import (
     default_claim_support_evaluation_fixtures,
     ensure_claim_support_fixture_set,
+)
+from app.services.claim_support_payloads import (
+    claim_support_fixture_promotion_payload as _fixture_promotion_payload,
 )
 from app.services.claim_support_replay_alert_fixture_corpus import (
     active_replay_alert_fixture_corpus_rows,
@@ -131,12 +136,6 @@ REPLAY_PLAN_HASH_FIELD = "replay_task_plan_sha256"
 REPLAY_CLOSURE_HASH_FIELD = "replay_closure_sha256"
 
 
-def _uuid_or_none(value) -> UUID | None:
-    if value in {None, ""}:
-        return None
-    return UUID(str(value))
-
-
 def _uuid_list(values) -> list[UUID]:
     rows: list[UUID] = []
     for value in values or []:
@@ -144,10 +143,6 @@ def _uuid_list(values) -> list[UUID]:
             continue
         rows.append(UUID(str(value)))
     return rows
-
-
-def _string_list(values) -> list[str]:
-    return [str(value) for value in values or [] if value not in {None, ""}]
 
 
 def _impact_not_found(change_impact_id: UUID):
@@ -1248,15 +1243,6 @@ def record_claim_support_policy_change_impact_alert_escalations(
         limit=limit,
     )
     return recorded_feed.model_copy(update={"recorded_escalation_count": created_count})
-
-
-def _fixture_promotion_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
-    return dict(
-        (event.event_payload_json or {}).get(
-            "claim_support_policy_impact_fixture_promotion"
-        )
-        or {}
-    )
 
 
 def _fixture_promotion_event_ref(

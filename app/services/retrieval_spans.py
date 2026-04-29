@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 import uuid
 from dataclasses import dataclass
@@ -12,6 +10,7 @@ import structlog
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
 from app.db.models import (
     Document,
@@ -65,17 +64,6 @@ class SpanMultiVectorSpec:
     vector_text: str
     content_sha256: str
     metadata: dict
-
-
-def _payload_sha256(payload: dict) -> str:
-    encoded = json.dumps(
-        payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
 
 def _normalize_span_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", value or "").strip()

@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from app.db.models import RetrievalLearningCandidateEvaluation, RetrievalTrainingRun
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
@@ -148,3 +150,13 @@ def test_evaluate_retrieval_learning_candidate_records_governed_link(monkeypatch
     assert response.training_dataset_sha256 == "training-sha"
     assert response.release is not None
     assert response.release.release_id == release_id
+
+
+def test_claim_support_expected_judgment_rejects_unknown_verdict() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Unsupported claim-support replay-alert fixture expected_verdict",
+    ):
+        retrieval_learning._claim_support_expected_judgment(
+            {"expected_verdict": "needs_review"}
+        )

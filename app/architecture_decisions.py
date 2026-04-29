@@ -58,7 +58,7 @@ def _load_registry_payload(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _string_list(value: object) -> list[str]:
+def _architecture_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value if str(item).strip()]
@@ -84,8 +84,8 @@ def build_architecture_decision_map(
 
     for row in _decision_rows(payload):
         decision_id = str(row.get("id", "")).strip()
-        linked_contracts = sorted(set(_string_list(row.get("linked_contracts"))))
-        linked_sources = sorted(set(_string_list(row.get("linked_sources"))))
+        linked_contracts = sorted(set(_architecture_string_list(row.get("linked_contracts"))))
+        linked_sources = sorted(set(_architecture_string_list(row.get("linked_sources"))))
         decisions.append(
             {
                 "id": decision_id,
@@ -94,7 +94,7 @@ def build_architecture_decision_map(
                 "title": str(row.get("title", "")).strip(),
                 "context": str(row.get("context", "")).strip(),
                 "decision": str(row.get("decision", "")).strip(),
-                "consequences": _string_list(row.get("consequences")),
+                "consequences": _architecture_string_list(row.get("consequences")),
                 "linked_contracts": linked_contracts,
                 "linked_sources": linked_sources,
             }
@@ -256,7 +256,7 @@ def _decision_row_issues(
             )
 
         for field in REQUIRED_LIST_FIELDS:
-            if not _string_list(row.get(field)):
+            if not _architecture_string_list(row.get(field)):
                 issues.append(
                     ArchitectureDecisionIssue(
                         contract="architecture_decisions",
@@ -267,7 +267,7 @@ def _decision_row_issues(
                     )
                 )
 
-        for source in _string_list(row.get("linked_sources")):
+        for source in _architecture_string_list(row.get("linked_sources")):
             if not (project_root / source).exists():
                 issues.append(
                     ArchitectureDecisionIssue(
@@ -292,13 +292,13 @@ def _contract_coverage_issues(
     all_linked_contracts = {
         contract_name
         for row in _decision_rows(payload)
-        for contract_name in _string_list(row.get("linked_contracts"))
+        for contract_name in _architecture_string_list(row.get("linked_contracts"))
     }
     current_linked_contracts = {
         contract_name
         for row in _decision_rows(payload)
         if str(row.get("status", "")).strip() in CURRENT_CONTRACT_DECISION_STATUSES
-        for contract_name in _string_list(row.get("linked_contracts"))
+        for contract_name in _architecture_string_list(row.get("linked_contracts"))
     }
     relative_registry_path = _relative_path(project_root, registry_path)
     expected_contract_set = set(expected_contracts)

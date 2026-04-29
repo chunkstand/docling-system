@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.cli import (
+from app.agent_task_cli import (
     run_agent_task_actions,
     run_agent_task_analytics,
     run_agent_task_approval_trends,
@@ -32,10 +32,14 @@ from app.cli import (
     run_agent_task_verification_trends,
     run_agent_task_verifications,
     run_agent_task_workflow_versions,
-    run_audit,
-    run_backfill_legacy_audit,
+)
+from app.claim_support_replay_cli import (
     run_claim_support_replay_alerts,
     run_claim_support_replay_fixture_candidates,
+)
+from app.cli import (
+    run_audit,
+    run_backfill_legacy_audit,
     run_eval_candidates,
     run_eval_corpus,
     run_eval_reranker,
@@ -253,57 +257,24 @@ def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:
     assert observed["baseline_run_id"] == active_run_id
 
 
-def test_eval_corpus_cli_evaluates_active_documents_without_manual_fixture(
-    monkeypatch, capsys
-) -> None:
-    document_id = uuid4()
-    run_id = uuid4()
-
-    class FakeQuery:
-        def order_by(self, *_args, **_kwargs):
-            return self
-
-        def all(self):
-            return [
-                SimpleNamespace(
-                    id=document_id,
-                    source_filename="autogen_doc.pdf",
-                    active_run_id=run_id,
-                    updated_at=None,
-                )
-            ]
-
-    class FakeSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def query(self, _model):
-            return FakeQuery()
-
-        def get(self, model, key):
-            if model.__name__ == "DocumentRun" and key == run_id:
-                return SimpleNamespace(id=run_id)
-            return None
-
+def test_eval_corpus_cli_prints_runner_summary(monkeypatch, capsys) -> None:
     monkeypatch.setattr(sys, "argv", ["docling-system-eval-corpus"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.evaluate_run",
-        lambda session, document, run: SimpleNamespace(
-            status="completed",
-            fixture_name="auto_autogen_doc",
-            summary_json={"query_count": 2, "passed_queries": 2},
-        ),
+        "app.cli._lazy_service_attr",
+        lambda module, name: lambda: [
+            {
+                "document_id": "doc-id",
+                "run_id": "run-id",
+                "fixture_name": "auto_autogen_doc",
+            }
+        ],
     )
 
     run_eval_corpus()
 
     output = json.loads(capsys.readouterr().out.strip())
-    assert output[0]["document_id"] == str(document_id)
-    assert output[0]["run_id"] == str(run_id)
+    assert output[0]["document_id"] == "doc-id"
+    assert output[0]["run_id"] == "run-id"
     assert output[0]["fixture_name"] == "auto_autogen_doc"
 
 
@@ -763,7 +734,7 @@ def test_search_harness_evaluation_show_cli_prints_detail(monkeypatch, capsys) -
 def test_agent_task_actions_cli_prints_action_catalog(monkeypatch, capsys) -> None:
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-actions"])
     monkeypatch.setattr(
-        "app.cli.list_agent_task_action_definitions",
+        "app.agent_task_cli.list_agent_task_action_definitions",
         lambda: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -976,9 +947,9 @@ def test_agent_task_create_cli_prints_created_task(monkeypatch, capsys) -> None:
             '{"limit": 5}',
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.create_agent_task",
+        "app.agent_task_cli.create_agent_task",
         lambda session, payload: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(task_id),
@@ -1012,9 +983,9 @@ def test_agent_task_list_cli_prints_tasks(monkeypatch, capsys) -> None:
         "argv",
         ["docling-system-agent-task-list", "--status", "queued", "--limit", "3"],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.list_agent_tasks",
+        "app.agent_task_cli.list_agent_tasks",
         lambda session, statuses=None, limit=50: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -1045,9 +1016,9 @@ def test_agent_task_show_cli_prints_task_detail(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-show", str(task_id)])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_detail",
+        "app.agent_task_cli.get_agent_task_detail",
         lambda session, incoming_task_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1074,10 +1045,9 @@ def test_agent_task_context_cli_prints_json(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-context", str(task_id)])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_context",
+        "app.agent_task_cli.get_agent_task_context",
         lambda session, incoming_task_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1109,10 +1079,10 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
 
     monkeypatch.setattr(
-        "app.cli.get_agent_task_detail",
+        "app.agent_task_cli.get_agent_task_detail",
         lambda session, incoming_task_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1126,7 +1096,7 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_context",
+        "app.agent_task_cli.get_agent_task_context",
         lambda session, incoming_task_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1140,7 +1110,7 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_artifact",
+        "app.agent_task_cli.get_agent_task_artifact",
         lambda session, incoming_task_id, incoming_artifact_id: SimpleNamespace(
             task_id=incoming_task_id,
             id=incoming_artifact_id,
@@ -1149,7 +1119,7 @@ def test_agent_task_apply_cli_surfaces_consistent_applied_state(
         ),
     )
     monkeypatch.setattr(
-        "app.cli.export_agent_task_traces",
+        "app.agent_task_cli.export_agent_task_traces",
         lambda session, limit=50, workflow_version=None, task_type=None: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "export_count": 1,
@@ -1269,12 +1239,15 @@ def test_claim_support_replay_alerts_cli_prints_table_and_records(
             "table",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.record_claim_support_policy_change_impact_alert_escalations",
+        "app.claim_support_replay_cli.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr(
+        "app.claim_support_replay_cli.record_claim_support_policy_change_impact_alert_escalations",
         fake_record_alerts,
     )
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+    monkeypatch.setattr("app.claim_support_replay_cli.StorageService", lambda: object())
 
     run_claim_support_replay_alerts()
 
@@ -1363,12 +1336,15 @@ def test_claim_support_replay_fixture_candidates_cli_promotes_and_prints_table(
             "table",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.promote_claim_support_policy_change_impact_fixture_candidates",
+        "app.claim_support_replay_cli.get_session_factory",
+        lambda: lambda: FakeSession(),
+    )
+    monkeypatch.setattr(
+        "app.claim_support_replay_cli.promote_claim_support_policy_change_impact_fixture_candidates",
         fake_promote,
     )
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
+    monkeypatch.setattr("app.claim_support_replay_cli.StorageService", lambda: object())
 
     run_claim_support_replay_fixture_candidates()
 
@@ -1435,9 +1411,9 @@ def test_agent_task_triage_context_cli_prints_recommendation(monkeypatch, capsys
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-context", str(task_id)])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_context",
+        "app.agent_task_cli.get_agent_task_context",
         lambda session, incoming_task_id: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1474,9 +1450,9 @@ def test_agent_task_outcomes_cli_prints_rows(monkeypatch, capsys) -> None:
         "argv",
         ["docling-system-agent-task-outcomes", str(task_id), "--limit", "5"],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.list_agent_task_outcomes",
+        "app.agent_task_cli.list_agent_task_outcomes",
         lambda session, incoming_task_id, limit=20: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -1523,9 +1499,9 @@ def test_agent_task_label_cli_prints_row(monkeypatch, capsys) -> None:
             "accurate recommendation",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.create_agent_task_outcome",
+        "app.agent_task_cli.create_agent_task_outcome",
         lambda session, incoming_task_id, payload: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "outcome_id": str(outcome_id),
@@ -1561,9 +1537,9 @@ def test_agent_task_artifacts_cli_prints_artifact_rows(monkeypatch, capsys) -> N
         "argv",
         ["docling-system-agent-task-artifacts", str(task_id), "--limit", "5"],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.list_agent_task_artifacts",
+        "app.agent_task_cli.list_agent_task_artifacts",
         lambda session, incoming_task_id, limit=20: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -1602,9 +1578,9 @@ def test_agent_task_artifact_cli_prints_artifact_payload(monkeypatch, capsys, tm
         "argv",
         ["docling-system-agent-task-artifact", str(task_id), str(artifact_id)],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_artifact",
+        "app.agent_task_cli.get_agent_task_artifact",
         lambda session, incoming_task_id, incoming_artifact_id: SimpleNamespace(
             task_id=incoming_task_id,
             id=incoming_artifact_id,
@@ -1635,9 +1611,9 @@ def test_agent_task_verifications_cli_prints_verification_rows(monkeypatch, caps
         "argv",
         ["docling-system-agent-task-verifications", str(task_id), "--limit", "5"],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_verifications",
+        "app.agent_task_cli.get_agent_task_verifications",
         lambda session, incoming_task_id, limit=20: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -1680,7 +1656,7 @@ def test_agent_task_failure_artifact_cli_prints_failure_payload(
         "argv",
         ["docling-system-agent-task-failure-artifact", str(task_id)],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
 
     run_agent_task_failure_artifact()
 
@@ -1711,9 +1687,9 @@ def test_agent_task_approve_cli_prints_updated_task(monkeypatch, capsys) -> None
             "ok",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.approve_agent_task",
+        "app.agent_task_cli.approve_agent_task",
         lambda session, incoming_task_id, payload: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1753,9 +1729,9 @@ def test_agent_task_reject_cli_prints_updated_task(monkeypatch, capsys) -> None:
             "not enough evidence",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.reject_agent_task",
+        "app.agent_task_cli.reject_agent_task",
         lambda session, incoming_task_id, payload: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_id": str(incoming_task_id),
@@ -1784,9 +1760,9 @@ def test_agent_task_analytics_cli_prints_summary(monkeypatch, capsys) -> None:
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-analytics"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_analytics_summary",
+        "app.agent_task_cli.get_agent_task_analytics_summary",
         lambda session: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_count": 4,
@@ -1812,9 +1788,9 @@ def test_agent_task_workflow_versions_cli_prints_rows(monkeypatch, capsys) -> No
             return False
 
     monkeypatch.setattr(sys, "argv", ["docling-system-agent-task-workflow-versions"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.list_agent_task_workflow_summaries",
+        "app.agent_task_cli.list_agent_task_workflow_summaries",
         lambda session: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {
@@ -1851,9 +1827,9 @@ def test_agent_task_export_traces_cli_prints_payload(monkeypatch, capsys) -> Non
             "v1",
         ],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.export_agent_task_traces",
+        "app.agent_task_cli.export_agent_task_traces",
         lambda session, limit=50, workflow_version=None, task_type=None: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "export_count": 1,
@@ -1884,9 +1860,9 @@ def test_agent_task_trends_cli_prints_payload(monkeypatch, capsys) -> None:
         "argv",
         ["docling-system-agent-task-trends", "--bucket", "week", "--workflow-version", "v1"],
     )
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_trends",
+        "app.agent_task_cli.get_agent_task_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "bucket": bucket,
@@ -1911,9 +1887,9 @@ def test_agent_task_recommendation_and_cost_cli_print_payloads(monkeypatch, caps
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_task_recommendation_summary",
+        "app.agent_task_cli.get_agent_task_recommendation_summary",
         lambda session, task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_type": task_type,
@@ -1923,7 +1899,7 @@ def test_agent_task_recommendation_and_cost_cli_print_payloads(monkeypatch, caps
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_cost_summary",
+        "app.agent_task_cli.get_agent_task_cost_summary",
         lambda session, task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "task_type": task_type,
@@ -1964,27 +1940,27 @@ def test_agent_task_remaining_milestone9_clis_print_payloads(monkeypatch, capsys
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
+    monkeypatch.setattr("app.agent_task_cli.get_session_factory", lambda: lambda: FakeSession())
     monkeypatch.setattr(
-        "app.cli.get_agent_verification_trends",
+        "app.agent_task_cli.get_agent_verification_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {"bucket": bucket, "series": [{"passed_count": 1}]}
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_approval_trends",
+        "app.agent_task_cli.get_agent_approval_trends",
         lambda session, bucket="day", task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {"bucket": bucket, "series": [{"approval_count": 1}]}
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_performance_summary",
+        "app.agent_task_cli.get_agent_task_performance_summary",
         lambda session, task_type=None, workflow_version=None: SimpleNamespace(
             model_dump=lambda mode="json": {"median_execution_latency_ms": 12.0}
         ),
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_value_density",
+        "app.agent_task_cli.get_agent_task_value_density",
         lambda session: [
             SimpleNamespace(
                 model_dump=lambda mode="json": {"task_type": "triage_replay_regression"}
@@ -1992,7 +1968,7 @@ def test_agent_task_remaining_milestone9_clis_print_payloads(monkeypatch, capsys
         ],
     )
     monkeypatch.setattr(
-        "app.cli.get_agent_task_decision_signals",
+        "app.agent_task_cli.get_agent_task_decision_signals",
         lambda session: [SimpleNamespace(model_dump=lambda mode="json": {"status": "healthy"})],
     )
 

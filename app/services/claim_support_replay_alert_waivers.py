@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.coercion import maybe_uuid as _uuid_or_none
+from app.core.coercion import sorted_unique_strings as _string_list
+from app.core.time import coerce_utc_datetime as _coerce_utc_datetime
 from app.core.time import utcnow
 from app.db.models import (
     AgentTaskArtifact,
@@ -16,34 +18,6 @@ from app.db.models import (
     SemanticGovernanceEvent,
 )
 from app.services.evidence import payload_sha256
-
-
-def _uuid_or_none(value: Any) -> UUID | None:
-    if value in {None, ""}:
-        return None
-    try:
-        return UUID(str(value))
-    except (TypeError, ValueError):
-        return None
-
-
-def _string_list(values: Any) -> list[str]:
-    return sorted({str(value) for value in values or [] if value not in {None, ""}})
-
-
-def _coerce_utc_datetime(value: Any) -> datetime | None:
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, str) and value:
-        try:
-            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    else:
-        return None
-    if parsed.tzinfo is None or parsed.utcoffset() is None:
-        return None
-    return parsed.astimezone(UTC)
 
 
 def replay_alert_escalation_set_sha256(escalation_event_ids: list[str]) -> str:

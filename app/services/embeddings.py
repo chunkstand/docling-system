@@ -135,6 +135,7 @@ def get_embedding_provider() -> EmbeddingProvider:
         api_key=settings.openai_api_key,
         model=settings.openai_embedding_model,
         embedding_dim=settings.embedding_dim,
+        cache_size=getattr(settings, "embedding_cache_size", EMBEDDING_CACHE_SIZE),
         timeout_seconds=settings.openai_timeout_seconds,
         max_retries=settings.openai_max_retries,
     )

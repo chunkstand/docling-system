@@ -5,14 +5,17 @@ import hmac
 import json
 import uuid
 from collections.abc import Iterable
-from pathlib import Path
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.config import get_settings
+from app.core.hashes import file_sha256 as _file_sha256
+from app.core.hashes import hmac_sha256_hex as _prov_export_receipt_signature_value
+from app.core.json_utils import json_object_payload as _json_payload
 from app.core.time import utcnow
 from app.db.models import (
     AgentTask,
@@ -55,6 +58,9 @@ from app.db.models import (
     SemanticGraphSnapshot,
     TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
+)
+from app.services.report_shared import (
+    release_readiness_assessment_ready as _release_readiness_assessment_ready,
 )
 from app.services.semantic_governance import (
     record_technical_report_claim_retrieval_feedback_event,
@@ -136,24 +142,6 @@ def payload_sha256(payload: Any | None) -> str | None:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _json_payload(payload: Any | None) -> dict:
-    if payload is None:
-        return {}
-    if isinstance(payload, dict):
-        value = payload
-    else:
-        value = {"value": payload}
-    return json.loads(json.dumps(value, default=str, sort_keys=True))
-
-
-def _uuid_or_none(value: Any | None) -> UUID | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, UUID):
-        return value
-    return UUID(str(value))
-
-
 def _uuid_values(values: Iterable[Any]) -> list[UUID]:
     result: list[UUID] = []
     seen: set[UUID] = set()
@@ -166,19 +154,6 @@ def _uuid_values(values: Iterable[Any]) -> list[UUID]:
             result.append(uuid_value)
             seen.add(uuid_value)
     return result
-
-
-def _file_sha256(path: str | None) -> str | None:
-    if not path:
-        return None
-    file_path = Path(path)
-    if not file_path.exists() or not file_path.is_file():
-        return None
-    digest = hashlib.sha256()
-    with file_path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _record_inputs(
@@ -3624,18 +3599,6 @@ def _release_readiness_ref_key(ref: dict[str, Any]) -> tuple[str, str, str]:
         str(ref.get("search_request_id") or ""),
         str(ref.get("search_harness_release_id") or ""),
         str(ref.get("assessment_id") or ref.get("selection_status") or ""),
-    )
-
-
-def _release_readiness_assessment_ready(ref: dict[str, Any]) -> bool:
-    integrity = ref.get("integrity") if isinstance(ref.get("integrity"), dict) else {}
-    return (
-        ref.get("selection_status") == "ready_integrity_complete"
-        and ref.get("ready") is True
-        and ref.get("readiness_status") == "ready"
-        and bool(ref.get("assessment_id"))
-        and bool(ref.get("assessment_payload_sha256"))
-        and integrity.get("complete") is True
     )
 
 
@@ -8951,14 +8914,6 @@ def _prov_export_receipt_signature(receipt_sha256: str) -> dict[str, Any]:
         "signature_algorithm": PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM,
         "signing_key_id": str(signing_key_id),
     }
-
-
-def _prov_export_receipt_signature_value(receipt_sha256: str, signing_key: str) -> str:
-    return hmac.new(
-        signing_key.encode("utf-8"),
-        receipt_sha256.encode("ascii"),
-        hashlib.sha256,
-    ).hexdigest()
 
 
 def _prov_export_receipt(
