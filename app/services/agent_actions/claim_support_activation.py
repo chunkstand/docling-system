@@ -49,7 +49,7 @@ from app.services.evidence import (
 from app.services.storage import StorageService
 
 
-def _require_active_replay_alert_fixture_coverage_waiver(
+def require_active_replay_alert_fixture_coverage_waiver(
     *,
     waiver: dict,
     payload: ApplyClaimSupportCalibrationPolicyTaskInput,
@@ -225,7 +225,7 @@ def apply_claim_support_calibration_policy_executor(
     )
     waiver_activation_approval: dict = {}
     if verification_replay_alert_fixture_coverage_waiver:
-        waiver_activation_approval = _require_active_replay_alert_fixture_coverage_waiver(
+        waiver_activation_approval = require_active_replay_alert_fixture_coverage_waiver(
             waiver=verification_replay_alert_fixture_coverage_waiver,
             payload=payload,
             task=task,

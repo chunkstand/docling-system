@@ -117,6 +117,9 @@ from app.schemas.search import (
 from app.services.agent_actions.claim_support_activation import (
     apply_claim_support_calibration_policy_executor as _apply_claim_support_policy_executor,
 )
+from app.services.agent_actions.claim_support_activation import (
+    require_active_replay_alert_fixture_coverage_waiver,
+)
 from app.services.agent_actions.claim_support_drafting import (
     draft_claim_support_calibration_policy_executor as _draft_claim_support_policy_executor,
 )
@@ -125,6 +128,9 @@ from app.services.agent_actions.claim_support_evaluation import (
 )
 from app.services.agent_actions.claim_support_evaluation import (
     queue_policy_change_impact_replay_executor as _queue_claim_support_replay_executor,
+)
+from app.services.agent_actions.claim_support_shared import (
+    replay_alert_fixture_coverage_waiver_sha256,
 )
 from app.services.agent_actions.claim_support_verification import (
     verify_claim_support_calibration_policy_executor as _verify_claim_support_policy_executor,
@@ -240,6 +246,10 @@ from app.services.semantics import get_active_semantic_pass_detail
 from app.services.storage import StorageService
 
 evaluate_search_harness_verification = evaluate_search_harness_release_gate
+_replay_alert_fixture_coverage_waiver_sha256 = replay_alert_fixture_coverage_waiver_sha256
+_require_active_replay_alert_fixture_coverage_waiver = (
+    require_active_replay_alert_fixture_coverage_waiver
+)
 
 
 def _harness_override_has_changes(override_spec: dict) -> bool:
