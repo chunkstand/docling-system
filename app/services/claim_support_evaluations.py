@@ -178,7 +178,7 @@ def _draft_fixture(
 
 def _graph_fixture_case(case_id: str) -> dict[str, Any]:
     document_id = _fixture_uuid(case_id, "document")
-    edge_id = "edge:concept:integration_threshold:concept:change_window"
+    edge_id = "edge:concept:quality_gate:concept:change_window"
     graph_context = [
         {
             "edge_id": edge_id,
@@ -186,8 +186,8 @@ def _graph_fixture_case(case_id: str) -> dict[str, Any]:
             "graph_version": "claim-support-eval-v1",
             "relation_key": "concept_depends_on_concept",
             "relation_label": "Depends On",
-            "subject_entity_key": "concept:integration_threshold",
-            "subject_label": "Integration Threshold",
+            "subject_entity_key": "concept:quality_gate",
+            "subject_label": "Quality Gate",
             "object_entity_key": "concept:change_window",
             "object_label": "Change Window",
             "review_status": "approved",
@@ -207,8 +207,8 @@ def _graph_fixture_case(case_id: str) -> dict[str, Any]:
         "claim_id": f"claim:{case_id}",
         "draft_payload": _draft_fixture(
             case_id=case_id,
-            rendered_text="Integration thresholds depend on change windows.",
-            concept_keys=["integration_threshold", "change_window"],
+            rendered_text="Quality gates depend on change windows.",
+            concept_keys=["quality_gate", "change_window"],
             evidence_cards=[],
             graph_context=graph_context,
             graph_edge_ids=[edge_id],
@@ -231,17 +231,17 @@ def default_claim_support_evaluation_fixtures() -> list[dict[str, Any]]:
             "claim_id": f"claim:{supported_case}",
             "draft_payload": _draft_fixture(
                 case_id=supported_case,
-                rendered_text="Integration thresholds govern release decisions.",
-                concept_keys=["integration_threshold", "release_decision"],
+                rendered_text="Quality gates govern release decisions.",
+                concept_keys=["quality_gate", "release_decision"],
                 evidence_cards=[
                     _source_card(
                         case_id=supported_case,
                         excerpt=(
-                            "Integration thresholds govern release decisions for "
+                            "Quality gates govern release decisions for "
                             "controlled deployments."
                         ),
-                        concept_keys=["integration_threshold", "release_decision"],
-                        matched_terms=["integration thresholds", "release decisions"],
+                        concept_keys=["quality_gate", "release_decision"],
+                        matched_terms=["quality gates", "release decisions"],
                     )
                 ],
             ),
@@ -254,17 +254,17 @@ def default_claim_support_evaluation_fixtures() -> list[dict[str, Any]]:
             "claim_id": f"claim:{weak_case}",
             "draft_payload": _draft_fixture(
                 case_id=weak_case,
-                rendered_text="Integration thresholds govern release decisions.",
-                concept_keys=["integration_threshold", "release_decision"],
+                rendered_text="Quality gates govern release decisions.",
+                concept_keys=["quality_gate", "release_decision"],
                 evidence_cards=[
                     _source_card(
                         case_id=weak_case,
                         excerpt=(
-                            "Release approvals use integration threshold values before "
+                            "Release approvals use quality gate values before "
                             "deployment windows change."
                         ),
-                        concept_keys=["integration_threshold", "release_decision"],
-                        matched_terms=["release approvals", "integration threshold"],
+                        concept_keys=["quality_gate", "release_decision"],
+                        matched_terms=["release approvals", "quality gate"],
                     )
                 ],
             ),
@@ -277,8 +277,8 @@ def default_claim_support_evaluation_fixtures() -> list[dict[str, Any]]:
             "claim_id": f"claim:{wrong_case}",
             "draft_payload": _draft_fixture(
                 case_id=wrong_case,
-                rendered_text="Integration thresholds govern release decisions.",
-                concept_keys=["integration_threshold", "release_decision"],
+                rendered_text="Quality gates govern release decisions.",
+                concept_keys=["quality_gate", "release_decision"],
                 evidence_cards=[
                     _source_card(
                         case_id=wrong_case,
@@ -299,17 +299,17 @@ def default_claim_support_evaluation_fixtures() -> list[dict[str, Any]]:
             "claim_id": f"claim:{contradiction_case}",
             "draft_payload": _draft_fixture(
                 case_id=contradiction_case,
-                rendered_text="Integration thresholds govern release decisions.",
-                concept_keys=["integration_threshold", "release_decision"],
+                rendered_text="Quality gates govern release decisions.",
+                concept_keys=["quality_gate", "release_decision"],
                 evidence_cards=[
                     _source_card(
                         case_id=contradiction_case,
                         excerpt=(
-                            "Integration thresholds are historical examples and do not "
+                            "Quality gates are historical examples and do not "
                             "govern release decisions."
                         ),
-                        concept_keys=["integration_threshold", "release_decision"],
-                        matched_terms=["integration thresholds", "release decisions"],
+                        concept_keys=["quality_gate", "release_decision"],
+                        matched_terms=["quality gates", "release decisions"],
                     )
                 ],
             ),
@@ -322,8 +322,8 @@ def default_claim_support_evaluation_fixtures() -> list[dict[str, Any]]:
             "claim_id": f"claim:{insufficient_case}",
             "draft_payload": _draft_fixture(
                 case_id=insufficient_case,
-                rendered_text="Integration thresholds govern release decisions.",
-                concept_keys=["integration_threshold", "release_decision"],
+                rendered_text="Quality gates govern release decisions.",
+                concept_keys=["quality_gate", "release_decision"],
                 evidence_cards=[],
             ),
         },

@@ -1,26 +1,56 @@
-registry_name: semantics_layer_foundation
-registry_version: semantics-layer-foundation-alpha.2
-categories:
-  - category_key: integration_governance
-    preferred_label: Integration Governance
-    scope_note: Controls, thresholds, and governance mechanisms for integration decisions.
-  - category_key: system_representation
-    preferred_label: System Representation
-    scope_note: Representations that communicate system structure, flow, or architecture.
-concepts:
-  - concept_key: integration_threshold
-    preferred_label: Integration Threshold
-    scope_note: Threshold guidance or threshold matrices used to govern integration decisions.
-    category_keys:
-      - integration_governance
-    aliases:
-      - integration threshold
-      - threshold guidance
-  - concept_key: system_diagram
-    preferred_label: System Diagram
-    scope_note: Figures or diagrams that communicate a system structure, flow, or arrangement.
-    category_keys:
-      - system_representation
-    aliases:
-      - system diagram
-      - architecture diagram
+registry_name: portable_upper_ontology
+registry_version: portable-upper-ontology-v1
+upper_ontology_version: portable-upper-ontology-v1
+categories: []
+concepts: []
+relations:
+  - relation_key: document_mentions_concept
+    preferred_label: Document Mentions Concept
+    scope_note: Generic relation connecting a document subject to a governed concept supported by evidence.
+    domain_entity_types:
+      - document
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+  - relation_key: concept_related_to_concept
+    preferred_label: Concept Related To Concept
+    scope_note: Generic cross-document relation connecting governed concepts that repeatedly co-occur in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: true
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_related_to_concept
+  - relation_key: concept_depends_on_concept
+    preferred_label: Concept Depends On Concept
+    scope_note: Generic directional relation indicating one governed concept depends on another concept in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_enables_concept
+  - relation_key: concept_enables_concept
+    preferred_label: Concept Enables Concept
+    scope_note: Generic inverse relation indicating one concept enables or unlocks another concept in supported evidence.
+    domain_entity_types:
+      - concept
+    range_entity_types:
+      - concept
+    symmetric: false
+    allow_literal_object: false
+    cardinality_hint: many_to_many
+    inverse_relation_key: concept_depends_on_concept
+entity_types:
+  - entity_type: document
+    preferred_label: Document
+  - entity_type: concept
+    preferred_label: Concept
+  - entity_type: literal
+    preferred_label: Literal

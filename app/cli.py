@@ -265,6 +265,13 @@ def record_improvement_case(*args, **kwargs):
     )(*args, **kwargs)
 
 
+def execute_knowledge_base_reset(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.knowledge_base_reset",
+        "execute_knowledge_base_reset",
+    )(*args, **kwargs)
+
+
 def run_ingest_file() -> None:
     parser = argparse.ArgumentParser(description="Queue one or more local PDFs for ingestion.")
     parser.add_argument("pdf_paths", nargs="+", help="One or more PDF file paths.")
@@ -419,6 +426,86 @@ def run_backfill_legacy_audit() -> None:
     with session_factory() as session:
         summary = backfill_legacy_run_audit_fields(session)
     print(json.dumps(summary))
+
+
+def run_knowledge_base_reset() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Safely reset the local knowledge base by archiving the current DB/storage "
+            "and cutting over to an empty migrated workspace."
+        )
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Perform the reset. Without this flag the command only prints a dry-run manifest.",
+    )
+    parser.add_argument(
+        "--confirm",
+        default=None,
+        help="Required confirmation phrase for execution: CLEAR_KNOWLEDGE_BASE.",
+    )
+    parser.add_argument(
+        "--archive-root",
+        type=Path,
+        default=None,
+        help="Optional archive directory. Defaults under the storage parent reset-archives/.",
+    )
+    parser.add_argument(
+        "--target-database-name",
+        "--new-database-name",
+        dest="new_database_name",
+        default=None,
+        help="Optional name for the new empty local database.",
+    )
+    parser.add_argument(
+        "--allow-running-services",
+        action="store_true",
+        help="Allow execution while API/worker/agent-worker services appear to be running.",
+    )
+    parser.add_argument(
+        "--allow-active-work",
+        "--allow-active-runs",
+        dest="allow_active_work",
+        action="store_true",
+        help="Allow execution while queued/processing document runs or agent tasks exist.",
+    )
+    parser.add_argument(
+        "--allow-non-development",
+        action="store_true",
+        help="Allow execution outside DOCLING_SYSTEM_ENV=development.",
+    )
+    parser.add_argument(
+        "--skip-pg-dump",
+        action="store_true",
+        help="Skip the database dump archive. Intended only for isolated test environments.",
+    )
+    args = parser.parse_args()
+
+    options_cls = _lazy_service_attr(
+        "app.services.knowledge_base_reset",
+        "KnowledgeBaseResetOptions",
+    )
+    reset_error_cls = _lazy_service_attr(
+        "app.services.knowledge_base_reset",
+        "KnowledgeBaseResetError",
+    )
+    options = options_cls(
+        execute=args.execute,
+        confirm=args.confirm,
+        allow_running_services=args.allow_running_services,
+        allow_active_work=args.allow_active_work,
+        allow_non_development=args.allow_non_development,
+        skip_pg_dump=args.skip_pg_dump,
+        archive_root=args.archive_root,
+        new_database_name=args.new_database_name,
+        project_root=Path.cwd(),
+    )
+    try:
+        payload = execute_knowledge_base_reset(options)
+    except reset_error_cls as exc:
+        raise SystemExit(str(exc)) from exc
+    print(json.dumps(payload, indent=2, default=str))
 
 
 def run_semantic_backfill_status() -> None:

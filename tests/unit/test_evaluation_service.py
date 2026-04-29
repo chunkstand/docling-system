@@ -27,9 +27,28 @@ from app.services.evaluations import (
     resolve_baseline_run_id,
 )
 
+LEGACY_CORPUS_PATH = Path("tests") / "fixtures" / "evaluation_corpus.legacy.yaml"
 
-def test_load_evaluation_fixtures_compiles_search_queries() -> None:
+
+def test_default_evaluation_corpus_is_empty_reviewed_template(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+    storage_root.mkdir()
+    monkeypatch.setattr(
+        "app.services.evaluations.get_settings",
+        lambda: SimpleNamespace(
+            storage_root=storage_root,
+            openai_embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
+        ),
+    )
+
     fixtures = load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+
+    assert fixtures == []
+
+
+def test_load_legacy_evaluation_fixture_compiles_search_queries() -> None:
+    fixtures = load_evaluation_fixtures(LEGACY_CORPUS_PATH)
 
     born_digital = next(fixture for fixture in fixtures if fixture.name == "born_digital_simple")
     assert born_digital.source_filename == "UPC_Appendix_N.pdf"
@@ -260,7 +279,7 @@ def test_fixture_for_document_can_opt_into_manual_filename_fallback(monkeypatch,
 
     fixture = fixture_for_document(
         document,
-        corpus_path=DEFAULT_CORPUS_PATH,
+        corpus_path=LEGACY_CORPUS_PATH,
         allow_manual_filename_fallback=True,
     )
 
@@ -1770,7 +1789,7 @@ def test_summarize_structural_checks_passes_expected_overlay_merge(tmp_path) -> 
 
     fixture = next(
         fixture
-        for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+        for fixture in load_evaluation_fixtures(LEGACY_CORPUS_PATH)
         if fixture.name == "upc_ch5"
     )
     table = SimpleNamespace(
@@ -1814,7 +1833,7 @@ def test_summarize_structural_checks_flags_missing_expected_merge(tmp_path) -> N
 
     fixture = next(
         fixture
-        for fixture in load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+        for fixture in load_evaluation_fixtures(LEGACY_CORPUS_PATH)
         if fixture.name == "upc_ch5"
     )
     table = SimpleNamespace(

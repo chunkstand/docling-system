@@ -5,8 +5,23 @@ from pathlib import Path
 import yaml
 
 
-def test_evaluation_corpus_config_has_required_documents_and_thresholds() -> None:
+def test_runtime_evaluation_corpus_is_empty_template() -> None:
     config = yaml.safe_load((Path("docs") / "evaluation_corpus.yaml").read_text())
+
+    assert config == {
+        "rollout_mode": "reviewed_empty",
+        "embedding_contract": {
+            "model": "text-embedding-3-small",
+            "dimension": 1536,
+        },
+        "documents": [],
+    }
+
+
+def test_legacy_evaluation_fixture_has_required_documents_and_thresholds() -> None:
+    config = yaml.safe_load(
+        (Path("tests") / "fixtures" / "evaluation_corpus.legacy.yaml").read_text()
+    )
 
     assert config["rollout_mode"] == "immediate_breaking_replacement"
     assert config["embedding_contract"]["model"] == "text-embedding-3-small"

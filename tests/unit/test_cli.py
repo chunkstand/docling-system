@@ -54,6 +54,7 @@ from app.cli import (
     run_ingest_batch_show,
     run_ingest_dir,
     run_ingest_file,
+    run_knowledge_base_reset,
     run_materialize_retrieval_learning_dataset,
     run_optimize_search_harness,
     run_replay_search,
@@ -100,6 +101,23 @@ def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
     assert output["document_id"] == str(document_id)
     assert output["run_id"] == str(run_id)
     assert output["status"] == "queued"
+
+
+def test_knowledge_base_reset_cli_defaults_to_dry_run(monkeypatch, capsys) -> None:
+    captured = {}
+
+    def fake_execute(options):
+        captured["options"] = options
+        return {"mode": "dry_run", "execute": options.execute}
+
+    monkeypatch.setattr(sys, "argv", ["docling-system-knowledge-base-reset"])
+    monkeypatch.setattr("app.cli.execute_knowledge_base_reset", fake_execute)
+
+    run_knowledge_base_reset()
+
+    output = json.loads(capsys.readouterr().out)
+    assert output == {"mode": "dry_run", "execute": False}
+    assert captured["options"].execute is False
 
 
 def test_ingest_dir_cli_prints_batch_summary(monkeypatch, capsys) -> None:

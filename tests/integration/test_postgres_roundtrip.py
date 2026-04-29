@@ -175,11 +175,11 @@ def _configure_sample_semantics(monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[2]
     monkeypatch.setenv(
         "DOCLING_SYSTEM_SEMANTIC_REGISTRY_PATH",
-        str(repo_root / "config" / "semantic_registry.yaml"),
+        str(repo_root / "tests" / "fixtures" / "semantic_registry.integration.yaml"),
     )
     monkeypatch.setenv(
         "DOCLING_SYSTEM_SEMANTIC_EVALUATION_CORPUS_PATH",
-        str(repo_root / "docs" / "semantic_evaluation_corpus.yaml"),
+        str(repo_root / "tests" / "fixtures" / "semantic_evaluation_corpus.integration.yaml"),
     )
     get_settings.cache_clear()
     clear_semantic_registry_cache()
