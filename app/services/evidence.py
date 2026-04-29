@@ -70,10 +70,9 @@ DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_ARTIFACT_KIND = (
 )
 DOCUMENT_GENERATION_CONTEXT_PACK_GATE = "document_generation_context_pack_gate"
 DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_OPERATOR = "document_generation_context_pack_evaluation"
+RELEASE_READINESS_DB_GATE_CHECK_KEY = "release_readiness_assessment_db_integrity"
 _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
-CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND = (
-    "claim_support_policy_impact_replay_closed"
-)
+CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND = "claim_support_policy_impact_replay_closed"
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
     "claim_support_policy_impact_replay_escalated"
 )
@@ -2462,12 +2461,70 @@ def _context_pack_verification_rows(
     )
 
 
-def _verification_check_passed(row: AgentTaskVerification, check_key: str) -> bool:
+def _verification_check(row: AgentTaskVerification, check_key: str) -> dict[str, Any] | None:
     details = row.details_json or {}
-    return any(
-        check.get("check_key") == check_key and check.get("passed") is True
-        for check in details.get("checks") or []
-    )
+    for check in details.get("checks") or []:
+        if isinstance(check, dict) and check.get("check_key") == check_key:
+            return dict(check)
+    return None
+
+
+def _verification_check_passed(row: AgentTaskVerification, check_key: str) -> bool:
+    check = _verification_check(row, check_key)
+    return check is not None and check.get("passed") is True
+
+
+def _release_readiness_db_gate_payload(
+    verification_rows: list[AgentTaskVerification],
+) -> dict[str, Any]:
+    for row in reversed(verification_rows):
+        check = _verification_check(row, RELEASE_READINESS_DB_GATE_CHECK_KEY)
+        if check is None:
+            continue
+        observed = check.get("observed")
+        summary = dict(observed) if isinstance(observed, dict) else {}
+        failure_count = _int_or_none(summary.get("failure_count")) or 0
+        source_search_request_count = _int_or_none(summary.get("source_search_request_count")) or 0
+        verified_request_count = _int_or_none(summary.get("verified_request_count")) or 0
+        complete = (
+            check.get("passed") is True
+            and summary.get("complete") is True
+            and failure_count == 0
+            and (
+                source_search_request_count == 0
+                or verified_request_count == source_search_request_count
+            )
+        )
+        return {
+            "schema_name": "technical_report_release_readiness_db_gate",
+            "schema_version": "1.0",
+            "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
+            "verification_id": str(row.id),
+            "verification_task_id": (
+                str(row.verification_task_id) if row.verification_task_id else None
+            ),
+            "passed": check.get("passed") is True,
+            "required": check.get("required"),
+            "source_search_request_count": source_search_request_count,
+            "verified_request_count": verified_request_count,
+            "failure_count": failure_count,
+            "summary": summary,
+            "complete": complete,
+        }
+    return {
+        "schema_name": "technical_report_release_readiness_db_gate",
+        "schema_version": "1.0",
+        "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
+        "verification_id": None,
+        "verification_task_id": None,
+        "passed": False,
+        "required": None,
+        "source_search_request_count": 0,
+        "verified_request_count": 0,
+        "failure_count": 0,
+        "summary": {},
+        "complete": False,
+    }
 
 
 def _context_pack_sha256s_from_artifacts(
@@ -2538,9 +2595,7 @@ def _release_readiness_audit_summary(
     refs: list[dict[str, Any]],
 ) -> dict[str, Any]:
     refs_by_request_id = {
-        str(ref.get("search_request_id")): ref
-        for ref in refs
-        if ref.get("search_request_id")
+        str(ref.get("search_request_id")): ref for ref in refs if ref.get("search_request_id")
     }
     ready_request_ids = {
         request_id
@@ -2561,9 +2616,7 @@ def _release_readiness_audit_summary(
     failed_selection_status_counts: dict[str, int] = {}
     for ref in failed_refs:
         status = str(ref.get("selection_status") or "unknown")
-        failed_selection_status_counts[status] = (
-            failed_selection_status_counts.get(status, 0) + 1
-        )
+        failed_selection_status_counts[status] = failed_selection_status_counts.get(status, 0) + 1
     return {
         "source_search_request_count": len(source_search_request_ids),
         "readiness_assessment_ref_count": len(refs),
@@ -2614,6 +2667,8 @@ def _technical_report_context_pack_audit_payload(
         source_search_request_ids=source_search_request_ids,
         refs=release_readiness_assessments,
     )
+    release_readiness_db_gate = _release_readiness_db_gate_payload(verification_rows)
+    release_readiness_db_summary = dict(release_readiness_db_gate.get("summary") or {})
     latest_verification = verification_rows[-1] if verification_rows else None
     integrity = {
         "has_context_pack_artifact": bool(context_pack_artifacts),
@@ -2643,8 +2698,19 @@ def _technical_report_context_pack_audit_payload(
             )
         ),
         "release_readiness_assessment_integrity_verified": any(
-            _verification_check_passed(row, "release_readiness_assessment_db_integrity")
+            _verification_check_passed(row, RELEASE_READINESS_DB_GATE_CHECK_KEY)
             for row in verification_rows
+        ),
+        "release_readiness_db_gate_verified": release_readiness_db_gate["passed"] is True,
+        "release_readiness_db_gate_complete": release_readiness_db_gate["complete"] is True,
+        "release_readiness_db_covers_source_requests": (
+            release_readiness_db_gate["source_search_request_count"]
+            == len(source_search_request_ids)
+            and (
+                not source_search_request_ids
+                or release_readiness_db_gate["verified_request_count"]
+                == len(source_search_request_ids)
+            )
         ),
     }
     integrity["complete"] = all(integrity.values())
@@ -2660,6 +2726,8 @@ def _technical_report_context_pack_audit_payload(
         "operator_runs": [_operator_run_summary(row) for row in context_pack_operator_runs],
         "release_readiness_assessments": release_readiness_assessments,
         "release_readiness_summary": release_readiness_summary,
+        "release_readiness_db_gate": release_readiness_db_gate,
+        "release_readiness_db_summary": release_readiness_db_summary,
         "integrity": integrity,
     }
 
@@ -2786,9 +2854,7 @@ def _claim_support_policy_change_impact_refs(
     session: Session,
     exports: list[EvidencePackageExport],
 ) -> dict[str, set[str]]:
-    report_export_ids = [
-        row.id for row in exports if row.package_kind == "technical_report_claims"
-    ]
+    report_export_ids = [row.id for row in exports if row.package_kind == "technical_report_claims"]
     if not report_export_ids:
         return {
             "claim_derivation_ids": set(),
@@ -2803,9 +2869,7 @@ def _claim_support_policy_change_impact_refs(
         )
     )
     draft_task_ids = {
-        str(row.agent_task_id)
-        for row in derivations
-        if row.agent_task_id is not None
+        str(row.agent_task_id) for row in derivations if row.agent_task_id is not None
     }
     draft_task_ids.update(
         str(row.agent_task_id)
@@ -2890,16 +2954,11 @@ def _claim_support_policy_fixture_promotion_events_by_impact(
     events_by_row: dict[UUID, list[SemanticGovernanceEvent]] = {}
     rows_by_id = {str(row.id): row for row in rows}
     for event in events:
-        promotion_payload = (
-            (event.event_payload_json or {}).get(
-                "claim_support_policy_impact_fixture_promotion"
-            )
-            or {}
-        )
+        promotion_payload = (event.event_payload_json or {}).get(
+            "claim_support_policy_impact_fixture_promotion"
+        ) or {}
         source_change_impact_ids = {
-            str(value)
-            for value in promotion_payload.get("source_change_impact_ids") or []
-            if value
+            str(value) for value in promotion_payload.get("source_change_impact_ids") or [] if value
         }
         for row_id in sorted(source_change_impact_ids & row_ids):
             events_by_row.setdefault(rows_by_id[row_id].id, []).append(event)
@@ -2907,12 +2966,9 @@ def _claim_support_policy_fixture_promotion_events_by_impact(
 
 
 def _fixture_promotion_event_payload(event: SemanticGovernanceEvent) -> dict[str, Any]:
-    promotion_payload = (
-        (event.event_payload_json or {}).get(
-            "claim_support_policy_impact_fixture_promotion"
-        )
-        or {}
-    )
+    promotion_payload = (event.event_payload_json or {}).get(
+        "claim_support_policy_impact_fixture_promotion"
+    ) or {}
     return {
         "event_id": str(event.id),
         "event_hash": event.event_hash,
@@ -2955,16 +3011,11 @@ def _claim_support_replay_alert_waiver_closure_events_by_impact(
     events_by_row: dict[UUID, list[SemanticGovernanceEvent]] = {}
     rows_by_id = {str(row.id): row for row in rows}
     for event in events:
-        closure_payload = (
-            (event.event_payload_json or {}).get(
-                "claim_support_replay_alert_fixture_coverage_waiver_closure"
-            )
-            or {}
-        )
+        closure_payload = (event.event_payload_json or {}).get(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        ) or {}
         source_change_impact_ids = {
-            str(value)
-            for value in closure_payload.get("source_change_impact_ids") or []
-            if value
+            str(value) for value in closure_payload.get("source_change_impact_ids") or [] if value
         }
         for row_id in sorted(source_change_impact_ids & row_ids):
             events_by_row.setdefault(rows_by_id[row_id].id, []).append(event)
@@ -3006,9 +3057,7 @@ def _waiver_closure_event_integrity(
     except (TypeError, ValueError):
         waiver_artifact_uuid = None
     waiver_artifact = (
-        session.get(AgentTaskArtifact, waiver_artifact_uuid)
-        if waiver_artifact_uuid
-        else None
+        session.get(AgentTaskArtifact, waiver_artifact_uuid) if waiver_artifact_uuid else None
     )
     if waiver_artifact is None:
         failures.append("waiver_artifact_missing")
@@ -3017,9 +3066,7 @@ def _waiver_closure_event_integrity(
         != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_ARTIFACT_KIND
     ):
         failures.append("waiver_artifact_kind_mismatch")
-    elif waiver_artifact.payload_json.get("waiver_sha256") != closure_payload.get(
-        "waiver_sha256"
-    ):
+    elif waiver_artifact.payload_json.get("waiver_sha256") != closure_payload.get("waiver_sha256"):
         failures.append("waiver_artifact_hash_mismatch")
 
     promotion_artifact_id = closure_payload.get("promotion_artifact_id")
@@ -3031,20 +3078,14 @@ def _waiver_closure_event_integrity(
         promotion_artifact_uuid = None
     promotion_event_id = closure_payload.get("promotion_event_id")
     try:
-        promotion_event_uuid = (
-            UUID(str(promotion_event_id)) if promotion_event_id else None
-        )
+        promotion_event_uuid = UUID(str(promotion_event_id)) if promotion_event_id else None
     except (TypeError, ValueError):
         promotion_event_uuid = None
     promotion_artifact = (
-        session.get(AgentTaskArtifact, promotion_artifact_uuid)
-        if promotion_artifact_uuid
-        else None
+        session.get(AgentTaskArtifact, promotion_artifact_uuid) if promotion_artifact_uuid else None
     )
     promotion_event = (
-        session.get(SemanticGovernanceEvent, promotion_event_uuid)
-        if promotion_event_uuid
-        else None
+        session.get(SemanticGovernanceEvent, promotion_event_uuid) if promotion_event_uuid else None
     )
     if promotion_artifact is None:
         failures.append("promotion_artifact_missing")
@@ -3066,9 +3107,7 @@ def _waiver_closure_event_integrity(
     elif promotion_event.receipt_sha256 != closure_payload.get("promotion_receipt_sha256"):
         failures.append("promotion_event_receipt_mismatch")
 
-    waived_event_ids = set(
-        _string_values(closure_payload.get("waived_escalation_event_ids") or [])
-    )
+    waived_event_ids = set(_string_values(closure_payload.get("waived_escalation_event_ids") or []))
     covered_event_ids = set(
         _string_values(closure_payload.get("covered_escalation_event_ids") or [])
     )
@@ -3082,13 +3121,9 @@ def _waiver_closure_event_integrity(
     raw_coverage_promotion_artifact_ids = set(
         _string_values(closure_payload.get("coverage_promotion_artifact_ids") or [])
     )
-    coverage_promotion_artifact_ids = set(
-        _uuid_values(raw_coverage_promotion_artifact_ids)
-    )
-    if (
+    coverage_promotion_artifact_ids = set(_uuid_values(raw_coverage_promotion_artifact_ids))
+    if raw_coverage_promotion_artifact_ids and len(coverage_promotion_artifact_ids) != len(
         raw_coverage_promotion_artifact_ids
-        and len(coverage_promotion_artifact_ids)
-        != len(raw_coverage_promotion_artifact_ids)
     ):
         failures.append("coverage_promotion_artifact_id_invalid")
     if promotion_artifact_uuid is not None:
@@ -3120,17 +3155,14 @@ def _waiver_closure_event_integrity(
         and declared_coverage_receipt_sha256s != actual_coverage_receipt_sha256s
     ):
         failures.append("coverage_promotion_receipt_set_mismatch")
-    if covered_event_ids and not covered_event_ids.issubset(
-        promotion_source_escalation_event_ids
-    ):
+    if covered_event_ids and not covered_event_ids.issubset(promotion_source_escalation_event_ids):
         failures.append("covered_escalation_event_not_in_promotion")
     raw_coverage_promotion_event_ids = set(
         _string_values(closure_payload.get("coverage_promotion_event_ids") or [])
     )
     declared_coverage_event_ids = set(_uuid_values(raw_coverage_promotion_event_ids))
-    if (
+    if raw_coverage_promotion_event_ids and len(declared_coverage_event_ids) != len(
         raw_coverage_promotion_event_ids
-        and len(declared_coverage_event_ids) != len(raw_coverage_promotion_event_ids)
     ):
         failures.append("coverage_promotion_event_id_invalid")
     if not declared_coverage_event_ids and promotion_event_uuid is not None:
@@ -3142,10 +3174,7 @@ def _waiver_closure_event_integrity(
         if coverage_event is None:
             failures.append("coverage_promotion_event_missing")
             continue
-        if (
-            coverage_event.event_kind
-            != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND
-        ):
+        if coverage_event.event_kind != CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED_EVENT_KIND:
             failures.append("coverage_promotion_event_kind_mismatch")
             continue
         if coverage_event.agent_task_artifact_id is None:
@@ -3175,12 +3204,9 @@ def _waiver_closure_event_payload(
     session: Session,
     event: SemanticGovernanceEvent,
 ) -> dict[str, Any]:
-    closure_payload = (
-        (event.event_payload_json or {}).get(
-            "claim_support_replay_alert_fixture_coverage_waiver_closure"
-        )
-        or {}
-    )
+    closure_payload = (event.event_payload_json or {}).get(
+        "claim_support_replay_alert_fixture_coverage_waiver_closure"
+    ) or {}
     integrity_verified, integrity_failures = _waiver_closure_event_integrity(
         session,
         event,
@@ -3238,9 +3264,7 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
         )
     )
     declared_rows = [
-        dict(row)
-        for row in snapshot_payload.get("rows") or []
-        if isinstance(row, dict)
+        dict(row) for row in snapshot_payload.get("rows") or [] if isinstance(row, dict)
     ]
     db_row_payloads = [
         {
@@ -3248,17 +3272,13 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
             "case_identity_sha256": row.case_identity_sha256,
             "fixture_sha256": row.fixture_sha256,
             "fixture_set_id": str(row.fixture_set_id) if row.fixture_set_id else None,
-            "promotion_event_id": (
-                str(row.promotion_event_id) if row.promotion_event_id else None
-            ),
+            "promotion_event_id": (str(row.promotion_event_id) if row.promotion_event_id else None),
             "promotion_artifact_id": (
                 str(row.promotion_artifact_id) if row.promotion_artifact_id else None
             ),
             "promotion_receipt_sha256": row.promotion_receipt_sha256,
             "source_change_impact_ids": list(row.source_change_impact_ids_json or []),
-            "source_escalation_event_ids": list(
-                row.source_escalation_event_ids_json or []
-            ),
+            "source_escalation_event_ids": list(row.source_escalation_event_ids_json or []),
         }
         for row in db_rows
     ]
@@ -3269,9 +3289,7 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
     if declared_rows != db_row_payloads:
         failures.append("snapshot_db_row_payload_mismatch")
     fixture_hash_mismatch_count = sum(
-        1
-        for row in db_rows
-        if payload_sha256(row.fixture_json or {}) != row.fixture_sha256
+        1 for row in db_rows if payload_sha256(row.fixture_json or {}) != row.fixture_sha256
     )
     if fixture_hash_mismatch_count:
         failures.append("snapshot_db_fixture_hash_mismatch")
@@ -3296,10 +3314,7 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
         failures.append("snapshot_governance_event_subject_mismatch")
     if artifact is None:
         failures.append("snapshot_governance_artifact_missing")
-    elif (
-        artifact.artifact_kind
-        != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND
-    ):
+    elif artifact.artifact_kind != CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ARTIFACT_KIND:
         failures.append("snapshot_governance_artifact_kind_mismatch")
 
     if event is not None:
@@ -3346,9 +3361,7 @@ def _replay_alert_fixture_corpus_snapshot_governance_integrity(
             else None
         ),
         "governance_artifact_id": (
-            str(snapshot.governance_artifact_id)
-            if snapshot.governance_artifact_id
-            else None
+            str(snapshot.governance_artifact_id) if snapshot.governance_artifact_id else None
         ),
         "governance_receipt_sha256": snapshot.governance_receipt_sha256,
         "snapshot_payload_sha256": payload_sha256(snapshot_payload),
@@ -3370,9 +3383,7 @@ def _replay_alert_fixture_corpus_row_payload(
         "case_identity_sha256": row.case_identity_sha256,
         "fixture_sha256": row.fixture_sha256,
         "fixture_set_id": str(row.fixture_set_id) if row.fixture_set_id else None,
-        "promotion_event_id": (
-            str(row.promotion_event_id) if row.promotion_event_id else None
-        ),
+        "promotion_event_id": (str(row.promotion_event_id) if row.promotion_event_id else None),
         "promotion_artifact_id": (
             str(row.promotion_artifact_id) if row.promotion_artifact_id else None
         ),
@@ -3412,9 +3423,7 @@ def _replay_alert_fixture_corpus_snapshot_payload(
             else None
         ),
         "governance_artifact_id": (
-            str(snapshot.governance_artifact_id)
-            if snapshot.governance_artifact_id
-            else None
+            str(snapshot.governance_artifact_id) if snapshot.governance_artifact_id else None
         ),
         "governance_receipt_sha256": snapshot.governance_receipt_sha256,
         "fixture_count": snapshot.fixture_count,
@@ -3422,9 +3431,7 @@ def _replay_alert_fixture_corpus_snapshot_payload(
         "promotion_fixture_set_count": snapshot.promotion_fixture_set_count,
         "invalid_promotion_event_count": snapshot.invalid_promotion_event_count,
         "source_promotion_event_ids": list(snapshot.source_promotion_event_ids_json or []),
-        "source_promotion_artifact_ids": list(
-            snapshot.source_promotion_artifact_ids_json or []
-        ),
+        "source_promotion_artifact_ids": list(snapshot.source_promotion_artifact_ids_json or []),
         "source_promotion_receipt_sha256s": list(
             snapshot.source_promotion_receipt_sha256s_json or []
         ),
@@ -3500,27 +3507,17 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
                 ClaimSupportReplayAlertFixtureCoverageWaiverLedger.id.asc(),
             )
         )
-        if row_ids
-        & {
-            str(value)
-            for value in (ledger.source_change_impact_ids_json or [])
-            if value
-        }
+        if row_ids & {str(value) for value in (ledger.source_change_impact_ids_json or []) if value}
         or ledger.id in ledger_ids_from_escalations
     ]
     closure_events_by_id = {
-        event.id: event
-        for events in waiver_closure_events_by_row.values()
-        for event in events
+        event.id: event for events in waiver_closure_events_by_row.values() for event in events
     }
     invalid_closure_event_ids: set[UUID] = set()
     for event in closure_events_by_id.values():
-        closure_payload = (
-            (event.event_payload_json or {}).get(
-                "claim_support_replay_alert_fixture_coverage_waiver_closure"
-            )
-            or {}
-        )
+        closure_payload = (event.event_payload_json or {}).get(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        ) or {}
         integrity_verified, _failures = _waiver_closure_event_integrity(
             session,
             event,
@@ -3538,12 +3535,9 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
         if event is None:
             invalid_closure_event_ids.add(ledger.closure_event_id)
             continue
-        closure_payload = (
-            (event.event_payload_json or {}).get(
-                "claim_support_replay_alert_fixture_coverage_waiver_closure"
-            )
-            or {}
-        )
+        closure_payload = (event.event_payload_json or {}).get(
+            "claim_support_replay_alert_fixture_coverage_waiver_closure"
+        ) or {}
         integrity_verified, _failures = _waiver_closure_event_integrity(
             session,
             event,
@@ -3565,17 +3559,12 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
     invalid_closed_ledgers = [
         ledger
         for ledger in closed_ledgers
-        if ledger.closure_event_id is None
-        or ledger.closure_event_id in invalid_closure_event_ids
+        if ledger.closure_event_id is None or ledger.closure_event_id in invalid_closure_event_ids
     ]
     invalid_waiver_closure_count = len(
         {
             *invalid_closure_event_ids,
-            *[
-                ledger.id
-                for ledger in invalid_closed_ledgers
-                if ledger.closure_event_id is None
-            ],
+            *[ledger.id for ledger in invalid_closed_ledgers if ledger.closure_event_id is None],
         }
     )
     waiver_closure_integrity_verified = invalid_waiver_closure_count == 0
@@ -3588,9 +3577,7 @@ def _claim_support_replay_alert_waiver_lifecycle_summary(
         "waiver_closure_integrity_verified": waiver_closure_integrity_verified,
         "clear": clear,
         "related_waiver_ledger_ids": [str(ledger.id) for ledger in related_ledgers],
-        "unresolved_waiver_ledger_ids": [
-            str(ledger.id) for ledger in unresolved_ledgers
-        ],
+        "unresolved_waiver_ledger_ids": [str(ledger.id) for ledger in unresolved_ledgers],
         "closed_waiver_ledger_ids": [str(ledger.id) for ledger in closed_ledgers],
         "invalid_waiver_closure_event_ids": [
             str(event_id) for event_id in sorted(invalid_closure_event_ids, key=str)
@@ -3634,8 +3621,8 @@ def _claim_support_policy_change_impact_summary(
         matching_rows,
         event_kind=CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND,
     )
-    fixture_promotion_events_by_row = (
-        _claim_support_policy_fixture_promotion_events_by_impact(session, matching_rows)
+    fixture_promotion_events_by_row = _claim_support_policy_fixture_promotion_events_by_impact(
+        session, matching_rows
     )
     corpus_snapshots_by_promotion_event = (
         _claim_support_replay_alert_fixture_corpus_snapshots_by_promotion_event(
@@ -3647,8 +3634,8 @@ def _claim_support_policy_change_impact_summary(
             ],
         )
     )
-    waiver_closure_events_by_row = (
-        _claim_support_replay_alert_waiver_closure_events_by_impact(session, matching_rows)
+    waiver_closure_events_by_row = _claim_support_replay_alert_waiver_closure_events_by_impact(
+        session, matching_rows
     )
     waiver_lifecycle = _claim_support_replay_alert_waiver_lifecycle_summary(
         session,
@@ -3666,17 +3653,16 @@ def _claim_support_policy_change_impact_summary(
         replay_alert_fixture_corpus_snapshots_by_id: dict[str, dict[str, Any]] = {}
         for event in fixture_promotion_events:
             for snapshot_payload in corpus_snapshots_by_promotion_event.get(event.id, []):
-                replay_alert_fixture_corpus_snapshots_by_id[
-                    snapshot_payload["snapshot_id"]
-                ] = snapshot_payload
+                replay_alert_fixture_corpus_snapshots_by_id[snapshot_payload["snapshot_id"]] = (
+                    snapshot_payload
+                )
         replay_alert_fixture_corpus_snapshots = [
             replay_alert_fixture_corpus_snapshots_by_id[snapshot_id]
             for snapshot_id in sorted(replay_alert_fixture_corpus_snapshots_by_id)
         ]
         waiver_closure_events = waiver_closure_events_by_row.get(row.id, [])
         waiver_closure_event_payloads = [
-            _waiver_closure_event_payload(session, event)
-            for event in waiver_closure_events
+            _waiver_closure_event_payload(session, event) for event in waiver_closure_events
         ]
         impact_rows.append(
             {
@@ -3727,12 +3713,9 @@ def _claim_support_policy_change_impact_summary(
                     for event in escalation_events
                 ],
                 "fixture_promotion_governance_events": [
-                    _fixture_promotion_event_payload(event)
-                    for event in fixture_promotion_events
+                    _fixture_promotion_event_payload(event) for event in fixture_promotion_events
                 ],
-                "replay_alert_fixture_corpus_snapshots": (
-                    replay_alert_fixture_corpus_snapshots
-                ),
+                "replay_alert_fixture_corpus_snapshots": (replay_alert_fixture_corpus_snapshots),
                 "waiver_closure_governance_events": waiver_closure_event_payloads,
             }
         )
@@ -3773,15 +3756,11 @@ def _claim_support_policy_change_impact_summary(
             active_snapshots[-1]["snapshot_sha256"] if active_snapshots else None
         ),
         "active_replay_alert_fixture_corpus_governance_receipt_sha256": (
-            active_snapshots[-1].get("governance_receipt_sha256")
-            if active_snapshots
-            else None
+            active_snapshots[-1].get("governance_receipt_sha256") if active_snapshots else None
         ),
         "invalid_snapshot_ids": invalid_snapshot_ids,
         "trace_incomplete_snapshot_ids": trace_incomplete_snapshot_ids,
-        "snapshots": [
-            snapshots_by_id[snapshot_id] for snapshot_id in sorted(snapshots_by_id)
-        ],
+        "snapshots": [snapshots_by_id[snapshot_id] for snapshot_id in sorted(snapshots_by_id)],
     }
     return {
         "related_count": len(impact_rows),
@@ -3881,9 +3860,7 @@ def _change_impact_payload(
         )
     waiver_lifecycle = claim_support_policy_impacts.get("waiver_lifecycle") or {}
     unresolved_waiver_count = int(waiver_lifecycle.get("unresolved_waiver_count") or 0)
-    invalid_waiver_closure_count = int(
-        waiver_lifecycle.get("invalid_waiver_closure_count") or 0
-    )
+    invalid_waiver_closure_count = int(waiver_lifecycle.get("invalid_waiver_closure_count") or 0)
     if unresolved_waiver_count:
         impacts.append(
             {
@@ -3939,9 +3916,7 @@ def _change_impact_payload(
                 "impact_type": (
                     "claim_support_replay_alert_fixture_corpus_snapshot_trace_incomplete"
                 ),
-                "trace_incomplete_snapshot_count": (
-                    trace_incomplete_corpus_snapshot_count
-                ),
+                "trace_incomplete_snapshot_count": (trace_incomplete_corpus_snapshot_count),
                 "trace_incomplete_snapshot_ids": list(
                     replay_alert_fixture_corpus.get("trace_incomplete_snapshot_ids") or []
                 ),
@@ -4337,6 +4312,7 @@ def _technical_report_provenance_edges(
     release_readiness_assessments = list(
         context_pack_audit.get("release_readiness_assessments") or []
     )
+    release_readiness_db_gate = dict(context_pack_audit.get("release_readiness_db_gate") or {})
     for artifact in context_pack_artifacts:
         artifact_id = artifact.get("artifact_id")
         if harness_task_id and artifact_id:
@@ -4371,6 +4347,19 @@ def _technical_report_provenance_edges(
                         ),
                     }
                 )
+        db_gate_verification_id = release_readiness_db_gate.get("verification_id")
+        if verification_id and db_gate_verification_id == str(verification_id):
+            edges.append(
+                {
+                    "edge_type": "context_pack_verifier_record_to_release_readiness_db_gate",
+                    "from": {"table": "agent_task_verifications", "id": verification_id},
+                    "to": {
+                        "table": "technical_report_release_readiness_db_gate",
+                        "id": db_gate_verification_id,
+                    },
+                    "complete": release_readiness_db_gate.get("complete"),
+                }
+            )
     for artifact in evaluation_artifacts:
         artifact_id = artifact.get("artifact_id")
         task_id = artifact.get("task_id")
@@ -4429,9 +4418,7 @@ def _technical_report_provenance_edges(
                             "id": assessment_id,
                         },
                         "to": {"table": "agent_task_artifacts", "id": artifact_id},
-                        "assessment_payload_sha256": readiness_ref.get(
-                            "assessment_payload_sha256"
-                        ),
+                        "assessment_payload_sha256": readiness_ref.get("assessment_payload_sha256"),
                     }
                 )
         for verification in context_pack_verifications:
@@ -4447,6 +4434,22 @@ def _technical_report_provenance_edges(
                         "to": {"table": "agent_task_verifications", "id": verification_id},
                     }
                 )
+        db_gate_verification_id = release_readiness_db_gate.get("verification_id")
+        if assessment_id and db_gate_verification_id:
+            edges.append(
+                {
+                    "edge_type": "release_readiness_assessment_to_release_readiness_db_gate",
+                    "from": {
+                        "table": "search_harness_release_readiness_assessments",
+                        "id": assessment_id,
+                    },
+                    "to": {
+                        "table": "technical_report_release_readiness_db_gate",
+                        "id": db_gate_verification_id,
+                    },
+                    "assessment_payload_sha256": readiness_ref.get("assessment_payload_sha256"),
+                }
+            )
     for export in evidence_exports:
         if export.get("package_kind") == "search_request" and export.get("search_request_id"):
             edges.append(
@@ -4838,16 +4841,27 @@ def build_technical_report_evidence_manifest_payload(
             "has_release_readiness_assessments",
             False,
         ),
-        "release_readiness_assessments_cover_source_requests": audit_bundle[
-            "audit_checklist"
-        ].get("release_readiness_assessments_cover_source_requests", False),
+        "release_readiness_assessments_cover_source_requests": audit_bundle["audit_checklist"].get(
+            "release_readiness_assessments_cover_source_requests", False
+        ),
         "release_readiness_assessments_ready": audit_bundle["audit_checklist"].get(
             "release_readiness_assessments_ready",
             False,
         ),
-        "release_readiness_assessment_integrity_verified": audit_bundle[
-            "audit_checklist"
-        ].get("release_readiness_assessment_integrity_verified", False),
+        "release_readiness_assessment_integrity_verified": audit_bundle["audit_checklist"].get(
+            "release_readiness_assessment_integrity_verified", False
+        ),
+        "release_readiness_db_gate_verified": audit_bundle["audit_checklist"].get(
+            "release_readiness_db_gate_verified",
+            False,
+        ),
+        "release_readiness_db_gate_complete": audit_bundle["audit_checklist"].get(
+            "release_readiness_db_gate_complete",
+            False,
+        ),
+        "release_readiness_db_covers_source_requests": audit_bundle["audit_checklist"].get(
+            "release_readiness_db_covers_source_requests", False
+        ),
         "verification_passed": audit_bundle["audit_checklist"].get(
             "verification_passed",
             False,
@@ -4872,36 +4886,34 @@ def build_technical_report_evidence_manifest_payload(
             "change_impact_clear",
             False,
         ),
-        "replay_alert_waiver_closure_integrity_verified": audit_bundle[
-            "audit_checklist"
-        ].get("replay_alert_waiver_closure_integrity_verified", False),
+        "replay_alert_waiver_closure_integrity_verified": audit_bundle["audit_checklist"].get(
+            "replay_alert_waiver_closure_integrity_verified", False
+        ),
         "replay_alert_waiver_lifecycle_clear": audit_bundle["audit_checklist"].get(
             "replay_alert_waiver_lifecycle_clear",
             False,
         ),
-        "active_replay_alert_fixture_corpus_snapshot_id": audit_bundle[
-            "audit_checklist"
-        ].get("active_replay_alert_fixture_corpus_snapshot_id"),
-        "active_replay_alert_fixture_corpus_sha256": audit_bundle[
-            "audit_checklist"
-        ].get("active_replay_alert_fixture_corpus_sha256"),
-        "replay_alert_fixture_corpus_snapshot_governed": audit_bundle[
-            "audit_checklist"
-        ].get("replay_alert_fixture_corpus_snapshot_governed", True),
-        "replay_alert_fixture_corpus_trace_complete": audit_bundle[
-            "audit_checklist"
-        ].get("replay_alert_fixture_corpus_trace_complete", True),
+        "active_replay_alert_fixture_corpus_snapshot_id": audit_bundle["audit_checklist"].get(
+            "active_replay_alert_fixture_corpus_snapshot_id"
+        ),
+        "active_replay_alert_fixture_corpus_sha256": audit_bundle["audit_checklist"].get(
+            "active_replay_alert_fixture_corpus_sha256"
+        ),
+        "replay_alert_fixture_corpus_snapshot_governed": audit_bundle["audit_checklist"].get(
+            "replay_alert_fixture_corpus_snapshot_governed", True
+        ),
+        "replay_alert_fixture_corpus_trace_complete": audit_bundle["audit_checklist"].get(
+            "replay_alert_fixture_corpus_trace_complete", True
+        ),
         "invalid_replay_alert_fixture_corpus_snapshot_governance_count": audit_bundle[
             "audit_checklist"
         ].get("invalid_replay_alert_fixture_corpus_snapshot_governance_count", 0),
-        "incomplete_replay_alert_fixture_corpus_trace_count": audit_bundle[
-            "audit_checklist"
-        ].get("incomplete_replay_alert_fixture_corpus_trace_count", 0),
+        "incomplete_replay_alert_fixture_corpus_trace_count": audit_bundle["audit_checklist"].get(
+            "incomplete_replay_alert_fixture_corpus_trace_count", 0
+        ),
         "has_provenance_edges": bool(provenance_edges),
     }
-    checklist["complete"] = all(
-        value for value in checklist.values() if isinstance(value, bool)
-    )
+    checklist["complete"] = all(value for value in checklist.values() if isinstance(value, bool))
     return {
         "schema_name": "technical_report_evidence_manifest",
         "schema_version": "1.0",
@@ -4990,6 +5002,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "retrieval_reranker_artifacts": "retrieval_reranker_artifact",
     "search_harness_releases": "search_harness_release",
     "search_harness_release_readiness_assessments": "release_readiness_assessment",
+    "technical_report_release_readiness_db_gate": "release_readiness_db_gate",
     "evidence_manifests": "evidence_manifest",
     "semantic_governance_events": "semantic_governance_event",
 }
@@ -5619,6 +5632,14 @@ def _build_evidence_trace_graph_specs(
             source_id=readiness_ref.get("assessment_id"),
             payload=readiness_ref,
         )
+    release_readiness_db_gate = context_pack_audit.get("release_readiness_db_gate") or {}
+    if release_readiness_db_gate.get("verification_id"):
+        _put_trace_node_from_id(
+            nodes,
+            source_table="technical_report_release_readiness_db_gate",
+            source_id=release_readiness_db_gate.get("verification_id"),
+            payload=release_readiness_db_gate,
+        )
     for operator_run in report_trace.get("operator_runs") or []:
         _put_trace_node_from_id(
             nodes,
@@ -5644,9 +5665,9 @@ def _build_evidence_trace_graph_specs(
         )
 
     change_impact = manifest_payload.get("change_impact") or {}
-    policy_impacts = (
-        change_impact.get("claim_support_policy_change_impacts") or {}
-    ).get("impacts") or []
+    policy_impacts = (change_impact.get("claim_support_policy_change_impacts") or {}).get(
+        "impacts"
+    ) or []
     for impact in policy_impacts:
         impact_node_key = _put_trace_node_from_id(
             nodes,
@@ -5744,9 +5765,7 @@ def _build_evidence_trace_graph_specs(
                 source_id=governance_event_id,
                 payload={
                     "event_id": governance_event_id,
-                    "event_kind": (
-                        CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND
-                    ),
+                    "event_kind": (CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_EVENT_KIND),
                     "receipt_sha256": snapshot.get("governance_receipt_sha256"),
                     "governance_integrity": snapshot.get("governance_integrity"),
                 },
@@ -5796,9 +5815,7 @@ def _build_evidence_trace_graph_specs(
                 )
                 _put_trace_edge(
                     edges,
-                    edge_key=(
-                        f"replay-fixture-corpus-snapshot:{snapshot_id}:row:{row_id}"
-                    ),
+                    edge_key=(f"replay-fixture-corpus-snapshot:{snapshot_id}:row:{row_id}"),
                     edge_kind="replay_fixture_corpus_row",
                     from_node_key=snapshot_node_key,
                     to_node_key=row_node_key,
@@ -5818,8 +5835,7 @@ def _build_evidence_trace_graph_specs(
                 _put_trace_edge(
                     edges,
                     edge_key=(
-                        f"replay-fixture-corpus-row:{row_id}:"
-                        f"promotion-event:{promotion_event_id}"
+                        f"replay-fixture-corpus-row:{row_id}:promotion-event:{promotion_event_id}"
                     ),
                     edge_kind="replay_fixture_corpus_row_promotion_event",
                     from_node_key=row_node_key,
@@ -5857,9 +5873,7 @@ def _build_evidence_trace_graph_specs(
                         source_id=escalation_event_id,
                         payload={
                             "event_id": escalation_event_id,
-                            "event_kind": (
-                                CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND
-                            ),
+                            "event_kind": (CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND),
                         },
                     )
                     _put_trace_edge(
@@ -5871,9 +5885,7 @@ def _build_evidence_trace_graph_specs(
                         edge_kind="replay_fixture_corpus_row_source_escalation_event",
                         from_node_key=row_node_key,
                         to_node_key=escalation_event_node_key,
-                        payload={
-                            "source": "claim_support_replay_alert_fixture_corpus"
-                        },
+                        payload={"source": "claim_support_replay_alert_fixture_corpus"},
                     )
 
     for index, provenance_edge in enumerate(manifest_payload.get("provenance_edges") or []):
@@ -6985,6 +6997,11 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
 
     report_trace = manifest.get("report_trace") or {}
     context_pack_audit = report_trace.get("context_pack_audit") or {}
+    release_readiness_db_gate = dict(context_pack_audit.get("release_readiness_db_gate") or {})
+    release_readiness_db_gate_entity_id = _prov_identifier(
+        "technical_report_release_readiness_db_gate",
+        release_readiness_db_gate.get("verification_id"),
+    )
     harness_activity_id = _prov_identifier(
         "agent_tasks",
         context_pack_audit.get("harness_task_id"),
@@ -7093,6 +7110,62 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
                 sequence=len(used) + 1,
                 **{"prov:activity": eval_activity_id, "prov:entity": context_entity_id},
             )
+    if release_readiness_db_gate_entity_id:
+        db_gate_verification_id = release_readiness_db_gate.get("verification_id")
+        db_gate_eval_activity_id = _prov_identifier(
+            "agent_tasks",
+            release_readiness_db_gate.get("verification_task_id"),
+        )
+        _prov_entity(
+            entities,
+            release_readiness_db_gate_entity_id,
+            label="Release readiness DB gate summary",
+            entity_type="docling:ReleaseReadinessDbGate",
+            **{
+                "docling:check_key": release_readiness_db_gate.get("check_key"),
+                "docling:passed": release_readiness_db_gate.get("passed"),
+                "docling:required": release_readiness_db_gate.get("required"),
+                "docling:complete": release_readiness_db_gate.get("complete"),
+                "docling:failure_count": release_readiness_db_gate.get("failure_count"),
+                "docling:source_search_request_count": release_readiness_db_gate.get(
+                    "source_search_request_count"
+                ),
+                "docling:verified_request_count": release_readiness_db_gate.get(
+                    "verified_request_count"
+                ),
+            },
+        )
+        if db_gate_eval_activity_id:
+            _prov_relation(
+                was_generated_by,
+                "was-generated-by",
+                sequence=len(was_generated_by) + 1,
+                **{
+                    "prov:entity": release_readiness_db_gate_entity_id,
+                    "prov:activity": db_gate_eval_activity_id,
+                },
+            )
+        for verification in context_pack_audit.get("verifications") or []:
+            verification_id = verification.get("verification_id")
+            if str(verification_id) != str(db_gate_verification_id):
+                continue
+            verification_entity_id = _prov_identifier(
+                "agent_task_verifications",
+                verification_id,
+            )
+            if verification_entity_id:
+                _prov_relation(
+                    was_derived_from,
+                    "was-derived-from",
+                    sequence=len(was_derived_from) + 1,
+                    **{
+                        "prov:generatedEntity": release_readiness_db_gate_entity_id,
+                        "prov:usedEntity": verification_entity_id,
+                        "docling:edge_type": (
+                            "context_pack_verifier_record_to_release_readiness_db_gate"
+                        ),
+                    },
+                )
     for readiness_ref in context_pack_audit.get("release_readiness_assessments") or []:
         entity_id = _prov_identifier(
             "search_harness_release_readiness_assessments",
@@ -7106,16 +7179,12 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             label="Search harness release readiness assessment",
             entity_type="docling:SearchHarnessReleaseReadinessAssessment",
             **{
-                "docling:search_harness_release_id": readiness_ref.get(
-                    "search_harness_release_id"
-                ),
+                "docling:search_harness_release_id": readiness_ref.get("search_harness_release_id"),
                 "docling:harness_name": readiness_ref.get("harness_name"),
                 "docling:readiness_status": readiness_ref.get("readiness_status"),
                 "docling:ready": readiness_ref.get("ready"),
                 "docling:selection_status": readiness_ref.get("selection_status"),
-                "docling:assessment_payload_sha256": readiness_ref.get(
-                    "assessment_payload_sha256"
-                ),
+                "docling:assessment_payload_sha256": readiness_ref.get("assessment_payload_sha256"),
             },
         )
         if harness_activity_id:
@@ -7133,11 +7202,34 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
                 sequence=len(used) + 1,
                 **{"prov:activity": eval_activity_id, "prov:entity": entity_id},
             )
+        if release_readiness_db_gate_entity_id:
+            _prov_relation(
+                was_derived_from,
+                "was-derived-from",
+                sequence=len(was_derived_from) + 1,
+                **{
+                    "prov:generatedEntity": release_readiness_db_gate_entity_id,
+                    "prov:usedEntity": entity_id,
+                    "docling:edge_type": (
+                        "release_readiness_assessment_to_release_readiness_db_gate"
+                    ),
+                },
+            )
 
     verification_activity_id = _prov_identifier(
         "agent_tasks",
         (manifest.get("verification_task") or {}).get("task_id"),
     )
+    if verification_activity_id and release_readiness_db_gate_entity_id:
+        _prov_relation(
+            used,
+            "used",
+            sequence=len(used) + 1,
+            **{
+                "prov:activity": verification_activity_id,
+                "prov:entity": release_readiness_db_gate_entity_id,
+            },
+        )
     _prov_relation(
         was_generated_by,
         "was-generated-by",
@@ -7399,6 +7491,7 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             "manifest_integrity": manifest.get("manifest_integrity"),
             "trace_integrity": trace.get("trace_integrity"),
             "audit_checklist": manifest.get("audit_checklist"),
+            "release_readiness_db_gate": release_readiness_db_gate,
         },
         "prov_summary": {
             "entity_count": len(entities),
@@ -7412,6 +7505,16 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
             "relation_count": relation_count,
             "retrieval_evaluation_complete": retrieval_complete,
             "source_record_recall": retrieval_evaluation.get("source_record_recall"),
+            "release_readiness_db_gate_complete": release_readiness_db_gate.get("complete") is True,
+            "release_readiness_db_gate_failure_count": release_readiness_db_gate.get(
+                "failure_count"
+            ),
+            "release_readiness_db_verified_request_count": release_readiness_db_gate.get(
+                "verified_request_count"
+            ),
+            "release_readiness_db_source_search_request_count": release_readiness_db_gate.get(
+                "source_search_request_count"
+            ),
         },
     }
     prov_export["prov_integrity"] = _prov_export_integrity_payload(prov_export)
@@ -8017,17 +8120,13 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         else None
     )
     change_impact = _change_impact_payload(session, exports)
-    claim_support_change_impacts = (
-        change_impact.get("claim_support_policy_change_impacts") or {}
-    )
+    claim_support_change_impacts = change_impact.get("claim_support_policy_change_impacts") or {}
     waiver_lifecycle = claim_support_change_impacts.get("waiver_lifecycle") or {}
     replay_alert_fixture_corpus = (
         claim_support_change_impacts.get("replay_alert_fixture_corpus") or {}
     )
     unresolved_waiver_count = int(waiver_lifecycle.get("unresolved_waiver_count") or 0)
-    invalid_waiver_closure_count = int(
-        waiver_lifecycle.get("invalid_waiver_closure_count") or 0
-    )
+    invalid_waiver_closure_count = int(waiver_lifecycle.get("invalid_waiver_closure_count") or 0)
     replay_alert_waiver_closure_integrity_verified = bool(
         waiver_lifecycle.get("waiver_closure_integrity_verified", True)
     )
@@ -8196,15 +8295,24 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "has_release_readiness_assessments": context_pack_audit["integrity"][
                 "has_release_readiness_assessments"
             ],
-            "release_readiness_assessments_cover_source_requests": context_pack_audit[
-                "integrity"
-            ]["release_readiness_assessments_cover_source_requests"],
+            "release_readiness_assessments_cover_source_requests": context_pack_audit["integrity"][
+                "release_readiness_assessments_cover_source_requests"
+            ],
             "release_readiness_assessments_ready": context_pack_audit["integrity"][
                 "release_readiness_assessments_ready"
             ],
-            "release_readiness_assessment_integrity_verified": context_pack_audit[
-                "integrity"
-            ]["release_readiness_assessment_integrity_verified"],
+            "release_readiness_assessment_integrity_verified": context_pack_audit["integrity"][
+                "release_readiness_assessment_integrity_verified"
+            ],
+            "release_readiness_db_gate_verified": context_pack_audit["integrity"][
+                "release_readiness_db_gate_verified"
+            ],
+            "release_readiness_db_gate_complete": context_pack_audit["integrity"][
+                "release_readiness_db_gate_complete"
+            ],
+            "release_readiness_db_covers_source_requests": context_pack_audit["integrity"][
+                "release_readiness_db_covers_source_requests"
+            ],
             "context_pack_audit_complete": context_pack_audit["integrity"]["complete"],
             "verification_passed": (
                 verification_row.outcome == "passed" if verification_row is not None else False
@@ -8213,24 +8321,16 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "replay_alert_waiver_closure_integrity_verified": (
                 replay_alert_waiver_closure_integrity_verified
             ),
-            "unresolved_replay_alert_fixture_coverage_waiver_count": (
-                unresolved_waiver_count
-            ),
+            "unresolved_replay_alert_fixture_coverage_waiver_count": (unresolved_waiver_count),
             "invalid_replay_alert_fixture_coverage_waiver_closure_count": (
                 invalid_waiver_closure_count
             ),
-            "replay_alert_waiver_lifecycle_clear": (
-                replay_alert_waiver_lifecycle_clear
-            ),
+            "replay_alert_waiver_lifecycle_clear": (replay_alert_waiver_lifecycle_clear),
             "active_replay_alert_fixture_corpus_snapshot_id": (
-                replay_alert_fixture_corpus.get(
-                    "active_replay_alert_fixture_corpus_snapshot_id"
-                )
+                replay_alert_fixture_corpus.get("active_replay_alert_fixture_corpus_snapshot_id")
             ),
             "active_replay_alert_fixture_corpus_sha256": (
-                replay_alert_fixture_corpus.get(
-                    "active_replay_alert_fixture_corpus_sha256"
-                )
+                replay_alert_fixture_corpus.get("active_replay_alert_fixture_corpus_sha256")
             ),
             "replay_alert_fixture_corpus_snapshot_governed": (
                 replay_alert_fixture_corpus_snapshot_governed
@@ -8262,6 +8362,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["release_readiness_assessments_cover_source_requests"]
         and audit_bundle["audit_checklist"]["release_readiness_assessments_ready"]
         and audit_bundle["audit_checklist"]["release_readiness_assessment_integrity_verified"]
+        and audit_bundle["audit_checklist"]["release_readiness_db_gate_verified"]
+        and audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"]
+        and audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
         and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]

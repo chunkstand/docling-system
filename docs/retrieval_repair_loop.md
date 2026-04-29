@@ -191,9 +191,10 @@ ref differs from the canonical DB-derived assessment ref. The DB-bound gate also
 rejects duplicate, unexpected, and malformed readiness refs, so the release
 authorization set must exactly cover the source search requests consumed by the
 generation pack. Technical-report audit bundles, evidence manifests, evidence
-traces, and PROV exports carry the same assessment refs and provenance edges so
-court-facing generated documents can prove which release-readiness decision
-authorized the retrieval evidence. The database enforces that audit bundle
+traces, and PROV exports carry the same assessment refs, the DB-derived gate
+summary, and provenance edges so court-facing generated documents can prove
+which release-readiness decision authorized the retrieval evidence and whether
+the database check covered every consumed source search request. The database enforces that audit bundle
 source IDs match their concrete release or training-run foreign keys. That keeps
 the signed release package traceable from release gate back to the exact
 auditable dataset that influenced the candidate, and gives downstream

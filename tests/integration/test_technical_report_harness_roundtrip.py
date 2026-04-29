@@ -278,9 +278,9 @@ def _forge_harness_context_latest_bundle_ref(
             source_search_request_id = readiness_refs[0]["search_request_id"]
             readiness_refs[0]["latest_release_audit_bundle_id"] = forged_bundle_id
             _refresh_context_pack_sha256(context_pack)
-        output["harness"]["release_readiness_assessments"][0][
-            "latest_release_audit_bundle_id"
-        ] = forged_bundle_id
+        output["harness"]["release_readiness_assessments"][0]["latest_release_audit_bundle_id"] = (
+            forged_bundle_id
+        )
         context_artifact.payload_json = payload
         session.commit()
         assert source_search_request_id is not None
@@ -304,9 +304,7 @@ def test_technical_report_harness_roundtrip(
     get_settings.cache_clear()
     clear_semantic_registry_cache()
 
-    release_fixture = _create_default_harness_release_with_validation(
-        postgres_integration_harness
-    )
+    release_fixture = _create_default_harness_release_with_validation(postgres_integration_harness)
     release_id = release_fixture["release"]["release_id"]
 
     client = postgres_integration_harness.client
@@ -375,18 +373,14 @@ def test_technical_report_harness_roundtrip(
 
     _process_next_task(postgres_integration_harness)
 
-    blocked_harness_context_response = client.get(
-        f"/agent-tasks/{blocked_harness_task_id}/context"
-    )
+    blocked_harness_context_response = client.get(f"/agent-tasks/{blocked_harness_task_id}/context")
     assert blocked_harness_context_response.status_code == 200
     blocked_harness_output = blocked_harness_context_response.json()["output"]["harness"]
     blocked_readiness_refs = blocked_harness_output["document_generation_context_pack"][
         "audit_refs"
     ]["release_readiness_assessments"]
     assert blocked_readiness_refs
-    assert {ref["selection_status"] for ref in blocked_readiness_refs} == {
-        "missing_assessment"
-    }
+    assert {ref["selection_status"] for ref in blocked_readiness_refs} == {"missing_assessment"}
 
     with postgres_integration_harness.session_factory() as session:
         blocked_context_pack_eval_task = create_agent_task(
@@ -407,12 +401,9 @@ def test_technical_report_harness_roundtrip(
     assert blocked_context_pack_eval_context_response.status_code == 200
     blocked_context_pack_eval_context = blocked_context_pack_eval_context_response.json()
     assert blocked_context_pack_eval_context["summary"]["verification_state"] == "failed"
-    assert (
-        blocked_context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "failed"
-    )
+    assert blocked_context_pack_eval_context["output"]["evaluation"]["gate_outcome"] == "failed"
     assert any(
-        check["check_key"] == "release_readiness_assessments"
-        and check["passed"] is False
+        check["check_key"] == "release_readiness_assessments" and check["passed"] is False
         for check in blocked_context_pack_eval_context["output"]["evaluation"]["checks"]
     )
     assert any(
@@ -496,9 +487,7 @@ def test_technical_report_harness_roundtrip(
     ]
     assert any(
         row["field"] == "latest_release_audit_bundle_id"
-        for row in tampered_db_check["observed"]["ref_field_mismatches"][
-            tampered_search_request_id
-        ]
+        for row in tampered_db_check["observed"]["ref_field_mismatches"][tampered_search_request_id]
     )
 
     with postgres_integration_harness.session_factory() as session:
@@ -541,9 +530,9 @@ def test_technical_report_harness_roundtrip(
     assert harness_output["claim_contract"]
     assert harness_output["search_evidence_package_exports"]
     assert harness_output["release_readiness_assessments"]
-    assert {
-        ref["assessment_id"] for ref in harness_output["release_readiness_assessments"]
-    } == {release_readiness_assessment["assessment_id"]}
+    assert {ref["assessment_id"] for ref in harness_output["release_readiness_assessments"]} == {
+        release_readiness_assessment["assessment_id"]
+    }
     assert all(
         ref["selection_status"] == "ready_integrity_complete"
         and ref["integrity"]["complete"] is True
@@ -631,16 +620,22 @@ def test_technical_report_harness_roundtrip(
         and check["passed"] is True
         for check in context_pack_eval_context["output"]["evaluation"]["checks"]
     )
-    assert context_pack_eval_context["output"]["evaluation"]["trace"][
-        "release_readiness_db_summary"
-    ]["complete"] is True
-    assert context_pack_eval_context["output"]["evaluation"]["trace"][
-        "release_readiness_assessments"
-    ][0]["assessment_id"] == release_readiness_assessment["assessment_id"]
+    context_pack_release_readiness_db_summary = context_pack_eval_context["output"]["evaluation"][
+        "trace"
+    ]["release_readiness_db_summary"]
+    assert context_pack_release_readiness_db_summary["complete"] is True
+    assert (
+        context_pack_release_readiness_db_summary["verified_request_count"]
+        == context_pack_release_readiness_db_summary["source_search_request_count"]
+    )
+    assert (
+        context_pack_eval_context["output"]["evaluation"]["trace"]["release_readiness_assessments"][
+            0
+        ]["assessment_id"]
+        == release_readiness_assessment["assessment_id"]
+    )
     assert context_pack_eval_context["output"]["context_pack"]["context_pack_sha256"]
-    context_pack_sha256 = context_pack_eval_context["output"]["context_pack"][
-        "context_pack_sha256"
-    ]
+    context_pack_sha256 = context_pack_eval_context["output"]["context_pack"]["context_pack_sha256"]
     assert any(
         ref["ref_key"] == "document_generation_context_pack_artifact"
         for ref in context_pack_eval_context["refs"]
@@ -689,9 +684,12 @@ def test_technical_report_harness_roundtrip(
             draft_payload["llm_adapter_contract"]["context_pack_gate"]["context_pack_sha256"]
             == context_pack_sha256
         )
-        assert draft_payload["llm_adapter_contract"]["context_pack_gate"][
-            "release_readiness_summary"
-        ]["failed_ref_count"] == 0
+        assert (
+            draft_payload["llm_adapter_contract"]["context_pack_gate"]["release_readiness_summary"][
+                "failed_ref_count"
+            ]
+            == 0
+        )
         assert draft_payload["evidence_package_sha256"]
         assert draft_payload["evidence_package_export_id"]
         assert draft_payload["source_evidence_package_exports"]
@@ -950,20 +948,33 @@ def test_technical_report_harness_roundtrip(
     )
     assert audit_bundle["audit_checklist"]["release_readiness_assessments_ready"] is True
     assert (
-        audit_bundle["audit_checklist"]["release_readiness_assessment_integrity_verified"]
-        is True
+        audit_bundle["audit_checklist"]["release_readiness_assessment_integrity_verified"] is True
     )
+    assert audit_bundle["audit_checklist"]["release_readiness_db_gate_verified"] is True
+    assert audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"] is True
+    assert audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
     assert audit_bundle["audit_checklist"]["context_pack_audit_complete"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
     assert audit_bundle["context_pack_audit"]["integrity"]["complete"] is True
     assert audit_bundle["context_pack_audit"]["context_pack_sha256s"] == [context_pack_sha256]
-    assert audit_bundle["context_pack_audit"]["release_readiness_assessments"][0][
-        "assessment_id"
-    ] == release_readiness_assessment["assessment_id"]
-    assert audit_bundle["context_pack_audit"]["release_readiness_summary"][
-        "failed_ref_count"
-    ] == 0
+    assert (
+        audit_bundle["context_pack_audit"]["release_readiness_assessments"][0]["assessment_id"]
+        == release_readiness_assessment["assessment_id"]
+    )
+    assert audit_bundle["context_pack_audit"]["release_readiness_summary"]["failed_ref_count"] == 0
+    audit_release_readiness_db_gate = audit_bundle["context_pack_audit"][
+        "release_readiness_db_gate"
+    ]
+    assert audit_release_readiness_db_gate["check_key"] == (
+        "release_readiness_assessment_db_integrity"
+    )
+    assert audit_release_readiness_db_gate["complete"] is True
+    assert audit_release_readiness_db_gate["verification_task_id"] == str(context_pack_eval_task_id)
+    assert audit_release_readiness_db_gate["summary"] == (context_pack_release_readiness_db_summary)
+    assert audit_bundle["context_pack_audit"]["release_readiness_db_summary"] == (
+        context_pack_release_readiness_db_summary
+    )
     assert audit_bundle["context_pack_audit"]["evaluation_task_ids"] == [
         str(context_pack_eval_task_id)
     ]
@@ -1083,10 +1094,10 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["context_pack_hash_verified"] is True
     assert manifest["audit_checklist"]["has_release_readiness_assessments"] is True
     assert manifest["audit_checklist"]["release_readiness_assessments_ready"] is True
-    assert (
-        manifest["audit_checklist"]["release_readiness_assessment_integrity_verified"]
-        is True
-    )
+    assert manifest["audit_checklist"]["release_readiness_assessment_integrity_verified"] is True
+    assert manifest["audit_checklist"]["release_readiness_db_gate_verified"] is True
+    assert manifest["audit_checklist"]["release_readiness_db_gate_complete"] is True
+    assert manifest["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
@@ -1099,9 +1110,19 @@ def test_technical_report_harness_roundtrip(
     assert manifest["report_trace"]["context_pack_audit"]["context_pack_sha256s"] == [
         context_pack_sha256
     ]
-    assert manifest["report_trace"]["context_pack_audit"]["release_readiness_assessments"][
-        0
-    ]["assessment_id"] == release_readiness_assessment["assessment_id"]
+    assert (
+        manifest["report_trace"]["context_pack_audit"]["release_readiness_assessments"][0][
+            "assessment_id"
+        ]
+        == release_readiness_assessment["assessment_id"]
+    )
+    assert (
+        manifest["report_trace"]["context_pack_audit"]["release_readiness_db_gate"]["complete"]
+        is True
+    )
+    assert manifest["report_trace"]["context_pack_audit"]["release_readiness_db_summary"] == (
+        context_pack_release_readiness_db_summary
+    )
     assert manifest["retrieval_trace"]["source_evidence_closure"]["complete"] is True
     assert manifest["retrieval_trace"]["source_evidence_closure"]["source_record_recall"] == 1.0
     assert (
@@ -1125,6 +1146,8 @@ def test_technical_report_harness_roundtrip(
         "search_harness_release_to_readiness_assessment",
         "release_readiness_assessment_to_context_pack_artifact",
         "release_readiness_assessment_to_context_pack_verifier_record",
+        "context_pack_verifier_record_to_release_readiness_db_gate",
+        "release_readiness_assessment_to_release_readiness_db_gate",
     }.issubset({edge["edge_type"] for edge in manifest["provenance_edges"]})
     assert manifest["manifest_integrity"]["complete"] is True
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
@@ -1160,6 +1183,7 @@ def test_technical_report_harness_roundtrip(
         "agent_task_artifact",
         "context_pack_evaluation_task",
         "release_readiness_assessment",
+        "release_readiness_db_gate",
         "evidence_manifest",
     }.issubset(node_kinds)
     assert any(
@@ -1172,8 +1196,15 @@ def test_technical_report_harness_roundtrip(
     assert provenance["schema_name"] == "technical_report_prov_export"
     assert provenance["prefix"]["prov"] == "http://www.w3.org/ns/prov#"
     assert provenance["prov_summary"]["source_record_recall"] == 1.0
+    assert provenance["prov_summary"]["release_readiness_db_gate_complete"] is True
+    assert provenance["prov_summary"]["release_readiness_db_gate_failure_count"] == 0
+    assert (
+        provenance["prov_summary"]["release_readiness_db_verified_request_count"]
+        == context_pack_release_readiness_db_summary["verified_request_count"]
+    )
     assert provenance["retrieval_evaluation"]["complete"] is True
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
+    assert provenance["audit"]["release_readiness_db_gate"]["complete"] is True
     assert provenance["prov_integrity"]["complete"] is True
     assert provenance["prov_integrity"]["hash_policy"] == (
         "sha256 over canonical JSON excluding frozen_export and prov_integrity"
@@ -1209,6 +1240,12 @@ def test_technical_report_harness_roundtrip(
         entity.get("prov:type") == "docling:SearchHarnessReleaseReadinessAssessment"
         and entity.get("docling:assessment_payload_sha256")
         == release_readiness_assessment["assessment_payload_sha256"]
+        for entity in provenance["entity"].values()
+    )
+    assert any(
+        entity.get("prov:type") == "docling:ReleaseReadinessDbGate"
+        and entity.get("docling:complete") is True
+        and entity.get("docling:failure_count") == 0
         for entity in provenance["entity"].values()
     )
     assert any(
