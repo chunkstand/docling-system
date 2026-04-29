@@ -98,6 +98,43 @@ def _search_replay_run(
     )
 
 
+def _create_release_audit_bundle_with_validation(
+    postgres_integration_harness,
+    release_id: str,
+) -> dict:
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/harness-releases/{release_id}/audit-bundles",
+        json={"created_by": "technical-report-integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
+
+    validation_receipt = _create_audit_bundle_validation_receipt(
+        postgres_integration_harness,
+        audit_bundle["bundle_id"],
+    )
+
+    return {
+        "audit_bundle": audit_bundle,
+        "validation_receipt": validation_receipt,
+    }
+
+
+def _create_audit_bundle_validation_receipt(
+    postgres_integration_harness,
+    audit_bundle_id: str,
+) -> dict:
+    validation_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle_id}/validation-receipts",
+        json={"created_by": "technical-report-integration"},
+    )
+    assert validation_response.status_code == 200
+    validation_receipt = validation_response.json()
+    assert validation_receipt["validation_status"] == "passed"
+    return validation_receipt
+
+
 def _create_default_harness_release_with_validation(postgres_integration_harness) -> dict:
     now = datetime.now(UTC)
     evaluation_id = uuid4()
@@ -184,26 +221,14 @@ def _create_default_harness_release_with_validation(postgres_integration_harness
     release = release_response.json()
     assert release["outcome"] == "passed"
 
-    audit_response = postgres_integration_harness.client.post(
-        f"/search/harness-releases/{release['release_id']}/audit-bundles",
-        json={"created_by": "technical-report-integration"},
+    bundle_fixture = _create_release_audit_bundle_with_validation(
+        postgres_integration_harness,
+        release["release_id"],
     )
-    assert audit_response.status_code == 200
-    audit_bundle = audit_response.json()
-    assert audit_bundle["bundle"]["payload"]["audit_checklist"]["complete"] is True
-
-    validation_response = postgres_integration_harness.client.post(
-        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
-        json={"created_by": "technical-report-integration"},
-    )
-    assert validation_response.status_code == 200
-    validation_receipt = validation_response.json()
-    assert validation_receipt["validation_status"] == "passed"
 
     return {
         "release": release,
-        "audit_bundle": audit_bundle,
-        "validation_receipt": validation_receipt,
+        **bundle_fixture,
     }
 
 
@@ -221,6 +246,45 @@ def _freeze_release_readiness_assessment(postgres_integration_harness, release_i
     assert assessment["readiness_status"] == "ready"
     assert assessment["integrity"]["complete"] is True
     return assessment
+
+
+def _refresh_context_pack_sha256(context_pack: dict) -> None:
+    hash_basis = dict(context_pack)
+    hash_basis.pop("context_pack_sha256", None)
+    context_pack["context_pack_sha256"] = payload_sha256(hash_basis)
+
+
+def _forge_harness_context_latest_bundle_ref(
+    postgres_integration_harness,
+    harness_task_id: UUID,
+) -> str:
+    with postgres_integration_harness.session_factory() as session:
+        context_artifact = session.scalars(
+            select(AgentTaskArtifact).where(
+                AgentTaskArtifact.task_id == harness_task_id,
+                AgentTaskArtifact.artifact_kind == "context",
+            )
+        ).one()
+        payload = deepcopy(context_artifact.payload_json or {})
+        output = payload["output"]
+        forged_bundle_id = str(uuid4())
+        source_search_request_id = None
+        for context_pack in (
+            output["context_pack"],
+            output["harness"]["document_generation_context_pack"],
+        ):
+            readiness_refs = context_pack["audit_refs"]["release_readiness_assessments"]
+            assert readiness_refs
+            source_search_request_id = readiness_refs[0]["search_request_id"]
+            readiness_refs[0]["latest_release_audit_bundle_id"] = forged_bundle_id
+            _refresh_context_pack_sha256(context_pack)
+        output["harness"]["release_readiness_assessments"][0][
+            "latest_release_audit_bundle_id"
+        ] = forged_bundle_id
+        context_artifact.payload_json = payload
+        session.commit()
+        assert source_search_request_id is not None
+        return source_search_request_id
 
 
 def test_technical_report_harness_roundtrip(
@@ -378,6 +442,63 @@ def test_technical_report_harness_roundtrip(
     release_readiness_assessment = _freeze_release_readiness_assessment(
         postgres_integration_harness,
         release_id,
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_harness_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="prepare_report_agent_harness",
+                input={"target_task_id": str(evidence_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        tampered_harness_task_id = tampered_harness_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+    tampered_search_request_id = _forge_harness_context_latest_bundle_ref(
+        postgres_integration_harness,
+        tampered_harness_task_id,
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        tampered_context_pack_eval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_document_generation_context_pack",
+                input={"target_task_id": str(tampered_harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        tampered_context_pack_eval_task_id = tampered_context_pack_eval_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    tampered_eval_context_response = client.get(
+        f"/agent-tasks/{tampered_context_pack_eval_task_id}/context"
+    )
+    assert tampered_eval_context_response.status_code == 200
+    tampered_eval_context = tampered_eval_context_response.json()
+    tampered_eval = tampered_eval_context["output"]["evaluation"]
+    assert tampered_eval["gate_outcome"] == "failed"
+    assert any(
+        check["check_key"] == "release_readiness_assessments" and check["passed"] is True
+        for check in tampered_eval["checks"]
+    )
+    tampered_db_check = next(
+        check
+        for check in tampered_eval["checks"]
+        if check["check_key"] == "release_readiness_assessment_db_integrity"
+    )
+    assert tampered_db_check["passed"] is False
+    assert tampered_db_check["observed"]["ref_field_mismatch_request_ids"] == [
+        tampered_search_request_id
+    ]
+    assert any(
+        row["field"] == "latest_release_audit_bundle_id"
+        for row in tampered_db_check["observed"]["ref_field_mismatches"][
+            tampered_search_request_id
+        ]
     )
 
     with postgres_integration_harness.session_factory() as session:
@@ -1131,6 +1252,57 @@ def test_technical_report_harness_roundtrip(
             )
         )
     assert prov_artifact_count == 1
+
+    with postgres_integration_harness.session_factory() as session:
+        stale_harness_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="prepare_report_agent_harness",
+                input={"target_task_id": str(evidence_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        stale_harness_task_id = stale_harness_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+    _create_audit_bundle_validation_receipt(
+        postgres_integration_harness,
+        release_fixture["audit_bundle"]["bundle_id"],
+    )
+
+    with postgres_integration_harness.session_factory() as session:
+        stale_context_pack_eval_task = create_agent_task(
+            session,
+            AgentTaskCreateRequest(
+                task_type="evaluate_document_generation_context_pack",
+                input={"target_task_id": str(stale_harness_task_id)},
+                workflow_version=workflow_version,
+            ),
+        )
+        stale_context_pack_eval_task_id = stale_context_pack_eval_task.task_id
+
+    _process_next_task(postgres_integration_harness)
+
+    stale_eval_context_response = client.get(
+        f"/agent-tasks/{stale_context_pack_eval_task_id}/context"
+    )
+    assert stale_eval_context_response.status_code == 200
+    stale_eval_context = stale_eval_context_response.json()
+    stale_eval = stale_eval_context["output"]["evaluation"]
+    assert stale_eval["gate_outcome"] == "failed"
+    assert any(
+        check["check_key"] == "release_readiness_assessments" and check["passed"] is True
+        for check in stale_eval["checks"]
+    )
+    stale_db_check = next(
+        check
+        for check in stale_eval["checks"]
+        if check["check_key"] == "release_readiness_assessment_db_integrity"
+    )
+    assert stale_db_check["passed"] is False
+    assert set(stale_db_check["observed"]["stale_assessment_ids"]) == {
+        release_readiness_assessment["assessment_id"]
+    }
 
     revision_0044 = _load_revision_0044()
     _engine, schema_name = postgres_schema_engine

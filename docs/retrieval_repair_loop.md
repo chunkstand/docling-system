@@ -177,22 +177,28 @@ that recomputes the stored readiness/assessment payload hashes and checks that t
 embedded release, audit-bundle, validation-receipt, readiness-status, and blocker
 links still match the row. `GET /search/harness-releases/{release_id}/readiness`
 stays live and reports the latest frozen assessment reference when one exists.
-Downstream document generation now treats that frozen assessment as a hard consuming
-boundary. `prepare_report_agent_harness` binds every source search request in the
-document-generation context pack to the latest passed release for that harness and
-records the frozen readiness assessment ID, payload hash, selection status, linked
-audit bundle, linked validation receipt, and integrity result in
-`audit_refs.release_readiness_assessments`. `evaluate_document_generation_context_pack`
-fails when any source search request lacks a ready, integrity-complete assessment, when
-the frozen assessment is blocked, when its stored hashes no longer verify, or when it is
-stale relative to the latest release audit bundle or validation receipt. Technical-report
-audit bundles, evidence manifests, evidence traces, and PROV exports carry the same
-assessment refs and provenance edges so court-facing generated documents can prove which
-release-readiness decision authorized the retrieval evidence. The database enforces that
-audit bundle source IDs match their concrete release or training-run foreign keys. That keeps the signed release
-package traceable from release gate back to the exact auditable dataset that
-influenced the candidate, and gives downstream document-generation workflows a
-court-facing receipt they can re-check independently of the bundle payload.
+Downstream document generation now treats that frozen assessment as a hard
+consuming boundary. `prepare_report_agent_harness` binds every source search
+request in the document-generation context pack to the latest passed release for
+that harness and records the frozen readiness assessment ID, payload hash,
+selection status, linked audit bundle, linked validation receipt, and integrity
+result in `audit_refs.release_readiness_assessments`.
+`evaluate_document_generation_context_pack` fails when any source search request
+lacks a ready, integrity-complete assessment, when the frozen assessment is
+blocked, when its stored hashes no longer verify, when it is stale relative to
+the latest release audit bundle or validation receipt, or when the context-pack
+ref differs from the canonical DB-derived assessment ref. The DB-bound gate also
+rejects duplicate, unexpected, and malformed readiness refs, so the release
+authorization set must exactly cover the source search requests consumed by the
+generation pack. Technical-report audit bundles, evidence manifests, evidence
+traces, and PROV exports carry the same assessment refs and provenance edges so
+court-facing generated documents can prove which release-readiness decision
+authorized the retrieval evidence. The database enforces that audit bundle
+source IDs match their concrete release or training-run foreign keys. That keeps
+the signed release package traceable from release gate back to the exact
+auditable dataset that influenced the candidate, and gives downstream
+document-generation workflows a court-facing receipt they can re-check
+independently of the bundle payload.
 
 ## Multivector Retrieval Repair Surface
 

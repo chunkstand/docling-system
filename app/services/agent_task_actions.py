@@ -1031,17 +1031,74 @@ def _context_pack_source_search_request_ids(context_pack_payload: dict) -> list[
     return _unique_strings(audit_refs.get("source_search_request_ids") or [])
 
 
+_RELEASE_READINESS_REF_AUTHORITY_FIELDS = (
+    "schema_name",
+    "schema_version",
+    "search_request_id",
+    "search_request_created_at",
+    "harness_name",
+    "search_harness_release_id",
+    "release_created_at",
+    "assessment_id",
+    "readiness_profile",
+    "readiness_status",
+    "ready",
+    "blockers",
+    "latest_release_audit_bundle_id",
+    "assessment_release_audit_bundle_id",
+    "latest_release_validation_receipt_id",
+    "assessment_release_validation_receipt_id",
+    "readiness_payload_sha256",
+    "assessment_payload_sha256",
+    "integrity",
+    "selection_rule",
+    "selection_status",
+)
+
+
+def _release_readiness_ref_field_mismatches(
+    observed_ref: dict,
+    expected_ref: dict,
+) -> list[dict]:
+    return [
+        {
+            "field": field,
+            "observed": observed_ref.get(field),
+            "expected": expected_ref.get(field),
+        }
+        for field in _RELEASE_READINESS_REF_AUTHORITY_FIELDS
+        if observed_ref.get(field) != expected_ref.get(field)
+    ]
+
+
 def _context_pack_release_readiness_db_summary(
     session: Session,
     context_pack_payload: dict,
 ) -> dict:
     source_search_request_ids = _context_pack_source_search_request_ids(context_pack_payload)
     refs = _context_pack_release_readiness_refs(context_pack_payload)
-    refs_by_request_id = {
-        str(ref.get("search_request_id")): ref
-        for ref in refs
-        if ref.get("search_request_id")
-    }
+    source_search_request_id_set = set(source_search_request_ids)
+    refs_by_request_id: dict[str, dict] = {}
+    ref_request_id_counts: dict[str, int] = {}
+    invalid_ref_indexes: list[int] = []
+    for index, ref in enumerate(refs):
+        ref_request_id = ref.get("search_request_id")
+        if not ref_request_id:
+            invalid_ref_indexes.append(index)
+            continue
+        ref_request_id = str(ref_request_id)
+        refs_by_request_id[ref_request_id] = ref
+        ref_request_id_counts[ref_request_id] = ref_request_id_counts.get(ref_request_id, 0) + 1
+    duplicate_ref_request_ids = _unique_strings(
+        request_id
+        for request_id, count in ref_request_id_counts.items()
+        if request_id in source_search_request_id_set and count > 1
+    )
+    unexpected_ref_request_ids = _unique_strings(
+        request_id
+        for request_id in ref_request_id_counts
+        if request_id not in source_search_request_id_set
+    )
     missing_ref_request_ids: list[str] = []
     invalid_assessment_id_request_ids: list[str] = []
     missing_assessment_row_ids: list[str] = []
@@ -1049,11 +1106,16 @@ def _context_pack_release_readiness_db_summary(
     blocked_assessment_ids: list[str] = []
     stale_assessment_ids: list[str] = []
     hash_mismatch_assessment_ids: list[str] = []
+    readiness_hash_mismatch_assessment_ids: list[str] = []
+    ref_field_mismatch_request_ids: list[str] = []
+    ref_field_mismatches: dict[str, list[dict]] = {}
     release_basis_mismatch_request_ids: list[str] = []
     missing_search_request_ids: list[str] = []
     verified_request_ids: list[str] = []
 
     for search_request_id in source_search_request_ids:
+        if search_request_id in duplicate_ref_request_ids:
+            continue
         ref = refs_by_request_id.get(search_request_id)
         if ref is None:
             missing_ref_request_ids.append(search_request_id)
@@ -1093,6 +1155,9 @@ def _context_pack_release_readiness_db_summary(
         if assessment.ready is not True or assessment.readiness_status != "ready":
             blocked_assessment_ids.append(str(assessment.id))
             continue
+        if ref.get("readiness_payload_sha256") != assessment.readiness_payload_sha256:
+            readiness_hash_mismatch_assessment_ids.append(str(assessment.id))
+            continue
         if ref.get("assessment_payload_sha256") != assessment.assessment_payload_sha256:
             hash_mismatch_assessment_ids.append(str(assessment.id))
             continue
@@ -1113,11 +1178,26 @@ def _context_pack_release_readiness_db_summary(
         ):
             stale_assessment_ids.append(str(assessment.id))
             continue
+        expected_ref = _release_readiness_assessment_ref(
+            request_row=request_row,
+            release=expected_release,
+            assessment=assessment,
+            latest_audit_bundle=latest_audit_bundle,
+            latest_validation_receipt=latest_validation_receipt,
+        )
+        field_mismatches = _release_readiness_ref_field_mismatches(ref, expected_ref)
+        if field_mismatches:
+            ref_field_mismatch_request_ids.append(search_request_id)
+            ref_field_mismatches[search_request_id] = field_mismatches
+            continue
         verified_request_ids.append(search_request_id)
 
     failure_count = sum(
         len(values)
         for values in (
+            invalid_ref_indexes,
+            duplicate_ref_request_ids,
+            unexpected_ref_request_ids,
             missing_ref_request_ids,
             invalid_assessment_id_request_ids,
             missing_assessment_row_ids,
@@ -1125,6 +1205,8 @@ def _context_pack_release_readiness_db_summary(
             blocked_assessment_ids,
             stale_assessment_ids,
             hash_mismatch_assessment_ids,
+            readiness_hash_mismatch_assessment_ids,
+            ref_field_mismatch_request_ids,
             release_basis_mismatch_request_ids,
             missing_search_request_ids,
         )
@@ -1134,6 +1216,9 @@ def _context_pack_release_readiness_db_summary(
         "readiness_assessment_ref_count": len(refs),
         "verified_request_count": len(verified_request_ids),
         "failure_count": failure_count,
+        "invalid_ref_indexes": invalid_ref_indexes,
+        "duplicate_ref_request_ids": duplicate_ref_request_ids,
+        "unexpected_ref_request_ids": unexpected_ref_request_ids,
         "missing_ref_request_ids": missing_ref_request_ids,
         "invalid_assessment_id_request_ids": invalid_assessment_id_request_ids,
         "missing_assessment_row_ids": missing_assessment_row_ids,
@@ -1141,6 +1226,9 @@ def _context_pack_release_readiness_db_summary(
         "blocked_assessment_ids": blocked_assessment_ids,
         "stale_assessment_ids": stale_assessment_ids,
         "hash_mismatch_assessment_ids": hash_mismatch_assessment_ids,
+        "readiness_hash_mismatch_assessment_ids": readiness_hash_mismatch_assessment_ids,
+        "ref_field_mismatch_request_ids": ref_field_mismatch_request_ids,
+        "ref_field_mismatches": ref_field_mismatches,
         "release_basis_mismatch_request_ids": release_basis_mismatch_request_ids,
         "missing_search_request_ids": missing_search_request_ids,
         "verified_request_ids": verified_request_ids,
