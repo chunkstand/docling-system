@@ -972,6 +972,8 @@ def test_claim_feedback_replay_source_drives_learning_candidate_and_artifact(
     assert replay.passed_count == 1
     assert replay.query_results[0].details["claim_feedback_id"] == str(feedback_id)
     assert replay.query_results[0].details["target_rank"] is None
+    assert replay.query_results[0].details["claim_feedback_traceability_complete"] is True
+    assert replay.query_results[0].details["claim_feedback_traceability_issues"] == []
     assert (
         replay.query_results[0].details["claim_feedback_replay_verdict"]
         == "negative_target_excluded"

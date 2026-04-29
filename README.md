@@ -373,6 +373,11 @@ Replay suites currently support:
 - `cross_document_prose_regressions`
 - `technical_report_claim_feedback`
 
+The `technical_report_claim_feedback` suite replays append-only technical-report
+claim feedback from the ledger. Replay query details preserve the claim feedback
+ID, claim ID, payload hashes, source search/result IDs, span IDs, and traceability
+checks so harness gates can be audited back to the exact claim-feedback row.
+
 Durable search telemetry now records:
 
 - requested and served mode

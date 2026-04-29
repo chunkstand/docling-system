@@ -14,14 +14,31 @@ from app.services.search_replays import (
     _feedback_cases,
     _finalize_replay_rank_metrics,
     _live_search_gap_cases,
+    _technical_report_claim_feedback_cases,
     _to_replay_run_summary,
     compare_search_replay_runs,
     export_ranking_dataset,
 )
 
+_HASH = "a" * 64
+
 
 def _timestamp() -> datetime:
     return datetime.now(UTC)
+
+
+def _claim_feedback_metadata(
+    *,
+    learning_label: str,
+    source_search_request_id=None,
+) -> dict:
+    return {
+        "claim_feedback_id": str(uuid4()),
+        "learning_label": learning_label,
+        "feedback_payload_sha256": _HASH,
+        "source_payload_sha256": _HASH,
+        "source_search_request_ids": [str(source_search_request_id or uuid4())],
+    }
 
 
 def test_compare_search_replay_runs_reports_improvements(monkeypatch) -> None:
@@ -397,7 +414,7 @@ def test_evaluate_case_passed_enforces_claim_feedback_labels() -> None:
             target_result_type="chunk",
             target_result_id=target_id,
             source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
-            source_metadata={"learning_label": "positive"},
+            source_metadata=_claim_feedback_metadata(learning_label="positive"),
         ),
         execution,
     )
@@ -411,7 +428,7 @@ def test_evaluate_case_passed_enforces_claim_feedback_labels() -> None:
             target_result_type="chunk",
             target_result_id=target_id,
             source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
-            source_metadata={"learning_label": "negative"},
+            source_metadata=_claim_feedback_metadata(learning_label="negative"),
         ),
         execution,
     )
@@ -422,7 +439,7 @@ def test_evaluate_case_passed_enforces_claim_feedback_labels() -> None:
             filters={},
             limit=10,
             source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
-            source_metadata={"learning_label": "missing"},
+            source_metadata=_claim_feedback_metadata(learning_label="missing"),
         ),
         SimpleNamespace(results=[], table_hit_count=0),
     )
@@ -434,6 +451,149 @@ def test_evaluate_case_passed_enforces_claim_feedback_labels() -> None:
     assert negative_details["claim_feedback_replay_verdict"] == "negative_target_still_prominent"
     assert missing_passed is False
     assert missing_details["claim_feedback_replay_verdict"] == "missing_evidence_still_empty"
+
+
+def test_evaluate_case_passed_handles_claim_feedback_weak_missing_and_traceability() -> None:
+    target_id = uuid4()
+    weak_execution = SimpleNamespace(
+        results=[
+            SimpleNamespace(result_type="chunk", chunk_id=uuid4(), table_id=None),
+            SimpleNamespace(result_type="chunk", chunk_id=uuid4(), table_id=None),
+            SimpleNamespace(result_type="chunk", chunk_id=target_id, table_id=None),
+        ],
+        table_hit_count=0,
+    )
+
+    weak_passed, weak_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="weak claim",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            expected_top_n=3,
+            target_result_type="chunk",
+            target_result_id=target_id,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata=_claim_feedback_metadata(learning_label="positive"),
+        ),
+        weak_execution,
+    )
+    missing_passed, missing_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="missing claim",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata=_claim_feedback_metadata(learning_label="missing"),
+        ),
+        SimpleNamespace(
+            results=[SimpleNamespace(result_type="chunk", chunk_id=uuid4(), table_id=None)],
+            table_hit_count=0,
+        ),
+    )
+    dangling_passed, dangling_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="dangling negative",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            expected_top_n=1,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata=_claim_feedback_metadata(learning_label="negative"),
+        ),
+        SimpleNamespace(results=[], table_hit_count=0),
+    )
+
+    assert weak_passed is True
+    assert weak_details["target_rank"] == 3
+    assert weak_details["claim_feedback_traceability_complete"] is True
+    assert missing_passed is True
+    assert missing_details["claim_feedback_replay_verdict"] == "missing_evidence_query_recovered"
+    assert dangling_passed is False
+    assert dangling_details["claim_feedback_replay_verdict"] == (
+        "claim_feedback_traceability_incomplete"
+    )
+    assert "target_result_missing" in dangling_details["claim_feedback_traceability_issues"]
+
+
+def test_technical_report_claim_feedback_cases_preserve_audit_metadata() -> None:
+    feedback_id = uuid4()
+    request_id = uuid4()
+    result_id = uuid4()
+    table_id = uuid4()
+    span_id = uuid4()
+    feedback = SimpleNamespace(
+        id=feedback_id,
+        technical_report_verification_task_id=uuid4(),
+        claim_evidence_derivation_id=uuid4(),
+        evidence_manifest_id=uuid4(),
+        prov_export_artifact_id=uuid4(),
+        release_readiness_db_gate_id=uuid4(),
+        semantic_governance_event_id=uuid4(),
+        claim_id="claim:weak",
+        claim_text="The cited table only weakly supports this claim.",
+        support_verdict="supported",
+        support_score=0.42,
+        feedback_status="weak",
+        learning_label="positive",
+        hard_negative_kind=None,
+        source_search_request_id=request_id,
+        search_request_result_id=result_id,
+        source_search_request_ids_json=[str(request_id)],
+        source_search_request_result_ids_json=[str(result_id)],
+        search_request_result_span_ids_json=[str(span_id)],
+        retrieval_evidence_span_ids_json=[],
+        retrieval_context_json={
+            "primary_query_text": "weakly supported generated claim",
+            "primary_mode": "hybrid",
+        },
+        feedback_payload_sha256=_HASH,
+        source_payload_sha256=_HASH,
+    )
+    result = SimpleNamespace(
+        id=result_id,
+        result_type="table",
+        table_id=table_id,
+        chunk_id=None,
+        rank=2,
+        source_filename="audit.pdf",
+    )
+
+    class FakeScalarResult:
+        def __init__(self, rows):
+            self.rows = rows
+
+        def scalars(self):
+            return self
+
+        def all(self):
+            return self.rows
+
+    class FakeSession:
+        def execute(self, _statement):
+            return FakeScalarResult([feedback])
+
+        def get(self, model, key):
+            if model.__name__ == "SearchRequestRecord":
+                return None
+            if model.__name__ == "SearchRequestResult" and key == result_id:
+                return result
+            return None
+
+    cases = _technical_report_claim_feedback_cases(FakeSession(), limit=5)
+
+    assert len(cases) == 1
+    assert cases[0].query_text == "weakly supported generated claim"
+    assert cases[0].source_search_request_id == request_id
+    assert cases[0].target_result_type == "table"
+    assert cases[0].target_result_id == table_id
+    assert cases[0].expected_top_n == 3
+    assert cases[0].source_metadata["claim_feedback_id"] == str(feedback_id)
+    assert cases[0].source_metadata["feedback_payload_sha256"] == _HASH
+    assert cases[0].source_metadata["source_search_request_result_ids"] == [str(result_id)]
+    assert cases[0].source_metadata["search_request_result_span_ids"] == [str(span_id)]
+    assert cases[0].source_metadata["target_source_filename"] == "audit.pdf"
 
 
 def test_finalize_replay_rank_metrics_computes_mrr() -> None:

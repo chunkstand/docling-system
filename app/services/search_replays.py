@@ -842,6 +842,27 @@ def _claim_feedback_query_fields(
     return str(query_text), str(mode), dict(filters or {}), int(replay_limit)
 
 
+def _claim_feedback_traceability_issues(
+    case: ReplayCase,
+    metadata: dict,
+) -> list[str]:
+    issues: list[str] = []
+    learning_label = metadata.get("learning_label")
+    if not metadata.get("claim_feedback_id"):
+        issues.append("claim_feedback_id_missing")
+    if not metadata.get("feedback_payload_sha256"):
+        issues.append("feedback_payload_hash_missing")
+    if not metadata.get("source_payload_sha256"):
+        issues.append("source_payload_hash_missing")
+    if not case.source_search_request_id and not metadata.get("source_search_request_ids"):
+        issues.append("source_search_request_missing")
+    if learning_label in {"positive", "negative"} and (
+        case.target_result_type is None or case.target_result_id is None
+    ):
+        issues.append("target_result_missing")
+    return issues
+
+
 def _claim_feedback_source_metadata(
     feedback: TechnicalReportClaimRetrievalFeedback,
     result_row: SearchRequestResult | None,
@@ -866,6 +887,7 @@ def _claim_feedback_source_metadata(
         "hard_negative_kind": feedback.hard_negative_kind,
         "feedback_payload_sha256": feedback.feedback_payload_sha256,
         "source_payload_sha256": feedback.source_payload_sha256,
+        "source_search_request_id": _uuid_str(feedback.source_search_request_id),
         "source_search_request_ids": feedback.source_search_request_ids_json or [],
         "source_search_request_result_ids": (
             feedback.source_search_request_result_ids_json or []
@@ -1055,6 +1077,7 @@ def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
         )
         target_key = _string_result_key(case.target_result_type, case.target_result_id)
         expected_top_n = case.expected_top_n or 0
+        traceability_issues = _claim_feedback_traceability_issues(case, metadata)
         if learning_label == "positive":
             passed = target_rank is not None and target_rank <= expected_top_n
             verdict = (
@@ -1082,12 +1105,17 @@ def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
         else:
             passed = False
             verdict = "unsupported_claim_feedback_label"
+        if traceability_issues:
+            passed = False
+            verdict = "claim_feedback_traceability_incomplete"
         return passed, {
             "target_key": [target_key[0], target_key[1]],
             "target_rank": target_rank,
             "matching_rank": target_rank if learning_label == "positive" else None,
             "expected_top_n": case.expected_top_n,
             "claim_feedback_replay_verdict": verdict,
+            "claim_feedback_traceability_complete": not traceability_issues,
+            "claim_feedback_traceability_issues": traceability_issues,
             "result_count": len(execution.results),
             "table_hit_count": execution.table_hit_count,
         }
