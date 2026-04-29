@@ -2,19 +2,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import status
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.errors import api_error
-from app.core.time import utcnow
-from app.db.models import (
-    AgentTask,
-    AgentTaskVerification,
-)
+from app.db.models import AgentTask
 from app.schemas.agent_tasks import (
-    AgentTaskVerificationResponse,
     DraftHarnessConfigUpdateTaskOutput,
     DraftSemanticGroundedDocumentTaskOutput,
     DraftSemanticRegistryUpdateTaskOutput,
@@ -35,6 +27,12 @@ from app.services.agent_task_context import (
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
 )
+from app.services.agent_task_verification_records import (
+    count_agent_task_verifications,
+    create_agent_task_verification_record,
+    get_agent_task_verifications,
+    list_agent_task_verifications,
+)
 from app.services.search_harness_evaluations import (
     evaluate_search_harness,
     get_search_harness_evaluation_detail,
@@ -54,115 +52,18 @@ from app.services.semantics import preview_semantic_registry_update_for_document
 
 VerificationOutcome = SearchHarnessReleaseGateOutcome
 
-
-def _to_verification_response(row: AgentTaskVerification) -> AgentTaskVerificationResponse:
-    return AgentTaskVerificationResponse(
-        verification_id=row.id,
-        target_task_id=row.target_task_id,
-        verification_task_id=row.verification_task_id,
-        verifier_type=row.verifier_type,
-        outcome=row.outcome,
-        metrics=row.metrics_json or {},
-        reasons=[str(reason) for reason in (row.reasons_json or [])],
-        details=row.details_json or {},
-        created_at=row.created_at,
-        completed_at=row.completed_at,
-    )
-
-
-def count_agent_task_verifications(session: Session, task_id: UUID) -> int:
-    return session.execute(
-        select(func.count())
-        .select_from(AgentTaskVerification)
-        .where(AgentTaskVerification.target_task_id == task_id)
-    ).scalar_one()
-
-
-def list_agent_task_verifications(
-    session: Session,
-    task_id: UUID,
-    *,
-    limit: int = 20,
-) -> list[AgentTaskVerificationResponse]:
-    rows = (
-        session.execute(
-            select(AgentTaskVerification)
-            .where(AgentTaskVerification.target_task_id == task_id)
-            .order_by(AgentTaskVerification.created_at.desc())
-            .limit(limit)
-        )
-        .scalars()
-        .all()
-    )
-    return [_to_verification_response(row) for row in rows]
-
-
-def get_agent_task_verifications(
-    session: Session,
-    task_id: UUID,
-    *,
-    limit: int = 20,
-) -> list[AgentTaskVerificationResponse]:
-    task = session.get(AgentTask, task_id)
-    if task is None:
-        raise api_error(
-            status.HTTP_404_NOT_FOUND,
-            "agent_task_not_found",
-            "Agent task not found.",
-            task_id=str(task_id),
-        )
-    return list_agent_task_verifications(session, task_id, limit=limit)
-
-
-def _create_verification_record(
-    session: Session,
-    *,
-    target_task_id: UUID,
-    verification_task_id: UUID | None,
-    verifier_type: str,
-    outcome: str,
-    metrics: dict,
-    reasons: list[str],
-    details: dict,
-) -> AgentTaskVerificationResponse:
-    now = utcnow()
-    row = AgentTaskVerification(
-        target_task_id=target_task_id,
-        verification_task_id=verification_task_id,
-        verifier_type=verifier_type,
-        outcome=outcome,
-        metrics_json=metrics,
-        reasons_json=reasons,
-        details_json=details,
-        created_at=now,
-        completed_at=now,
-    )
-    session.add(row)
-    session.flush()
-    return _to_verification_response(row)
-
-
-def create_agent_task_verification_record(
-    session: Session,
-    *,
-    target_task_id: UUID,
-    verification_task_id: UUID | None,
-    verifier_type: str,
-    outcome: str,
-    metrics: dict,
-    reasons: list[str],
-    details: dict,
-) -> AgentTaskVerificationResponse:
-    return _create_verification_record(
-        session,
-        target_task_id=target_task_id,
-        verification_task_id=verification_task_id,
-        verifier_type=verifier_type,
-        outcome=outcome,
-        metrics=metrics,
-        reasons=reasons,
-        details=details,
-    )
+__all__ = [
+    "VerificationOutcome",
+    "count_agent_task_verifications",
+    "create_agent_task_verification_record",
+    "evaluate_search_harness_verification",
+    "get_agent_task_verifications",
+    "list_agent_task_verifications",
+    "verify_draft_harness_config_task",
+    "verify_draft_semantic_registry_update_task",
+    "verify_search_harness_evaluation_task",
+    "verify_semantic_grounded_document_task",
+]
 
 
 def evaluate_search_harness_verification(
@@ -261,9 +162,7 @@ def _repair_case_from_optimization_output(
         problem_statement=case.problem_statement,
         observed_metric_delta=optimization.best_score,
         affected_result_types=(
-            ["table"]
-            if case.failure_classification == "table_recall_gap"
-            else ["chunk", "table"]
+            ["table"] if case.failure_classification == "table_recall_gap" else ["chunk", "table"]
         ),
         likely_root_cause=case.diagnosis,
         allowed_repair_surface=case.allowed_repair_surfaces,
@@ -291,17 +190,14 @@ def _load_source_repair_case(session: Session, source_task_id: UUID | None):
             ),
             expected_schema_version="1.0",
             rerun_message=(
-                "Source task must be rerun after the context migration before "
-                "draft verification."
+                "Source task must be rerun after the context migration before draft verification."
             ),
         )
     except Exception as exc:
         return None, [f"Unable to load source repair case: {exc}"]
     if source_context.task_type == "triage_replay_regression":
         try:
-            source_output = TriageReplayRegressionTaskOutput.model_validate(
-                source_context.output
-            )
+            source_output = TriageReplayRegressionTaskOutput.model_validate(source_context.output)
         except Exception as exc:
             return None, [f"Unable to load source repair case: {exc}"]
         if source_output.repair_case is None:

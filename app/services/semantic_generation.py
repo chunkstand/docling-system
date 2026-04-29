@@ -252,9 +252,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
                 row.get("registry_version") and row.get("registry_sha256") for row in document_refs
             )
             and traceable_claim_ratio == 1.0,
-            "summary": (
-                "Every brief claim is tied to version-stamped semantic sources and evidence."
-            ),
+            "summary": "Every brief claim is tied to version-stamped semantic sources "
+            "and evidence.",
             "details": {
                 "document_count": len(document_refs),
                 "traceable_claim_ratio": traceable_claim_ratio,
@@ -265,9 +264,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "stakeholder": "Lopopolo",
             "passed": bool(claim_candidates)
             and all(row.get("claim_id") and row.get("section_id") for row in claim_candidates),
-            "summary": (
-                "The generation brief exposes typed claims, sections, and evidence-pack labels."
-            ),
+            "summary": "The generation brief exposes typed claims, sections, and "
+            "evidence-pack labels.",
             "details": {
                 "claim_count": len(claim_candidates),
                 "section_count": len(brief.get("sections") or []),
@@ -282,9 +280,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
                 and brief.get("review_policy")
                 in {"approved_only", "allow_candidate_with_disclosure"}
             ),
-            "summary": (
-                "Document generation stays bounded to one explicit artifact type and policy."
-            ),
+            "summary": "Document generation stays bounded to one explicit artifact type "
+            "and policy.",
             "details": {
                 "document_kind": brief.get("document_kind"),
                 "review_policy": brief.get("review_policy"),
@@ -300,9 +297,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
                     for row in shadow_candidates
                 )
             ),
-            "summary": (
-                "Shadow candidates stay additive and separate from the live semantic dossier."
-            ),
+            "summary": "Shadow candidates stay additive and separate from the live semantic "
+            "dossier.",
             "details": {
                 "shadow_mode": brief.get("shadow_mode"),
                 "shadow_candidate_count": len(shadow_candidates),
@@ -312,9 +308,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "metric_key": "owned_context",
             "stakeholder": "Jones",
             "passed": bool(semantic_dossier) and bool(evidence_pack),
-            "summary": (
-                "The brief persists owned semantic context instead of reconstructing it ad hoc."
-            ),
+            "summary": "The brief persists owned semantic context instead of reconstructing "
+            "it ad hoc.",
             "details": {
                 "concept_count": len(semantic_dossier),
                 "evidence_count": len(evidence_pack),
@@ -326,9 +321,8 @@ def _brief_success_metrics(brief: dict[str, Any]) -> list[dict[str, Any]]:
             "stakeholder": "Yegge",
             "passed": bool(claim_candidates)
             and len(claim_candidates) <= max(len(evidence_pack), 1),
-            "summary": (
-                "The brief compresses corpus evidence into compact claims for downstream agents."
-            ),
+            "summary": "The brief compresses corpus evidence into compact claims for "
+            "downstream agents.",
             "details": {
                 "claim_count": len(claim_candidates),
                 "evidence_count": len(evidence_pack),

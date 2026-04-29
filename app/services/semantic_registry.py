@@ -37,6 +37,10 @@ def normalize_semantic_text(value: str | None) -> str:
     return collapse_whitespace(NORMALIZE_PATTERN.sub(" ", collapsed))
 
 
+def metadata_without(payload: dict[str, Any], excluded: set[str]) -> dict[str, Any]:
+    return {key: value for key, value in payload.items() if key not in excluded}
+
+
 @dataclass(frozen=True)
 class SemanticRegistryTermDefinition:
     text: str
@@ -167,11 +171,9 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                 category_key=category_key,
                 preferred_label=preferred_label,
                 scope_note=collapse_whitespace(str(raw_category.get("scope_note") or "")) or None,
-                metadata={
-                    key: value
-                    for key, value in raw_category.items()
-                    if key not in {"category_key", "preferred_label", "scope_note"}
-                },
+                metadata=metadata_without(
+                    raw_category, {"category_key", "preferred_label", "scope_note"}
+                ),
             )
         )
 
@@ -206,11 +208,9 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                 preferred_label=preferred_label,
                 scope_note=collapse_whitespace(str(raw_entity_type.get("scope_note") or ""))
                 or None,
-                metadata={
-                    key: value
-                    for key, value in raw_entity_type.items()
-                    if key not in {"entity_type", "preferred_label", "scope_note"}
-                },
+                metadata=metadata_without(
+                    raw_entity_type, {"entity_type", "preferred_label", "scope_note"}
+                ),
             )
         )
 
@@ -250,18 +250,10 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                 concept_key=concept_key,
                 preferred_label=preferred_label,
                 scope_note=collapse_whitespace(str(raw_concept.get("scope_note") or "")) or None,
-                metadata={
-                    key: value
-                    for key, value in raw_concept.items()
-                    if key
-                    not in {
-                        "concept_key",
-                        "preferred_label",
-                        "scope_note",
-                        "aliases",
-                        "category_keys",
-                    }
-                },
+                metadata=metadata_without(
+                    raw_concept,
+                    {"concept_key", "preferred_label", "scope_note", "aliases", "category_keys"},
+                ),
                 terms=_concept_terms(raw_concept),
                 category_keys=category_keys,
             )
@@ -340,11 +332,9 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                 allow_literal_object=allow_literal_object,
                 cardinality_hint=cardinality_hint,
                 inverse_relation_key=inverse_relation_key,
-                metadata={
-                    key: value
-                    for key, value in raw_relation.items()
-                    if key
-                    not in {
+                metadata=metadata_without(
+                    raw_relation,
+                    {
                         "relation_key",
                         "preferred_label",
                         "scope_note",
@@ -354,8 +344,8 @@ def _semantic_registry_from_payload(raw_bytes: bytes, payload: dict[str, Any]) -
                         "allow_literal_object",
                         "cardinality_hint",
                         "inverse_relation_key",
-                    }
-                },
+                    },
+                ),
             )
         )
     relations_by_key = {relation.relation_key: relation for relation in relations}
