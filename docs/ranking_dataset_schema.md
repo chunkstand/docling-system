@@ -130,6 +130,8 @@ Additional hardening rules:
 - `insufficient_evidence` rows are materialized as missing judgments even when the fixture includes examined evidence-card references.
 - Promotion artifacts must still hash to their embedded receipt at materialization time, and replay escalation events must point back to the policy-change impact IDs carried by the corpus row.
 - Retrieval training audit bundles expose corpus snapshots, corpus rows, promotion artifacts/events, replay escalation events, and snapshot-governance artifacts/events as first-class signed sections, with a corpus integrity block and PROV edges back to the training dataset.
+- The corpus integrity block verifies frozen training references against current snapshot hashes, corpus row identities, fixture hashes, promotion links, source impact/escalation links, snapshot-governance links, and governance-event hash integrity.
+- Release audit bundles recompute the linked training bundle's replay-alert corpus lineage before reuse. If the latest signed training bundle is stale, export creates a refreshed training bundle and the release validation receipt fails until current corpus lineage is complete.
 
 ## Intended Use
 

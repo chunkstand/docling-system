@@ -133,16 +133,19 @@ policy-change impact IDs, escalation event IDs, fixture hash, hard-case kind, ex
 verdict, and evidence-card references. Training audit bundles also elevate that source
 chain into first-class corpus sections for snapshots, rows, promotion artifacts,
 promotion events, replay escalation events, and snapshot-governance artifacts/events.
-The bundle integrity block rechecks snapshot hashes, row fixture hashes, artifact
-receipt hashes, and source lineage resolution, and the PROV graph derives the training
+The bundle integrity block rechecks snapshot hashes, row fixture hashes, frozen
+training-reference-to-current-row identity, artifact receipt hashes, governance-event
+hash integrity, and source lineage resolution, and the PROV graph derives the training
 dataset from the corpus rows and their governance sources. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
 sets, any linked `retrieval_reranker_artifacts`, the artifact payload hashes,
 change-impact report hashes, the associated governance events, and references to the
 latest signed training audit bundle hash for each linked training run. If a linked
 completed training run has no current matching training audit bundle, release-bundle
-export freezes one before signing the release bundle. Release-bundle export also
-validates every linked training audit bundle and embeds the resulting
+export freezes one before signing the release bundle; for replay-alert corpus sources,
+the matching check recomputes current corpus lineage and fails the release checklist if
+the signed training bundle no longer matches the governed corpus rows it cites.
+Release-bundle export also validates every linked training audit bundle and embeds the resulting
 validation-receipt references before signing, then validates the signed release bundle
 itself so the release readiness gate can pass without a separate receipt step.
 Validation receipts are immutable database rows with canonical `receipt.json`,

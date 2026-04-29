@@ -521,6 +521,7 @@ def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
     payload_source = payload.get("source") or {}
     payload_training_run = payload.get("retrieval_training_run") or {}
     payload_integrity = payload.get("integrity") or {}
+    payload_corpus_integrity = payload.get("claim_support_replay_alert_corpus_integrity") or {}
     return {
         "bundle_id": str(row.id),
         "bundle_kind": row.bundle_kind,
@@ -542,6 +543,12 @@ def _audit_bundle_reference_payload(row: AuditBundleExport) -> dict[str, Any]:
         "payload_training_dataset_sha256": payload_training_run.get("training_dataset_sha256"),
         "payload_training_dataset_hash_matches": payload_integrity.get(
             "training_dataset_hash_matches"
+        ),
+        "payload_claim_support_replay_alert_corpus_lineage_complete": (
+            payload_corpus_integrity.get("complete")
+        ),
+        "payload_claim_support_replay_alert_corpus_source_reference_count": (
+            payload_corpus_integrity.get("source_reference_count")
         ),
         "created_by": row.created_by,
         "export_status": row.export_status,
@@ -743,6 +750,10 @@ def _claim_support_corpus_source_reference_payloads(
     return references, ids, failures
 
 
+def _sorted_text_values(values: list[Any] | tuple[Any, ...] | set[Any] | None) -> list[str]:
+    return sorted(str(value) for value in values or [])
+
+
 def _agent_task_artifact_payload(row: AgentTaskArtifact) -> dict[str, Any]:
     payload = row.payload_json or {}
     receipt_sha256 = payload.get("receipt_sha256")
@@ -913,6 +924,47 @@ def _claim_support_replay_alert_corpus_lineage_payload(
         _semantic_governance_event_payload(row) for row in snapshot_governance_events.values()
     ]
 
+    reference_snapshot_hashes_match = all(
+        (snapshot_id := _uuid_or_none(reference.get("snapshot_id"))) in snapshots
+        and snapshots[snapshot_id].snapshot_sha256 == reference.get("snapshot_sha256")
+        for reference in references
+    )
+    reference_row_identity_hashes_match = all(
+        (corpus_row_id := _uuid_or_none(reference.get("corpus_row_id"))) in rows
+        and rows[corpus_row_id].fixture_sha256 == reference.get("fixture_sha256")
+        and rows[corpus_row_id].case_id == reference.get("case_id")
+        and rows[corpus_row_id].case_identity_sha256
+        == reference.get("case_identity_sha256")
+        and rows[corpus_row_id].snapshot_id == _uuid_or_none(reference.get("snapshot_id"))
+        for reference in references
+    )
+    reference_row_promotion_links_match = all(
+        (corpus_row_id := _uuid_or_none(reference.get("corpus_row_id"))) in rows
+        and str(rows[corpus_row_id].promotion_event_id) == reference.get("promotion_event_id")
+        and str(rows[corpus_row_id].promotion_artifact_id)
+        == reference.get("promotion_artifact_id")
+        and rows[corpus_row_id].promotion_receipt_sha256
+        == reference.get("promotion_receipt_sha256")
+        for reference in references
+    )
+    reference_row_source_links_match = all(
+        (corpus_row_id := _uuid_or_none(reference.get("corpus_row_id"))) in rows
+        and _sorted_text_values(rows[corpus_row_id].source_change_impact_ids_json)
+        == _sorted_text_values(reference.get("source_change_impact_ids"))
+        and _sorted_text_values(rows[corpus_row_id].source_escalation_event_ids_json)
+        == _sorted_text_values(reference.get("source_escalation_event_ids"))
+        for reference in references
+    )
+    reference_snapshot_governance_links_match = all(
+        (snapshot_id := _uuid_or_none(reference.get("snapshot_id"))) in snapshots
+        and str(snapshots[snapshot_id].semantic_governance_event_id)
+        == reference.get("snapshot_governance_event_id")
+        and str(snapshots[snapshot_id].governance_artifact_id)
+        == reference.get("snapshot_governance_artifact_id")
+        and snapshots[snapshot_id].governance_receipt_sha256
+        == reference.get("snapshot_governance_receipt_sha256")
+        for reference in references
+    )
     promotion_artifact_hashes_match = all(
         row["artifact_kind"] == CLAIM_SUPPORT_FIXTURE_PROMOTION_ARTIFACT_KIND
         and row["receipt_hash_matches"]
@@ -936,6 +988,15 @@ def _claim_support_replay_alert_corpus_lineage_payload(
         row.event_kind == CLAIM_SUPPORT_REPLAY_ALERT_CORPUS_SNAPSHOT_EVENT_KIND
         and row.subject_table == "claim_support_replay_alert_fixture_corpus_snapshots"
         for row in snapshot_governance_events.values()
+    )
+    promotion_event_integrity_complete = all(
+        row["integrity"]["complete"] for row in promotion_event_payloads
+    )
+    escalation_event_integrity_complete = all(
+        row["integrity"]["complete"] for row in escalation_event_payloads
+    )
+    snapshot_event_integrity_complete = all(
+        row["integrity"]["complete"] for row in snapshot_event_payloads
     )
     row_snapshot_links_match = all(row.snapshot_id in snapshots for row in rows.values())
     row_promotion_links_match = all(
@@ -968,6 +1029,13 @@ def _claim_support_replay_alert_corpus_lineage_payload(
         "snapshot_governance_artifact_count": len(snapshot_artifact_payloads),
         "snapshot_governance_event_count": len(snapshot_event_payloads),
         "source_references_resolve": source_references_resolve,
+        "reference_snapshot_hashes_match": reference_snapshot_hashes_match,
+        "reference_row_identity_hashes_match": reference_row_identity_hashes_match,
+        "reference_row_promotion_links_match": reference_row_promotion_links_match,
+        "reference_row_source_links_match": reference_row_source_links_match,
+        "reference_snapshot_governance_links_match": (
+            reference_snapshot_governance_links_match
+        ),
         "row_fixture_hashes_match": row_fixture_hashes_match,
         "snapshot_hashes_match": snapshot_hashes_match,
         "promotion_artifact_hashes_match": promotion_artifact_hashes_match,
@@ -975,6 +1043,9 @@ def _claim_support_replay_alert_corpus_lineage_payload(
         "promotion_event_kinds_match": promotion_event_kinds_match,
         "escalation_event_kinds_match": escalation_event_kinds_match,
         "snapshot_event_kinds_match": snapshot_event_kinds_match,
+        "promotion_event_integrity_complete": promotion_event_integrity_complete,
+        "escalation_event_integrity_complete": escalation_event_integrity_complete,
+        "snapshot_event_integrity_complete": snapshot_event_integrity_complete,
         "row_snapshot_links_match": row_snapshot_links_match,
         "row_promotion_links_match": row_promotion_links_match,
         "row_escalation_links_match": row_escalation_links_match,
@@ -986,6 +1057,11 @@ def _claim_support_replay_alert_corpus_lineage_payload(
         bool(integrity[key])
         for key in (
             "source_references_resolve",
+            "reference_snapshot_hashes_match",
+            "reference_row_identity_hashes_match",
+            "reference_row_promotion_links_match",
+            "reference_row_source_links_match",
+            "reference_snapshot_governance_links_match",
             "row_fixture_hashes_match",
             "snapshot_hashes_match",
             "promotion_artifact_hashes_match",
@@ -993,6 +1069,9 @@ def _claim_support_replay_alert_corpus_lineage_payload(
             "promotion_event_kinds_match",
             "escalation_event_kinds_match",
             "snapshot_event_kinds_match",
+            "promotion_event_integrity_complete",
+            "escalation_event_integrity_complete",
+            "snapshot_event_integrity_complete",
             "row_snapshot_links_match",
             "row_promotion_links_match",
             "row_escalation_links_match",
@@ -1021,7 +1100,66 @@ def _claim_support_replay_alert_corpus_lineage_payload(
     }
 
 
-def _training_audit_bundle_matches_training_run(
+def _training_run_claim_support_replay_alert_corpus_lineage_payload(
+    session: Session,
+    training_run: RetrievalTrainingRun,
+) -> dict[str, Any]:
+    judgments = (
+        session.execute(
+            select(RetrievalJudgment)
+            .where(RetrievalJudgment.judgment_set_id == training_run.judgment_set_id)
+            .order_by(RetrievalJudgment.created_at.asc(), RetrievalJudgment.id.asc())
+        )
+        .scalars()
+        .all()
+    )
+    hard_negatives = (
+        session.execute(
+            select(RetrievalHardNegative)
+            .where(RetrievalHardNegative.judgment_set_id == training_run.judgment_set_id)
+            .order_by(RetrievalHardNegative.created_at.asc(), RetrievalHardNegative.id.asc())
+        )
+        .scalars()
+        .all()
+    )
+    return _claim_support_replay_alert_corpus_lineage_payload(
+        session,
+        judgments=judgments,
+        hard_negatives=hard_negatives,
+    )
+
+
+def _payload_requires_claim_support_replay_alert_corpus_lineage(
+    payload: dict[str, Any],
+) -> bool:
+    corpus_integrity = payload.get("claim_support_replay_alert_corpus_integrity") or {}
+    if corpus_integrity.get("source_reference_count", 0):
+        return True
+    return any(
+        row.get("source_type") == CLAIM_SUPPORT_REPLAY_ALERT_CORPUS_SOURCE_TYPE
+        for row in [
+            *(payload.get("retrieval_judgments") or []),
+            *(payload.get("retrieval_hard_negatives") or []),
+        ]
+        if isinstance(row, dict)
+    )
+
+
+def _payload_claim_support_replay_alert_corpus_lineage_complete(
+    payload: dict[str, Any],
+) -> bool:
+    if not _payload_requires_claim_support_replay_alert_corpus_lineage(payload):
+        return True
+    audit_checklist = payload.get("audit_checklist") or {}
+    corpus_integrity = payload.get("claim_support_replay_alert_corpus_integrity") or {}
+    return (
+        audit_checklist.get("claim_support_replay_alert_corpus_lineage_complete")
+        is True
+        and corpus_integrity.get("complete") is True
+    )
+
+
+def _training_audit_bundle_hashes_match_training_run(
     bundle: AuditBundleExport | None,
     training_run: RetrievalTrainingRun,
 ) -> bool:
@@ -1044,6 +1182,69 @@ def _training_audit_bundle_matches_training_run(
             == training_run.training_dataset_sha256,
             payload_integrity.get("training_dataset_hash_matches") is True,
         )
+    )
+
+
+def _training_audit_bundle_claim_support_replay_alert_corpus_lineage_status(
+    session: Session,
+    bundle: AuditBundleExport | None,
+    training_run: RetrievalTrainingRun,
+) -> dict[str, Any]:
+    payload = (bundle.bundle_payload_json or {}).get("payload") if bundle else {}
+    payload = payload if isinstance(payload, dict) else {}
+    bundle_integrity = payload.get("claim_support_replay_alert_corpus_integrity") or {}
+    current_lineage = _training_run_claim_support_replay_alert_corpus_lineage_payload(
+        session,
+        training_run,
+    )
+    current_integrity = current_lineage["integrity"]
+    bundle_source_reference_count = int(bundle_integrity.get("source_reference_count") or 0)
+    current_source_reference_count = int(current_integrity.get("source_reference_count") or 0)
+    bundle_required = _payload_requires_claim_support_replay_alert_corpus_lineage(payload)
+    current_required = current_source_reference_count > 0
+    required = bundle_required or current_required
+    bundle_complete = _payload_claim_support_replay_alert_corpus_lineage_complete(payload)
+    current_complete = (
+        True if not current_required else current_integrity.get("complete") is True
+    )
+    source_reference_counts_match = (
+        bundle_source_reference_count == current_source_reference_count
+    )
+    complete = (
+        True
+        if not required
+        else bundle_complete and current_complete and source_reference_counts_match
+    )
+    return {
+        "required": required,
+        "bundle_required": bundle_required,
+        "current_required": current_required,
+        "bundle_source_reference_count": bundle_source_reference_count,
+        "current_source_reference_count": current_source_reference_count,
+        "source_reference_counts_match": source_reference_counts_match,
+        "bundle_complete": bundle_complete,
+        "current_complete": current_complete,
+        "complete": complete,
+        "current_failures": list(current_integrity.get("failures") or []),
+        "current_missing": current_integrity.get("missing") or {},
+    }
+
+
+def _training_audit_bundle_current_for_training_run(
+    session: Session,
+    bundle: AuditBundleExport | None,
+    training_run: RetrievalTrainingRun,
+) -> bool:
+    if not _training_audit_bundle_hashes_match_training_run(bundle, training_run):
+        return False
+    lineage_status = _training_audit_bundle_claim_support_replay_alert_corpus_lineage_status(
+        session,
+        bundle,
+        training_run,
+    )
+    return (
+        lineage_status["bundle_complete"] == lineage_status["current_complete"]
+        and lineage_status["source_reference_counts_match"]
     )
 
 
@@ -1154,8 +1355,13 @@ def _validate_bundle_payload_schema(
                     "bundle.payload.schema_name",
                 )
             )
+        release_payload_schema_version = payload.get("schema_version")
         requires_reranker_artifacts = (
-            payload.get("schema_version") != "1.0" or "retrieval_reranker_artifacts" in payload
+            release_payload_schema_version != "1.0" or "retrieval_reranker_artifacts" in payload
+        )
+        requires_training_corpus_lineage = (
+            release_payload_schema_version != "1.0"
+            or "training_audit_bundle_corpus_lineage_complete" in (payload.get("integrity") or {})
         )
         required_keys = [
             "release",
@@ -1211,6 +1417,20 @@ def _validate_bundle_payload_schema(
                 )
             )
         if (
+            requires_training_corpus_lineage
+            and integrity.get("training_audit_bundle_corpus_lineage_complete") is not True
+        ):
+            errors.append(
+                _validation_error(
+                    "training_bundle_corpus_lineage_incomplete",
+                    (
+                        "Training audit bundles sourced from the replay-alert corpus "
+                        "must still match current governed corpus lineage."
+                    ),
+                    "bundle.payload.integrity.training_audit_bundle_corpus_lineage_complete",
+                )
+            )
+        if (
             requires_reranker_artifacts
             and integrity.get("reranker_artifact_hashes_match") is not True
         ):
@@ -1245,14 +1465,7 @@ def _validate_bundle_payload_schema(
         requires_corpus_lineage = (
             training_payload_schema_version not in {None, "1.0"}
             or "claim_support_replay_alert_corpus_integrity" in payload
-            or any(
-            source.get("source_type") == CLAIM_SUPPORT_REPLAY_ALERT_CORPUS_SOURCE_TYPE
-            for source in [
-                *(payload.get("retrieval_judgments") or []),
-                *(payload.get("retrieval_hard_negatives") or []),
-            ]
-            if isinstance(source, dict)
-            )
+            or _payload_requires_claim_support_replay_alert_corpus_lineage(payload)
         )
         required_keys = [
             "retrieval_training_run",
@@ -2582,12 +2795,48 @@ def _build_search_harness_release_payload(
         payload_training_run = (
             (payload or {}).get("retrieval_training_run") if payload else None
         ) or {}
+        corpus_lineage_status = (
+            _training_audit_bundle_claim_support_replay_alert_corpus_lineage_status(
+                session,
+                bundle,
+                training_run,
+            )
+        )
+        hashes_match_training_run = _training_audit_bundle_hashes_match_training_run(
+            bundle,
+            training_run,
+        )
         check = {
             "retrieval_training_run_id": str(training_run.id),
             "audit_bundle_id": str(bundle.id) if bundle else None,
             "training_dataset_sha256": training_run.training_dataset_sha256,
             "payload_training_dataset_sha256": payload_training_run.get("training_dataset_sha256"),
-            "complete": _training_audit_bundle_matches_training_run(bundle, training_run),
+            "hashes_match_training_run": hashes_match_training_run,
+            "claim_support_replay_alert_corpus_lineage_required": (
+                corpus_lineage_status["required"]
+            ),
+            "claim_support_replay_alert_corpus_lineage_complete": (
+                corpus_lineage_status["complete"]
+            ),
+            "claim_support_replay_alert_corpus_lineage_bundle_complete": (
+                corpus_lineage_status["bundle_complete"]
+            ),
+            "claim_support_replay_alert_corpus_lineage_current_complete": (
+                corpus_lineage_status["current_complete"]
+            ),
+            "claim_support_replay_alert_corpus_source_reference_count": (
+                corpus_lineage_status["current_source_reference_count"]
+            ),
+            "payload_claim_support_replay_alert_corpus_source_reference_count": (
+                corpus_lineage_status["bundle_source_reference_count"]
+            ),
+            "claim_support_replay_alert_corpus_source_reference_counts_match": (
+                corpus_lineage_status["source_reference_counts_match"]
+            ),
+            "claim_support_replay_alert_corpus_current_failures": (
+                corpus_lineage_status["current_failures"]
+            ),
+            "complete": hashes_match_training_run and corpus_lineage_status["complete"],
         }
         training_audit_bundle_match_checks.append(check)
     release_package_hash_matches = (
@@ -2648,7 +2897,13 @@ def _build_search_harness_release_payload(
     training_audit_bundle_hashes_match_training_runs = len(
         training_audit_bundle_match_checks
     ) == len(training_run_ids) and all(
-        row["complete"] for row in training_audit_bundle_match_checks
+        row["hashes_match_training_run"] for row in training_audit_bundle_match_checks
+    )
+    training_audit_bundle_corpus_lineage_complete = len(
+        training_audit_bundle_match_checks
+    ) == len(training_run_ids) and all(
+        row["claim_support_replay_alert_corpus_lineage_complete"]
+        for row in training_audit_bundle_match_checks
     )
     training_audit_bundle_validation_receipts_complete = len(
         ordered_training_validation_receipts
@@ -2672,6 +2927,9 @@ def _build_search_harness_release_payload(
         "training_audit_bundle_trace_complete": training_audit_bundle_trace_complete,
         "training_audit_bundle_hashes_match_training_runs": (
             training_audit_bundle_hashes_match_training_runs
+        ),
+        "training_audit_bundle_corpus_lineage_complete": (
+            training_audit_bundle_corpus_lineage_complete
         ),
         "training_audit_bundle_validation_receipts_complete": (
             training_audit_bundle_validation_receipts_complete
@@ -2746,6 +3004,9 @@ def _build_search_harness_release_payload(
             "expected_training_audit_bundle_count": len(training_run_ids),
             "training_audit_bundle_hashes_match_training_runs": (
                 training_audit_bundle_hashes_match_training_runs
+            ),
+            "training_audit_bundle_corpus_lineage_complete": (
+                training_audit_bundle_corpus_lineage_complete
             ),
             "training_audit_bundle_match_checks": training_audit_bundle_match_checks,
             "training_audit_bundle_validation_receipt_count": len(
@@ -3383,7 +3644,11 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
         if training_run is None:
             continue
         existing_bundle = existing_bundle_by_run_id.get(training_run_id)
-        if _training_audit_bundle_matches_training_run(existing_bundle, training_run):
+        if _training_audit_bundle_current_for_training_run(
+            session,
+            existing_bundle,
+            training_run,
+        ):
             if existing_bundle is not None:
                 ensured_bundles.append(existing_bundle)
             continue
