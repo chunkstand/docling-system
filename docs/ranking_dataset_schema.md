@@ -129,6 +129,7 @@ Additional hardening rules:
 - `supported` and `unsupported` rows must include a traceable chunk/table object ID; source search-result row IDs are preserved as evidence references, not substituted as retrieved object IDs.
 - `insufficient_evidence` rows are materialized as missing judgments even when the fixture includes examined evidence-card references.
 - Promotion artifacts must still hash to their embedded receipt at materialization time, and replay escalation events must point back to the policy-change impact IDs carried by the corpus row.
+- Retrieval training audit bundles expose corpus snapshots, corpus rows, promotion artifacts/events, replay escalation events, and snapshot-governance artifacts/events as first-class signed sections, with a corpus integrity block and PROV edges back to the training dataset.
 
 ## Intended Use
 

@@ -130,7 +130,12 @@ PROV-style graph. When the governed claim-support replay-alert corpus is include
 learning source, each corpus-derived judgment and hard negative carries the active
 snapshot hash, governance event/artifact/receipt, promotion lineage, source
 policy-change impact IDs, escalation event IDs, fixture hash, hard-case kind, expected
-verdict, and evidence-card references. Search harness release audit bundles include any linked
+verdict, and evidence-card references. Training audit bundles also elevate that source
+chain into first-class corpus sections for snapshots, rows, promotion artifacts,
+promotion events, replay escalation events, and snapshot-governance artifacts/events.
+The bundle integrity block rechecks snapshot hashes, row fixture hashes, artifact
+receipt hashes, and source lineage resolution, and the PROV graph derives the training
+dataset from the corpus rows and their governance sources. Search harness release audit bundles include any linked
 `retrieval_learning_candidate_evaluations`, the referenced training runs and judgment
 sets, any linked `retrieval_reranker_artifacts`, the artifact payload hashes,
 change-impact report hashes, the associated governance events, and references to the

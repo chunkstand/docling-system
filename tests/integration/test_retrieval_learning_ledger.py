@@ -485,10 +485,23 @@ def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpu
         json={"created_by": "integration"},
     )
     assert audit_response.status_code == 200
-    audit_payload = audit_response.json()["bundle"]["payload"]
+    audit_bundle = audit_response.json()
+    audit_payload = audit_bundle["bundle"]["payload"]
     assert audit_payload["audit_checklist"]["complete"] is True
     assert audit_payload["integrity"]["judgment_count"] == 3
     assert audit_payload["integrity"]["hard_negative_count"] == 1
+    assert (
+        audit_payload["integrity"][
+            "claim_support_replay_alert_corpus_lineage_complete"
+        ]
+        is True
+    )
+    assert (
+        audit_payload["audit_checklist"][
+            "claim_support_replay_alert_corpus_lineage_complete"
+        ]
+        is True
+    )
     assert {
         row["source_type"] for row in audit_payload["retrieval_judgments"]
     } == {"claim_support_replay_alert_corpus"}
@@ -497,7 +510,120 @@ def test_materialize_retrieval_learning_dataset_from_governed_replay_alert_corpu
         == snapshot_sha256
         for row in audit_payload["retrieval_judgments"]
     )
+    assert len(audit_payload["claim_support_replay_alert_corpus_source_references"]) == 4
+    assert len(audit_payload["claim_support_replay_alert_corpus_snapshots"]) == 1
+    assert len(audit_payload["claim_support_replay_alert_corpus_rows"]) == 3
+    assert len(audit_payload["claim_support_replay_alert_promotion_artifacts"]) == 1
+    assert len(audit_payload["claim_support_replay_alert_promotion_events"]) == 1
+    assert len(audit_payload["claim_support_replay_alert_escalation_events"]) == 3
+    assert (
+        len(audit_payload["claim_support_replay_alert_snapshot_governance_artifacts"])
+        == 1
+    )
+    assert len(audit_payload["claim_support_replay_alert_snapshot_governance_events"]) == 1
+    corpus_integrity = audit_payload["claim_support_replay_alert_corpus_integrity"]
+    assert corpus_integrity["complete"] is True
+    assert corpus_integrity["row_fixture_hashes_match"] is True
+    assert corpus_integrity["snapshot_hashes_match"] is True
+    assert corpus_integrity["promotion_artifact_hashes_match"] is True
+    assert corpus_integrity["snapshot_artifact_hashes_match"] is True
+    assert any(
+        value.get("prov:type") == "docling:ClaimSupportReplayAlertFixtureCorpusRow"
+        for value in audit_payload["prov"]["entity"].values()
+    )
+    assert any(
+        edge["usedEntity"].startswith(
+            "docling:claim_support_replay_alert_corpus_row:"
+        )
+        for edge in audit_payload["prov"]["wasDerivedFrom"]
+    )
     assert audit_payload["source_payload_hashes"]
+    receipt_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "integration"},
+    )
+    assert receipt_response.status_code == 200
+    receipt_payload = receipt_response.json()
+    assert receipt_payload["validation_status"] == "passed"
+    assert receipt_payload["semantic_governance_valid"] is True
+
+
+def test_retrieval_training_audit_bundle_flags_tampered_replay_alert_corpus_lineage(
+    postgres_integration_harness,
+    monkeypatch,
+) -> None:
+    now = datetime.now(UTC)
+    fixtures = [
+        _claim_support_learning_fixture(
+            case_id="replay-alert-audit-tampered",
+            expected_verdict="supported",
+            hard_case_kind="policy_change_supported",
+            rendered_text="The policy exception is supported by the cited record.",
+            evidence_excerpt="The record states the exception is authorized.",
+        )
+    ]
+
+    with postgres_integration_harness.session_factory() as session:
+        snapshot = _seed_governed_claim_support_replay_alert_corpus(
+            session,
+            now=now,
+            fixtures=fixtures,
+        )
+        response = materialize_retrieval_learning_dataset(
+            session,
+            limit=10,
+            source_types=["claim_support_replay_alert_corpus"],
+            set_name="integration-replay-alert-corpus-audit-tamper",
+            created_by="integration",
+        )
+        training_run_id = response["retrieval_training_run_id"]
+        row = session.scalar(
+            select(ClaimSupportReplayAlertFixtureCorpusRow)
+            .where(ClaimSupportReplayAlertFixtureCorpusRow.snapshot_id == snapshot.id)
+            .limit(1)
+        )
+        assert row is not None
+        row.fixture_json = {
+            **row.fixture_json,
+            "description": "tampered after training materialization",
+        }
+        session.commit()
+
+    monkeypatch.setattr(
+        "app.services.audit_bundles.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="retrieval-training-secret",
+            audit_bundle_signing_key_id="retrieval-training-key",
+        ),
+    )
+    audit_response = postgres_integration_harness.client.post(
+        f"/search/retrieval-training-runs/{training_run_id}/audit-bundles",
+        json={"created_by": "integration"},
+    )
+    assert audit_response.status_code == 200
+    audit_bundle = audit_response.json()
+    audit_payload = audit_bundle["bundle"]["payload"]
+    assert audit_payload["audit_checklist"]["complete"] is False
+    assert (
+        audit_payload["audit_checklist"][
+            "claim_support_replay_alert_corpus_lineage_complete"
+        ]
+        is False
+    )
+    corpus_integrity = audit_payload["claim_support_replay_alert_corpus_integrity"]
+    assert corpus_integrity["complete"] is False
+    assert corpus_integrity["row_fixture_hashes_match"] is False
+    receipt_response = postgres_integration_harness.client.post(
+        f"/search/audit-bundles/{audit_bundle['bundle_id']}/validation-receipts",
+        json={"created_by": "integration"},
+    )
+    assert receipt_response.status_code == 200
+    receipt_payload = receipt_response.json()
+    assert receipt_payload["validation_status"] == "failed"
+    assert any(
+        error["code"] == "claim_support_replay_alert_corpus_lineage_incomplete"
+        for error in receipt_payload["validation_errors"]
+    )
 
 
 def test_materialize_retrieval_learning_dataset_rejects_tampered_replay_alert_corpus(
