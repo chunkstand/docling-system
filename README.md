@@ -606,6 +606,7 @@ uv run docling-system-ingest-batch-show <batch_id>
 uv run docling-system-agent-worker
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
+uv run docling-system-hygiene-check
 uv run docling-system-evaluation-data-readiness
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
@@ -718,6 +719,8 @@ The optional fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./
 The current corpus also includes explicit cross-document prose-contamination guards and answer-side citation-purity checks for non-UPC prose documents, plus negative answer cases that require a fallback-style "no confident answer" outcome.
 
 The worker also maintains [storage/evaluation_corpus.auto.yaml](./storage/evaluation_corpus.auto.yaml) as the default auto-generated corpus for ingested documents. Auto-generated fixtures are created from persisted chunks, tables, figures, and document titles after validation; they are refreshed as new runs are promoted and provide immediate retrieval and structural coverage derived from the ingested data itself.
+
+`docling-system-eval-corpus` evaluates active runs against the current corpus snapshot. The command prewarms semantic query embeddings, reuses cached corpus fixture reads, and does not rewrite the auto-generated fixture for each document during the corpus sweep. Large legacy active-document sets will still make this command slow because each active document with matching coverage is evaluated.
 
 Current hand-authored fixtures include the UPC corpus plus non-UPC prose, table, figure, and Tyler's Kitchen documents such as:
 

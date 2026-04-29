@@ -1,14 +1,14 @@
 # Session Handoff
 
-Date: 2026-04-28 local / 2026-04-28 UTC
+Date: 2026-04-29 local / 2026-04-29 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint before this implementation pass: `56b312f` (`Harden replay alert fixture promotions`)
+Latest committed checkpoint: `498908b` (`Harden hygiene helpers and eval corpus runner`)
 
 ## Current Position
 
-`main` has local verified work that has not been pushed to `origin/main`. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
+`main` is pushed to GitHub and `HEAD` matches `origin/main` at `498908b223679d552619db2531998ef47cd1857e`. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
 
 - active-run-gated PDF ingest, parsing, validation, and promotion
 - mixed chunk/table retrieval with replayable evaluations and harness governance
@@ -20,9 +20,11 @@ Latest committed checkpoint before this implementation pass: `56b312f` (`Harden 
 - claim-support judge calibration with persisted replay evaluations and per-case evidence
 - architecture, hygiene, improvement-case, and audit-bundle governance checks
 
+The latest pass hardened shared helper boundaries, eval-corpus runtime behavior, and CLI module boundaries. It did not rewrite the hygiene policy.
+
 ## Recent Milestones Since The Prior Handoff
 
-The old handoff captured the April 18 API hardening work. Since then, the repository has moved through retrieval/audit, semantic governance, and technical-report hardening passes.
+The old handoff captured the April 18 API hardening work. Since then, the repository has moved through retrieval/audit, semantic governance, technical-report hardening, evaluation-data readiness, and hygiene hardening passes.
 
 Recent high-signal checkpoints include:
 
@@ -42,6 +44,8 @@ Recent high-signal checkpoints include:
 - `7f1b2d2` `Harden claim support replay escalations`
 - `f95470c` `Add replay alert fixture promotion loop`
 - `56b312f` `Harden replay alert fixture promotions`
+- `8b31780` `Add evaluation data readiness preflight`
+- `498908b` `Harden hygiene helpers and eval corpus runner`
 
 ## Current Technical-Report And Claim-Support State
 
@@ -82,7 +86,7 @@ The evaluation task replays governed hard-case fixture sets against the technica
 
 ## Current Agent-Task Catalog Notes
 
-The live action registry currently has 51 task types. The newest catalog additions are:
+The live action registry currently has 51 task types. The most recent catalog additions are:
 
 - `evaluate_document_generation_context_pack`
 - `evaluate_claim_support_judge`
@@ -91,7 +95,7 @@ The live action registry currently has 51 task types. The newest catalog additio
 - `apply_claim_support_calibration_policy`
 - `queue_claim_support_policy_change_impact_replay`
 
-The durable docs have been updated to include it in the task lists and command examples. Operators can always verify the live catalog with:
+The durable docs include these task types in the task lists and command examples. Operators can always verify the live catalog with:
 
 ```bash
 uv run docling-system-agent-task-actions
@@ -101,75 +105,69 @@ Every registered action declares typed input, output schema metadata, side-effec
 
 ## Verification Snapshot
 
-Latest full code verification during this implementation pass:
+Latest full code verification after `498908b`:
 
 ```bash
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_cli.py
+uv run docling-system-eval-corpus
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+git diff --check
 ```
 
 Result:
 
 ```text
-792 passed in 86.48s (0:01:26)
-```
-
-Focused claim-support verification during this implementation pass:
-
-```bash
-uv run ruff check .
-git diff --check
-uv run pytest -q tests/unit/test_agent_task_actions.py::test_replay_alert_waiver_activation_requires_integrity_and_independent_approval tests/unit/test_agent_task_actions.py::test_get_agent_task_action_exposes_claim_support_policy_workflow_metadata tests/unit/test_agent_tasks_api.py::test_create_agent_task_route_returns_422_on_invalid_inner_payload tests/unit/test_agent_tasks_api.py::test_agent_task_routes_use_service_layer tests/unit/test_cli.py::test_agent_task_remaining_milestone9_clis_print_payloads
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_policy_activation_carries_replay_alert_coverage_waiver tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_policy_activation_blocks_expired_replay_alert_coverage_waiver tests/integration/test_claim_support_judge_evaluation_roundtrip.py::test_claim_support_change_impact_replay_prevalidates_before_creating_tasks
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
-uv run docling-system-architecture-inspect
-```
-
-Results:
-
-```text
 ruff: All checks passed
+focused CLI tests: 53 passed in 1.71s
+eval corpus: 785 completed documents, 2208 queries, 0 failed queries
+full Postgres-backed pytest: 835 passed in 107.64s (0:01:47), no skips reported
 git diff --check: passed
-claim-support action schema/API/CLI checks: 5 passed in 8.35s
-claim-support replay-alert waiver lifecycle integration: 3 passed in 5.18s
-full integration-enabled suite: 794 passed in 101.68s (0:01:41)
-architecture inspection valid: true, violation_count: 0
-api_route_count: 127
-agent_action_count: 51
 ```
 
-Architecture inspection during this pass:
+Hygiene status after `498908b`:
 
 ```bash
-uv run docling-system-architecture-inspect
+uv run docling-system-hygiene-check
 ```
 
 Results:
 
 ```text
-valid: true
-violation_count: 0
-api_route_count: 127
-agent_action_count: 51
+hygiene exits 1
+Ruff regressions: none
+Vulture: no actionable findings beyond configured command output
+improvement-case findings: none
+architecture findings: none
+app/cli.py budget findings: closed
+remaining failures: existing file/helper budget findings in larger service, router, schema, and model modules
 ```
 
 ## Files Updated In This Pass
 
-- [README.md](/Users/chunkstand/Documents/docling-system/README.md)
-- [docs/SESSION_HANDOFF.md](/Users/chunkstand/Documents/docling-system/docs/SESSION_HANDOFF.md)
-- [SYSTEM_PLAN.md](/Users/chunkstand/Documents/docling-system/SYSTEM_PLAN.md)
-- [app/schemas/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/schemas/agent_tasks.py)
-- [app/services/agent_task_actions.py](/Users/chunkstand/Documents/docling-system/app/services/agent_task_actions.py)
-- [app/services/agent_tasks.py](/Users/chunkstand/Documents/docling-system/app/services/agent_tasks.py)
-- [app/services/claim_support_policy_governance.py](/Users/chunkstand/Documents/docling-system/app/services/claim_support_policy_governance.py)
-- [tests/integration/test_claim_support_judge_evaluation_roundtrip.py](/Users/chunkstand/Documents/docling-system/tests/integration/test_claim_support_judge_evaluation_roundtrip.py)
-- [tests/unit/test_agent_task_actions.py](/Users/chunkstand/Documents/docling-system/tests/unit/test_agent_task_actions.py)
+- [app/agent_task_cli.py](/Users/chunkstand/Documents/docling-system/app/agent_task_cli.py)
+- [app/claim_support_replay_cli.py](/Users/chunkstand/Documents/docling-system/app/claim_support_replay_cli.py)
+- [app/cli.py](/Users/chunkstand/Documents/docling-system/app/cli.py)
+- [app/core/coercion.py](/Users/chunkstand/Documents/docling-system/app/core/coercion.py)
+- [app/core/hashes.py](/Users/chunkstand/Documents/docling-system/app/core/hashes.py)
+- [app/core/json_utils.py](/Users/chunkstand/Documents/docling-system/app/core/json_utils.py)
+- [app/services/evaluation_corpus_runner.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_corpus_runner.py)
+- [app/services/evaluation_embedding_cache.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_embedding_cache.py)
+- [app/services/evaluation_fixture_cache.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_fixture_cache.py)
+- [app/services/query_utils.py](/Users/chunkstand/Documents/docling-system/app/services/query_utils.py)
+- [app/services/report_shared.py](/Users/chunkstand/Documents/docling-system/app/services/report_shared.py)
+- [app/services/search_release_shared.py](/Users/chunkstand/Documents/docling-system/app/services/search_release_shared.py)
+- plus shared-helper call-site updates across evidence, audit-bundle, claim-support, search, semantic, technical-report, and retrieval-learning services
 
 ## Next Suggested Pass
 
-The next useful pass is waiver closure control for replay-alert fixture coverage:
+The next useful pass should be an operational data reset, not another policy rewrite:
 
-1. write immutable waiver-closure receipts when fixture promotion covers the waived escalation set
-2. suppress active-waiver posture only after the closure receipt references the promotion artifact and waiver hash
-3. surface unresolved expired waivers separately from closed/superseded waivers in audit bundles and decision signals
+1. Snapshot the current Postgres database and `storage/` tree before deleting anything.
+2. Stop the API, ingest/search worker, and agent-task worker so no lease or run writes happen mid-reset.
+3. Clear legacy document/run/search/evaluation/agent-task data that was uploaded or generated before the current contracts existed.
+4. Clear or regenerate `storage/evaluation_corpus.auto.yaml` and derived run/task artifacts that refer to the legacy corpus.
+5. Re-ingest a small known-good document set through the current ingest path.
+6. Rerun `uv run docling-system-eval-corpus`, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`, and the relevant audit/readiness commands.
 
-That would complete the loop from waiver creation to waiver retirement without making artifact inspection the durable contract.
+Clearing old data should reduce eval-corpus runtime if the 785 active documents are mostly legacy data. It is not expected to fix static hygiene file-budget findings by itself, because those findings are source-code budget checks rather than database or storage checks.

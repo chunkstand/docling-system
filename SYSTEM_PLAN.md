@@ -375,10 +375,13 @@ The worker also maintains:
 
 Current contract:
 
-- manual fixtures remain the durable source of truth
+- hand-authored fixtures remain the optional gold corpus for explicitly governed checks
+- runtime evaluation uses `storage/evaluation_corpus.auto.yaml` by default unless an explicit corpus path is passed or `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH` is configured
 - auto-generated fixtures cover newly ingested documents immediately after validation
-- fixture selection is keyed by `source_filename`
-- if both manual and auto-generated fixtures exist for the same source filename, the manual fixture wins
+- fixture selection first matches by document checksum (`sha256` / `document_sha256`)
+- filename fallback is reserved for a unique auto-generated fixture, or for explicit manual fallback call paths
+- hand-authored fixtures should include checksum identity for documents where filename collisions are possible
+- `docling-system-eval-corpus` prewarms semantic query embeddings, reuses cached corpus fixture reads, and evaluates active runs without refreshing the auto fixture for every document
 
 ### Search replay and harness evaluation
 
