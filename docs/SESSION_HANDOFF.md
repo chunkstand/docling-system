@@ -159,15 +159,15 @@ remaining failures: existing file/helper budget findings in larger service, rout
 - [app/services/search_release_shared.py](/Users/chunkstand/Documents/docling-system/app/services/search_release_shared.py)
 - plus shared-helper call-site updates across evidence, audit-bundle, claim-support, search, semantic, technical-report, and retrieval-learning services
 
-## Next Suggested Pass
+## Current Reset Path
 
-The next useful pass should be an operational data reset, not another policy rewrite:
+The operational data reset is now implemented as an operator-only cutover command:
 
-1. Snapshot the current Postgres database and `storage/` tree before deleting anything.
-2. Stop the API, ingest/search worker, and agent-task worker so no lease or run writes happen mid-reset.
-3. Clear legacy document/run/search/evaluation/agent-task data that was uploaded or generated before the current contracts existed.
-4. Clear or regenerate `storage/evaluation_corpus.auto.yaml` and derived run/task artifacts that refer to the legacy corpus.
-5. Re-ingest a small known-good document set through the current ingest path.
-6. Rerun `uv run docling-system-eval-corpus`, `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`, and the relevant audit/readiness commands.
+```bash
+uv run docling-system-knowledge-base-reset
+uv run docling-system-knowledge-base-reset --execute --confirm CLEAR_KNOWLEDGE_BASE
+```
 
-Clearing old data should reduce eval-corpus runtime if the 785 active documents are mostly legacy data. It is not expected to fix static hygiene file-budget findings by itself, because those findings are source-code budget checks rather than database or storage checks.
+The first command is a dry run. Execution archives the current Postgres database and `storage/` tree, creates and migrates a new empty local database, recreates the storage directories, writes an empty auto evaluation corpus, and initializes only the generic ontology seed. The command refuses non-local database URLs, non-development environments unless explicitly overridden, running API/worker/agent-worker services unless overridden, and queued or in-flight document/agent work unless overridden.
+
+After the reset, the useful follow-up is to ingest a small known-good document set through the current ingest path and rerun `uv run docling-system-audit`, `uv run docling-system-evaluation-data-readiness`, `uv run docling-system-eval-corpus`, and `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`.

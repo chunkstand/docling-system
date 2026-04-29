@@ -475,11 +475,6 @@ def run_knowledge_base_reset() -> None:
         action="store_true",
         help="Allow execution outside DOCLING_SYSTEM_ENV=development.",
     )
-    parser.add_argument(
-        "--skip-pg-dump",
-        action="store_true",
-        help="Skip the database dump archive. Intended only for isolated test environments.",
-    )
     args = parser.parse_args()
 
     options_cls = _lazy_service_attr(
@@ -496,7 +491,6 @@ def run_knowledge_base_reset() -> None:
         allow_running_services=args.allow_running_services,
         allow_active_work=args.allow_active_work,
         allow_non_development=args.allow_non_development,
-        skip_pg_dump=args.skip_pg_dump,
         archive_root=args.archive_root,
         new_database_name=args.new_database_name,
         project_root=Path.cwd(),

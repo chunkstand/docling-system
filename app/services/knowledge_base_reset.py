@@ -23,6 +23,7 @@ from app.db.models import AgentTask, AgentTaskStatus, DocumentRun, RunStatus
 from app.db.session import get_engine, get_session_factory
 from app.services.evaluations import AUTO_CORPUS_FILENAME
 from app.services.semantic_ontology import initialize_workspace_ontology
+from app.services.semantic_registry import clear_semantic_registry_cache
 
 RESET_CONFIRMATION = "CLEAR_KNOWLEDGE_BASE"
 OLD_DATA_PATTERNS = (
@@ -41,6 +42,21 @@ RUNTIME_SCAN_PATHS = (
     "README.md",
     "SYSTEM_PLAN.md",
     "AGENTS.md",
+)
+SEMANTIC_ONTOLOGY_BOOTSTRAP_TABLES = frozenset(
+    {
+        "semantic_ontology_snapshots",
+        "workspace_semantic_state",
+        "semantic_governance_events",
+    }
+)
+STORAGE_DIRECTORIES = (
+    "source",
+    "runs",
+    "_staging",
+    "agent_tasks",
+    "audit_bundles",
+    "resets",
 )
 RUNNING_TASK_STATUSES = (
     AgentTaskStatus.QUEUED.value,
@@ -67,7 +83,6 @@ class KnowledgeBaseResetOptions:
     allow_running_services: bool = False
     allow_active_work: bool = False
     allow_non_development: bool = False
-    skip_pg_dump: bool = False
     archive_root: Path | None = None
     new_database_name: str | None = None
     project_root: Path = Path.cwd()
@@ -110,13 +125,6 @@ def _is_local_database_url(database_url: str) -> bool:
     if not url.drivername.startswith("postgresql"):
         return False
     return (url.host or "localhost") in {"localhost", "127.0.0.1", "::1"}
-
-
-def _libpq_url(database_url: str) -> str:
-    url = make_url(database_url)
-    if url.drivername.startswith("postgresql"):
-        url = url.set(drivername="postgresql")
-    return url.render_as_string(hide_password=False)
 
 
 def _new_database_url(database_url: str, database_name: str) -> str:
@@ -352,6 +360,7 @@ def build_reset_manifest(options: KnowledgeBaseResetOptions, *, stamp: str | Non
             "env_backup": str(archive_root / ".env.before-reset"),
             "storage_archive": str(archive_root / "storage"),
             "manifest": str(archive_root / "manifest.json"),
+            "reset_manifest": str(storage_root / "resets" / stamp / "manifest.json"),
         },
         "table_counts": table_counts,
         "active_work_counts": active_work,
@@ -362,6 +371,8 @@ def build_reset_manifest(options: KnowledgeBaseResetOptions, *, stamp: str | Non
 
 def _require_safe_to_execute(options: KnowledgeBaseResetOptions, manifest: dict) -> None:
     settings = get_settings()
+    storage_root = Path(manifest["storage"]["old_root"]).expanduser().resolve()
+    archive_root = Path(manifest["storage"]["archive_root"]).expanduser().resolve()
     if options.confirm != RESET_CONFIRMATION:
         raise KnowledgeBaseResetError(f"Execution requires --confirm {RESET_CONFIRMATION}.")
     if settings.env != "development" and not options.allow_non_development:
@@ -370,6 +381,10 @@ def _require_safe_to_execute(options: KnowledgeBaseResetOptions, manifest: dict)
         raise KnowledgeBaseResetError(
             "Knowledge base reset requires a local Postgres database URL."
         )
+    if manifest["database"]["old_name"] == manifest["database"]["new_name"]:
+        raise KnowledgeBaseResetError("New database name must differ from the current database.")
+    if archive_root == storage_root or archive_root.is_relative_to(storage_root):
+        raise KnowledgeBaseResetError("Archive root must not be inside the storage root.")
     if manifest["database"]["alembic_current"] not in manifest["database"]["alembic_heads"]:
         raise KnowledgeBaseResetError("Current database is not at the Alembic head.")
     if manifest["running_services"] and not options.allow_running_services:
@@ -433,6 +448,7 @@ def _backup_and_update_env(project_root: Path, archive_root: Path, new_database_
     get_settings.cache_clear()
     get_engine.cache_clear()
     get_session_factory.cache_clear()
+    clear_semantic_registry_cache()
 
 
 def _create_database(database_url: str, database_name: str) -> None:
@@ -510,7 +526,7 @@ def _recreate_storage_root(storage_root: Path, archive_root: Path) -> None:
     archive_root.mkdir(parents=True, exist_ok=True)
     if storage_root.exists():
         shutil.move(str(storage_root), str(archive_storage))
-    for name in ("source", "runs", "_staging", "agent_tasks", "audit_bundles", "resets"):
+    for name in STORAGE_DIRECTORIES:
         (storage_root / name).mkdir(parents=True, exist_ok=True)
     _write_empty_auto_corpus(storage_root)
 
@@ -518,6 +534,114 @@ def _recreate_storage_root(storage_root: Path, archive_root: Path) -> None:
 def _initialize_generic_ontology() -> dict[str, Any]:
     with get_session_factory()() as session:
         return initialize_workspace_ontology(session)
+
+
+def _yaml_document_count(path: Path) -> int | None:
+    if not path.exists():
+        return None
+    payload = yaml.safe_load(path.read_text()) or {}
+    documents = payload.get("documents")
+    if isinstance(documents, list):
+        return len(documents)
+    return None
+
+
+def _post_reset_storage_checks(storage_root: Path, project_root: Path) -> dict[str, Any]:
+    directory_presence = {
+        name: (storage_root / name).is_dir()
+        for name in STORAGE_DIRECTORIES
+    }
+    auto_corpus_path = storage_root / AUTO_CORPUS_FILENAME
+    manual_corpus_path = project_root / "docs" / "evaluation_corpus.yaml"
+    semantic_corpus_path = project_root / "docs" / "semantic_evaluation_corpus.yaml"
+    return {
+        "required_directories": directory_presence,
+        "auto_corpus_document_count": _yaml_document_count(auto_corpus_path),
+        "manual_corpus_document_count": _yaml_document_count(manual_corpus_path),
+        "semantic_evaluation_corpus_document_count": _yaml_document_count(semantic_corpus_path),
+    }
+
+
+def _post_reset_checks(
+    *,
+    table_counts: dict[str, int | None],
+    storage_root: Path,
+    project_root: Path,
+    database_at_head: bool = True,
+) -> dict[str, Any]:
+    unexpected_non_empty_tables = {
+        table_name: count
+        for table_name, count in sorted(table_counts.items())
+        if table_name not in SEMANTIC_ONTOLOGY_BOOTSTRAP_TABLES and count not in {0, None}
+    }
+    storage_checks = _post_reset_storage_checks(storage_root, project_root)
+    ontology_initialized = (
+        (table_counts.get("semantic_ontology_snapshots") or 0) >= 1
+        and (table_counts.get("workspace_semantic_state") or 0) >= 1
+    )
+    semantic_graph_empty = all(
+        (table_counts.get(table_name) or 0) == 0
+        for table_name in (
+            "semantic_assertions",
+            "semantic_entities",
+            "semantic_facts",
+            "semantic_graph_snapshots",
+            "workspace_semantic_graph_state",
+        )
+    )
+    corpora_empty = (
+        storage_checks["auto_corpus_document_count"] == 0
+        and storage_checks["manual_corpus_document_count"] == 0
+        and storage_checks["semantic_evaluation_corpus_document_count"] == 0
+    )
+    storage_directories_present = all(storage_checks["required_directories"].values())
+    passed = (
+        not unexpected_non_empty_tables
+        and ontology_initialized
+        and semantic_graph_empty
+        and corpora_empty
+        and storage_directories_present
+        and database_at_head
+    )
+    return {
+        "passed": passed,
+        "database_at_head": database_at_head,
+        "unexpected_non_empty_tables": unexpected_non_empty_tables,
+        "ontology_initialized": ontology_initialized,
+        "semantic_graph_empty": semantic_graph_empty,
+        "corpora_empty": corpora_empty,
+        "storage_directories_present": storage_directories_present,
+        "storage": storage_checks,
+    }
+
+
+def _post_reset_manifest(project_root: Path, storage_root: Path) -> dict[str, Any]:
+    settings = get_settings()
+    with get_session_factory()() as session:
+        table_counts = _count_rows(session)
+        active_work = _active_work_counts(session)
+    alembic_current = _alembic_current(project_root)
+    alembic_heads = _alembic_heads(project_root)
+    return {
+        "database": {
+            "url": _redact_database_url(settings.database_url),
+            "name": _current_database_name(settings.database_url),
+            "alembic_current": alembic_current,
+            "alembic_heads": alembic_heads,
+        },
+        "storage": {
+            "root": str(storage_root),
+            "old_root_recreated": storage_root.exists(),
+        },
+        "table_counts": table_counts,
+        "active_work_counts": active_work,
+        "checks": _post_reset_checks(
+            table_counts=table_counts,
+            storage_root=storage_root,
+            project_root=project_root,
+            database_at_head=alembic_current in alembic_heads,
+        ),
+    }
 
 
 def execute_knowledge_base_reset(options: KnowledgeBaseResetOptions) -> dict[str, Any]:
@@ -534,22 +658,24 @@ def execute_knowledge_base_reset(options: KnowledgeBaseResetOptions) -> dict[str
     new_database_name = manifest["database"]["new_name"]
 
     archive_root.mkdir(parents=True, exist_ok=True)
-    if options.skip_pg_dump:
-        manifest["archive_paths"]["database_dump"] = None
     _write_json(archive_root / "manifest.json", manifest)
-    if not options.skip_pg_dump:
-        _run_pg_dump(database_url, Path(manifest["archive_paths"]["database_dump"]))
+    _run_pg_dump(database_url, Path(manifest["archive_paths"]["database_dump"]))
     _create_database(database_url, new_database_name)
     _backup_and_update_env(options.project_root, archive_root, new_database_name)
     _run_alembic_upgrade(options.project_root)
     _recreate_storage_root(storage_root, archive_root)
     ontology_payload = _initialize_generic_ontology()
 
-    final_manifest = build_reset_manifest(options, stamp=stamp)
+    final_manifest = dict(manifest)
     final_manifest["ontology_initialization"] = ontology_payload
-    final_manifest["archive_paths"] = manifest["archive_paths"]
     final_manifest["mode"] = "executed"
+    final_manifest["executed_at"] = datetime.now(UTC).isoformat()
+    final_manifest["post_reset"] = _post_reset_manifest(options.project_root, storage_root)
     reset_manifest_path = storage_root / "resets" / stamp / "manifest.json"
     _write_json(reset_manifest_path, final_manifest)
     _write_json(archive_root / "manifest.after.json", final_manifest)
+    if not final_manifest["post_reset"]["checks"]["passed"]:
+        raise KnowledgeBaseResetError(
+            f"Post-reset checks failed; inspect manifest at {reset_manifest_path}."
+        )
     return final_manifest

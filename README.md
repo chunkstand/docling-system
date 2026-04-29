@@ -712,6 +712,22 @@ The ranking dataset export schema is documented in [docs/ranking_dataset_schema.
 - live search gaps such as zero-result or missing-table requests
 - unsupported or incomplete grounded chat answers
 
+## Knowledge Base Reset
+
+The reset path is operator-only and CLI-bound. The default command is a dry run:
+
+```bash
+uv run docling-system-knowledge-base-reset
+```
+
+Execution requires the explicit confirmation phrase:
+
+```bash
+uv run docling-system-knowledge-base-reset --execute --confirm CLEAR_KNOWLEDGE_BASE
+```
+
+The command archives the current local Postgres database with `pg_dump`, archives the current storage root, creates and migrates a new empty local database, updates `.env` database variables after writing a backup, recreates the storage directory layout, writes an empty auto evaluation corpus, initializes the generic upper ontology, and writes reset manifests under both the archive directory and `storage/resets/<timestamp>/manifest.json`. It refuses non-local database URLs, non-development environments unless overridden, running API/worker/agent-worker services unless overridden, and queued or in-flight document or agent work unless overridden.
+
 ## Evaluation
 
 The optional fixed evaluation contract lives in [docs/evaluation_corpus.yaml](./docs/evaluation_corpus.yaml). The checked-in runtime template is intentionally empty after the knowledge-base reset. Add reviewed fixtures there only for documents that should become part of a durable manual evaluation contract. Runtime evaluation still prefers the auto-generated ingest corpus unless a manual corpus path is explicitly configured.
