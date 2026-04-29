@@ -405,6 +405,13 @@ replay query carries claim-feedback IDs, claim IDs, source payload hashes,
 source request/result IDs, span IDs, and traceability checks in its durable
 details payload.
 
+Evaluation data readiness is checked with
+`docling-system-evaluation-data-readiness`. The report separates broad
+regression readiness from court-grade readiness and blocks court-grade status
+until the live database has hand-verified gold fixtures, operator feedback,
+technical-report claim feedback, governed hard cases, complete replay source
+coverage, harness-evaluation coverage, and materialized retrieval-learning data.
+
 Harness evaluations are first-class persisted resources. `POST /search/harness-evaluations`
 creates a durable evaluation row, stores one source row per replay source type, and
 links every source row to the baseline and candidate replay runs that produced the

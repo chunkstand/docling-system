@@ -606,6 +606,7 @@ uv run docling-system-ingest-batch-show <batch_id>
 uv run docling-system-agent-worker
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
+uv run docling-system-evaluation-data-readiness
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
 uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 12

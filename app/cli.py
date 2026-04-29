@@ -125,6 +125,13 @@ def list_quality_eval_candidates(*args, **kwargs):
     )
 
 
+def build_evaluation_data_readiness_report(*args, **kwargs):
+    return _lazy_service_attr(
+        "app.services.evaluation_data_readiness",
+        "build_evaluation_data_readiness_report",
+    )(*args, **kwargs)
+
+
 def run_search_replay_suite(*args, **kwargs):
     return _lazy_service_attr("app.services.search_replays", "run_search_replay_suite")(
         *args,
@@ -753,6 +760,49 @@ def run_eval_candidates() -> None:
             include_resolved=args.include_resolved,
         )
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
+
+
+def run_evaluation_data_readiness() -> None:
+    parser = argparse.ArgumentParser(
+        description="Inspect whether the live DB has enough data to run retrieval gates."
+    )
+    parser.add_argument(
+        "--manual-corpus-path",
+        type=Path,
+        default=Path("docs/evaluation_corpus.yaml"),
+        help="Hand-authored evaluation corpus path.",
+    )
+    parser.add_argument(
+        "--auto-corpus-path",
+        type=Path,
+        default=Path("storage/evaluation_corpus.auto.yaml"),
+        help="Auto-generated evaluation corpus path.",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Optional path to write the JSON readiness report.",
+    )
+    parser.add_argument(
+        "--compact",
+        action="store_true",
+        help="Print compact JSON instead of indented JSON.",
+    )
+    args = parser.parse_args()
+
+    session_factory = get_session_factory()
+    with session_factory() as session:
+        payload = build_evaluation_data_readiness_report(
+            session,
+            manual_corpus_path=args.manual_corpus_path,
+            auto_corpus_path=args.auto_corpus_path,
+        )
+    rendered = json.dumps(payload, indent=None if args.compact else 2)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered + "\n")
+    print(rendered)
 
 
 def run_replay_suite() -> None:
