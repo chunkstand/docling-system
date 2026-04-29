@@ -26,6 +26,7 @@ from app.db.models import (
     SearchHarnessEvaluationSource,
     SearchReplayRun,
     SemanticGovernanceEvent,
+    TechnicalReportReleaseReadinessDbGate,
 )
 from app.schemas.agent_tasks import AgentTaskCreateRequest
 from app.services.agent_task_worker import claim_next_agent_task, process_agent_task
@@ -669,6 +670,8 @@ def test_technical_report_harness_roundtrip(
 
     prov_artifact_id = None
     prov_artifact_sha256 = None
+    release_readiness_db_gate_id = None
+    release_readiness_db_gate_payload_sha256 = None
     with postgres_integration_harness.session_factory() as session:
         draft_task_row = session.get(AgentTask, draft_task_id)
         assert draft_task_row is not None
@@ -899,6 +902,35 @@ def test_technical_report_harness_roundtrip(
         assert governance_events[0].event_kind == "technical_report_prov_export_frozen"
         assert governance_events[0].receipt_sha256 == receipt["receipt_sha256"]
         assert governance_events[0].event_payload_json["change_impact"]["impacted"] is False
+        db_gate_rows = list(
+            session.scalars(
+                select(TechnicalReportReleaseReadinessDbGate).where(
+                    TechnicalReportReleaseReadinessDbGate.technical_report_verification_task_id
+                    == verify_task_id
+                )
+            )
+        )
+        assert len(db_gate_rows) == 1
+        db_gate = db_gate_rows[0]
+        release_readiness_db_gate_id = db_gate.id
+        release_readiness_db_gate_payload_sha256 = db_gate.gate_payload_sha256
+        assert db_gate.source_verification_task_id == context_pack_eval_task_id
+        assert db_gate.evidence_manifest_id == manifest_rows[0].id
+        assert db_gate.prov_export_artifact_id == prov_artifact.id
+        assert db_gate.semantic_governance_event_id is not None
+        assert db_gate.complete is True
+        assert db_gate.coverage_complete is True
+        assert db_gate.failure_count == 0
+        assert db_gate.source_search_request_ids_json == db_gate.verified_request_ids_json
+        assert db_gate.missing_expected_request_ids_json == []
+        assert db_gate.unexpected_verified_request_ids_json == []
+        assert db_gate.gate_payload_json["complete"] is True
+        gate_event = session.get(SemanticGovernanceEvent, db_gate.semantic_governance_event_id)
+        assert gate_event is not None
+        assert gate_event.event_kind == "technical_report_readiness_db_gate_recorded"
+        assert gate_event.subject_table == "technical_report_release_readiness_db_gates"
+        assert gate_event.subject_id == db_gate.id
+        assert gate_event.evidence_manifest_id == manifest_rows[0].id
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -953,6 +985,7 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["release_readiness_db_gate_verified"] is True
     assert audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"] is True
     assert audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
+    assert audit_bundle["audit_checklist"]["has_persisted_release_readiness_db_gate"] is True
     assert audit_bundle["audit_checklist"]["context_pack_audit_complete"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
@@ -973,11 +1006,31 @@ def test_technical_report_harness_roundtrip(
     assert audit_release_readiness_db_gate["verification_task_id"] == str(context_pack_eval_task_id)
     assert audit_release_readiness_db_gate["summary"] == (context_pack_release_readiness_db_summary)
     assert audit_release_readiness_db_gate["coverage_complete"] is True
+    assert audit_release_readiness_db_gate["gate_id"] == str(release_readiness_db_gate_id)
+    assert (
+        audit_release_readiness_db_gate["gate_payload_sha256"]
+        == release_readiness_db_gate_payload_sha256
+    )
     assert set(audit_release_readiness_db_gate["source_search_request_ids"]) == set(
         audit_release_readiness_db_gate["verified_request_ids"]
     )
     assert audit_release_readiness_db_gate["missing_expected_request_ids"] == []
     assert audit_release_readiness_db_gate["unexpected_verified_request_ids"] == []
+    audit_release_readiness_db_gate_record = audit_bundle["context_pack_audit"][
+        "release_readiness_db_gate_record"
+    ]
+    assert audit_release_readiness_db_gate_record["gate_id"] == str(release_readiness_db_gate_id)
+    assert (
+        audit_release_readiness_db_gate_record["gate_payload_sha256"]
+        == release_readiness_db_gate_payload_sha256
+    )
+    assert audit_release_readiness_db_gate_record["source_verification_id"] == (
+        audit_release_readiness_db_gate["verification_id"]
+    )
+    assert audit_release_readiness_db_gate_record["prov_export_artifact_id"] == str(
+        prov_artifact_id
+    )
+    assert audit_release_readiness_db_gate_record["semantic_governance_event_id"]
     assert audit_bundle["context_pack_audit"]["release_readiness_db_summary"] == (
         context_pack_release_readiness_db_summary
     )
@@ -1073,6 +1126,12 @@ def test_technical_report_harness_roundtrip(
         and row["event_payload"]["change_impact"]["impacted"] is False
         for row in audit_bundle["semantic_governance_chain"]["events"]
     )
+    assert any(
+        row["event_kind"] == "technical_report_readiness_db_gate_recorded"
+        and row["subject_table"] == "technical_report_release_readiness_db_gates"
+        and row["subject_id"] == str(release_readiness_db_gate_id)
+        for row in audit_bundle["semantic_governance_chain"]["events"]
+    )
     assert all(
         row["trace_integrity"]["complete"] for row in audit_bundle["search_evidence_package_traces"]
     )
@@ -1104,6 +1163,7 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["release_readiness_db_gate_verified"] is True
     assert manifest["audit_checklist"]["release_readiness_db_gate_complete"] is True
     assert manifest["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
+    assert manifest["audit_checklist"]["has_persisted_release_readiness_db_gate"] is True
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
@@ -1126,6 +1186,13 @@ def test_technical_report_harness_roundtrip(
         manifest["report_trace"]["context_pack_audit"]["release_readiness_db_gate"]["complete"]
         is True
     )
+    manifest_gate_record = manifest["report_trace"]["context_pack_audit"][
+        "release_readiness_db_gate_record"
+    ]
+    assert manifest_gate_record["gate_id"] == str(release_readiness_db_gate_id)
+    assert manifest_gate_record["gate_payload_sha256"] == release_readiness_db_gate_payload_sha256
+    assert "prov_export_artifact_id" not in manifest_gate_record
+    assert "semantic_governance_event_id" not in manifest_gate_record
     assert manifest["report_trace"]["context_pack_audit"]["release_readiness_db_summary"] == (
         context_pack_release_readiness_db_summary
     )
@@ -1155,6 +1222,12 @@ def test_technical_report_harness_roundtrip(
         "context_pack_verifier_record_to_release_readiness_db_gate",
         "release_readiness_assessment_to_release_readiness_db_gate",
     }.issubset({edge["edge_type"] for edge in manifest["provenance_edges"]})
+    assert any(
+        edge["edge_type"] == "context_pack_verifier_record_to_release_readiness_db_gate"
+        and edge["to"]["table"] == "technical_report_release_readiness_db_gates"
+        and edge["to"]["id"] == str(release_readiness_db_gate_id)
+        for edge in manifest["provenance_edges"]
+    )
     assert manifest["manifest_integrity"]["complete"] is True
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
     assert manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
@@ -1193,6 +1266,12 @@ def test_technical_report_harness_roundtrip(
         "evidence_manifest",
     }.issubset(node_kinds)
     assert any(
+        node["node_kind"] == "release_readiness_db_gate"
+        and node["source_table"] == "technical_report_release_readiness_db_gates"
+        and node["source_id"] == str(release_readiness_db_gate_id)
+        for node in trace["nodes"]
+    )
+    assert any(
         edge["payload"].get("source") == "manifest_provenance_edges" for edge in trace["edges"]
     )
 
@@ -1215,6 +1294,9 @@ def test_technical_report_harness_roundtrip(
     assert provenance["retrieval_evaluation"]["complete"] is True
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
     assert provenance["audit"]["release_readiness_db_gate"]["complete"] is True
+    assert provenance["audit"]["release_readiness_db_gate"]["gate_id"] == str(
+        release_readiness_db_gate_id
+    )
     assert provenance["prov_integrity"]["complete"] is True
     assert provenance["prov_integrity"]["hash_policy"] == (
         "sha256 over canonical JSON excluding frozen_export and prov_integrity"
@@ -1256,7 +1338,15 @@ def test_technical_report_harness_roundtrip(
         entity.get("prov:type") == "docling:ReleaseReadinessDbGate"
         and entity.get("docling:complete") is True
         and entity.get("docling:failure_count") == 0
+        and entity.get("docling:gate_id") == str(release_readiness_db_gate_id)
+        and entity.get("docling:gate_payload_sha256")
+        == release_readiness_db_gate_payload_sha256
         for entity in provenance["entity"].values()
+    )
+    assert (
+        f"docling:technical-report-release-readiness-db-gates/"
+        f"{release_readiness_db_gate_id}"
+        in provenance["entity"]
     )
     assert any(
         activity.get("prov:type") == "docling:ContextPackEvaluationTask"

@@ -122,6 +122,9 @@ class SemanticGovernanceEventKind(StrEnum):
         "search_harness_release_readiness_assessed"
     )
     TECHNICAL_REPORT_PROV_EXPORT_FROZEN = "technical_report_prov_export_frozen"
+    TECHNICAL_REPORT_READINESS_DB_GATE_RECORDED = (
+        "technical_report_readiness_db_gate_recorded"
+    )
     RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
     RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
     RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = "retrieval_reranker_artifact_materialized"
@@ -3818,6 +3821,7 @@ class SemanticGovernanceEvent(Base):
             "'search_harness_release_recorded', "
             "'search_harness_release_readiness_assessed', "
             "'technical_report_prov_export_frozen', "
+            "'technical_report_readiness_db_gate_recorded', "
             "'retrieval_training_run_materialized', "
             "'retrieval_learning_candidate_evaluated', "
             "'retrieval_reranker_artifact_materialized', "
@@ -4529,6 +4533,140 @@ class EvidenceManifest(Base):
         server_default=sql_text("'completed'"),
     )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TechnicalReportReleaseReadinessDbGate(Base):
+    __tablename__ = "technical_report_release_readiness_db_gates"
+    __table_args__ = (
+        CheckConstraint(
+            "check_key = 'release_readiness_assessment_db_integrity'",
+            name="ck_tr_readiness_db_gates_check_key",
+        ),
+        CheckConstraint(
+            "source_search_request_count >= 0 "
+            "AND verified_request_count >= 0 "
+            "AND failure_count >= 0",
+            name="ck_tr_readiness_db_gates_nonnegative_counts",
+        ),
+        UniqueConstraint(
+            "technical_report_verification_task_id",
+            name="uq_tr_readiness_db_gates_verification_task",
+        ),
+        Index(
+            "ix_tr_readiness_db_gates_verification_task",
+            "technical_report_verification_task_id",
+        ),
+        Index(
+            "ix_tr_readiness_db_gates_source_verification",
+            "source_verification_id",
+        ),
+        Index("ix_tr_readiness_db_gates_harness_task", "harness_task_id"),
+        Index("ix_tr_readiness_db_gates_manifest", "evidence_manifest_id"),
+        Index("ix_tr_readiness_db_gates_prov_artifact", "prov_export_artifact_id"),
+        Index("ix_tr_readiness_db_gates_governance", "semantic_governance_event_id"),
+        Index("ix_tr_readiness_db_gates_payload_sha", "gate_payload_sha256"),
+        Index("ix_tr_readiness_db_gates_created", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    technical_report_verification_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_verification_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_verifications.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    source_verification_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    harness_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_tasks.id", ondelete="SET NULL"),
+    )
+    evidence_manifest_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("evidence_manifests.id", ondelete="SET NULL"),
+    )
+    prov_export_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agent_task_artifacts.id", ondelete="SET NULL"),
+    )
+    semantic_governance_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("semantic_governance_events.id", ondelete="SET NULL"),
+    )
+    check_key: Mapped[str] = mapped_column(Text, nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    required: Mapped[bool | None] = mapped_column(Boolean)
+    coverage_complete: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    complete: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    source_search_request_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sql_text("0"),
+    )
+    verified_request_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sql_text("0"),
+    )
+    failure_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default=sql_text("0"),
+    )
+    source_search_request_ids_json: Mapped[list] = mapped_column(
+        "source_search_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    verified_request_ids_json: Mapped[list] = mapped_column(
+        "verified_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    missing_expected_request_ids_json: Mapped[list] = mapped_column(
+        "missing_expected_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    unexpected_verified_request_ids_json: Mapped[list] = mapped_column(
+        "unexpected_verified_request_ids",
+        JSONB,
+        nullable=False,
+        default=list,
+        server_default=sql_text("'[]'::jsonb"),
+    )
+    summary_json: Mapped[dict] = mapped_column(
+        "summary",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    gate_payload_json: Mapped[dict] = mapped_column(
+        "gate_payload",
+        JSONB,
+        nullable=False,
+        default=dict,
+        server_default=sql_text("'{}'::jsonb"),
+    )
+    gate_payload_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class EvidenceTraceNode(Base):

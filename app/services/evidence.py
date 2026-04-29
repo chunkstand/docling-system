@@ -53,9 +53,11 @@ from app.db.models import (
     SemanticFactEvidence,
     SemanticGovernanceEvent,
     SemanticGraphSnapshot,
+    TechnicalReportReleaseReadinessDbGate,
 )
 from app.services.semantic_governance import (
     record_technical_report_prov_export_governance_event,
+    record_technical_report_release_readiness_db_gate_event,
     semantic_governance_chain_for_audit,
 )
 from app.services.storage import StorageService
@@ -71,6 +73,12 @@ DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_ARTIFACT_KIND = (
 DOCUMENT_GENERATION_CONTEXT_PACK_GATE = "document_generation_context_pack_gate"
 DOCUMENT_GENERATION_CONTEXT_PACK_EVALUATION_OPERATOR = "document_generation_context_pack_evaluation"
 RELEASE_READINESS_DB_GATE_CHECK_KEY = "release_readiness_assessment_db_integrity"
+TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA = (
+    "technical_report_release_readiness_db_gate"
+)
+TECHNICAL_REPORT_RELEASE_READINESS_DB_GATES_TABLE = (
+    "technical_report_release_readiness_db_gates"
+)
 _PROV_INTEGRITY_EXCLUDED_FIELDS = {"frozen_export", "prov_integrity"}
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED_EVENT_KIND = "claim_support_policy_impact_replay_closed"
 CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED_EVENT_KIND = (
@@ -2516,7 +2524,7 @@ def _release_readiness_db_gate_payload(
             and coverage_complete
         )
         return {
-            "schema_name": "technical_report_release_readiness_db_gate",
+            "schema_name": TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA,
             "schema_version": "1.0",
             "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
             "verification_id": str(latest_row.id),
@@ -2538,7 +2546,7 @@ def _release_readiness_db_gate_payload(
         }
     missing_check = latest_row is not None and check is None
     return {
-        "schema_name": "technical_report_release_readiness_db_gate",
+        "schema_name": TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA,
         "schema_version": "1.0",
         "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
         "verification_id": str(latest_row.id) if latest_row is not None else None,
@@ -2561,6 +2569,140 @@ def _release_readiness_db_gate_payload(
         "summary": {},
         "complete": False,
     }
+
+
+def _technical_report_readiness_db_gate_for_verification_task(
+    session: Session,
+    verification_task_id: UUID,
+) -> TechnicalReportReleaseReadinessDbGate | None:
+    return session.scalar(
+        select(TechnicalReportReleaseReadinessDbGate)
+        .where(
+            TechnicalReportReleaseReadinessDbGate.technical_report_verification_task_id
+            == verification_task_id
+        )
+        .order_by(TechnicalReportReleaseReadinessDbGate.created_at.asc())
+        .limit(1)
+    )
+
+
+def _technical_report_release_readiness_db_gate_record_payload(
+    row: TechnicalReportReleaseReadinessDbGate,
+    *,
+    include_links: bool,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_name": "technical_report_release_readiness_db_gate_record",
+        "schema_version": "1.0",
+        "gate_id": str(row.id),
+        "technical_report_verification_task_id": str(
+            row.technical_report_verification_task_id
+        ),
+        "source_verification_id": str(row.source_verification_id),
+        "source_verification_task_id": (
+            str(row.source_verification_task_id) if row.source_verification_task_id else None
+        ),
+        "harness_task_id": str(row.harness_task_id) if row.harness_task_id else None,
+        "check_key": row.check_key,
+        "passed": row.passed,
+        "required": row.required,
+        "coverage_complete": row.coverage_complete,
+        "complete": row.complete,
+        "source_search_request_count": row.source_search_request_count,
+        "verified_request_count": row.verified_request_count,
+        "failure_count": row.failure_count,
+        "source_search_request_ids": list(row.source_search_request_ids_json or []),
+        "verified_request_ids": list(row.verified_request_ids_json or []),
+        "missing_expected_request_ids": list(row.missing_expected_request_ids_json or []),
+        "unexpected_verified_request_ids": list(row.unexpected_verified_request_ids_json or []),
+        "summary": row.summary_json or {},
+        "gate_payload_sha256": row.gate_payload_sha256,
+        "created_at": row.created_at,
+    }
+    if include_links:
+        payload.update(
+            {
+                "evidence_manifest_id": (
+                    str(row.evidence_manifest_id) if row.evidence_manifest_id else None
+                ),
+                "prov_export_artifact_id": (
+                    str(row.prov_export_artifact_id) if row.prov_export_artifact_id else None
+                ),
+                "semantic_governance_event_id": (
+                    str(row.semantic_governance_event_id)
+                    if row.semantic_governance_event_id
+                    else None
+                ),
+                "updated_at": row.updated_at,
+            }
+        )
+    return _json_payload(payload)
+
+
+def _with_release_readiness_db_gate_record(
+    context_pack_audit: dict[str, Any],
+    row: TechnicalReportReleaseReadinessDbGate | None,
+    *,
+    include_links: bool,
+) -> dict[str, Any]:
+    result = _json_payload(context_pack_audit)
+    integrity = dict(result.get("integrity") or {})
+    if row is None:
+        result["release_readiness_db_gate_record"] = None
+        integrity["has_persisted_release_readiness_db_gate"] = False
+        integrity["complete"] = False
+        result["integrity"] = integrity
+        return result
+
+    record_payload = _technical_report_release_readiness_db_gate_record_payload(
+        row,
+        include_links=include_links,
+    )
+    gate_payload = dict(result.get("release_readiness_db_gate") or {})
+    gate_payload.update(
+        {
+            "gate_id": record_payload["gate_id"],
+            "gate_payload_sha256": record_payload["gate_payload_sha256"],
+            "persisted_table": TECHNICAL_REPORT_RELEASE_READINESS_DB_GATES_TABLE,
+            "persisted": True,
+        }
+    )
+    if include_links:
+        gate_payload.update(
+            {
+                "evidence_manifest_id": record_payload.get("evidence_manifest_id"),
+                "prov_export_artifact_id": record_payload.get("prov_export_artifact_id"),
+                "semantic_governance_event_id": record_payload.get(
+                    "semantic_governance_event_id"
+                ),
+            }
+        )
+    result["release_readiness_db_gate"] = gate_payload
+    result["release_readiness_db_gate_record"] = record_payload
+    integrity["has_persisted_release_readiness_db_gate"] = True
+    integrity["complete"] = all(
+        bool(value) for key, value in integrity.items() if key != "complete"
+    )
+    result["integrity"] = integrity
+    return result
+
+
+def _release_readiness_db_gate_trace_ref(
+    context_pack_audit: dict[str, Any],
+) -> dict[str, str] | None:
+    record = context_pack_audit.get("release_readiness_db_gate_record")
+    if isinstance(record, dict) and record.get("gate_id"):
+        return {
+            "table": TECHNICAL_REPORT_RELEASE_READINESS_DB_GATES_TABLE,
+            "id": str(record["gate_id"]),
+        }
+    gate = context_pack_audit.get("release_readiness_db_gate")
+    if isinstance(gate, dict) and gate.get("verification_id"):
+        return {
+            "table": TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA,
+            "id": str(gate["verification_id"]),
+        }
+    return None
 
 
 def _context_pack_sha256s_from_artifacts(
@@ -4345,6 +4487,7 @@ def _technical_report_provenance_edges(
         context_pack_audit.get("release_readiness_assessments") or []
     )
     release_readiness_db_gate = dict(context_pack_audit.get("release_readiness_db_gate") or {})
+    release_readiness_db_gate_ref = _release_readiness_db_gate_trace_ref(context_pack_audit)
     for artifact in context_pack_artifacts:
         artifact_id = artifact.get("artifact_id")
         if harness_task_id and artifact_id:
@@ -4380,15 +4523,16 @@ def _technical_report_provenance_edges(
                     }
                 )
         db_gate_verification_id = release_readiness_db_gate.get("verification_id")
-        if verification_id and db_gate_verification_id == str(verification_id):
+        if (
+            verification_id
+            and db_gate_verification_id == str(verification_id)
+            and release_readiness_db_gate_ref
+        ):
             edges.append(
                 {
                     "edge_type": "context_pack_verifier_record_to_release_readiness_db_gate",
                     "from": {"table": "agent_task_verifications", "id": verification_id},
-                    "to": {
-                        "table": "technical_report_release_readiness_db_gate",
-                        "id": db_gate_verification_id,
-                    },
+                    "to": release_readiness_db_gate_ref,
                     "complete": release_readiness_db_gate.get("complete"),
                 }
             )
@@ -4467,7 +4611,7 @@ def _technical_report_provenance_edges(
                     }
                 )
         db_gate_verification_id = release_readiness_db_gate.get("verification_id")
-        if assessment_id and db_gate_verification_id:
+        if assessment_id and db_gate_verification_id and release_readiness_db_gate_ref:
             edges.append(
                 {
                     "edge_type": "release_readiness_assessment_to_release_readiness_db_gate",
@@ -4475,10 +4619,7 @@ def _technical_report_provenance_edges(
                         "table": "search_harness_release_readiness_assessments",
                         "id": assessment_id,
                     },
-                    "to": {
-                        "table": "technical_report_release_readiness_db_gate",
-                        "id": db_gate_verification_id,
-                    },
+                    "to": release_readiness_db_gate_ref,
                     "assessment_payload_sha256": readiness_ref.get("assessment_payload_sha256"),
                 }
             )
@@ -4684,7 +4825,11 @@ def build_technical_report_evidence_manifest_payload(
     if task is None:
         raise ValueError(f"Agent task '{task_id}' was not found.")
     verification_task_id = _verification_task_id_for_manifest(session, task)
-    audit_bundle = get_agent_task_audit_bundle(session, verification_task_id)
+    audit_bundle = get_agent_task_audit_bundle(
+        session,
+        verification_task_id,
+        include_live_release_readiness_db_gate_links=False,
+    )
     draft_payload = audit_bundle["draft"]
     evidence_cards = list(draft_payload.get("evidence_cards") or [])
     claims = list(draft_payload.get("claims") or [])
@@ -4894,6 +5039,10 @@ def build_technical_report_evidence_manifest_payload(
         "release_readiness_db_covers_source_requests": audit_bundle["audit_checklist"].get(
             "release_readiness_db_covers_source_requests", False
         ),
+        "has_persisted_release_readiness_db_gate": audit_bundle["audit_checklist"].get(
+            "has_persisted_release_readiness_db_gate",
+            False,
+        ),
         "verification_passed": audit_bundle["audit_checklist"].get(
             "verification_passed",
             False,
@@ -5035,6 +5184,7 @@ _TRACE_NODE_KIND_BY_TABLE = {
     "search_harness_releases": "search_harness_release",
     "search_harness_release_readiness_assessments": "release_readiness_assessment",
     "technical_report_release_readiness_db_gate": "release_readiness_db_gate",
+    "technical_report_release_readiness_db_gates": "release_readiness_db_gate",
     "evidence_manifests": "evidence_manifest",
     "semantic_governance_events": "semantic_governance_event",
 }
@@ -5665,10 +5815,23 @@ def _build_evidence_trace_graph_specs(
             payload=readiness_ref,
         )
     release_readiness_db_gate = context_pack_audit.get("release_readiness_db_gate") or {}
-    if release_readiness_db_gate.get("verification_id"):
+    release_readiness_db_gate_record = (
+        context_pack_audit.get("release_readiness_db_gate_record") or {}
+    )
+    if release_readiness_db_gate_record.get("gate_id"):
         _put_trace_node_from_id(
             nodes,
-            source_table="technical_report_release_readiness_db_gate",
+            source_table=TECHNICAL_REPORT_RELEASE_READINESS_DB_GATES_TABLE,
+            source_id=release_readiness_db_gate_record.get("gate_id"),
+            payload={
+                "record": release_readiness_db_gate_record,
+                "gate": release_readiness_db_gate,
+            },
+        )
+    elif release_readiness_db_gate.get("verification_id"):
+        _put_trace_node_from_id(
+            nodes,
+            source_table=TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA,
             source_id=release_readiness_db_gate.get("verification_id"),
             payload=release_readiness_db_gate,
         )
@@ -6647,7 +6810,16 @@ def persist_technical_report_evidence_manifest(
     verification_task_id = _verification_task_id_for_manifest(session, task)
     existing = _existing_evidence_manifest(session, verification_task_id)
     if existing is not None:
+        persist_technical_report_release_readiness_db_gate(
+            session,
+            verification_task_id=verification_task_id,
+            evidence_manifest=existing,
+        )
         return existing
+    persist_technical_report_release_readiness_db_gate(
+        session,
+        verification_task_id=verification_task_id,
+    )
     payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
     manifest_sha256 = str(payload_sha256(payload))
     row = _evidence_manifest_row_from_payload(
@@ -6658,6 +6830,11 @@ def persist_technical_report_evidence_manifest(
     session.add(row)
     session.flush()
     _persist_evidence_trace_graph(session, manifest_row=row, manifest_payload=payload)
+    persist_technical_report_release_readiness_db_gate(
+        session,
+        verification_task_id=verification_task_id,
+        evidence_manifest=row,
+    )
     return row
 
 
@@ -6670,6 +6847,10 @@ def refresh_technical_report_evidence_manifest(
     if task is None:
         raise ValueError(f"Agent task '{task_id}' was not found.")
     verification_task_id = _verification_task_id_for_manifest(session, task)
+    persist_technical_report_release_readiness_db_gate(
+        session,
+        verification_task_id=verification_task_id,
+    )
     payload = build_technical_report_evidence_manifest_payload(session, verification_task_id)
     manifest_sha256 = str(payload_sha256(payload))
     row = _existing_evidence_manifest(session, verification_task_id)
@@ -6688,6 +6869,11 @@ def refresh_technical_report_evidence_manifest(
         )
     _persist_evidence_trace_graph(session, manifest_row=row, manifest_payload=payload)
     session.flush()
+    persist_technical_report_release_readiness_db_gate(
+        session,
+        verification_task_id=verification_task_id,
+        evidence_manifest=row,
+    )
     return row
 
 
@@ -7030,9 +7216,21 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
     report_trace = manifest.get("report_trace") or {}
     context_pack_audit = report_trace.get("context_pack_audit") or {}
     release_readiness_db_gate = dict(context_pack_audit.get("release_readiness_db_gate") or {})
+    release_readiness_db_gate_record = dict(
+        context_pack_audit.get("release_readiness_db_gate_record") or {}
+    )
+    release_readiness_db_gate_table = (
+        TECHNICAL_REPORT_RELEASE_READINESS_DB_GATES_TABLE
+        if release_readiness_db_gate_record.get("gate_id")
+        else TECHNICAL_REPORT_RELEASE_READINESS_DB_GATE_SCHEMA
+    )
+    release_readiness_db_gate_id = (
+        release_readiness_db_gate_record.get("gate_id")
+        or release_readiness_db_gate.get("verification_id")
+    )
     release_readiness_db_gate_entity_id = _prov_identifier(
-        "technical_report_release_readiness_db_gate",
-        release_readiness_db_gate.get("verification_id"),
+        release_readiness_db_gate_table,
+        release_readiness_db_gate_id,
     )
     harness_activity_id = _prov_identifier(
         "agent_tasks",
@@ -7146,7 +7344,8 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
         db_gate_verification_id = release_readiness_db_gate.get("verification_id")
         db_gate_eval_activity_id = _prov_identifier(
             "agent_tasks",
-            release_readiness_db_gate.get("verification_task_id"),
+            release_readiness_db_gate.get("verification_task_id")
+            or release_readiness_db_gate_record.get("source_verification_task_id"),
         )
         _prov_entity(
             entities,
@@ -7164,6 +7363,24 @@ def _build_agent_task_provenance_export(session: Session, task_id: UUID) -> dict
                 ),
                 "docling:verified_request_count": release_readiness_db_gate.get(
                     "verified_request_count"
+                ),
+                "docling:gate_id": release_readiness_db_gate_record.get("gate_id"),
+                "docling:source_verification_id": release_readiness_db_gate_record.get(
+                    "source_verification_id"
+                )
+                or db_gate_verification_id,
+                "docling:gate_payload_sha256": (
+                    release_readiness_db_gate_record.get("gate_payload_sha256")
+                    or release_readiness_db_gate.get("gate_payload_sha256")
+                ),
+                "docling:evidence_manifest_id": release_readiness_db_gate_record.get(
+                    "evidence_manifest_id"
+                ),
+                "docling:prov_export_artifact_id": release_readiness_db_gate_record.get(
+                    "prov_export_artifact_id"
+                ),
+                "docling:semantic_governance_event_id": release_readiness_db_gate_record.get(
+                    "semantic_governance_event_id"
                 ),
             },
         )
@@ -7918,10 +8135,17 @@ def persist_agent_task_provenance_export(
             existing=existing,
             attempted_prov_export=attempted_prov_export,
         )
+        existing_manifest = _existing_evidence_manifest(session, verification_task_id)
+        persist_technical_report_release_readiness_db_gate(
+            session,
+            verification_task_id=verification_task_id,
+            evidence_manifest=existing_manifest,
+            prov_export_artifact=existing,
+        )
         record_technical_report_prov_export_governance_event(
             session,
             artifact=existing,
-            evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+            evidence_manifest=existing_manifest,
             change_impact=governance_change_impact,
         )
         return existing
@@ -7956,10 +8180,17 @@ def persist_agent_task_provenance_export(
     )
     session.add(row)
     session.flush()
+    existing_manifest = _existing_evidence_manifest(session, verification_task_id)
+    persist_technical_report_release_readiness_db_gate(
+        session,
+        verification_task_id=verification_task_id,
+        evidence_manifest=existing_manifest,
+        prov_export_artifact=row,
+    )
     record_technical_report_prov_export_governance_event(
         session,
         artifact=row,
-        evidence_manifest=_existing_evidence_manifest(session, verification_task_id),
+        evidence_manifest=existing_manifest,
         change_impact=governance_change_impact,
     )
     return row
@@ -8028,7 +8259,161 @@ def _technical_report_upstream_task_ids(
     return list(dict.fromkeys(related_task_ids))
 
 
-def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
+def _technical_report_context_pack_audit_for_verification_task(
+    session: Session,
+    verification_task_id: UUID,
+) -> dict[str, Any]:
+    verification_task = session.get(AgentTask, verification_task_id)
+    if verification_task is None:
+        raise ValueError(f"Agent task '{verification_task_id}' was not found.")
+    draft_task_id = _draft_task_id_for_audit(verification_task)
+    draft_task = session.get(AgentTask, draft_task_id)
+    if draft_task is None:
+        raise ValueError(f"Draft task '{draft_task_id}' was not found.")
+    draft_payload = ((draft_task.result_json or {}).get("payload") or {}).get("draft") or {}
+    related_task_ids = [
+        draft_task.id,
+        *_technical_report_upstream_task_ids(session, draft_payload),
+        verification_task_id,
+    ]
+    related_task_ids = list(dict.fromkeys(related_task_ids))
+    artifacts = list(
+        session.scalars(
+            select(AgentTaskArtifact)
+            .where(AgentTaskArtifact.task_id.in_(related_task_ids))
+            .order_by(AgentTaskArtifact.created_at.asc())
+        )
+    )
+    operator_runs = list(
+        session.scalars(
+            select(KnowledgeOperatorRun)
+            .where(KnowledgeOperatorRun.agent_task_id.in_(related_task_ids))
+            .order_by(KnowledgeOperatorRun.created_at.asc())
+        )
+    )
+    harness_task_id = _uuid_or_none_safe(draft_payload.get("harness_task_id"))
+    context_pack_eval_task_ids = (
+        _context_pack_eval_task_ids_for_harness(session, harness_task_id)
+        if harness_task_id is not None
+        else []
+    )
+    context_pack_verifications = _context_pack_verification_rows(
+        session,
+        harness_task_id=harness_task_id,
+        eval_task_ids=context_pack_eval_task_ids,
+    )
+    return _technical_report_context_pack_audit_payload(
+        harness_task_id=harness_task_id,
+        eval_task_ids=context_pack_eval_task_ids,
+        artifacts=artifacts,
+        verification_rows=context_pack_verifications,
+        operator_runs=operator_runs,
+    )
+
+
+def _ensure_technical_report_release_readiness_db_gate_governance_event(
+    session: Session,
+    row: TechnicalReportReleaseReadinessDbGate,
+) -> TechnicalReportReleaseReadinessDbGate:
+    if row.semantic_governance_event_id is not None or row.evidence_manifest_id is None:
+        return row
+    event = record_technical_report_release_readiness_db_gate_event(session, gate=row)
+    row.semantic_governance_event_id = event.id
+    row.updated_at = utcnow()
+    session.flush()
+    return row
+
+
+def persist_technical_report_release_readiness_db_gate(
+    session: Session,
+    *,
+    verification_task_id: UUID,
+    evidence_manifest: EvidenceManifest | None = None,
+    prov_export_artifact: AgentTaskArtifact | None = None,
+) -> TechnicalReportReleaseReadinessDbGate | None:
+    row = _technical_report_readiness_db_gate_for_verification_task(
+        session,
+        verification_task_id,
+    )
+    if row is not None:
+        changed = False
+        if evidence_manifest is not None and row.evidence_manifest_id != evidence_manifest.id:
+            row.evidence_manifest_id = evidence_manifest.id
+            changed = True
+        if (
+            prov_export_artifact is not None
+            and row.prov_export_artifact_id != prov_export_artifact.id
+        ):
+            row.prov_export_artifact_id = prov_export_artifact.id
+            changed = True
+        if changed:
+            row.updated_at = utcnow()
+            session.flush()
+        return _ensure_technical_report_release_readiness_db_gate_governance_event(
+            session,
+            row,
+        )
+
+    context_pack_audit = _technical_report_context_pack_audit_for_verification_task(
+        session,
+        verification_task_id,
+    )
+    gate_payload = _json_payload(context_pack_audit.get("release_readiness_db_gate") or {})
+    source_verification_id = _uuid_or_none_safe(gate_payload.get("verification_id"))
+    if source_verification_id is None:
+        return None
+    now = utcnow()
+    row = TechnicalReportReleaseReadinessDbGate(
+        id=uuid.uuid4(),
+        technical_report_verification_task_id=verification_task_id,
+        source_verification_id=source_verification_id,
+        source_verification_task_id=_uuid_or_none_safe(gate_payload.get("verification_task_id")),
+        harness_task_id=_uuid_or_none_safe(context_pack_audit.get("harness_task_id")),
+        evidence_manifest_id=evidence_manifest.id if evidence_manifest is not None else None,
+        prov_export_artifact_id=(
+            prov_export_artifact.id if prov_export_artifact is not None else None
+        ),
+        check_key=RELEASE_READINESS_DB_GATE_CHECK_KEY,
+        passed=gate_payload.get("passed") is True,
+        required=gate_payload.get("required") if gate_payload.get("required") is not None else None,
+        coverage_complete=gate_payload.get("coverage_complete") is True,
+        complete=gate_payload.get("complete") is True,
+        source_search_request_count=_int_or_none(
+            gate_payload.get("source_search_request_count")
+        )
+        or 0,
+        verified_request_count=_int_or_none(gate_payload.get("verified_request_count")) or 0,
+        failure_count=_int_or_none(gate_payload.get("failure_count")) or 0,
+        source_search_request_ids_json=_string_values(
+            gate_payload.get("source_search_request_ids") or []
+        ),
+        verified_request_ids_json=_string_values(gate_payload.get("verified_request_ids") or []),
+        missing_expected_request_ids_json=_string_values(
+            gate_payload.get("missing_expected_request_ids") or []
+        ),
+        unexpected_verified_request_ids_json=_string_values(
+            gate_payload.get("unexpected_verified_request_ids") or []
+        ),
+        summary_json=_json_payload(gate_payload.get("summary") or {}),
+        gate_payload_json=gate_payload,
+        gate_payload_sha256=str(payload_sha256(gate_payload)),
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.flush()
+    return _ensure_technical_report_release_readiness_db_gate_governance_event(
+        session,
+        row,
+    )
+
+
+def get_agent_task_audit_bundle(
+    session: Session,
+    task_id: UUID,
+    *,
+    include_live_release_readiness_db_gate_links: bool = True,
+) -> dict:
     task = session.get(AgentTask, task_id)
     if task is None:
         raise ValueError(f"Agent task '{task_id}' was not found.")
@@ -8145,6 +8530,19 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         artifacts=artifacts,
         verification_rows=context_pack_verifications,
         operator_runs=operator_runs,
+    )
+    release_readiness_db_gate_row = (
+        _technical_report_readiness_db_gate_for_verification_task(
+            session,
+            verification_task.id,
+        )
+        if verification_task is not None
+        else None
+    )
+    context_pack_audit = _with_release_readiness_db_gate_record(
+        context_pack_audit,
+        release_readiness_db_gate_row,
+        include_links=include_live_release_readiness_db_gate_links,
     )
     verification_payload = (
         ((verification_task.result_json or {}).get("payload") or {})
@@ -8345,6 +8743,9 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
             "release_readiness_db_covers_source_requests": context_pack_audit["integrity"][
                 "release_readiness_db_covers_source_requests"
             ],
+            "has_persisted_release_readiness_db_gate": context_pack_audit["integrity"][
+                "has_persisted_release_readiness_db_gate"
+            ],
             "context_pack_audit_complete": context_pack_audit["integrity"]["complete"],
             "verification_passed": (
                 verification_row.outcome == "passed" if verification_row is not None else False
@@ -8397,6 +8798,7 @@ def get_agent_task_audit_bundle(session: Session, task_id: UUID) -> dict:
         and audit_bundle["audit_checklist"]["release_readiness_db_gate_verified"]
         and audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"]
         and audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"]
+        and audit_bundle["audit_checklist"]["has_persisted_release_readiness_db_gate"]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
         and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]

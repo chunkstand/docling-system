@@ -21,6 +21,7 @@ from app.db.models import (
     SemanticGovernanceEventKind,
     SemanticGraphSnapshot,
     SemanticOntologySnapshot,
+    TechnicalReportReleaseReadinessDbGate,
     WorkspaceSemanticGraphState,
     WorkspaceSemanticState,
 )
@@ -610,6 +611,63 @@ def record_technical_report_prov_export_governance_event(
         deduplication_key=(
             f"technical_report_prov_export_frozen:{artifact.id}:"
             f"{receipt.get('receipt_sha256') or frozen_export.get('export_payload_sha256')}"
+        ),
+        created_by="technical_report_verification",
+    )
+
+
+def record_technical_report_release_readiness_db_gate_event(
+    session: Session,
+    *,
+    gate: TechnicalReportReleaseReadinessDbGate,
+) -> SemanticGovernanceEvent:
+    semantic_basis = _active_semantic_basis(session)
+    ontology_snapshot_id = _uuid_or_none(semantic_basis.get("active_ontology_snapshot_id"))
+    graph_snapshot_id = _uuid_or_none(semantic_basis.get("active_semantic_graph_snapshot_id"))
+    return record_semantic_governance_event(
+        session,
+        event_kind=SemanticGovernanceEventKind.TECHNICAL_REPORT_READINESS_DB_GATE_RECORDED.value,
+        governance_scope=f"agent_task:{gate.technical_report_verification_task_id}",
+        subject_table="technical_report_release_readiness_db_gates",
+        subject_id=gate.id,
+        task_id=gate.technical_report_verification_task_id,
+        ontology_snapshot_id=ontology_snapshot_id,
+        semantic_graph_snapshot_id=graph_snapshot_id,
+        evidence_manifest_id=gate.evidence_manifest_id,
+        agent_task_artifact_id=gate.prov_export_artifact_id,
+        event_payload={
+            "technical_report_release_readiness_db_gate": {
+                "gate_id": str(gate.id),
+                "technical_report_verification_task_id": str(
+                    gate.technical_report_verification_task_id
+                ),
+                "source_verification_id": str(gate.source_verification_id),
+                "source_verification_task_id": _uuid_text(gate.source_verification_task_id),
+                "harness_task_id": _uuid_text(gate.harness_task_id),
+                "evidence_manifest_id": _uuid_text(gate.evidence_manifest_id),
+                "prov_export_artifact_id": _uuid_text(gate.prov_export_artifact_id),
+                "check_key": gate.check_key,
+                "passed": gate.passed,
+                "coverage_complete": gate.coverage_complete,
+                "complete": gate.complete,
+                "source_search_request_count": gate.source_search_request_count,
+                "verified_request_count": gate.verified_request_count,
+                "failure_count": gate.failure_count,
+                "source_search_request_ids": list(gate.source_search_request_ids_json or []),
+                "verified_request_ids": list(gate.verified_request_ids_json or []),
+                "missing_expected_request_ids": list(
+                    gate.missing_expected_request_ids_json or []
+                ),
+                "unexpected_verified_request_ids": list(
+                    gate.unexpected_verified_request_ids_json or []
+                ),
+                "gate_payload_sha256": gate.gate_payload_sha256,
+            },
+            "semantic_basis": semantic_basis,
+        },
+        deduplication_key=(
+            "technical_report_readiness_db_gate_recorded:"
+            f"{gate.id}:{gate.gate_payload_sha256}"
         ),
         created_by="technical_report_verification",
     )
