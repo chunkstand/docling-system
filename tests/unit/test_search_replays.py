@@ -7,6 +7,7 @@ from uuid import uuid4
 from app.schemas.search import SearchReplayQueryResponse, SearchReplayRunDetailResponse
 from app.services.search_replays import (
     CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+    TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
     ReplayCase,
     _cross_document_prose_replay_case,
     _evaluate_case_passed,
@@ -91,6 +92,76 @@ def test_compare_search_replay_runs_reports_improvements(monkeypatch) -> None:
     assert response.regressed_count == 0
     assert response.baseline_zero_result_count == 1
     assert response.candidate_zero_result_count == 0
+
+
+def test_compare_search_replay_runs_keys_claim_feedback_by_feedback_id(monkeypatch) -> None:
+    baseline_id = uuid4()
+    candidate_id = uuid4()
+    feedback_a_id = uuid4()
+    feedback_b_id = uuid4()
+
+    def query_row(feedback_id, *, passed: bool, result_count: int):
+        return SearchReplayQueryResponse(
+            replay_query_id=uuid4(),
+            query_text="same generated claim",
+            mode="hybrid",
+            filters={},
+            passed=passed,
+            result_count=result_count,
+            details={
+                "source_reason": TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+                "claim_feedback_id": str(feedback_id),
+            },
+            created_at=_timestamp(),
+        )
+
+    baseline = SearchReplayRunDetailResponse(
+        replay_run_id=baseline_id,
+        source_type=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+        status="completed",
+        query_count=2,
+        passed_count=1,
+        failed_count=1,
+        zero_result_count=0,
+        table_hit_count=1,
+        top_result_changes=0,
+        max_rank_shift=0,
+        created_at=_timestamp(),
+        summary={},
+        query_results=[
+            query_row(feedback_a_id, passed=False, result_count=1),
+            query_row(feedback_b_id, passed=True, result_count=1),
+        ],
+    )
+    candidate = SearchReplayRunDetailResponse(
+        replay_run_id=candidate_id,
+        source_type=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+        status="completed",
+        query_count=2,
+        passed_count=1,
+        failed_count=1,
+        zero_result_count=0,
+        table_hit_count=1,
+        top_result_changes=0,
+        max_rank_shift=0,
+        created_at=_timestamp(),
+        summary={},
+        query_results=[
+            query_row(feedback_a_id, passed=True, result_count=1),
+            query_row(feedback_b_id, passed=False, result_count=1),
+        ],
+    )
+
+    monkeypatch.setattr(
+        "app.services.search_replays.get_search_replay_run_detail",
+        lambda session, replay_run_id: baseline if replay_run_id == baseline_id else candidate,
+    )
+
+    response = compare_search_replay_runs(None, baseline_id, candidate_id)
+
+    assert response.shared_query_count == 2
+    assert response.improved_count == 1
+    assert response.regressed_count == 1
 
 
 def test_export_ranking_dataset_includes_feedback_and_replay_rows() -> None:
@@ -304,6 +375,65 @@ def test_evaluate_case_passed_enforces_source_purity_constraints() -> None:
     assert details["matching_rank"] == 2
     assert details["top_result_source_filename"] == "wrong.pdf"
     assert details["foreign_results_before_first_expected_hit"] == 1
+
+
+def test_evaluate_case_passed_enforces_claim_feedback_labels() -> None:
+    target_id = uuid4()
+    execution = SimpleNamespace(
+        results=[
+            SimpleNamespace(result_type="chunk", chunk_id=target_id, table_id=None),
+            SimpleNamespace(result_type="chunk", chunk_id=uuid4(), table_id=None),
+        ],
+        table_hit_count=0,
+    )
+
+    positive_passed, positive_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="claim",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            expected_top_n=1,
+            target_result_type="chunk",
+            target_result_id=target_id,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata={"learning_label": "positive"},
+        ),
+        execution,
+    )
+    negative_passed, negative_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="claim",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            expected_top_n=1,
+            target_result_type="chunk",
+            target_result_id=target_id,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata={"learning_label": "negative"},
+        ),
+        execution,
+    )
+    missing_passed, missing_details = _evaluate_case_passed(
+        ReplayCase(
+            query_text="claim",
+            mode="hybrid",
+            filters={},
+            limit=10,
+            source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+            source_metadata={"learning_label": "missing"},
+        ),
+        SimpleNamespace(results=[], table_hit_count=0),
+    )
+
+    assert positive_passed is True
+    assert positive_details["target_rank"] == 1
+    assert positive_details["matching_rank"] == 1
+    assert negative_passed is False
+    assert negative_details["claim_feedback_replay_verdict"] == "negative_target_still_prominent"
+    assert missing_passed is False
+    assert missing_details["claim_feedback_replay_verdict"] == "missing_evidence_still_empty"
 
 
 def test_finalize_replay_rank_metrics_computes_mrr() -> None:

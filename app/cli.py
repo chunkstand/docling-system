@@ -766,6 +766,7 @@ def run_replay_suite() -> None:
             "live_search_gaps",
             "feedback",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source to execute.",
     )
@@ -812,11 +813,17 @@ def run_materialize_retrieval_learning_dataset() -> None:
     parser.add_argument(
         "--source-type",
         action="append",
-        choices=["feedback", "replay", "claim_support_replay_alert_corpus"],
+        choices=[
+            "feedback",
+            "replay",
+            "claim_support_replay_alert_corpus",
+            "technical_report_claim_feedback",
+        ],
         dest="source_types",
         help=(
             "Source family to mine. May be repeated; defaults to feedback and replay. "
-            "Use claim_support_replay_alert_corpus for the governed replay-alert fixture corpus."
+            "Use claim_support_replay_alert_corpus for the governed replay-alert fixture corpus "
+            "or technical_report_claim_feedback for court-grade claim feedback."
         ),
     )
     parser.add_argument("--set-name", default=None, help="Optional unique judgment set name.")
@@ -882,6 +889,7 @@ def run_evaluate_retrieval_learning_candidate() -> None:
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source type to include. Can be passed multiple times.",
     )
@@ -983,6 +991,7 @@ def run_create_retrieval_reranker_artifact() -> None:
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source type to include. Can be passed multiple times.",
     )
@@ -1071,6 +1080,7 @@ def run_eval_reranker() -> None:
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source type to include. Can be passed multiple times.",
     )
@@ -1152,6 +1162,7 @@ def run_gate_search_harness_release() -> None:
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source type to include. Can be passed multiple times.",
     )
@@ -1335,6 +1346,7 @@ def run_optimize_search_harness() -> None:
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         help="Replay source type to include. Can be passed multiple times.",
     )

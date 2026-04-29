@@ -44,6 +44,7 @@ from app.schemas.search import (
     RetrievalRerankerArtifactRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseResponse,
+    SearchReplayRunRequest,
 )
 from app.services.claim_support_replay_alert_fixture_corpus import (
     ensure_active_replay_alert_fixture_corpus_snapshot,
@@ -54,6 +55,7 @@ from app.services.retrieval_learning import (
     evaluate_retrieval_learning_candidate,
     materialize_retrieval_learning_dataset,
 )
+from app.services.search_replays import run_search_replay_suite
 from app.services.semantic_governance import record_semantic_governance_event
 
 pytestmark = pytest.mark.skipif(
@@ -756,6 +758,228 @@ def test_materialize_retrieval_learning_dataset_from_claim_feedback_ledger(
     assert training_run.training_payload_json["judgment_set"]["criteria"][
         "technical_report_claim_feedback"
     ]["feedback_payload_hash_required"] is True
+
+
+def test_claim_feedback_replay_source_drives_learning_candidate_and_artifact(
+    postgres_integration_harness,
+    monkeypatch,
+) -> None:
+    now = datetime.now(UTC)
+    verification_task_id = uuid4()
+
+    with postgres_integration_harness.session_factory() as session:
+        request = _make_search_request(now=now)
+        result = _make_result(request_id=request.id, rank=1, result_type="chunk", now=now)
+        verification_task = AgentTask(
+            id=verification_task_id,
+            task_type="verify_technical_report",
+            status="completed",
+            input_json={},
+            result_json={},
+            created_at=now,
+            updated_at=now,
+            completed_at=now,
+        )
+        source_payload = {
+            "schema_name": "technical_report_claim_retrieval_feedback_source",
+            "schema_version": "1.0",
+            "technical_report_verification_task_id": str(verification_task_id),
+            "claim_id": "claim:replay-source",
+            "claim_text": "The generated claim overstates the cited evidence.",
+            "support_verdict": "unsupported",
+            "support_score": 0.18,
+            "feedback_status": "rejected",
+            "learning_label": "negative",
+            "hard_negative_kind": "explicit_irrelevant",
+            "source_search_request_ids": [str(request.id)],
+            "source_search_request_result_ids": [str(result.id)],
+        }
+        source_payload_sha256 = str(payload_sha256(source_payload))
+        feedback_payload = {
+            "schema_name": "technical_report_claim_retrieval_feedback",
+            "schema_version": "1.0",
+            "feedback_kind": "generation_claim_retrieval_feedback",
+            "technical_report_verification_task_id": str(verification_task_id),
+            "claim_id": "claim:replay-source",
+            "feedback_status": "rejected",
+            "learning_label": "negative",
+            "hard_negative_kind": "explicit_irrelevant",
+            "source_payload_sha256": source_payload_sha256,
+            "source": source_payload,
+        }
+        feedback = TechnicalReportClaimRetrievalFeedback(
+            id=uuid4(),
+            technical_report_verification_task_id=verification_task_id,
+            claim_id="claim:replay-source",
+            claim_text="The generated claim overstates the cited evidence.",
+            support_verdict="unsupported",
+            support_score=0.18,
+            feedback_status="rejected",
+            learning_label="negative",
+            hard_negative_kind="explicit_irrelevant",
+            source_search_request_id=request.id,
+            search_request_result_id=result.id,
+            source_search_request_ids_json=[str(request.id)],
+            source_search_request_result_ids_json=[str(result.id)],
+            search_request_result_span_ids_json=[],
+            retrieval_evidence_span_ids_json=[],
+            semantic_ontology_snapshot_ids_json=[],
+            semantic_graph_snapshot_ids_json=[],
+            retrieval_reranker_artifact_ids_json=[],
+            search_harness_release_ids_json=[],
+            release_audit_bundle_ids_json=[],
+            release_validation_receipt_ids_json=[],
+            evidence_refs_json=[],
+            retrieval_context_json={
+                "primary_query_text": request.query_text,
+                "primary_mode": request.mode,
+                "primary_harness_name": request.harness_name,
+                "primary_reranker_name": request.reranker_name,
+                "primary_reranker_version": request.reranker_version,
+                "primary_retrieval_profile_name": request.retrieval_profile_name,
+                "primary_harness_config": request.harness_config_json,
+            },
+            feedback_payload_json=feedback_payload,
+            feedback_payload_sha256=str(payload_sha256(feedback_payload)),
+            source_payload_json=source_payload,
+            source_payload_sha256=source_payload_sha256,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add_all([request, result, verification_task, feedback])
+        session.flush()
+        learning_response = materialize_retrieval_learning_dataset(
+            session,
+            limit=10,
+            source_types=["technical_report_claim_feedback"],
+            set_name="integration-claim-feedback-replay-source",
+            created_by="integration",
+        )
+        training_run_id = UUID(learning_response["retrieval_training_run_id"])
+        feedback_id = feedback.id
+        target_result_id = result.chunk_id
+        session.commit()
+
+    def fake_execute_search(
+        session,
+        search_request,
+        *,
+        origin,
+        parent_request_id=None,
+        harness_overrides=None,
+    ):
+        replay_request_id = uuid4()
+        replay_result = _make_result(
+            request_id=replay_request_id,
+            rank=1,
+            result_type="chunk",
+            now=now,
+        )
+        assert replay_result.chunk_id != target_result_id
+        replay_request = SearchRequestRecord(
+            id=replay_request_id,
+            parent_request_id=parent_request_id,
+            evaluation_id=None,
+            run_id=None,
+            origin=origin,
+            query_text=search_request.query,
+            mode=search_request.mode,
+            filters_json=(
+                search_request.filters.model_dump(exclude_none=True)
+                if search_request.filters is not None
+                else {}
+            ),
+            details_json={},
+            limit=search_request.limit,
+            tabular_query=False,
+            harness_name=search_request.harness_name or "default_v1",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v1",
+            retrieval_profile_name=search_request.harness_name or "default_v1",
+            harness_config_json={"harness_name": search_request.harness_name or "default_v1"},
+            embedding_status="ready",
+            embedding_error=None,
+            candidate_count=1,
+            result_count=1,
+            table_hit_count=0,
+            duration_ms=2.0,
+            created_at=now,
+        )
+        session.add_all([replay_request, replay_result])
+        session.flush()
+        return SimpleNamespace(
+            request_id=replay_request_id,
+            results=[
+                SimpleNamespace(
+                    result_type="chunk",
+                    chunk_id=replay_result.chunk_id,
+                    table_id=None,
+                    source_filename=replay_result.source_filename,
+                    document_id=replay_result.document_id,
+                    run_id=replay_result.run_id,
+                    score=replay_result.score,
+                )
+            ],
+            table_hit_count=0,
+            embedding_status="ready",
+            harness_name=search_request.harness_name or "default_v1",
+            reranker_name="linear_feature_reranker",
+            reranker_version="v1",
+            retrieval_profile_name=search_request.harness_name or "default_v1",
+            harness_config={"harness_name": search_request.harness_name or "default_v1"},
+        )
+
+    monkeypatch.setattr("app.services.search_replays.execute_search", fake_execute_search)
+
+    with postgres_integration_harness.session_factory() as session:
+        replay = run_search_replay_suite(
+            session,
+            SearchReplayRunRequest(
+                source_type="technical_report_claim_feedback",
+                limit=5,
+                harness_name="default_v1",
+            ),
+        )
+        candidate = evaluate_retrieval_learning_candidate(
+            session,
+            RetrievalLearningCandidateEvaluationRequest(
+                retrieval_training_run_id=training_run_id,
+                candidate_harness_name="default_v1",
+                baseline_harness_name="default_v1",
+                source_types=["technical_report_claim_feedback"],
+                limit=5,
+                requested_by="integration",
+            ),
+        )
+        artifact = create_retrieval_reranker_artifact(
+            session,
+            RetrievalRerankerArtifactRequest(
+                retrieval_training_run_id=training_run_id,
+                artifact_name="integration-claim-feedback-reranker",
+                candidate_harness_name="claim_feedback_candidate",
+                baseline_harness_name="default_v1",
+                base_harness_name="default_v1",
+                source_types=["technical_report_claim_feedback"],
+                limit=5,
+                requested_by="integration",
+            ),
+        )
+        session.commit()
+
+    assert replay.status == "completed"
+    assert replay.source_type == "technical_report_claim_feedback"
+    assert replay.query_count == 1
+    assert replay.passed_count == 1
+    assert replay.query_results[0].details["claim_feedback_id"] == str(feedback_id)
+    assert replay.query_results[0].details["target_rank"] is None
+    assert (
+        replay.query_results[0].details["claim_feedback_replay_verdict"]
+        == "negative_target_excluded"
+    )
+    assert candidate.gate_outcome == "passed"
+    assert candidate.evaluation.source_types == ["technical_report_claim_feedback"]
+    assert artifact.gate_outcome == "passed"
+    assert artifact.evaluation.source_types == ["technical_report_claim_feedback"]
 
 
 def test_retrieval_training_audit_bundle_flags_tampered_replay_alert_corpus_lineage(

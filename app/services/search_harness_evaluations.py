@@ -21,6 +21,7 @@ from app.schemas.search import (
 from app.services.search import DEFAULT_SEARCH_HARNESS_NAME, list_search_harnesses
 from app.services.search_replays import (
     CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+    TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
     compare_search_replay_runs,
     run_search_replay_suite,
 )
@@ -30,6 +31,7 @@ VALID_SOURCE_TYPES = {
     "feedback",
     "live_search_gaps",
     CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE,
+    TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
 }
 
 

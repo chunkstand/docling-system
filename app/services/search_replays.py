@@ -22,6 +22,7 @@ from app.db.models import (
     SearchReplayRun,
     SearchRequestRecord,
     SearchRequestResult,
+    TechnicalReportClaimRetrievalFeedback,
 )
 from app.schemas.search import (
     SearchReplayComparisonResponse,
@@ -42,6 +43,7 @@ from app.services.session_utils import uses_in_memory_session
 RANKING_DATASET_SCHEMA_VERSION = 2
 CROSS_DOCUMENT_PROSE_REGRESSIONS_SOURCE_TYPE = "cross_document_prose_regressions"
 EVALUATION_QUERY_SOURCE_TYPE = "evaluation_queries"
+TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE = "technical_report_claim_feedback"
 REPLAY_CASE_PAGE_MIN_LIMIT = 50
 
 
@@ -64,6 +66,7 @@ class ReplayCase:
     minimum_top_n_hits_from_expected_document: int | None = None
     maximum_foreign_results_before_first_expected_hit: int | None = None
     source_reason: str | None = None
+    source_metadata: dict | None = None
 
 
 def _replay_run_not_found(replay_run_id: UUID) -> HTTPException:
@@ -83,11 +86,59 @@ def _query_key(query_text: str, mode: str, filters: dict) -> tuple[str, str, str
     return query_text, mode, _filters_key(filters)
 
 
+def _replay_query_comparison_key(
+    row: SearchReplayQueryResponse,
+) -> tuple[str, str, str] | tuple[str, str]:
+    details = row.details or {}
+    if details.get("source_reason") == TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE:
+        claim_feedback_id = details.get("claim_feedback_id")
+        if claim_feedback_id:
+            return TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE, str(claim_feedback_id)
+    return _query_key(row.query_text, row.mode, row.filters)
+
+
 def _request_result_key(
     result_type: str | None,
     result_id: UUID | None,
 ) -> tuple[str | None, UUID | None]:
     return result_type, result_id
+
+
+def _string_result_key(
+    result_type: str | None,
+    result_id: UUID | str | None,
+) -> tuple[str | None, str | None]:
+    return result_type, str(result_id) if result_id is not None else None
+
+
+def _uuid_str(value: UUID | str | None) -> str | None:
+    return str(value) if value is not None else None
+
+
+def _execution_result_source_id(result) -> UUID | str | None:
+    if getattr(result, "result_type", None) == "table":
+        return getattr(result, "table_id", None)
+    if getattr(result, "result_type", None) == "chunk":
+        return getattr(result, "chunk_id", None)
+    return getattr(result, "table_id", None) or getattr(result, "chunk_id", None)
+
+
+def _target_rank(
+    results,
+    result_type: str | None,
+    result_id: UUID | str | None,
+) -> int | None:
+    if result_type is None or result_id is None:
+        return None
+    target_key = _string_result_key(result_type, result_id)
+    for rank, result in enumerate(results, start=1):
+        replay_key = _string_result_key(
+            getattr(result, "result_type", None),
+            _execution_result_source_id(result),
+        )
+        if replay_key == target_key:
+            return rank
+    return None
 
 
 def _is_smoke_test_note(note: str | None) -> bool:
@@ -196,6 +247,15 @@ def _finalize_replay_rank_metrics(metrics: dict) -> dict:
     reciprocal_rank_sum = float(metrics.pop("reciprocal_rank_sum", 0.0) or 0.0)
     metrics["mrr"] = reciprocal_rank_sum / query_count if query_count else 0.0
     return metrics
+
+
+def _is_rank_metric_case(case: ReplayCase) -> bool:
+    if case.evaluation_query_id is not None:
+        return True
+    return (
+        case.source_reason == TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE
+        and (case.source_metadata or {}).get("learning_label") == "positive"
+    )
 
 
 def _to_replay_run_summary(row: SearchReplayRun) -> SearchReplayRunSummaryResponse:
@@ -738,6 +798,183 @@ def _feedback_cases_in_memory(session: Session, limit: int) -> list[ReplayCase]:
     return cases
 
 
+def _claim_feedback_expected_top_n(
+    feedback: TechnicalReportClaimRetrievalFeedback,
+    result_row: SearchRequestResult | None,
+) -> int | None:
+    if feedback.learning_label == "positive":
+        return 3 if feedback.feedback_status == "weak" else 1
+    if feedback.learning_label == "negative" and result_row is not None:
+        return 1
+    return None
+
+
+def _claim_feedback_query_fields(
+    feedback: TechnicalReportClaimRetrievalFeedback,
+    request_row: SearchRequestRecord | None,
+) -> tuple[str, str, dict, int]:
+    retrieval_context = feedback.retrieval_context_json or {}
+    context_requests = retrieval_context.get("requests") or []
+    primary_request = context_requests[0] if context_requests else {}
+    query_text = (
+        getattr(request_row, "query_text", None)
+        or retrieval_context.get("primary_query_text")
+        or primary_request.get("query_text")
+        or feedback.claim_text
+        or feedback.claim_id
+    )
+    mode = (
+        getattr(request_row, "mode", None)
+        or retrieval_context.get("primary_mode")
+        or primary_request.get("mode")
+        or "hybrid"
+    )
+    filters = (
+        getattr(request_row, "filters_json", None)
+        or primary_request.get("filters")
+        or {}
+    )
+    replay_limit = (
+        getattr(request_row, "limit", None)
+        or primary_request.get("limit")
+        or 10
+    )
+    return str(query_text), str(mode), dict(filters or {}), int(replay_limit)
+
+
+def _claim_feedback_source_metadata(
+    feedback: TechnicalReportClaimRetrievalFeedback,
+    result_row: SearchRequestResult | None,
+) -> dict:
+    return {
+        "source_reason": TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+        "claim_feedback_id": str(feedback.id),
+        "technical_report_verification_task_id": str(
+            feedback.technical_report_verification_task_id
+        ),
+        "claim_id": feedback.claim_id,
+        "claim_text": feedback.claim_text,
+        "claim_evidence_derivation_id": _uuid_str(feedback.claim_evidence_derivation_id),
+        "evidence_manifest_id": _uuid_str(feedback.evidence_manifest_id),
+        "prov_export_artifact_id": _uuid_str(feedback.prov_export_artifact_id),
+        "release_readiness_db_gate_id": _uuid_str(feedback.release_readiness_db_gate_id),
+        "semantic_governance_event_id": _uuid_str(feedback.semantic_governance_event_id),
+        "support_verdict": feedback.support_verdict,
+        "support_score": feedback.support_score,
+        "feedback_status": feedback.feedback_status,
+        "learning_label": feedback.learning_label,
+        "hard_negative_kind": feedback.hard_negative_kind,
+        "feedback_payload_sha256": feedback.feedback_payload_sha256,
+        "source_payload_sha256": feedback.source_payload_sha256,
+        "source_search_request_ids": feedback.source_search_request_ids_json or [],
+        "source_search_request_result_ids": (
+            feedback.source_search_request_result_ids_json or []
+        ),
+        "search_request_result_span_ids": feedback.search_request_result_span_ids_json
+        or [],
+        "retrieval_evidence_span_ids": feedback.retrieval_evidence_span_ids_json or [],
+        "search_request_result_id": str(feedback.search_request_result_id)
+        if feedback.search_request_result_id is not None
+        else None,
+        "target_result_rank": result_row.rank if result_row is not None else None,
+        "target_source_filename": (
+            result_row.source_filename if result_row is not None else None
+        ),
+    }
+
+
+def _claim_feedback_replay_case(
+    feedback: TechnicalReportClaimRetrievalFeedback,
+    request_row: SearchRequestRecord | None,
+    result_row: SearchRequestResult | None,
+) -> ReplayCase:
+    query_text, mode, filters, replay_limit = _claim_feedback_query_fields(
+        feedback,
+        request_row,
+    )
+    target_result_type = result_row.result_type if result_row is not None else None
+    target_result_id = (
+        result_row.table_id or result_row.chunk_id if result_row is not None else None
+    )
+    expected_top_n = _claim_feedback_expected_top_n(feedback, result_row)
+    return ReplayCase(
+        query_text=query_text,
+        mode=mode,
+        filters=filters,
+        limit=replay_limit,
+        expected_result_type=target_result_type,
+        expected_top_n=expected_top_n,
+        source_search_request_id=feedback.source_search_request_id,
+        target_result_type=target_result_type,
+        target_result_id=target_result_id,
+        source_reason=TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE,
+        source_metadata=_claim_feedback_source_metadata(feedback, result_row),
+    )
+
+
+def _technical_report_claim_feedback_cases(
+    session: Session,
+    limit: int,
+) -> list[ReplayCase]:
+    if uses_in_memory_session(session):
+        return _technical_report_claim_feedback_cases_in_memory(session, limit)
+
+    feedback_rows = session.execute(
+        select(
+            TechnicalReportClaimRetrievalFeedback,
+            SearchRequestRecord,
+            SearchRequestResult,
+        )
+        .outerjoin(
+            SearchRequestRecord,
+            SearchRequestRecord.id
+            == TechnicalReportClaimRetrievalFeedback.source_search_request_id,
+        )
+        .outerjoin(
+            SearchRequestResult,
+            SearchRequestResult.id
+            == TechnicalReportClaimRetrievalFeedback.search_request_result_id,
+        )
+        .order_by(TechnicalReportClaimRetrievalFeedback.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        _claim_feedback_replay_case(feedback, request_row, result_row)
+        for feedback, request_row, result_row in feedback_rows
+    ]
+
+
+def _technical_report_claim_feedback_cases_in_memory(
+    session: Session,
+    limit: int,
+) -> list[ReplayCase]:
+    feedback_rows = (
+        session.execute(
+            select(TechnicalReportClaimRetrievalFeedback).order_by(
+                TechnicalReportClaimRetrievalFeedback.created_at.desc()
+            )
+        )
+        .scalars()
+        .all()
+    )
+    cases: list[ReplayCase] = []
+    for feedback in feedback_rows:
+        request_row = (
+            session.get(SearchRequestRecord, feedback.source_search_request_id)
+            if feedback.source_search_request_id is not None
+            else None
+        )
+        result_row = (
+            session.get(SearchRequestResult, feedback.search_request_result_id)
+            if feedback.search_request_result_id is not None
+            else None
+        )
+        cases.append(_claim_feedback_replay_case(feedback, request_row, result_row))
+        if len(cases) >= limit:
+            break
+    return cases
+
+
 def _build_replay_cases(session: Session, request: SearchReplayRunRequest) -> list[ReplayCase]:
     if request.source_type in {
         EVALUATION_QUERY_SOURCE_TYPE,
@@ -750,6 +987,8 @@ def _build_replay_cases(session: Session, request: SearchReplayRunRequest) -> li
         )
     if request.source_type == "live_search_gaps":
         return _live_search_gap_cases(session, request.limit)
+    if request.source_type == TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE:
+        return _technical_report_claim_feedback_cases(session, request.limit)
     return _feedback_cases(session, request.limit)
 
 
@@ -804,6 +1043,53 @@ def _evaluate_case_passed(case: ReplayCase, execution) -> tuple[bool, dict]:
             "foreign_results_before_first_expected_hit": (
                 foreign_results_before_first_expected_hit
             ),
+        }
+
+    if case.source_reason == TECHNICAL_REPORT_CLAIM_FEEDBACK_SOURCE_TYPE:
+        metadata = case.source_metadata or {}
+        learning_label = metadata.get("learning_label")
+        target_rank = _target_rank(
+            execution.results,
+            case.target_result_type,
+            case.target_result_id,
+        )
+        target_key = _string_result_key(case.target_result_type, case.target_result_id)
+        expected_top_n = case.expected_top_n or 0
+        if learning_label == "positive":
+            passed = target_rank is not None and target_rank <= expected_top_n
+            verdict = (
+                "positive_target_within_expected_top_n"
+                if passed
+                else "positive_target_missed"
+            )
+        elif learning_label == "negative":
+            has_target = case.target_result_type is not None and case.target_result_id is not None
+            passed = has_target and (target_rank is None or target_rank > expected_top_n)
+            verdict = (
+                "negative_target_excluded"
+                if passed
+                else "negative_target_still_prominent"
+                if has_target
+                else "negative_target_missing_from_feedback"
+            )
+        elif learning_label == "missing":
+            passed = len(execution.results) > 0
+            verdict = (
+                "missing_evidence_query_recovered"
+                if passed
+                else "missing_evidence_still_empty"
+            )
+        else:
+            passed = False
+            verdict = "unsupported_claim_feedback_label"
+        return passed, {
+            "target_key": [target_key[0], target_key[1]],
+            "target_rank": target_rank,
+            "matching_rank": target_rank if learning_label == "positive" else None,
+            "expected_top_n": case.expected_top_n,
+            "claim_feedback_replay_verdict": verdict,
+            "result_count": len(execution.results),
+            "table_hit_count": execution.table_hit_count,
         }
 
     if case.feedback_type is not None:
@@ -906,7 +1192,7 @@ def run_search_replay_suite(
                 summary_counter["max_rank_shift"],
                 diff.max_rank_shift if diff else 0,
             )
-            if case.evaluation_query_id is not None:
+            if _is_rank_metric_case(case):
                 rank_metrics["query_count"] += 1
                 matching_rank = pass_details.get("matching_rank")
                 if matching_rank:
@@ -930,6 +1216,17 @@ def run_search_replay_suite(
                         )
                     )
 
+            details_json = {
+                "source_reason": case.source_reason,
+                "feedback_type": case.feedback_type,
+                "embedding_status": execution.embedding_status,
+                "harness_name": execution.harness_name,
+                "reranker_name": execution.reranker_name,
+                "reranker_version": execution.reranker_version,
+                "retrieval_profile_name": execution.retrieval_profile_name,
+                **(case.source_metadata or {}),
+                **pass_details,
+            }
             session.add(
                 SearchReplayQuery(
                     id=uuid.uuid4(),
@@ -951,16 +1248,7 @@ def run_search_replay_suite(
                     removed_count=diff.removed_count if diff else 0,
                     top_result_changed=diff.top_result_changed if diff else False,
                     max_rank_shift=diff.max_rank_shift if diff else 0,
-                    details_json={
-                        "source_reason": case.source_reason,
-                        "feedback_type": case.feedback_type,
-                        "embedding_status": execution.embedding_status,
-                        "harness_name": execution.harness_name,
-                        "reranker_name": execution.reranker_name,
-                        "reranker_version": execution.reranker_version,
-                        "retrieval_profile_name": execution.retrieval_profile_name,
-                        **pass_details,
-                    },
+                    details_json=details_json,
                     created_at=created_at,
                 )
             )
@@ -1025,12 +1313,8 @@ def compare_search_replay_runs(
     baseline = get_search_replay_run_detail(session, baseline_replay_run_id)
     candidate = get_search_replay_run_detail(session, candidate_replay_run_id)
 
-    baseline_rows = {
-        _query_key(row.query_text, row.mode, row.filters): row for row in baseline.query_results
-    }
-    candidate_rows = {
-        _query_key(row.query_text, row.mode, row.filters): row for row in candidate.query_results
-    }
+    baseline_rows = {_replay_query_comparison_key(row): row for row in baseline.query_results}
+    candidate_rows = {_replay_query_comparison_key(row): row for row in candidate.query_results}
     shared_keys = baseline_rows.keys() & candidate_rows.keys()
 
     improved_count = 0

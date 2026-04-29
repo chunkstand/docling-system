@@ -199,7 +199,10 @@ class SearchReplayResponse(BaseModel):
 
 class SearchReplayRunRequest(BaseModel):
     source_type: str = Field(
-        pattern="^(evaluation_queries|live_search_gaps|feedback|cross_document_prose_regressions)$"
+        pattern=(
+            "^(evaluation_queries|live_search_gaps|feedback|"
+            "cross_document_prose_regressions|technical_report_claim_feedback)$"
+        )
     )
     limit: int = Field(default=25, ge=1, le=200)
     harness_name: str | None = None

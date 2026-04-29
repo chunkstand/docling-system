@@ -371,6 +371,7 @@ Replay suites currently support:
 - `feedback`
 - `live_search_gaps`
 - `cross_document_prose_regressions`
+- `technical_report_claim_feedback`
 
 Durable search telemetry now records:
 
@@ -604,6 +605,7 @@ uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12
 uv run docling-system-run-replay-suite feedback --harness-name wide_v2 --limit 12
 uv run docling-system-run-replay-suite cross_document_prose_regressions --harness-name prose_v3 --limit 12
+uv run docling-system-run-replay-suite technical_report_claim_feedback --limit 12
 uv run docling-system-eval-reranker wide_v2 --baseline-harness-name default_v1 --limit 25
 uv run docling-system-eval-reranker prose_v3 --baseline-harness-name default_v1 --source-type cross_document_prose_regressions --limit 25
 uv run docling-system-search-harness-evaluation-list --limit 10

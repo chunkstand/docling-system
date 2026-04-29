@@ -1794,7 +1794,8 @@ class SearchReplayRun(Base):
             "'evaluation_queries', "
             "'live_search_gaps', "
             "'feedback', "
-            "'cross_document_prose_regressions'"
+            "'cross_document_prose_regressions', "
+            "'technical_report_claim_feedback'"
             ")",
             name="ck_search_replay_runs_source_type",
         ),
@@ -2028,7 +2029,8 @@ class SearchHarnessEvaluationSource(Base):
             "'evaluation_queries', "
             "'live_search_gaps', "
             "'feedback', "
-            "'cross_document_prose_regressions'"
+            "'cross_document_prose_regressions', "
+            "'technical_report_claim_feedback'"
             ")",
             name="ck_search_harness_evaluation_sources_source_type",
         ),

@@ -338,6 +338,7 @@ def get_search_harness_descriptor(
             "feedback",
             "live_search_gaps",
             "cross_document_prose_regressions",
+            "technical_report_claim_feedback",
         ],
         known_tradeoffs=known_tradeoffs,
         harness_config=config,
