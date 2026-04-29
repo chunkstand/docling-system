@@ -2476,52 +2476,88 @@ def _verification_check_passed(row: AgentTaskVerification, check_key: str) -> bo
 
 def _release_readiness_db_gate_payload(
     verification_rows: list[AgentTaskVerification],
+    *,
+    source_search_request_ids: list[str],
 ) -> dict[str, Any]:
-    for row in reversed(verification_rows):
-        check = _verification_check(row, RELEASE_READINESS_DB_GATE_CHECK_KEY)
-        if check is None:
-            continue
+    expected_request_ids = _string_values(source_search_request_ids)
+    latest_row = verification_rows[-1] if verification_rows else None
+    check = (
+        _verification_check(latest_row, RELEASE_READINESS_DB_GATE_CHECK_KEY)
+        if latest_row is not None
+        else None
+    )
+    if latest_row is not None and check is not None:
         observed = check.get("observed")
         summary = dict(observed) if isinstance(observed, dict) else {}
         failure_count = _int_or_none(summary.get("failure_count")) or 0
         source_search_request_count = _int_or_none(summary.get("source_search_request_count")) or 0
         verified_request_count = _int_or_none(summary.get("verified_request_count")) or 0
+        verified_request_ids = _string_values(summary.get("verified_request_ids") or [])
+        missing_expected_request_ids = [
+            request_id
+            for request_id in expected_request_ids
+            if request_id not in verified_request_ids
+        ]
+        unexpected_verified_request_ids = [
+            request_id
+            for request_id in verified_request_ids
+            if request_id not in expected_request_ids
+        ]
+        coverage_complete = (
+            source_search_request_count == len(expected_request_ids)
+            and verified_request_count == len(expected_request_ids)
+            and not missing_expected_request_ids
+            and not unexpected_verified_request_ids
+        )
         complete = (
             check.get("passed") is True
             and summary.get("complete") is True
             and failure_count == 0
-            and (
-                source_search_request_count == 0
-                or verified_request_count == source_search_request_count
-            )
+            and coverage_complete
         )
         return {
             "schema_name": "technical_report_release_readiness_db_gate",
             "schema_version": "1.0",
             "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
-            "verification_id": str(row.id),
+            "verification_id": str(latest_row.id),
             "verification_task_id": (
-                str(row.verification_task_id) if row.verification_task_id else None
+                str(latest_row.verification_task_id) if latest_row.verification_task_id else None
             ),
             "passed": check.get("passed") is True,
             "required": check.get("required"),
+            "source_search_request_ids": expected_request_ids,
             "source_search_request_count": source_search_request_count,
+            "verified_request_ids": verified_request_ids,
             "verified_request_count": verified_request_count,
             "failure_count": failure_count,
+            "missing_expected_request_ids": missing_expected_request_ids,
+            "unexpected_verified_request_ids": unexpected_verified_request_ids,
+            "coverage_complete": coverage_complete,
             "summary": summary,
             "complete": complete,
         }
+    missing_check = latest_row is not None and check is None
     return {
         "schema_name": "technical_report_release_readiness_db_gate",
         "schema_version": "1.0",
         "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
-        "verification_id": None,
-        "verification_task_id": None,
+        "verification_id": str(latest_row.id) if latest_row is not None else None,
+        "verification_task_id": (
+            str(latest_row.verification_task_id)
+            if latest_row is not None and latest_row.verification_task_id
+            else None
+        ),
         "passed": False,
         "required": None,
+        "missing_check": missing_check,
+        "source_search_request_ids": expected_request_ids,
         "source_search_request_count": 0,
+        "verified_request_ids": [],
         "verified_request_count": 0,
         "failure_count": 0,
+        "missing_expected_request_ids": expected_request_ids,
+        "unexpected_verified_request_ids": [],
+        "coverage_complete": False,
         "summary": {},
         "complete": False,
     }
@@ -2667,7 +2703,10 @@ def _technical_report_context_pack_audit_payload(
         source_search_request_ids=source_search_request_ids,
         refs=release_readiness_assessments,
     )
-    release_readiness_db_gate = _release_readiness_db_gate_payload(verification_rows)
+    release_readiness_db_gate = _release_readiness_db_gate_payload(
+        verification_rows,
+        source_search_request_ids=source_search_request_ids,
+    )
     release_readiness_db_summary = dict(release_readiness_db_gate.get("summary") or {})
     latest_verification = verification_rows[-1] if verification_rows else None
     integrity = {
@@ -2697,21 +2736,14 @@ def _technical_report_context_pack_audit_payload(
                 == len(source_search_request_ids)
             )
         ),
-        "release_readiness_assessment_integrity_verified": any(
-            _verification_check_passed(row, RELEASE_READINESS_DB_GATE_CHECK_KEY)
-            for row in verification_rows
-        ),
+        "release_readiness_assessment_integrity_verified": release_readiness_db_gate["passed"]
+        is True,
         "release_readiness_db_gate_verified": release_readiness_db_gate["passed"] is True,
         "release_readiness_db_gate_complete": release_readiness_db_gate["complete"] is True,
-        "release_readiness_db_covers_source_requests": (
-            release_readiness_db_gate["source_search_request_count"]
-            == len(source_search_request_ids)
-            and (
-                not source_search_request_ids
-                or release_readiness_db_gate["verified_request_count"]
-                == len(source_search_request_ids)
-            )
-        ),
+        "release_readiness_db_covers_source_requests": release_readiness_db_gate[
+            "coverage_complete"
+        ]
+        is True,
     }
     integrity["complete"] = all(integrity.values())
     return {

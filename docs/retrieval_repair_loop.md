@@ -194,8 +194,9 @@ generation pack. Technical-report audit bundles, evidence manifests, evidence
 traces, and PROV exports carry the same assessment refs, the DB-derived gate
 summary, and provenance edges so court-facing generated documents can prove
 which release-readiness decision authorized the retrieval evidence and whether
-the database check covered every consumed source search request. The database enforces that audit bundle
-source IDs match their concrete release or training-run foreign keys. That keeps
+the latest database check exactly covered every consumed source search request.
+The database enforces that audit bundle source IDs match their concrete release
+or training-run foreign keys. That keeps
 the signed release package traceable from release gate back to the exact
 auditable dataset that influenced the candidate, and gives downstream
 document-generation workflows a court-facing receipt they can re-check

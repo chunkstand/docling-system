@@ -2,11 +2,14 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
+from app.db.models import AgentTaskVerification
 from app.services.evidence import (
+    RELEASE_READINESS_DB_GATE_CHECK_KEY,
     _frozen_prov_export_payload,
     _latest_passed_release_bindings_by_request,
     _prov_export_integrity_payload,
     _prov_export_receipt_integrity,
+    _release_readiness_db_gate_payload,
 )
 
 
@@ -71,6 +74,95 @@ class _FakeScalarSession:
         return iter(self._rows)
 
 
+def _context_pack_verification_row(
+    *, details: dict, outcome: str = "passed"
+) -> AgentTaskVerification:
+    now = datetime(2026, 4, 29, 12, tzinfo=UTC)
+    return AgentTaskVerification(
+        id=uuid4(),
+        target_task_id=uuid4(),
+        verification_task_id=uuid4(),
+        verifier_type="document_generation_context_pack_gate",
+        outcome=outcome,
+        metrics_json={},
+        reasons_json=[],
+        details_json=details,
+        created_at=now,
+        completed_at=now,
+    )
+
+
+def test_release_readiness_db_gate_payload_uses_latest_verification() -> None:
+    request_id = str(uuid4())
+    older_row = _context_pack_verification_row(
+        details={
+            "checks": [
+                {
+                    "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
+                    "passed": True,
+                    "required": True,
+                    "observed": {
+                        "source_search_request_count": 1,
+                        "verified_request_count": 1,
+                        "failure_count": 0,
+                        "verified_request_ids": [request_id],
+                        "complete": True,
+                    },
+                }
+            ]
+        }
+    )
+    latest_row = _context_pack_verification_row(
+        details={"checks": [{"check_key": "context_pack_hash_integrity", "passed": True}]}
+    )
+
+    gate = _release_readiness_db_gate_payload(
+        [older_row, latest_row],
+        source_search_request_ids=[request_id],
+    )
+
+    assert gate["verification_id"] == str(latest_row.id)
+    assert gate["missing_check"] is True
+    assert gate["passed"] is False
+    assert gate["coverage_complete"] is False
+    assert gate["complete"] is False
+    assert gate["missing_expected_request_ids"] == [request_id]
+
+
+def test_release_readiness_db_gate_payload_requires_exact_request_coverage() -> None:
+    expected_request_id = str(uuid4())
+    unexpected_request_id = str(uuid4())
+    row = _context_pack_verification_row(
+        details={
+            "checks": [
+                {
+                    "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
+                    "passed": True,
+                    "required": True,
+                    "observed": {
+                        "source_search_request_count": 1,
+                        "verified_request_count": 1,
+                        "failure_count": 0,
+                        "verified_request_ids": [unexpected_request_id],
+                        "complete": True,
+                    },
+                }
+            ]
+        }
+    )
+
+    gate = _release_readiness_db_gate_payload(
+        [row],
+        source_search_request_ids=[expected_request_id],
+    )
+
+    assert gate["passed"] is True
+    assert gate["coverage_complete"] is False
+    assert gate["complete"] is False
+    assert gate["missing_expected_request_ids"] == [expected_request_id]
+    assert gate["unexpected_verified_request_ids"] == [unexpected_request_id]
+
+
 def test_release_binding_uses_latest_release_before_search_request() -> None:
     request_id = str(uuid4())
     search_created_at = datetime(2026, 4, 27, 12, tzinfo=UTC)
@@ -129,9 +221,7 @@ def test_prov_export_integrity_is_complete_for_closed_relation_graph() -> None:
     integrity = _prov_export_integrity_payload(_base_prov_export())
 
     assert integrity["complete"] is True
-    assert integrity["hash_basis_schema"] == (
-        "technical_report_prov_export_without_integrity_v1"
-    )
+    assert integrity["hash_basis_schema"] == ("technical_report_prov_export_without_integrity_v1")
     assert "prov_integrity" not in integrity["hash_basis_fields"]
     assert "frozen_export" not in integrity["hash_basis_fields"]
     assert integrity["hash_excluded_fields"] == ["frozen_export", "prov_integrity"]
@@ -251,9 +341,7 @@ def test_prov_export_receipt_integrity_fails_for_hash_chain_tamper(monkeypatch) 
         created_at=datetime(2026, 4, 27, tzinfo=UTC),
         storage_path="storage/agent_tasks/task/technical_report_prov_export.json",
     )
-    frozen_payload["frozen_export"]["export_receipt"]["hash_chain"][-1][
-        "sha256"
-    ] = "tampered"
+    frozen_payload["frozen_export"]["export_receipt"]["hash_chain"][-1]["sha256"] = "tampered"
 
     integrity = _prov_export_receipt_integrity(frozen_payload)
     assert integrity["complete"] is False

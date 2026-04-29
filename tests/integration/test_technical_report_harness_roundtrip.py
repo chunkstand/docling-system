@@ -972,6 +972,12 @@ def test_technical_report_harness_roundtrip(
     assert audit_release_readiness_db_gate["complete"] is True
     assert audit_release_readiness_db_gate["verification_task_id"] == str(context_pack_eval_task_id)
     assert audit_release_readiness_db_gate["summary"] == (context_pack_release_readiness_db_summary)
+    assert audit_release_readiness_db_gate["coverage_complete"] is True
+    assert set(audit_release_readiness_db_gate["source_search_request_ids"]) == set(
+        audit_release_readiness_db_gate["verified_request_ids"]
+    )
+    assert audit_release_readiness_db_gate["missing_expected_request_ids"] == []
+    assert audit_release_readiness_db_gate["unexpected_verified_request_ids"] == []
     assert audit_bundle["context_pack_audit"]["release_readiness_db_summary"] == (
         context_pack_release_readiness_db_summary
     )
@@ -1201,6 +1207,10 @@ def test_technical_report_harness_roundtrip(
     assert (
         provenance["prov_summary"]["release_readiness_db_verified_request_count"]
         == context_pack_release_readiness_db_summary["verified_request_count"]
+    )
+    assert (
+        provenance["prov_summary"]["release_readiness_db_source_search_request_count"]
+        == context_pack_release_readiness_db_summary["source_search_request_count"]
     )
     assert provenance["retrieval_evaluation"]["complete"] is True
     assert provenance["retrieval_evaluation"]["source_record_recall"] == 1.0
