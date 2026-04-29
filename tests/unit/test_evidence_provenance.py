@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-from app.db.models import AgentTaskVerification
+from app.db.models import AgentTaskVerification, TechnicalReportReleaseReadinessDbGate
 from app.services.evidence import (
     RELEASE_READINESS_DB_GATE_CHECK_KEY,
     _frozen_prov_export_payload,
@@ -10,6 +10,8 @@ from app.services.evidence import (
     _prov_export_integrity_payload,
     _prov_export_receipt_integrity,
     _release_readiness_db_gate_payload,
+    _technical_report_release_readiness_db_gate_row_integrity,
+    payload_sha256,
 )
 
 
@@ -161,6 +163,81 @@ def test_release_readiness_db_gate_payload_requires_exact_request_coverage() -> 
     assert gate["complete"] is False
     assert gate["missing_expected_request_ids"] == [expected_request_id]
     assert gate["unexpected_verified_request_ids"] == [unexpected_request_id]
+
+
+def test_release_readiness_db_gate_row_integrity_detects_tampered_payload() -> None:
+    request_id = str(uuid4())
+    source_verification_id = uuid4()
+    source_verification_task_id = uuid4()
+    technical_report_verification_task_id = uuid4()
+    now = datetime(2026, 4, 29, 12, tzinfo=UTC)
+    gate_payload = {
+        "schema_name": "technical_report_release_readiness_db_gate",
+        "schema_version": "1.0",
+        "check_key": RELEASE_READINESS_DB_GATE_CHECK_KEY,
+        "verification_id": str(source_verification_id),
+        "verification_task_id": str(source_verification_task_id),
+        "passed": True,
+        "required": True,
+        "source_search_request_ids": [request_id],
+        "source_search_request_count": 1,
+        "verified_request_ids": [request_id],
+        "verified_request_count": 1,
+        "failure_count": 0,
+        "missing_expected_request_ids": [],
+        "unexpected_verified_request_ids": [],
+        "coverage_complete": True,
+        "summary": {
+            "complete": True,
+            "source_search_request_count": 1,
+            "verified_request_count": 1,
+            "failure_count": 0,
+            "verified_request_ids": [request_id],
+        },
+        "complete": True,
+    }
+    row = TechnicalReportReleaseReadinessDbGate(
+        id=uuid4(),
+        technical_report_verification_task_id=technical_report_verification_task_id,
+        source_verification_id=source_verification_id,
+        source_verification_task_id=source_verification_task_id,
+        check_key=RELEASE_READINESS_DB_GATE_CHECK_KEY,
+        passed=True,
+        required=True,
+        coverage_complete=True,
+        complete=True,
+        source_search_request_count=1,
+        verified_request_count=1,
+        failure_count=0,
+        source_search_request_ids_json=[request_id],
+        verified_request_ids_json=[request_id],
+        missing_expected_request_ids_json=[],
+        unexpected_verified_request_ids_json=[],
+        summary_json=gate_payload["summary"],
+        gate_payload_json=gate_payload,
+        gate_payload_sha256=str(payload_sha256(gate_payload)),
+        created_at=now,
+        updated_at=now,
+    )
+
+    integrity = _technical_report_release_readiness_db_gate_row_integrity(
+        row,
+        current_gate_payload=gate_payload,
+    )
+
+    assert integrity["complete"] is True
+    assert integrity["stored_payload_matches_current_gate"] is True
+
+    tampered_payload = {**gate_payload, "verified_request_ids": []}
+    row.gate_payload_json = tampered_payload
+    tampered_integrity = _technical_report_release_readiness_db_gate_row_integrity(
+        row,
+        current_gate_payload=gate_payload,
+    )
+
+    assert tampered_integrity["complete"] is False
+    assert tampered_integrity["stored_payload_hash_matches"] is False
+    assert tampered_integrity["stored_payload_matches_current_gate"] is False
 
 
 def test_release_binding_uses_latest_release_before_search_request() -> None:

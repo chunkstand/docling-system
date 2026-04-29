@@ -898,10 +898,14 @@ def test_technical_report_harness_roundtrip(
                 )
             )
         )
-        assert len(governance_events) == 1
-        assert governance_events[0].event_kind == "technical_report_prov_export_frozen"
-        assert governance_events[0].receipt_sha256 == receipt["receipt_sha256"]
-        assert governance_events[0].event_payload_json["change_impact"]["impacted"] is False
+        governance_events_by_kind = {row.event_kind: row for row in governance_events}
+        assert set(governance_events_by_kind) == {
+            "technical_report_prov_export_frozen",
+            "technical_report_readiness_db_gate_recorded",
+        }
+        prov_governance_event = governance_events_by_kind["technical_report_prov_export_frozen"]
+        assert prov_governance_event.receipt_sha256 == receipt["receipt_sha256"]
+        assert prov_governance_event.event_payload_json["change_impact"]["impacted"] is False
         db_gate_rows = list(
             session.scalars(
                 select(TechnicalReportReleaseReadinessDbGate).where(
@@ -931,6 +935,7 @@ def test_technical_report_harness_roundtrip(
         assert gate_event.subject_table == "technical_report_release_readiness_db_gates"
         assert gate_event.subject_id == db_gate.id
         assert gate_event.evidence_manifest_id == manifest_rows[0].id
+        assert gate_event.agent_task_artifact_id == prov_artifact.id
 
     verify_context_response = client.get(f"/agent-tasks/{verify_task_id}/context")
     assert verify_context_response.status_code == 200
@@ -986,6 +991,12 @@ def test_technical_report_harness_roundtrip(
     assert audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"] is True
     assert audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
     assert audit_bundle["audit_checklist"]["has_persisted_release_readiness_db_gate"] is True
+    assert (
+        audit_bundle["audit_checklist"][
+            "persisted_release_readiness_db_gate_integrity_verified"
+        ]
+        is True
+    )
     assert audit_bundle["audit_checklist"]["context_pack_audit_complete"] is True
     assert audit_bundle["audit_checklist"]["verification_passed"] is True
     assert audit_bundle["audit_checklist"]["change_impact_clear"] is True
@@ -1031,6 +1042,13 @@ def test_technical_report_harness_roundtrip(
         prov_artifact_id
     )
     assert audit_release_readiness_db_gate_record["semantic_governance_event_id"]
+    assert audit_release_readiness_db_gate_record["integrity"]["complete"] is True
+    assert (
+        audit_bundle["context_pack_audit"]["release_readiness_db_gate_record_integrity"][
+            "stored_payload_matches_current_gate"
+        ]
+        is True
+    )
     assert audit_bundle["context_pack_audit"]["release_readiness_db_summary"] == (
         context_pack_release_readiness_db_summary
     )
@@ -1164,6 +1182,12 @@ def test_technical_report_harness_roundtrip(
     assert manifest["audit_checklist"]["release_readiness_db_gate_complete"] is True
     assert manifest["audit_checklist"]["release_readiness_db_covers_source_requests"] is True
     assert manifest["audit_checklist"]["has_persisted_release_readiness_db_gate"] is True
+    assert (
+        manifest["audit_checklist"][
+            "persisted_release_readiness_db_gate_integrity_verified"
+        ]
+        is True
+    )
     assert manifest["audit_checklist"]["has_claim_source_search_results"] is True
     assert manifest["audit_checklist"]["hash_integrity_verified"] is True
     assert manifest["source_documents"][0]["sha256"]
@@ -1193,6 +1217,7 @@ def test_technical_report_harness_roundtrip(
     assert manifest_gate_record["gate_payload_sha256"] == release_readiness_db_gate_payload_sha256
     assert "prov_export_artifact_id" not in manifest_gate_record
     assert "semantic_governance_event_id" not in manifest_gate_record
+    assert manifest_gate_record["integrity"]["complete"] is True
     assert manifest["report_trace"]["context_pack_audit"]["release_readiness_db_summary"] == (
         context_pack_release_readiness_db_summary
     )
@@ -1232,6 +1257,45 @@ def test_technical_report_harness_roundtrip(
     assert manifest["manifest_integrity"]["stored_payload_hash_matches"] is True
     assert manifest["manifest_integrity"]["recomputed_manifest_hash_matches"] is True
     assert manifest["manifest_integrity"]["stored_payload_matches_recomputed"] is True
+
+    with postgres_integration_harness.session_factory() as session:
+        gate_row = session.get(
+            TechnicalReportReleaseReadinessDbGate,
+            release_readiness_db_gate_id,
+        )
+        assert gate_row is not None
+        original_gate_payload = deepcopy(gate_row.gate_payload_json)
+        tampered_gate_payload = deepcopy(original_gate_payload)
+        tampered_gate_payload["verified_request_ids"] = []
+        gate_row.gate_payload_json = tampered_gate_payload
+        session.commit()
+
+    tampered_audit_response = client.get(f"/agent-tasks/{verify_task_id}/audit-bundle")
+    assert tampered_audit_response.status_code == 200
+    tampered_audit = tampered_audit_response.json()
+    assert (
+        tampered_audit["context_pack_audit"]["release_readiness_db_gate_record_integrity"][
+            "stored_payload_hash_matches"
+        ]
+        is False
+    )
+    assert (
+        tampered_audit["audit_checklist"][
+            "persisted_release_readiness_db_gate_integrity_verified"
+        ]
+        is False
+    )
+    assert tampered_audit["audit_checklist"]["context_pack_audit_complete"] is False
+    assert tampered_audit["audit_checklist"]["complete"] is False
+
+    with postgres_integration_harness.session_factory() as session:
+        gate_row = session.get(
+            TechnicalReportReleaseReadinessDbGate,
+            release_readiness_db_gate_id,
+        )
+        assert gate_row is not None
+        gate_row.gate_payload_json = original_gate_payload
+        session.commit()
 
     trace_response = client.get(f"/agent-tasks/{verify_task_id}/evidence-trace")
     assert trace_response.status_code == 200

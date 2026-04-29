@@ -4548,6 +4548,25 @@ class TechnicalReportReleaseReadinessDbGate(Base):
             "AND failure_count >= 0",
             name="ck_tr_readiness_db_gates_nonnegative_counts",
         ),
+        CheckConstraint(
+            "char_length(gate_payload_sha256) = 64",
+            name="ck_tr_readiness_db_gates_payload_sha_length",
+        ),
+        CheckConstraint(
+            "source_search_request_count = jsonb_array_length(source_search_request_ids) "
+            "AND verified_request_count = jsonb_array_length(verified_request_ids)",
+            name="ck_tr_readiness_db_gates_request_count_consistency",
+        ),
+        CheckConstraint(
+            "NOT complete OR ("
+            "passed "
+            "AND coverage_complete "
+            "AND failure_count = 0 "
+            "AND missing_expected_request_ids = '[]'::jsonb "
+            "AND unexpected_verified_request_ids = '[]'::jsonb"
+            ")",
+            name="ck_tr_readiness_db_gates_complete_consistency",
+        ),
         UniqueConstraint(
             "technical_report_verification_task_id",
             name="uq_tr_readiness_db_gates_verification_task",

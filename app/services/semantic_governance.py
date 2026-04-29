@@ -667,7 +667,8 @@ def record_technical_report_release_readiness_db_gate_event(
         },
         deduplication_key=(
             "technical_report_readiness_db_gate_recorded:"
-            f"{gate.id}:{gate.gate_payload_sha256}"
+            f"{gate.id}:{gate.gate_payload_sha256}:"
+            f"{gate.evidence_manifest_id}:{gate.prov_export_artifact_id}"
         ),
         created_by="technical_report_verification",
     )

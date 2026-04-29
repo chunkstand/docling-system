@@ -2590,6 +2590,7 @@ def _technical_report_release_readiness_db_gate_record_payload(
     row: TechnicalReportReleaseReadinessDbGate,
     *,
     include_links: bool,
+    integrity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "schema_name": "technical_report_release_readiness_db_gate_record",
@@ -2617,6 +2618,7 @@ def _technical_report_release_readiness_db_gate_record_payload(
         "unexpected_verified_request_ids": list(row.unexpected_verified_request_ids_json or []),
         "summary": row.summary_json or {},
         "gate_payload_sha256": row.gate_payload_sha256,
+        "integrity": integrity or {},
         "created_at": row.created_at,
     }
     if include_links:
@@ -2639,6 +2641,99 @@ def _technical_report_release_readiness_db_gate_record_payload(
     return _json_payload(payload)
 
 
+def _technical_report_release_readiness_db_gate_row_integrity(
+    row: TechnicalReportReleaseReadinessDbGate,
+    *,
+    current_gate_payload: dict[str, Any],
+) -> dict[str, Any]:
+    stored_gate_payload = _json_payload(row.gate_payload_json or {})
+    current_gate_payload = _json_payload(current_gate_payload)
+    stored_payload_sha256 = str(payload_sha256(stored_gate_payload))
+    current_payload_sha256 = str(payload_sha256(current_gate_payload))
+    source_search_request_ids = _string_values(
+        stored_gate_payload.get("source_search_request_ids") or []
+    )
+    verified_request_ids = _string_values(stored_gate_payload.get("verified_request_ids") or [])
+    missing_expected_request_ids = _string_values(
+        stored_gate_payload.get("missing_expected_request_ids") or []
+    )
+    unexpected_verified_request_ids = _string_values(
+        stored_gate_payload.get("unexpected_verified_request_ids") or []
+    )
+    row_source_search_request_ids = _string_values(row.source_search_request_ids_json or [])
+    row_verified_request_ids = _string_values(row.verified_request_ids_json or [])
+    row_missing_expected_request_ids = _string_values(
+        row.missing_expected_request_ids_json or []
+    )
+    row_unexpected_verified_request_ids = _string_values(
+        row.unexpected_verified_request_ids_json or []
+    )
+    checks = {
+        "stored_payload_hash_matches": stored_payload_sha256 == row.gate_payload_sha256,
+        "stored_payload_matches_current_gate": stored_gate_payload == current_gate_payload,
+        "stored_payload_hash_matches_current_gate": (
+            row.gate_payload_sha256 == current_payload_sha256
+        ),
+        "source_verification_id_matches": str(row.source_verification_id)
+        == str(stored_gate_payload.get("verification_id") or ""),
+        "source_verification_task_id_matches": (
+            (str(row.source_verification_task_id) if row.source_verification_task_id else None)
+            == stored_gate_payload.get("verification_task_id")
+        ),
+        "check_key_matches": (
+            row.check_key == RELEASE_READINESS_DB_GATE_CHECK_KEY
+            and stored_gate_payload.get("check_key") == row.check_key
+        ),
+        "status_fields_match_payload": (
+            stored_gate_payload.get("passed") is row.passed
+            and stored_gate_payload.get("required") == row.required
+            and stored_gate_payload.get("coverage_complete") is row.coverage_complete
+            and stored_gate_payload.get("complete") is row.complete
+        ),
+        "count_fields_match_payload": (
+            (_int_or_none(stored_gate_payload.get("source_search_request_count")) or 0)
+            == row.source_search_request_count
+            and (_int_or_none(stored_gate_payload.get("verified_request_count")) or 0)
+            == row.verified_request_count
+            and (_int_or_none(stored_gate_payload.get("failure_count")) or 0)
+            == row.failure_count
+        ),
+        "request_ids_match_payload": (
+            source_search_request_ids == row_source_search_request_ids
+            and verified_request_ids == row_verified_request_ids
+            and missing_expected_request_ids == row_missing_expected_request_ids
+            and unexpected_verified_request_ids == row_unexpected_verified_request_ids
+        ),
+        "request_counts_match_arrays": (
+            row.source_search_request_count == len(row_source_search_request_ids)
+            and row.verified_request_count == len(row_verified_request_ids)
+        ),
+        "summary_matches_payload": (
+            _json_payload(stored_gate_payload.get("summary") or {})
+            == _json_payload(row.summary_json or {})
+        ),
+        "complete_consistency": (
+            not row.complete
+            or (
+                row.passed
+                and row.coverage_complete
+                and row.failure_count == 0
+                and not row_missing_expected_request_ids
+                and not row_unexpected_verified_request_ids
+            )
+        ),
+    }
+    return {
+        "schema_name": "technical_report_release_readiness_db_gate_row_integrity",
+        "schema_version": "1.0",
+        "stored_payload_sha256": stored_payload_sha256,
+        "recorded_payload_sha256": row.gate_payload_sha256,
+        "current_gate_payload_sha256": current_payload_sha256,
+        **checks,
+        "complete": all(checks.values()),
+    }
+
+
 def _with_release_readiness_db_gate_record(
     context_pack_audit: dict[str, Any],
     row: TechnicalReportReleaseReadinessDbGate | None,
@@ -2649,16 +2744,29 @@ def _with_release_readiness_db_gate_record(
     integrity = dict(result.get("integrity") or {})
     if row is None:
         result["release_readiness_db_gate_record"] = None
+        result["release_readiness_db_gate_record_integrity"] = {
+            "schema_name": "technical_report_release_readiness_db_gate_row_integrity",
+            "schema_version": "1.0",
+            "complete": False,
+            "missing_record": True,
+        }
         integrity["has_persisted_release_readiness_db_gate"] = False
+        integrity["persisted_release_readiness_db_gate_integrity_verified"] = False
         integrity["complete"] = False
         result["integrity"] = integrity
         return result
 
+    current_gate_payload = dict(result.get("release_readiness_db_gate") or {})
+    row_integrity = _technical_report_release_readiness_db_gate_row_integrity(
+        row,
+        current_gate_payload=current_gate_payload,
+    )
     record_payload = _technical_report_release_readiness_db_gate_record_payload(
         row,
         include_links=include_links,
+        integrity=row_integrity,
     )
-    gate_payload = dict(result.get("release_readiness_db_gate") or {})
+    gate_payload = dict(current_gate_payload)
     gate_payload.update(
         {
             "gate_id": record_payload["gate_id"],
@@ -2679,7 +2787,11 @@ def _with_release_readiness_db_gate_record(
         )
     result["release_readiness_db_gate"] = gate_payload
     result["release_readiness_db_gate_record"] = record_payload
+    result["release_readiness_db_gate_record_integrity"] = row_integrity
     integrity["has_persisted_release_readiness_db_gate"] = True
+    integrity["persisted_release_readiness_db_gate_integrity_verified"] = (
+        row_integrity["complete"] is True
+    )
     integrity["complete"] = all(
         bool(value) for key, value in integrity.items() if key != "complete"
     )
@@ -5043,6 +5155,9 @@ def build_technical_report_evidence_manifest_payload(
             "has_persisted_release_readiness_db_gate",
             False,
         ),
+        "persisted_release_readiness_db_gate_integrity_verified": audit_bundle[
+            "audit_checklist"
+        ].get("persisted_release_readiness_db_gate_integrity_verified", False),
         "verification_passed": audit_bundle["audit_checklist"].get(
             "verification_passed",
             False,
@@ -6799,6 +6914,30 @@ def _update_evidence_manifest_row_from_payload(
     return row
 
 
+def _evidence_manifest_has_release_readiness_db_gate_record(
+    row: EvidenceManifest,
+    gate_row: TechnicalReportReleaseReadinessDbGate | None,
+) -> bool:
+    if gate_row is None:
+        return False
+    context_pack_audit = (
+        ((row.manifest_payload_json or {}).get("report_trace") or {}).get(
+            "context_pack_audit"
+        )
+        or {}
+    )
+    gate_record = context_pack_audit.get("release_readiness_db_gate_record")
+    if not isinstance(gate_record, dict):
+        return False
+    gate_record_integrity = context_pack_audit.get("release_readiness_db_gate_record_integrity")
+    return (
+        gate_record.get("gate_id") == str(gate_row.id)
+        and gate_record.get("gate_payload_sha256") == gate_row.gate_payload_sha256
+        and isinstance(gate_record_integrity, dict)
+        and gate_record_integrity.get("complete") is True
+    )
+
+
 def persist_technical_report_evidence_manifest(
     session: Session,
     *,
@@ -6810,11 +6949,13 @@ def persist_technical_report_evidence_manifest(
     verification_task_id = _verification_task_id_for_manifest(session, task)
     existing = _existing_evidence_manifest(session, verification_task_id)
     if existing is not None:
-        persist_technical_report_release_readiness_db_gate(
+        gate_row = persist_technical_report_release_readiness_db_gate(
             session,
             verification_task_id=verification_task_id,
             evidence_manifest=existing,
         )
+        if not _evidence_manifest_has_release_readiness_db_gate_record(existing, gate_row):
+            return refresh_technical_report_evidence_manifest(session, task_id=verification_task_id)
         return existing
     persist_technical_report_release_readiness_db_gate(
         session,
@@ -8315,8 +8456,17 @@ def _ensure_technical_report_release_readiness_db_gate_governance_event(
     session: Session,
     row: TechnicalReportReleaseReadinessDbGate,
 ) -> TechnicalReportReleaseReadinessDbGate:
-    if row.semantic_governance_event_id is not None or row.evidence_manifest_id is None:
+    if row.evidence_manifest_id is None or row.prov_export_artifact_id is None:
         return row
+    if row.semantic_governance_event_id is not None:
+        event = session.get(SemanticGovernanceEvent, row.semantic_governance_event_id)
+        if (
+            event is not None
+            and event.event_kind == "technical_report_readiness_db_gate_recorded"
+            and event.evidence_manifest_id == row.evidence_manifest_id
+            and event.agent_task_artifact_id == row.prov_export_artifact_id
+        ):
+            return row
     event = record_technical_report_release_readiness_db_gate_event(session, gate=row)
     row.semantic_governance_event_id = event.id
     row.updated_at = utcnow()
@@ -8746,6 +8896,9 @@ def get_agent_task_audit_bundle(
             "has_persisted_release_readiness_db_gate": context_pack_audit["integrity"][
                 "has_persisted_release_readiness_db_gate"
             ],
+            "persisted_release_readiness_db_gate_integrity_verified": context_pack_audit[
+                "integrity"
+            ]["persisted_release_readiness_db_gate_integrity_verified"],
             "context_pack_audit_complete": context_pack_audit["integrity"]["complete"],
             "verification_passed": (
                 verification_row.outcome == "passed" if verification_row is not None else False
@@ -8799,6 +8952,9 @@ def get_agent_task_audit_bundle(
         and audit_bundle["audit_checklist"]["release_readiness_db_gate_complete"]
         and audit_bundle["audit_checklist"]["release_readiness_db_covers_source_requests"]
         and audit_bundle["audit_checklist"]["has_persisted_release_readiness_db_gate"]
+        and audit_bundle["audit_checklist"][
+            "persisted_release_readiness_db_gate_integrity_verified"
+        ]
         and audit_bundle["audit_checklist"]["has_frozen_prov_export"]
         and audit_bundle["audit_checklist"]["has_prov_export_receipt"]
         and audit_bundle["audit_checklist"]["has_signed_prov_export_receipt"]
