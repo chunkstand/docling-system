@@ -1,0 +1,457 @@
+from __future__ import annotations
+
+from datetime import datetime
+from enum import StrEnum
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+
+class AgentTaskCreateRequest(BaseModel):
+    task_type: str = Field(min_length=1)
+    priority: int = Field(default=100, ge=0, le=1000)
+    side_effect_level: str | None = Field(
+        default=None,
+        pattern="^(read_only|draft_change|promotable)$",
+    )
+    requires_approval: bool | None = None
+    parent_task_id: UUID | None = None
+    dependency_task_ids: list[UUID] = Field(default_factory=list)
+    input: dict = Field(default_factory=dict)
+    workflow_version: str = Field(default="v1", min_length=1)
+    tool_version: str | None = None
+    prompt_version: str | None = None
+    model: str | None = None
+    model_settings: dict = Field(default_factory=dict)
+
+
+class AgentTaskApprovalRequest(BaseModel):
+    approved_by: str = Field(min_length=1)
+    approval_note: str | None = None
+
+
+class AgentTaskRejectionRequest(BaseModel):
+    rejected_by: str = Field(min_length=1)
+    rejection_note: str | None = None
+
+
+class AgentTaskOutcomeCreateRequest(BaseModel):
+    outcome_label: str = Field(pattern="^(useful|not_useful|correct|incorrect)$")
+    created_by: str = Field(min_length=1)
+    note: str | None = None
+
+
+class AgentTaskActionDefinitionResponse(BaseModel):
+    task_type: str
+    capability: str
+    definition_kind: str = "action"
+    description: str
+    side_effect_level: str
+    requires_approval: bool
+    context_builder_name: str
+    input_schema: dict = Field(default_factory=dict)
+    output_schema_name: str | None = None
+    output_schema_version: str | None = None
+    output_schema: dict | None = None
+    input_example: dict = Field(default_factory=dict)
+
+
+class AgentTaskSummaryResponse(BaseModel):
+    task_id: UUID
+    task_type: str
+    status: str
+    priority: int
+    side_effect_level: str
+    requires_approval: bool
+    parent_task_id: UUID | None = None
+    workflow_version: str
+    tool_version: str | None = None
+    prompt_version: str | None = None
+    model: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class AgentTaskVerificationResponse(BaseModel):
+    verification_id: UUID
+    target_task_id: UUID
+    verification_task_id: UUID | None = None
+    verifier_type: str
+    outcome: str
+    metrics: dict = Field(default_factory=dict)
+    reasons: list[str] = Field(default_factory=list)
+    details: dict = Field(default_factory=dict)
+    created_at: datetime
+    completed_at: datetime | None = None
+
+
+class AgentTaskArtifactResponse(BaseModel):
+    artifact_id: UUID
+    task_id: UUID
+    attempt_id: UUID | None = None
+    artifact_kind: str
+    storage_path: str | None = None
+    payload: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AgentTaskOutcomeResponse(BaseModel):
+    outcome_id: UUID
+    task_id: UUID
+    outcome_label: str
+    created_by: str
+    note: str | None = None
+    created_at: datetime
+
+
+class ContextFreshnessStatus(StrEnum):
+    FRESH = "fresh"
+    STALE = "stale"
+    MISSING = "missing"
+    SCHEMA_MISMATCH = "schema_mismatch"
+
+
+class AgentTaskDependencyResponse(BaseModel):
+    task_id: UUID
+    dependency_kind: str
+
+
+class ContextRef(BaseModel):
+    ref_key: str
+    ref_kind: str
+    summary: str | None = None
+    task_id: UUID | None = None
+    artifact_id: UUID | None = None
+    verification_id: UUID | None = None
+    replay_run_id: UUID | None = None
+    search_harness_evaluation_id: UUID | None = None
+    artifact_kind: str | None = None
+    schema_name: str | None = None
+    schema_version: str | None = None
+    observed_sha256: str | None = None
+    source_updated_at: datetime | None = None
+    checked_at: datetime | None = None
+    freshness_status: ContextFreshnessStatus | None = None
+
+
+class TaskContextSummary(BaseModel):
+    headline: str | None = None
+    goal: str | None = None
+    decision: str | None = None
+    next_action: str | None = None
+    approval_state: str | None = None
+    verification_state: str | None = None
+    problem: str | None = None
+    evidence: str | None = None
+    proposed_change: str | None = None
+    predicted_risk: str | None = None
+    follow_up_status: str | None = None
+    metrics: dict = Field(default_factory=dict)
+
+
+class TaskContextEnvelope(BaseModel):
+    schema_name: str = "agent_task_context"
+    schema_version: str = "1.0"
+    task_id: UUID
+    task_type: str
+    task_status: str
+    workflow_version: str
+    generated_at: datetime
+    task_updated_at: datetime
+    output_schema_name: str | None = None
+    output_schema_version: str | None = None
+    freshness_status: ContextFreshnessStatus | None = None
+    summary: TaskContextSummary = Field(default_factory=TaskContextSummary)
+    refs: list[ContextRef] = Field(default_factory=list)
+    output: dict = Field(default_factory=dict)
+
+
+class AgentTaskTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    created_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    awaiting_approval_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+
+
+class AgentTaskTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskVerificationTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    passed_count: int = 0
+    failed_count: int = 0
+    error_count: int = 0
+
+
+class AgentTaskVerificationTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskVerificationTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskApprovalTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    approval_count: int = 0
+    rejection_count: int = 0
+
+
+class AgentTaskApprovalTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskApprovalTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskAnalyticsSummaryResponse(BaseModel):
+    task_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    awaiting_approval_count: int = 0
+    processing_count: int = 0
+    approval_required_count: int = 0
+    approved_task_count: int = 0
+    rejected_task_count: int = 0
+    labeled_task_count: int = 0
+    outcome_label_counts: dict[str, int] = Field(default_factory=dict)
+    verification_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    avg_terminal_duration_seconds: float | None = None
+
+
+class AgentTaskWorkflowVersionSummaryResponse(BaseModel):
+    workflow_version: str
+    task_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    rejected_count: int = 0
+    approved_task_count: int = 0
+    rejected_task_count: int = 0
+    labeled_task_count: int = 0
+    outcome_label_counts: dict[str, int] = Field(default_factory=dict)
+    verification_outcome_counts: dict[str, int] = Field(default_factory=dict)
+    avg_terminal_duration_seconds: float | None = None
+
+
+class AgentTaskRecommendationSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    recommendation_task_count: int = 0
+    draft_count: int = 0
+    verified_draft_count: int = 0
+    passed_verification_count: int = 0
+    approved_apply_count: int = 0
+    rejected_apply_count: int = 0
+    applied_count: int = 0
+    useful_label_count: int = 0
+    correct_label_count: int = 0
+    downstream_improved_count: int = 0
+    downstream_regressed_count: int = 0
+    triage_to_draft_rate: float | None = None
+    verification_pass_rate: float | None = None
+    apply_rate: float | None = None
+    downstream_improvement_rate: float | None = None
+
+
+class AgentTaskRecommendationTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    recommendation_task_count: int = 0
+    draft_count: int = 0
+    applied_count: int = 0
+    downstream_improved_count: int = 0
+    downstream_regressed_count: int = 0
+
+
+class AgentTaskRecommendationTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskRecommendationTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskCostSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    instrumented_attempt_count: int = 0
+    estimated_usd_total: float = 0.0
+    model_call_count: int = 0
+    embedding_count: int = 0
+    replay_query_count: int = 0
+    evaluation_query_count: int = 0
+
+
+class AgentTaskCostTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    estimated_usd_total: float = 0.0
+    replay_query_count: int = 0
+    evaluation_query_count: int = 0
+    embedding_count: int = 0
+
+
+class AgentTaskCostTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskCostTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskPerformanceSummaryResponse(BaseModel):
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    instrumented_attempt_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+    median_end_to_end_latency_ms: float | None = None
+    p95_end_to_end_latency_ms: float | None = None
+
+
+class AgentTaskPerformanceTrendPointResponse(BaseModel):
+    bucket_start: datetime
+    task_type: str | None = None
+    workflow_version: str | None = None
+    attempt_count: int = 0
+    median_queue_latency_ms: float | None = None
+    p95_queue_latency_ms: float | None = None
+    median_execution_latency_ms: float | None = None
+    p95_execution_latency_ms: float | None = None
+
+
+class AgentTaskPerformanceTrendResponse(BaseModel):
+    bucket: str
+    task_type: str | None = None
+    workflow_version: str | None = None
+    series: list[AgentTaskPerformanceTrendPointResponse] = Field(default_factory=list)
+
+
+class AgentTaskValueDensityRowResponse(BaseModel):
+    task_type: str
+    workflow_version: str
+    recommendation_task_count: int = 0
+    downstream_improved_count: int = 0
+    estimated_usd_total: float = 0.0
+    median_end_to_end_latency_ms: float | None = None
+    useful_recommendation_rate: float | None = None
+    downstream_improvement_rate: float | None = None
+    improvements_per_dollar: float | None = None
+    improvements_per_hour: float | None = None
+
+
+class AgentTaskDecisionSignalResponse(BaseModel):
+    task_type: str
+    workflow_version: str
+    status: str
+    reason: str
+    threshold_crossed: str
+    recommended_action: str
+
+
+class AgentTaskDetailResponse(AgentTaskSummaryResponse):
+    dependency_task_ids: list[UUID] = Field(default_factory=list)
+    dependency_edges: list[AgentTaskDependencyResponse] = Field(default_factory=list)
+    input: dict = Field(default_factory=dict)
+    result: dict = Field(default_factory=dict)
+    model_settings: dict = Field(default_factory=dict)
+    error_message: str | None = None
+    failure_artifact_path: str | None = None
+    attempts: int = 0
+    locked_at: datetime | None = None
+    locked_by: str | None = None
+    last_heartbeat_at: datetime | None = None
+    next_attempt_at: datetime | None = None
+    approved_at: datetime | None = None
+    approved_by: str | None = None
+    approval_note: str | None = None
+    rejected_at: datetime | None = None
+    rejected_by: str | None = None
+    rejection_note: str | None = None
+    artifact_count: int = 0
+    attempt_count: int = 0
+    verification_count: int = 0
+    outcome_count: int = 0
+    context_summary: TaskContextSummary | None = None
+    context_refs: list[ContextRef] = Field(default_factory=list)
+    context_artifact_id: UUID | None = None
+    context_freshness_status: ContextFreshnessStatus | None = None
+    artifacts: list[AgentTaskArtifactResponse] = Field(default_factory=list)
+    verifications: list[AgentTaskVerificationResponse] = Field(default_factory=list)
+    outcomes: list[AgentTaskOutcomeResponse] = Field(default_factory=list)
+
+
+class AgentTaskTraceExportResponse(BaseModel):
+    export_count: int = 0
+    workflow_version: str | None = None
+    task_type: str | None = None
+    traces: list[AgentTaskDetailResponse] = Field(default_factory=list)
+
+
+class TriageRecommendationPayload(BaseModel):
+    next_action: str
+    confidence: str
+    summary: str
+
+
+__all__ = [
+    "AgentTaskCreateRequest",
+    "AgentTaskApprovalRequest",
+    "AgentTaskRejectionRequest",
+    "AgentTaskOutcomeCreateRequest",
+    "AgentTaskActionDefinitionResponse",
+    "AgentTaskSummaryResponse",
+    "AgentTaskVerificationResponse",
+    "AgentTaskArtifactResponse",
+    "AgentTaskOutcomeResponse",
+    "ContextFreshnessStatus",
+    "AgentTaskDependencyResponse",
+    "ContextRef",
+    "TaskContextSummary",
+    "TaskContextEnvelope",
+    "AgentTaskTrendPointResponse",
+    "AgentTaskTrendResponse",
+    "AgentTaskVerificationTrendPointResponse",
+    "AgentTaskVerificationTrendResponse",
+    "AgentTaskApprovalTrendPointResponse",
+    "AgentTaskApprovalTrendResponse",
+    "AgentTaskAnalyticsSummaryResponse",
+    "AgentTaskWorkflowVersionSummaryResponse",
+    "AgentTaskRecommendationSummaryResponse",
+    "AgentTaskRecommendationTrendPointResponse",
+    "AgentTaskRecommendationTrendResponse",
+    "AgentTaskCostSummaryResponse",
+    "AgentTaskCostTrendPointResponse",
+    "AgentTaskCostTrendResponse",
+    "AgentTaskPerformanceSummaryResponse",
+    "AgentTaskPerformanceTrendPointResponse",
+    "AgentTaskPerformanceTrendResponse",
+    "AgentTaskValueDensityRowResponse",
+    "AgentTaskDecisionSignalResponse",
+    "AgentTaskDetailResponse",
+    "AgentTaskTraceExportResponse",
+    "TriageRecommendationPayload",
+]

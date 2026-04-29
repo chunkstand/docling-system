@@ -19,60 +19,31 @@ from app.api.deps import (
     storage_file_response,
 )
 from app.api.errors import api_error
+from app.api.routers.agent_task_analytics import router as agent_task_analytics_router
+from app.api.routers.claim_support_policy_impacts import (
+    router as claim_support_policy_impacts_router,
+)
 from app.db.session import get_db_session
 from app.schemas.agent_tasks import (
     AgentTaskActionDefinitionResponse,
-    AgentTaskAnalyticsSummaryResponse,
     AgentTaskApprovalRequest,
-    AgentTaskApprovalTrendResponse,
     AgentTaskArtifactResponse,
-    AgentTaskCostSummaryResponse,
-    AgentTaskCostTrendResponse,
     AgentTaskCreateRequest,
-    AgentTaskDecisionSignalResponse,
     AgentTaskDetailResponse,
     AgentTaskOutcomeCreateRequest,
     AgentTaskOutcomeResponse,
-    AgentTaskPerformanceSummaryResponse,
-    AgentTaskPerformanceTrendResponse,
-    AgentTaskRecommendationSummaryResponse,
-    AgentTaskRecommendationTrendResponse,
     AgentTaskRejectionRequest,
     AgentTaskSummaryResponse,
-    AgentTaskTraceExportResponse,
-    AgentTaskTrendResponse,
-    AgentTaskValueDensityRowResponse,
     AgentTaskVerificationResponse,
-    AgentTaskVerificationTrendResponse,
-    AgentTaskWorkflowVersionSummaryResponse,
-    ClaimSupportPolicyChangeImpactAlertEscalationRequest,
-    ClaimSupportPolicyChangeImpactAlertResponse,
-    ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,
-    ClaimSupportPolicyChangeImpactFixturePromotionRequest,
-    ClaimSupportPolicyChangeImpactFixturePromotionResponse,
-    ClaimSupportPolicyChangeImpactReplayRequest,
-    ClaimSupportPolicyChangeImpactReplayResponse,
-    ClaimSupportPolicyChangeImpactResponse,
-    ClaimSupportPolicyChangeImpactSummaryResponse,
-    ClaimSupportPolicyChangeImpactWorklistResponse,
     TaskContextEnvelope,
 )
+from app.services import claim_support_policy_impacts as claim_support_policy_impact_service
 from app.services.capabilities import agent_orchestration
-from app.services.claim_support_policy_impacts import (
-    claim_support_policy_change_impact_alerts,
-    claim_support_policy_change_impact_fixture_candidates,
-    claim_support_policy_change_impact_worklist,
-    get_claim_support_policy_change_impact,
-    list_claim_support_policy_change_impacts,
-    promote_claim_support_policy_change_impact_fixture_candidates,
-    queue_claim_support_policy_change_impact_replay_tasks,
-    record_claim_support_policy_change_impact_alert_escalations,
-    refresh_claim_support_policy_change_impact_replay_status,
-    summarize_claim_support_policy_change_impacts,
-)
 from app.services.storage import StorageService
 
 router = APIRouter()
+router.include_router(agent_task_analytics_router)
+router.include_router(claim_support_policy_impacts_router)
 DbSession = Annotated[Session, Depends(get_db_session)]
 TaskStatusQuery = Annotated[list[str] | None, Query(alias="status")]
 TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND = "technical_report_prov_export"
@@ -93,6 +64,38 @@ get_agent_task_artifact = agent_orchestration.get_agent_task_artifact
 get_agent_task_verifications = agent_orchestration.get_agent_task_verifications
 approve_agent_task = agent_orchestration.approve_agent_task
 reject_agent_task = agent_orchestration.reject_agent_task
+claim_support_policy_change_impact_alerts = (
+    claim_support_policy_impact_service.claim_support_policy_change_impact_alerts
+)
+claim_support_policy_change_impact_fixture_candidates = (
+    claim_support_policy_impact_service.claim_support_policy_change_impact_fixture_candidates
+)
+claim_support_policy_change_impact_worklist = (
+    claim_support_policy_impact_service.claim_support_policy_change_impact_worklist
+)
+get_claim_support_policy_change_impact = (
+    claim_support_policy_impact_service.get_claim_support_policy_change_impact
+)
+list_claim_support_policy_change_impacts = (
+    claim_support_policy_impact_service.list_claim_support_policy_change_impacts
+)
+_PROMOTE_FIXTURE_CANDIDATES_ATTR = "promote_claim_support_policy_change_impact_fixture_candidates"
+promote_claim_support_policy_change_impact_fixture_candidates = getattr(
+    claim_support_policy_impact_service,
+    _PROMOTE_FIXTURE_CANDIDATES_ATTR,
+)
+queue_claim_support_policy_change_impact_replay_tasks = (
+    claim_support_policy_impact_service.queue_claim_support_policy_change_impact_replay_tasks
+)
+record_claim_support_policy_change_impact_alert_escalations = (
+    claim_support_policy_impact_service.record_claim_support_policy_change_impact_alert_escalations
+)
+refresh_claim_support_policy_change_impact_replay_status = (
+    claim_support_policy_impact_service.refresh_claim_support_policy_change_impact_replay_status
+)
+summarize_claim_support_policy_change_impacts = (
+    claim_support_policy_impact_service.summarize_claim_support_policy_change_impacts
+)
 get_agent_task_analytics_summary = agent_orchestration.get_agent_task_analytics_summary
 get_agent_task_trends = agent_orchestration.get_agent_task_trends
 get_agent_verification_trends = agent_orchestration.get_agent_verification_trends
@@ -223,440 +226,6 @@ def create_agent_task_route(
     if task_id is not None:
         response.headers["Location"] = f"/agent-tasks/{task_id}"
     return task_response
-
-
-@router.get(
-    "/agent-tasks/analytics/summary",
-    response_model=AgentTaskAnalyticsSummaryResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_analytics_summary(
-    session: DbSession,
-) -> AgentTaskAnalyticsSummaryResponse:
-    return get_agent_task_analytics_summary(session)
-
-
-@router.get(
-    "/agent-tasks/analytics/trends",
-    response_model=AgentTaskTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskTrendResponse:
-    return get_agent_task_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/verifications",
-    response_model=AgentTaskVerificationTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_verification_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskVerificationTrendResponse:
-    return get_agent_verification_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/approvals",
-    response_model=AgentTaskApprovalTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_approval_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskApprovalTrendResponse:
-    return get_agent_approval_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/recommendations",
-    response_model=AgentTaskRecommendationSummaryResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_recommendation_summary(
-    session: DbSession,
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskRecommendationSummaryResponse:
-    return get_agent_task_recommendation_summary(
-        session,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/recommendations/trends",
-    response_model=AgentTaskRecommendationTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_recommendation_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskRecommendationTrendResponse:
-    return get_agent_task_recommendation_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/costs",
-    response_model=AgentTaskCostSummaryResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_cost_summary(
-    session: DbSession,
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskCostSummaryResponse:
-    return get_agent_task_cost_summary(
-        session,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/costs/trends",
-    response_model=AgentTaskCostTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_cost_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskCostTrendResponse:
-    return get_agent_task_cost_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/performance",
-    response_model=AgentTaskPerformanceSummaryResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_performance_summary(
-    session: DbSession,
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskPerformanceSummaryResponse:
-    return get_agent_task_performance_summary(
-        session,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/performance/trends",
-    response_model=AgentTaskPerformanceTrendResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_performance_trends(
-    session: DbSession,
-    bucket: str = "day",
-    task_type: str | None = None,
-    workflow_version: str | None = None,
-) -> AgentTaskPerformanceTrendResponse:
-    return get_agent_task_performance_trends(
-        session,
-        bucket=bucket,
-        task_type=task_type,
-        workflow_version=workflow_version,
-    )
-
-
-@router.get(
-    "/agent-tasks/analytics/value-density",
-    response_model=list[AgentTaskValueDensityRowResponse],
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_value_density(
-    session: DbSession,
-) -> list[AgentTaskValueDensityRowResponse]:
-    return get_agent_task_value_density(session)
-
-
-@router.get(
-    "/agent-tasks/analytics/decision-signals",
-    response_model=list[AgentTaskDecisionSignalResponse],
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_decision_signals(
-    session: DbSession,
-) -> list[AgentTaskDecisionSignalResponse]:
-    return get_agent_task_decision_signals(session)
-
-
-@router.get(
-    "/agent-tasks/analytics/workflow-versions",
-    response_model=list[AgentTaskWorkflowVersionSummaryResponse],
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_workflow_summaries(
-    session: DbSession,
-) -> list[AgentTaskWorkflowVersionSummaryResponse]:
-    return list_agent_task_workflow_summaries(session)
-
-
-@router.get(
-    "/agent-tasks/traces/export",
-    response_model=AgentTaskTraceExportResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_agent_task_trace_export(
-    session: DbSession,
-    limit: int = 50,
-    workflow_version: str | None = None,
-    task_type: str | None = None,
-) -> AgentTaskTraceExportResponse:
-    return export_agent_task_traces(
-        session,
-        limit=limit,
-        workflow_version=workflow_version,
-        task_type=task_type,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts",
-    response_model=list[ClaimSupportPolicyChangeImpactResponse],
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impacts(
-    session: DbSession,
-    policy_name: str | None = None,
-    replay_status: str | None = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-) -> list[ClaimSupportPolicyChangeImpactResponse]:
-    return list_claim_support_policy_change_impacts(
-        session,
-        policy_name=policy_name,
-        replay_status=replay_status,
-        limit=limit,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts/summary",
-    response_model=ClaimSupportPolicyChangeImpactSummaryResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impact_summary(
-    session: DbSession,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-) -> ClaimSupportPolicyChangeImpactSummaryResponse:
-    return summarize_claim_support_policy_change_impacts(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts/worklist",
-    response_model=ClaimSupportPolicyChangeImpactWorklistResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impact_worklist(
-    session: DbSession,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    include_closed: bool = False,
-) -> ClaimSupportPolicyChangeImpactWorklistResponse:
-    return claim_support_policy_change_impact_worklist(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-        limit=limit,
-        include_closed=include_closed,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts/alerts",
-    response_model=ClaimSupportPolicyChangeImpactAlertResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impact_alerts(
-    session: DbSession,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-) -> ClaimSupportPolicyChangeImpactAlertResponse:
-    return claim_support_policy_change_impact_alerts(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-        limit=limit,
-    )
-
-
-@router.post(
-    "/agent-tasks/claim-support-policy-change-impacts/alerts/escalations",
-    response_model=ClaimSupportPolicyChangeImpactAlertResponse,
-    dependencies=[
-        Depends(require_api_key_for_mutations),
-        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
-    ],
-)
-def record_claim_support_policy_change_impact_alert_escalations_route(
-    session: DbSession,
-    storage_service: Annotated[StorageService, Depends(get_storage_service)],
-    payload: ClaimSupportPolicyChangeImpactAlertEscalationRequest,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-) -> ClaimSupportPolicyChangeImpactAlertResponse:
-    return record_claim_support_policy_change_impact_alert_escalations(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-        limit=limit,
-        requested_by=payload.requested_by,
-        storage_service=storage_service,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates",
-    response_model=ClaimSupportPolicyChangeImpactFixtureCandidateListResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impact_fixture_candidates(
-    session: DbSession,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-    include_unescalated: bool = False,
-    include_promoted: bool = True,
-) -> ClaimSupportPolicyChangeImpactFixtureCandidateListResponse:
-    return claim_support_policy_change_impact_fixture_candidates(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-        limit=limit,
-        include_unescalated=include_unescalated,
-        include_promoted=include_promoted,
-    )
-
-
-@router.post(
-    "/agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions",
-    response_model=ClaimSupportPolicyChangeImpactFixturePromotionResponse,
-    dependencies=[
-        Depends(require_api_key_for_mutations),
-        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
-    ],
-)
-def promote_claim_support_policy_change_impact_fixture_candidates_route(
-    session: DbSession,
-    storage_service: Annotated[StorageService, Depends(get_storage_service)],
-    payload: ClaimSupportPolicyChangeImpactFixturePromotionRequest,
-    policy_name: str | None = None,
-    stale_after_hours: Annotated[int, Query(ge=1, le=720)] = 24,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
-) -> ClaimSupportPolicyChangeImpactFixturePromotionResponse:
-    return promote_claim_support_policy_change_impact_fixture_candidates(
-        session,
-        policy_name=policy_name,
-        stale_after_hours=stale_after_hours,
-        limit=limit,
-        fixture_set_name=payload.fixture_set_name,
-        fixture_set_version=payload.fixture_set_version,
-        requested_by=payload.requested_by,
-        include_unescalated=payload.include_unescalated,
-        storage_service=storage_service,
-    )
-
-
-@router.get(
-    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}",
-    response_model=ClaimSupportPolicyChangeImpactResponse,
-    dependencies=[Depends(require_api_capability(api_capabilities.AGENT_TASKS_READ))],
-)
-def read_claim_support_policy_change_impact(
-    session: DbSession,
-    change_impact_id: UUID,
-) -> ClaimSupportPolicyChangeImpactResponse:
-    return get_claim_support_policy_change_impact(session, change_impact_id)
-
-
-@router.post(
-    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks",
-    response_model=ClaimSupportPolicyChangeImpactReplayResponse,
-    dependencies=[
-        Depends(require_api_key_for_mutations),
-        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
-    ],
-)
-def create_claim_support_policy_change_impact_replay_tasks(
-    session: DbSession,
-    change_impact_id: UUID,
-    payload: ClaimSupportPolicyChangeImpactReplayRequest,
-) -> ClaimSupportPolicyChangeImpactReplayResponse:
-    return queue_claim_support_policy_change_impact_replay_tasks(
-        session,
-        change_impact_id,
-        requested_by=payload.requested_by,
-    )
-
-
-@router.post(
-    "/agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status",
-    response_model=ClaimSupportPolicyChangeImpactReplayResponse,
-    dependencies=[
-        Depends(require_api_key_for_mutations),
-        Depends(require_api_capability(api_capabilities.AGENT_TASKS_WRITE)),
-    ],
-)
-def refresh_claim_support_policy_change_impact_replay_status_route(
-    session: DbSession,
-    change_impact_id: UUID,
-    storage_service: Annotated[StorageService, Depends(get_storage_service)],
-) -> ClaimSupportPolicyChangeImpactReplayResponse:
-    return refresh_claim_support_policy_change_impact_replay_status(
-        session,
-        change_impact_id,
-        storage_service=storage_service,
-    )
 
 
 @router.get(
