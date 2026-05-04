@@ -163,3 +163,31 @@ facade and exposed through `GET /architecture/inspection` and
 `GET /architecture/measurements/summary` under the `system:read` capability.
 The summary response includes commit freshness fields so agents can distinguish
 current inspection status from stale local measurement history.
+
+## Agentic Architecture Quality
+
+Architecture quality is a generated report, not only a review note.
+`app.architecture_quality` builds the `architecture_quality_report` contract by
+combining architecture inspection status, capability facade size, module line
+counts, public/private function counts, 30/90-day churn, hygiene findings, open
+improvement-case counts, and an agent-legibility score for capability surfaces.
+Agent legibility includes owner modules, public entrypoints, contract sources,
+tests, examples, trace or replay commands, and linked architecture decision
+rationale.
+Run it with `uv run docling-system-architecture-quality-report`; write the CI
+artifact to
+`build/architecture-governance/architecture_quality_report.json` when importing
+its improvement-case candidates.
+
+Trace-first agent review is owned by `app.agent_trace_review`. It emits the
+`agent_trace_review_report` contract for failed agent tasks, failed
+verifications, evaluation failures, search replay regressions, approval gates,
+hygiene findings, and architecture failures. Import trace-review observations with
+`docling-system-improvement-case-import --source agent-trace-review-report`.
+
+Future architecture sessions should start from `docs/agentic_architecture_index.md`
+and only then open the relevant generated map, contract file, or milestone
+brief. The index points to `docs/agentic_architecture_milestone_plan.md`,
+`docs/agentic_architecture_milestone_audit.md`,
+`docs/data_model_boundary_plan.md`, the current handoff, and the executable
+commands needed to verify the surface.

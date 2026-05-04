@@ -33,6 +33,14 @@ from app.services.improvement_cases import (
 IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME = "improvement_case_import"
 IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION = "1.0"
 IMPROVEMENT_CASE_IMPORT_ALL_SOURCE = "all"
+ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME = "architecture_quality_report"
+AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME = "agent_trace_review_report"
+DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH = (
+    Path("build") / "architecture-governance" / "architecture_quality_report.json"
+)
+DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH = (
+    Path("build") / "architecture-governance" / "agent_trace_review_report.json"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,6 +354,155 @@ def collect_architecture_governance_report_observations(
     return observations[:limit]
 
 
+def resolve_architecture_quality_report_path(
+    source_path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    raw_path = (
+        Path(source_path)
+        if source_path is not None
+        else DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH
+    )
+    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
+
+
+def collect_architecture_quality_report_observations(
+    *,
+    source_path: str | Path | None = None,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+    project_root: Path | None = None,
+    require_existing: bool = False,
+) -> list[ImprovementCaseObservation]:
+    report_path = resolve_architecture_quality_report_path(
+        source_path,
+        project_root=project_root,
+    )
+    if not report_path.exists():
+        if require_existing:
+            raise ValueError(f"Architecture quality report not found: {report_path}")
+        return []
+
+    try:
+        report = json.loads(report_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid architecture quality report JSON: {exc}") from exc
+
+    if not isinstance(report, dict):
+        raise ValueError("Architecture quality report must be a JSON object.")
+    if report.get("schema_name") != ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME:
+        raise ValueError(
+            "Architecture quality report has unexpected schema_name "
+            f"{report.get('schema_name')!r}."
+        )
+
+    observations: list[ImprovementCaseObservation] = []
+    candidates = report.get("improvement_case_candidates")
+    if not isinstance(candidates, list):
+        candidates = []
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        source_ref = str(candidate.get("source_ref") or "")
+        if not source_ref:
+            continue
+        observations.append(
+            ImprovementCaseObservation(
+                title=str(candidate.get("title") or "Architecture quality hotspot"),
+                observed_failure=str(
+                    candidate.get("observed_failure")
+                    or "Architecture quality report identified a hotspot."
+                ),
+                cause_class=str(candidate.get("cause_class") or "unclear_ownership"),
+                source_type="architecture_governance",
+                source_ref=source_ref,
+                source_notes=(
+                    f"report_path={report_path.as_posix()}; "
+                    f"artifact_target_path={candidate.get('artifact_target_path') or 'unknown'}; "
+                    f"verification_command={candidate.get('verification_command') or 'unknown'}; "
+                    f"stop_condition={candidate.get('stop_condition') or 'unknown'}"
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+    return observations[:limit]
+
+
+def resolve_agent_trace_review_report_path(
+    source_path: str | Path | None = None,
+    *,
+    project_root: Path | None = None,
+) -> Path:
+    raw_path = (
+        Path(source_path)
+        if source_path is not None
+        else DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH
+    )
+    return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
+
+
+def collect_agent_trace_review_report_observations(
+    *,
+    source_path: str | Path | None = None,
+    limit: int = 50,
+    workflow_version: str = "improvement_v1",
+    project_root: Path | None = None,
+    require_existing: bool = False,
+) -> list[ImprovementCaseObservation]:
+    report_path = resolve_agent_trace_review_report_path(
+        source_path,
+        project_root=project_root,
+    )
+    if not report_path.exists():
+        if require_existing:
+            raise ValueError(f"Agent trace review report not found: {report_path}")
+        return []
+
+    try:
+        report = json.loads(report_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid agent trace review report JSON: {exc}") from exc
+
+    if not isinstance(report, dict):
+        raise ValueError("Agent trace review report must be a JSON object.")
+    if report.get("schema_name") != AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME:
+        raise ValueError(
+            "Agent trace review report has unexpected schema_name "
+            f"{report.get('schema_name')!r}."
+        )
+
+    observations: list[ImprovementCaseObservation] = []
+    report_observations = report.get("observations")
+    if not isinstance(report_observations, list):
+        report_observations = []
+    for row in report_observations:
+        if not isinstance(row, dict):
+            continue
+        source_ref = str(row.get("source_ref") or "")
+        if not source_ref:
+            continue
+        observations.append(
+            ImprovementCaseObservation(
+                title=str(row.get("title") or "Agent trace review observation"),
+                observed_failure=str(
+                    row.get("observed_failure")
+                    or "Agent trace review identified a failure."
+                ),
+                cause_class=str(row.get("cause_class") or "missing_context"),
+                source_type=str(row.get("source_type") or "agent_task"),
+                source_ref=source_ref,
+                source_notes=(
+                    f"report_path={report_path.as_posix()}; "
+                    f"category={row.get('category') or 'unknown'}; "
+                    f"{row.get('source_notes') or ''}"
+                ),
+                workflow_version=workflow_version,
+            )
+        )
+    return observations[:limit]
+
+
 def _require_import_session(context: ImprovementCaseImportSourceContext) -> object:
     if context.session is None:
         raise RuntimeError("DB-backed improvement import source requires a session.")
@@ -366,6 +523,30 @@ def _collect_architecture_governance_report_source(
     context: ImprovementCaseImportSourceContext,
 ) -> list[ImprovementCaseObservation]:
     return collect_architecture_governance_report_observations(
+        source_path=context.source_path,
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+        project_root=context.project_root,
+        require_existing=context.source_path is not None,
+    )
+
+
+def _collect_architecture_quality_report_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_architecture_quality_report_observations(
+        source_path=context.source_path,
+        limit=context.limit,
+        workflow_version=context.workflow_version,
+        project_root=context.project_root,
+        require_existing=context.source_path is not None,
+    )
+
+
+def _collect_agent_trace_review_report_source(
+    context: ImprovementCaseImportSourceContext,
+) -> list[ImprovementCaseObservation]:
+    return collect_agent_trace_review_report_observations(
         source_path=context.source_path,
         limit=context.limit,
         workflow_version=context.workflow_version,
@@ -418,6 +599,20 @@ _IMPORT_SOURCE_SPECS = (
         requires_db_session=False,
         accepts_source_path=True,
         collector=_collect_architecture_governance_report_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="architecture-quality-report",
+        source_kind="file",
+        requires_db_session=False,
+        accepts_source_path=True,
+        collector=_collect_architecture_quality_report_source,
+    ),
+    ImprovementCaseImportSourceSpec(
+        source="agent-trace-review-report",
+        source_kind="file",
+        requires_db_session=False,
+        accepts_source_path=True,
+        collector=_collect_agent_trace_review_report_source,
     ),
     ImprovementCaseImportSourceSpec(
         source="eval-failure-cases",
@@ -525,10 +720,18 @@ def collect_improvement_case_import_observations(
         workflow_version=workflow_version,
         project_root=project_root,
     )
+    aggregate_import = source == IMPROVEMENT_CASE_IMPORT_ALL_SOURCE
 
     for spec in source_specs:
         if not spec.requires_db_session:
-            context = replace(base_context, source_path=resolved_source_paths.get(spec.source))
+            resolved_source_path = resolved_source_paths.get(spec.source)
+            if (
+                aggregate_import
+                and spec.source_kind == "file"
+                and resolved_source_path is None
+            ):
+                continue
+            context = replace(base_context, source_path=resolved_source_path)
             observations.extend(spec.collector(context))
 
     db_source_specs = [spec for spec in source_specs if spec.requires_db_session]

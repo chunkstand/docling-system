@@ -95,10 +95,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         "capability_surface_contracts",
         "improvement_case_registry",
         "improvement_case_intake",
-        "improvement_case_lifecycle",
-        "architecture_decisions",
-        "architecture_measurement_history",
-    } <= contract_names
+            "improvement_case_lifecycle",
+            "architecture_decisions",
+            "architecture_measurement_history",
+            "architecture_quality_report",
+        } <= contract_names
     assert all(contract.get("decision_ids") for contract in contract_map["contracts"])
     assert {
         "run_lifecycle",
@@ -117,6 +118,8 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
     } == {
         ("hygiene", "workspace", False),
         ("architecture-governance-report", "file", False),
+        ("architecture-quality-report", "file", False),
+        ("agent-trace-review-report", "file", False),
         ("eval-failure-cases", "database", True),
         ("failed-agent-tasks", "database", True),
         ("failed-agent-verifications", "database", True),

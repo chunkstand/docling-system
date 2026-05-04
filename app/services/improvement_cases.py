@@ -63,7 +63,9 @@ IMPROVEMENT_SOURCE_TYPES = frozenset(
         "operator_note",
         "review_comment",
         "runtime_failure",
-        "tool_confusion", "other",
+        "search_replay",
+        "tool_confusion",
+        "other",
     }
 )
 DEPLOYED_IMPROVEMENT_STATUSES = frozenset({"deployed", "measured", "closed"})

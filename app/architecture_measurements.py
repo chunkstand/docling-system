@@ -57,6 +57,26 @@ def record_architecture_measurement(
         project_root=root,
     )
     report_payload = report or build_architecture_inspection_report(root)
+    quality_summary: dict[str, Any] = {}
+    try:
+        from app.architecture_quality import build_architecture_quality_summary
+
+        quality_summary = build_architecture_quality_summary(
+            root,
+            inspection_report=report_payload,
+        )
+    except Exception:
+        quality_summary = {}
+    measurement_payload = dict(report_payload["measurement"])
+    for key in (
+        "hotspot_count",
+        "top_hotspot_paths",
+        "max_hotspot_risk_score",
+        "agent_legibility_average_score",
+        "broad_facade_count",
+    ):
+        if key in quality_summary:
+            measurement_payload[key] = quality_summary[key]
     record = {
         "schema_name": ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
@@ -64,7 +84,7 @@ def record_architecture_measurement(
         "commit_sha": commit_sha if commit_sha is not None else current_git_commit_sha(root),
         "valid": report_payload["valid"],
         "violation_count": report_payload["violation_count"],
-        "measurement": report_payload["measurement"],
+        "measurement": measurement_payload,
     }
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
     with resolved_path.open("a", encoding="utf-8") as handle:
@@ -213,6 +233,18 @@ def summarize_architecture_measurements(
             "warning_count": _delta(latest, previous, "warning_count"),
             "info_count": _delta(latest, previous, "info_count"),
             "contract_count": _delta(latest, previous, "contract_count"),
+            "hotspot_count": _delta(latest, previous, "hotspot_count"),
+            "max_hotspot_risk_score": _delta(
+                latest,
+                previous,
+                "max_hotspot_risk_score",
+            ),
+            "agent_legibility_average_score": _delta(
+                latest,
+                previous,
+                "agent_legibility_average_score",
+            ),
+            "broad_facade_count": _delta(latest, previous, "broad_facade_count"),
             "rule_violation_counts": _mapping_delta(
                 latest,
                 previous,

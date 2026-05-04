@@ -40,204 +40,25 @@ from app.services import (
     evidence,
 )
 from app.services import agent_task_worker as worker_service
+from app.services.capabilities.agent_orchestration_actions_contract import (
+    AgentOrchestrationActionsCapability,
+)
+from app.services.capabilities.agent_orchestration_analytics_contract import (
+    AgentOrchestrationAnalyticsCapability,
+)
+from app.services.capabilities.agent_orchestration_task_contract import (
+    AgentOrchestrationTaskCapability,
+)
 from app.services.storage import StorageService
 
 
-class AgentOrchestrationCapability(Protocol):
-    def list_agent_task_action_definitions(self) -> list[AgentTaskActionDefinitionResponse]: ...
-
-    def list_agent_tasks(
-        self,
-        session: Session,
-        *,
-        statuses: list[str] | None = None,
-        limit: int = 50,
-    ) -> list[AgentTaskSummaryResponse]: ...
-
-    def create_agent_task(
-        self,
-        session: Session,
-        payload: AgentTaskCreateRequest,
-    ) -> AgentTaskDetailResponse: ...
-
-    def get_agent_task_detail(self, session: Session, task_id: UUID) -> AgentTaskDetailResponse: ...
-
-    def get_agent_task_context(self, session: Session, task_id: UUID) -> TaskContextEnvelope: ...
-
-    def get_agent_task_audit_bundle(self, session: Session, task_id: UUID) -> dict: ...
-
-    def get_agent_task_evidence_manifest(self, session: Session, task_id: UUID) -> dict: ...
-
-    def get_agent_task_evidence_trace(self, session: Session, task_id: UUID) -> dict: ...
-
-    def get_agent_task_provenance_export(
-        self,
-        session: Session,
-        task_id: UUID,
-        *,
-        storage_service: StorageService | None = None,
-    ) -> dict: ...
-
-    def list_agent_task_outcomes(
-        self,
-        session: Session,
-        task_id: UUID,
-        *,
-        limit: int = 20,
-    ) -> list[AgentTaskOutcomeResponse]: ...
-
-    def create_agent_task_outcome(
-        self,
-        session: Session,
-        task_id: UUID,
-        payload: AgentTaskOutcomeCreateRequest,
-    ) -> AgentTaskOutcomeResponse: ...
-
-    def list_agent_task_artifacts(
-        self,
-        session: Session,
-        task_id: UUID,
-        *,
-        limit: int = 20,
-    ) -> list[AgentTaskArtifactResponse]: ...
-
-    def get_agent_task_artifact(
-        self,
-        session: Session,
-        task_id: UUID,
-        artifact_id: UUID,
-    ) -> AgentTaskArtifactResponse: ...
-
-    def get_agent_task_verifications(
-        self,
-        session: Session,
-        task_id: UUID,
-        *,
-        limit: int = 20,
-    ) -> list[AgentTaskVerificationResponse]: ...
-
-    def approve_agent_task(
-        self,
-        session: Session,
-        task_id: UUID,
-        payload: AgentTaskApprovalRequest,
-    ) -> AgentTaskDetailResponse: ...
-
-    def reject_agent_task(
-        self,
-        session: Session,
-        task_id: UUID,
-        payload: AgentTaskRejectionRequest,
-    ) -> AgentTaskDetailResponse: ...
-
-    def get_agent_task_analytics_summary(
-        self,
-        session: Session,
-    ) -> AgentTaskAnalyticsSummaryResponse: ...
-
-    def get_agent_task_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskTrendResponse: ...
-
-    def get_agent_verification_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskVerificationTrendResponse: ...
-
-    def get_agent_approval_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskApprovalTrendResponse: ...
-
-    def get_agent_task_recommendation_summary(
-        self,
-        session: Session,
-        *,
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskRecommendationSummaryResponse: ...
-
-    def get_agent_task_recommendation_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskRecommendationTrendResponse: ...
-
-    def get_agent_task_cost_summary(
-        self,
-        session: Session,
-        *,
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskCostSummaryResponse: ...
-
-    def get_agent_task_cost_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskCostTrendResponse: ...
-
-    def get_agent_task_performance_summary(
-        self,
-        session: Session,
-        *,
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskPerformanceSummaryResponse: ...
-
-    def get_agent_task_performance_trends(
-        self,
-        session: Session,
-        *,
-        bucket: str = "day",
-        task_type: str | None = None,
-        workflow_version: str | None = None,
-    ) -> AgentTaskPerformanceTrendResponse: ...
-
-    def get_agent_task_value_density(
-        self,
-        session: Session,
-    ) -> list[AgentTaskValueDensityRowResponse]: ...
-
-    def get_agent_task_decision_signals(
-        self,
-        session: Session,
-    ) -> list[AgentTaskDecisionSignalResponse]: ...
-
-    def list_agent_task_workflow_summaries(
-        self,
-        session: Session,
-    ) -> list[AgentTaskWorkflowVersionSummaryResponse]: ...
-
-    def export_agent_task_traces(
-        self,
-        session: Session,
-        *,
-        limit: int = 50,
-        workflow_version: str | None = None,
-        task_type: str | None = None,
-    ) -> AgentTaskTraceExportResponse: ...
-
-    def run_worker_loop(self) -> None: ...
+class AgentOrchestrationCapability(
+    AgentOrchestrationActionsCapability,
+    AgentOrchestrationTaskCapability,
+    AgentOrchestrationAnalyticsCapability,
+    Protocol,
+):
+    pass
 
 
 class ServicesAgentOrchestrationCapability:

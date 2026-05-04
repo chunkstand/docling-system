@@ -511,10 +511,17 @@ def create_agent_task(
 
 
 def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionResponse]:
+    from app.services.agent_actions.manifest import build_agent_action_manifest
     from app.services.agent_task_actions import list_agent_task_actions
 
     rows: list[AgentTaskActionDefinitionResponse] = []
-    for action in list_agent_task_actions():
+    actions = list_agent_task_actions()
+    manifest_by_type = {
+        str(row["task_type"]): row
+        for row in build_agent_action_manifest(actions)
+    }
+    for action in actions:
+        manifest_row = manifest_by_type[action.task_type]
         rows.append(
             AgentTaskActionDefinitionResponse(
                 task_type=action.task_type,
@@ -533,6 +540,7 @@ def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionRespon
                     else None
                 ),
                 input_example=action.input_example or {},
+                agent_facing_contract=dict(manifest_row["agent_facing_contract"]),
             )
         )
     return rows

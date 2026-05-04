@@ -53,3 +53,11 @@ class AgentTaskActionDefinition:
     input_example: dict[str, Any] | None = None
     context_builder_name: str = "generic"
     capability: str = "uncategorized"
+    agent_tool_description: str | None = None
+    when_to_use: str | None = None
+    when_not_to_use: str | None = None
+    required_context_refs: tuple[str, ...] = ()
+    expected_artifacts: tuple[str, ...] = ()
+    verification_command: str | None = None
+    common_failure_modes: tuple[str, ...] = ()
+    escalation_condition: str | None = None

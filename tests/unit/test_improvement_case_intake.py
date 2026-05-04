@@ -57,6 +57,54 @@ def _write_architecture_governance_report(
     path.write_text(json.dumps(payload))
 
 
+def _write_architecture_quality_report(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": "architecture_quality_report",
+                "schema_version": "1.0",
+                "improvement_case_candidates": [
+                    {
+                        "source_ref": "architecture-quality:hotspot:app/services/evidence.py",
+                        "title": "Architecture hotspot: app/services/evidence.py",
+                        "observed_failure": "Large, high-churn evidence surface.",
+                        "cause_class": "unclear_ownership",
+                        "artifact_target_path": "app/services/evidence.py",
+                        "verification_command": (
+                            "uv run docling-system-architecture-quality-report"
+                        ),
+                        "stop_condition": "Risk decreases.",
+                    }
+                ],
+            }
+        )
+    )
+
+
+def _write_agent_trace_review_report(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_name": "agent_trace_review_report",
+                "schema_version": "1.0",
+                "observations": [
+                    {
+                        "category": "failed_agent_tasks",
+                        "title": "Failed agent task",
+                        "observed_failure": "The task failed.",
+                        "cause_class": "missing_context",
+                        "source_type": "agent_task",
+                        "source_ref": "agent_task:00000000-0000-0000-0000-000000000000",
+                        "source_notes": "task_type=demo",
+                    }
+                ],
+            }
+        )
+    )
+
+
 def test_collect_import_observations_keeps_hygiene_source_out_of_db(
     monkeypatch,
 ) -> None:
@@ -167,6 +215,44 @@ def test_collect_architecture_governance_report_accepts_keyed_source_path(
     )
 
     assert observations == []
+
+
+def test_collect_architecture_quality_report_observations_from_candidates(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_quality_report.json"
+    _write_architecture_quality_report(report_path)
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="architecture-quality-report",
+        source_path=report_path,
+    )
+
+    assert len(observations) == 1
+    assert observations[0].source_type == "architecture_governance"
+    assert observations[0].source_ref == (
+        "architecture-quality:hotspot:app/services/evidence.py"
+    )
+    assert observations[0].cause_class == "unclear_ownership"
+
+
+def test_collect_agent_trace_review_report_observations(
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "agent_trace_review_report.json"
+    _write_agent_trace_review_report(report_path)
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="agent-trace-review-report",
+        source_path=report_path,
+    )
+
+    assert len(observations) == 1
+    assert observations[0].source_type == "agent_task"
+    assert observations[0].source_ref == (
+        "agent_task:00000000-0000-0000-0000-000000000000"
+    )
+    assert "category=failed_agent_tasks" in observations[0].source_notes
 
 
 def test_collect_architecture_governance_report_requires_explicit_existing_path(
@@ -308,7 +394,7 @@ def test_collect_import_observations_routes_db_sources_through_one_session(
     ]
 
 
-def test_collect_import_observations_all_accepts_source_path_for_file_source(
+def test_collect_import_observations_all_rejects_ambiguous_source_path(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -342,13 +428,12 @@ def test_collect_import_observations_all_accepts_source_path_for_file_source(
         def __exit__(self, exc_type, exc, tb):
             return False
 
-    observations = intake.collect_improvement_case_import_observations(
-        source="all",
-        source_path=report_path,
-        session_factory=lambda: FakeSession(),
-    )
-
-    assert observations == []
+    with pytest.raises(ValueError, match="source_path is ambiguous"):
+        intake.collect_improvement_case_import_observations(
+            source="all",
+            source_path=report_path,
+            session_factory=lambda: FakeSession(),
+        )
 
 
 def test_collect_import_observations_routes_keyed_source_paths(
@@ -392,6 +477,51 @@ def test_collect_import_observations_routes_keyed_source_paths(
     )
 
     assert observations == []
+
+
+def test_collect_import_observations_all_accepts_explicit_file_sources(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    report_path = tmp_path / "architecture_quality_report.json"
+    _write_architecture_quality_report(report_path)
+    monkeypatch.setattr(
+        intake,
+        "collect_hygiene_import_observations",
+        lambda *, limit, workflow_version, project_root=None: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_eval_failure_case_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_task_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+    monkeypatch.setattr(
+        intake,
+        "collect_failed_agent_verification_observations",
+        lambda session, *, limit, workflow_version: [],
+    )
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    observations = intake.collect_improvement_case_import_observations(
+        source="all",
+        source_paths={"architecture-quality-report": report_path},
+        session_factory=lambda: FakeSession(),
+    )
+
+    assert [observation.source_ref for observation in observations] == [
+        "architecture-quality:hotspot:app/services/evidence.py"
+    ]
 
 
 def test_run_import_facade_writes_and_dedupes_cases(monkeypatch, tmp_path) -> None:
@@ -528,6 +658,8 @@ def test_import_request_rejects_invalid_source_path_contract(tmp_path: Path) -> 
 
 def test_import_sources_include_architecture_governance_report() -> None:
     assert "architecture-governance-report" in intake.list_improvement_case_import_sources()
+    assert "architecture-quality-report" in intake.list_improvement_case_import_sources()
+    assert "agent-trace-review-report" in intake.list_improvement_case_import_sources()
 
 
 def test_import_source_specs_expose_source_behavior() -> None:
@@ -545,6 +677,10 @@ def test_import_source_specs_expose_source_behavior() -> None:
     assert specs["hygiene"]["accepts_source_path"] is False
     assert specs["architecture-governance-report"]["source_kind"] == "file"
     assert specs["architecture-governance-report"]["accepts_source_path"] is True
+    assert specs["architecture-quality-report"]["source_kind"] == "file"
+    assert specs["architecture-quality-report"]["accepts_source_path"] is True
+    assert specs["agent-trace-review-report"]["source_kind"] == "file"
+    assert specs["agent-trace-review-report"]["accepts_source_path"] is True
     assert {
         source
         for source, row in specs.items()

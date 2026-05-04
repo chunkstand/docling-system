@@ -36,6 +36,12 @@
       ]
     },
     {
+      "contract": "architecture_quality_report",
+      "decision_ids": [
+        "ADR-0005"
+      ]
+    },
+    {
       "contract": "capability_surface_contracts",
       "decision_ids": [
         "ADR-0002",
@@ -168,6 +174,7 @@
       "linked_contracts": [
         "architecture_contract_map",
         "architecture_measurement_history",
+        "architecture_quality_report",
         "improvement_case_lifecycle"
       ],
       "linked_sources": [

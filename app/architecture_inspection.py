@@ -122,6 +122,8 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
             "docs/architecture_boundaries.md",
             "docs/architecture_decisions.yaml",
             "docs/improvement_loop.md",
+            "docs/agentic_architecture_milestone_plan.md",
+            "docs/agentic_architecture_milestone_audit.md",
         ],
         "boundary_modules": {
             "api_bootstrap": "app/api/main.py",
@@ -220,6 +222,20 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
                 "ci_workflow": ".github/workflows/architecture-governance.yml",
                 "decision_ids": decision_ids_by_contract.get(
                     "architecture_measurement_history",
+                    [],
+                ),
+            },
+            {
+                "name": "architecture_quality_report",
+                "source": "app.architecture_quality",
+                "schema_name": "architecture_quality_report",
+                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+                "summary_schema_name": "architecture_quality_summary",
+                "report_path": (
+                    "build/architecture-governance/architecture_quality_report.json"
+                ),
+                "decision_ids": decision_ids_by_contract.get(
+                    "architecture_quality_report",
                     [],
                 ),
             },

@@ -57,5 +57,12 @@ REQUIRED_ARCHITECTURE_DOC_TOKENS = frozenset(
         "app.services.improvement_case_intake",
         "ImprovementCaseImportRequest",
         "ImprovementCaseImportResult",
+        "app.architecture_quality",
+        "architecture_quality_report",
+        "app.agent_trace_review",
+        "agent_trace_review_report",
+        "docs/agentic_architecture_index.md",
+        "docs/agentic_architecture_milestone_audit.md",
+        "docs/data_model_boundary_plan.md",
     }
 )

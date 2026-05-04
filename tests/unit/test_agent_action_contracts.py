@@ -10,6 +10,7 @@ from app.services.agent_actions.types import (
     AGENT_ACTION_SIDE_EFFECT_LEVELS,
 )
 from app.services.agent_task_actions import (
+    build_agent_task_action_index,
     build_agent_task_action_manifest,
     list_agent_task_actions,
     validate_agent_task_action_contracts,
@@ -44,6 +45,20 @@ def test_agent_task_action_contract_validator_rejects_registry_drift() -> None:
     assert any(issue.field == "task_type" for issue in issues)
 
 
+def test_agent_task_action_contract_validator_rejects_stale_context_builder() -> None:
+    action = replace(
+        list_agent_task_actions()[0],
+        context_builder_name="missing_context_builder",
+    )
+
+    issues = validate_agent_action_contracts(
+        [action],
+        context_builder_names=list_agent_task_context_builder_names(),
+    )
+
+    assert any(issue.field == "context_builder_name" for issue in issues)
+
+
 def test_agent_task_action_manifest_uses_known_contract_vocabularies() -> None:
     manifest = build_agent_task_action_manifest()
     task_types = {row["task_type"] for row in manifest}
@@ -56,6 +71,25 @@ def test_agent_task_action_manifest_uses_known_contract_vocabularies() -> None:
     assert AGENT_ACTION_CAPABILITIES <= capabilities
     assert definition_kinds <= AGENT_ACTION_DEFINITION_KINDS
     assert side_effect_levels <= AGENT_ACTION_SIDE_EFFECT_LEVELS
+    for row in manifest:
+        agent_contract = row["agent_facing_contract"]
+        assert agent_contract["tool_description"]
+        assert agent_contract["when_to_use"]
+        assert agent_contract["when_not_to_use"]
+        assert agent_contract["verification_command"]
+        assert agent_contract["escalation_condition"]
+
+
+def test_agent_task_action_index_groups_actions_by_capability() -> None:
+    index = build_agent_task_action_index()
+
+    assert index["schema_name"] == "agent_action_index"
+    assert set(index["capabilities"]) == AGENT_ACTION_CAPABILITIES
+    assert {
+        action["task_type"]
+        for actions in index["capabilities"].values()
+        for action in actions
+    } == {action.task_type for action in list_agent_task_actions()}
 
 
 def test_agent_task_definition_kinds_have_expected_side_effect_levels() -> None:

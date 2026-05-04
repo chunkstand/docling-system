@@ -117,6 +117,7 @@ decisions:
     linked_contracts:
       - architecture_contract_map
       - architecture_measurement_history
+      - architecture_quality_report
       - improvement_case_lifecycle
     linked_sources:
       - app/architecture_inspection.py

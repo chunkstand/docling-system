@@ -54,6 +54,7 @@ class AgentTaskActionDefinitionResponse(BaseModel):
     output_schema_version: str | None = None
     output_schema: dict | None = None
     input_example: dict = Field(default_factory=dict)
+    agent_facing_contract: dict = Field(default_factory=dict)
 
 
 class AgentTaskSummaryResponse(BaseModel):

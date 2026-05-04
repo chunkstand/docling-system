@@ -67,10 +67,14 @@ def _facade_module_path(project_root: Path, facade_name: str) -> Path:
 
 def _facade_module_sources(project_root: Path, facade_name: str) -> list[tuple[Path, ast.Module]]:
     capability_dir = project_root / "app" / "services" / "capabilities"
-    paths = (
-        capability_dir / f"{facade_name}.py",
-        capability_dir / f"{facade_name}_contract.py",
-        capability_dir / f"{facade_name}_services.py",
+    paths = sorted(
+        {
+            capability_dir / f"{facade_name}.py",
+            capability_dir / f"{facade_name}_contract.py",
+            capability_dir / f"{facade_name}_services.py",
+            *capability_dir.glob(f"{facade_name}_*_contract.py"),
+            *capability_dir.glob(f"{facade_name}_*_services.py"),
+        }
     )
     return [
         (path, ast.parse(path.read_text(), filename=str(path))) for path in paths if path.exists()
@@ -171,14 +175,45 @@ def _class_def_with_source(
     return None, None, None
 
 
-def _public_methods(class_node: ast.ClassDef | None) -> dict[str, ast.FunctionDef]:
-    if class_node is None:
-        return {}
+def _class_defs(
+    sources: list[tuple[Path, ast.Module]],
+) -> dict[str, ast.ClassDef]:
     return {
         node.name: node
-        for node in class_node.body
-        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_")
+        for _source_path, tree in sources
+        for node in tree.body
+        if isinstance(node, ast.ClassDef)
     }
+
+
+def _public_methods(
+    class_node: ast.ClassDef | None,
+    class_defs: dict[str, ast.ClassDef] | None = None,
+    _seen: set[str] | None = None,
+) -> dict[str, ast.FunctionDef]:
+    if class_node is None:
+        return {}
+    class_defs = class_defs or {}
+    seen = set(_seen or set())
+    if class_node.name in seen:
+        return {}
+    seen.add(class_node.name)
+    methods: dict[str, ast.FunctionDef] = {}
+    for base in class_node.bases:
+        if not isinstance(base, ast.Name):
+            continue
+        base_class = class_defs.get(base.id)
+        if base_class is None:
+            continue
+        methods.update(_public_methods(base_class, class_defs, seen))
+    methods.update(
+        {
+            node.name: node
+            for node in class_node.body
+            if isinstance(node, ast.FunctionDef) and not node.name.startswith("_")
+        }
+    )
+    return methods
 
 
 def _owner_imports(tree: ast.Module) -> dict[str, str]:
@@ -236,9 +271,12 @@ def _facade_contract(project_root: Path, facade_name: str) -> dict[str, object]:
         facade_sources,
         implementation_name,
     )
-    protocol_methods = _public_methods(protocol_class)
-    implementation_methods = _public_methods(implementation_class)
-    owner_imports = _owner_imports(implementation_tree) if implementation_tree is not None else {}
+    class_defs = _class_defs(facade_sources)
+    protocol_methods = _public_methods(protocol_class, class_defs)
+    implementation_methods = _public_methods(implementation_class, class_defs)
+    owner_imports: dict[str, str] = {}
+    for _source_path, tree in facade_sources:
+        owner_imports.update(_owner_imports(tree))
 
     functions = []
     for method_name, protocol_method in sorted(protocol_methods.items()):
@@ -273,6 +311,16 @@ def _facade_contract(project_root: Path, facade_name: str) -> dict[str, object]:
         "source": relative_source,
         "protocol_source": protocol_source,
         "implementation_source": implementation_source,
+        "contract_sources": [
+            _relative_source(project_root, path)
+            for path, _tree in facade_sources
+            if path.name.endswith("_contract.py")
+        ],
+        "implementation_sources": [
+            _relative_source(project_root, path)
+            for path, _tree in facade_sources
+            if path.name.endswith("_services.py")
+        ],
         "protocol": protocol_name,
         "implementation": implementation_name,
         "exported_instance": facade_name,
@@ -327,8 +375,9 @@ def _validate_facade_contract(
         facade_sources,
         implementation_name,
     )
-    protocol_methods = _public_methods(protocol_class)
-    implementation_methods = _public_methods(implementation_class)
+    class_defs = _class_defs(facade_sources)
+    protocol_methods = _public_methods(protocol_class, class_defs)
+    implementation_methods = _public_methods(implementation_class, class_defs)
     protocol_relative_source = (
         _relative_source(project_root, protocol_path)
         if protocol_path is not None

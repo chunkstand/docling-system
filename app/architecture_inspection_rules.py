@@ -301,20 +301,24 @@ def _architecture_decision_violations(
     *,
     expected_contracts: tuple[str, ...],
 ) -> list[ArchitectureViolation]:
-    return [
-        ArchitectureViolation(**issue.to_dict())
-        for issue in validate_architecture_decisions(
-            project_root,
-            expected_contracts=expected_contracts,
-        )
-    ]
+    violations: list[ArchitectureViolation] = []
+    for issue in validate_architecture_decisions(
+        project_root,
+        expected_contracts=expected_contracts,
+    ):
+        payload = issue.to_dict()
+        payload["contract"] = "architecture_decisions"
+        violations.append(ArchitectureViolation(**payload))
+    return violations
 
 
 def _capability_contract_violations(project_root: Path) -> list[ArchitectureViolation]:
-    return [
-        ArchitectureViolation(**issue.to_dict())
-        for issue in validate_capability_contracts(project_root)
-    ]
+    violations: list[ArchitectureViolation] = []
+    for issue in validate_capability_contracts(project_root):
+        payload = issue.to_dict()
+        payload["contract"] = "capability_surface_contracts"
+        violations.append(ArchitectureViolation(**payload))
+    return violations
 
 
 def _architecture_map_drift_violations(

@@ -65,6 +65,15 @@ def run_agent_task_actions() -> None:
     print(json.dumps([row.model_dump(mode="json") for row in payload]))
 
 
+def run_agent_task_action_index() -> None:
+    parser = argparse.ArgumentParser(description="Print the compact agent task action index.")
+    parser.parse_args()
+
+    from app.services.agent_task_actions import build_agent_task_action_index
+
+    print(json.dumps(build_agent_task_action_index()))
+
+
 def run_agent_task_create() -> None:
     parser = argparse.ArgumentParser(description="Create one agent task.")
     parser.add_argument("task_type", help="Registered agent task type.")

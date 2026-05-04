@@ -74,6 +74,16 @@ def test_improvement_case_registry_accepts_open_cases_without_artifacts() -> Non
     assert issues == []
 
 
+def test_improvement_case_registry_accepts_search_replay_source() -> None:
+    case = _valid_case("IC-20260504-search-replay")
+    case.source.source_type = "search_replay"
+    case.source.source_ref = "search_replay_run:00000000-0000-0000-0000-000000000000"
+
+    issues = validate_improvement_case_registry(ImprovementCaseRegistry(cases=[case]))
+
+    assert issues == []
+
+
 def test_improvement_case_registry_rejects_unknown_vocabularies() -> None:
     case = _valid_case()
     case.status = "mystery"

@@ -152,6 +152,7 @@ from app.services.agent_actions.evaluation import (
 )
 from app.services.agent_actions.manifest import (
     AgentActionContractIssue,
+    build_agent_action_index,
     build_agent_action_manifest,
     validate_agent_action_contracts,
 )
@@ -3258,10 +3259,17 @@ def build_agent_task_action_manifest() -> list[dict[str, object]]:
     return build_agent_action_manifest(list_agent_task_actions())
 
 
+def build_agent_task_action_index() -> dict[str, object]:
+    return build_agent_action_index(list_agent_task_actions())
+
+
 def validate_agent_task_action_contracts() -> list[AgentActionContractIssue]:
+    from app.services.agent_task_context import list_agent_task_context_builder_names
+
     issues = validate_agent_action_contracts(
         list_agent_task_actions(),
         registry_keys=set(_ACTION_REGISTRY),
+        context_builder_names=list_agent_task_context_builder_names(),
     )
     for registry_key, action in _ACTION_REGISTRY.items():
         if registry_key != action.task_type:

@@ -110,6 +110,18 @@
           "source_kind": "file"
         },
         {
+          "accepts_source_path": true,
+          "requires_db_session": false,
+          "source": "architecture-quality-report",
+          "source_kind": "file"
+        },
+        {
+          "accepts_source_path": true,
+          "requires_db_session": false,
+          "source": "agent-trace-review-report",
+          "source_kind": "file"
+        },
+        {
           "accepts_source_path": false,
           "requires_db_session": true,
           "source": "eval-failure-cases",
@@ -129,8 +141,10 @@
         }
       ],
       "import_sources": [
+        "agent-trace-review-report",
         "all",
         "architecture-governance-report",
+        "architecture-quality-report",
         "eval-failure-cases",
         "failed-agent-tasks",
         "failed-agent-verifications",
@@ -176,6 +190,10 @@
         "warning_count",
         "info_count",
         "contract_count",
+        "hotspot_count",
+        "max_hotspot_risk_score",
+        "agent_legibility_average_score",
+        "broad_facade_count",
         "rule_violation_counts",
         "contract_violation_counts"
       ],
@@ -190,7 +208,12 @@
         "rule_violation_counts",
         "contract_violation_counts",
         "api_route_count",
-        "agent_action_count"
+        "agent_action_count",
+        "hotspot_count",
+        "top_hotspot_paths",
+        "max_hotspot_risk_score",
+        "agent_legibility_average_score",
+        "broad_facade_count"
       ],
       "measurement_schema_name": "architecture_inspection_measurement",
       "name": "architecture_measurement_history",
@@ -232,6 +255,17 @@
         "deltas"
       ],
       "summary_schema_name": "architecture_measurement_summary"
+    },
+    {
+      "decision_ids": [
+        "ADR-0005"
+      ],
+      "name": "architecture_quality_report",
+      "report_path": "build/architecture-governance/architecture_quality_report.json",
+      "schema_name": "architecture_quality_report",
+      "schema_version": "1.0",
+      "source": "app.architecture_quality",
+      "summary_schema_name": "architecture_quality_summary"
     }
   ],
   "inspection_rules": [
@@ -348,7 +382,9 @@
     "README.md",
     "docs/architecture_boundaries.md",
     "docs/architecture_decisions.yaml",
-    "docs/improvement_loop.md"
+    "docs/improvement_loop.md",
+    "docs/agentic_architecture_milestone_plan.md",
+    "docs/agentic_architecture_milestone_audit.md"
   ],
   "system_style": "modular_monolith"
 }
