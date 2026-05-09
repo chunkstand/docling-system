@@ -443,6 +443,7 @@ class DocumentRun(Base):
         ),
         UniqueConstraint("document_id", "run_number", name="uq_document_runs_doc_run_number"),
         Index("ix_document_runs_status_next_attempt_at", "status", "next_attempt_at"),
+        Index("ix_document_runs_status_completed_at", "status", "completed_at"),
         Index("ix_document_runs_locked_at", "locked_at"),
     )
 

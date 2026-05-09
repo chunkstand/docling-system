@@ -5,6 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/architecture_plan_01.md`: active hotspot reduction plan and milestone sequence.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
 - `docs/agentic_architecture_milestone_audit.md`: latest implementation audit and gap closures.
 - `docs/data_model_boundary_plan.md`: model-domain split plan and DB verification gates.
@@ -22,7 +23,8 @@ chat history or scanning the whole repository.
 - Governed follow-up: physical hotspot splits for `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, `app/services/search.py`,
   `app/cli.py`, and `app/db/models.py`. Use the architecture quality report to
-  choose one split at a time.
+  choose one split at a time. `docs/architecture_plan_01.md` is the active
+  execution order for those splits.
 - Runtime caveat: DB-backed readiness and trace review require a working local
   Postgres/Docker runtime; the 2026-05-09 docs refresh could not verify those
   paths because local Postgres and Docker were unavailable.

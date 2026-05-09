@@ -4,15 +4,25 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest local code checkpoint before this docs refresh: `9f60a17` (`complete agentic architecture governance milestones`)
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 1 closeout
+commit.
 
 ## Current Position
 
-The checkout is on `main` at `9f60a17c02c79979dd24c2e730cfd8f18f1ba32e`
-before this documentation closeout commit. At the start of the closeout,
-`main` was clean and ahead of `origin/main` by 9 commits; `origin/main` was
-`6933eca` (`Add Docker pg_dump fallback for reset`). Recheck branch parity after
-the docs commit and any push.
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 11
+commits after the Milestone 1 closeout; `origin/main` is `6933eca`
+(`Add Docker pg_dump fallback for reset`).
+
+The Milestone 1 closeout commit contains the architecture-planning and
+compatibility-harness updates:
+
+- `docs/architecture_plan_01.md`
+- `docs/agentic_architecture_index.md`
+- `docs/SESSION_HANDOFF.md`
+- `docs/data_model_boundary_plan.md`
+- `tests/db_model_contract.py`
+- `tests/unit/test_db_model_import_compatibility.py`
+- `tests/integration/test_db_model_metadata.py`
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -27,8 +37,9 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 9 local commits ahead of `origin/main` are:
+The 11 local commits ahead of `origin/main` are:
 
+- local Milestone 1 closeout commit for `Architecture Plan 01`
 - `5f4598b` `Split agent task action executors`
 - `7fe2dbc` `Split technical report services`
 - `482daa3` `Clear near-threshold hygiene blockers`
@@ -38,6 +49,7 @@ The 9 local commits ahead of `origin/main` are:
 - `8654bde` `Split search replay and release gate hygiene`
 - `1e05afd` `refactor evidence payload helpers`
 - `9f60a17` `complete agentic architecture governance milestones`
+- `d1b38df` `docs: refresh current system state`
 
 These commits moved the repo toward agent-legible modular-monolith governance:
 narrower retrieval and agent-orchestration capability contract companions,
@@ -77,46 +89,128 @@ The architecture boundary model is clean, but hotspot debt remains real. The
 top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 `app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
 
-## Verification Snapshot
+## Runtime Gate Snapshot
 
-Commands run for this docs closeout:
+Milestone 0 restored the DB-backed runtime gate on 2026-05-09.
+
+Commands run:
 
 ```bash
+open -a Docker
+docker version
+docker compose config --quiet
+docker compose up -d db
+docker compose ps
+uv run --extra dev alembic heads
+uv run --extra dev alembic current
+uv run --extra dev alembic upgrade head
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
 uv run ruff check app tests
 uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
-uv run docling-system-architecture-decisions
 uv run docling-system-architecture-quality-report --summary
-uv run docling-system-hygiene-check
-uv run docling-system-improvement-case-summary
-uv run pytest -q tests/unit/test_architecture_inspection.py tests/unit/test_architecture_quality.py tests/unit/test_capability_contracts.py tests/unit/test_api_route_contracts.py
 uv run docling-system-evaluation-data-readiness
 uv run docling-system-agent-trace-review --limit 5 --skip-hygiene
-docker compose ps
 ```
 
 Results:
 
 ```text
-ruff: All checks passed.
-architecture inspection: passed, violation_count=0.
-capability contracts: passed, valid=true.
-architecture decisions: passed, valid=true.
-architecture quality summary: passed, hotspot_count=10.
-focused architecture tests: 34 passed in 11.85s.
-improvement-case summary: 1 measured case, 0 open actionable buckets.
-hygiene: exits 1; Ruff/Vulture/improvement-case/architecture findings are clean, but file/helper budget findings remain.
-evaluation-data readiness: blocked by local Postgres connection refusal on localhost:5432.
-agent trace review: blocked by local Postgres connection refusal on localhost:5432.
-docker compose ps: failed because Docker daemon is not running.
-full Postgres-backed pytest: not run in this closeout because local Postgres/Docker are unavailable.
+Docker Desktop: running after `open -a Docker`.
+Compose config: valid.
+Compose runtime: `docling-system-db` healthy on localhost:5432; `worker` and `agent-worker` running.
+Alembic heads: `0076_claim_feedback_replay_src (head)`.
+Alembic current: `0076_claim_feedback_replay_src (head)`.
+Alembic upgrade head: completed with no pending migrations.
+Full DB-backed tests: `872 passed in 51.00s`.
+Ruff: All checks passed.
+Architecture inspection: valid, `violation_count=0`.
+Capability contracts: valid, `facade_count=6`, `function_count=110`, `issues=[]`.
+Architecture quality summary: `agent_legibility_average_score=90.0`, `broad_facade_count=2`, `hotspot_count=10`.
+Evaluation-data readiness: command runs against Postgres; `regression_ready=false`, `court_grade_ready=false`, `failed_gate_count=11`.
+Agent trace review: command runs against Postgres; `observation_count=0`.
 ```
+
+## Data Model Compatibility Harness Snapshot
+
+Milestone 1 implemented, verified, and locally committed the pre-split
+compatibility harness on 2026-05-09. No ORM classes moved.
+
+Files added or updated for the harness:
+
+- `app/db/models.py`
+- `tests/db_model_contract.py`
+- `tests/unit/test_db_model_import_compatibility.py`
+- `tests/integration/test_db_model_metadata.py`
+- `docs/data_model_boundary_plan.md`
+- `docs/architecture_plan_01.md`
+
+Focused verification:
+
+```bash
+uv run pytest -q tests/unit/test_db_model_import_compatibility.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+uv run ruff check app tests
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+uv run --extra dev alembic check
+```
+
+Results:
+
+```text
+model import compatibility: 221 passed.
+Postgres model metadata/create-all check: 3 passed.
+Postgres integration suite: 72 passed.
+Full DB-backed suite: 1096 passed in 47.41s.
+Ruff: passed.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=674.68.
+Alembic check: no new upgrade operations detected.
+```
+
+The harness protects 109 public `app.db.models` symbols: 29 enums and 80 ORM
+model classes. It also asserts the full 80-table `Base.metadata` contract and
+checks schema-scoped Postgres `Base.metadata.create_all(...)`. During closeout,
+the harness also closed a pre-existing Alembic metadata drift by declaring the
+migrated `ix_document_runs_status_completed_at` index on `DocumentRun` metadata
+and testing required model indexes in unit and Postgres create-all paths.
+
+## Architecture Milestone Closeout Policy
+
+The architecture plan was revised on 2026-05-09 so each milestone is complete
+only after focused verification, cross-milestone gates, affected docs, handoff
+updates, scoped staging, and a local commit. Push remains a separate action and
+should happen only when explicitly requested.
+
+The revised closeout rule is:
+
+- run focused tests for the moved or guarded contract
+- run `git diff --check`, Ruff, architecture inspection, capability contracts,
+  and the architecture-quality summary
+- run `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` for DB, API,
+  storage, search, evidence, agent-task, worker, or runtime-facing changes
+- run Alembic head/current/upgrade/check plus Postgres metadata create-all
+  verification for model or migration changes
+- update affected durable docs and this handoff
+- stage only the milestone slice and commit locally before starting the next
+  milestone
+
+Milestone 1 satisfies the revised local commit closeout rule. Milestone 2 may
+begin from this committed checkpoint.
 
 ## Active Weak Points
 
 - Documentation and branch state needed this closeout because the prior handoff
   still described `498908b` as current and said `HEAD` matched `origin/main`.
-- Local runtime verification is blocked until Docker/Postgres are running again.
+- Evaluation-data readiness is still false because the local DB has no active
+  document corpus, persisted run evaluations, auto/generated regression corpus,
+  hand-verified gold corpus, feedback ledgers, replay coverage, harness-source
+  coverage, or retrieval-learning materialization.
 - Hygiene remains intentionally strict and currently fails on oversized modules,
   especially `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
@@ -131,14 +225,11 @@ full Postgres-backed pytest: not run in this closeout because local Postgres/Doc
 
 ## Next Milestone
 
-First restore local runtime verification:
+Milestone 0 is complete: local runtime verification is available. Milestone 1
+is complete: the data-model compatibility harness is in place and locally
+committed under the revised closeout policy.
 
-1. Start Docker/Postgres or point `DOCLING_SYSTEM_DATABASE_URL` at a working local Postgres.
-2. Run `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`.
-3. Run `uv run docling-system-evaluation-data-readiness`.
-4. Run `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`.
-
-After runtime verification is available, choose one hotspot split as an atomic
-milestone. The most defensible next architecture slice is the data-model
-boundary plan for `app/db/models.py`, because it is the highest-risk hotspot and
-already has a required sequence in `docs/data_model_boundary_plan.md`.
+The next architecture milestone is `Architecture Plan 01` Milestone 2: move the
+first low-risk model domain behind the `app.db.models` compatibility facade.
+Start with `platform support`: `ApiIdempotencyKey`, unless live evidence points
+to a safer first domain.
