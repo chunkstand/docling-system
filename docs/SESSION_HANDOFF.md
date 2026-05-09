@@ -4,19 +4,21 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 3 alignment
-closeout commit.
+Latest committed checkpoint: local closeout-doc policy hardening commit after
+`Architecture Plan 01` Milestone 3.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 15
-commits after the Milestone 3 alignment closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 16
+commits after the closeout-doc policy hardening; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest alignment closeout is a docs-only reconciliation of the current-state
-snapshot, full-suite count, and line-count evidence. The previous Milestone 3
-closeout commit contains the first evidence-service split and its
-verification/docs updates:
+The latest docs-only commit hardens the repo rule that closeout docs are a
+mandatory end-of-milestone gate: update `docs/SESSION_HANDOFF.md` and the active
+milestone/status doc before committing any milestone. The previous alignment
+closeout reconciled the current-state snapshot, full-suite count, and line-count
+evidence. The Milestone 3 closeout commit contains the first evidence-service
+split and its verification/docs updates:
 
 - `app/services/evidence.py`
 - `app/services/evidence_common.py`
@@ -44,8 +46,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 15 local commits ahead of `origin/main` are:
+The 16 local commits ahead of `origin/main` are:
 
+- local closeout-doc policy hardening commit after `Architecture Plan 01`
+  Milestone 3
 - local Milestone 3 alignment closeout commit for `Architecture Plan 01`
 - local Milestone 3 closeout commit for `Architecture Plan 01`
 - `980cc8c` `architecture: harden milestone 2 alignment`
@@ -337,7 +341,8 @@ The revised closeout rule is:
   storage, search, evidence, agent-task, worker, or runtime-facing changes
 - run Alembic head/current/upgrade/check plus Postgres metadata create-all
   verification for model or migration changes
-- update affected durable docs and this handoff
+- update closeout docs before commit: always refresh this handoff and the active
+  milestone/status doc, then refresh any other affected durable docs
 - stage only the milestone slice and commit locally before starting the next
   milestone
 

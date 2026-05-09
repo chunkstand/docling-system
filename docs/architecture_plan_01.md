@@ -100,7 +100,8 @@ Required closeout order:
 3. Run the cross-milestone architecture and quality gates in this plan.
 4. Run DB-backed integration tests for any DB, API, storage, search, evidence,
    agent-task, worker, or runtime-facing change.
-5. Refresh affected durable docs and `docs/SESSION_HANDOFF.md`.
+5. Refresh closeout docs: always update `docs/SESSION_HANDOFF.md` and this
+   active milestone plan, then refresh any other affected durable docs.
 6. Run `git diff --check` after final docs edits.
 7. Review `git status --short`, `git diff --stat`, and staged diff scope.
 8. Stage only the milestone slice.
@@ -871,11 +872,12 @@ Unrelated dirty or untracked files must stay unstaged.
 
 ## Documentation Contract
 
-Each milestone closeout must update durable docs only where the milestone
-changes the current system state:
+Each milestone closeout must update durable docs before the milestone commit.
+Closeout docs are mandatory even when the code/test slice is already complete:
 
-- `docs/SESSION_HANDOFF.md`: always update for architecture milestone closeout.
-- `docs/architecture_plan_01.md`: update status and next milestone routing.
+- `docs/SESSION_HANDOFF.md`: always update for milestone closeout.
+- `docs/architecture_plan_01.md`: always update status, verification evidence,
+  residual risk, and next milestone routing for this architecture sequence.
 - `docs/data_model_boundary_plan.md`: update for model split work.
 - `docs/architecture_boundaries.md`: update only for boundary-policy changes.
 - `README.md` or `SYSTEM_PLAN.md`: update only when user-facing capability or
