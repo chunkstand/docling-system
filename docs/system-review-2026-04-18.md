@@ -3,6 +3,17 @@
 Date: 2026-04-18
 Scope: Full repository review of the Docling ingestion, retrieval, evaluation, and agent-task system.
 
+Status note, refreshed 2026-05-09: this is a historical review. Several
+findings below have since been addressed or reframed by current API capability
+contracts, upload validation, dependency-cycle checks, checksum-first evaluation
+fixture identity, and architecture governance reports. For current system
+state, use `docs/SESSION_HANDOFF.md`, `SYSTEM_PLAN.md`,
+`docs/agentic_architecture_index.md`, and the live outputs of
+`docling-system-architecture-inspect`,
+`docling-system-architecture-quality-report --summary`,
+`docling-system-hygiene-check`, and
+`docling-system-evaluation-data-readiness`.
+
 ## Summary
 
 This codebase is strongest in run-state discipline, auditability, evaluation/replay infrastructure, and test coverage. It is weakest at the system boundary: API exposure, upload hardening, concurrency robustness, and a few scale-sensitive retrieval and evaluation assumptions.

@@ -2,6 +2,34 @@
 
 Docling-based PDF ingestion, retrieval, and auditable document-generation system.
 
+## Current State Snapshot
+
+As of the 2026-05-09 documentation closeout, the local `main` checkout is at
+`9f60a17` before the docs-refresh commit and is ahead of `origin/main`. The
+latest local implementation work completed the agentic architecture governance
+milestones: narrower retrieval and agent-orchestration capability contract
+companions, agent-action manifest validation, trace-first review, architecture
+quality reporting, improvement-case import from generated reports, and a
+data-model boundary plan for `app/db/models.py`.
+
+Current repo-level signals:
+
+- `uv run docling-system-architecture-inspect` is green with `violation_count=0`,
+  `api_route_count=130`, `agent_action_count=51`, `contract_count=10`, and
+  `inspection_rule_count=13`.
+- `uv run docling-system-capability-contracts` is green with `facade_count=6`
+  and `function_count=110`.
+- `uv run docling-system-architecture-quality-report --summary` reports
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
+  `app/services/evidence.py`, `app/cli.py`,
+  `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
+- `uv run docling-system-hygiene-check` still exits non-zero because file/helper
+  budget findings remain in large hotspot modules. Ruff, Vulture,
+  improvement-case, and architecture findings are clean.
+- Live DB-backed readiness is currently unverified in this checkout because
+  local Postgres on `localhost:5432` and Docker Compose are not running.
+
 ## What It Does
 
 This system ingests operator-supplied PDFs, parses them with Docling, stores versioned run artifacts, validates prose chunks, logical tables, and figures, and promotes only validation-passing runs to active search. Retrieval is exposed through a local REST API and an operator browser UI. Run-scoped retrieval evaluations are persisted and surfaced through the API and UI.

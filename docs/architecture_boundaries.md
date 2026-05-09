@@ -179,6 +179,12 @@ artifact to
 `build/architecture-governance/architecture_quality_report.json` when importing
 its improvement-case candidates.
 
+Current 2026-05-09 summary: architecture inspection is valid with zero
+violations, the capability map is valid across 6 facades and 110 functions, and
+the quality summary identifies 10 top hotspots. The leading follow-up surfaces are
+`app/db/models.py`, `app/services/evidence.py`, `app/cli.py`,
+`app/services/agent_task_actions.py`, and `app/services/search.py`.
+
 Trace-first agent review is owned by `app.agent_trace_review`. It emits the
 `agent_trace_review_report` contract for failed agent tasks, failed
 verifications, evaluation failures, search replay regressions, approval gates,

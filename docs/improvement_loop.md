@@ -1,6 +1,7 @@
 # General Improvement Loop
 
 Status: Active repo-local contract
+Status refreshed: 2026-05-09
 
 ## Purpose
 
@@ -12,6 +13,17 @@ codebase failures that are not necessarily retrieval failures.
 ## Contract
 
 The machine-readable registry lives at `config/improvement_cases.yaml`.
+
+Current registry state from the 2026-05-09 docs closeout:
+
+- `uv run docling-system-improvement-case-summary` reports `case_count=1`, with
+  one measured hygiene-gate case and zero open actionable buckets.
+- The architecture quality report emits current hotspot candidates for large or
+  high-churn surfaces, but those candidates have not yet been imported as open
+  registry cases.
+- DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
+  and `failed-agent-verifications` require local Postgres to be available before
+  they can be trusted as current.
 
 Every case must declare:
 

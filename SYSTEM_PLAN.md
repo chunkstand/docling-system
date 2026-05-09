@@ -28,6 +28,39 @@ The system is intentionally conservative:
 - one ingest/search worker and one agent-task worker, both using DB leasing
 - explicit approval gates for promotable agent actions
 
+## Current Implementation Snapshot
+
+As of the 2026-05-09 documentation closeout, the local `main` checkout has
+completed the agentic architecture governance milestones through `9f60a17`
+before the docs-refresh commit. The implemented architecture posture is:
+
+- the modular-monolith boundary model is mechanically checked and currently
+  valid with `violation_count=0`
+- API route, agent action, capability surface, architecture decision,
+  improvement-case, and architecture contract-map checks are first-class
+  contracts
+- the public capability surface has 6 facades and 110 protocol functions
+- retrieval and agent-orchestration keep stable compatibility facades while
+  exposing focused contract companions for narrower review surfaces
+- architecture quality reporting now ranks hotspots by size, churn, hygiene
+  findings, open improvement cases, and agent legibility
+- trace-first review and architecture-quality report imports can feed
+  generated observations into the improvement-case loop
+- the current top architecture follow-up is hotspot splitting, not a platform
+  rewrite or service extraction
+
+Current verification status:
+
+- Ruff, architecture inspection, capability contracts, architecture decisions,
+  and focused architecture tests pass locally.
+- Hygiene still fails on file/helper budget findings in large modules such as
+  `app/db/models.py`, `app/services/evidence.py`,
+  `app/services/audit_bundles.py`,
+  `app/services/claim_support_policy_impacts.py`,
+  `app/services/retrieval_learning.py`, and `app/services/search.py`.
+- Live DB-backed readiness and trace review are blocked until local Postgres and
+  Docker are available again.
+
 ## Current Goals
 
 The system is built to support these current goals:

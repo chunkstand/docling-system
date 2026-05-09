@@ -12,13 +12,20 @@ chat history or scanning the whole repository.
 
 ## Milestone Status
 
-- Completed: baseline quality report, capability subcontracts, agent action
+- Completed through `9f60a17`: baseline quality report, capability subcontracts, agent action
   hardening, trace-first review, repository architecture map, architecture
   garbage-collection candidates, and data-model boundary plan.
+- Current gate shape: architecture inspection is valid with no violations,
+  capability contracts are valid across 6 facades and 110 functions, and the
+  architecture quality summary reports `agent_legibility_average_score=90.0`,
+  `broad_facade_count=2`, and `hotspot_count=10`.
 - Governed follow-up: physical hotspot splits for `app/services/evidence.py`,
-  `app/services/agent_task_actions.py`, `app/services/search.py`, and
-  `app/db/models.py`. Use the architecture quality report to choose one split
-  at a time.
+  `app/services/agent_task_actions.py`, `app/services/search.py`,
+  `app/cli.py`, and `app/db/models.py`. Use the architecture quality report to
+  choose one split at a time.
+- Runtime caveat: DB-backed readiness and trace review require a working local
+  Postgres/Docker runtime; the 2026-05-09 docs refresh could not verify those
+  paths because local Postgres and Docker were unavailable.
 
 ## Executable Architecture Contracts
 

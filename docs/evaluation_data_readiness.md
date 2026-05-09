@@ -1,5 +1,11 @@
 # Evaluation Data Readiness
 
+Status refreshed: 2026-05-09. The command remains the required preflight before
+trusting retrieval, reranker, or court-grade document-generation gates. During
+the 2026-05-09 documentation closeout it could not complete because local
+Postgres refused connections on `localhost:5432`; readiness is therefore
+unknown until the DB runtime is restored and the command is rerun.
+
 Use the data-readiness preflight before trusting retrieval, reranker, or
 court-grade document-generation gates. The check is intentionally stricter than
 unit/integration tests: it verifies that the live database contains enough

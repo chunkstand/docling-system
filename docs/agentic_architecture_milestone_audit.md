@@ -1,6 +1,7 @@
 # Agentic Architecture Milestone Audit
 
 Date: 2026-05-04
+Status refreshed: 2026-05-09
 
 Scope: audit the implemented architecture milestones against
 `docs/agentic_architecture_milestone_plan.md` and close concrete gaps that can
@@ -15,8 +16,19 @@ runtime behavior.
 - `uv run docling-system-capability-contracts`: valid with `facade_count=6`,
   `function_count=110`, and no issues.
 - `uv run docling-system-architecture-quality-report --summary`:
-  `agent_legibility_average_score=90.0`, `broad_facade_count=2`, and top
-  hotspot paths headed by `app/db/models.py` and `app/services/evidence.py`.
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
+  `app/services/evidence.py`, `app/cli.py`,
+  `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
+- `uv run ruff check app tests`: passed.
+- Focused architecture tests:
+  `tests/unit/test_architecture_inspection.py`,
+  `tests/unit/test_architecture_quality.py`,
+  `tests/unit/test_capability_contracts.py`, and
+  `tests/unit/test_api_route_contracts.py` passed with `34 passed`.
+- DB-backed readiness and trace review are not current in the 2026-05-09 docs
+  refresh because local Postgres refused connections on `localhost:5432` and
+  Docker Compose could not reach the Docker daemon.
 
 ## Gap Closures
 
@@ -40,12 +52,13 @@ runtime behavior.
 
 ## Deferred Large Refactors
 
-The plan's physical implementation splits for `app/services/evidence.py`,
-`app/services/agent_task_actions.py`, `app/services/search.py`, and
-`app/db/models.py` remain governed hotspot work, not hidden gaps. They are
-ranked and converted into improvement-case candidates by the architecture
-quality report. Each future split should land as a separate behavior-preserving
-milestone with focused tests plus the full integration gate.
+The plan's physical implementation splits for `app/db/models.py`,
+`app/services/evidence.py`, `app/cli.py`,
+`app/services/agent_task_actions.py`, and `app/services/search.py` remain
+governed hotspot work, not hidden gaps. They are ranked and converted into
+improvement-case candidates by the architecture quality report. Each future
+split should land as a separate behavior-preserving milestone with focused
+tests plus the full integration gate.
 
 ## Verification Contract
 

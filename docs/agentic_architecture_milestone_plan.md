@@ -1,6 +1,7 @@
 # Agentic Architecture Milestone Plan
 
 Date: 2026-05-04
+Status refreshed: 2026-05-09
 
 Purpose: translate code-review, software-architecture, and agentic-system
 guidance into an implementation plan for making this repository easier for
@@ -17,6 +18,11 @@ Current architecture status:
   `valid: true`, `violation_count: 0`, `api_route_count: 130`,
   `agent_action_count: 51`, `contract_count: 10`, and
   `inspection_rule_count: 13`.
+- `uv run docling-system-capability-contracts` currently reports
+  `valid: true`, `facade_count: 6`, `function_count: 110`, and no issues.
+- `uv run docling-system-architecture-quality-report --summary` currently
+  reports `agent_legibility_average_score: 90.0`, `broad_facade_count: 2`,
+  `hotspot_count: 10`, and `max_hotspot_risk_score` around `675`.
 - The main architecture control points are:
   - `docs/architecture_boundaries.md`
   - `docs/agentic_architecture_index.md`
@@ -28,13 +34,14 @@ Current architecture status:
 - The largest service modules are still governed hotspot work. They are ranked
   by the architecture quality report and should be split one behavior-preserving
   milestone at a time:
-  - `app/services/evidence.py`: 9,985 lines
+  - `app/services/evidence.py`: about 9,500 lines
   - `app/services/audit_bundles.py`: 3,862 lines
   - `app/services/agent_task_context.py`: 3,858 lines
   - `app/services/claim_support_policy_impacts.py`: 3,477 lines
   - `app/services/search.py`: 3,429 lines
-  - `app/services/agent_task_actions.py`: 3,312 lines
+  - `app/services/agent_task_actions.py`: about 3,300 lines
   - `app/services/retrieval_learning.py`: 3,028 lines
+  - `app/db/models.py`: 6,026 lines and the highest current hotspot score
 - Recent 90-day churn hotspots include `app/db/models.py`,
   `app/schemas/agent_tasks.py`, `app/services/agent_task_actions.py`,
   `app/cli.py`, `app/api/main.py`, `app/services/evidence.py`,

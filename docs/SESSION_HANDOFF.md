@@ -1,173 +1,144 @@
 # Session Handoff
 
-Date: 2026-04-29 local / 2026-04-29 UTC
+Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: `498908b` (`Harden hygiene helpers and eval corpus runner`)
+Latest local code checkpoint before this docs refresh: `9f60a17` (`complete agentic architecture governance milestones`)
 
 ## Current Position
 
-`main` is pushed to GitHub and `HEAD` matches `origin/main` at `498908b223679d552619db2531998ef47cd1857e`. The current system is no longer just PDF ingest plus search; it is a durable local document-intelligence platform with:
+The checkout is on `main` at `9f60a17c02c79979dd24c2e730cfd8f18f1ba32e`
+before this documentation closeout commit. At the start of the closeout,
+`main` was clean and ahead of `origin/main` by 9 commits; `origin/main` was
+`6933eca` (`Add Docker pg_dump fallback for reset`). Recheck branch parity after
+the docs commit and any push.
+
+The current system is a local-first, durable document-intelligence platform with:
 
 - active-run-gated PDF ingest, parsing, validation, and promotion
-- mixed chunk/table retrieval with replayable evaluations and harness governance
-- figure, table, chunk, and artifact provenance preserved in Postgres plus canonical JSON artifacts
-- authenticated remote mode and capability-gated API surfaces
-- semantic ontology, fact-graph, and graph-memory workflows that stay additive until verified and approved
-- technical-report generation workflows with claim/evidence packaging, verification, and audit bundles
-- reusable document-generation context packs with pre-draft quality evaluation
-- claim-support judge calibration with persisted replay evaluations and per-case evidence
-- architecture, hygiene, improvement-case, and audit-bundle governance checks
+- mixed chunk/table retrieval, grounded chat, search replay, and harness governance
+- figure, table, chunk, span, evidence, and audit-bundle provenance in Postgres plus canonical JSON artifacts
+- authenticated remote mode with route capability contracts and mutation-key gates
+- additive semantic ontology, fact-graph, and graph-memory workflows
+- technical-report generation with context-pack evaluation, claim provenance locks, support-judge calibration, and audit bundles
+- DB-backed agent-task orchestration with typed actions, context refs, approvals, attempts, outcomes, traces, and cost/performance telemetry
+- architecture, capability, decision, hygiene, improvement-case, and trace-review governance commands
 
-The latest pass hardened shared helper boundaries, eval-corpus runtime behavior, and CLI module boundaries. It did not rewrite the hygiene policy.
+## Recent Local Milestones Since `origin/main`
 
-## Recent Milestones Since The Prior Handoff
+The 9 local commits ahead of `origin/main` are:
 
-The old handoff captured the April 18 API hardening work. Since then, the repository has moved through retrieval/audit, semantic governance, technical-report hardening, evaluation-data readiness, and hygiene hardening passes.
+- `5f4598b` `Split agent task action executors`
+- `7fe2dbc` `Split technical report services`
+- `482daa3` `Clear near-threshold hygiene blockers`
+- `637559a` `Split hygiene blocker modules`
+- `b59d4d5` `Split agent task hygiene modules`
+- `25ac117` `Harden search and retrieval hygiene boundaries`
+- `8654bde` `Split search replay and release gate hygiene`
+- `1e05afd` `refactor evidence payload helpers`
+- `9f60a17` `complete agentic architecture governance milestones`
 
-Recent high-signal checkpoints include:
+These commits moved the repo toward agent-legible modular-monolith governance:
+narrower retrieval and agent-orchestration capability contract companions,
+agent-action manifest validation, trace-first review, architecture quality
+reporting, improvement-case import from generated reports, and a data-model
+boundary plan for `app/db/models.py`.
 
-- `c51760c` `Harden retrieval training audit bundle closure`
-- `13f8148` `Add audit bundle validation receipts`
-- `e53690b` `Expose audit bundle receipt history`
-- `4ee9cab` `Add semantic governance release readiness`
-- `992c352` `Auto-validate release audit bundles`
-- `2767944` `Add reranker artifact impact ledger`
-- `c78af3a` `Include reranker artifacts in release audit bundles`
-- `d883590` `Add technical report claim provenance locks`
-- `3d0d810` `Tighten claim provenance lock validation`
-- `ff0b855` `Add technical report claim support gate`
-- `e9dbdef` `Add claim support judge evaluation replay`
-- `5f12b23` `Harden claim support judge evaluation context`
-- `5985c72` `Add claim support replay alert escalations`
-- `7f1b2d2` `Harden claim support replay escalations`
-- `f95470c` `Add replay alert fixture promotion loop`
-- `56b312f` `Harden replay alert fixture promotions`
-- `8b31780` `Add evaluation data readiness preflight`
-- `498908b` `Harden hygiene helpers and eval corpus runner`
+## Current Architecture And Governance State
 
-## Current Technical-Report And Claim-Support State
+Current read-only gates from this checkout:
 
-The technical-report workflow is:
+```text
+uv run docling-system-architecture-inspect
+  valid=true, violation_count=0, api_route_count=130,
+  agent_action_count=51, contract_count=10, inspection_rule_count=13
 
-1. `plan_technical_report`
-2. `build_report_evidence_cards`
-3. `prepare_report_agent_harness`
-4. `evaluate_document_generation_context_pack`
-5. `draft_technical_report`
-6. `verify_technical_report`
+uv run docling-system-capability-contracts
+  valid=true, facade_count=6, function_count=110, issues=[]
 
-The workflow now preserves claim evidence at several levels:
+uv run docling-system-architecture-decisions
+  valid=true, decision_count=9, issues=[]
 
-- report plans and evidence cards are typed task outputs
-- the report harness is a persisted wake-up packet with evidence cards, graph context, claim contract, allowed tools, required skills, and verifier policy
-- `prepare_report_agent_harness` also writes `document_generation_context_pack.json`, a reusable generation input with context refs, retrieval plan, evidence cards, source evidence package refs, graph context, claim contract, freshness summary, quality contract, audit refs, and a stable hash
-- `evaluate_document_generation_context_pack` records a verifier row, operator run, typed context, and evaluation artifact before a draft is generated
-- `draft_technical_report` now requires a passed latest context-pack gate for the target harness, and the gate's context-pack hash must match the current harness hash before generation can run
-- final technical-report audit bundles, evidence manifests, evidence traces, and PROV exports now include the context-pack artifact, evaluation artifact, verifier record, operator run, and hash-check chain as explicit audit material
-- draft tasks record generation operator runs and persist a frozen claim-derivation evidence package
-- claim provenance locks bind generated claims to evidence cards, search result IDs, source records, and hashes
-- claim-support judgments are applied to generated claims before verification
-- verification checks claim traceability, claim-support judgments, graph approval, concept coverage, refreshed context, and evidence closure
-- `GET /agent-tasks/{task_id}/audit-bundle` exposes the draft, verification, evidence package export, claim derivations, operator runs, active-run impact, and signed PROV receipt material when signing is configured
-
-The support-judge calibration path is now first-class:
-
-- task type: `evaluate_claim_support_judge`
-- governed promotion path: `draft_claim_support_calibration_policy -> verify_claim_support_calibration_policy -> apply_claim_support_calibration_policy`
-- service: `app.services.claim_support_evaluations`
-- persisted tables: `claim_support_fixture_sets`, `claim_support_calibration_policies`, `claim_support_evaluations`, `claim_support_evaluation_cases`, and `claim_support_policy_change_impacts`
-- artifact kinds: `claim_support_judge_evaluation`, `claim_support_calibration_policy_draft`, `claim_support_calibration_policy_verification`, `claim_support_calibration_policy_activation`, `claim_support_policy_activation_governance`, `claim_support_replay_alert_fixture_coverage_waiver`, `claim_support_policy_change_impact_replay_plan`, `claim_support_policy_impact_replay_closure`, `claim_support_policy_impact_replay_escalation`, and `claim_support_policy_impact_fixture_promotion`
-- operator runs: `technical_report_claim_support_judge_evaluation`, `claim_support_calibration_policy_verification`, and `claim_support_calibration_policy_activation`
-- context builder: `evaluate_claim_support_judge`
-
-The evaluation task replays governed hard-case fixture sets against the technical-report claim-support judge. Passing and failing gates are both persisted as completed, auditable evaluation results. Failed gates do not crash the worker; they preserve the failed case rows, reasons, artifact, operator metrics, fixture-set hash, calibration-policy hash, and typed context summary for review. Unpinned evaluations resolve the active policy for the requested policy name, while policy changes must pass through draft, replay verification, human approval, and activation. Verification now combines explicit/default fixtures with the latest promoted replay-alert fixtures and mined failed cases from prior claim-support evaluations, then records both replay-alert fixture coverage and mined-failure manifests. The replay-alert coverage requirement is enabled by default, so stale escalation receipts that have not been promoted into fixture coverage force the verifier gate to fail instead of allowing a policy promotion with known uncovered replay alerts. If that requirement is disabled, the task schema requires a waiver operator, reason, severity, and timezone-aware expiry within 72 hours; verification writes a durable waiver artifact/hash with lifecycle metadata and optional remediation owner; activation recomputes the waiver hash, blocks expired/overlong/tampered waivers, and requires a separate waiver-specific activation approval from an operator different from both the task approver and waiver creator; activation governance carries both the waiver and the second approval; and decision signals classify active, expiring, expired, unmanaged, high-severity, and fixture-promotion-remediable waiver posture. Activation requires the draft row to still match the verified draft output, rejects retired-policy identity reuse, records approval metadata, verifier ID, fixture hash, replay-alert fixture summary, replay-alert coverage waiver, waiver activation approval, mined-failure manifest, the prior active policy, the new active policy, hashes, operator run, verifier evidence, and reason, then writes a `claim_support_policy_activation_governance` artifact with policy diff, replay evidence, fixture-set diff, replay-alert fixture summary, replay-alert coverage waiver, mined-failure summary, approval/retirement record, signed hash-chain receipt when signing is configured, PROV JSON-LD, an embedded change-impact report, and a linked `claim_support_policy_activated` semantic-governance event. The same change-impact payload is persisted in `claim_support_policy_change_impacts`, including prior technical-report support judgments, generated draft tasks, verifier tasks, affected IDs, replay recommendations, a reserved row ID, and a payload hash that is recomputed before insert. Operators can inspect the impact ledger through `GET /agent-tasks/claim-support-policy-change-impacts`, inspect status counts and stale open rows through `GET /agent-tasks/claim-support-policy-change-impacts/summary`, load the remediation worklist through `GET /agent-tasks/claim-support-policy-change-impacts/worklist`, load stale/blocked alert rows through `GET /agent-tasks/claim-support-policy-change-impacts/alerts`, record idempotent escalation receipts through `POST /agent-tasks/claim-support-policy-change-impacts/alerts/escalations`, mine escalated alert rows into hard-case candidates through `GET /agent-tasks/claim-support-policy-change-impacts/alerts/fixture-candidates`, promote unconverted candidates into governed fixture sets through `POST /agent-tasks/claim-support-policy-change-impacts/alerts/fixture-promotions`, queue managed remediation through either `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-tasks` or the `queue_claim_support_policy_change_impact_replay` task action, and refresh closure through `POST /agent-tasks/claim-support-policy-change-impacts/{change_impact_id}/replay-status`. The CLI commands `docling-system-claim-support-replay-alerts` and `docling-system-claim-support-replay-fixtures` emit the alert posture and alert-derived fixture coverage as JSON, YAML, or tabular reports; the alert CLI can record escalation receipts and the fixture CLI can promote unconverted candidates with `--promote`. The Agent Workflows UI now exposes the worklist with stale-row controls, returned/matching row counts, affected audit-bundle links, replay task links, closure receipt links, and queue/refresh actions; decision signals surface open, stale, and blocked claim-support replay impacts, stale escalation receipts that remain unconverted into fixture coverage, and replay-alert fixture coverage waivers. Replay queueing now prevalidates every recommendation before task creation, creates all child tasks and the row plan/status update in one transaction, is idempotent once replay tasks exist, and rejects replay-plan or terminal closure payload hash mismatches before mutating status. Worker finalization refreshes related impact rows after replay task success or failure. Impact rows carry replay task IDs, replay plans, replay status, and immutable closure receipts; replay-required rows do not close until the replayed draft and technical-report verification tasks produce passed gate evidence. Zero-replay `no_action_required` rows close during activation with the same closure artifact and semantic-governance event used for completed replay rows. Terminal closures must carry a row-level hash, matching payload hash, matching row status, and `replay_closed_at`; stale/blocked alert escalations write immutable `claim_support_policy_impact_replay_escalation` artifacts and `claim_support_policy_impact_replay_escalated` semantic-governance events. The alert feed is DB-filtered to blocked rows plus stale open rows, while escalation recording revalidates each target row under `FOR UPDATE` before writing a receipt. Existing technical-report evidence manifests for affected verification tasks are refreshed in the same escalation transaction, so older manifest rows do not hide newly recorded escalation evidence. Fixture promotion writes immutable `claim_support_policy_impact_fixture_promotion` artifacts and `claim_support_policy_impact_fixture_promoted` semantic-governance events that connect source impact rows, escalation receipts, candidate fixtures, and the promoted fixture set; candidate IDs are stable for the impacted derivation/fallback draft payload, while source payload hashes preserve mutable escalation receipt state and promotion responses report bounded candidate coverage. Promotion now also refreshes existing technical-report evidence manifests for affected verification tasks, and technical-report audit bundles, evidence manifests, and evidence traces surface related policy-change replay impact status, escalation evidence, and fixture-promotion events until replay closes and after alert coverage is promoted. The governance PROV graph names the activation artifact, governance artifact, and policy change-impact row entity, records a non-null activation end time, and the activation operator run hashes the final governance-bearing output. The database enforces one active policy per policy name.
-
-## Current Agent-Task Catalog Notes
-
-The live action registry currently has 51 task types. The most recent catalog additions are:
-
-- `evaluate_document_generation_context_pack`
-- `evaluate_claim_support_judge`
-- `draft_claim_support_calibration_policy`
-- `verify_claim_support_calibration_policy`
-- `apply_claim_support_calibration_policy`
-- `queue_claim_support_policy_change_impact_replay`
-
-The durable docs include these task types in the task lists and command examples. Operators can always verify the live catalog with:
-
-```bash
-uv run docling-system-agent-task-actions
+uv run docling-system-architecture-quality-report --summary
+  agent_legibility_average_score=90.0
+  broad_facade_count=2
+  hotspot_count=10
+  top_hotspot_paths=[
+    app/db/models.py,
+    app/services/evidence.py,
+    app/cli.py,
+    app/services/agent_task_actions.py,
+    tests/unit/test_cli.py
+  ]
 ```
 
-Every registered action declares typed input, output schema metadata, side-effect level, approval requirement, capability, and context-builder name. `tests/unit/test_agent_action_contracts.py` checks that named context builders are registered.
+The architecture boundary model is clean, but hotspot debt remains real. The
+top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
+`app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
 
 ## Verification Snapshot
 
-Latest full code verification after `498908b`:
+Commands run for this docs closeout:
 
 ```bash
 uv run ruff check app tests
-uv run pytest -q tests/unit/test_cli.py
-uv run docling-system-eval-corpus
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
-git diff --check
-```
-
-Result:
-
-```text
-ruff: All checks passed
-focused CLI tests: 53 passed in 1.71s
-eval corpus: 785 completed documents, 2208 queries, 0 failed queries
-full Postgres-backed pytest: 835 passed in 107.64s (0:01:47), no skips reported
-git diff --check: passed
-```
-
-Hygiene status after `498908b`:
-
-```bash
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-decisions
+uv run docling-system-architecture-quality-report --summary
 uv run docling-system-hygiene-check
+uv run docling-system-improvement-case-summary
+uv run pytest -q tests/unit/test_architecture_inspection.py tests/unit/test_architecture_quality.py tests/unit/test_capability_contracts.py tests/unit/test_api_route_contracts.py
+uv run docling-system-evaluation-data-readiness
+uv run docling-system-agent-trace-review --limit 5 --skip-hygiene
+docker compose ps
 ```
 
 Results:
 
 ```text
-hygiene exits 1
-Ruff regressions: none
-Vulture: no actionable findings beyond configured command output
-improvement-case findings: none
-architecture findings: none
-app/cli.py budget findings: closed
-remaining failures: existing file/helper budget findings in larger service, router, schema, and model modules
+ruff: All checks passed.
+architecture inspection: passed, violation_count=0.
+capability contracts: passed, valid=true.
+architecture decisions: passed, valid=true.
+architecture quality summary: passed, hotspot_count=10.
+focused architecture tests: 34 passed in 11.85s.
+improvement-case summary: 1 measured case, 0 open actionable buckets.
+hygiene: exits 1; Ruff/Vulture/improvement-case/architecture findings are clean, but file/helper budget findings remain.
+evaluation-data readiness: blocked by local Postgres connection refusal on localhost:5432.
+agent trace review: blocked by local Postgres connection refusal on localhost:5432.
+docker compose ps: failed because Docker daemon is not running.
+full Postgres-backed pytest: not run in this closeout because local Postgres/Docker are unavailable.
 ```
 
-## Files Updated In This Pass
+## Active Weak Points
 
-- [app/agent_task_cli.py](/Users/chunkstand/Documents/docling-system/app/agent_task_cli.py)
-- [app/claim_support_replay_cli.py](/Users/chunkstand/Documents/docling-system/app/claim_support_replay_cli.py)
-- [app/cli.py](/Users/chunkstand/Documents/docling-system/app/cli.py)
-- [app/core/coercion.py](/Users/chunkstand/Documents/docling-system/app/core/coercion.py)
-- [app/core/hashes.py](/Users/chunkstand/Documents/docling-system/app/core/hashes.py)
-- [app/core/json_utils.py](/Users/chunkstand/Documents/docling-system/app/core/json_utils.py)
-- [app/services/evaluation_corpus_runner.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_corpus_runner.py)
-- [app/services/evaluation_embedding_cache.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_embedding_cache.py)
-- [app/services/evaluation_fixture_cache.py](/Users/chunkstand/Documents/docling-system/app/services/evaluation_fixture_cache.py)
-- [app/services/query_utils.py](/Users/chunkstand/Documents/docling-system/app/services/query_utils.py)
-- [app/services/report_shared.py](/Users/chunkstand/Documents/docling-system/app/services/report_shared.py)
-- [app/services/search_release_shared.py](/Users/chunkstand/Documents/docling-system/app/services/search_release_shared.py)
-- plus shared-helper call-site updates across evidence, audit-bundle, claim-support, search, semantic, technical-report, and retrieval-learning services
+- Documentation and branch state needed this closeout because the prior handoff
+  still described `498908b` as current and said `HEAD` matched `origin/main`.
+- Local runtime verification is blocked until Docker/Postgres are running again.
+- Hygiene remains intentionally strict and currently fails on oversized modules,
+  especially `app/db/models.py`, `app/services/evidence.py`,
+  `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
+  `app/services/retrieval_learning.py`, and `app/services/search.py`.
+- The improvement-case registry has not yet imported the current
+  architecture-quality hotspot candidates, so generated hotspot signals are not
+  all represented as tracked cases.
+- Court-grade readiness cannot be claimed until the live DB passes
+  `docling-system-evaluation-data-readiness` with enough hand-verified fixtures,
+  operator feedback, claim feedback, governed hard cases, replay coverage, and
+  retrieval-learning materialization.
 
-## Current Reset Path
+## Next Milestone
 
-The operational data reset is now implemented as an operator-only cutover command:
+First restore local runtime verification:
 
-```bash
-uv run docling-system-knowledge-base-reset
-uv run docling-system-knowledge-base-reset --execute --confirm CLEAR_KNOWLEDGE_BASE
-```
+1. Start Docker/Postgres or point `DOCLING_SYSTEM_DATABASE_URL` at a working local Postgres.
+2. Run `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`.
+3. Run `uv run docling-system-evaluation-data-readiness`.
+4. Run `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`.
 
-The first command is a dry run. Execution archives the current Postgres database and `storage/` tree, creates and migrates a new empty local database, recreates the storage directories, writes an empty auto evaluation corpus, and initializes only the generic ontology seed. The command refuses non-local database URLs, non-development environments unless explicitly overridden, running API/worker/agent-worker services unless overridden, and queued or in-flight document/agent work unless overridden.
-
-After the reset, the useful follow-up is to ingest a small known-good document set through the current ingest path and rerun `uv run docling-system-audit`, `uv run docling-system-evaluation-data-readiness`, `uv run docling-system-eval-corpus`, and `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`.
+After runtime verification is available, choose one hotspot split as an atomic
+milestone. The most defensible next architecture slice is the data-model
+boundary plan for `app/db/models.py`, because it is the highest-risk hotspot and
+already has a required sequence in `docs/data_model_boundary_plan.md`.

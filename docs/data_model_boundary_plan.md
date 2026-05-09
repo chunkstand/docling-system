@@ -3,6 +3,11 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
+Status refreshed: 2026-05-09. `app/db/models.py` is the highest current
+architecture-quality hotspot at 6,026 lines. Do not start this split until
+local Postgres is available, because the required closeout includes live
+Alembic and `Base.metadata.create_all(...)` verification.
+
 ## Proposed Domains
 
 - ingest: `IngestBatch`, `IngestBatchItem`, `Document`, `DocumentRun`
