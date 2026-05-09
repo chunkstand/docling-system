@@ -4,17 +4,19 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 3 closeout
-commit.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 3 alignment
+closeout commit.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 14
-commits after the Milestone 3 closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 15
+commits after the Milestone 3 alignment closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The Milestone 3 closeout commit contains the first evidence-service split and
-its verification/docs updates:
+The latest alignment closeout is a docs-only reconciliation of the current-state
+snapshot, full-suite count, and line-count evidence. The previous Milestone 3
+closeout commit contains the first evidence-service split and its
+verification/docs updates:
 
 - `app/services/evidence.py`
 - `app/services/evidence_common.py`
@@ -42,8 +44,9 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 14 local commits ahead of `origin/main` are:
+The 15 local commits ahead of `origin/main` are:
 
+- local Milestone 3 alignment closeout commit for `Architecture Plan 01`
 - local Milestone 3 closeout commit for `Architecture Plan 01`
 - `980cc8c` `architecture: harden milestone 2 alignment`
 - `b6eb75d` `architecture: complete milestone 2 model domain split`
@@ -284,7 +287,7 @@ Implemented result:
   the shared evidence export payload helper lives in
   `app/services/evidence_records.py`.
 - `app/services/evidence.py` is now 8,608 lines. The new search-evidence
-  modules are 338, 422, and 297 lines.
+  modules are 338, 421, and 296 lines.
 
 Focused verification:
 

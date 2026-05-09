@@ -4,15 +4,17 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-09 `Architecture Plan 01` Milestone 2 closeout, the local
+As of the 2026-05-09 `Architecture Plan 01` Milestone 3 closeout, the local
 `main` checkout is ahead of `origin/main`. The latest local implementation work
-completed the first data-model domain split: `ApiIdempotencyKey` now lives in
-`app/db/model_domains/platform.py` while `app.db.models` remains the public
-compatibility facade. Earlier local architecture work completed narrower
+completed the first evidence-service split: search evidence package assembly,
+export persistence, trace graph persistence, trace integrity, and response
+assembly now live in focused `app/services/evidence_search_*.py` modules while
+`app.services.evidence` remains the public compatibility facade. Earlier local
+architecture work completed the first data-model domain split, narrower
 retrieval and agent-orchestration capability contract companions, agent-action
 manifest validation, trace-first review, architecture quality reporting,
-improvement-case import from generated reports, and the data-model boundary
-plan for `app/db/models.py`.
+improvement-case import from generated reports, and the data-model boundary plan
+for `app/db/models.py`.
 
 Current repo-level signals:
 
@@ -30,8 +32,8 @@ Current repo-level signals:
   budget findings remain in large hotspot modules. Ruff, Vulture,
   improvement-case, and architecture findings are clean.
 - DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Milestone 2 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1101 passed`.
+  Postgres runtime; the Milestone 3 closeout ran the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1109 passed`.
 
 ## What It Does
 

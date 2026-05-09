@@ -538,7 +538,7 @@ Completed result:
   and the shared evidence export payload helper into
   `app/services/evidence_records.py`.
 - Reduced `app/services/evidence.py` from 9,502 lines to 8,608 lines. The new
-  search-evidence modules are 338, 422, and 297 lines, keeping each new owner
+  search-evidence modules are 338, 421, and 296 lines, keeping each new owner
   module under the hygiene file budget.
 
 Verification:

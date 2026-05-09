@@ -30,9 +30,10 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-09 `Architecture Plan 01` Milestone 2 closeout, the local
+As of the 2026-05-09 `Architecture Plan 01` Milestone 3 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
-and the first data-model domain split. The implemented architecture posture is:
+plus the first data-model domain split and first evidence-service split. The
+implemented architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
@@ -48,6 +49,10 @@ and the first data-model domain split. The implemented architecture posture is:
   generated observations into the improvement-case loop
 - `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py` while
   `app.db.models` remains the public compatibility facade
+- search evidence package assembly, export persistence, trace graph
+  persistence, trace integrity, and response assembly now live in focused
+  `app/services/evidence_search_*.py` modules while `app.services.evidence`
+  remains the public compatibility facade
 - the current top architecture follow-up is hotspot splitting, not a platform
   rewrite or service extraction
 
