@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-2 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-3 complete; local commit-on-closeout policy
 active as of 2026-05-09
 
 Purpose: reduce centralization in the current modular monolith without
@@ -28,8 +28,8 @@ Current architecture signals:
   - `max_hotspot_risk_score=687.04`
   - top hotspot paths:
     - `app/db/models.py`
-    - `app/services/evidence.py`
     - `app/cli.py`
+    - `app/services/evidence.py`
     - `app/services/agent_task_actions.py`
     - `tests/unit/test_cli.py`
 
@@ -449,8 +449,8 @@ Capability contracts: valid, facade_count=6, function_count=110.
 Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
 ```
 
-Milestone 3 is unblocked. The next architecture milestone is the first evidence
-service split: search evidence package read/export/trace response helpers.
+Milestone 3 is complete. The evidence service now has a focused search evidence
+package split while `app.services.evidence` remains the compatibility facade.
 
 ### Milestone 3: Evidence Service Split 01
 
@@ -521,6 +521,45 @@ Closeout:
 - Update this plan if the next evidence domain changes.
 - Update `docs/SESSION_HANDOFF.md` with verification and residual risk.
 - Commit the evidence split locally before starting another evidence concern.
+
+Completed result:
+
+- Moved search evidence package assembly, export persistence, trace graph
+  persistence, trace integrity, and response assembly into:
+  - `app/services/evidence_search_packages.py`
+  - `app/services/evidence_search_trace_graph.py`
+  - `app/services/evidence_search_trace_store.py`
+- Kept `app.services.evidence` import-compatible for
+  `get_search_evidence_package`, `persist_search_evidence_package_export`,
+  `export_search_evidence_package`, and
+  `get_search_evidence_package_export_trace`.
+- Preserved legacy private record-helper aliases on `app.services.evidence`
+  while moving shared trace row/spec helpers into `app/services/evidence_common.py`
+  and the shared evidence export payload helper into
+  `app/services/evidence_records.py`.
+- Reduced `app/services/evidence.py` from 9,502 lines to 8,608 lines. The new
+  search-evidence modules are 338, 422, and 297 lines, keeping each new owner
+  module under the hygiene file budget.
+
+Verification:
+
+```text
+git diff --check: passed.
+Ruff: passed.
+Evidence helper tests: 27 passed.
+Search API/service/history tests: 70 passed.
+Search evidence operator-run roundtrip: 1 passed.
+Full DB-backed suite: 1109 passed in 47.48s.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture decisions: valid, decision_count=9.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
+Hygiene: no ruff, vulture, duplicate-helper, improvement-case, or architecture
+findings; inherited file/helper budget debt remains.
+```
+
+Milestone 4 is unblocked. The next architecture milestone is the first
+agent-task action registry split.
 
 ### Milestone 4: Agent Task Action Registry Split 01
 
@@ -854,7 +893,7 @@ Use this order unless live evidence changes:
 1. Restore runtime verification.
 2. Add model import/metadata compatibility harness.
 3. Move one low-risk model domain behind `app.db.models`.
-4. Split search evidence packages out of `app/services/evidence.py`.
+4. Split search evidence packages out of `app/services/evidence.py` (complete).
 5. Split one agent-task action family out of `app/services/agent_task_actions.py`.
 6. Split one CLI command group out of `app/cli.py`.
 7. Split one search core concern out of `app/services/search.py`.

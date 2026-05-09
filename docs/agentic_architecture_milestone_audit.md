@@ -18,7 +18,7 @@ runtime behavior.
 - `uv run docling-system-architecture-quality-report --summary`:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=10`, `max_hotspot_risk_score=687.04`, and top hotspot paths
-  headed by `app/db/models.py`, `app/services/evidence.py`, `app/cli.py`,
+  headed by `app/db/models.py`, `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
 - `uv run ruff check app tests`: passed.
 - Focused architecture tests:
@@ -30,6 +30,9 @@ runtime behavior.
   Milestone 2: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
   passed with `1105 passed`, and the focused Postgres metadata/create-all gate
   now passes with `7 passed`.
+- DB-backed service verification is current for `Architecture Plan 01`
+  Milestone 3: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  passed with `1109 passed`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -62,16 +65,27 @@ runtime behavior.
 - The model compatibility harness now verifies platform-support index and
   unique-constraint column ordering in both unit metadata and Postgres
   `Base.metadata.create_all(...)` paths.
+- `Architecture Plan 01` Milestone 3 now has the first evidence service split:
+  search evidence package assembly/export/trace graph behavior moved into
+  `app/services/evidence_search_packages.py`,
+  `app/services/evidence_search_trace_graph.py`, and
+  `app/services/evidence_search_trace_store.py` while `app.services.evidence`
+  remains import-compatible.
+- Shared trace row/spec helpers and evidence export payload helpers were
+  centralized in `app/services/evidence_common.py` and
+  `app/services/evidence_records.py` so the split does not introduce
+  duplicate-helper hygiene findings.
 
 ## Deferred Large Refactors
 
 The plan's physical implementation splits remain governed hotspot work, not
 hidden gaps. The first `app/db/models.py` domain split is complete; additional
-model domains should still move one at a time. The next active hotspot split is
-`Architecture Plan 01` Milestone 3 for search evidence package helpers in
-`app/services/evidence.py`. Later governed split surfaces include
-`app/services/agent_task_actions.py`, `app/services/search.py`, and
-`app/cli.py`. Each future split should land as a separate
+model domains should still move one at a time. The first
+`app/services/evidence.py` split is complete; additional evidence domains
+should still move one at a time. The next active hotspot split is
+`Architecture Plan 01` Milestone 4 for the agent-task action registry. Later
+governed split surfaces include `app/services/search.py` and `app/cli.py`.
+Each future split should land as a separate
 behavior-preserving milestone with focused tests plus the full integration
 gate.
 

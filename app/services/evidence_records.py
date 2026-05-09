@@ -15,6 +15,7 @@ from app.db.models import (
     DocumentRun,
     DocumentTable,
     DocumentTableSegment,
+    EvidencePackageExport,
     KnowledgeOperatorInput,
     KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
@@ -84,6 +85,25 @@ def select_by_ids(session: Session, model, ids: Iterable[UUID]) -> dict[UUID, An
     if not unique_ids:
         return {}
     return {row.id: row for row in session.scalars(select(model).where(model.id.in_(unique_ids)))}
+
+
+def evidence_export_payload(row: EvidencePackageExport) -> dict:
+    return {
+        "evidence_package_export_id": row.id,
+        "package_kind": row.package_kind,
+        "search_request_id": row.search_request_id,
+        "agent_task_id": row.agent_task_id,
+        "agent_task_artifact_id": row.agent_task_artifact_id,
+        "package_sha256": row.package_sha256,
+        "trace_sha256": row.trace_sha256,
+        "source_snapshot_sha256s": row.source_snapshot_sha256s_json or [],
+        "operator_run_ids": row.operator_run_ids_json or [],
+        "document_ids": row.document_ids_json or [],
+        "run_ids": row.run_ids_json or [],
+        "claim_ids": row.claim_ids_json or [],
+        "export_status": row.export_status,
+        "created_at": row.created_at,
+    }
 
 
 def document_payload(row: Document | None) -> dict | None:

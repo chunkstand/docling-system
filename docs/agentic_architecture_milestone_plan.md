@@ -34,7 +34,8 @@ Current architecture status:
 - The largest service modules are still governed hotspot work. They are ranked
   by the architecture quality report and should be split one behavior-preserving
   milestone at a time:
-  - `app/services/evidence.py`: about 9,500 lines
+  - `app/services/evidence.py`: 8,608 lines after the first search-evidence
+    split
   - `app/services/audit_bundles.py`: 3,862 lines
   - `app/services/agent_task_context.py`: 3,858 lines
   - `app/services/claim_support_policy_impacts.py`: 3,477 lines
@@ -120,7 +121,8 @@ Panel evaluation:
   candidates because they combine size, centrality, and churn.
   `Architecture Plan 01` has already moved the first low-risk
   `app/db/models.py` domain, `ApiIdempotencyKey`, behind the
-  `app.db.models` compatibility facade.
+  `app.db.models` compatibility facade, and has split search evidence package
+  assembly/export/trace helpers out of `app/services/evidence.py`.
 
 Source:
 
@@ -245,7 +247,7 @@ Deliverables:
 
 - Split `app/services/evidence.py` behind compatibility functions into focused
   modules for:
-  - search evidence packages
+  - search evidence packages (complete in `Architecture Plan 01` Milestone 3)
   - technical-report evidence closure
   - claim derivation and feedback ledgers
   - agent-task audit bundles

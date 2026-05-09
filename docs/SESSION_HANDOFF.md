@@ -4,27 +4,30 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 2 closeout
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 3 closeout
 commit.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 12
-commits after the Milestone 2 closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 14
+commits after the Milestone 3 closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The Milestone 2 closeout commit contains the first model-domain split and
+The Milestone 3 closeout commit contains the first evidence-service split and
 its verification/docs updates:
 
-- `app/db/model_domains/__init__.py`
-- `app/db/model_domains/platform.py`
-- `app/db/models.py`
+- `app/services/evidence.py`
+- `app/services/evidence_common.py`
+- `app/services/evidence_records.py`
+- `app/services/evidence_search_packages.py`
+- `app/services/evidence_search_trace_graph.py`
+- `app/services/evidence_search_trace_store.py`
 - `docs/architecture_plan_01.md`
 - `docs/SESSION_HANDOFF.md`
-- `docs/data_model_boundary_plan.md`
-- `tests/db_model_contract.py`
-- `tests/unit/test_db_model_import_compatibility.py`
-- `tests/integration/test_db_model_metadata.py`
+- `docs/agentic_architecture_index.md`
+- `docs/agentic_architecture_milestone_audit.md`
+- `docs/agentic_architecture_milestone_plan.md`
+- `tests/unit/test_evidence_search_packages.py`
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -39,10 +42,12 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 12 local commits ahead of `origin/main` are:
+The 14 local commits ahead of `origin/main` are:
 
-- local Milestone 2 closeout commit for `Architecture Plan 01`
-- local Milestone 1 closeout commit for `Architecture Plan 01`
+- local Milestone 3 closeout commit for `Architecture Plan 01`
+- `980cc8c` `architecture: harden milestone 2 alignment`
+- `b6eb75d` `architecture: complete milestone 2 model domain split`
+- `bb03b83` `architecture: complete milestone 1 compatibility harness`
 - `5f4598b` `Split agent task action executors`
 - `7fe2dbc` `Split technical report services`
 - `482daa3` `Clear near-threshold hygiene blockers`
@@ -82,8 +87,8 @@ uv run docling-system-architecture-quality-report --summary
   max_hotspot_risk_score=687.04
   top_hotspot_paths=[
     app/db/models.py,
-    app/services/evidence.py,
     app/cli.py,
+    app/services/evidence.py,
     app/services/agent_task_actions.py,
     tests/unit/test_cli.py
   ]
@@ -246,6 +251,73 @@ Capability contracts: valid, facade_count=6, function_count=110.
 Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
 ```
 
+## Evidence Service Split Snapshot
+
+Milestone 3 implemented, verified, and locally committed the first physical
+evidence-service split on 2026-05-09.
+
+Files added or updated for the split:
+
+- `app/services/evidence.py`
+- `app/services/evidence_common.py`
+- `app/services/evidence_records.py`
+- `app/services/evidence_search_packages.py`
+- `app/services/evidence_search_trace_graph.py`
+- `app/services/evidence_search_trace_store.py`
+- `tests/unit/test_evidence_search_packages.py`
+- `docs/architecture_plan_01.md`
+- `docs/agentic_architecture_index.md`
+- `docs/agentic_architecture_milestone_audit.md`
+- `docs/agentic_architecture_milestone_plan.md`
+- `docs/SESSION_HANDOFF.md`
+
+Implemented result:
+
+- Search evidence package assembly, export persistence, trace graph
+  persistence, trace integrity, and response assembly moved out of
+  `app/services/evidence.py`.
+- `app.services.evidence` remains import-compatible for
+  `get_search_evidence_package`, `persist_search_evidence_package_export`,
+  `export_search_evidence_package`, and
+  `get_search_evidence_package_export_trace`.
+- Shared trace row/spec helpers now live in `app/services/evidence_common.py`;
+  the shared evidence export payload helper lives in
+  `app/services/evidence_records.py`.
+- `app/services/evidence.py` is now 8,608 lines. The new search-evidence
+  modules are 338, 422, and 297 lines.
+
+Focused verification:
+
+```bash
+git diff --check
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_evidence_common.py tests/unit/test_evidence_records.py tests/unit/test_evidence_provenance.py tests/unit/test_evidence_search_packages.py
+uv run pytest -q tests/unit/test_search_api.py tests/unit/test_search_service.py tests/unit/test_search_history.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_evidence_operator_runs_roundtrip.py
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-decisions
+uv run docling-system-architecture-quality-report --summary
+uv run docling-system-hygiene-check
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+```
+
+Results:
+
+```text
+Evidence helper tests: 27 passed.
+Search API/service/history tests: 70 passed.
+Search evidence operator-run roundtrip: 1 passed.
+Full DB-backed suite: 1109 passed in 47.48s.
+Ruff: passed.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture decisions: valid, decision_count=9.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
+Hygiene: no ruff, vulture, duplicate-helper, improvement-case, or architecture
+findings; inherited file/helper budget debt remains.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -266,8 +338,8 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1 and 2 satisfy the revised local commit closeout rule. Milestone 3
-may begin from this committed checkpoint.
+Milestones 1, 2, and 3 satisfy the revised local commit closeout rule.
+Milestone 4 may begin from this committed checkpoint.
 
 ## Active Weak Points
 
@@ -282,6 +354,9 @@ may begin from this committed checkpoint.
 - The first model-domain split reduced `app/db/models.py`, but it remains the
   top architecture-quality hotspot and should not receive additional unrelated
   ORM concerns.
+- The first evidence split reduced `app/services/evidence.py`, but it remains a
+  major architecture-quality hotspot. Future evidence splits should move one
+  owner concern at a time behind the same compatibility facade.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.
@@ -295,9 +370,10 @@ may begin from this committed checkpoint.
 Milestone 0 is complete: local runtime verification is available. Milestone 1
 is complete: the data-model compatibility harness is in place. Milestone 2 is
 complete: `ApiIdempotencyKey` moved behind the `app.db.models` compatibility
-facade.
+facade. Milestone 3 is complete: search evidence package helpers moved behind
+the `app.services.evidence` compatibility facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 3: split
-the first coherent search evidence package concern out of
-`app/services/evidence.py` while keeping `app.services.evidence` as the public
-compatibility facade.
+The next architecture milestone is `Architecture Plan 01` Milestone 4: split
+the first agent-task action registry family out of
+`app/services/agent_task_actions.py` while keeping the public action registry
+and capability behavior stable.
