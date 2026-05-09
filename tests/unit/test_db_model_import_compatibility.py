@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import StrEnum
 
 import pytest
+from sqlalchemy import UniqueConstraint
 
 import app.db.models as model_module
 from app.db.base import Base
@@ -13,6 +14,7 @@ from tests.db_model_contract import (
     MODEL_SYMBOLS,
     PUBLIC_MODEL_IMPORT_SYMBOLS,
     REQUIRED_TABLE_INDEX_NAMES,
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
 )
 
 
@@ -58,6 +60,13 @@ def test_public_model_domain_contract_is_complete() -> None:
     }
 
 
+def test_platform_support_model_is_owned_by_domain_module() -> None:
+    from app.db.model_domains.platform import ApiIdempotencyKey
+
+    assert model_module.ApiIdempotencyKey is ApiIdempotencyKey
+    assert model_module.ApiIdempotencyKey.__module__ == "app.db.model_domains.platform"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -72,3 +81,20 @@ def test_base_metadata_preserves_required_indexes(
     table = Base.metadata.tables[table_name]
 
     assert {index.name for index in table.indexes} >= expected_index_names
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_constraint_names"),
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.items(),
+)
+def test_base_metadata_preserves_required_unique_constraints(
+    table_name: str, expected_constraint_names: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+    unique_constraint_names = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    assert unique_constraint_names >= expected_constraint_names

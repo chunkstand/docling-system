@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-1 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-2 complete; local commit-on-closeout policy
 active as of 2026-05-09
 
 Purpose: reduce centralization in the current modular monolith without
@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=674.68`
+  - `max_hotspot_risk_score=680.04`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/services/evidence.py`
@@ -333,6 +333,8 @@ unless live evidence shows stronger coverage for an alternate first domain.
 
 ### Milestone 2: First Data Model Domain Split
 
+Status: complete on 2026-05-09.
+
 Goal: reduce `app/db/models.py` centrality by moving one low-risk model domain
 behind an import-compatible facade.
 
@@ -398,6 +400,57 @@ Closeout:
   result, and next domain candidate.
 - Update `docs/SESSION_HANDOFF.md`.
 - Commit the model-domain split locally before any second domain is moved.
+
+Completed result:
+
+- Added `app/db/model_domains/platform.py` as the first focused ORM model-domain
+  module.
+- Kept `app/db/models.py` as the public compatibility facade by re-exporting
+  `ApiIdempotencyKey`.
+- Moved only the `platform support` domain class: `ApiIdempotencyKey`.
+- Preserved the `api_idempotency_keys` table name, columns, JSONB response
+  storage, created-at index, and `scope` plus `idempotency_key` unique
+  constraint.
+- Strengthened the model compatibility harness so unit and Postgres
+  `create_all` paths now verify required platform-support indexes and unique
+  constraints, not only table columns.
+- Reduced `app/db/models.py` to 6,006 lines while leaving the new platform
+  domain module at 35 lines.
+
+Verification:
+
+```bash
+git diff --check
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_db_model_import_compatibility.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py
+uv run --extra dev alembic heads
+uv run --extra dev alembic current
+uv run --extra dev alembic upgrade head
+uv run --extra dev alembic check
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+```
+
+Results:
+
+```text
+model import compatibility: 224 passed.
+Postgres model metadata/create-all check: 5 passed.
+Alembic heads/current: 0076_claim_feedback_replay_src (head).
+Alembic upgrade head: completed with no pending migrations.
+Alembic check: no new upgrade operations detected.
+Full DB-backed suite: 1101 passed in 46.92s.
+Ruff: passed.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=680.04.
+```
+
+Milestone 3 is unblocked. The next architecture milestone is the first evidence
+service split: search evidence package read/export/trace response helpers.
 
 ### Milestone 3: Evidence Service Split 01
 

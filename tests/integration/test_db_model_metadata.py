@@ -10,6 +10,7 @@ from tests.db_model_contract import (
     EXPECTED_TABLE_NAMES,
     PLATFORM_SUPPORT_TABLE_COLUMNS,
     REQUIRED_TABLE_INDEX_NAMES,
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -92,3 +93,35 @@ def test_postgres_create_all_preserves_required_model_indexes(
         )
 
     assert index_names >= expected_index_names
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_constraint_names"),
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.items(),
+)
+def test_postgres_create_all_preserves_required_unique_constraints(
+    postgres_schema_engine,
+    table_name: str,
+    expected_constraint_names: frozenset[str],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    with engine.connect() as connection:
+        constraint_names = frozenset(
+            connection.execute(
+                text(
+                    """
+                    SELECT con.conname
+                    FROM pg_constraint con
+                    JOIN pg_class cls ON cls.oid = con.conrelid
+                    JOIN pg_namespace ns ON ns.oid = cls.relnamespace
+                    WHERE ns.nspname = :schema_name
+                    AND cls.relname = :table_name
+                    AND con.contype = 'u'
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            ).scalars()
+        )
+
+    assert constraint_names >= expected_constraint_names

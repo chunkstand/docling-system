@@ -229,11 +229,24 @@ EXPECTED_TABLE_NAMES = frozenset(
 )
 
 REQUIRED_TABLE_INDEX_NAMES = {
+    "api_idempotency_keys": frozenset(
+        {
+            "ix_api_idempotency_keys_created_at",
+        }
+    ),
     "document_runs": frozenset(
         {
             "ix_document_runs_locked_at",
             "ix_document_runs_status_completed_at",
             "ix_document_runs_status_next_attempt_at",
+        }
+    )
+}
+
+REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
+    "api_idempotency_keys": frozenset(
+        {
+            "uq_api_idempotency_keys_scope_key",
         }
     )
 }

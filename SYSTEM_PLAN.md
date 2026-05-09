@@ -30,9 +30,9 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-09 documentation closeout, the local `main` checkout has
-completed the agentic architecture governance milestones through `9f60a17`
-before the docs-refresh commit. The implemented architecture posture is:
+As of the 2026-05-09 `Architecture Plan 01` Milestone 2 closeout, the local
+`main` checkout has completed the agentic architecture governance milestones
+and the first data-model domain split. The implemented architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
@@ -46,20 +46,24 @@ before the docs-refresh commit. The implemented architecture posture is:
   findings, open improvement cases, and agent legibility
 - trace-first review and architecture-quality report imports can feed
   generated observations into the improvement-case loop
+- `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py` while
+  `app.db.models` remains the public compatibility facade
 - the current top architecture follow-up is hotspot splitting, not a platform
   rewrite or service extraction
 
 Current verification status:
 
 - Ruff, architecture inspection, capability contracts, architecture decisions,
-  and focused architecture tests pass locally.
+  focused model metadata tests, Alembic drift checks, and the full DB-backed
+  test suite pass locally.
 - Hygiene still fails on file/helper budget findings in large modules such as
   `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`,
   `app/services/claim_support_policy_impacts.py`,
   `app/services/retrieval_learning.py`, and `app/services/search.py`.
-- Live DB-backed readiness and trace review are blocked until local Postgres and
-  Docker are available again.
+- Evaluation-data readiness remains false on the empty local DB until enough
+  active documents, persisted evaluations, hand-verified fixtures, feedback,
+  replay coverage, and retrieval-learning materialization exist.
 
 ## Current Goals
 

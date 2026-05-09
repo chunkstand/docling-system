@@ -3,10 +3,10 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-09. `app/db/models.py` is the highest current
-architecture-quality hotspot at 6,027 lines. Runtime verification is restored,
-and the model compatibility harness is in place. The next implementation slice
-may move one low-risk domain while preserving the `app.db.models`
+Status refreshed: 2026-05-09. `app/db/models.py` remains the highest current
+architecture-quality hotspot, but the first model-domain split is complete:
+`platform support` now owns `ApiIdempotencyKey` in
+`app/db/model_domains/platform.py` while `app.db.models` remains the public
 compatibility facade. Each model-domain milestone must finish with a local
 commit before another domain moves.
 
@@ -31,8 +31,9 @@ commit before another domain moves.
 
 1. Add import-compatibility tests that prove existing `from app.db.models import X`
    imports still work. Completed in `tests/unit/test_db_model_import_compatibility.py`.
-2. Introduce domain modules under `app/db/models/` or another agreed package
-   while keeping `app/db/models.py` as the public compatibility facade.
+2. Introduce domain modules under `app/db/model_domains/` while keeping
+   `app/db/models.py` as the public compatibility facade. First slice completed
+   with `app/db/model_domains/platform.py`.
 3. Move one domain at a time and keep table names, enum values, relationship
    strings, indexes, constraints, and metadata registration unchanged.
 4. Run exact Alembic DDL verification against local Postgres.
@@ -51,13 +52,15 @@ commit before another domain moves.
 The harness currently protects 109 public `app.db.models` symbols: 29 enums and
 80 ORM model classes. It also asserts the 80-table `Base.metadata` contract and
 checks that schema-scoped Postgres `Base.metadata.create_all(...)` creates the
-expected tables. The harness also protects required model indexes that must
-remain aligned with migrations, including
-`ix_document_runs_status_completed_at`.
+expected tables. The harness also protects required model indexes and unique
+constraints that must remain aligned with migrations, including
+`ix_document_runs_status_completed_at`,
+`ix_api_idempotency_keys_created_at`, and
+`uq_api_idempotency_keys_scope_key`.
 
-## First Split Candidate
+## Completed First Split
 
-Start with `platform support`: `ApiIdempotencyKey`.
+Completed on 2026-05-09: `platform support`: `ApiIdempotencyKey`.
 
 Reasoning:
 
@@ -67,6 +70,25 @@ Reasoning:
   and the public `app.db.models` compatibility facade.
 - The Milestone 1 Postgres check already records the expected
   `api_idempotency_keys` column contract.
+
+Implemented result:
+
+- Added `app/db/model_domains/platform.py`.
+- Re-exported `ApiIdempotencyKey` from `app/db/models.py` for import
+  compatibility.
+- Moved no other ORM class.
+- Preserved the `api_idempotency_keys` table, columns, JSONB response storage,
+  `ix_api_idempotency_keys_created_at` index, and
+  `uq_api_idempotency_keys_scope_key` unique constraint.
+- Verified with focused import, metadata, Alembic, architecture, and full
+  DB-backed gates.
+
+Next model-domain candidate when model work resumes:
+
+- `ingest`: `IngestBatch`, `IngestBatchItem`, `Document`, `DocumentRun`
+
+The next overall Architecture Plan 01 milestone is not another model-domain
+move; it is Milestone 3, the first `app/services/evidence.py` split.
 
 ## Per-Domain Acceptance Gate
 

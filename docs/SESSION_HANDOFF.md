@@ -4,20 +4,22 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 1 closeout
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 2 closeout
 commit.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 11
-commits after the Milestone 1 closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 12
+commits after the Milestone 2 closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The Milestone 1 closeout commit contains the architecture-planning and
-compatibility-harness updates:
+The Milestone 2 closeout commit contains the first model-domain split and
+its verification/docs updates:
 
+- `app/db/model_domains/__init__.py`
+- `app/db/model_domains/platform.py`
+- `app/db/models.py`
 - `docs/architecture_plan_01.md`
-- `docs/agentic_architecture_index.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/data_model_boundary_plan.md`
 - `tests/db_model_contract.py`
@@ -37,8 +39,9 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 11 local commits ahead of `origin/main` are:
+The 12 local commits ahead of `origin/main` are:
 
+- local Milestone 2 closeout commit for `Architecture Plan 01`
 - local Milestone 1 closeout commit for `Architecture Plan 01`
 - `5f4598b` `Split agent task action executors`
 - `7fe2dbc` `Split technical report services`
@@ -76,6 +79,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
+  max_hotspot_risk_score=680.04
   top_hotspot_paths=[
     app/db/models.py,
     app/services/evidence.py,
@@ -180,6 +184,66 @@ the harness also closed a pre-existing Alembic metadata drift by declaring the
 migrated `ix_document_runs_status_completed_at` index on `DocumentRun` metadata
 and testing required model indexes in unit and Postgres create-all paths.
 
+## Data Model Domain Split Snapshot
+
+Milestone 2 implemented, verified, and locally committed the first physical ORM
+model-domain split on 2026-05-09.
+
+Files added or updated for the split:
+
+- `app/db/model_domains/__init__.py`
+- `app/db/model_domains/platform.py`
+- `app/db/models.py`
+- `tests/db_model_contract.py`
+- `tests/unit/test_db_model_import_compatibility.py`
+- `tests/integration/test_db_model_metadata.py`
+- `docs/data_model_boundary_plan.md`
+- `docs/architecture_plan_01.md`
+
+Implemented result:
+
+- `ApiIdempotencyKey` moved to `app/db/model_domains/platform.py`.
+- `app/db/models.py` remains import-compatible by re-exporting
+  `ApiIdempotencyKey`.
+- No other ORM classes moved.
+- `api_idempotency_keys` table name, columns, JSONB response storage,
+  `ix_api_idempotency_keys_created_at`, and
+  `uq_api_idempotency_keys_scope_key` are preserved and covered.
+- `app/db/models.py` is now 6,006 lines; the new platform domain module is
+  35 lines.
+
+Focused verification:
+
+```bash
+git diff --check
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_db_model_import_compatibility.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py
+uv run --extra dev alembic heads
+uv run --extra dev alembic current
+uv run --extra dev alembic upgrade head
+uv run --extra dev alembic check
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+```
+
+Results:
+
+```text
+model import compatibility: 224 passed.
+Postgres model metadata/create-all check: 5 passed.
+Alembic heads/current: 0076_claim_feedback_replay_src (head).
+Alembic upgrade head: completed with no pending migrations.
+Alembic check: no new upgrade operations detected.
+Full DB-backed suite: 1101 passed in 46.92s.
+Ruff: passed.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=680.04.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -200,13 +264,11 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestone 1 satisfies the revised local commit closeout rule. Milestone 2 may
-begin from this committed checkpoint.
+Milestones 1 and 2 satisfy the revised local commit closeout rule. Milestone 3
+may begin from this committed checkpoint.
 
 ## Active Weak Points
 
-- Documentation and branch state needed this closeout because the prior handoff
-  still described `498908b` as current and said `HEAD` matched `origin/main`.
 - Evaluation-data readiness is still false because the local DB has no active
   document corpus, persisted run evaluations, auto/generated regression corpus,
   hand-verified gold corpus, feedback ledgers, replay coverage, harness-source
@@ -215,6 +277,9 @@ begin from this committed checkpoint.
   especially `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
   `app/services/retrieval_learning.py`, and `app/services/search.py`.
+- The first model-domain split reduced `app/db/models.py`, but it remains the
+  top architecture-quality hotspot and should not receive additional unrelated
+  ORM concerns.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.
@@ -226,10 +291,11 @@ begin from this committed checkpoint.
 ## Next Milestone
 
 Milestone 0 is complete: local runtime verification is available. Milestone 1
-is complete: the data-model compatibility harness is in place and locally
-committed under the revised closeout policy.
+is complete: the data-model compatibility harness is in place. Milestone 2 is
+complete: `ApiIdempotencyKey` moved behind the `app.db.models` compatibility
+facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 2: move the
-first low-risk model domain behind the `app.db.models` compatibility facade.
-Start with `platform support`: `ApiIdempotencyKey`, unless live evidence points
-to a safer first domain.
+The next architecture milestone is `Architecture Plan 01` Milestone 3: split
+the first coherent search evidence package concern out of
+`app/services/evidence.py` while keeping `app.services.evidence` as the public
+compatibility facade.
