@@ -13,21 +13,26 @@ chat history or scanning the whole repository.
 
 ## Milestone Status
 
-- Completed through `9f60a17`: baseline quality report, capability subcontracts, agent action
+- Completed through the local `Architecture Plan 01` Milestone 2 gap-closure
+  pass: baseline quality report, capability subcontracts, agent action
   hardening, trace-first review, repository architecture map, architecture
-  garbage-collection candidates, and data-model boundary plan.
+  garbage-collection candidates, data-model boundary plan, and
+  `Architecture Plan 01` Milestones 0-2.
 - Current gate shape: architecture inspection is valid with no violations,
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
-  `broad_facade_count=2`, and `hotspot_count=10`.
-- Governed follow-up: physical hotspot splits for `app/services/evidence.py`,
-  `app/services/agent_task_actions.py`, `app/services/search.py`,
-  `app/cli.py`, and `app/db/models.py`. Use the architecture quality report to
-  choose one split at a time. `docs/architecture_plan_01.md` is the active
-  execution order for those splits.
-- Runtime caveat: DB-backed readiness and trace review require a working local
-  Postgres/Docker runtime; the 2026-05-09 docs refresh could not verify those
-  paths because local Postgres and Docker were unavailable.
+  `broad_facade_count=2`, `hotspot_count=10`, and
+  `max_hotspot_risk_score=687.04`.
+- `app/db/models.py` remains the top hotspot, but the first low-risk domain is
+  now split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`
+  and is re-exported by `app.db.models`.
+- Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 3,
+  the first `app/services/evidence.py` split. Later governed splits remain for
+  `app/services/agent_task_actions.py`, `app/services/search.py`, `app/cli.py`,
+  and additional `app/db/models.py` domains.
+- Runtime note: local Docker/Postgres is available for DB-backed milestone
+  verification. Evaluation-data readiness is still false on the empty local DB;
+  trace review currently reports `observation_count=0`.
 
 ## Executable Architecture Contracts
 
@@ -55,6 +60,7 @@ chat history or scanning the whole repository.
 - Architecture quality report: `app/architecture_quality.py`
 - Trace review report: `app/agent_trace_review.py`
 - Improvement intake: `app/services/improvement_case_intake.py`
+- Data model domains: `app/db/model_domains/`
 
 ## Known Debt Signals
 

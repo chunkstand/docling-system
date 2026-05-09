@@ -22,7 +22,7 @@ Current architecture status:
   `valid: true`, `facade_count: 6`, `function_count: 110`, and no issues.
 - `uv run docling-system-architecture-quality-report --summary` currently
   reports `agent_legibility_average_score: 90.0`, `broad_facade_count: 2`,
-  `hotspot_count: 10`, and `max_hotspot_risk_score` around `675`.
+  `hotspot_count: 10`, and `max_hotspot_risk_score: 687.04`.
 - The main architecture control points are:
   - `docs/architecture_boundaries.md`
   - `docs/agentic_architecture_index.md`
@@ -41,7 +41,8 @@ Current architecture status:
   - `app/services/search.py`: 3,429 lines
   - `app/services/agent_task_actions.py`: about 3,300 lines
   - `app/services/retrieval_learning.py`: 3,028 lines
-  - `app/db/models.py`: 6,026 lines and the highest current hotspot score
+  - `app/db/models.py`: 6,006 lines and the highest current hotspot score
+    after the first model-domain split
 - Recent 90-day churn hotspots include `app/db/models.py`,
   `app/schemas/agent_tasks.py`, `app/services/agent_task_actions.py`,
   `app/cli.py`, `app/api/main.py`, `app/services/evidence.py`,
@@ -117,6 +118,9 @@ Panel evaluation:
 - `app/db/models.py`, `app/services/agent_task_actions.py`,
   `app/services/evidence.py`, and `app/services/search.py` are the first
   candidates because they combine size, centrality, and churn.
+  `Architecture Plan 01` has already moved the first low-risk
+  `app/db/models.py` domain, `ApiIdempotencyKey`, behind the
+  `app.db.models` compatibility facade.
 
 Source:
 
@@ -251,8 +255,9 @@ Deliverables:
   functions stable.
 - Continue the prior `search.py` split by isolating query planning, feature
   extraction, ranking, and result hydration where tests already give coverage.
-- Defer `app/db/models.py` until model-domain splits can be paired with exact
-  migration/create-all verification.
+- Continue model-domain splits only when they can be paired with exact
+  migration/create-all verification. `Architecture Plan 01` Milestone 2 proved
+  the pattern with `ApiIdempotencyKey` in `app/db/model_domains/platform.py`.
 
 Acceptance signal:
 

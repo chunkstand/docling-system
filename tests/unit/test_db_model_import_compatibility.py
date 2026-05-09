@@ -13,7 +13,9 @@ from tests.db_model_contract import (
     MODEL_DOMAIN_SYMBOLS,
     MODEL_SYMBOLS,
     PUBLIC_MODEL_IMPORT_SYMBOLS,
+    REQUIRED_TABLE_INDEX_COLUMNS,
     REQUIRED_TABLE_INDEX_NAMES,
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS,
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
 )
 
@@ -84,6 +86,21 @@ def test_base_metadata_preserves_required_indexes(
 
 
 @pytest.mark.parametrize(
+    ("table_name", "index_columns_by_name"),
+    REQUIRED_TABLE_INDEX_COLUMNS.items(),
+)
+def test_base_metadata_preserves_required_index_columns(
+    table_name: str, index_columns_by_name: dict[str, tuple[str, ...]]
+) -> None:
+    table = Base.metadata.tables[table_name]
+    indexes_by_name = {index.name: index for index in table.indexes}
+
+    for index_name, expected_columns in index_columns_by_name.items():
+        index = indexes_by_name[index_name]
+        assert tuple(column.name for column in index.columns) == expected_columns
+
+
+@pytest.mark.parametrize(
     ("table_name", "expected_constraint_names"),
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.items(),
 )
@@ -98,3 +115,22 @@ def test_base_metadata_preserves_required_unique_constraints(
     }
 
     assert unique_constraint_names >= expected_constraint_names
+
+
+@pytest.mark.parametrize(
+    ("table_name", "constraint_columns_by_name"),
+    REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.items(),
+)
+def test_base_metadata_preserves_required_unique_constraint_columns(
+    table_name: str, constraint_columns_by_name: dict[str, tuple[str, ...]]
+) -> None:
+    table = Base.metadata.tables[table_name]
+    unique_constraints_by_name = {
+        constraint.name: constraint
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+
+    for constraint_name, expected_columns in constraint_columns_by_name.items():
+        constraint = unique_constraints_by_name[constraint_name]
+        assert tuple(column.name for column in constraint.columns) == expected_columns

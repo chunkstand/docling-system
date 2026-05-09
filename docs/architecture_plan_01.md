@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=680.04`
+  - `max_hotspot_risk_score=687.04`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/services/evidence.py`
@@ -412,8 +412,8 @@ Completed result:
   storage, created-at index, and `scope` plus `idempotency_key` unique
   constraint.
 - Strengthened the model compatibility harness so unit and Postgres
-  `create_all` paths now verify required platform-support indexes and unique
-  constraints, not only table columns.
+  `create_all` paths now verify required platform-support indexes, unique
+  constraints, and their exact column ordering, not only table columns.
 - Reduced `app/db/models.py` to 6,006 lines while leaving the new platform
   domain module at 35 lines.
 
@@ -437,16 +437,16 @@ uv run docling-system-architecture-quality-report --summary
 Results:
 
 ```text
-model import compatibility: 224 passed.
-Postgres model metadata/create-all check: 5 passed.
+model import compatibility: 226 passed.
+Postgres model metadata/create-all check: 7 passed.
 Alembic heads/current: 0076_claim_feedback_replay_src (head).
 Alembic upgrade head: completed with no pending migrations.
 Alembic check: no new upgrade operations detected.
-Full DB-backed suite: 1101 passed in 46.92s.
+Full DB-backed suite: 1105 passed in 48.41s.
 Ruff: passed.
 Architecture inspection: valid, violation_count=0.
 Capability contracts: valid, facade_count=6, function_count=110.
-Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=680.04.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
 ```
 
 Milestone 3 is unblocked. The next architecture milestone is the first evidence

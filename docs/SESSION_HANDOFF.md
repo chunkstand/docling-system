@@ -79,7 +79,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=680.04
+  max_hotspot_risk_score=687.04
   top_hotspot_paths=[
     app/db/models.py,
     app/services/evidence.py,
@@ -209,6 +209,8 @@ Implemented result:
 - `api_idempotency_keys` table name, columns, JSONB response storage,
   `ix_api_idempotency_keys_created_at`, and
   `uq_api_idempotency_keys_scope_key` are preserved and covered.
+- The platform-support contract now checks exact index and unique-constraint
+  column ordering in both unit metadata and Postgres create-all paths.
 - `app/db/models.py` is now 6,006 lines; the new platform domain module is
   35 lines.
 
@@ -232,16 +234,16 @@ uv run docling-system-architecture-quality-report --summary
 Results:
 
 ```text
-model import compatibility: 224 passed.
-Postgres model metadata/create-all check: 5 passed.
+model import compatibility: 226 passed.
+Postgres model metadata/create-all check: 7 passed.
 Alembic heads/current: 0076_claim_feedback_replay_src (head).
 Alembic upgrade head: completed with no pending migrations.
 Alembic check: no new upgrade operations detected.
-Full DB-backed suite: 1101 passed in 46.92s.
+Full DB-backed suite: 1105 passed in 48.41s.
 Ruff: passed.
 Architecture inspection: valid, violation_count=0.
 Capability contracts: valid, facade_count=6, function_count=110.
-Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=680.04.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
 ```
 
 ## Architecture Milestone Closeout Policy

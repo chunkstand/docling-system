@@ -17,8 +17,8 @@ runtime behavior.
   `function_count=110`, and no issues.
 - `uv run docling-system-architecture-quality-report --summary`:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
-  `app/services/evidence.py`, `app/cli.py`,
+  `hotspot_count=10`, `max_hotspot_risk_score=687.04`, and top hotspot paths
+  headed by `app/db/models.py`, `app/services/evidence.py`, `app/cli.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
 - `uv run ruff check app tests`: passed.
 - Focused architecture tests:
@@ -26,9 +26,15 @@ runtime behavior.
   `tests/unit/test_architecture_quality.py`,
   `tests/unit/test_capability_contracts.py`, and
   `tests/unit/test_api_route_contracts.py` passed with `34 passed`.
-- DB-backed readiness and trace review are not current in the 2026-05-09 docs
-  refresh because local Postgres refused connections on `localhost:5432` and
-  Docker Compose could not reach the Docker daemon.
+- DB-backed model verification is current for `Architecture Plan 01`
+  Milestone 2: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  passed with `1105 passed`, and the focused Postgres metadata/create-all gate
+  now passes with `7 passed`.
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
+  current and reports `observation_count=0`.
+- `uv run docling-system-evaluation-data-readiness` is current but still
+  reports `regression_ready=false`, `court_grade_ready=false`, and
+  `failed_gate_count=11` because the local DB has no active corpus.
 
 ## Gap Closures
 
@@ -49,16 +55,25 @@ runtime behavior.
   capability facades as well as file hotspots.
 - Milestone 5 now has a compact architecture index that links milestone
   status, commands, generated maps, review surfaces, known debt, and this audit.
+- `Architecture Plan 01` Milestone 2 now has the first physical data-model
+  domain split: `ApiIdempotencyKey` moved into
+  `app/db/model_domains/platform.py` while `app.db.models` remains an
+  import-compatible facade.
+- The model compatibility harness now verifies platform-support index and
+  unique-constraint column ordering in both unit metadata and Postgres
+  `Base.metadata.create_all(...)` paths.
 
 ## Deferred Large Refactors
 
-The plan's physical implementation splits for `app/db/models.py`,
-`app/services/evidence.py`, `app/cli.py`,
-`app/services/agent_task_actions.py`, and `app/services/search.py` remain
-governed hotspot work, not hidden gaps. They are ranked and converted into
-improvement-case candidates by the architecture quality report. Each future
-split should land as a separate behavior-preserving milestone with focused
-tests plus the full integration gate.
+The plan's physical implementation splits remain governed hotspot work, not
+hidden gaps. The first `app/db/models.py` domain split is complete; additional
+model domains should still move one at a time. The next active hotspot split is
+`Architecture Plan 01` Milestone 3 for search evidence package helpers in
+`app/services/evidence.py`. Later governed split surfaces include
+`app/services/agent_task_actions.py`, `app/services/search.py`, and
+`app/cli.py`. Each future split should land as a separate
+behavior-preserving milestone with focused tests plus the full integration
+gate.
 
 ## Verification Contract
 

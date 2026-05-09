@@ -52,8 +52,9 @@ commit before another domain moves.
 The harness currently protects 109 public `app.db.models` symbols: 29 enums and
 80 ORM model classes. It also asserts the 80-table `Base.metadata` contract and
 checks that schema-scoped Postgres `Base.metadata.create_all(...)` creates the
-expected tables. The harness also protects required model indexes and unique
-constraints that must remain aligned with migrations, including
+expected tables. The harness also protects required model indexes, unique
+constraints, and their exact column ordering where required to remain aligned
+with migrations, including
 `ix_document_runs_status_completed_at`,
 `ix_api_idempotency_keys_created_at`, and
 `uq_api_idempotency_keys_scope_key`.
@@ -80,6 +81,8 @@ Implemented result:
 - Preserved the `api_idempotency_keys` table, columns, JSONB response storage,
   `ix_api_idempotency_keys_created_at` index, and
   `uq_api_idempotency_keys_scope_key` unique constraint.
+- Verified the created-at index columns and the `scope`, `idempotency_key`
+  unique-constraint columns in both unit metadata and Postgres create-all paths.
 - Verified with focused import, metadata, Alembic, architecture, and full
   DB-backed gates.
 

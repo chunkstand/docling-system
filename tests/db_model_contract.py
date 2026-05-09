@@ -243,12 +243,24 @@ REQUIRED_TABLE_INDEX_NAMES = {
     )
 }
 
+REQUIRED_TABLE_INDEX_COLUMNS = {
+    "api_idempotency_keys": {
+        "ix_api_idempotency_keys_created_at": ("created_at",),
+    }
+}
+
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
     "api_idempotency_keys": frozenset(
         {
             "uq_api_idempotency_keys_scope_key",
         }
     )
+}
+
+REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
+    "api_idempotency_keys": {
+        "uq_api_idempotency_keys_scope_key": ("scope", "idempotency_key"),
+    }
 }
 
 PLATFORM_SUPPORT_TABLE_COLUMNS = {
