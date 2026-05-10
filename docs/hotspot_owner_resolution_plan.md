@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 5 search-ranking split complete locally, Milestone 6 next
+Status: in progress; Milestone 5 search-ranking split complete locally at `c871dd9`, Milestone 6 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose

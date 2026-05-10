@@ -16,21 +16,12 @@ the Residual Weakness Plan Milestone 1-6 local closeout sequence.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
-The latest local architecture closeout commits contain the Residual Weakness
-Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
-Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A,
-Milestone 4 Top Hotspot Split Pack B, Milestone 5 Agent-Task Cycle Break, and
-the Milestone 6 regression-readiness data build that makes the live DB pass the
-regression evaluation-data tier. This handoff revision closes Milestone 7 by
-materializing the court-grade evaluation-data lanes and aligning the remaining
-governance checks with intentional `feedback` no-answer replay coverage. The
-next revision closes Milestone 8 by proving the remaining residual risk is now
-explicitly governed and that the plan, handoff, and architecture index all
-match the current gate state. The current local checkpoint closes Hotspot
-Owner Resolution Milestone 5 by moving ranking helpers, reranking,
-hybrid-result merging, result rendering, and ranked-result utility types
-behind a focused owner module while preserving the existing `search` entry
-surface.
+The Residual Weakness Plan is already closed through Milestone 8. The current
+local checkpoint is Hotspot Owner Resolution Milestone 5, which moved ranking
+helpers, reranking, hybrid-result merging, result rendering, and ranked-result
+utility types behind a focused `app/services/search_ranking.py` owner module
+while preserving the existing `app/services/search.py` entry surface. The next
+routed follow-up is Milestone 6: Closeout And Case Lifecycle Alignment.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -359,6 +350,10 @@ Verified closeout results:
 Milestone 5 is the search-ranking split. It is a behavior-preserving service
 modularization pass behind the existing `app/services/search.py`
 compatibility facade.
+
+Commit:
+
+- `c871dd9` (`architecture: complete hotspot owner milestone 5 search-ranking`)
 
 Results:
 

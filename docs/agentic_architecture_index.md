@@ -121,7 +121,8 @@ chat history or scanning the whole repository.
   result utility types now live in `app/services/search_ranking.py` while
   `app/services/search.py` remains the compatibility facade. The old hotspot
   is reduced to 2,851 lines, and the new owner module is governed under the
-  same improvement case `IC-1D03DBFE8492` with a 467 line hygiene budget.
+  same improvement case `IC-1D03DBFE8492` with a 467 line hygiene budget. The
+  milestone is closed by commit `c871dd9`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
