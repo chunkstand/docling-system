@@ -4,34 +4,26 @@ Date: 2026-05-09 local / 2026-05-09 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local closeout-doc policy hardening commit after
-`Architecture Plan 01` Milestone 3.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 4
+agent-action registry split closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 16
-commits after the closeout-doc policy hardening; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 17
+commits after the Milestone 4 closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest docs-only commit hardens the repo rule that closeout docs are a
-mandatory end-of-milestone gate: update `docs/SESSION_HANDOFF.md` and the active
-milestone/status doc before committing any milestone. The previous alignment
-closeout reconciled the current-state snapshot, full-suite count, and line-count
-evidence. The Milestone 3 closeout commit contains the first evidence-service
-split and its verification/docs updates:
+The latest Milestone 4 closeout commit contains the first agent-task action
+registry family split and its verification/docs updates:
 
-- `app/services/evidence.py`
-- `app/services/evidence_common.py`
-- `app/services/evidence_records.py`
-- `app/services/evidence_search_packages.py`
-- `app/services/evidence_search_trace_graph.py`
-- `app/services/evidence_search_trace_store.py`
+- `app/services/agent_task_actions.py`
+- `app/services/agent_actions/search_harness.py`
+- `tests/unit/test_agent_action_contracts.py`
 - `docs/architecture_plan_01.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/agentic_architecture_index.md`
 - `docs/agentic_architecture_milestone_audit.md`
 - `docs/agentic_architecture_milestone_plan.md`
-- `tests/unit/test_evidence_search_packages.py`
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -46,8 +38,9 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 16 local commits ahead of `origin/main` are:
+The 17 local commits ahead of `origin/main` are:
 
+- local Milestone 4 closeout commit for `Architecture Plan 01`
 - local closeout-doc policy hardening commit after `Architecture Plan 01`
   Milestone 3
 - local Milestone 3 alignment closeout commit for `Architecture Plan 01`
@@ -325,6 +318,70 @@ Hygiene: no ruff, vulture, duplicate-helper, improvement-case, or architecture
 findings; inherited file/helper budget debt remains.
 ```
 
+## Agent Action Registry Split Snapshot
+
+Milestone 4 implemented, verified, and locally committed the first physical
+agent-action registry family split on 2026-05-09.
+
+Files added or updated for the split:
+
+- `app/services/agent_task_actions.py`
+- `app/services/agent_actions/search_harness.py`
+- `tests/unit/test_agent_action_contracts.py`
+- `docs/architecture_plan_01.md`
+- `docs/agentic_architecture_index.md`
+- `docs/agentic_architecture_milestone_audit.md`
+- `docs/agentic_architecture_milestone_plan.md`
+- `docs/SESSION_HANDOFF.md`
+
+Implemented result:
+
+- Search-harness action contract metadata and helper logic moved into
+  `app/services/agent_actions/search_harness.py`.
+- `app.services.agent_task_actions` remains the public action registry facade
+  and execution entrypoint; current executor import paths remain available.
+- Covered search-harness action types are
+  `optimize_search_harness_from_case`,
+  `draft_harness_config_update_from_optimization`, `replay_search_request`,
+  `run_search_replay_suite`, `evaluate_search_harness`,
+  `verify_search_harness_evaluation`, `draft_harness_config_update`,
+  `verify_draft_harness_config`, `triage_replay_regression`, and
+  `apply_harness_config_update`.
+- `app/services/agent_task_actions.py` is now 2,884 lines; the new
+  search-harness registry/helper module is 539 lines.
+
+Focused verification:
+
+```bash
+git diff --check
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_agent_task_actions.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_task_triage.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py
+uv run docling-system-agent-task-action-index
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-decisions
+uv run docling-system-architecture-quality-report --summary
+uv run docling-system-hygiene-check
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+```
+
+Results:
+
+```text
+Focused agent-action and adjacent agent-task tests: 136 passed.
+DB-backed semantic and triage orchestration roundtrips: 9 passed.
+Full DB-backed suite: 1110 passed in 48.43s.
+Ruff: passed.
+Agent task action index: generated successfully.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture decisions: valid, decision_count=9.
+Architecture quality summary: hotspot_count=10, max_hotspot_risk_score=687.04.
+Hygiene: no ruff, vulture, improvement-case, or architecture findings;
+inherited file/helper budget debt remains.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -346,8 +403,8 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1, 2, and 3 satisfy the revised local commit closeout rule.
-Milestone 4 may begin from this committed checkpoint.
+Milestones 1, 2, 3, and 4 satisfy the revised local commit closeout rule.
+Milestone 5 may begin from this committed checkpoint.
 
 ## Active Weak Points
 
@@ -365,6 +422,10 @@ Milestone 4 may begin from this committed checkpoint.
 - The first evidence split reduced `app/services/evidence.py`, but it remains a
   major architecture-quality hotspot. Future evidence splits should move one
   owner concern at a time behind the same compatibility facade.
+- The first agent-action registry split reduced
+  `app/services/agent_task_actions.py`, but it remains a hotspot. Future
+  action-family splits should move one owner concern at a time behind the same
+  compatibility facade before moving executor paths.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.
@@ -379,9 +440,10 @@ Milestone 0 is complete: local runtime verification is available. Milestone 1
 is complete: the data-model compatibility harness is in place. Milestone 2 is
 complete: `ApiIdempotencyKey` moved behind the `app.db.models` compatibility
 facade. Milestone 3 is complete: search evidence package helpers moved behind
-the `app.services.evidence` compatibility facade.
+the `app.services.evidence` compatibility facade. Milestone 4 is complete:
+search-harness action registry metadata and helper logic moved behind the
+`app.services.agent_task_actions` compatibility facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 4: split
-the first agent-task action registry family out of
-`app/services/agent_task_actions.py` while keeping the public action registry
-and capability behavior stable.
+The next architecture milestone is `Architecture Plan 01` Milestone 5: split
+the first `app/cli.py` command group while preserving console entrypoints and
+help/argument contracts.

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.services.agent_actions.manifest import validate_agent_action_contracts
+from app.services.agent_actions.search_harness import SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES
 from app.services.agent_actions.types import (
     AGENT_ACTION_CAPABILITIES,
     AGENT_ACTION_DEFINITION_KINDS,
@@ -90,6 +91,22 @@ def test_agent_task_action_index_groups_actions_by_capability() -> None:
         for actions in index["capabilities"].values()
         for action in actions
     } == {action.task_type for action in list_agent_task_actions()}
+
+
+def test_search_harness_action_family_is_composed_from_focused_registry_module() -> None:
+    actions_by_type = {action.task_type: action for action in list_agent_task_actions()}
+
+    assert set(SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES) <= set(actions_by_type)
+    registry_order = [
+        actions_by_type[task_type].task_type
+        for task_type in SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES
+    ]
+
+    assert registry_order == list(SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES)
+    assert all(
+        actions_by_type[task_type].capability in {"evaluation", "retrieval"}
+        for task_type in SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES
+    )
 
 
 def test_agent_task_definition_kinds_have_expected_side_effect_levels() -> None:

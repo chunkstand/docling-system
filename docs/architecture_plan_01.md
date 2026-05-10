@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-3 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-4 complete; local commit-on-closeout policy
 active as of 2026-05-09
 
 Purpose: reduce centralization in the current modular monolith without
@@ -564,6 +564,8 @@ agent-task action registry split.
 
 ### Milestone 4: Agent Task Action Registry Split 01
 
+Status: complete on 2026-05-09.
+
 Goal: reduce `app/services/agent_task_actions.py` by turning it into registry
 composition plus domain action modules.
 
@@ -627,6 +629,49 @@ Closeout:
   rule changes.
 - Update `docs/SESSION_HANDOFF.md`.
 - Commit the action-family split locally before moving another family.
+
+Completed result:
+
+- Added `app/services/agent_actions/search_harness.py` as the first focused
+  agent-action registry family module.
+- Moved search-harness action contract metadata and helper logic for:
+  `optimize_search_harness_from_case`,
+  `draft_harness_config_update_from_optimization`, `replay_search_request`,
+  `run_search_replay_suite`, `evaluate_search_harness`,
+  `verify_search_harness_evaluation`, `draft_harness_config_update`,
+  `verify_draft_harness_config`, `triage_replay_regression`, and
+  `apply_harness_config_update`.
+- Kept `app/services/agent_task_actions.py` as the public compatibility facade
+  and execution entrypoint. Executor import paths remain available for current
+  tests and operator-facing behavior.
+- Preserved all task type strings, payload/output schemas, side-effect levels,
+  approval requirements, context-builder names, input examples, response
+  payloads, action index output, and manifest validation behavior.
+- Added focused contract coverage proving the search-harness action family is
+  represented by the focused registry module.
+- Reduced `app/services/agent_task_actions.py` from 3,320 lines to 2,884
+  lines. The new search-harness registry/helper module is 539 lines.
+
+Verification:
+
+```text
+git diff --check: passed.
+Ruff: passed across app and tests.
+Focused agent-action contract/action tests: 136 passed.
+DB-backed semantic and triage orchestration roundtrips: 9 passed.
+Full DB-backed suite: 1110 passed in 48.43s.
+Agent task action index: generated successfully.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture decisions: valid, decision_count=9.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Hygiene: no ruff, vulture, improvement-case, or architecture findings;
+inherited file/helper budget debt remains.
+```
+
+Milestone 5 is unblocked. The next architecture milestone is the first
+operator-facing CLI command group split.
 
 ### Milestone 5: CLI Command Group Split
 

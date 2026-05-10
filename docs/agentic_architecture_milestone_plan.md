@@ -40,7 +40,8 @@ Current architecture status:
   - `app/services/agent_task_context.py`: 3,858 lines
   - `app/services/claim_support_policy_impacts.py`: 3,477 lines
   - `app/services/search.py`: 3,429 lines
-  - `app/services/agent_task_actions.py`: about 3,300 lines
+  - `app/services/agent_task_actions.py`: 2,884 lines after the first
+    search-harness registry/helper split
   - `app/services/retrieval_learning.py`: 3,028 lines
   - `app/db/models.py`: 6,006 lines and the highest current hotspot score
     after the first model-domain split
@@ -254,7 +255,9 @@ Deliverables:
   - provenance/export traces
 - Split `app/services/agent_task_actions.py` into a registry composition module
   plus per-domain action registration modules. Keep the public registry
-  functions stable.
+  functions stable. `Architecture Plan 01` Milestone 4 completed the first
+  search-harness action registry/helper split in
+  `app/services/agent_actions/search_harness.py`.
 - Continue the prior `search.py` split by isolating query planning, feature
   extraction, ranking, and result hydration where tests already give coverage.
 - Continue model-domain splits only when they can be paired with exact

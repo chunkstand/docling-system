@@ -31,8 +31,8 @@ runtime behavior.
   passed with `1105 passed`, and the focused Postgres metadata/create-all gate
   now passes with `7 passed`.
 - DB-backed service verification is current for `Architecture Plan 01`
-  Milestone 3: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
-  passed with `1109 passed`.
+  Milestone 4: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  passed with `1110 passed`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -75,6 +75,11 @@ runtime behavior.
   centralized in `app/services/evidence_common.py` and
   `app/services/evidence_records.py` so the split does not introduce
   duplicate-helper hygiene findings.
+- `Architecture Plan 01` Milestone 4 now has the first agent-task action
+  registry split: search-harness action contract metadata and helper logic live
+  in `app/services/agent_actions/search_harness.py` while
+  `app.services.agent_task_actions` remains the public registry facade and
+  execution entrypoint.
 
 ## Deferred Large Refactors
 
@@ -82,9 +87,12 @@ The plan's physical implementation splits remain governed hotspot work, not
 hidden gaps. The first `app/db/models.py` domain split is complete; additional
 model domains should still move one at a time. The first
 `app/services/evidence.py` split is complete; additional evidence domains
-should still move one at a time. The next active hotspot split is
-`Architecture Plan 01` Milestone 4 for the agent-task action registry. Later
-governed split surfaces include `app/services/search.py` and `app/cli.py`.
+should still move one at a time. The first `app/services/agent_task_actions.py`
+registry/helper split is complete; additional action families should still move
+one at a time. The next active hotspot split is `Architecture Plan 01`
+Milestone 5 for the first `app/cli.py` command group. Later governed split
+surfaces include `app/services/search.py`, additional agent-action families,
+and additional evidence domains.
 Each future split should land as a separate
 behavior-preserving milestone with focused tests plus the full integration
 gate.
