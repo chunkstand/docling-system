@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 5 search-ranking split complete locally at `c871dd9`, Milestone 6 next
+Status: complete locally; remaining debt is routed through explicit owner cases, with `IC-F2A8110185EB` / `app/db/models.py` next by hotspot
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -67,7 +67,7 @@ uv run docling-system-improvement-case-summary
   case_count=25
   status_counts.open=24
   status_counts.measured=1
-  measured_case_count=4
+  measured_case_count=7
   oldest_open_case_id=IC-F2A8110185EB
 ```
 
@@ -488,6 +488,26 @@ Acceptance:
   the handoff
 - remaining debt is either accepted with a case owner or routed to the next
   hotspot milestone explicitly
+
+Status update:
+
+- Implemented and verified locally as the plan closeout and case-lifecycle
+  alignment pass.
+- Updated `config/improvement_cases.yaml` so the six targeted hotspot owner
+  cases now carry the correct committed deployment refs and post-milestone
+  measurement evidence for Milestones 1-5.
+- Corrected the stale owner-case payload on `IC-F2A8110185EB`, which had been
+  carrying the Milestone 3 claim-support measurement instead of the Milestone 1
+  `app/db/models.py` reduction.
+- Confirmed `config/hygiene_policy.yaml` routes all six targeted surfaces
+  through explicit `owner_case_id` entries; none of the selected hotspots still
+  rely on `owner_milestone=residual-weakness-milestone-2`.
+- Added the missing Milestone 3 commit reference to
+  `docs/SESSION_HANDOFF.md` and aligned this plan, the architecture index, and
+  the handoff to one completed-sequence state.
+- The hotspot owner milestone sequence is now complete locally. The next
+  routed owner-scoped implementation should resume with
+  `IC-F2A8110185EB` / `app/db/models.py`.
 
 ## Required Implementation Artifacts
 

@@ -38,8 +38,8 @@ cases:
   title: 'Architecture hotspot: app/db/models.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/db/models.py is an architecture hotspot with risk_score=695.04,
-    line_count=6006, changes_90d=70, hygiene_finding_count=1.
+  observed_failure: app/db/models.py remains an architecture hotspot with
+    line_count=5537 after the Milestone 1 document-artifacts owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -59,25 +59,28 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Local Milestone 3 replay-alert fixture coverage split verified; local
-      milestone commit pending.
+    deployed_ref: 060b537
+    notes: Milestone 1 document-artifacts owner split committed; app/db/models.py
+      remains the compatibility facade while narrowed ORM ownership now includes
+      app/db/model_domains/document_artifacts.py.
   measurement:
-    metric_name: claim_support_hotspot_line_count
-    current_value: 2011.0
+    metric_name: db_models_hotspot_line_count
+    current_value: 5537.0
     measurement_window: 2026-05-10 local verification
-    notes: Milestone 3 moved replay-alert fixture coverage into
-      app/services/claim_support_replay_alert_promotions.py and reduced
-      app/services/claim_support_policy_impacts.py to 2011 lines with the new
-      owner module ratcheted at 1536 lines.
+    notes: Milestone 1 moved DocumentRunEvaluation,
+      DocumentRunEvaluationQuery, DocumentChunk, DocumentTable,
+      DocumentTableSegment, and DocumentFigure into
+      app/db/model_domains/document_artifacts.py and reduced app/db/models.py
+      to 5537 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T06:55:00+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/evidence.py is an architecture hotspot with risk_score=507.32,
-    line_count=8261, changes_90d=46, hygiene_finding_count=2.
+  observed_failure: app/services/evidence.py remains an architecture hotspot with
+    line_count=7143 and private_helper_count=90 after the Milestone 2
+    evidence-audit split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/evidence.py
@@ -97,15 +100,20 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: a0bd36b
+    notes: Milestone 2 evidence trace split committed; app/services/evidence.py
+      remains the compatibility facade while the narrowed trace concern now
+      lives in app/services/evidence_manifest_traces.py.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: evidence_hotspot_line_count
+    current_value: 7143.0
+    measurement_window: 2026-05-10 local verification
+    notes: Milestone 2 moved technical-report evidence trace graph build,
+      persistence, and integrity into app/services/evidence_manifest_traces.py
+      and reduced app/services/evidence.py to 7143 lines while governing the
+      owner module at 980 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -375,8 +383,8 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Milestone 5 search-ranking owner split verified locally; the
+    deployed_ref: c871dd9
+    notes: Milestone 5 search-ranking owner split committed; the
       compatibility facade remains in app/services/search.py while the narrowed
       ranking and result-merging implementation now lives in
       app/services/search_ranking.py.
@@ -389,7 +397,7 @@ cases:
       app/services/search.py to 2851 lines while governing the new owner module
       at 467 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T14:29:00+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
@@ -605,8 +613,9 @@ cases:
   title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/claim_support_policy_impacts.py is an architecture
-    hotspot with risk_score=233.68, line_count=3477, changes_90d=17, hygiene_finding_count=2.
+  observed_failure: app/services/claim_support_policy_impacts.py remains an
+    architecture hotspot with line_count=2011 and private_helper_count=42 after
+    the Milestone 3 claim-support owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/claim_support_policy_impacts.py
@@ -627,15 +636,21 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: afc324a
+    notes: Milestone 3 claim-support owner split committed; the compatibility
+      facade remains in app/services/claim_support_policy_impacts.py while the
+      narrowed replay-alert fixture coverage workflow now lives in
+      app/services/claim_support_replay_alert_promotions.py.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: claim_support_hotspot_line_count
+    current_value: 2011.0
+    measurement_window: 2026-05-10 local verification
+    notes: Milestone 3 moved replay-alert fixture coverage into
+      app/services/claim_support_replay_alert_promotions.py and reduced
+      app/services/claim_support_policy_impacts.py to 2011 lines while
+      governing the new owner module at 1536 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'
 - case_id: IC-BF180637814C
   title: 'Architecture hotspot: app/services/evaluations.py'
   status: open
@@ -817,8 +832,8 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/audit_bundles.py remains a large owner surface with
-    line_count=3862, private_helper_count=69, and inherited hygiene debt still routed
-    only through owner_milestone=residual-weakness-milestone-2.
+    line_count=3306 and private_helper_count=58 after the Milestone 2
+    evidence-audit split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/audit_bundles.py
@@ -840,15 +855,22 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: a0bd36b
+    notes: Milestone 2 audit-bundle replay-alert corpus split committed;
+      app/services/audit_bundles.py remains the compatibility facade while the
+      narrowed corpus-lineage concern now lives in
+      app/services/audit_bundle_replay_alert_corpus.py.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: audit_bundles_hotspot_line_count
+    current_value: 3306.0
+    measurement_window: 2026-05-10 local verification
+    notes: Milestone 2 moved replay-alert corpus lineage payload assembly and
+      bundle freshness status checks into
+      app/services/audit_bundle_replay_alert_corpus.py and reduced
+      app/services/audit_bundles.py to 3306 lines while governing the owner
+      module at 575 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-10T05:45:45.585973+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: open
@@ -877,8 +899,8 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Milestone 4 retrieval-learning replay-alert corpus owner split verified
+    deployed_ref: 13e8b1c
+    notes: Milestone 4 retrieval-learning replay-alert corpus owner split committed;
       locally; the compatibility facade remains in app/services/retrieval_learning.py
       while the narrowed implementation now lives in
       app/services/retrieval_learning_replay_alert_sources.py.
@@ -892,4 +914,4 @@ cases:
       app/services/retrieval_learning.py to 2482 lines while governing the new
       owner module at 578 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-10T07:11:23+00:00'
+  updated_at: '2026-05-10T14:29:04+00:00'

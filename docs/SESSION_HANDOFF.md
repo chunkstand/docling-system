@@ -4,10 +4,10 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 5
-search-ranking split.
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 6
-Closeout And Case Lifecycle Alignment.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 6
+closeout-and-routing pass.
+Active local follow-up owner case: `IC-F2A8110185EB` / `app/db/models.py`
+continuation.
 
 ## Current Position
 
@@ -16,12 +16,14 @@ the Residual Weakness Plan Milestone 1-6 local closeout sequence.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
-The Residual Weakness Plan is already closed through Milestone 8. The current
-local checkpoint is Hotspot Owner Resolution Milestone 5, which moved ranking
-helpers, reranking, hybrid-result merging, result rendering, and ranked-result
-utility types behind a focused `app/services/search_ranking.py` owner module
-while preserving the existing `app/services/search.py` entry surface. The next
-routed follow-up is Milestone 6: Closeout And Case Lifecycle Alignment.
+The Residual Weakness Plan is already closed through Milestone 8. Hotspot Owner
+Resolution Milestone 6 is now the current closeout checkpoint: the docs,
+handoff, and improvement-case registry are aligned to the committed Milestones
+1-5 reduction results, every targeted surface now routes through an explicit
+owner case, and no selected hotspot still depends on
+`owner_milestone=residual-weakness-milestone-2`. The next owner-scoped
+implementation route is `IC-F2A8110185EB` / `app/db/models.py`, which remains
+the top hotspot after the Milestone 1 document-artifacts split.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -228,6 +230,10 @@ Milestone 3 is the claim-support replay-alert fixture coverage split. It is a
 behavior-preserving service modularization pass behind the existing
 `app/services/claim_support_policy_impacts.py` compatibility facade.
 
+Commit:
+
+- `afc324a` (`architecture: complete hotspot owner milestone 3 claim-support`)
+
 Results:
 
 - Added `app/services/claim_support_replay_alert_promotions.py`.
@@ -389,6 +395,40 @@ Verification:
 - `uv run docling-system-hygiene-check`
 - `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+
+## Hotspot Owner Resolution Milestone 6 Closeout
+
+Milestone 6 is the docs-and-case lifecycle closeout for the hotspot owner
+resolution plan. It is a governance milestone, not another code split.
+
+Results:
+
+- Updated `config/improvement_cases.yaml` so the six targeted hotspot owner
+  cases now carry the correct post-milestone deployment refs and measurement
+  evidence for Milestones 1-5.
+- Corrected the stale owner-case payload on `IC-F2A8110185EB`, which had been
+  carrying claim-support reduction data instead of the
+  `app/db/models.py` Milestone 1 result.
+- Confirmed all six targeted surfaces now route through explicit `owner_case_id`
+  entries in `config/hygiene_policy.yaml`; no selected hotspot remains routed
+  through `owner_milestone=residual-weakness-milestone-2`.
+- Added the missing Milestone 3 commit reference and aligned this handoff,
+  `docs/agentic_architecture_index.md`, and
+  `docs/hotspot_owner_resolution_plan.md` to the same completed-sequence state.
+- The hotspot owner resolution plan is now complete locally. The next
+  owner-scoped implementation route is `IC-F2A8110185EB` /
+  `app/db/models.py`.
+
+Verification:
+
+- `git diff --check`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
 
 ## Milestone 6 Regression Readiness Closeout
 
@@ -1497,5 +1537,9 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   reranking, hybrid-result merging, result rendering, and ranked-result
   utility types into `app/services/search_ranking.py` and reduced
   `app/services/search.py` to 2,851 lines.
-- Next routed implementation slice: Milestone 6, Closeout And Case Lifecycle
-  Alignment.
+- Hotspot Owner Resolution Milestone 6 is now the closeout-and-routing pass. It
+  aligned the owner-case registry, docs, and handoff to the committed
+  Milestones 1-5 reduction results and confirmed explicit owner routing for all
+  six targeted surfaces.
+- Next routed owner case: `IC-F2A8110185EB` / `app/db/models.py`
+  continuation.

@@ -107,7 +107,7 @@ chat history or scanning the whole repository.
   `app/services/claim_support_policy_impacts.py` remains the compatibility
   facade. The old hotspot is reduced to 2,011 lines, and the new owner module
   is governed under the same improvement case `IC-E2270F89B397` with a 1,536
-  line ratchet.
+  line ratchet. The milestone is closed by commit `afc324a`.
 - Hotspot Owner Resolution Milestone 4 is now complete locally: replay-alert
   corpus lineage validation, judgment materialization, and hard-negative
   construction now live in
@@ -123,6 +123,11 @@ chat history or scanning the whole repository.
   is reduced to 2,851 lines, and the new owner module is governed under the
   same improvement case `IC-1D03DBFE8492` with a 467 line hygiene budget. The
   milestone is closed by commit `c871dd9`.
+- Hotspot Owner Resolution Milestone 6 is now complete locally: the owner-case
+  registry, hotspot plan, architecture index, and session handoff are aligned
+  to the committed Milestones 1-5 reductions, explicit owner routing is
+  confirmed for all six targeted surfaces, and the next route returns to the
+  top remaining owner case `IC-F2A8110185EB` / `app/db/models.py`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -150,13 +155,13 @@ chat history or scanning the whole repository.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
   `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
-  `measured_case_count=4`, with open cases concentrated in
+  `measured_case_count=7`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up: the next architecture work should use
-  `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
-  search-ranking owner split is Milestone 6, Closeout And Case Lifecycle
-  Alignment.
+  `docs/hotspot_owner_resolution_plan.md`; the hotspot owner milestone sequence
+  is complete locally, and the next routed owner-scoped implementation should
+  resume with `IC-F2A8110185EB` / `app/db/models.py`.
 
 ## Executable Architecture Contracts
 
