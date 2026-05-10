@@ -5,8 +5,9 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: committed local High Value Technical Paydown
-Milestone 5 test hotspot split pack B; High Value Technical Paydown Milestones
-6, 7, and 8 are now verified locally.
+Milestone 8 retrieval replay and release governance split committed as
+`47a86d1`; High Value Technical Paydown Milestones 6 and 7 remain verified in
+the same local closeout chain.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` retrieval learning continuation.
 
@@ -34,11 +35,12 @@ committed locally: the retrieval-interaction ledger lives in
 now protects the retrieval-interaction table/index/vector/computed-column
 contract, and `app/db/models.py` is reduced to 5,067 lines while remaining the
 public compatibility facade. High Value Technical Paydown Milestone 8 is now
-also verified locally: the retrieval replay and release governance owner
-surface lives in `app/db/model_domains/retrieval_replay_governance.py`, the
-shared metadata harness now protects the replay/release governance table and
-index contract, and `app/db/models.py` is reduced further to 4,525 lines while
-remaining the public compatibility facade. High Value Technical Paydown
+also committed locally as `47a86d1`: the retrieval replay and release
+governance owner surface lives in
+`app/db/model_domains/retrieval_replay_governance.py`, the shared metadata
+harness now protects the replay/release governance table and index contract,
+and `app/db/models.py` is reduced further to 4,525 lines while remaining the
+public compatibility facade. High Value Technical Paydown
 Milestone 2 is now also committed locally: the technical-report
 derivation/export owner family
 lives in `app/services/evidence_technical_report_exports.py`,
@@ -83,6 +85,10 @@ retrieval learning domain candidate documented in
 Milestone 8 is the retrieval replay and release governance model-domain split
 for `IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM
 owner split behind the existing `app.db.models` compatibility facade.
+
+Closeout commit:
+
+- `47a86d1` (`architecture: split replay release governance models`)
 
 Results:
 

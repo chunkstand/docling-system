@@ -120,9 +120,10 @@ Current routing notes:
   `IC-F2A8110185EB`; `app/db/models.py` remains the compatibility facade while
   the retrieval-interaction owner surface now lives in
   `app/db/model_domains/retrieval_interactions.py`.
-- High Value Technical Paydown Milestone 8 is now verified locally under
-  `IC-F2A8110185EB`; the retrieval replay and release governance owner surface
-  now lives in `app/db/model_domains/retrieval_replay_governance.py`, and
+- High Value Technical Paydown Milestone 8 is now committed locally as
+  `47a86d1` under `IC-F2A8110185EB`; the retrieval replay and release
+  governance owner surface now lives in
+  `app/db/model_domains/retrieval_replay_governance.py`, and
   `app/db/models.py` is reduced to 4,525 lines while preserving the metadata
   contract.
 - High Value Technical Paydown Milestone 2 is now committed locally under

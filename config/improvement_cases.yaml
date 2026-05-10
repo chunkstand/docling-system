@@ -60,11 +60,12 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "c046db8"
+    deployed_ref: "47a86d1"
     notes: app/db/models.py remains the compatibility facade while narrowed ORM
       ownership now includes app/db/model_domains/document_artifacts.py,
       app/db/model_domains/retrieval_interactions.py, and
-      app/db/model_domains/retrieval_replay_governance.py.
+      app/db/model_domains/retrieval_replay_governance.py; Milestone 8 is
+      committed locally as 47a86d1.
   measurement:
     metric_name: db_models_hotspot_line_count
     current_value: 4525.0
@@ -76,7 +77,7 @@ cases:
       app/db/model_domains/retrieval_replay_governance.py and reduced
       app/db/models.py to 4525 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T23:25:40+00:00'
+  updated_at: '2026-05-10T23:32:02+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

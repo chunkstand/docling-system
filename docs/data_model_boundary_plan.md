@@ -236,6 +236,10 @@ Verified locally on 2026-05-10: `retrieval replay and release governance`:
 `SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
 `SearchHarnessReleaseReadinessAssessment`.
 
+Closeout commit:
+
+- `47a86d1` (`architecture: split replay release governance models`)
+
 Implemented result:
 
 - Added `app/db/model_domains/retrieval_replay_governance.py`.
