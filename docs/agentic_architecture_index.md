@@ -96,7 +96,8 @@ chat history or scanning the whole repository.
   corpus lineage lives in
   `app/services/audit_bundle_replay_alert_corpus.py`, `app/services/evidence.py`
   is reduced to 7,143 lines, and `app/services/audit_bundles.py` is reduced to
-  3,306 lines while both facades keep their existing entry surfaces.
+  3,306 lines while both facades keep their existing entry surfaces. The
+  milestone is closed by commit `a0bd36b`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in

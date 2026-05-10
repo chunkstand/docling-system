@@ -316,6 +316,7 @@ Acceptance:
 Status update:
 
 - Implemented locally as a behavior-preserving evidence/audit owner split.
+- Closed by commit `a0bd36b` (`architecture: complete hotspot owner milestone 2 evidence-audit`).
 - Added `app/services/evidence_manifest_traces.py` for the technical-report
   evidence trace graph build, persistence, and integrity concern while keeping
   `app/services/evidence.py` as the compatibility facade.

@@ -173,7 +173,7 @@ behavior-preserving service modularization pass behind the existing
 
 Commit:
 
-- Pending the local Milestone 2 closeout commit in this worktree.
+- `a0bd36b` (`architecture: complete hotspot owner milestone 2 evidence-audit`)
 
 Results:
 
@@ -1314,5 +1314,5 @@ Current follow-up plan for the main remaining hotspot-owner debt:
 - Milestone 1 is now the document-artifacts model-domain split. It reduces
   `app/db/models.py` to 5,537 lines and keeps the moved classes importable from
   `app.db.models` while tightening the metadata contract.
-- Next routed implementation slice: Milestone 2, Evidence And Audit Bundle
-  Split Pack.
+- Next routed implementation slice: Milestone 3, Claim Support Policy Impacts
+  Split.
