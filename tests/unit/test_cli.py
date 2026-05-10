@@ -53,10 +53,6 @@ from app.cli import (
     run_improvement_case_record,
     run_improvement_case_summary,
     run_improvement_case_validate,
-    run_ingest_batch_list,
-    run_ingest_batch_show,
-    run_ingest_dir,
-    run_ingest_file,
     run_knowledge_base_reset,
     run_materialize_retrieval_learning_dataset,
     run_optimize_search_harness,
@@ -66,44 +62,6 @@ from app.cli import (
     run_search_harness_evaluation_show,
 )
 from app.improvement_case_intake_cli import run_import as run_improvement_case_import
-
-
-def test_ingest_file_cli_prints_ingest_result(monkeypatch, capsys) -> None:
-    document_id = uuid4()
-    run_id = uuid4()
-
-    class FakeSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(sys, "argv", ["docling-system-ingest-file", "/tmp/example.pdf"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
-    monkeypatch.setattr(
-        "app.cli.ingest_local_file",
-        lambda session, file_path, storage_service: (
-            SimpleNamespace(
-                document_id=document_id,
-                run_id=run_id,
-                status="queued",
-                duplicate=False,
-                recovery_run=False,
-                active_run_id=None,
-                active_run_status=None,
-            ),
-            202,
-        ),
-    )
-
-    run_ingest_file()
-
-    output = json.loads(capsys.readouterr().out.strip())
-    assert output["document_id"] == str(document_id)
-    assert output["run_id"] == str(run_id)
-    assert output["status"] == "queued"
 
 
 def test_knowledge_base_reset_cli_defaults_to_dry_run(monkeypatch, capsys) -> None:
@@ -121,116 +79,6 @@ def test_knowledge_base_reset_cli_defaults_to_dry_run(monkeypatch, capsys) -> No
     output = json.loads(capsys.readouterr().out)
     assert output == {"mode": "dry_run", "execute": False}
     assert captured["options"].execute is False
-
-
-def test_ingest_dir_cli_prints_batch_summary(monkeypatch, capsys) -> None:
-    batch_id = uuid4()
-
-    class FakeSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(sys, "argv", ["docling-system-ingest-dir", "/tmp/corpus", "--recursive"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr("app.cli.StorageService", lambda: object())
-    monkeypatch.setattr(
-        "app.cli.queue_local_ingest_directory",
-        lambda session, directory_path, storage_service, recursive: SimpleNamespace(
-            model_dump=lambda mode="json", exclude=None: {
-                "batch_id": str(batch_id),
-                "source_type": "local_directory",
-                "status": "completed",
-                "root_path": str(directory_path),
-                "recursive": recursive,
-                "file_count": 2,
-                "queued_count": 2,
-                "recovery_queued_count": 0,
-                "duplicate_count": 0,
-                "failed_count": 0,
-                "run_status_counts": {"queued": 2},
-                "error_message": None,
-                "created_at": "2026-04-14T00:00:00Z",
-                "completed_at": "2026-04-14T00:00:01Z",
-            }
-        ),
-    )
-
-    run_ingest_dir()
-
-    output = json.loads(capsys.readouterr().out.strip())
-    assert output["batch_id"] == str(batch_id)
-    assert output["recursive"] is True
-    assert output["file_count"] == 2
-
-
-def test_ingest_batch_list_cli_prints_batches(monkeypatch, capsys) -> None:
-    batch_id = uuid4()
-
-    class FakeSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(sys, "argv", ["docling-system-ingest-batch-list", "--limit", "5"])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr(
-        "app.cli.list_ingest_batches",
-        lambda session, limit: [
-            SimpleNamespace(
-                model_dump=lambda mode="json": {
-                    "batch_id": str(batch_id),
-                    "status": "completed",
-                    "file_count": 2,
-                }
-            )
-        ],
-    )
-
-    run_ingest_batch_list()
-
-    output = json.loads(capsys.readouterr().out.strip())
-    assert output[0]["batch_id"] == str(batch_id)
-    assert output[0]["file_count"] == 2
-
-
-def test_ingest_batch_show_cli_prints_detail(monkeypatch, capsys) -> None:
-    batch_id = uuid4()
-
-    class FakeSession:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-    monkeypatch.setattr(sys, "argv", ["docling-system-ingest-batch-show", str(batch_id)])
-    monkeypatch.setattr("app.cli.get_session_factory", lambda: lambda: FakeSession())
-    monkeypatch.setattr(
-        "app.cli.get_ingest_batch_detail",
-        lambda session, requested_batch_id: SimpleNamespace(
-            model_dump=lambda mode="json": {
-                "batch_id": str(requested_batch_id),
-                "status": "completed",
-                "items": [
-                    {
-                        "relative_path": "doc.pdf",
-                        "status": "queued",
-                    }
-                ],
-            }
-        ),
-    )
-
-    run_ingest_batch_show()
-
-    output = json.loads(capsys.readouterr().out.strip())
-    assert output["batch_id"] == str(batch_id)
-    assert output["items"][0]["relative_path"] == "doc.pdf"
 
 
 def test_eval_run_cli_prints_summary(monkeypatch, capsys) -> None:

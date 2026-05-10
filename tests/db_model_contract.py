@@ -234,6 +234,26 @@ REQUIRED_TABLE_INDEX_NAMES = {
             "ix_api_idempotency_keys_created_at",
         }
     ),
+    "documents": frozenset(
+        {
+            "ix_documents_metadata_textsearch",
+            "ix_documents_updated_at",
+        }
+    ),
+    "ingest_batches": frozenset(
+        {
+            "ix_ingest_batches_created_at",
+            "ix_ingest_batches_status_created_at",
+        }
+    ),
+    "ingest_batch_items": frozenset(
+        {
+            "ix_ingest_batch_items_batch_id",
+            "ix_ingest_batch_items_document_id",
+            "ix_ingest_batch_items_run_id",
+            "ix_ingest_batch_items_status",
+        }
+    ),
     "document_runs": frozenset(
         {
             "ix_document_runs_locked_at",
@@ -246,6 +266,25 @@ REQUIRED_TABLE_INDEX_NAMES = {
 REQUIRED_TABLE_INDEX_COLUMNS = {
     "api_idempotency_keys": {
         "ix_api_idempotency_keys_created_at": ("created_at",),
+    },
+    "documents": {
+        "ix_documents_metadata_textsearch": ("metadata_textsearch",),
+        "ix_documents_updated_at": ("updated_at",),
+    },
+    "ingest_batches": {
+        "ix_ingest_batches_created_at": ("created_at",),
+        "ix_ingest_batches_status_created_at": ("status", "created_at"),
+    },
+    "ingest_batch_items": {
+        "ix_ingest_batch_items_batch_id": ("batch_id",),
+        "ix_ingest_batch_items_document_id": ("document_id",),
+        "ix_ingest_batch_items_run_id": ("run_id",),
+        "ix_ingest_batch_items_status": ("status",),
+    },
+    "document_runs": {
+        "ix_document_runs_locked_at": ("locked_at",),
+        "ix_document_runs_status_completed_at": ("status", "completed_at"),
+        "ix_document_runs_status_next_attempt_at": ("status", "next_attempt_at"),
     }
 }
 
@@ -254,13 +293,112 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
         {
             "uq_api_idempotency_keys_scope_key",
         }
+    ),
+    "ingest_batch_items": frozenset(
+        {
+            "uq_ingest_batch_items_batch_relative_path",
+        }
+    ),
+    "document_runs": frozenset(
+        {
+            "uq_document_runs_doc_run_number",
+        }
     )
 }
 
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
     "api_idempotency_keys": {
         "uq_api_idempotency_keys_scope_key": ("scope", "idempotency_key"),
+    },
+    "ingest_batch_items": {
+        "uq_ingest_batch_items_batch_relative_path": ("batch_id", "relative_path"),
+    },
+    "document_runs": {
+        "uq_document_runs_doc_run_number": ("document_id", "run_number"),
     }
+}
+
+INGEST_DOMAIN_TABLE_COLUMNS = {
+    "ingest_batches": frozenset(
+        {
+            "id",
+            "source_type",
+            "status",
+            "root_path",
+            "recursive",
+            "file_count",
+            "queued_count",
+            "recovery_queued_count",
+            "duplicate_count",
+            "failed_count",
+            "error_message",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "ingest_batch_items": frozenset(
+        {
+            "id",
+            "batch_id",
+            "relative_path",
+            "source_filename",
+            "source_path",
+            "file_size_bytes",
+            "sha256",
+            "status",
+            "status_code",
+            "document_id",
+            "run_id",
+            "duplicate",
+            "recovery_run",
+            "error_message",
+            "created_at",
+        }
+    ),
+    "documents": frozenset(
+        {
+            "id",
+            "source_filename",
+            "source_path",
+            "sha256",
+            "mime_type",
+            "title",
+            "metadata_textsearch",
+            "page_count",
+            "active_run_id",
+            "latest_run_id",
+            "created_at",
+            "updated_at",
+        }
+    ),
+    "document_runs": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_number",
+            "status",
+            "attempts",
+            "locked_at",
+            "locked_by",
+            "last_heartbeat_at",
+            "next_attempt_at",
+            "error_message",
+            "failure_stage",
+            "failure_artifact_path",
+            "docling_json_path",
+            "yaml_path",
+            "chunk_count",
+            "table_count",
+            "figure_count",
+            "embedding_model",
+            "embedding_dim",
+            "validation_status",
+            "validation_results",
+            "created_at",
+            "started_at",
+            "completed_at",
+        }
+    ),
 }
 
 PLATFORM_SUPPORT_TABLE_COLUMNS = {

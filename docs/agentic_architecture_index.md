@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-2 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-3 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -25,10 +25,12 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=693.04`.
-- `app/db/models.py` remains the top hotspot, but the first low-risk domain is
-  now split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`
-  and is re-exported by `app.db.models`.
+  `max_hotspot_risk_score=692.67`.
+- `app/db/models.py` remains the top hotspot, but two model domains are now
+  split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`, and
+  `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
+  `app/db/model_domains/ingest.py` while `app.db.models` remains the public
+  compatibility facade.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -53,6 +55,11 @@ chat history or scanning the whole repository.
   improvement-case validate/list/summary/record implementations now live in
   `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
   script compatibility surface through explicit forwarding functions.
+- The second `app/cli.py` command-group split is complete: ingest file, ingest
+  directory, and ingest-batch inspection implementations now live in
+  `app/cli_commands/ingest.py`; `pyproject.toml` console scripts still resolve
+  through `app.cli`, and ingest tests now live in
+  `tests/unit/test_cli_ingest.py`.
 - The first `app/services/search.py` core split is complete: query-intent,
   tabular-query, identifier lookup, normalized query feature set, token/phrase
   coverage, and metadata-query token helpers now live in
@@ -67,8 +74,9 @@ chat history or scanning the whole repository.
   `docs/hotspot_prevention_gate_milestone_plan.md`, is complete. The second
   implementation milestone, the strict hygiene ratchet, is also complete:
   `docling-system-hygiene-check` now separates inherited budget debt from
-  blocking new hygiene regressions. The next milestone is the first
-  facade-preserving top-hotspot split pack.
+  blocking new hygiene regressions. The third implementation milestone, Top
+  Hotspot Split Pack A, is complete. The next milestone is Top Hotspot Split
+  Pack B for evidence, audit, retrieval-learning, and search owner concerns.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   `uv run docling-system-evaluation-data-readiness` currently reaches Postgres

@@ -4,23 +4,27 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local Residual Weakness Plan Milestone 2 hygiene
-budget ratchet alignment closeout.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 3 Top
+Hotspot Split Pack A.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 4 commits
-after the Residual Weakness Plan Milestone 2 hygiene budget ratchet alignment
-closeout;
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 5 commits
+after the Residual Weakness Plan Milestone 3 closeout.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
 The latest local architecture closeout commits contain the Residual Weakness
 Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
-Milestone 2 hygiene budget ratchet:
+Milestone 2 hygiene budget ratchet, plus Milestone 3 Top Hotspot Split Pack A:
+the ingest ORM domain, ingest CLI command group, ingest CLI tests, and
+forwarding-wrapper gate alignment.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
+- `app/cli_commands/common.py`
+- `app/cli_commands/ingest.py`
+- `app/db/model_domains/ingest.py`
 - `app/hotspot_prevention.py`
 - `app/hotspot_prevention_policy.py`
 - `app/hotspot_prevention_diff.py`
@@ -32,6 +36,7 @@ Milestone 2 hygiene budget ratchet:
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
 - `tests/unit/test_improvement_case_intake.py`
+- `tests/unit/test_cli_ingest.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 - `docs/improvement_loop.md`
@@ -55,7 +60,7 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 4 local commits ahead of `origin/main` are:
+The local commits ahead of `origin/main` are:
 
 - `2c83c96` (`architecture: complete residual hotspot prevention gate`)
 - `79a117a` alignment hardening commit for `git diff --numstat` line-count
@@ -64,11 +69,15 @@ The 4 local commits ahead of `origin/main` are:
 - `00387e7` (`architecture: complete residual hygiene ratchet`), which converts
   strict file/helper budget debt into owned inherited debt plus blocking
   no-growth ceilings
-- `HEAD` (`architecture: harden residual hygiene ratchet alignment`), which
+- `HEAD~1` (`architecture: harden residual hygiene ratchet alignment`), which
   closes the hygiene import alignment gap and adds direct CLI output coverage
+- `HEAD` (`architecture: complete residual weakness milestone 3 split pack`),
+  which closes Top Hotspot Split Pack A behind stable facades and ratchets the
+  affected file budgets
 
 These commits add and harden the first two residual-weakness prevention gates
-after `origin/main` planned the broader sequence.
+after `origin/main` planned the broader sequence, then land the first
+facade-preserving top-hotspot split.
 
 ## Current Architecture And Governance State
 
@@ -89,7 +98,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=693.04
+  max_hotspot_risk_score=692.67
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -120,9 +129,10 @@ uv run docling-system-improvement-case-import --source hygiene --dry-run
 The architecture boundary model is clean, but hotspot debt remains real. The
 top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 `app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
-The latest post-commit architecture probe records `app/services/evidence.py` at
-8,261 lines and 380,006 hotspot score after the PROV export receipt/integrity
-split.
+The latest Milestone 3 architecture probe records `app/db/models.py` at 5,800
+lines and 411,800 hotspot score, `app/cli.py` at 1,231 lines and 67,705 score,
+`tests/unit/test_cli.py` at 2,210 lines and 103,870 score, and
+`app/services/evidence.py` at 8,261 lines and 380,006 score.
 
 Strict hygiene debt also remains real, but it is now ratcheted: the current
 file/helper overages are non-blocking inherited entries while unchanged, and any
@@ -722,8 +732,9 @@ The plan resolves the five remaining closeout weaknesses in this order:
 Refreshed evidence on 2026-05-10:
 
 ```text
-architecture quality: hotspot_count=10, max_hotspot_risk_score=693.04
-architecture probe: 3 Python cycle components; top hotspot app/db/models.py=420420
+architecture quality: hotspot_count=10, max_hotspot_risk_score=692.67
+architecture probe: 3 Python cycle components; top hotspot app/db/models.py=411800
+Milestone 3 sizes: app/db/models.py=5800, app/cli.py=1231, tests/unit/test_cli.py=2210
 hygiene: inherited file/helper budget debt listed with owners; new hygiene regressions none
 evaluation-data readiness: regression_ready=false, court_grade_ready=false, failed_gate_count=11
 ```
@@ -759,6 +770,50 @@ uv run docling-system-improvement-case-import --source hygiene --dry-run: candid
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1134 passed.
 ```
 
+Milestone 3 result: Top Hotspot Split Pack A moved the ingest ORM model domain
+and ingest CLI command family behind stable facades:
+
+- `app/db/model_domains/ingest.py` now owns `IngestBatch`, `IngestBatchItem`,
+  `Document`, and `DocumentRun`; `app.db.models` re-exports them for public
+  import compatibility.
+- `app/cli_commands/ingest.py` now owns ingest file, ingest directory, and
+  ingest-batch list/show command implementations; `app.cli` keeps explicit
+  console-script forwarding functions.
+- `tests/unit/test_cli_ingest.py` now owns the ingest CLI tests and verifies the
+  console scripts still target `app.cli`.
+- `app/cli_commands/common.py` owns shared lazy service lookup to avoid
+  duplicate-helper hygiene debt.
+- `app/hotspot_prevention_classifier.py` now allows replacement command bodies
+  only when the added hunk is forwarding-only, with controlled tests for the
+  Milestone 3 multi-line wrapper shape.
+- `config/hygiene_policy.yaml` ratchets `app/db/models.py` to 5,800 lines and
+  caps `app/cli.py` at 1,231 lines after the split.
+
+Milestone 3 verification before full-suite closeout:
+
+```text
+git diff --check: passed.
+uv run ruff check app tests: passed.
+uv run pytest -q tests/unit/test_db_model_import_compatibility.py: 242 passed.
+uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_ingest.py: 56 passed.
+uv run pytest -q tests/unit/test_hotspot_prevention.py: 14 passed.
+uv run pytest -q tests/unit/test_hygiene.py: 10 passed.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py: 22 passed.
+uv run --extra dev alembic heads/current: 0076_claim_feedback_replay_src (head).
+uv run --extra dev alembic upgrade head: passed.
+uv run --extra dev alembic check: no new upgrade operations detected.
+uv run docling-system-hotspot-prevention-check --strict: blocked=0.
+uv run docling-system-hygiene-check: new hygiene regressions none.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=692.67.
+architecture probe: app/db/models.py=5800 lines, app/db/models.py score=411800,
+app/cli.py=1231 lines, app/cli.py score=67705,
+tests/unit/test_cli.py=2210 lines, tests/unit/test_cli.py score=103870,
+Python cycle components=3.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1168 passed in 63.97s.
+```
+
 ## Active Weak Points
 
 - Evaluation-data readiness is still false because the local DB has no active
@@ -771,9 +826,10 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1134 passed.
   `app/services/retrieval_learning.py`, and `app/services/search.py`. These
   overages are now ratcheted inherited debt, not tolerated hidden debt; growth
   beyond the recorded ceilings is blocking.
-- The first model-domain split reduced `app/db/models.py`, but it remains the
-  top architecture-quality hotspot and should not receive additional unrelated
-  ORM concerns.
+- The platform and ingest model-domain splits reduced `app/db/models.py` to
+  5,800 lines, but it remains the top architecture-quality hotspot and should
+  not receive additional unrelated ORM concerns. The next model split candidate
+  is `document_artifacts`, but the next residual milestone is not model work.
 - The first two evidence splits reduced `app/services/evidence.py`, but it
   remains a major architecture-quality hotspot. Future evidence splits should
   move one owner concern at a time behind the same compatibility facade.
@@ -784,11 +840,11 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1134 passed.
   compatibility facade, starting with a search-harness executor dependency seam
   or a semantic executor family with isolated dependencies before moving executor
   paths.
-- The first CLI command-group split reduced `app/cli.py`, but it remains a
-  public operator hotspot and is not yet a globally thin dispatch surface.
-  Future CLI splits should move one command group at a time behind explicit
-  `app.cli` forwarding functions and pair each move with help or parser
-  coverage.
+- The first two CLI command-group splits reduced `app/cli.py` to 1,231 lines,
+  but it remains a public operator hotspot and is not yet a globally thin
+  dispatch surface. Future CLI splits should move one command group at a time
+  behind explicit `app.cli` forwarding functions and pair each move with help or
+  parser coverage.
 - The first search-core split reduced `app/services/search.py`, but search
   remains a retrieval-quality hotspot. Future search splits should move one
   coherent concern at a time behind `app.services.search` compatibility names,
@@ -809,18 +865,20 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1134 passed.
 ## Next Milestone
 
 `Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
-Milestones 1-2 are complete: the hotspot-prevention policy, analyzer, CLI, and
+Milestones 1-3 are complete: the hotspot-prevention policy, analyzer, CLI, and
 tests now block new implementation growth in known hotspots while allowing
-deletion-only reductions and facade forwarding, and the hygiene budget ratchet
-now turns inherited strict budget debt into visible non-blocking debt with
-blocking no-growth ceilings.
+deletion-only reductions and facade forwarding; the hygiene budget ratchet now
+turns inherited strict budget debt into visible non-blocking debt with blocking
+no-growth ceilings; and Top Hotspot Split Pack A moved the ingest ORM domain,
+ingest CLI command group, and ingest CLI tests behind stable facades.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 3,
-Top Hotspot Split Pack A. Keep both prevention gates in closeout:
+Recommended next architecture milestone: Residual Weakness Plan Milestone 4,
+Top Hotspot Split Pack B. Keep both prevention gates in closeout:
 `docling-system-hotspot-prevention-check --strict` and
-`docling-system-hygiene-check`.
+`docling-system-hygiene-check`. Move one evidence, audit, retrieval-learning, or
+search owner concern at a time behind the existing public compatibility facade.

@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestones 1-2 complete
+Status: in progress; Milestones 1-3 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -30,7 +30,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=693.04
+  max_hotspot_risk_score=692.67
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -41,7 +41,10 @@ uv run docling-system-architecture-quality-report --summary
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
   Python cycle components: 3
-  top hotspot score: app/db/models.py = 420420
+  top hotspot score: app/db/models.py = 411800
+  app/db/models.py = 5800 lines
+  app/cli.py = 1231 lines
+  tests/unit/test_cli.py = 2210 lines
   app/services/evidence.py = 8261 lines, score 380006
   app/services/agent_task_actions.py fan-out = 39 local modules
 
@@ -358,7 +361,7 @@ Full DB-backed suite: 1134 passed.
 
 ### Milestone 3: Top Hotspot Split Pack A
 
-Status: planned.
+Status: complete.
 
 Purpose: reduce the top data-model, CLI, and CLI-test hotspots behind stable
 facades.
@@ -397,6 +400,56 @@ uv run docling-system-hotspot-prevention-check --strict
 uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
 uv run docling-system-architecture-quality-report --summary
+```
+
+Completed result:
+
+- Moved the ingest model domain into `app/db/model_domains/ingest.py`:
+  `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun`.
+- Kept `app.db.models` as the public compatibility facade, re-exporting the
+  moved ingest models and document metadata generated-column SQL constants.
+- Preserved table names, column names, indexes, unique constraints, foreign keys,
+  and generated-column DDL through the import-compatibility and Postgres
+  create-all metadata contracts.
+- Moved the ingest CLI command group into `app/cli_commands/ingest.py` while
+  keeping the `pyproject.toml` console scripts pointed at explicit `app.cli`
+  forwarding functions.
+- Added `app/cli_commands/common.py` for shared lazy service lookup so the CLI
+  split does not introduce duplicate-helper hygiene debt.
+- Split ingest CLI tests from `tests/unit/test_cli.py` into
+  `tests/unit/test_cli_ingest.py`, including an explicit console-script facade
+  target test.
+- Hardened the hotspot-prevention classifier so replacement command bodies that
+  become multi-line forwarding wrappers are allowed only when the added hunk is
+  forwarding-only; the controlled test covers the Milestone 3 wrapper shape.
+- Tightened hygiene budgets after the split: `app/db/models.py` ratchets at
+  5,800 lines and `app/cli.py` is capped at 1,231 lines.
+
+Verified behavior:
+
+```text
+git diff --check: passed.
+uv run ruff check app tests: passed.
+uv run pytest -q tests/unit/test_db_model_import_compatibility.py: 242 passed.
+uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_ingest.py: 56 passed.
+uv run pytest -q tests/unit/test_hotspot_prevention.py: 14 passed.
+uv run pytest -q tests/unit/test_hygiene.py: 10 passed.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py: 22 passed.
+uv run --extra dev alembic heads: 0076_claim_feedback_replay_src (head).
+uv run --extra dev alembic current: 0076_claim_feedback_replay_src (head).
+uv run --extra dev alembic upgrade head: passed.
+uv run --extra dev alembic check: no new upgrade operations detected.
+uv run docling-system-hotspot-prevention-check --strict: blocked=0.
+uv run docling-system-hygiene-check: new hygiene regressions none.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=692.67.
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12:
+app/db/models.py=5800 lines, app/db/models.py score=411800,
+tests/unit/test_cli.py=2210 lines, tests/unit/test_cli.py score=103870,
+app/cli.py=1231 lines, app/cli.py score=67705,
+Python cycle components=3.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1168 passed in 63.97s.
 ```
 
 ### Milestone 4: Top Hotspot Split Pack B
@@ -674,10 +727,12 @@ requested.
 
 ## Residual Risks And Next Routing
 
-Milestones 1-2 are complete. The next milestone is Milestone 3, Top Hotspot
-Split Pack A, with both prevention gates in closeout: hotspot prevention must
+Milestones 1-3 are complete. The next milestone is Milestone 4, Top Hotspot
+Split Pack B, with both prevention gates in closeout: hotspot prevention must
 block new implementation growth in known hotspots, and the hygiene ratchet must
-show no new file/helper budget regressions.
+show no new file/helper budget regressions. Milestone 4 should move one
+evidence, audit, retrieval-learning, or search owner concern at a time behind the
+existing public compatibility facades.
 
 If evaluation-data readiness is needed for an external review sooner than the
 architecture cleanup, Milestone 6 may run in parallel as an operational data

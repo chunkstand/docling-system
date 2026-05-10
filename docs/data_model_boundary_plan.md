@@ -3,10 +3,12 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-09. `app/db/models.py` remains the highest current
-architecture-quality hotspot, but the first model-domain split is complete:
-`platform support` now owns `ApiIdempotencyKey` in
-`app/db/model_domains/platform.py` while `app.db.models` remains the public
+Status refreshed: 2026-05-10. `app/db/models.py` remains the highest current
+architecture-quality hotspot, but the first two model-domain splits are
+complete: `platform support` owns `ApiIdempotencyKey` in
+`app/db/model_domains/platform.py`, and `ingest` owns `IngestBatch`,
+`IngestBatchItem`, `Document`, and `DocumentRun` in
+`app/db/model_domains/ingest.py`. `app.db.models` remains the public
 compatibility facade. Each model-domain milestone must finish with a local
 commit before another domain moves.
 
@@ -56,10 +58,12 @@ expected tables. The harness also protects required model indexes, unique
 constraints, and their exact column ordering where required to remain aligned
 with migrations, including
 `ix_document_runs_status_completed_at`,
-`ix_api_idempotency_keys_created_at`, and
-`uq_api_idempotency_keys_scope_key`.
+`ix_api_idempotency_keys_created_at`, ingest/document indexes, and named unique
+constraints such as `uq_api_idempotency_keys_scope_key`,
+`uq_ingest_batch_items_batch_relative_path`, and
+`uq_document_runs_doc_run_number`.
 
-## Completed First Split
+## Completed Splits
 
 Completed on 2026-05-09: `platform support`: `ApiIdempotencyKey`.
 
@@ -86,14 +90,30 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, architecture, and full
   DB-backed gates.
 
+Completed on 2026-05-10: `ingest`: `IngestBatch`, `IngestBatchItem`,
+`Document`, and `DocumentRun`.
+
+Implemented result:
+
+- Added `app/db/model_domains/ingest.py`.
+- Re-exported the ingest domain models and document metadata generated-column SQL
+  constants from `app/db/models.py`.
+- Preserved ingest/document table names, columns, foreign keys, indexes, unique
+  constraints, check constraints, and `documents.metadata_textsearch` generated
+  DDL.
+- Extended unit and Postgres create-all metadata contracts for ingest-domain
+  columns, index columns, and unique-constraint column ordering.
+- Verified with focused import, metadata, Alembic, architecture, hygiene,
+  hotspot-prevention, and full DB-backed gates.
+
 Next model-domain candidate when model work resumes:
 
-- `ingest`: `IngestBatch`, `IngestBatchItem`, `Document`, `DocumentRun`
+- `document_artifacts`: `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`,
+  `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure`
 
-The next overall Architecture Plan 01 milestone is not another model-domain
-move. Milestones 3-6 have since completed the first evidence, agent-action,
-CLI, and search splits; the next active plan milestone is Milestone 7, the next
-`app/services/evidence.py` split.
+The next overall Residual Weakness Plan milestone is not another model-domain
+move. Milestone 4 should reduce one evidence, audit, retrieval-learning, or
+search owner concern behind its existing compatibility facade.
 
 ## Per-Domain Acceptance Gate
 

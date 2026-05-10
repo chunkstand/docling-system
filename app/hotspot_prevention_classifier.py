@@ -30,13 +30,42 @@ def classify_changed_file(
         return [deletion_finding(rule=rule, diff_stat=diff_stat)]
 
     exception = exception_for_additions(rule, changed_file.added_lines)
+    forwarding_body_hunk_ids = forwarding_only_body_hunk_ids(rule, changed_file)
     classified_lines: list[ClassifiedLine] = []
+    forwarding_hunk_ids: set[int] = set()
+    reported_forwarding_body_hunks: set[int] = set()
     findings: list[dict[str, Any]] = []
     for line in changed_file.added_lines:
+        if line.hunk_id in forwarding_body_hunk_ids:
+            forwarding_hunk_ids.add(line.hunk_id)
+            if (
+                line.hunk_id not in reported_forwarding_body_hunks
+                and is_forwarding_call_line(line.text.strip())
+            ):
+                classified = ClassifiedLine(
+                    line=line,
+                    status="allowed",
+                    category="explicit_forwarding_function",
+                    message="narrow forwarding wrapper is allowed",
+                    policy_rule="allow.explicit_forwarding_function",
+                )
+                classified_lines.append(classified)
+                findings.append(
+                    finding_payload(
+                        classified=classified,
+                        rule=rule,
+                        diff_stat=diff_stat,
+                        exception=exception,
+                    )
+                )
+                reported_forwarding_body_hunks.add(line.hunk_id)
+            continue
         classified = classify_python_addition(rule=rule, changed_file=changed_file, line=line)
         if classified is None:
             continue
         classified_lines.append(classified)
+        if classified.policy_rule == "allow.explicit_forwarding_function":
+            forwarding_hunk_ids.add(line.hunk_id)
         findings.append(
             finding_payload(
                 classified=classified,
@@ -46,7 +75,11 @@ def classify_changed_file(
             )
         )
 
-    significant = significant_unclassified_lines(changed_file.added_lines, classified_lines)
+    significant = significant_unclassified_lines(
+        changed_file.added_lines,
+        classified_lines,
+        ignored_hunk_ids=forwarding_hunk_ids,
+    )
     if len(significant) >= 8:
         classified = blocked(
             significant[0],
@@ -62,6 +95,19 @@ def classify_changed_file(
             )
         )
     return findings
+
+
+def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    if allowed_category_for_forwarder(rule) is None:
+        return set()
+    lines_by_hunk: dict[int, list[str]] = {}
+    for line in changed_file.added_lines:
+        lines_by_hunk.setdefault(line.hunk_id, []).append(line.text)
+    return {
+        hunk_id
+        for hunk_id, hunk_lines in lines_by_hunk.items()
+        if is_forwarding_hunk(tuple(hunk_lines))
+    }
 
 
 def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any]:
@@ -287,12 +333,26 @@ def is_forwarding_hunk(lines: tuple[str, ...]) -> bool:
         if stripped.endswith(":") and "(" in stripped:
             continue
         significant.append(stripped)
-    if len(significant) > 3:
+    has_forwarding_call = False
+    for stripped in significant:
+        if re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped):
+            has_forwarding_call = True
+            continue
+        if stripped.startswith("raise SystemExit("):
+            has_forwarding_call = True
+            continue
+        if re.match(
+            r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*,?$",
+            stripped,
+        ):
+            continue
         return False
-    return any(
-        re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped)
-        or stripped.startswith("raise SystemExit(")
-        for stripped in significant
+    return has_forwarding_call
+
+
+def is_forwarding_call_line(stripped: str) -> bool:
+    return bool(re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped)) or stripped.startswith(
+        "raise SystemExit("
     )
 
 
@@ -313,7 +373,10 @@ def allowed_category_for_forwarder(rule: HotspotRule) -> str | None:
 def significant_unclassified_lines(
     lines: tuple[ChangedLine, ...],
     classified_lines: list[ClassifiedLine],
+    *,
+    ignored_hunk_ids: set[int] | None = None,
 ) -> list[ChangedLine]:
+    ignored_hunk_ids = ignored_hunk_ids or set()
     classified_keys = {
         (classified.line.new_lineno, classified.line.text)
         for classified in classified_lines
@@ -322,6 +385,7 @@ def significant_unclassified_lines(
         line
         for line in lines
         if (line.new_lineno, line.text) not in classified_keys
+        and line.hunk_id not in ignored_hunk_ids
         and not is_comment_or_blank(line.text)
         and not is_import_or_alias(line.text)
     ]

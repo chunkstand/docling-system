@@ -30,12 +30,13 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 2 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 3 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
-plus the first data-model domain split, first evidence-service split, first
-agent-action registry/helper split, first CLI command-group split, first
-search-core split, second evidence provenance split, improvement-case intake
-ratchet, hotspot-prevention gate, and hygiene budget ratchet. The implemented
+plus the platform and ingest data-model domain splits, first evidence-service
+split, first agent-action registry/helper split, first two CLI command-group
+splits, first search-core split, second evidence provenance split,
+improvement-case intake ratchet, hotspot-prevention gate, and hygiene budget
+ratchet. The implemented
 architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
@@ -56,8 +57,10 @@ architecture posture is:
   growth beyond the ratchet ceiling is a blocking hygiene regression
 - trace-first review and architecture-quality report imports can feed
   generated observations into the improvement-case loop
-- `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py` while
-  `app.db.models` remains the public compatibility facade
+- `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py`, and
+  `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` now live in
+  `app/db/model_domains/ingest.py`, while `app.db.models` remains the public
+  compatibility facade
 - search evidence package assembly, export persistence, trace graph
   persistence, trace integrity, and response assembly now live in focused
   `app/services/evidence_search_*.py` modules while `app.services.evidence`
@@ -65,6 +68,8 @@ architecture posture is:
 - improvement-case CLI command implementations now live in
   `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
   entrypoint compatibility facade
+- ingest CLI command implementations now live in `app/cli_commands/ingest.py`
+  while the console scripts still resolve through `app.cli`
 - query-intent classification, tabular-query detection, identifier lookup
   detection, normalized query feature sets, token/phrase coverage helpers, and
   metadata-query token extraction now live in

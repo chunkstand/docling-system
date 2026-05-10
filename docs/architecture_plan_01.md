@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=693.04`
+  - `max_hotspot_risk_score=692.67`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/cli.py`
@@ -1086,8 +1086,8 @@ file/helper budget debt remains.
 ```
 
 `Architecture Plan 01` Milestones 0-8 are complete. The residual weakness
-sequence now owns follow-on work, and its first milestone implemented the
-hotspot-prevention gate in `docs/hotspot_prevention_gate_milestone_plan.md`.
+sequence now owns follow-on work; its first three milestones completed the
+hotspot-prevention gate, hygiene budget ratchet, and Top Hotspot Split Pack A.
 
 ## Cross-Milestone Verification Contract
 

@@ -4,12 +4,12 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 2 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 3 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
-the first data-model domain split, first evidence-service split, first
-agent-action registry/helper split, first CLI command-group split, first
-search-core split, second evidence provenance split, improvement-case intake
-ratchet, hotspot-prevention gate, and hygiene budget ratchet.
+the platform and ingest data-model domain splits, first evidence-service split,
+first agent-action registry/helper split, first two CLI command-group splits,
+first search-core split, second evidence provenance split, improvement-case
+intake ratchet, hotspot-prevention gate, and hygiene budget ratchet.
 
 Current repo-level signals:
 
@@ -20,7 +20,8 @@ Current repo-level signals:
   and `function_count=110`.
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
+  `hotspot_count=10`, `max_hotspot_risk_score=692.67`, and top hotspot paths
+  headed by `app/db/models.py`,
   `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
 - `uv run docling-system-hygiene-check` is green when there are no new
@@ -30,8 +31,8 @@ Current repo-level signals:
   current diff and fails fixture diffs that add implementation to known hotspot
   files instead of the configured owner modules.
 - DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Residual Weakness Plan Milestone 2 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1134 passed`.
+  Postgres runtime; the Residual Weakness Plan Milestone 3 closeout ran the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1168 passed`.
 
 ## What It Does
 

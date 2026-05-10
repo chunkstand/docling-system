@@ -248,6 +248,65 @@ def test_cli_forwarding_wrapper_is_allowed() -> None:
     assert report["findings"][0]["category"] == "explicit_forwarding_function"
 
 
+def test_cli_forwarding_wrapper_cluster_with_keyword_dependencies_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/cli.py",
+            [
+                "def run_ingest_file() -> None:",
+                "    return ingest_commands.run_ingest_file(",
+                "        ingest_local_file_func=ingest_local_file,",
+                "        session_factory_func=get_session_factory,",
+                "        storage_service_factory=StorageService,",
+                "    )",
+                "",
+                "def run_ingest_dir() -> None:",
+                "    return ingest_commands.run_ingest_dir(",
+                "        queue_local_ingest_directory_func=queue_local_ingest_directory,",
+                "        session_factory_func=get_session_factory,",
+                "        storage_service_factory=StorageService,",
+                "    )",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert {finding["category"] for finding in report["findings"]} == {
+        "explicit_forwarding_function"
+    }
+
+
+def test_cli_replaced_command_body_with_keyword_forwarding_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/cli.py",
+            [
+                "    return ingest_commands.run_ingest_file(",
+                "        ingest_local_file_func=ingest_local_file,",
+                "        session_factory_func=get_session_factory,",
+                "        storage_service_factory=StorageService,",
+                "    )",
+                "    return ingest_commands.run_ingest_dir(",
+                "        queue_local_ingest_directory_func=queue_local_ingest_directory,",
+                "        session_factory_func=get_session_factory,",
+                "        storage_service_factory=StorageService,",
+                "    )",
+            ],
+            deleted_lines=[
+                "    parser = argparse.ArgumentParser(description='Queue PDFs')",
+                "    parser.parse_args()",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
 def test_policy_exception_requires_ownership_and_allows_marked_growth() -> None:
     policy = _policy_for(
         "app/services/evidence.py",

@@ -134,11 +134,11 @@ file_budgets:
       max_private_helpers: 20
       owner_milestone: residual-weakness-milestone-2
     app/cli.py:
-      max_lines: 1617
+      max_lines: 1231
       max_private_helpers: 5
     app/db/models.py:
       max_lines: 2588
-      ratchet_max_lines: 6006
+      ratchet_max_lines: 5800
       max_private_helpers: 0
       owner_case_id: IC-F2A8110185EB
     app/schemas/agent_tasks.py:

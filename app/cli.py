@@ -6,6 +6,8 @@ from pathlib import Path
 from uuid import UUID
 
 from app.cli_commands import improvement_cases as improvement_case_commands
+from app.cli_commands import ingest as ingest_commands
+from app.cli_commands.common import lazy_service_attr as _lazy_service_attr
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
@@ -20,11 +22,6 @@ from app.schemas.search import (
     SearchReplayRunRequest,
 )
 from app.services.storage import StorageService
-
-
-def _lazy_service_attr(module_path: str, name: str):
-    module = __import__(module_path, fromlist=[name])
-    return getattr(module, name)
 
 
 def ingest_local_file(*args, **kwargs):
@@ -235,82 +232,33 @@ def execute_knowledge_base_reset(*args, **kwargs):
 
 
 def run_ingest_file() -> None:
-    parser = argparse.ArgumentParser(description="Queue one or more local PDFs for ingestion.")
-    parser.add_argument("pdf_paths", nargs="+", help="One or more PDF file paths.")
-    args = parser.parse_args()
-
-    storage_service = StorageService()
-    session_factory = get_session_factory()
-
-    with session_factory() as session:
-        for raw_path in args.pdf_paths:
-            payload, status_code = ingest_local_file(
-                session, Path(raw_path).expanduser().resolve(), storage_service
-            )
-            print(
-                json.dumps(
-                    {
-                        "source_path": str(Path(raw_path).expanduser().resolve()),
-                        "status_code": status_code,
-                        "document_id": str(payload.document_id),
-                        "run_id": str(payload.run_id) if payload.run_id else None,
-                        "status": payload.status,
-                        "duplicate": payload.duplicate,
-                        "recovery_run": payload.recovery_run,
-                        "active_run_id": str(payload.active_run_id)
-                        if payload.active_run_id
-                        else None,
-                        "active_run_status": payload.active_run_status,
-                    }
-                )
-            )
+    return ingest_commands.run_ingest_file(
+        ingest_local_file_func=ingest_local_file,
+        session_factory_func=get_session_factory,
+        storage_service_factory=StorageService,
+    )
 
 
 def run_ingest_dir() -> None:
-    parser = argparse.ArgumentParser(
-        description="Queue all PDF files under one local directory for ingestion."
+    return ingest_commands.run_ingest_dir(
+        queue_local_ingest_directory_func=queue_local_ingest_directory,
+        session_factory_func=get_session_factory,
+        storage_service_factory=StorageService,
     )
-    parser.add_argument("directory_path", help="Directory containing PDF files.")
-    parser.add_argument(
-        "--recursive",
-        action="store_true",
-        help="Recurse into nested directories while collecting PDFs.",
-    )
-    args = parser.parse_args()
-
-    storage_service = StorageService()
-    session_factory = get_session_factory()
-
-    with session_factory() as session:
-        payload = queue_local_ingest_directory(
-            session,
-            Path(args.directory_path).expanduser().resolve(),
-            storage_service,
-            recursive=args.recursive,
-        )
-        print(json.dumps(payload.model_dump(mode="json", exclude={"items"})))
 
 
 def run_ingest_batch_list() -> None:
-    parser = argparse.ArgumentParser(description="List recent local ingest batches.")
-    parser.add_argument("--limit", type=int, default=20, help="Maximum number of batches.")
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = list_ingest_batches(session, limit=args.limit)
-    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+    return ingest_commands.run_ingest_batch_list(
+        list_ingest_batches_func=list_ingest_batches,
+        session_factory_func=get_session_factory,
+    )
 
 
 def run_ingest_batch_show() -> None:
-    parser = argparse.ArgumentParser(description="Show one local ingest batch and its items.")
-    parser.add_argument("batch_id", help="Ingest batch UUID.")
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = get_ingest_batch_detail(session, UUID(args.batch_id))
-    print(json.dumps(payload.model_dump(mode="json")))
+    return ingest_commands.run_ingest_batch_show(
+        get_ingest_batch_detail_func=get_ingest_batch_detail,
+        session_factory_func=get_session_factory,
+    )
 
 
 def run_eval_run() -> None:
