@@ -6,6 +6,7 @@ chat history or scanning the whole repository.
 ## Current Milestone Briefs
 
 - `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
+- `docs/hotspot_owner_resolution_plan.md`: follow-on plan for the remaining owner-scoped hotspot debt in `app/db/models.py`, `app/services/evidence.py`, `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`, `app/services/retrieval_learning.py`, and `app/services/search.py`.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -74,9 +75,11 @@ chat history or scanning the whole repository.
   coverage, and metadata-query token helpers now live in
   `app/services/search_query_features.py` while `app.services.search` remains
   the compatibility facade for existing query helper imports.
-- The Milestone 8 improvement-intake ratchet is complete: 22
-  architecture-quality candidates are imported as open improvement cases with
-  structured owner surfaces, verification commands, and stop conditions.
+- The Milestone 8 improvement-intake ratchet remains intact, and Hotspot Owner
+  Resolution Milestone 0 is now complete locally: the registry now has
+  `case_count=25`, `open=24`, `measured=1`, including explicit owner-bootstrap
+  cases `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
+  `IC-0D58F1624037` for `app/services/retrieval_learning.py`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -102,9 +105,12 @@ chat history or scanning the whole repository.
   active claim-support replay-alert corpus snapshot, and materialized
   retrieval-learning data.
 - Residual risk note: the improvement-case registry remains the durable map for
-  remaining architecture debt. Current summary: `case_count=23`, `open=22`,
+  remaining architecture debt. Current summary: `case_count=25`, `open=24`,
   `measured=1`, with open cases concentrated in architecture-governance
-  ownership rather than untracked debt.
+  ownership rather than untracked or milestone-owned debt.
+- Current routed follow-up: the next architecture work should use
+  `docs/hotspot_owner_resolution_plan.md` and take one owner surface at a time
+  instead of reopening the completed residual-weakness umbrella plan.
 
 ## Executable Architecture Contracts
 

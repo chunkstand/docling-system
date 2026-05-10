@@ -1,11 +1,13 @@
 # Session Handoff
 
-Date: 2026-05-10 local / 2026-05-10 UTC
+Date: 2026-05-09 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: local Residual Weakness Plan Milestone 8
 closeout alignment pass.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 0 owner
+bootstrap.
 
 ## Current Position
 
@@ -1125,3 +1127,21 @@ residual-weakness milestone. Keep both prevention gates active:
 governed owner surface at a time from the improvement-case registry or hotspot
 list, verify that the same gates stay green, and avoid reopening this plan as
 an umbrella milestone unless a new cross-cutting weakness appears.
+
+Current follow-up plan for the main remaining hotspot-owner debt:
+
+- `docs/hotspot_owner_resolution_plan.md`, which sequences
+  `app/db/models.py`, `app/services/evidence.py`,
+  `app/services/audit_bundles.py`,
+  `app/services/claim_support_policy_impacts.py`,
+  `app/services/retrieval_learning.py`, and `app/services/search.py`
+  into owner-scoped reduction milestones. It also promotes
+  `audit_bundles` and `retrieval_learning` from milestone-owned hygiene debt to
+  explicit improvement-case ownership before more split work begins.
+- Milestone 0 owner bootstrap is now complete locally and verified:
+  `config/improvement_cases.yaml` adds `IC-2112B1ADC5E8` for
+  `app/services/audit_bundles.py` and `IC-0D58F1624037` for
+  `app/services/retrieval_learning.py`; `config/hygiene_policy.yaml` now routes
+  both surfaces through those case IDs; and
+  `uv run docling-system-improvement-case-summary` reports `case_count=25`,
+  `open=24`, `measured=1`.

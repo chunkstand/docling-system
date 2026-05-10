@@ -1,7 +1,7 @@
 # General Improvement Loop
 
 Status: Active repo-local contract
-Status refreshed: 2026-05-10
+Status refreshed: 2026-05-09 local / 2026-05-10 UTC
 
 ## Purpose
 
@@ -14,15 +14,18 @@ codebase failures that are not necessarily retrieval failures.
 
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
-Current registry state from the 2026-05-10 `Architecture Plan 01` Milestone 8
-closeout:
+Current registry state from the 2026-05-09 local / 2026-05-10 UTC Hotspot
+Owner Resolution Milestone 0 bootstrap:
 
-- `uv run docling-system-improvement-case-summary` reports `case_count=23`,
-  with one measured hygiene-gate case and 22 open architecture-governance cases.
+- `uv run docling-system-improvement-case-summary` reports `case_count=25`,
+  with one measured hygiene-gate case and 24 open architecture-governance cases.
 - The architecture quality report emits current hotspot candidates for large or
   high-churn surfaces, and those candidates are now imported as open registry
   cases with structured owner surfaces, verification commands, and stop
   conditions.
+- `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` now
+  have explicit owner-bootstrap cases (`IC-2112B1ADC5E8` and
+  `IC-0D58F1624037`) instead of remaining milestone-owned hygiene debt.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.
