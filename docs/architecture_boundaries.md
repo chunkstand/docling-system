@@ -111,6 +111,14 @@ checks that every named context builder is registered.
 metadata so agents can inspect the public task surface without reading private
 registry internals.
 
+`app.services.agent_task_actions` remains the executor registry and public
+compatibility facade for worker execution. Context and task services must not
+statically import that executor facade; they use
+`app.services.agent_task_action_lookup` for action lookup and validation so the
+action registry does not become an import-cycle dependency. The static guard is
+`tests/unit/test_agent_task_action_lookup.py`, and the cycle evidence is the
+general architecture probe.
+
 The contract vocabulary is intentionally closed: capabilities, definition
 kinds, and side-effect levels are enumerated in `app.services.agent_actions`.
 Changing those categories should be a deliberate contract change, not an
@@ -179,7 +187,7 @@ artifact to
 `build/architecture-governance/architecture_quality_report.json` when importing
 its improvement-case candidates.
 
-Current 2026-05-09 summary: architecture inspection is valid with zero
+Current 2026-05-10 summary: architecture inspection is valid with zero
 violations, the capability map is valid across 6 facades and 110 functions, and
 the quality summary identifies 10 top hotspots. The leading follow-up surfaces are
 `app/db/models.py`, `app/services/evidence.py`, `app/cli.py`,

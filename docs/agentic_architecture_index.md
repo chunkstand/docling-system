@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-4 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-5 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -53,10 +53,13 @@ chat history or scanning the whole repository.
   `app/services/agent_actions/search_harness.py` while
   `app.services.agent_task_actions` remains the compatibility facade and
   execution entrypoint.
-- The Milestone 4 alignment check confirms executor implementations still live
-  in `app.services.agent_task_actions`; the general architecture probe still
-  reports the large agent-task import-cycle component and fan-out 39 for that
-  module.
+- The Residual Weakness Plan Milestone 5 cycle break is complete:
+  `app/services/agent_task_action_lookup.py` is the narrow lookup seam for
+  context and task services, while executor implementations still live in
+  `app.services.agent_task_actions`. The general architecture probe no longer
+  reports the large agent-task import-cycle component. Fan-out remains 39 for
+  `app.services.agent_task_actions`, which is documented as the
+  action-orchestration entrypoint rather than a context/task dependency.
 - The first `app/cli.py` command-group split is complete:
   improvement-case validate/list/summary/record implementations now live in
   `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
@@ -83,8 +86,9 @@ chat history or scanning the whole repository.
   blocking new hygiene regressions. The third implementation milestone, Top
   Hotspot Split Pack A, is complete. The fourth implementation milestone, Top
   Hotspot Split Pack B, is complete for the evidence operator-run and
-  task-payload summary concerns. The next milestone is the Agent-Task Cycle
-  Break.
+  task-payload summary concerns. The fifth implementation milestone, the
+  Agent-Task Cycle Break, is complete. The next milestone is Regression
+  Evaluation-Data Readiness.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   `uv run docling-system-evaluation-data-readiness` currently reaches Postgres
@@ -113,7 +117,8 @@ chat history or scanning the whole repository.
 ## Review Surfaces
 
 - Capability facades: `app/services/capabilities/`
-- Agent action catalog: `app/services/agent_task_actions.py` and `app/services/agent_actions/`
+- Agent action catalog: `app/services/agent_task_actions.py`,
+  `app/services/agent_task_action_lookup.py`, and `app/services/agent_actions/`
 - Architecture inspection: `app/architecture_inspection.py`, `app/architecture_inspection_rules.py`
 - Architecture quality report: `app/architecture_quality.py`
 - Hotspot prevention: `config/hotspot_prevention.yaml`, `app/hotspot_prevention.py`, and `docs/hotspot_prevention_gate_milestone_plan.md`

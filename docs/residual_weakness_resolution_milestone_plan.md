@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestones 1-4 complete
+Status: in progress; Milestones 1-5 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -12,8 +12,8 @@ closeout:
 - no strict diff-time gate prevents new implementation growth in known hotspots
 - top hotspots remain in the data model, CLI, evidence, agent-task, and CLI test
   surfaces
-- the architecture probe still reports 3 Python cycle components, including the
-  large agent-task cycle
+- the architecture probe baseline reported 3 Python cycle components, including
+  the large agent-task cycle
 - evaluation-data readiness remains false on the empty local DB
 - strict hygiene budget debt remains across large implementation modules
 
@@ -23,7 +23,7 @@ follow-on architecture and readiness sequence, not a rewrite.
 
 ## Current Evidence
 
-Refreshed on 2026-05-10:
+Initial baseline refreshed on 2026-05-10:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
@@ -454,7 +454,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1168 passed in 63.97s.
 
 ### Milestone 4: Top Hotspot Split Pack B
 
-Status: planned.
+Status: complete.
 
 Purpose: reduce remaining evidence, audit, search, and retrieval-learning
 implementation hotspots one owner concern at a time.
@@ -522,7 +522,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1175 passed in 49.92s.
 
 ### Milestone 5: Agent-Task Cycle Break
 
-Status: planned.
+Status: complete.
 
 Purpose: remove the large agent-task import-cycle component and reduce
 `app/services/agent_task_actions.py` fan-out.
@@ -560,6 +560,41 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
 uv run docling-system-hotspot-prevention-check --strict
 uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
+```
+
+Completed result:
+
+- Added `app/services/agent_task_action_lookup.py` as a narrow lookup seam for
+  action metadata and validation.
+- Repointed `app/services/agent_task_context.py`,
+  `app/services/agent_task_context_store.py`, and `app/services/agent_tasks.py`
+  at the lookup seam instead of statically importing the executor registry
+  facade.
+- Preserved `app.services.agent_task_actions` as the public executor registry,
+  compatibility facade, and worker execution entrypoint.
+- Added `tests/unit/test_agent_task_action_lookup.py` to prove lookup identity,
+  input-validation default behavior, and a controlled static-import guard that
+  fails if context/task services reintroduce the executor-facade back edge.
+- The general architecture probe no longer reports the large agent-task cycle
+  component. Python cycle components decreased from 3 to 2.
+- `app/services/agent_task_actions.py` still has fan-out 39 and is explicitly
+  documented as the action-orchestration entrypoint; it no longer participates
+  in a reported Python import cycle.
+
+Verified behavior:
+
+```text
+uv run pytest -q tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_worker.py: 125 passed.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py: 9 passed.
+uv run docling-system-agent-task-action-index: emitted schema_name=agent_action_index, schema_version=1.0.
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12: Python cycle components=2; no agent-task cycle component; app/services/agent_task_actions.py fan-out=39.
+uv run ruff check app tests: passed.
+uv run docling-system-hygiene-check: ruff regressions none; inherited budget debt unchanged; new hygiene regressions none.
+uv run docling-system-hotspot-prevention-check --strict: changed_hotspots=0, blocked=0.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=692.67.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
 ```
 
 ### Milestone 6: Regression Evaluation-Data Readiness
@@ -763,10 +798,10 @@ requested.
 
 ## Residual Risks And Next Routing
 
-Milestones 1-4 are complete. The next milestone is Milestone 5, Agent-Task
-Cycle Break. Both prevention gates remain in closeout: hotspot prevention must
-block new implementation growth in known hotspots, and the hygiene ratchet must
-show no new file/helper budget regressions.
+Milestones 1-5 are complete. The next milestone is Milestone 6, Regression
+Evaluation-Data Readiness. Both prevention gates remain in closeout: hotspot
+prevention must block new implementation growth in known hotspots, and the
+hygiene ratchet must show no new file/helper budget regressions.
 
 If evaluation-data readiness is needed for an external review sooner than the
 architecture cleanup, Milestone 6 may run in parallel as an operational data

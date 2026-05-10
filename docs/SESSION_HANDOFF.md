@@ -4,21 +4,22 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 4 Top
-Hotspot Split Pack B.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 5 Agent-Task
+Cycle Break.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 6 commits
-after the Residual Weakness Plan Milestone 4 closeout.
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 7 commits
+after the Residual Weakness Plan Milestone 5 closeout.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
 The latest local architecture closeout commits contain the Residual Weakness
 Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
-Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A, and
-Milestone 4 Top Hotspot Split Pack B: the evidence operator-run recorder and
-task-payload summary split.
+Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A,
+Milestone 4 Top Hotspot Split Pack B, and Milestone 5 Agent-Task Cycle Break:
+the action lookup seam that removes the large agent-task import-cycle
+component.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -33,8 +34,10 @@ task-payload summary split.
 - `app/hygiene_ruff.py`
 - `app/hygiene_types.py`
 - `app/services/improvement_case_intake.py`
+- `app/services/agent_task_action_lookup.py`
 - `app/services/evidence_operator_runs.py`
 - `app/services/evidence_task_payloads.py`
+- `tests/unit/test_agent_task_action_lookup.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
 - `tests/unit/test_improvement_case_intake.py`
@@ -78,13 +81,17 @@ The local commits ahead of `origin/main` are:
 - `4042c7b` (`architecture: complete residual weakness milestone 3 split pack`),
   which closes Top Hotspot Split Pack A behind stable facades and ratchets the
   affected file budgets
-- `HEAD` (`architecture: complete residual weakness milestone 4 operator run split`),
+- `HEAD~1` (`architecture: complete residual weakness milestone 4 operator run split`),
   which moves knowledge-operator run recording and audit summary payload helpers
   into focused owner modules and ratchets the evidence facade lower
+- `HEAD` (`architecture: complete residual weakness milestone 5 cycle break`),
+  which routes context and task services through
+  `app/services/agent_task_action_lookup.py` and removes the large
+  agent-task import-cycle component from the general architecture probe
 
 These commits add and harden the first two residual-weakness prevention gates
-after `origin/main` planned the broader sequence, then land the first two
-facade-preserving top-hotspot splits.
+after `origin/main` planned the broader sequence, land the first two
+facade-preserving top-hotspot splits, and close the first cycle-break slice.
 
 ## Current Architecture And Governance State
 
@@ -113,6 +120,11 @@ uv run docling-system-architecture-quality-report --summary
     app/services/agent_task_actions.py,
     tests/unit/test_cli.py
   ]
+
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
+  Python cycle components=2
+  large agent-task cycle component: absent
+  app/services/agent_task_actions.py fan-out=39 local modules
 
 uv run docling-system-improvement-case-summary
   case_count=23, measured=1, open=22,
@@ -144,6 +156,12 @@ lines and 411,800 hotspot score, `app/cli.py` at 1,231 lines and 67,705 score,
 Strict hygiene debt also remains real, but it is now ratcheted: the current
 file/helper overages are non-blocking inherited entries while unchanged, and any
 growth beyond their `ratchet_max_*` ceilings is a blocking hygiene regression.
+
+`app/services/agent_task_actions.py` remains a high fan-out action-orchestration
+entrypoint, not a context/task dependency. `app/services/agent_task_context.py`,
+`app/services/agent_task_context_store.py`, and `app/services/agent_tasks.py`
+must use `app/services/agent_task_action_lookup.py` for action lookup and
+validation so the static back edge does not return.
 
 ## Runtime Gate Snapshot
 
@@ -855,6 +873,43 @@ architecture probe: app/services/evidence.py=8076 lines, app/services/evidence.p
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1175 passed in 49.92s.
 ```
 
+Milestone 5 result: Agent-Task Cycle Break added a narrow action lookup seam
+and removed the static back edge from context/task services to the executor
+registry facade:
+
+- `app/services/agent_task_action_lookup.py` now owns lazy action lookup and
+  input/output validation calls for context and task services.
+- `app/services/agent_task_context.py`,
+  `app/services/agent_task_context_store.py`, and `app/services/agent_tasks.py`
+  use the lookup seam instead of statically importing
+  `app.services.agent_task_actions`.
+- `app.services.agent_task_actions` remains the public executor registry,
+  compatibility facade, and worker execution entrypoint.
+- `tests/unit/test_agent_task_action_lookup.py` proves public action identity,
+  validation defaults, and the static import guard for the context/task owner
+  modules.
+- The general architecture probe now reports 2 Python cycle components instead
+  of 3; the large agent-task import-cycle component is absent.
+- `app/services/agent_task_actions.py` still has fan-out 39, so it is
+  documented as the action-orchestration entrypoint rather than claimed as
+  reduced.
+
+Milestone 5 verification before full-suite closeout:
+
+```text
+uv run pytest -q tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_worker.py: 125 passed.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py: 9 passed.
+uv run docling-system-agent-task-action-index: emitted schema_name=agent_action_index, schema_version=1.0.
+uv run ruff check app tests: passed.
+uv run docling-system-hygiene-check: ruff regressions none; inherited budget debt unchanged; new hygiene regressions none.
+uv run docling-system-hotspot-prevention-check --strict: changed_hotspots=0, blocked=0.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=692.67.
+architecture probe: Python cycle components=2; no large agent-task cycle component; app/services/agent_task_actions.py fan-out=39.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
+```
+
 ## Active Weak Points
 
 - Evaluation-data readiness is still false because the local DB has no active
@@ -875,12 +930,12 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1175 passed in 49.92s.
   remains a major architecture-quality hotspot. Future evidence splits should
   move one owner concern at a time behind the same compatibility facade.
 - The first agent-action registry split reduced
-  `app/services/agent_task_actions.py`, but it remains a hotspot and part of the
-  general architecture probe's large agent-task cycle component. Future
-  action-family splits should move one owner concern at a time behind the same
-  compatibility facade, starting with a search-harness executor dependency seam
-  or a semantic executor family with isolated dependencies before moving executor
-  paths.
+  `app/services/agent_task_actions.py`, and the Milestone 5 lookup seam removed
+  its participation in the large agent-task import-cycle component. It remains a
+  hotspot and high fan-out action-orchestration entrypoint. Future action-family
+  splits should move one owner concern at a time behind the same compatibility
+  facade, starting with an executor family whose dependencies are already
+  isolated.
 - The first two CLI command-group splits reduced `app/cli.py` to 1,231 lines,
   but it remains a public operator hotspot and is not yet a globally thin
   dispatch surface. Future CLI splits should move one command group at a time
@@ -906,22 +961,26 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1175 passed in 49.92s.
 ## Next Milestone
 
 `Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
-Milestones 1-4 are complete: the hotspot-prevention policy, analyzer, CLI, and
+Milestones 1-5 are complete: the hotspot-prevention policy, analyzer, CLI, and
 tests now block new implementation growth in known hotspots while allowing
 deletion-only reductions and facade forwarding; the hygiene budget ratchet now
 turns inherited strict budget debt into visible non-blocking debt with blocking
 no-growth ceilings; and Top Hotspot Split Pack A moved the ingest ORM domain,
 ingest CLI command group, and ingest CLI tests behind stable facades; Top
 Hotspot Split Pack B moved the evidence operator-run recorder and audit summary
-payload helpers into focused owner modules.
+payload helpers into focused owner modules; and the Agent-Task Cycle Break added
+the action lookup seam and removed the large agent-task import-cycle component.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 5,
-Agent-Task Cycle Break. Keep both prevention gates in closeout:
+Recommended next architecture milestone: Residual Weakness Plan Milestone 6,
+Regression Evaluation-Data Readiness. Keep both prevention gates in closeout:
 `docling-system-hotspot-prevention-check --strict` and
-`docling-system-hygiene-check`, and preserve agent action type names, context
-builders, input/output models, action-index output, and API behavior.
+`docling-system-hygiene-check`. The next implementation should build the live
+active corpus and persisted evaluation evidence required for
+`docling-system-evaluation-data-readiness` to report `regression_ready=true`;
+do not claim `court_grade_ready=true` until the separate court-grade milestone
+passes.

@@ -30,13 +30,14 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 4 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 5 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the platform and ingest data-model domain splits, first evidence-service
 split, first agent-action registry/helper split, first two CLI command-group
 splits, first search-core split, second evidence provenance split,
 improvement-case intake ratchet, hotspot-prevention gate, and hygiene budget
-ratchet, and evidence operator-run recorder and task-payload summary split. The implemented
+ratchet, evidence operator-run recorder and task-payload summary split, and the
+agent-task action lookup seam. The implemented
 architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
@@ -47,6 +48,9 @@ architecture posture is:
 - the public capability surface has 6 facades and 110 protocol functions
 - retrieval and agent-orchestration keep stable compatibility facades while
   exposing focused contract companions for narrower review surfaces
+- `app.services.agent_task_actions` remains the action-orchestration executor
+  registry, while `app.services.agent_task_action_lookup` is the lookup seam
+  used by context and task services to avoid a registry/context import cycle
 - architecture quality reporting now ranks hotspots by size, churn, hygiene
   findings, open improvement cases, and agent legibility
 - hotspot prevention now runs as a diff-time gate that blocks new
@@ -82,8 +86,10 @@ architecture posture is:
   metadata-query token extraction now live in
   `app/services/search_query_features.py` while `app.services.search` remains
   the search compatibility facade
-- the current top architecture follow-up is hotspot splitting, not a platform
-  rewrite or service extraction
+- the general architecture probe no longer reports the large agent-task
+  import-cycle component; the remaining follow-up is evaluation-data readiness
+  plus continued hotspot splitting, not a platform rewrite or service
+  extraction
 
 Current verification status:
 

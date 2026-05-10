@@ -232,7 +232,7 @@ def _refresh_context_ref(session: Session, ref: ContextRef) -> ContextRef:
         if task is None:
             updated.freshness_status = ContextFreshnessStatus.MISSING
             return updated
-        from app.services.agent_task_actions import get_agent_task_action
+        from app.services.agent_task_action_lookup import get_agent_task_action
 
         action = get_agent_task_action(task.task_type)
         if (

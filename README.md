@@ -4,13 +4,16 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 4 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 5 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the platform and ingest data-model domain splits, first evidence-service split,
 first agent-action registry/helper split, first two CLI command-group splits,
 first search-core split, second evidence provenance split, improvement-case
 intake ratchet, hotspot-prevention gate, hygiene budget ratchet, and the
-evidence operator-run recorder and task-payload summary split.
+evidence operator-run recorder and task-payload summary split. The latest
+cycle-break slice adds `app/services/agent_task_action_lookup.py` so
+agent-task context and task services no longer statically import the executor
+registry facade.
 
 Current repo-level signals:
 
@@ -31,9 +34,13 @@ Current repo-level signals:
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
   current diff and fails fixture diffs that add implementation to known hotspot
   files instead of the configured owner modules.
+- The general architecture probe no longer reports the large agent-task
+  import-cycle component; `app/services/agent_task_actions.py` remains the
+  action-orchestration entrypoint with fan-out 39.
 - DB-backed milestone verification is currently available on the local Docker
   Postgres runtime; the Residual Weakness Plan Milestone 4 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1175 passed`.
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1175 passed`, and the
+  Milestone 5 closeout ran it with `1178 passed`.
 
 ## What It Does
 

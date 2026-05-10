@@ -404,7 +404,10 @@ def create_agent_task(
     *,
     commit: bool = True,
 ) -> AgentTaskDetailResponse:
-    from app.services.agent_task_actions import get_agent_task_action, validate_agent_task_input
+    from app.services.agent_task_action_lookup import (
+        get_agent_task_action,
+        validate_agent_task_input,
+    )
 
     now = utcnow()
     dependency_task_ids = list(dict.fromkeys(payload.dependency_task_ids))
@@ -512,7 +515,7 @@ def create_agent_task(
 
 def list_agent_task_action_definitions() -> list[AgentTaskActionDefinitionResponse]:
     from app.services.agent_actions.manifest import build_agent_action_manifest
-    from app.services.agent_task_actions import list_agent_task_actions
+    from app.services.agent_task_action_lookup import list_agent_task_actions
 
     rows: list[AgentTaskActionDefinitionResponse] = []
     actions = list_agent_task_actions()

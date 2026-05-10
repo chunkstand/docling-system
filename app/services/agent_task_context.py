@@ -100,7 +100,7 @@ def _build_draft_harness_config_context(
     if output.draft.source_task_id is not None:
         source_task = session.get(AgentTask, output.draft.source_task_id)
         if source_task is not None:
-            from app.services.agent_task_actions import get_agent_task_action
+            from app.services.agent_task_action_lookup import get_agent_task_action
 
             source_action = get_agent_task_action(source_task.task_type)
             source_context_row = get_context_artifact_row(session, source_task.id)
@@ -207,7 +207,7 @@ def _build_draft_semantic_registry_update_context(
 
     source_task = session.get(AgentTask, output.draft.source_task_id)
     if source_task is not None:
-        from app.services.agent_task_actions import get_agent_task_action
+        from app.services.agent_task_action_lookup import get_agent_task_action
 
         source_action = get_agent_task_action(source_task.task_type)
         source_context_row = get_context_artifact_row(session, source_task.id)
@@ -3820,7 +3820,7 @@ def build_agent_task_context(
     task: AgentTask,
     result: dict,
 ) -> TaskContextEnvelope | None:
-    from app.services.agent_task_actions import get_agent_task_action
+    from app.services.agent_task_action_lookup import get_agent_task_action
 
     action = get_agent_task_action(task.task_type)
     if action.output_model is None:
