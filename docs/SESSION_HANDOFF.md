@@ -4,10 +4,10 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 3
-claim-support replay-alert fixture coverage split.
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 4
-Retrieval Learning Split.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 4
+retrieval-learning replay-alert corpus split.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 5
+Search Core Split Continuation.
 
 ## Current Position
 
@@ -27,10 +27,10 @@ governance checks with intentional `feedback` no-answer replay coverage. The
 next revision closes Milestone 8 by proving the remaining residual risk is now
 explicitly governed and that the plan, handoff, and architecture index all
 match the current gate state. The current local checkpoint closes Hotspot
-Owner Resolution Milestone 3 by moving the replay-alert fixture coverage
-summary, candidate derivation, promotion receipts, and waiver-closure
-governance concerns behind a focused owner module while preserving the
-existing `claim_support_policy_impacts` entry surface.
+Owner Resolution Milestone 4 by moving replay-alert corpus lineage
+validation, judgment materialization, and hard-negative construction behind a
+focused owner module while preserving the existing `retrieval_learning` entry
+surface.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -53,6 +53,7 @@ existing `claim_support_policy_impacts` entry surface.
 - `app/services/evidence_operator_runs.py`
 - `app/services/evidence_task_payloads.py`
 - `app/services/claim_support_replay_alert_promotions.py`
+- `app/services/retrieval_learning_replay_alert_sources.py`
 - `tests/unit/test_agent_task_action_lookup.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
@@ -60,6 +61,7 @@ existing `claim_support_policy_impacts` entry surface.
 - `tests/unit/test_cli_ingest.py`
 - `tests/unit/test_evidence_operator_runs.py`
 - `tests/unit/test_evidence_task_payloads.py`
+- `tests/unit/test_retrieval_learning_replay_alert_sources.py`
 - `tests/unit/test_db_model_import_compatibility.py`
 - `tests/integration/test_db_model_metadata.py`
 - `tests/db_model_contract.py`
@@ -281,6 +283,68 @@ Verified closeout results:
   `hotspot_count=10`, `max_hotspot_risk_score=688.91`
 - `uv run docling-system-hotspot-prevention-check --strict`:
   `blocked=0`, `allowed=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+
+## Hotspot Owner Resolution Milestone 4 Closeout
+
+Milestone 4 is the retrieval-learning replay-alert corpus split. It is a
+behavior-preserving service modularization pass behind the existing
+`app/services/retrieval_learning.py` compatibility facade.
+
+Results:
+
+- Added `app/services/retrieval_learning_replay_alert_sources.py`.
+- Moved replay-alert corpus lineage validation, judgment materialization, and
+  hard-negative construction out of `app/services/retrieval_learning.py`
+  while keeping the original public service surface import-stable.
+- Reduced `app/services/retrieval_learning.py` from 3,028 lines to 2,482 and
+  ratcheted it to `ratchet_max_lines: 2482` and
+  `ratchet_max_private_helpers: 46`.
+- Added a hygiene budget entry for
+  `app/services/retrieval_learning_replay_alert_sources.py` under
+  `owner_case_id: IC-0D58F1624037` with `max_lines: 578` and
+  `max_private_helpers: 10`.
+- Updated `config/improvement_cases.yaml` so `IC-0D58F1624037` records the
+  verified Milestone 4 reduction result.
+- The next routed implementation slice is Milestone 5: Search Core Split
+  Continuation.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/retrieval_learning.py app/services/retrieval_learning_replay_alert_sources.py tests/unit/test_retrieval_learning_candidates.py tests/unit/test_retrieval_learning_replay_alert_sources.py tests/integration/test_retrieval_learning_ledger.py`
+- `uv run pytest -q tests/unit/test_retrieval_learning_candidates.py tests/unit/test_retrieval_learning_replay_alert_sources.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_retrieval_learning_ledger.py -k "replay_alert_corpus" -rs`
+- `uv run pytest -q tests/unit/test_api_architecture.py tests/unit/test_architecture_inspection.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+
+Verified closeout results:
+
+- `uv run pytest -q tests/unit/test_retrieval_learning_candidates.py tests/unit/test_retrieval_learning_replay_alert_sources.py`:
+  `4 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_retrieval_learning_ledger.py -k "replay_alert_corpus" -rs`:
+  `4 passed, 6 deselected`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1238 passed in 59.61s`
+- `uv run docling-system-improvement-case-summary`:
+  `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
+  `measured_case_count=3`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=688.91`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `blocked=0`, `allowed=0`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
   `observation_count=0`
 
@@ -1382,4 +1446,10 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   moved the replay-alert fixture coverage workflow into
   `app/services/claim_support_replay_alert_promotions.py` and reduced
   `app/services/claim_support_policy_impacts.py` to 2,011 lines.
-- Next routed implementation slice: Milestone 4, Retrieval Learning Split.
+- Milestone 4 is now the retrieval-learning replay-alert corpus split. It
+  moved replay-alert corpus lineage validation, judgment materialization, and
+  hard-negative construction into
+  `app/services/retrieval_learning_replay_alert_sources.py` and reduced
+  `app/services/retrieval_learning.py` to 2,482 lines.
+- Next routed implementation slice: Milestone 5, Search Core Split
+  Continuation.

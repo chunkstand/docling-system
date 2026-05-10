@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 3 claim-support replay-alert split complete locally, Milestone 4 next
+Status: in progress; Milestone 4 retrieval-learning replay-alert corpus split complete locally, Milestone 5 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -44,11 +44,12 @@ wc -l app/db/models.py app/services/evidence.py app/services/audit_bundles.py ap
   7143 app/services/evidence.py
   3306 app/services/audit_bundles.py
   2011 app/services/claim_support_policy_impacts.py
-  3028 app/services/retrieval_learning.py
+  2482 app/services/retrieval_learning.py
   3250 app/services/search.py
 
-wc -l app/services/claim_support_replay_alert_promotions.py
+wc -l app/services/claim_support_replay_alert_promotions.py app/services/retrieval_learning_replay_alert_sources.py
   1536 app/services/claim_support_replay_alert_promotions.py
+   578 app/services/retrieval_learning_replay_alert_sources.py
 
 uv run docling-system-hygiene-check
   inherited budget debt includes:
@@ -65,7 +66,7 @@ uv run docling-system-improvement-case-summary
   case_count=25
   status_counts.open=24
   status_counts.measured=1
-  measured_case_count=2
+  measured_case_count=3
   oldest_open_case_id=IC-F2A8110185EB
 ```
 
@@ -382,8 +383,8 @@ Status update:
   `IC-E2270F89B397` records the verified Milestone 3 reduction result.
 - Full DB-backed verification, architecture inspection, hotspot prevention,
   hygiene, evaluation-data readiness, and agent-trace review all passed.
-- The next routed implementation slice is Milestone 4: Retrieval Learning
-  Split.
+- The next routed implementation slice is Milestone 5: Search Core Split
+  Continuation.
 
 ### Milestone 4: Retrieval Learning Split
 
@@ -402,6 +403,29 @@ Acceptance:
   `retrieval_learning_*.py` owner module
 - targeted retrieval-learning tests and full DB-backed integration tests pass
 - readiness remains `court_grade_ready=true`
+
+Status update:
+
+- Implemented and verified locally as the replay-alert corpus source owner
+  split.
+- Added `app/services/retrieval_learning_replay_alert_sources.py` and moved the
+  replay-alert corpus lineage validation, judgment materialization, and hard-negative
+  construction concern behind the existing `app/services/retrieval_learning.py`
+  compatibility surface.
+- Reduced `app/services/retrieval_learning.py` from 3,028 lines to 2,482 while
+  ratcheting the file to `ratchet_max_lines: 2482` and
+  `ratchet_max_private_helpers: 46`.
+- Added a hygiene budget entry for
+  `app/services/retrieval_learning_replay_alert_sources.py` under
+  `owner_case_id: IC-0D58F1624037` with `max_lines: 578` and
+  `max_private_helpers: 10`.
+- Updated `config/improvement_cases.yaml` so `IC-0D58F1624037` records the
+  verified Milestone 4 reduction result.
+- Focused retrieval-learning tests, full DB-backed integration verification,
+  architecture inspection, hotspot prevention, hygiene, evaluation-data
+  readiness, and agent-trace review all passed.
+- The next routed implementation slice is Milestone 5: Search Core Split
+  Continuation.
 
 ### Milestone 5: Search Core Split Continuation
 
