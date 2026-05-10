@@ -13,10 +13,19 @@ def test_runtime_evaluation_corpus_is_seeded_reviewed_template() -> None:
         "model": "text-embedding-3-small",
         "dimension": 1536,
     }
-    assert len(config["documents"]) == 1
+    assert len(config["documents"]) == 5
+
+    names = {document["name"] for document in config["documents"]}
+    assert names == {
+        "regression_doc_03_blue_mesas_seed",
+        "regression_doc_04_sage_creek_seed",
+        "regression_doc_05_granite_pass_seed",
+        "regression_doc_06_timber_basin_seed",
+        "regression_doc_07_copper_ridge_seed",
+    }
 
     document = config["documents"][0]
-    assert document["name"] == "regression_doc_03_cross_document_seed"
+    assert document["name"] == "regression_doc_03_blue_mesas_seed"
     assert document["kind"] == "reviewed_regression_seed"
     assert document["source_filename"] == "regression_doc_03.pdf"
     assert document["sha256"] == "504afc31793c86eb31b71c129005ddde9bf22e97eaa4e736534439857265d88c"
@@ -24,9 +33,10 @@ def test_runtime_evaluation_corpus_is_seeded_reviewed_template() -> None:
     thresholds = document["thresholds"]
     assert thresholds["expected_logical_table_count"] == 1
     assert thresholds["expected_figure_count"] == 0
-    assert len(thresholds["expected_top_n_table_hit_queries"]) == 1
-    assert len(thresholds["expected_top_n_chunk_hit_queries"]) == 1
+    assert len(thresholds["expected_top_n_table_hit_queries"]) == 2
+    assert len(thresholds["expected_top_n_chunk_hit_queries"]) == 4
     assert len(thresholds["queries"]) == 1
+    assert len(thresholds["expected_answer_queries"]) == 1
 
     cross_document_query = thresholds["queries"][0]
     assert (
@@ -40,6 +50,16 @@ def test_runtime_evaluation_corpus_is_seeded_reviewed_template() -> None:
     assert cross_document_query["expected_top_result_source_filename"] == "regression_doc_03.pdf"
     assert cross_document_query["minimum_top_n_hits_from_expected_document"] == 1
     assert cross_document_query["maximum_foreign_results_before_first_expected_hit"] == 0
+
+    answer_query = thresholds["expected_answer_queries"][0]
+    assert (
+        answer_query["question"]
+        == "What does the Blue Mesas readiness narrative say milestone six protects?"
+    )
+    assert answer_query["mode"] == "hybrid"
+    assert answer_query["minimum_citation_count"] == 1
+    assert answer_query["expected_citation_source_filename"] == "regression_doc_03.pdf"
+    assert answer_query["maximum_foreign_citations"] == 0
 
 
 def test_legacy_evaluation_fixture_has_required_documents_and_thresholds() -> None:

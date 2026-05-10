@@ -4,6 +4,7 @@ import json
 
 from app.agent_trace_review import (
     AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME,
+    _collect_search_replay_regression_observations,
     build_agent_trace_review_report,
 )
 from app.services.improvement_cases import ImprovementCaseObservation
@@ -63,3 +64,41 @@ def test_agent_trace_review_report_groups_observations(monkeypatch) -> None:
         "search_replay_regressions",
     }
     json.dumps(report)
+
+
+class _StatementCaptureResult:
+    def scalars(self):
+        return self
+
+    def all(self):
+        return []
+
+
+class _StatementCaptureSession:
+    def __init__(self) -> None:
+        self.statement = None
+
+    def execute(self, statement):
+        self.statement = statement
+        return _StatementCaptureResult()
+
+
+def test_search_replay_regression_query_allows_feedback_zero_result_runs() -> None:
+    session = _StatementCaptureSession()
+
+    _collect_search_replay_regression_observations(
+        session,
+        limit=5,
+        workflow_version="improvement_v1",
+    )
+
+    compiled = str(
+        session.statement.compile(
+            compile_kwargs={"literal_binds": True}
+        )
+    )
+
+    assert "search_replay_runs.status = 'failed'" in compiled
+    assert "search_replay_runs.failed_count > 0" in compiled
+    assert "search_replay_runs.source_type != 'feedback'" in compiled
+    assert "search_replay_runs.zero_result_count > 0" in compiled

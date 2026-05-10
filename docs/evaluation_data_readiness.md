@@ -3,17 +3,21 @@
 Status refreshed: 2026-05-10. The command remains the required preflight before
 trusting retrieval, reranker, or court-grade document-generation gates. The
 latest run reached local Postgres and reported `regression_ready=true`,
-`court_grade_ready=false`, `passed_gate_count=4`, and `failed_gate_count=7`.
-The regression tier is now satisfied on the live DB with 26 active documents,
-26 completed evaluations, 52 passed evaluation queries, 26 auto-corpus
-documents, 26 auto table queries, 25 auto chunk queries, one reviewed manual
-seed document in `docs/evaluation_corpus.yaml`, and completed replay coverage
-for `evaluation_queries`, `live_search_gaps`, and
-`cross_document_prose_regressions` with non-zero replay queries in the latter
-two lanes. Court-grade readiness remains intentionally false because the DB
-still lacks enough hand-verified gold fixtures, operator feedback,
-technical-report claim feedback, governed claim-support hard cases, full replay
-and harness source coverage, and retrieval-learning materialization.
+`court_grade_ready=true`, `passed_gate_count=11`, and `failed_gate_count=0`.
+The live DB now satisfies both tiers with 26 active documents, 26 completed
+evaluations, 52 passed evaluation queries, 26 auto-corpus documents, 26 auto
+table queries, 25 auto chunk queries, and a reviewed manual corpus in
+`docs/evaluation_corpus.yaml` that contributes 5 documents, 10 table queries,
+20 chunk queries, 5 cross-document queries, and 5 answer queries. Court-grade
+lanes are now present in the live DB as well: 25 operator-feedback rows across
+all required feedback types, 25 technical-report claim-feedback rows across all
+required labels and support statuses with no traceability gaps, one active
+claim-support replay-alert snapshot with 5 governed rows, completed replay
+coverage for `evaluation_queries`, `feedback`, `live_search_gaps`,
+`cross_document_prose_regressions`, and `technical_report_claim_feedback`, one
+harness-evaluation source row for each required replay source, and one
+materialized retrieval-learning judgment/training set with 122 training
+examples.
 
 Use the data-readiness preflight before trusting retrieval, reranker, or
 court-grade document-generation gates. The check is intentionally stricter than
@@ -58,22 +62,15 @@ Required data lanes:
 - Retrieval learning: materialized judgment sets and completed training runs
   built from feedback, replay, and claim-feedback sources.
 
-Current blocker interpretation:
+Current interpretation:
 
-- Empty `regression_blockers` means the live database is ready for broad
-  regression detection and replay-backed retrieval checks; that is the Milestone
-  6 claim and no broader claim.
-- The checked-in manual corpus is now intentionally seeded, not empty. To
-  persist manual-fixture evaluation rows, rerun:
+- Empty `regression_blockers` and empty `court_grade_blockers` mean the live
+  database is ready for both broad regression detection and the stricter
+  court-grade technical-report and claim-support gates.
+- The checked-in manual corpus is intentionally seeded and reviewed. To persist
+  manual-fixture evaluation rows into a fresh local database, rerun:
   `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH=docs/evaluation_corpus.yaml uv run docling-system-eval-corpus`.
-- Remaining `court_grade_blockers` mean the system is not yet ready to claim
-  auditable technical-report or claim-support gate readiness.
-
-- Failing `operator_feedback_coverage` means the system needs more real search
-  labels before feedback replay can represent operator experience.
-- Failing `technical_report_claim_feedback_ledger` means report verification has
-  not produced enough claim-level retrieval feedback for court-grade gating.
-- Failing `claim_support_replay_alert_corpus` means hard cases have not been
-  promoted into a governed active corpus snapshot.
-- Failing `retrieval_learning_materialized` means no durable training/evaluation
-  dataset exists for reranker promotion.
+- Court-grade feedback replay now includes intentional `no_answer` cases. Those
+  replays can legitimately produce zero search results, so trace review should
+  treat them as expected feedback coverage rather than as replay regressions
+  when the replay run otherwise completed successfully.

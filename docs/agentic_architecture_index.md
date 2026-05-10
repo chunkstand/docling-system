@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-6 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-7 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -88,15 +88,17 @@ chat history or scanning the whole repository.
   Hotspot Split Pack B, is complete for the evidence operator-run and
   task-payload summary concerns. The fifth implementation milestone, the
   Agent-Task Cycle Break, is complete. The sixth implementation milestone,
-  Regression Evaluation-Data Readiness, is complete. The next milestone is
-  Court-Grade Evaluation-Data Readiness.
+  Regression Evaluation-Data Readiness, is complete. The seventh
+  implementation milestone, Court-Grade Evaluation-Data Readiness, is also
+  complete. The next milestone is Residual Weakness Closeout.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness now reports
-  `regression_ready=true`, `court_grade_ready=false`, and
-  `failed_gate_count=7` on the rebuilt local DB. The regression replay tier now
-  includes a passing `live_search_gaps` case plus a reviewed one-document
-  cross-document seed in `docs/evaluation_corpus.yaml`. Remaining blockers are
-  the court-grade data lanes, not the regression tier.
+  `regression_ready=true`, `court_grade_ready=true`, and
+  `failed_gate_count=0` on the rebuilt local DB. The live DB now includes the
+  reviewed five-document manual corpus, full replay/harness source coverage,
+  operator feedback coverage, technical-report claim-feedback coverage, an
+  active claim-support replay-alert corpus snapshot, and materialized
+  retrieval-learning data.
 
 ## Executable Architecture Contracts
 

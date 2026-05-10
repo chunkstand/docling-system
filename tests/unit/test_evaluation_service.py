@@ -49,9 +49,16 @@ def test_default_evaluation_corpus_requires_explicit_manual_path(monkeypatch, tm
 
     manual_fixtures = load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
 
-    assert len(manual_fixtures) == 1
+    assert len(manual_fixtures) == 5
+    assert {fixture.name for fixture in manual_fixtures} == {
+        "regression_doc_03_blue_mesas_seed",
+        "regression_doc_04_sage_creek_seed",
+        "regression_doc_05_granite_pass_seed",
+        "regression_doc_06_timber_basin_seed",
+        "regression_doc_07_copper_ridge_seed",
+    }
     fixture = manual_fixtures[0]
-    assert fixture.name == "regression_doc_03_cross_document_seed"
+    assert fixture.name == "regression_doc_03_blue_mesas_seed"
     assert fixture.kind == "reviewed_regression_seed"
     assert fixture.source_filename == "regression_doc_03.pdf"
     assert fixture.document_sha256 == (
@@ -59,8 +66,11 @@ def test_default_evaluation_corpus_requires_explicit_manual_path(monkeypatch, tm
     )
     assert fixture.thresholds.expected_logical_table_count == 1
     assert fixture.thresholds.expected_figure_count == 0
-    assert len(fixture.queries) == 3
-    assert fixture.answer_queries == []
+    assert len(fixture.queries) == 7
+    assert len(fixture.answer_queries) == 1
+
+    assert sum(len(row.queries) for row in manual_fixtures) == 35
+    assert sum(len(row.answer_queries) for row in manual_fixtures) == 5
 
     cross_document_query = next(
         query

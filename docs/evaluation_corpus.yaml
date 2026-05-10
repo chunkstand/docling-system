@@ -3,7 +3,7 @@ embedding_contract:
   model: text-embedding-3-small
   dimension: 1536
 documents:
-  - name: regression_doc_03_cross_document_seed
+  - name: regression_doc_03_blue_mesas_seed
     kind: reviewed_regression_seed
     source_filename: regression_doc_03.pdf
     sha256: 504afc31793c86eb31b71c129005ddde9bf22e97eaa4e736534439857265d88c
@@ -18,8 +18,20 @@ documents:
         - query: Narrative blue mesas table erosion inventory governed query
           top_n: 3
           mode: hybrid
+        - query: Blue Mesas erosion inventory governed query lane
+          top_n: 3
+          mode: hybrid
       expected_top_n_chunk_hit_queries:
         - query: Blue Mesas readiness narrative explains how milestone six
+          top_n: 3
+          mode: hybrid
+        - query: Blue Mesas readiness narrative protects chunk recall
+          top_n: 3
+          mode: hybrid
+        - query: mesa restoration outlook distinct prose recall
+          top_n: 3
+          mode: hybrid
+        - query: Blue Mesas table retrieval stays auditable
           top_n: 3
           mode: hybrid
       queries:
@@ -32,3 +44,212 @@ documents:
           expected_top_result_source_filename: regression_doc_03.pdf
           minimum_top_n_hits_from_expected_document: 1
           maximum_foreign_results_before_first_expected_hit: 0
+      expected_answer_queries:
+        - question: What does the Blue Mesas readiness narrative say milestone six protects?
+          mode: hybrid
+          answer_contains:
+            - chunk recall
+            - table retrieval stays auditable
+          minimum_citation_count: 1
+          expected_citation_source_filename: regression_doc_03.pdf
+          maximum_foreign_citations: 0
+  - name: regression_doc_04_sage_creek_seed
+    kind: reviewed_regression_seed
+    source_filename: regression_doc_04.pdf
+    sha256: 0f64abed7e12bf1f20c92a0f341a8c218b1a7a256995c142ac13c94b0edb1c02
+    thresholds:
+      expected_logical_table_count: 1
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: Narrative sage creek table wildlife crossings governed query
+          top_n: 3
+          mode: hybrid
+        - query: Sage Creek wildlife crossings governed query lane
+          top_n: 3
+          mode: hybrid
+      expected_top_n_chunk_hit_queries:
+        - query: Sage Creek readiness narrative explains how milestone six
+          top_n: 3
+          mode: hybrid
+        - query: Sage Creek readiness narrative protects chunk recall
+          top_n: 3
+          mode: hybrid
+        - query: sage habitat readiness distinct prose recall
+          top_n: 3
+          mode: hybrid
+        - query: Sage Creek table retrieval stays auditable
+          top_n: 3
+          mode: hybrid
+      queries:
+        - query: Sage Creek readiness narrative explains how milestone six
+          mode: hybrid
+          include_document_filter: false
+          expected_result_type: chunk
+          top_n: 3
+          expected_source_filename: regression_doc_04.pdf
+          expected_top_result_source_filename: regression_doc_04.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
+      expected_answer_queries:
+        - question: What does the Sage Creek readiness narrative say milestone six protects?
+          mode: hybrid
+          answer_contains:
+            - chunk recall
+            - table retrieval stays auditable
+          minimum_citation_count: 1
+          expected_citation_source_filename: regression_doc_04.pdf
+          maximum_foreign_citations: 0
+  - name: regression_doc_05_granite_pass_seed
+    kind: reviewed_regression_seed
+    source_filename: regression_doc_05.pdf
+    sha256: 7c7ee95bacefab350ac7e7ab8073cec3e3eaf0069ee4921eb0e77be4ee11b33d
+    thresholds:
+      expected_logical_table_count: 1
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: Narrative granite pass table road drainage governed query
+          top_n: 3
+          mode: hybrid
+        - query: Granite Pass road drainage governed query lane
+          top_n: 3
+          mode: hybrid
+      expected_top_n_chunk_hit_queries:
+        - query: Granite Pass readiness narrative explains how milestone six
+          top_n: 3
+          mode: hybrid
+        - query: Granite Pass readiness narrative protects chunk recall
+          top_n: 3
+          mode: hybrid
+        - query: granite corridor review distinct prose recall
+          top_n: 3
+          mode: hybrid
+        - query: Granite Pass table retrieval stays auditable
+          top_n: 3
+          mode: hybrid
+      queries:
+        - query: Granite Pass readiness narrative explains how milestone six
+          mode: hybrid
+          include_document_filter: false
+          expected_result_type: chunk
+          top_n: 3
+          expected_source_filename: regression_doc_05.pdf
+          expected_top_result_source_filename: regression_doc_05.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
+      expected_answer_queries:
+        - question: What does the Granite Pass readiness narrative say milestone six protects?
+          mode: hybrid
+          answer_contains:
+            - chunk recall
+            - table retrieval stays auditable
+          minimum_citation_count: 1
+          expected_citation_source_filename: regression_doc_05.pdf
+          maximum_foreign_citations: 0
+  - name: regression_doc_06_timber_basin_seed
+    kind: reviewed_regression_seed
+    source_filename: regression_doc_06.pdf
+    sha256: 4438263dfa40fd92f72c38a7ae337ae5ed2a40b55d34547d4acfd8ff78ea02a6
+    thresholds:
+      expected_logical_table_count: 1
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: Narrative timber basin table silviculture checks governed query
+          top_n: 3
+          mode: hybrid
+        - query: Timber Basin silviculture checks governed query lane
+          top_n: 3
+          mode: hybrid
+      expected_top_n_chunk_hit_queries:
+        - query: Timber Basin readiness narrative explains how milestone six
+          top_n: 3
+          mode: hybrid
+        - query: Timber Basin readiness narrative protects chunk recall
+          top_n: 3
+          mode: hybrid
+        - query: timber stand summary distinct prose recall
+          top_n: 3
+          mode: hybrid
+        - query: Timber Basin table retrieval stays auditable
+          top_n: 3
+          mode: hybrid
+      queries:
+        - query: Timber Basin readiness narrative explains how milestone six
+          mode: hybrid
+          include_document_filter: false
+          expected_result_type: chunk
+          top_n: 3
+          expected_source_filename: regression_doc_06.pdf
+          expected_top_result_source_filename: regression_doc_06.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
+      expected_answer_queries:
+        - question: What does the Timber Basin readiness narrative say milestone six protects?
+          mode: hybrid
+          answer_contains:
+            - chunk recall
+            - table retrieval stays auditable
+          minimum_citation_count: 1
+          expected_citation_source_filename: regression_doc_06.pdf
+          maximum_foreign_citations: 0
+  - name: regression_doc_07_copper_ridge_seed
+    kind: reviewed_regression_seed
+    source_filename: regression_doc_07.pdf
+    sha256: 69f89768d8abee6c2cd64f50013086ecc5e2f92c1c10cc602f615bd2e1a9518a
+    thresholds:
+      expected_logical_table_count: 1
+      logical_table_tolerance: 0
+      expected_figure_count: 0
+      figure_count_tolerance: 0
+      maximum_unexpected_merges: 0
+      maximum_unexpected_splits: 0
+      expected_top_n_table_hit_queries:
+        - query: Narrative copper ridge table fuels treatment governed query
+          top_n: 3
+          mode: hybrid
+        - query: Copper Ridge fuels treatment governed query lane
+          top_n: 3
+          mode: hybrid
+      expected_top_n_chunk_hit_queries:
+        - query: Copper Ridge readiness narrative explains how milestone six
+          top_n: 3
+          mode: hybrid
+        - query: Copper Ridge readiness narrative protects chunk recall
+          top_n: 3
+          mode: hybrid
+        - query: copper ridge resilience distinct prose recall
+          top_n: 3
+          mode: hybrid
+        - query: Copper Ridge table retrieval stays auditable
+          top_n: 3
+          mode: hybrid
+      queries:
+        - query: Copper Ridge readiness narrative explains how milestone six
+          mode: hybrid
+          include_document_filter: false
+          expected_result_type: chunk
+          top_n: 3
+          expected_source_filename: regression_doc_07.pdf
+          expected_top_result_source_filename: regression_doc_07.pdf
+          minimum_top_n_hits_from_expected_document: 1
+          maximum_foreign_results_before_first_expected_hit: 0
+      expected_answer_queries:
+        - question: What does the Copper Ridge readiness narrative say milestone six protects?
+          mode: hybrid
+          answer_contains:
+            - chunk recall
+            - table retrieval stays auditable
+          minimum_citation_count: 1
+          expected_citation_source_filename: regression_doc_07.pdf
+          maximum_foreign_citations: 0

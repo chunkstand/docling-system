@@ -93,7 +93,10 @@ def _collect_search_replay_regression_observations(
             .where(
                 (SearchReplayRun.status == "failed")
                 | (SearchReplayRun.failed_count > 0)
-                | (SearchReplayRun.zero_result_count > 0)
+                | (
+                    (SearchReplayRun.source_type != "feedback")
+                    & (SearchReplayRun.zero_result_count > 0)
+                )
             )
             .order_by(SearchReplayRun.created_at.desc())
             .limit(limit)

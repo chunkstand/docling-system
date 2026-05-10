@@ -4,7 +4,7 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 6 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 7 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the platform and ingest data-model domain splits, first evidence-service split,
 first agent-action registry/helper split, first two CLI command-group splits,
@@ -13,11 +13,10 @@ intake ratchet, hotspot-prevention gate, hygiene budget ratchet, and the
 evidence operator-run recorder and task-payload summary split. The latest
 cycle-break slice adds `app/services/agent_task_action_lookup.py` so
 agent-task context and task services no longer statically import the executor
-registry facade. The Milestone 6 runtime closeout then rebuilt the local
-evaluation corpus so `docling-system-evaluation-data-readiness` now reports
-`regression_ready=true` while the stricter court-grade tier remains false until
-the remaining feedback, gold-corpus, replay, and retrieval-learning lanes are
-materialized.
+registry facade. The Milestone 6 and 7 runtime closeouts rebuilt the local
+evaluation corpus and court-grade evidence lanes so
+`docling-system-evaluation-data-readiness` now reports both
+`regression_ready=true` and `court_grade_ready=true`.
 
 Current repo-level signals:
 
@@ -42,13 +41,20 @@ Current repo-level signals:
   import-cycle component; `app/services/agent_task_actions.py` remains the
   action-orchestration entrypoint with fan-out 39.
 - The live readiness preflight now reports 26 active documents, 26 completed
-  evaluations, 52 passed evaluation queries, and empty regression blockers.
+  evaluations, 52 passed evaluation queries, empty regression blockers, and
+  empty court-grade blockers.
 - The regression replay tier now includes a passing recovered `live_search_gaps`
   case and a passing seeded `cross_document_prose_regressions` case from the
-  reviewed manual corpus entry in `docs/evaluation_corpus.yaml`.
-- Court-grade readiness remains intentionally false until the hand-verified gold
-  corpus, operator feedback, technical-report claim feedback, full replay and
-  harness coverage, and retrieval-learning materialization are in place.
+  reviewed manual corpus in `docs/evaluation_corpus.yaml`.
+- The reviewed manual corpus now covers 5 documents, 10 table queries, 20
+  chunk queries, 5 cross-document queries, and 5 answer queries.
+- Court-grade evidence lanes are now materialized in the live DB: 25
+  operator-feedback rows across all required feedback types, 25
+  technical-report claim-feedback rows across all required labels and support
+  statuses, a governed claim-support replay-alert snapshot with 5 active rows,
+  replay coverage for every required source type, one harness-evaluation source
+  row for each source type, and one retrieval-learning judgment/training set
+  with 122 training examples.
 
 ## What It Does
 

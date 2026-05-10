@@ -4,8 +4,8 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 6
-regression-readiness pass.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 7
+court-grade readiness pass.
 
 ## Current Position
 
@@ -19,7 +19,9 @@ Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
 Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A,
 Milestone 4 Top Hotspot Split Pack B, Milestone 5 Agent-Task Cycle Break, and
 the Milestone 6 regression-readiness data build that makes the live DB pass the
-regression evaluation-data tier.
+regression evaluation-data tier. This handoff revision closes Milestone 7 by
+materializing the court-grade evaluation-data lanes and aligning the remaining
+governance checks with intentional `feedback` no-answer replay coverage.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -99,6 +101,47 @@ Operational notes:
 - The host worker completed the representative corpus build and document
   evaluations cleanly. The Docker `api`, `worker`, and `agent-worker` services
   were stopped during the milestone execution.
+
+## Milestone 7 Court-Grade Readiness Closeout
+
+Milestone 7 extends the runtime-and-data work from the regression tier to the
+court-grade evaluation-data tier. The live DB now passes
+`uv run docling-system-evaluation-data-readiness` with
+`court_grade_ready=true`.
+
+Results:
+
+- `regression_ready=true`, `court_grade_ready=true`,
+  `regression_blockers=[]`, `court_grade_blockers=[]`,
+  `passed_gate_count=11`, `failed_gate_count=0`
+- manual reviewed corpus coverage: 5 documents, 10 table queries, 20 chunk
+  queries, 5 cross-document queries, 5 answer queries
+- operator feedback coverage: 25 rows total, with 5 rows each for
+  `relevant`, `irrelevant`, `missing_table`, `missing_chunk`, and `no_answer`
+- technical-report claim feedback: 25 rows total, with learning labels
+  `positive=10`, `negative=10`, `missing=5`, support statuses
+  `supported=5`, `weak=5`, `missing=5`, `contradicted=5`, `rejected=5`, and
+  `traceability_issue_counts={}`
+- claim-support replay-alert corpus: 1 active snapshot with 5 governed rows
+- completed replay coverage present for `evaluation_queries`, `feedback`,
+  `live_search_gaps`, `cross_document_prose_regressions`, and
+  `technical_report_claim_feedback`
+- harness evaluation source coverage: one completed source row for each
+  required replay source
+- retrieval learning: 1 judgment set, 1 completed training run, 122 training
+  examples
+
+Operational notes:
+
+- `docs/evaluation_corpus.yaml` now carries the reviewed court-grade seed set,
+  not just the earlier single-document regression seed.
+- Court-grade feedback replay intentionally includes `no_answer` cases that
+  should replay to zero search results. `app/agent_trace_review.py` now treats
+  successful `feedback` replay runs with zero-result queries as expected
+  coverage instead of false-positive replay regressions.
+- The runtime/data milestone remained scoped: the court-grade closeout reused
+  the existing replay, harness-evaluation, and retrieval-learning services
+  rather than adding a new bootstrap command.
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -1021,10 +1064,8 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
   future work to the configured owner modules. The gate is Milestone 1 in
   `docs/residual_weakness_resolution_milestone_plan.md` and is detailed in
   `docs/hotspot_prevention_gate_milestone_plan.md`.
-- Court-grade readiness cannot be claimed until the live DB passes
-  `docling-system-evaluation-data-readiness` with enough hand-verified fixtures,
-  operator feedback, claim feedback, governed hard cases, replay coverage, and
-  retrieval-learning materialization.
+- Court-grade readiness now passes on the local DB, so the remaining residual
+  work is architecture closeout rather than evaluation-data seeding.
 
 ## Next Milestone
 
@@ -1047,12 +1088,11 @@ New planning artifacts:
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 7,
-Court-Grade Evaluation-Data Readiness. Keep both prevention gates in closeout:
+Recommended next architecture milestone: Residual Weakness Plan Milestone 8,
+Residual Weakness Closeout. Keep both prevention gates in closeout:
 `docling-system-hotspot-prevention-check --strict` and
 `docling-system-hygiene-check`. The next implementation should build the live
-court-grade evidence lanes required for
-`docling-system-evaluation-data-readiness` to report `court_grade_ready=true`:
-hand-verified gold fixtures, operator feedback, technical-report claim
-feedback, governed hard cases, full replay and harness source coverage, and
-retrieval-learning materialization.
+closeout proof that the remaining residual weaknesses are either resolved or
+explicitly narrowed: refresh the architecture-quality snapshot, rerun the cycle
+probe and prevention gates, confirm `court_grade_ready=true` stays green, and
+close the milestone plan with matched docs and handoff state.

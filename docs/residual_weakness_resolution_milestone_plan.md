@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestones 1-5 complete
+Status: in progress; Milestones 1-7 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -679,7 +679,7 @@ uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_c
 
 ### Milestone 7: Court-Grade Evaluation-Data Readiness
 
-Status: planned.
+Status: completed.
 
 Purpose: make readiness strong enough for auditable technical-report and
 claim-support gates.
@@ -706,6 +706,45 @@ Acceptance:
   retrieval-learning materialization.
 - Generated readiness artifacts and docs are refreshed in the same milestone.
 
+Completed result:
+
+- Expanded `docs/evaluation_corpus.yaml` from a one-document reviewed seed into
+  a five-document reviewed court-grade corpus with 10 table queries, 20 chunk
+  queries, 5 cross-document queries, and 5 answer queries.
+- Seeded the live Postgres DB with 25 operator-feedback rows across
+  `relevant`, `irrelevant`, `missing_table`, `missing_chunk`, and `no_answer`.
+- Seeded 25 technical-report claim-feedback rows across `positive`,
+  `negative`, and `missing` learning labels plus `supported`, `weak`,
+  `missing`, `contradicted`, and `rejected` support statuses, with no
+  traceability gaps in the readiness ledger.
+- Promoted a governed claim-support replay-alert corpus snapshot with 5 active
+  hard-case rows.
+- Added completed replay coverage for the court-grade sources:
+  `feedback` and `technical_report_claim_feedback`, while preserving the
+  existing regression replay coverage for `evaluation_queries`,
+  `live_search_gaps`, and `cross_document_prose_regressions`.
+- Recorded one completed harness evaluation row for every required replay
+  source type and one materialized retrieval-learning judgment/training set
+  with 122 training examples.
+- Fixed a trace-review false positive in `app/agent_trace_review.py` so
+  successful `feedback` replay runs with intentional zero-result `no_answer`
+  cases are no longer reported as replay regressions.
+- Refreshed readiness docs, architecture routing, README, system plan, and the
+  canonical handoff so they all state the achieved `court_grade_ready=true`
+  result and route the next work to Milestone 8.
+
+Verified behavior:
+
+```text
+uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json: regression_ready=true, court_grade_ready=true, regression_blockers=[], court_grade_blockers=[], passed_gate_count=11, failed_gate_count=0.
+docs/evaluation_corpus.yaml: manual reviewed corpus now covers 5 documents, 10 table queries, 20 chunk queries, 5 cross-document queries, and 5 answer queries.
+uv run docling-system-run-replay-suite feedback --limit 25: replay_run_id=94969a66-5e80-40a5-b4c7-3c0259576bd0, query_count=25, passed_count=25, failed_count=0, zero_result_count=5, table_hit_count=15.
+uv run docling-system-run-replay-suite technical_report_claim_feedback --limit 25: replay_run_id=fdfef137-7b5b-4899-a953-9fbfbd8fd765, query_count=25, passed_count=25, failed_count=0, zero_result_count=0, table_hit_count=10, mrr=1.0.
+uv run docling-system-eval-reranker default_v1 --baseline-harness-name default_v1 --source-type evaluation_queries --source-type feedback --source-type live_search_gaps --source-type cross_document_prose_regressions --source-type technical_report_claim_feedback --limit 25: evaluation_id=7b8da5b9-273a-4b4e-b456-da592e07fec4, total_shared_query_count=67, total_regressed_count=0.
+uv run docling-system-materialize-retrieval-learning --limit 50 --source-type feedback --source-type replay --source-type claim_support_replay_alert_corpus --source-type technical_report_claim_feedback --set-name court-grade-ready-seed --created-by milestone7: retrieval_training_run_id=007a45f0-59c0-4fe7-a9ba-9a7524241e13, judgment_set_id=829f7b96-fd99-4291-99f7-810e5d718c28, judgment_count=105, training_example_count=122.
+uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_count=0.
+```
+
 ### Milestone 8: Residual Weakness Closeout
 
 Status: planned.
@@ -722,9 +761,7 @@ Acceptance:
   Python cycle component.
 - Hygiene either passes strict budgets or fails only accepted, ratcheted debt
   with open owner-scoped cases and no touched-file growth.
-- Evaluation-data readiness reports `court_grade_ready=true`, or the handoff
-  explicitly states the remaining data-only blockers and why court-grade
-  readiness is not being claimed.
+- Evaluation-data readiness reports `court_grade_ready=true`.
 - `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md`, this plan,
   readiness docs, and affected runbooks match the implemented state.
 
