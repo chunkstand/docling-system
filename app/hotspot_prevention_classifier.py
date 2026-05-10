@@ -30,12 +30,36 @@ def classify_changed_file(
         return [deletion_finding(rule=rule, diff_stat=diff_stat)]
 
     exception = exception_for_additions(rule, changed_file.added_lines)
+    alias_hunk_ids = alias_only_hunk_ids(rule, changed_file)
     forwarding_body_hunk_ids = forwarding_only_body_hunk_ids(rule, changed_file)
     classified_lines: list[ClassifiedLine] = []
     forwarding_hunk_ids: set[int] = set()
+    reported_alias_hunks: set[int] = set()
     reported_forwarding_body_hunks: set[int] = set()
     findings: list[dict[str, Any]] = []
     for line in changed_file.added_lines:
+        if line.hunk_id in alias_hunk_ids:
+            if line.hunk_id not in reported_alias_hunks:
+                import_category = allowed_category_for_import(rule)
+                assert import_category is not None
+                classified = ClassifiedLine(
+                    line=line,
+                    status="allowed",
+                    category=import_category,
+                    message="facade import or alias maintenance is allowed",
+                    policy_rule=f"allow.{import_category}",
+                )
+                classified_lines.append(classified)
+                findings.append(
+                    finding_payload(
+                        classified=classified,
+                        rule=rule,
+                        diff_stat=diff_stat,
+                        exception=exception,
+                    )
+                )
+                reported_alias_hunks.add(line.hunk_id)
+            continue
         if line.hunk_id in forwarding_body_hunk_ids:
             forwarding_hunk_ids.add(line.hunk_id)
             if (
@@ -78,7 +102,7 @@ def classify_changed_file(
     significant = significant_unclassified_lines(
         changed_file.added_lines,
         classified_lines,
-        ignored_hunk_ids=forwarding_hunk_ids,
+        ignored_hunk_ids=forwarding_hunk_ids | alias_hunk_ids,
     )
     if len(significant) >= 8:
         classified = blocked(
@@ -107,6 +131,19 @@ def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) 
         hunk_id
         for hunk_id, hunk_lines in lines_by_hunk.items()
         if is_forwarding_hunk(tuple(hunk_lines))
+    }
+
+
+def alias_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
+    if allowed_category_for_import(rule) is None:
+        return set()
+    lines_by_hunk: dict[int, list[str]] = {}
+    for line in changed_file.added_lines:
+        lines_by_hunk.setdefault(line.hunk_id, []).append(line.text)
+    return {
+        hunk_id
+        for hunk_id, hunk_lines in lines_by_hunk.items()
+        if is_alias_only_hunk(tuple(hunk_lines))
     }
 
 
@@ -318,6 +355,35 @@ def is_import_or_alias(text: str) -> bool:
     if stripped.startswith("__all__"):
         return True
     return bool(re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*$", stripped))
+
+
+def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
+    significant = [
+        text.strip()
+        for text in lines
+        if not is_comment_or_blank(text)
+    ]
+    saw_alias = False
+    index = 0
+    while index < len(significant):
+        stripped = significant[index]
+        if is_import_or_alias(stripped):
+            saw_alias = True
+            index += 1
+            continue
+        if not re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*\($", stripped):
+            return False
+        if index + 2 >= len(significant):
+            return False
+        target = significant[index + 1]
+        closing = significant[index + 2]
+        if not re.match(r"[A-Za-z_][A-Za-z0-9_.]*,?$", target):
+            return False
+        if closing != ")":
+            return False
+        saw_alias = True
+        index += 3
+    return saw_alias
 
 
 def is_forwarding_hunk(lines: tuple[str, ...]) -> bool:

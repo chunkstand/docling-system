@@ -201,6 +201,27 @@ def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> Non
     assert deletion_report["findings"][0]["category"] == "deletion"
 
 
+def test_analyzer_allows_parenthesized_alias_forwarding_hunks() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence.py",
+            [
+                "_claim_derivation_payload = (",
+                "    report_exports.claim_derivation_payload",
+                ")",
+                "attach_artifact_to_evidence_export = (",
+                "    report_exports.attach_artifact_to_evidence_export",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "import_forwarder"
+
+
 def test_report_includes_numstat_line_counts() -> None:
     numstat = "2\t1\tapp/services/evidence.py\n"
 
