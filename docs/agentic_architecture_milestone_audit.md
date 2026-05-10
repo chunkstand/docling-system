@@ -44,8 +44,8 @@ runtime behavior.
   search history/replay/release-gate tests passed with `20 passed`, and
   DB-backed search replay/release roundtrips passed with `4 passed`.
 - Full DB-backed verification is current for `Architecture Plan 01` Milestone 6:
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed with
-  `1114 passed in 48.38s`.
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
+  `1114 passed in 49.01s` after the alignment closeout.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -113,8 +113,9 @@ runtime behavior.
   import-compatible for existing public and private helper names.
 - The Milestone 6 alignment check confirmed that `app/services/search.py`
   dropped from 3,429 to 3,250 probe-counted lines and its architecture-probe
-  hotspot score dropped from 89,154 to 84,500 without adding a new static
-  import-cycle component.
+  hotspot score dropped from 89,154 to 87,750 without adding a new static
+  import-cycle component. The focused compatibility test now covers every
+  forwarded query-feature helper alias exposed by `app.services.search`.
 
 ## Deferred Large Refactors
 

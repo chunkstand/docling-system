@@ -884,12 +884,16 @@ Completed result:
 - Reduced `app/services/search.py` from 3,429 lines to 3,250 lines. The new
   query-feature module is 199 lines.
 - Reduced the architecture-probe hotspot score for `app/services/search.py`
-  from 89,154 to 84,500.
+  from 89,154 to 87,750. The post-commit score includes the Milestone 6
+  closeout commit itself in the architecture-probe churn window.
 - The architecture-probe import-cycle count remains at the prior 3 known
   components. An intermediate package-level import form temporarily surfaced a
   false new search cycle in the static probe; the completed slice uses an exact
   `import app.services.search_query_features` import so no new cycle component
   remains.
+- 2026-05-10 alignment check expanded focused coverage so every forwarded
+  `app.services.search` query-feature helper alias resolves to the focused
+  `app.services.search_query_features` owner module.
 
 Verification:
 
@@ -905,8 +909,9 @@ Capability contracts: valid, facade_count=6, function_count=110.
 Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
 Architecture probe: app/services/search.py is 3,250 probe-counted lines and
-84,500 hotspot score; Python cycle components remain at 3.
+87,750 hotspot score; Python cycle components remain at 3.
 Full DB-backed suite: 1114 passed in 48.38s.
+Alignment closeout full DB-backed suite: 1114 passed in 49.01s.
 ```
 
 Milestone 7 is unblocked. The next architecture milestone is the second

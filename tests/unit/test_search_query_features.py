@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import app.services.search_query_features as query_features
 from app.services import search
 from app.services.search_query_features import (
     QUERY_INTENT_PROSE_BROAD,
     QUERY_INTENT_PROSE_LOOKUP,
     QUERY_INTENT_TABULAR,
-    QueryFeatureSet,
     build_query_feature_set,
     classify_query_intent,
     is_tabular_query,
@@ -14,13 +14,33 @@ from app.services.search_query_features import (
     token_coverage,
 )
 
+SEARCH_FACADE_FUNCTION_ALIASES = {
+    "is_tabular_query": "is_tabular_query",
+    "_is_tabular_query": "is_tabular_query",
+    "_classify_query_intent": "classify_query_intent",
+    "_looks_like_identifier_lookup": "looks_like_identifier_lookup",
+    "_normalize_text": "normalize_search_text",
+    "_salient_tokens": "salient_tokens",
+    "_salient_tokens_from_normalized": "salient_tokens_from_normalized",
+    "_phrase_tokens_from_normalized": "phrase_tokens_from_normalized",
+    "_query_phrases_from_normalized": "query_phrases_from_normalized",
+    "_build_query_feature_set": "build_query_feature_set",
+    "_coerce_query_feature_set": "coerce_query_feature_set",
+    "_token_coverage": "token_coverage",
+    "_strong_document_phrase_match": "strong_document_phrase_match",
+    "_metadata_query_tokens": "metadata_query_tokens",
+}
+
 
 def test_query_feature_module_preserves_search_facade_compatibility() -> None:
-    assert search.QueryFeatureSet is QueryFeatureSet
-    assert search.is_tabular_query is is_tabular_query
-    assert search._is_tabular_query is is_tabular_query
-    assert search._classify_query_intent is classify_query_intent
-    assert search._build_query_feature_set is build_query_feature_set
+    assert search.QueryFeatureSet is query_features.QueryFeatureSet
+    assert search.TABULAR_REFERENCE_PATTERN is query_features.TABULAR_REFERENCE_PATTERN
+    assert search.QUERY_INTENT_TABULAR == query_features.QUERY_INTENT_TABULAR
+    assert search.QUERY_INTENT_PROSE_LOOKUP == query_features.QUERY_INTENT_PROSE_LOOKUP
+    assert search.QUERY_INTENT_PROSE_BROAD == query_features.QUERY_INTENT_PROSE_BROAD
+
+    for facade_name, target_name in SEARCH_FACADE_FUNCTION_ALIASES.items():
+        assert getattr(search, facade_name) is getattr(query_features, target_name)
 
 
 def test_query_intent_helpers_keep_existing_classification_contract() -> None:

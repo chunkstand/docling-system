@@ -5,16 +5,17 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local `Architecture Plan 01` Milestone 6 search
-query-feature split closeout.
+query-feature split alignment closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 21
-commits after the Milestone 6 search split closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 22
+commits after the Milestone 6 search split alignment closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 6 closeout commit contains the first `app/services/search.py`
-core split and its verification/docs updates:
+The latest Milestone 6 closeout and alignment commits contain the first
+`app/services/search.py` core split, full query-helper facade compatibility
+coverage, and their verification/docs updates:
 
 - `app/services/search.py`
 - `app/services/search_query_features.py`
@@ -41,8 +42,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 21 local commits ahead of `origin/main` are:
+The 22 local commits ahead of `origin/main` are:
 
+- local Milestone 6 alignment closeout commit for forwarded query-helper
+  compatibility coverage and post-commit architecture-probe score alignment
 - local Milestone 6 closeout commit for the first `app/services/search.py`
   core split
 - local Milestone 5 alignment closeout commit for explicit `app.cli`
@@ -109,7 +112,8 @@ The architecture boundary model is clean, but hotspot debt remains real. The
 top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 `app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
 The latest architecture probe records `app/services/search.py` at 3,250 lines
-and 84,500 hotspot score after the first search-core split.
+and 87,750 hotspot score after the first search-core split and alignment
+commit.
 
 ## Runtime Gate Snapshot
 
@@ -499,8 +503,9 @@ Implemented result:
 - Reduced `app/services/search.py` from 3,429 lines to 3,250 lines; the new
   query-feature owner module is 199 lines.
 - Reduced the architecture-probe hotspot score for `app/services/search.py`
-  from 89,154 to 84,500 while keeping the general architecture-probe cycle
-  count at the prior 3 known components.
+  from 89,154 to 87,750 while keeping the general architecture-probe cycle
+  count at the prior 3 known components. The post-commit score includes the
+  Milestone 6 closeout commit itself in the architecture-probe churn window.
 
 Focused verification:
 
@@ -531,8 +536,19 @@ Capability contracts: valid, facade_count=6, function_count=110.
 Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
 Architecture probe: app/services/search.py is 3,250 probe-counted lines and
-84,500 hotspot score; Python cycle components remain at 3.
+87,750 hotspot score; Python cycle components remain at 3.
 Full DB-backed suite: 1114 passed in 48.38s.
+```
+
+Alignment closeout:
+
+```text
+Focused query-helper compatibility coverage now proves every forwarded
+app.services.search query-feature helper resolves to the focused
+app.services.search_query_features owner module.
+Architecture probe was rerun after the closeout commit and the current
+post-commit app/services/search.py hotspot score is 87,750.
+Alignment closeout full DB-backed suite: 1114 passed in 49.01s.
 ```
 
 ## Architecture Milestone Closeout Policy
