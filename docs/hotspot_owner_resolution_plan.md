@@ -63,8 +63,9 @@ uv run docling-system-hygiene-check
 
 uv run docling-system-improvement-case-summary
   case_count=25
-  open=24
-  measured=1
+  status_counts.open=24
+  status_counts.measured=1
+  measured_case_count=2
   oldest_open_case_id=IC-F2A8110185EB
 ```
 
@@ -293,8 +294,8 @@ Status update:
 - Reduced `app/db/models.py` from 5,800 lines to 5,537 lines, ratcheted the
   hygiene ceiling to match, and lowered the architecture-quality
   `max_hotspot_risk_score` to `681.91`.
-- The next routed implementation slice is Milestone 3: Claim Support Policy
-  Impacts Split.
+- The next routed implementation slice is Milestone 2: Evidence And Audit
+  Bundle Split Pack.
 
 ### Milestone 2: Evidence And Audit Bundle Split Pack
 
@@ -365,6 +366,7 @@ Status update:
 
 - Implemented and verified locally as the replay-alert fixture coverage owner
   split.
+- Closed by commit `afc324a` (`architecture: complete hotspot owner milestone 3 claim-support`).
 - Added `app/services/claim_support_replay_alert_promotions.py` and moved the
   replay-alert fixture coverage summary, candidate derivation, fixture
   promotion, and waiver-closure governance workflow behind the existing

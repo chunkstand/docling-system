@@ -80,8 +80,9 @@ chat history or scanning the whole repository.
   the compatibility facade for existing query helper imports.
 - The Milestone 8 improvement-intake ratchet remains intact, and Hotspot Owner
   Resolution Milestone 0 is now complete locally: the registry now has
-  `case_count=25`, `open=24`, `measured=1`, including explicit owner-bootstrap
-  cases `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
+  `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
+  `measured_case_count=2`, including explicit owner-bootstrap cases
+  `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
   `IC-0D58F1624037` for `app/services/retrieval_learning.py`. The milestone is
   closed by commit `33c7855`.
 - Hotspot Owner Resolution Milestone 1 is now complete locally: the
@@ -131,9 +132,11 @@ chat history or scanning the whole repository.
   active claim-support replay-alert corpus snapshot, and materialized
   retrieval-learning data.
 - Residual risk note: the improvement-case registry remains the durable map for
-  remaining architecture debt. Current summary: `case_count=25`, `open=24`,
-  `measured=1`, with open cases concentrated in architecture-governance
-  ownership rather than untracked or milestone-owned debt.
+  remaining architecture debt. Current summary:
+  `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
+  `measured_case_count=2`, with open cases concentrated in
+  architecture-governance ownership rather than untracked or milestone-owned
+  debt.
 - Current routed follow-up: the next architecture work should use
   `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
   claim-support replay-alert owner split is Milestone 4, Retrieval Learning

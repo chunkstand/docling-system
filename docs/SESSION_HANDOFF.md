@@ -1368,9 +1368,18 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   `app/services/retrieval_learning.py`; `config/hygiene_policy.yaml` now routes
   both surfaces through those case IDs; and
   `uv run docling-system-improvement-case-summary` reports `case_count=25`,
-  `open=24`, `measured=1`.
+  `status_counts.open=24`, `status_counts.measured=1`, and
+  `measured_case_count=2`.
 - Milestone 1 is now the document-artifacts model-domain split. It reduces
   `app/db/models.py` to 5,537 lines and keeps the moved classes importable from
   `app.db.models` while tightening the metadata contract.
-- Next routed implementation slice: Milestone 3, Claim Support Policy Impacts
-  Split.
+- Milestone 2 is now the evidence and audit bundle split pack. It moved the
+  technical-report evidence trace concern into
+  `app/services/evidence_manifest_traces.py` and the replay-alert corpus
+  lineage concern into `app/services/audit_bundle_replay_alert_corpus.py`
+  while preserving both public facades.
+- Milestone 3 is now the claim-support replay-alert fixture coverage split. It
+  moved the replay-alert fixture coverage workflow into
+  `app/services/claim_support_replay_alert_promotions.py` and reduced
+  `app/services/claim_support_policy_impacts.py` to 2,011 lines.
+- Next routed implementation slice: Milestone 4, Retrieval Learning Split.
