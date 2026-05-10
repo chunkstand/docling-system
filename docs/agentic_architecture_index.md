@@ -180,6 +180,10 @@ chat history or scanning the whole repository.
   page-family logic now live under `app/ui/modules/`, and
   `tests/unit/test_ui_static_assets.py` covers module asset inclusion and
   serving alongside `tests/unit/test_ui.py`.
+- High Value Technical Paydown Milestone 7 is now verified locally: the
+  paydown closeout docs, improvement-case deployment refs, readiness metrics,
+  agent-trace review, and full DB-backed suite are aligned to live artifacts
+  instead of the pre-closeout Milestone 6 snapshot.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -207,13 +211,14 @@ chat history or scanning the whole repository.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
   `case_count=26`, `status_counts.open=25`, `status_counts.measured=1`, and
-  `measured_case_count=13`, with open cases concentrated in
+  `measured_case_count=14`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up: the next architecture work should use
-  `docs/high_value_technical_paydown_milestone_plan.md`; Milestones 1-5 are
-  committed locally, Milestone 6 is verified locally, and the next routed
-  implementation slice is Milestone 7 closeout and reroute.
+  `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
+  locally through Milestone 7, and the next routed implementation slice has
+  returned to `IC-F2A8110185EB` / `app/db/models.py` with the retrieval replay
+  and release governance model-domain candidate.
 
 ## Executable Architecture Contracts
 

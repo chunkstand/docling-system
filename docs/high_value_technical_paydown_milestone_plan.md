@@ -1,8 +1,9 @@
 # High Value Technical Paydown Milestone Plan
 
 Date: 2026-05-10 local / 2026-05-10 UTC
-Status: active locally with Milestones 1-5 committed and Milestone 6 verified;
-next implementation slice is Milestone 7 closeout and reroute
+Status: complete locally through Milestone 7 closeout and reroute; next
+implementation slice returns to `IC-F2A8110185EB` /
+`app/db/models.py` retrieval replay and release governance
 Owner context: new standalone paydown plan written after the Hotspot Owner
 Resolution sequence closed locally through Milestone 6. This plan does not add
 new milestones to the prior hotspot-owner plan; it starts a fresh,
@@ -58,8 +59,20 @@ uv run docling-system-improvement-case-summary
   case_count=26
   status_counts.open=25
   status_counts.measured=1
-  measured_case_count=13
+  measured_case_count=14
   oldest_open_case_id=IC-F2A8110185EB
+
+uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json
+  regression_ready=true
+  court_grade_ready=true
+  passed_gate_count=11
+  failed_gate_count=0
+
+uv run docling-system-agent-trace-review --limit 5 --skip-hygiene
+  observation_count=0
+
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+  1321 passed in 52.08s
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
   top hotspot app/db/models.py score=369891
@@ -130,8 +143,13 @@ Current routing notes:
   `IC-1B643BA0AD90`; `app/ui/app.js` is reduced to a 107-line bootstrap while
   shared runtime and page-family logic now live under `app/ui/modules/`, and
   focused UI asset coverage now lives in `tests/unit/test_ui_static_assets.py`.
-- the active follow-up after the verified Milestone 6 closeout is Milestone 7:
-  closeout and reroute.
+- High Value Technical Paydown Milestone 7 is now verified locally: closeout
+  docs, improvement-case deployment refs, and live verification metrics are
+  aligned to the committed Milestones 1-6 results.
+- the active follow-up after the Milestone 7 closeout is the next routed owner
+  case `IC-F2A8110185EB` / `app/db/models.py`, starting with the retrieval
+  replay and release governance slice documented in
+  `docs/data_model_boundary_plan.md`.
 
 ## Goal
 
@@ -612,6 +630,25 @@ Acceptance:
 - the selected debt surfaces are either reduced, explicitly accepted, or routed
   to the next plan with owner-case precision
 - no claimed closeout depends on stale metrics
+
+Status update:
+
+- verified locally on 2026-05-10
+- refreshed the plan, handoff, architecture index, improvement loop, and
+  model-boundary routing docs against live verification outputs rather than the
+  prior Milestone 6 checkpoint
+- updated the completed Milestone 5 and 6 improvement cases so
+  `IC-40CA7C1FFA84`, `IC-934588120F94`, and `IC-1B643BA0AD90` now carry
+  deployment refs and measurement payloads
+- reran the full DB-backed verification stack for closeout:
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  (`1321 passed in 52.08s`)
+- reran evaluation-data readiness and agent-trace review and confirmed:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`,
+  and `observation_count=0`
+- the next routed implementation slice now returns to the top remaining owner
+  case `IC-F2A8110185EB` / `app/db/models.py`, beginning with the retrieval
+  replay and release governance model-domain candidate
 
 ## Required Implementation Artifacts
 

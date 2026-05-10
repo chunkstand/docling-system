@@ -5,10 +5,10 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: committed local High Value Technical Paydown
-Milestone 5 test hotspot split pack B; High Value Technical Paydown Milestone 6
-is now verified locally.
-Active local follow-up: High Value Technical Paydown Milestone 7 closeout and
-reroute.
+Milestone 5 test hotspot split pack B; High Value Technical Paydown Milestones
+6 and 7 are now verified locally.
+Active local follow-up owner case: `IC-F2A8110185EB` /
+`app/db/models.py` retrieval replay and release governance continuation.
 
 ## Current Position
 
@@ -28,7 +28,7 @@ clearly that this JavaScript hotspot is governed through the improvement-case
 registry plus architecture-probe verification rather than the current
 Python-only hygiene ratchet. The registry summary is now `case_count=26`,
 `status_counts.open=25`, `status_counts.measured=1`, and
-`measured_case_count=13`. High Value Technical Paydown Milestone 1 is now also
+`measured_case_count=14`. High Value Technical Paydown Milestone 1 is now also
 committed locally: the retrieval-interaction ledger lives in
 `app/db/model_domains/retrieval_interactions.py`, the shared metadata harness
 now protects the retrieval-interaction table/index/vector/computed-column
@@ -61,9 +61,64 @@ Paydown Milestone 6: the UI monolith split for `app/ui/app.js` under
 bootstrap while the shipped operator UI now loads shared runtime and
 page-family logic from `app/ui/modules/`. `tests/unit/test_ui_static_assets.py`
 now covers module asset inclusion and serving alongside `tests/unit/test_ui.py`.
-The next routed implementation slice is High Value Technical Paydown Milestone 7
-closeout and reroute. The latest full DB-backed suite remains
-`1319 passed in 49.94s` from the prior milestone closeout window.
+High Value Technical Paydown Milestone 7 is now also verified locally: the
+closeout docs, improvement-case deployment refs, readiness report, agent-trace
+review, and full DB-backed suite are aligned to live results. The latest full
+DB-backed suite is `1321 passed in 52.08s`, evaluation-data readiness remains
+`regression_ready=true` and `court_grade_ready=true` with
+`failed_gate_count=0`, and `docling-system-agent-trace-review --limit 5 --skip-hygiene`
+reported `observation_count=0`. The next routed implementation slice returns to
+`IC-F2A8110185EB` / `app/db/models.py`, starting with the retrieval replay and
+release governance domain candidate documented in
+`docs/data_model_boundary_plan.md`.
+
+## High Value Technical Paydown Milestone 7 Progress
+
+Milestone 7 is the closeout and reroute pass for the High Value Technical
+Paydown plan. It proves the completed Milestones 1-6 still align with live
+repo metrics and records the next highest-value residual debt explicitly.
+
+Results:
+
+- refreshed `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/improvement_loop.md`, `docs/agentic_architecture_index.md`,
+  `docs/data_model_boundary_plan.md`, and this handoff against live closeout
+  verification outputs
+- updated `config/improvement_cases.yaml` so completed Milestone 5 and 6 cases
+  `IC-40CA7C1FFA84`, `IC-934588120F94`, and `IC-1B643BA0AD90` now carry
+  deployment refs and measurement payloads
+- reran the full DB-backed suite and refreshed the readiness and trace-review
+  artifacts instead of carrying the pre-closeout Milestone 6 metrics forward
+- closed the routing gap by returning the next implementation slice to the top
+  remaining owner case `IC-F2A8110185EB` / `app/db/models.py`, starting with
+  the retrieval replay and release governance model-domain candidate
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `python /Users/chunkstand/.codex/skills/milestone-plan-writer/scripts/lint_milestone_plan.py --strict docs/high_value_technical_paydown_milestone_plan.md`
+
+Verified results:
+
+- full DB-backed suite: `1321 passed in 52.08s`
+- evaluation-data readiness: `regression_ready=true`,
+  `court_grade_ready=true`, `passed_gate_count=11`, `failed_gate_count=0`
+- agent-trace review: `observation_count=0`
+- architecture quality summary: `agent_legibility_average_score=90.0`,
+  `broad_facade_count=2`, `hotspot_count=10`,
+  `max_hotspot_risk_score=680.78`
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`

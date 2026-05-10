@@ -243,10 +243,17 @@ Deferred retrieval follow-ons after the replay/release slice proves clean:
   `RetrievalLearningCandidateEvaluation`, and `RetrievalRerankerArtifact`
 
 Current routed follow-up after the verified High Value Technical Paydown
-Milestones 1-3 closeout:
+Milestone 7 closeout:
 
-- High Value Technical Paydown Milestone 4: Test Hotspot Split Pack A under
-  `IC-FD18EE2D3309`, `IC-03D7EFA03213`, and `IC-23F2C79C8AA7`
+- next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
+- next model-domain candidate: `retrieval replay and release governance`
+- target ORM family:
+  `SearchReplayRun`,
+  `SearchReplayQuery`,
+  `SearchHarnessEvaluation`,
+  `SearchHarnessEvaluationSource`,
+  `SearchHarnessRelease`, and
+  `SearchHarnessReleaseReadinessAssessment`
 
 ## Per-Domain Acceptance Gate
 

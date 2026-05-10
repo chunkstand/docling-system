@@ -15,8 +15,7 @@ codebase failures that are not necessarily retrieval failures.
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
 Current registry state from the 2026-05-10 local / 2026-05-10 UTC High Value
-Technical Paydown Milestones 1-5 committed closeout plus the verified
-Milestone 6 UI split:
+Technical Paydown closeout through Milestone 7:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
   with one measured hygiene-gate case and 25 open architecture-governance
@@ -36,8 +35,9 @@ Milestone 6 UI split:
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
   the committed local retrieval-interaction split narrowed it to a 5,067-line
   compatibility facade with a dedicated owner module at
-  `app/db/model_domains/retrieval_interactions.py`. The next routed owner case
-  had been `IC-050E60059A34` for `app/services/evidence.py`.
+  `app/db/model_domains/retrieval_interactions.py`. After the Milestone 7
+  reroute, the next implementation slice returns here for the retrieval replay
+  and release governance domain continuation.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
   `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
@@ -60,8 +60,8 @@ Milestone 6 UI split:
   claim-support scenario-family files, including the aligned replay-alert
   change-impact split into activation, prevalidation, promotion, and
   governance files.
-- The next routed implementation slice is now High Value Technical Paydown
-  Milestone 7 closeout and reroute.
+- The next routed implementation slice is now the `IC-F2A8110185EB` /
+  `app/db/models.py` retrieval replay and release governance continuation.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.
