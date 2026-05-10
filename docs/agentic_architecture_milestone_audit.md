@@ -47,10 +47,10 @@ runtime behavior.
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
   `1114 passed in 49.01s` after the alignment closeout.
 - Evidence verification is current for `Architecture Plan 01` Milestone 7:
-  focused evidence/technical-report tests passed with `39 passed`, the
+  focused evidence/technical-report tests passed with `40 passed`, the
   DB-backed technical-report harness roundtrip passed with `1 passed`, and
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
-  `1115 passed in 54.05s`.
+  `1116 passed in 54.37s`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -130,7 +130,9 @@ runtime behavior.
 - The Milestone 7 alignment check confirmed that `app/services/evidence.py`
   dropped from 8,608 to 8,261 probe-counted lines and its post-commit
   architecture-probe hotspot score dropped from 387,360 to 380,006 without
-  adding a new static import-cycle component.
+  adding a new static import-cycle component. Focused compatibility coverage
+  now proves every moved PROV export identity alias, constant, and
+  settings-aware wrapper exposed by `app.services.evidence`.
 
 ## Deferred Large Refactors
 

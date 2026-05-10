@@ -14,7 +14,7 @@ chat history or scanning the whole repository.
 ## Milestone Status
 
 - Completed through the local `Architecture Plan 01` Milestone 7
-  closeout:
+  alignment closeout:
   baseline quality report, capability subcontracts, agent action hardening,
   trace-first review, repository architecture map, architecture
   garbage-collection candidates, data-model boundary plan, and
@@ -35,7 +35,9 @@ chat history or scanning the whole repository.
 - The second `app/services/evidence.py` split is complete: technical-report
   PROV export relation helpers, immutable freeze payloads, hash-chain receipts,
   signing, and receipt integrity now live in
-  `app/services/evidence_provenance.py`.
+  `app/services/evidence_provenance.py`. The alignment closeout proves the
+  compatibility facade covers every moved identity alias, constant, and
+  settings-aware wrapper.
 - The first `app/services/agent_task_actions.py` registry split is complete:
   search-harness action contract metadata and helper logic now live in
   `app/services/agent_actions/search_harness.py` while
@@ -91,6 +93,7 @@ chat history or scanning the whole repository.
 - Improvement intake: `app/services/improvement_case_intake.py`
 - Data model domains: `app/db/model_domains/`
 - Search evidence packages: `app/services/evidence_search_*.py`
+- Evidence provenance: `app/services/evidence_provenance.py`
 - Search-harness action family: `app/services/agent_actions/search_harness.py`
 - CLI command groups: `app/cli.py` and `app/cli_commands/`
 - Search query features: `app/services/search_query_features.py`

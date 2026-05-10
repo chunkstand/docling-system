@@ -5,16 +5,17 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local `Architecture Plan 01` Milestone 7 evidence
-PROV export split closeout.
+PROV export split alignment closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 23
-commits after the Milestone 7 evidence PROV export split closeout; `origin/main` is `6933eca`
-(`Add Docker pg_dump fallback for reset`).
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 24
+commits after the Milestone 7 evidence PROV export split alignment closeout;
+`origin/main` is `6933eca` (`Add Docker pg_dump fallback for reset`).
 
-The latest architecture closeout commits contain the first `app/services/search.py`
-core split and the second `app/services/evidence.py` split:
+The latest architecture closeout commits contain the Milestone 7 alignment
+check, the first `app/services/search.py` core split, and the second
+`app/services/evidence.py` split:
 
 - `app/services/search.py`
 - `app/services/search_query_features.py`
@@ -44,8 +45,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 23 local commits ahead of `origin/main` are:
+The 24 local commits ahead of `origin/main` are:
 
+- local Milestone 7 alignment closeout commit for complete PROV export facade
+  alias, constant, and settings-aware wrapper coverage
 - local Milestone 7 closeout commit for the evidence PROV export
   receipt/integrity owner split
 - local Milestone 6 alignment closeout commit for forwarded query-helper
@@ -576,6 +579,11 @@ Implemented result:
   behavior.
 - Added focused facade compatibility coverage in
   `tests/unit/test_evidence_provenance.py`.
+- Closed the Milestone 7 alignment gap by proving every moved PROV export
+  identity alias and constant resolves to `app/services/evidence_provenance.py`,
+  and by proving the `app.services.evidence` settings-aware wrappers produce
+  the same receipt, frozen payload, signature, and integrity output as the
+  owner module.
 - Reduced `app/services/evidence.py` from 8,608 lines to 8,261 lines; the new
   PROV export owner module is 467 lines.
 - Reduced the post-commit architecture-probe hotspot score for
@@ -602,8 +610,8 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
 Results:
 
 ```text
-Evidence provenance tests: 12 passed.
-Focused evidence/technical-report tests: 39 passed.
+Evidence provenance tests: 13 passed.
+Focused evidence/technical-report tests: 40 passed.
 DB-backed technical-report harness roundtrip: 1 passed.
 Ruff: passed across app and tests.
 Architecture inspection: valid, violation_count=0.
@@ -612,7 +620,7 @@ Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
 Architecture probe: app/services/evidence.py is 8,261 probe-counted lines and
 380,006 post-commit hotspot score; Python cycle components remain at 3.
-Full DB-backed suite: 1115 passed in 54.05s.
+Full DB-backed suite: 1116 passed in 54.37s.
 Hygiene: no ruff, improvement-case, or architecture findings; inherited
 file/helper budget debt remains. app/services/evidence.py is now 8,261 lines
 with 107 private helpers, still above the strict hygiene budget.
@@ -640,7 +648,8 @@ The revised closeout rule is:
   milestone
 
 Milestones 1, 2, 3, 4, 5, 6, and 7 satisfy the revised local commit closeout
-rule. Milestone 8 may begin from this committed checkpoint.
+rule, including the Milestone 7 alignment closeout. Milestone 8 may begin from
+this committed checkpoint.
 
 ## Active Weak Points
 
@@ -696,7 +705,8 @@ improvement-case CLI commands moved behind the `app.cli` compatibility facade.
 Milestone 6 is complete: query-feature and query-intent helpers moved behind
 the `app.services.search` compatibility facade. Milestone 7 is complete: PROV
 export receipt and integrity helpers moved behind the `app.services.evidence`
-compatibility facade.
+compatibility facade with complete moved alias, constant, and settings-aware
+wrapper coverage.
 
 The next architecture milestone is `Architecture Plan 01` Milestone 8:
 improvement intake ratchet for current architecture-quality hotspot findings.

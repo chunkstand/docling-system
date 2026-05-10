@@ -962,7 +962,9 @@ Completed result:
 - Preserved technical-report evidence manifest, evidence trace, PROV export
   artifact kind/path, semantic-governance, and audit-bundle behavior.
 - Added focused compatibility coverage in
-  `tests/unit/test_evidence_provenance.py`.
+  `tests/unit/test_evidence_provenance.py`, including every moved PROV export
+  identity alias, constant, and settings-aware wrapper on the compatibility
+  facade.
 - Reduced `app/services/evidence.py` from 8,608 lines to 8,261 lines. The new
   PROV export owner module is 467 lines.
 - Reduced the post-commit architecture-probe hotspot score for
@@ -973,8 +975,8 @@ Completed result:
 Verification:
 
 ```text
-Evidence provenance tests: 12 passed.
-Focused evidence/technical-report tests: 39 passed.
+Evidence provenance tests: 13 passed.
+Focused evidence/technical-report tests: 40 passed.
 DB-backed technical-report harness roundtrip: 1 passed.
 Ruff: passed across app and tests.
 Architecture inspection: valid, violation_count=0.
@@ -983,7 +985,7 @@ Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
 Architecture probe: app/services/evidence.py is 8,261 probe-counted lines and
 380,006 post-commit hotspot score; Python cycle components remain at 3.
-Full DB-backed suite: 1115 passed in 54.05s.
+Full DB-backed suite: 1116 passed in 54.37s.
 Hygiene: no ruff, improvement-case, or architecture findings; inherited
 file/helper budget debt remains.
 ```

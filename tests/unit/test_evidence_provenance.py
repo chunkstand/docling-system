@@ -14,37 +14,127 @@ from app.services.evidence import (
     _frozen_prov_export_payload,
     _latest_passed_release_bindings_by_request,
     _prov_export_integrity_payload,
+    _prov_export_receipt,
     _prov_export_receipt_integrity,
+    _prov_export_receipt_signature,
     _release_readiness_db_gate_payload,
     _technical_report_claim_feedback_row_integrity,
     _technical_report_release_readiness_db_gate_row_integrity,
     payload_sha256,
 )
 
+EVIDENCE_PROVENANCE_FACADE_ALIASES = {
+    "_prov_identifier": "prov_identifier",
+    "_prov_entity": "add_prov_entity",
+    "_prov_activity": "add_prov_activity",
+    "_prov_relation": "add_prov_relation",
+    "_prov_missing_relation_references": "missing_relation_references",
+    "_prov_export_integrity_payload": "prov_export_integrity_payload",
+    "_frozen_export_sha256": "frozen_export_sha256",
+    "_frozen_export_receipt": "frozen_export_receipt",
+    "_receipt_hash_basis": "receipt_hash_basis",
+    "_receipt_hash_chain_sha256": "receipt_hash_chain_sha256",
+}
+EVIDENCE_PROVENANCE_FACADE_CONSTANTS = {
+    "TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND": (
+        "TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND"
+    ),
+    "TECHNICAL_REPORT_PROV_EXPORT_FILENAME": "TECHNICAL_REPORT_PROV_EXPORT_FILENAME",
+    "TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA": (
+        "TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA"
+    ),
+    "PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM": (
+        "PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM"
+    ),
+    "_PROV_INTEGRITY_EXCLUDED_FIELDS": "PROV_INTEGRITY_EXCLUDED_FIELDS",
+}
+EVIDENCE_PROVENANCE_COMPAT_ALIAS_NAMES = (
+    "PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM",
+    "TECHNICAL_REPORT_PROV_EXPORT_RECEIPT_SCHEMA",
+    "_PROV_INTEGRITY_EXCLUDED_FIELDS",
+    "_prov_missing_relation_references",
+    "_receipt_hash_basis",
+    "_receipt_hash_chain_sha256",
+)
+
 
 def test_evidence_facade_preserves_provenance_owner_helpers() -> None:
-    assert (
-        evidence.TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
-        == evidence_provenance.TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+    for facade_name, owner_name in EVIDENCE_PROVENANCE_FACADE_ALIASES.items():
+        assert getattr(evidence, facade_name) is getattr(evidence_provenance, owner_name)
+
+    for facade_name, owner_name in EVIDENCE_PROVENANCE_FACADE_CONSTANTS.items():
+        assert getattr(evidence, facade_name) == getattr(evidence_provenance, owner_name)
+
+    assert evidence._EVIDENCE_PROVENANCE_COMPAT_ALIASES == tuple(
+        getattr(evidence, name) for name in EVIDENCE_PROVENANCE_COMPAT_ALIAS_NAMES
     )
-    assert (
-        evidence.TECHNICAL_REPORT_PROV_EXPORT_FILENAME
-        == evidence_provenance.TECHNICAL_REPORT_PROV_EXPORT_FILENAME
+
+
+def test_evidence_facade_wraps_settings_aware_provenance_helpers(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.evidence.get_settings",
+        lambda: SimpleNamespace(
+            audit_bundle_signing_key="receipt-secret",
+            audit_bundle_signing_key_id="receipt-key",
+        ),
     )
-    assert evidence._prov_identifier is evidence_provenance.prov_identifier
-    assert evidence._prov_entity is evidence_provenance.add_prov_entity
-    assert evidence._prov_activity is evidence_provenance.add_prov_activity
-    assert evidence._prov_relation is evidence_provenance.add_prov_relation
-    assert (
-        evidence._prov_missing_relation_references
-        is evidence_provenance.missing_relation_references
+    prov_export = _base_prov_export()
+    prov_export["audit"]["manifest_sha256"] = "manifest-sha"
+    prov_export["audit"]["trace_sha256"] = "trace-sha"
+    prov_export["prov_integrity"] = _prov_export_integrity_payload(prov_export)
+    artifact_id = uuid4()
+    task_id = uuid4()
+    created_at = datetime(2026, 4, 27, tzinfo=UTC)
+    storage_path = "storage/agent_tasks/task/technical_report_prov_export.json"
+    export_payload_sha256 = payload_sha256(prov_export)
+    prov_hash_basis_sha256 = prov_export["prov_integrity"]["prov_sha256"]
+
+    assert _prov_export_receipt_signature(
+        "receipt-sha"
+    ) == evidence_provenance.prov_export_receipt_signature(
+        "receipt-sha",
+        settings_provider=evidence.get_settings,
     )
-    assert (
-        evidence._prov_export_integrity_payload
-        is evidence_provenance.prov_export_integrity_payload
+    assert _prov_export_receipt(
+        prov_export,
+        artifact_id=artifact_id,
+        task_id=task_id,
+        created_at=created_at,
+        storage_path=storage_path,
+        export_payload_sha256=export_payload_sha256,
+        prov_hash_basis_sha256=prov_hash_basis_sha256,
+    ) == evidence_provenance.prov_export_receipt(
+        prov_export,
+        artifact_id=artifact_id,
+        task_id=task_id,
+        created_at=created_at,
+        storage_path=storage_path,
+        export_payload_sha256=export_payload_sha256,
+        prov_hash_basis_sha256=prov_hash_basis_sha256,
+        settings_provider=evidence.get_settings,
     )
-    assert evidence._frozen_export_sha256 is evidence_provenance.frozen_export_sha256
-    assert evidence._frozen_export_receipt is evidence_provenance.frozen_export_receipt
+
+    frozen_payload = _frozen_prov_export_payload(
+        prov_export,
+        artifact_id=artifact_id,
+        task_id=task_id,
+        created_at=created_at,
+        storage_path=storage_path,
+    )
+    assert frozen_payload == evidence_provenance.frozen_prov_export_payload(
+        prov_export,
+        artifact_id=artifact_id,
+        task_id=task_id,
+        created_at=created_at,
+        storage_path=storage_path,
+        settings_provider=evidence.get_settings,
+    )
+    assert _prov_export_receipt_integrity(
+        frozen_payload
+    ) == evidence_provenance.prov_export_receipt_integrity(
+        frozen_payload,
+        settings_provider=evidence.get_settings,
+    )
 
 
 def _base_prov_export() -> dict:
