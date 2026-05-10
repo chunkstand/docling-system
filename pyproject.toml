@@ -122,6 +122,7 @@ docling-system-architecture-measure-summary = "app.architecture_measurement_cli:
 docling-system-architecture-governance-report = "app.architecture_measurement_cli:run_report"
 docling-system-architecture-quality-report = "app.architecture_quality:run"
 docling-system-hygiene-check = "app.hygiene:run"
+docling-system-hotspot-prevention-check = "app.hotspot_prevention:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]

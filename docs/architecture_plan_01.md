@@ -1085,9 +1085,9 @@ Hygiene: no ruff, improvement-case, or architecture findings; strict
 file/helper budget debt remains.
 ```
 
-`Architecture Plan 01` Milestones 0-8 are complete. The next architecture
-milestone should implement the hotspot-prevention gate in
-`docs/hotspot_prevention_gate_milestone_plan.md`.
+`Architecture Plan 01` Milestones 0-8 are complete. The residual weakness
+sequence now owns follow-on work, and its first milestone implemented the
+hotspot-prevention gate in `docs/hotspot_prevention_gate_milestone_plan.md`.
 
 ## Cross-Milestone Verification Contract
 
@@ -1099,6 +1099,7 @@ uv run ruff check app tests
 uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
 uv run docling-system-architecture-quality-report --summary
+uv run docling-system-hotspot-prevention-check --strict
 ```
 
 Every milestone must also record the focused test commands that prove the
@@ -1170,8 +1171,8 @@ Use this order unless live evidence changes:
 8. Split PROV export receipt/integrity helpers out of `app/services/evidence.py`
    (complete).
 9. Import or dedupe architecture-quality hotspot improvement cases (complete).
-10. Implement the hotspot-prevention gate from
-    `docs/hotspot_prevention_gate_milestone_plan.md`.
+10. Hotspot-prevention gate from
+    `docs/hotspot_prevention_gate_milestone_plan.md` (complete).
 11. Continue residual weakness closeout through
     `docs/residual_weakness_resolution_milestone_plan.md`.
 

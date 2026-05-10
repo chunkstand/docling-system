@@ -1,7 +1,7 @@
 # Hotspot Prevention Gate Milestone Plan
 
 Date: 2026-05-10
-Status: planned
+Status: implemented
 
 Purpose: stop future Codex and human changes from adding new implementation
 weight to known hotspot files. Existing hotspot-reduction milestones split
@@ -65,6 +65,60 @@ forwarding aliases required by a split.
   gate exists.
 - `docs/SESSION_HANDOFF.md` and `docs/architecture_plan_01.md`: closeout status
   and next-routing updates.
+
+## Owner Surfaces And Placement
+
+Allowed owner surfaces:
+
+- Policy: `config/hotspot_prevention.yaml`.
+- Analyzer and CLI: `app/hotspot_prevention.py`.
+- Entrypoint: `pyproject.toml` under `[project.scripts]`.
+- Tests: `tests/unit/test_hotspot_prevention.py`; do not add this new gate's
+  tests to the broad `tests/unit/test_cli.py` hotspot.
+- Docs and handoff: this plan, `docs/residual_weakness_resolution_milestone_plan.md`,
+  `docs/architecture_boundaries.md`, `docs/agentic_architecture_index.md`,
+  `docs/architecture_plan_01.md`, `docs/SESSION_HANDOFF.md`, and affected
+  operator-current-state docs.
+
+Placement rule: keep the gate as a standalone architecture-governance command
+for this milestone. Do not embed it in `app/cli.py` or the hygiene command
+until Milestone 2 can separate inherited hygiene debt from new hotspot growth.
+
+## Weak-Point Prevention Contract
+
+Weak point forecast: the gate could become noisy, stale, or too permissive,
+which would either block legitimate facade reductions or allow future Codex
+sessions to add implementation to the old broad files.
+
+Owner surface: `config/hotspot_prevention.yaml` owns policy and exceptions;
+`app/hotspot_prevention.py` owns deterministic diff parsing and classification;
+`tests/unit/test_hotspot_prevention.py` owns negative coverage.
+
+Prevention gate: `uv run pytest -q tests/unit/test_hotspot_prevention.py` must
+cover blocked additions, allowed import/forwarding reductions, deletion-only
+reductions, strict CLI exit codes, and exception validation.
+
+Fail threshold: any blocked fixture that returns zero findings, any current
+clean diff that fails strict mode, or any exception without owner/milestone or
+case/follow-up fields fails the milestone.
+
+Controlled violation: fixture diffs add implementation to each known hotspot
+and must fail in strict mode; fixture diffs that move logic out and leave a
+compatibility facade must pass.
+
+Freshness check: regenerate or rerun `uv run docling-system-architecture-quality-report --summary`
+and `uv run docling-system-hotspot-prevention-check --strict` during closeout
+so the policy still matches the current hotspot set and the generated quality
+signal has not drifted.
+
+Future-Codex misuse scenario: a future session adds "just one helper" to
+`app/services/evidence.py`, `app/cli.py`, or `app/services/search.py` because
+the compatibility facade is already imported. The gate prevents that wrong
+pattern by failing before commit and printing the preferred owner module.
+
+Atomic commit rule: stage only the milestone slice, update the handoff and
+status docs before committing, and close with one local commit after verification
+passes.
 
 ## Policy Shape
 
@@ -326,6 +380,42 @@ The milestone is complete only when:
   milestones.
 - The change is locally committed as its own milestone slice.
 
+## Completed Result
+
+Completed on 2026-05-10 as Residual Weakness Plan Milestone 1.
+
+Implemented artifacts:
+
+- `config/hotspot_prevention.yaml`
+- `app/hotspot_prevention.py`
+- `docling-system-hotspot-prevention-check`
+- `tests/unit/test_hotspot_prevention.py`
+
+The gate validates a tracked hotspot policy, parses Git unified diffs,
+classifies additions to known hotspot files, reports preferred owner modules,
+allows deletion-only reductions and facade forwarding, requires owned
+exceptions, and returns non-zero in `--strict` mode when blocked hotspot growth
+is found.
+
+Closeout verification:
+
+```bash
+python /Users/chunkstand/.codex/skills/milestone-plan-writer/scripts/lint_milestone_plan.py docs/residual_weakness_resolution_milestone_plan.md --strict
+uv run docling-system-improvement-case-validate
+uv run pytest -q tests/unit/test_hotspot_prevention.py
+uv run pytest -q tests/unit/test_architecture_quality.py tests/unit/test_hygiene.py
+uv run ruff check app tests
+uv run docling-system-hotspot-prevention-check --strict
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+git diff --check
+```
+
+The gate remains separate from `docling-system-hygiene-check` for this first
+implemented milestone so inherited file-budget debt does not obscure new
+diff-time hotspot growth. Milestone 2 owns hygiene ratchet integration.
+
 ## Stop Conditions
 
 - The gate cannot distinguish deletion/move reductions from new implementation
@@ -341,6 +431,6 @@ The milestone is complete only when:
 
 ## Recommended Next Action
 
-Implement this gate before starting more hotspot split work. The improvement
-intake ratchet remains useful, but intake records debt after it exists; the
-hotspot-prevention gate should block new centralization at diff time.
+Proceed to the Residual Weakness Plan Milestone 2 hygiene budget ratchet. The
+improvement intake ratchet remains useful, but intake records debt after it
+exists; the hotspot-prevention gate now blocks new centralization at diff time.

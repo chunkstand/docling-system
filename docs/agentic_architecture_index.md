@@ -5,9 +5,9 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: planned follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestone 1 is complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
-- `docs/hotspot_prevention_gate_milestone_plan.md`: planned gate to block new implementation growth in known hotspot files before more split work.
+- `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
 - `docs/agentic_architecture_milestone_audit.md`: latest implementation audit and gap closures.
 - `docs/data_model_boundary_plan.md`: model-domain split plan and DB verification gates.
@@ -61,11 +61,11 @@ chat history or scanning the whole repository.
 - The Milestone 8 improvement-intake ratchet is complete: 22
   architecture-quality candidates are imported as open improvement cases with
   structured owner surfaces, verification commands, and stop conditions.
-- Governed follow-up: the residual weakness sequence is now planned in
+- Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
-  implementation milestone is the hotspot-prevention gate in
-  `docs/hotspot_prevention_gate_milestone_plan.md`, followed by strict hygiene
-  ratchets before further hotspot split work.
+  implementation milestone, the hotspot-prevention gate in
+  `docs/hotspot_prevention_gate_milestone_plan.md`, is complete. The next
+  milestone is the strict hygiene ratchet before further hotspot split work.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   `uv run docling-system-evaluation-data-readiness` currently reaches Postgres
@@ -85,7 +85,7 @@ chat history or scanning the whole repository.
 - `uv run docling-system-architecture-inspect`
 - `uv run docling-system-capability-contracts`
 - `uv run docling-system-architecture-quality-report`
-- planned: `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-agent-task-action-index`
 - `uv run docling-system-agent-trace-review`
 - `uv run docling-system-improvement-case-import --source architecture-quality-report --source-path build/architecture-governance/architecture_quality_report.json --dry-run`
@@ -97,7 +97,7 @@ chat history or scanning the whole repository.
 - Agent action catalog: `app/services/agent_task_actions.py` and `app/services/agent_actions/`
 - Architecture inspection: `app/architecture_inspection.py`, `app/architecture_inspection_rules.py`
 - Architecture quality report: `app/architecture_quality.py`
-- Planned hotspot prevention: `docs/hotspot_prevention_gate_milestone_plan.md`
+- Hotspot prevention: `config/hotspot_prevention.yaml`, `app/hotspot_prevention.py`, and `docs/hotspot_prevention_gate_milestone_plan.md`
 - Residual weakness sequence: `docs/residual_weakness_resolution_milestone_plan.md`
 - Trace review report: `app/agent_trace_review.py`
 - Improvement intake: `app/services/improvement_case_intake.py`

@@ -4,39 +4,28 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 8
-improvement-intake closeout.
+Latest committed checkpoint: local Residual Weakness Plan Milestone 1
+hotspot-prevention gate closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 25
-commits after the Milestone 8 improvement-intake closeout;
-`origin/main` is `6933eca` (`Add Docker pg_dump fallback for reset`).
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 1 commit
+after the Residual Weakness Plan Milestone 1 hotspot-prevention gate closeout;
+`origin/main` is `33acc23` (`docs: plan residual weakness resolution
+milestones`).
 
-The latest architecture closeout commits contain the Milestone 8
-improvement-intake ratchet, the Milestone 7 alignment check, the first
-`app/services/search.py` core split, and the second `app/services/evidence.py`
-split:
+The latest local architecture closeout commit contains the Residual Weakness
+Plan Milestone 1 hotspot-prevention gate:
 
-- `app/services/improvement_case_intake.py`
-- `app/services/improvement_cases.py`
-- `config/improvement_cases.yaml`
-- `app/services/search.py`
-- `app/services/search_query_features.py`
-- `tests/unit/test_search_query_features.py`
-- `app/services/evidence.py`
-- `app/services/evidence_provenance.py`
-- `tests/unit/test_evidence_provenance.py`
-- `docs/architecture_plan_01.md`
-- `docs/SESSION_HANDOFF.md`
-- `docs/agentic_architecture_index.md`
-- `docs/agentic_architecture_milestone_audit.md`
-- `docs/agentic_architecture_milestone_plan.md`
-- `docs/data_model_boundary_plan.md`
-- `docs/improvement_loop.md`
+- `config/hotspot_prevention.yaml`
+- `app/hotspot_prevention.py`
+- `tests/unit/test_hotspot_prevention.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
-- `docs/evaluation_data_readiness.md`
+- `docs/architecture_boundaries.md`
+- `docs/architecture_plan_01.md`
+- `docs/agentic_architecture_index.md`
+- `docs/SESSION_HANDOFF.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
 
@@ -53,48 +42,12 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 25 local commits ahead of `origin/main` are:
+The 1 local commit ahead of `origin/main` is:
 
-- local Milestone 8 closeout commit for architecture-quality hotspot
-  improvement-case import and structured owner/verification metadata
-- local Milestone 7 alignment closeout commit for complete PROV export facade
-  alias, constant, and settings-aware wrapper coverage
-- local Milestone 7 closeout commit for the evidence PROV export
-  receipt/integrity owner split
-- local Milestone 6 alignment closeout commit for forwarded query-helper
-  compatibility coverage and post-commit architecture-probe score alignment
-- local Milestone 6 closeout commit for the first `app/services/search.py`
-  core split
-- local Milestone 5 alignment closeout commit for explicit `app.cli`
-  forwarding compatibility and residual CLI split documentation
-- local Milestone 5 closeout commit for the first `app/cli.py` command-group
-  split
-- local Milestone 4 alignment closeout commit documenting the remaining
-  agent-task import-cycle signal and next action-family split target
-- local Milestone 4 closeout commit for `Architecture Plan 01`
-- local closeout-doc policy hardening commit after `Architecture Plan 01`
-  Milestone 3
-- local Milestone 3 alignment closeout commit for `Architecture Plan 01`
-- local Milestone 3 closeout commit for `Architecture Plan 01`
-- `980cc8c` `architecture: harden milestone 2 alignment`
-- `b6eb75d` `architecture: complete milestone 2 model domain split`
-- `bb03b83` `architecture: complete milestone 1 compatibility harness`
-- `5f4598b` `Split agent task action executors`
-- `7fe2dbc` `Split technical report services`
-- `482daa3` `Clear near-threshold hygiene blockers`
-- `637559a` `Split hygiene blocker modules`
-- `b59d4d5` `Split agent task hygiene modules`
-- `25ac117` `Harden search and retrieval hygiene boundaries`
-- `8654bde` `Split search replay and release gate hygiene`
-- `1e05afd` `refactor evidence payload helpers`
-- `9f60a17` `complete agentic architecture governance milestones`
-- `d1b38df` `docs: refresh current system state`
+- current local commit `architecture: complete residual hotspot prevention gate`
 
-These commits moved the repo toward agent-legible modular-monolith governance:
-narrower retrieval and agent-orchestration capability contract companions,
-agent-action manifest validation, trace-first review, architecture quality
-reporting, improvement-case import from generated reports, and a data-model
-boundary plan for `app/db/models.py`.
+This commit adds the first residual-weakness prevention gate after
+`origin/main` planned the broader sequence.
 
 ## Current Architecture And Governance State
 
@@ -127,6 +80,10 @@ uv run docling-system-architecture-quality-report --summary
 uv run docling-system-improvement-case-summary
   case_count=23, measured=1, open=22,
   source_type_counts={hygiene_finding: 1, architecture_governance: 22}
+
+uv run docling-system-hotspot-prevention-check --strict
+  known_hotspots=6, changed_hotspots=0, blocked=0,
+  allowed=0, exceptions=0
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
@@ -708,8 +665,8 @@ The revised closeout rule is:
   milestone
 
 Milestones 1, 2, 3, 4, 5, 6, 7, and 8 satisfy the revised local commit
-closeout rule. The next follow-on milestone is the hotspot-prevention gate in
-`docs/hotspot_prevention_gate_milestone_plan.md`.
+closeout rule. The first follow-on residual milestone, the hotspot-prevention
+gate in `docs/hotspot_prevention_gate_milestone_plan.md`, is complete.
 
 ## Residual Weakness Plan Snapshot
 
@@ -719,7 +676,7 @@ New planning artifact:
 The plan resolves the five remaining closeout weaknesses in this order:
 
 1. lock the refreshed baseline evidence
-2. implement the hotspot-prevention gate
+2. use the implemented hotspot-prevention gate
 3. add a strict hygiene budget ratchet
 4. continue facade-preserving top-hotspot splits
 5. break the large agent-task import-cycle component
@@ -770,9 +727,10 @@ evaluation-data readiness: regression_ready=false, court_grade_ready=false, fail
   with replay and ranking behavior covered before changing another search
   concern.
 - The improvement-case registry now tracks the current architecture-quality
-  hotspot candidates, but this records debt after it exists. The remaining gap
-  is preventative: no strict diff-time gate currently blocks new implementation
-  growth in known hotspot files. This is now Milestone 1 in
+  hotspot candidates, but this records debt after it exists. The prior
+  preventative gap is now closed: `docling-system-hotspot-prevention-check
+  --strict` blocks new implementation growth in known hotspot files and points
+  future work to the configured owner modules. The gate is Milestone 1 in
   `docs/residual_weakness_resolution_milestone_plan.md` and is detailed in
   `docs/hotspot_prevention_gate_milestone_plan.md`.
 - Court-grade readiness cannot be claimed until the live DB passes
@@ -782,28 +740,16 @@ evaluation-data readiness: regression_ready=false, court_grade_ready=false, fail
 
 ## Next Milestone
 
-Milestone 0 is complete: local runtime verification is available. Milestone 1
-is complete: the data-model compatibility harness is in place. Milestone 2 is
-complete: `ApiIdempotencyKey` moved behind the `app.db.models` compatibility
-facade. Milestone 3 is complete: search evidence package helpers moved behind
-the `app.services.evidence` compatibility facade. Milestone 4 is complete:
-search-harness action registry metadata and helper logic moved behind the
-`app.services.agent_task_actions` compatibility facade. Milestone 5 is complete:
-improvement-case CLI commands moved behind the `app.cli` compatibility facade.
-Milestone 6 is complete: query-feature and query-intent helpers moved behind
-the `app.services.search` compatibility facade. Milestone 7 is complete: PROV
-export receipt and integrity helpers moved behind the `app.services.evidence`
-compatibility facade with complete moved alias, constant, and settings-aware
-wrapper coverage. Milestone 8 is complete: 22 architecture-quality hotspot and
-agent-legibility candidates are now imported as open improvement cases with
-structured owner surfaces, verification commands, and stop conditions.
+`Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
+Milestone 1 is complete: the hotspot-prevention policy, analyzer, CLI, and
+tests now block new implementation growth in known hotspots while allowing
+deletion-only reductions and facade forwarding.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: implement the hotspot-prevention gate
-before more hotspot split work. `Architecture Plan 01` is complete through
-Milestone 8; the residual weakness plan now owns follow-on sequencing, with the
-prevention gate first and strict hygiene ratchets second.
+Recommended next architecture milestone: Residual Weakness Plan Milestone 2,
+the strict hygiene budget ratchet. The prevention gate should remain part of
+closeout before more hotspot split work.

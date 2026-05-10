@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: planned
+Status: in progress; Milestone 1 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -212,7 +212,7 @@ Closeout:
 
 ### Milestone 1: Hotspot Prevention Gate
 
-Status: planned.
+Status: complete.
 
 Purpose: implement the existing prevention plan before more split work.
 
@@ -236,6 +236,16 @@ Acceptance:
 - Fixture diffs that move logic out and leave compatibility forwarding pass.
 - Gate output names the preferred owner module and failed policy rule.
 - `uv run pytest -q tests/unit/test_hotspot_prevention.py` passes.
+
+Completed result:
+
+- Added tracked policy in `config/hotspot_prevention.yaml`.
+- Added deterministic diff analyzer and CLI in `app/hotspot_prevention.py`.
+- Added `docling-system-hotspot-prevention-check` as a standalone entrypoint.
+- Added focused policy, analyzer, exception, strict-mode, and entrypoint tests
+  in `tests/unit/test_hotspot_prevention.py`.
+- Updated architecture boundary and routing docs so future hotspot splits run
+  the strict gate before closeout.
 
 Stop conditions:
 
@@ -595,11 +605,10 @@ requested.
 
 ## Residual Risks And Next Routing
 
-The first next milestone is Milestone 1, the hotspot-prevention gate, because it
-prevents new centralization before additional split work. Milestone 2 follows
-immediately so the repo can distinguish inherited strict-hygiene debt from new
-regressions. Only then should the repo resume broad hotspot splits or agent-task
-cycle reduction.
+Milestone 1 is complete. The first next milestone is Milestone 2, the hygiene
+budget ratchet, so the repo can distinguish inherited strict-hygiene debt from
+new regressions. Only then should the repo resume broad hotspot splits or
+agent-task cycle reduction.
 
 If evaluation-data readiness is needed for an external review sooner than the
 architecture cleanup, Milestone 6 may run in parallel as an operational data

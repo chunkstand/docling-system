@@ -4,15 +4,12 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 `Architecture Plan 01` Milestone 6 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 1 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the first data-model domain split, first evidence-service split, first
-agent-action registry/helper split, first CLI command-group split, and first
-search-core split. The latest local implementation moved query-intent
-classification, tabular-query detection, identifier lookup detection,
-normalized query feature sets, token/phrase coverage helpers, and
-metadata-query token extraction into `app/services/search_query_features.py`
-while `app.services.search` remains the public compatibility facade.
+agent-action registry/helper split, first CLI command-group split, first
+search-core split, second evidence provenance split, improvement-case intake
+ratchet, and hotspot-prevention gate.
 
 Current repo-level signals:
 
@@ -29,6 +26,9 @@ Current repo-level signals:
 - `uv run docling-system-hygiene-check` still exits non-zero because file/helper
   budget findings remain in large hotspot modules. Ruff, Vulture,
   improvement-case, and architecture findings are clean.
+- `uv run docling-system-hotspot-prevention-check --strict` passes on the
+  current diff and fails fixture diffs that add implementation to known hotspot
+  files instead of the configured owner modules.
 - DB-backed milestone verification is currently available on the local Docker
   Postgres runtime; the Milestone 6 closeout ran the full
   `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1114 passed`.
@@ -638,6 +638,7 @@ uv run docling-system-agent-worker
 uv run docling-system-eval-run <run_id>
 uv run docling-system-eval-corpus
 uv run docling-system-hygiene-check
+uv run docling-system-hotspot-prevention-check --strict
 uv run docling-system-evaluation-data-readiness
 uv run docling-system-replay-search <search_request_id>
 uv run docling-system-run-replay-suite feedback --limit 12

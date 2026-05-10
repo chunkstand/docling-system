@@ -197,3 +197,23 @@ brief. The index points to `docs/agentic_architecture_milestone_plan.md`,
 `docs/agentic_architecture_milestone_audit.md`,
 `docs/data_model_boundary_plan.md`, the current handoff, and the executable
 commands needed to verify the surface.
+
+## Hotspot Prevention
+
+Known architecture hotspots have a diff-time prevention gate. The policy lives
+in `config/hotspot_prevention.yaml`; the analyzer and CLI live in
+`app/hotspot_prevention.py`. Run:
+
+```bash
+uv run docling-system-hotspot-prevention-check --strict
+```
+
+The gate checks Git unified diffs for new implementation growth in the current
+hotspot facades: `app/db/models.py`, `app/cli.py`,
+`app/services/evidence.py`, `app/services/agent_task_actions.py`,
+`app/services/search.py`, and `tests/unit/test_cli.py`. New implementation
+belongs in the owner modules named by the policy, while deletion-only
+reductions, import forwarding, alias forwarding, parser registration, and
+narrow compatibility wrappers remain allowed. Any exception must reference an
+improvement case or milestone, an owner module, and either an expiry date or a
+follow-up condition.

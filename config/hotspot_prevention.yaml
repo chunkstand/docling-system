@@ -1,0 +1,77 @@
+schema_name: hotspot_prevention_policy
+schema_version: "1.0"
+known_hotspots:
+  app/db/models.py:
+    target_role: compatibility facade for ORM models
+    preferred_owner_modules:
+      - app/db/model_domains/
+    block_new:
+      - orm_class
+      - enum
+      - relationship_logic
+      - broad_helper
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - table_metadata_alignment
+      - deletion
+  app/services/evidence.py:
+    target_role: compatibility facade for evidence capabilities
+    preferred_owner_modules:
+      - app/services/evidence_*.py
+    block_new:
+      - private_helper
+      - payload_builder
+      - persistence_logic
+      - artifact_assembly
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - deletion
+  app/cli.py:
+    target_role: console script compatibility and dispatch surface
+    preferred_owner_modules:
+      - app/cli_commands/
+    block_new:
+      - command_implementation
+      - broad_parser_logic
+    allow:
+      - explicit_forwarding_function
+      - parser_registration
+      - import_forwarder
+      - deletion
+  app/services/agent_task_actions.py:
+    target_role: action registry compatibility and execution entrypoint
+    preferred_owner_modules:
+      - app/services/agent_actions/
+    block_new:
+      - executor_implementation
+      - action_family_helper
+      - schema_builder
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - deletion
+  app/services/search.py:
+    target_role: search service compatibility facade
+    preferred_owner_modules:
+      - app/services/search_*.py
+    block_new:
+      - ranking_logic
+      - query_feature_helper
+      - hydration_logic
+      - telemetry_payload_builder
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - deletion
+  tests/unit/test_cli.py:
+    target_role: legacy CLI compatibility tests
+    preferred_owner_modules:
+      - tests/unit/test_cli_*.py
+    block_new:
+      - broad_new_test_group
+    allow:
+      - compatibility_assertion
+      - deletion

@@ -30,11 +30,12 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 `Architecture Plan 01` Milestone 6 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 1 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the first data-model domain split, first evidence-service split, first
-agent-action registry/helper split, first CLI command-group split, and first
-search-core split. The implemented architecture posture is:
+agent-action registry/helper split, first CLI command-group split, first
+search-core split, second evidence provenance split, improvement-case intake
+ratchet, and hotspot-prevention gate. The implemented architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
@@ -46,6 +47,9 @@ search-core split. The implemented architecture posture is:
   exposing focused contract companions for narrower review surfaces
 - architecture quality reporting now ranks hotspots by size, churn, hygiene
   findings, open improvement cases, and agent legibility
+- hotspot prevention now runs as a diff-time gate that blocks new
+  implementation growth in known hotspot facades unless the policy has an
+  owned, time-bounded or follow-up-bound exception
 - trace-first review and architecture-quality report imports can feed
   generated observations into the improvement-case loop
 - `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py` while
@@ -75,6 +79,8 @@ Current verification status:
   `app/services/audit_bundles.py`,
   `app/services/claim_support_policy_impacts.py`,
   `app/services/retrieval_learning.py`, and `app/services/search.py`.
+- Hotspot prevention passes on the current diff and owns the first residual
+  weakness gate before further hotspot split work.
 - Evaluation-data readiness remains false on the empty local DB until enough
   active documents, persisted evaluations, hand-verified fixtures, feedback,
   replay coverage, and retrieval-learning materialization exist.
