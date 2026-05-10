@@ -1,10 +1,12 @@
 # Evaluation Data Readiness
 
-Status refreshed: 2026-05-09. The command remains the required preflight before
-trusting retrieval, reranker, or court-grade document-generation gates. During
-the 2026-05-09 documentation closeout it could not complete because local
-Postgres refused connections on `localhost:5432`; readiness is therefore
-unknown until the DB runtime is restored and the command is rerun.
+Status refreshed: 2026-05-10. The command remains the required preflight before
+trusting retrieval, reranker, or court-grade document-generation gates. The
+latest run reached local Postgres and reported `regression_ready=false`,
+`court_grade_ready=false`, `passed_gate_count=0`, and `failed_gate_count=11`
+because the local DB is an empty baseline with no active document corpus,
+persisted run evaluations, feedback ledgers, replay coverage, or
+retrieval-learning materialization.
 
 Use the data-readiness preflight before trusting retrieval, reranker, or
 court-grade document-generation gates. The check is intentionally stricter than

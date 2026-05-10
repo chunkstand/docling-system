@@ -994,7 +994,10 @@ Milestone 8 is complete and closes the current `Architecture Plan 01`
 sequence. A follow-on hotspot-prevention gate plan now exists at
 `docs/hotspot_prevention_gate_milestone_plan.md`; implement that gate before
 starting more hotspot split work so known hotspots cannot silently receive new
-implementation responsibility.
+implementation responsibility. The broader follow-on sequence now lives in
+`docs/residual_weakness_resolution_milestone_plan.md`, which routes the
+remaining weaknesses through hotspot prevention, strict hygiene ratchets,
+additional splits, agent-task cycle reduction, and evaluation-data readiness.
 
 ### Milestone 8: Improvement Intake Ratchet
 
@@ -1169,6 +1172,8 @@ Use this order unless live evidence changes:
 9. Import or dedupe architecture-quality hotspot improvement cases (complete).
 10. Implement the hotspot-prevention gate from
     `docs/hotspot_prevention_gate_milestone_plan.md`.
+11. Continue residual weakness closeout through
+    `docs/residual_weakness_resolution_milestone_plan.md`.
 
 If runtime verification remains blocked, start with the evidence split only
 after recording the runtime blocker and confirming the split does not touch

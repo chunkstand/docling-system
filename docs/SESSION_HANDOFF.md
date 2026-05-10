@@ -35,6 +35,8 @@ split:
 - `docs/data_model_boundary_plan.md`
 - `docs/improvement_loop.md`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
+- `docs/residual_weakness_resolution_milestone_plan.md`
+- `docs/evaluation_data_readiness.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
 
@@ -655,6 +657,12 @@ Implemented result:
   candidates and skipped all 22 as `already_imported`.
 - Added `docs/hotspot_prevention_gate_milestone_plan.md` as the next follow-on
   weakness plan.
+- Added `docs/residual_weakness_resolution_milestone_plan.md` as the broader
+  follow-on sequence for the remaining weakness set: hotspot prevention, strict
+  hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and
+  evaluation-data readiness.
+- Refreshed `docs/evaluation_data_readiness.md` after the command reached local
+  Postgres and confirmed the empty-baseline data gates.
 
 Results:
 
@@ -703,6 +711,31 @@ Milestones 1, 2, 3, 4, 5, 6, 7, and 8 satisfy the revised local commit
 closeout rule. The next follow-on milestone is the hotspot-prevention gate in
 `docs/hotspot_prevention_gate_milestone_plan.md`.
 
+## Residual Weakness Plan Snapshot
+
+New planning artifact:
+`docs/residual_weakness_resolution_milestone_plan.md`.
+
+The plan resolves the five remaining closeout weaknesses in this order:
+
+1. lock the refreshed baseline evidence
+2. implement the hotspot-prevention gate
+3. add a strict hygiene budget ratchet
+4. continue facade-preserving top-hotspot splits
+5. break the large agent-task import-cycle component
+6. lift evaluation-data readiness first to regression readiness, then to
+   court-grade readiness
+7. run residual closeout with all gates and docs refreshed
+
+Refreshed evidence on 2026-05-10:
+
+```text
+architecture quality: hotspot_count=10, max_hotspot_risk_score=693.04
+architecture probe: 3 Python cycle components; top hotspot app/db/models.py=420420
+hygiene: no ruff, improvement-case, or architecture findings; strict file/helper budget debt remains
+evaluation-data readiness: regression_ready=false, court_grade_ready=false, failed_gate_count=11
+```
+
 ## Active Weak Points
 
 - Evaluation-data readiness is still false because the local DB has no active
@@ -739,7 +772,9 @@ closeout rule. The next follow-on milestone is the hotspot-prevention gate in
 - The improvement-case registry now tracks the current architecture-quality
   hotspot candidates, but this records debt after it exists. The remaining gap
   is preventative: no strict diff-time gate currently blocks new implementation
-  growth in known hotspot files.
+  growth in known hotspot files. This is now Milestone 1 in
+  `docs/residual_weakness_resolution_milestone_plan.md` and is detailed in
+  `docs/hotspot_prevention_gate_milestone_plan.md`.
 - Court-grade readiness cannot be claimed until the live DB passes
   `docling-system-evaluation-data-readiness` with enough hand-verified fixtures,
   operator feedback, claim feedback, governed hard cases, replay coverage, and
@@ -763,9 +798,12 @@ wrapper coverage. Milestone 8 is complete: 22 architecture-quality hotspot and
 agent-legibility candidates are now imported as open improvement cases with
 structured owner surfaces, verification commands, and stop conditions.
 
-New planning artifact: `docs/hotspot_prevention_gate_milestone_plan.md`.
+New planning artifacts:
+
+- `docs/hotspot_prevention_gate_milestone_plan.md`
+- `docs/residual_weakness_resolution_milestone_plan.md`
 
 Recommended next architecture milestone: implement the hotspot-prevention gate
 before more hotspot split work. `Architecture Plan 01` is complete through
-Milestone 8; the prevention gate should block new implementation growth in
-known hotspots at diff time.
+Milestone 8; the residual weakness plan now owns follow-on sequencing, with the
+prevention gate first and strict hygiene ratchets second.

@@ -5,6 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
+- `docs/residual_weakness_resolution_milestone_plan.md`: planned follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: planned gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -60,13 +61,16 @@ chat history or scanning the whole repository.
 - The Milestone 8 improvement-intake ratchet is complete: 22
   architecture-quality candidates are imported as open improvement cases with
   structured owner surfaces, verification commands, and stop conditions.
-- Governed follow-up: implement the hotspot-prevention gate in
-  `docs/hotspot_prevention_gate_milestone_plan.md` before more split work so
-  known hotspots cannot silently receive new implementation responsibility at
-  diff time.
+- Governed follow-up: the residual weakness sequence is now planned in
+  `docs/residual_weakness_resolution_milestone_plan.md`. Its first
+  implementation milestone is the hotspot-prevention gate in
+  `docs/hotspot_prevention_gate_milestone_plan.md`, followed by strict hygiene
+  ratchets before further hotspot split work.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
-  trace review currently reports `observation_count=0`.
+  `uv run docling-system-evaluation-data-readiness` currently reaches Postgres
+  but reports `regression_ready=false`, `court_grade_ready=false`, and
+  `failed_gate_count=11`.
 
 ## Executable Architecture Contracts
 
@@ -94,6 +98,7 @@ chat history or scanning the whole repository.
 - Architecture inspection: `app/architecture_inspection.py`, `app/architecture_inspection_rules.py`
 - Architecture quality report: `app/architecture_quality.py`
 - Planned hotspot prevention: `docs/hotspot_prevention_gate_milestone_plan.md`
+- Residual weakness sequence: `docs/residual_weakness_resolution_milestone_plan.md`
 - Trace review report: `app/agent_trace_review.py`
 - Improvement intake: `app/services/improvement_case_intake.py`
 - Data model domains: `app/db/model_domains/`
