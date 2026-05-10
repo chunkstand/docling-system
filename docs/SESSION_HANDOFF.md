@@ -4,22 +4,22 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 4
-alignment closeout after the agent-action registry split.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 5 CLI
+command-group split closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 18
-commits after the Milestone 4 alignment closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 19
+commits after the Milestone 5 closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 4 closeout and alignment commits contain the first
-agent-task action registry family split, the residual import-cycle alignment
-note, and their verification/docs updates:
+The latest Milestone 5 closeout commit contains the first CLI command-group
+split and its verification/docs updates:
 
-- `app/services/agent_task_actions.py`
-- `app/services/agent_actions/search_harness.py`
-- `tests/unit/test_agent_action_contracts.py`
+- `app/cli.py`
+- `app/cli_commands/__init__.py`
+- `app/cli_commands/improvement_cases.py`
+- `tests/unit/test_cli.py`
 - `docs/architecture_plan_01.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/agentic_architecture_index.md`
@@ -39,8 +39,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 18 local commits ahead of `origin/main` are:
+The 19 local commits ahead of `origin/main` are:
 
+- local Milestone 5 closeout commit for the first `app/cli.py` command-group
+  split
 - local Milestone 4 alignment closeout commit documenting the remaining
   agent-task import-cycle signal and next action-family split target
 - local Milestone 4 closeout commit for `Architecture Plan 01`
@@ -90,8 +92,8 @@ uv run docling-system-architecture-quality-report --summary
   max_hotspot_risk_score=687.04
   top_hotspot_paths=[
     app/db/models.py,
-    app/cli.py,
     app/services/evidence.py,
+    app/cli.py,
     app/services/agent_task_actions.py,
     tests/unit/test_cli.py
   ]
@@ -421,6 +423,49 @@ target is a search-harness executor dependency seam, or a semantic executor
 family with more isolated dependencies, before moving executor implementations
 out of the compatibility facade.
 
+## CLI Command Group Split Snapshot
+
+Milestone 5 implemented the first `app/cli.py` command-group split on
+2026-05-10.
+
+Implemented result:
+
+- Introduced `app/cli_commands/`.
+- Moved the improvement-case validate/list/summary/record command
+  implementations into `app/cli_commands/improvement_cases.py`.
+- Kept the existing console scripts on `app.cli:run_improvement_case_validate`,
+  `app.cli:run_improvement_case_list`, `app.cli:run_improvement_case_summary`,
+  and `app.cli:run_improvement_case_record`.
+- Added parser/help coverage for the moved command group in
+  `tests/unit/test_cli.py`.
+- Reduced `app/cli.py` from 1,452 lines to 1,273 lines; the new command module
+  is 149 lines.
+
+Focused verification:
+
+```bash
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_cli.py
+uv run python -c '<import app.cli and print moved callable modules>'
+uv run docling-system-architecture-quality-report --summary
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown
+```
+
+Results:
+
+```text
+Ruff: passed.
+Focused CLI tests: 55 passed.
+Entrypoint compatibility: moved run_improvement_case_* callables remain
+available from app.cli and preserve their callable names.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe: app/cli.py is 1,272 probe-counted lines and its hotspot
+score is 66,144; the remaining Python cycle components are outside this CLI
+slice.
+Full DB-backed suite: 1111 passed in 49.27s.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -442,8 +487,8 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1, 2, 3, and 4 satisfy the revised local commit closeout rule.
-Milestone 5 may begin from this committed checkpoint.
+Milestones 1, 2, 3, 4, and 5 satisfy the revised local commit closeout rule.
+Milestone 6 may begin from this committed checkpoint.
 
 ## Active Weak Points
 
@@ -468,6 +513,10 @@ Milestone 5 may begin from this committed checkpoint.
   compatibility facade, starting with a search-harness executor dependency seam
   or a semantic executor family with isolated dependencies before moving executor
   paths.
+- The first CLI command-group split reduced `app/cli.py`, but it remains a
+  public operator hotspot. Future CLI splits should move one command group at a
+  time behind `app.cli` compatibility exports and pair each move with help or
+  parser coverage.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.
@@ -484,8 +533,9 @@ complete: `ApiIdempotencyKey` moved behind the `app.db.models` compatibility
 facade. Milestone 3 is complete: search evidence package helpers moved behind
 the `app.services.evidence` compatibility facade. Milestone 4 is complete:
 search-harness action registry metadata and helper logic moved behind the
-`app.services.agent_task_actions` compatibility facade.
+`app.services.agent_task_actions` compatibility facade. Milestone 5 is complete:
+improvement-case CLI commands moved behind the `app.cli` compatibility facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 5: split
-the first `app/cli.py` command group while preserving console entrypoints and
-help/argument contracts.
+The next architecture milestone is `Architecture Plan 01` Milestone 6: split
+the first `app/services/search.py` core concern while preserving search API,
+ranking, and response contracts.

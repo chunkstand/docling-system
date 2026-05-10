@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sys
+import tomllib
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -2025,6 +2027,56 @@ def test_improvement_case_validate_cli_prints_validation(monkeypatch, capsys, tm
     output = json.loads(capsys.readouterr().out.strip())
     assert output["valid"] is True
     assert output["issue_count"] == 0
+
+
+def test_improvement_case_cli_entrypoint_and_help_contracts(monkeypatch, capsys) -> None:
+    scripts = tomllib.loads(Path("pyproject.toml").read_text())["project"]["scripts"]
+    assert scripts["docling-system-improvement-case-validate"] == (
+        "app.cli:run_improvement_case_validate"
+    )
+    assert scripts["docling-system-improvement-case-list"] == "app.cli:run_improvement_case_list"
+    assert scripts["docling-system-improvement-case-summary"] == (
+        "app.cli:run_improvement_case_summary"
+    )
+    assert scripts["docling-system-improvement-case-record"] == (
+        "app.cli:run_improvement_case_record"
+    )
+
+    help_cases = [
+        (
+            run_improvement_case_validate,
+            ["docling-system-improvement-case-validate", "--help"],
+            ["Validate the improvement case registry.", "--path"],
+        ),
+        (
+            run_improvement_case_list,
+            ["docling-system-improvement-case-list", "--help"],
+            ["List improvement cases.", "--status", "--cause-class", "--artifact-type"],
+        ),
+        (
+            run_improvement_case_summary,
+            ["docling-system-improvement-case-summary", "--help"],
+            ["Summarize improvement cases.", "--path"],
+        ),
+        (
+            run_improvement_case_record,
+            ["docling-system-improvement-case-record", "--help"],
+            [
+                "Record one improvement case.",
+                "--title",
+                "--observed-failure",
+                "--verification-command",
+            ],
+        ),
+    ]
+    for runner, argv, expected_tokens in help_cases:
+        monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(SystemExit) as exc_info:
+            runner()
+        assert exc_info.value.code == 0
+        output = capsys.readouterr().out
+        for token in expected_tokens:
+            assert token in output
 
 
 def test_improvement_case_validate_cli_reports_invalid_registry(

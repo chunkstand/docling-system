@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-4 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-5 complete; local commit-on-closeout policy
 active as of 2026-05-10
 
 Purpose: reduce centralization in the current modular monolith without
@@ -28,8 +28,8 @@ Current architecture signals:
   - `max_hotspot_risk_score=687.04`
   - top hotspot paths:
     - `app/db/models.py`
-    - `app/cli.py`
     - `app/services/evidence.py`
+    - `app/cli.py`
     - `app/services/agent_task_actions.py`
     - `tests/unit/test_cli.py`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`
@@ -697,6 +697,8 @@ operator-facing CLI command group split.
 
 ### Milestone 5: CLI Command Group Split
 
+Status: complete on 2026-05-10.
+
 Goal: split `app/cli.py` into capability-oriented command modules while
 preserving every console entrypoint and help contract.
 
@@ -754,6 +756,43 @@ Closeout:
 - Update `docs/SESSION_HANDOFF.md`.
 - Commit the CLI command-group split locally before moving another command
   group.
+
+Completed result:
+
+- Added `app/cli_commands/` as the focused command-group package.
+- Moved the file-backed improvement-case CLI implementation into
+  `app/cli_commands/improvement_cases.py` for:
+  `run_improvement_case_validate`, `run_improvement_case_list`,
+  `run_improvement_case_summary`, and `run_improvement_case_record`.
+- Kept the existing console script contract stable:
+  `docling-system-improvement-case-validate`,
+  `docling-system-improvement-case-list`,
+  `docling-system-improvement-case-summary`, and
+  `docling-system-improvement-case-record` still resolve through
+  `app.cli:run_improvement_case_*`.
+- Preserved help text, required arguments, optional arguments, output payloads,
+  and exit behavior for the moved commands.
+- Reduced `app/cli.py` from 1,452 lines to 1,273 lines. The new
+  improvement-case command module is 149 lines.
+- Reduced the architecture-probe hotspot score for `app/cli.py` to 66,144.
+
+Verification:
+
+```text
+Ruff: passed across app and tests.
+Focused CLI tests: 55 passed.
+Entrypoint compatibility check: app.cli exports the four moved
+run_improvement_case_* callables; pyproject console scripts still target
+app.cli:run_improvement_case_*.
+Architecture probe: app/cli.py is 1,272 probe-counted lines and 66,144 hotspot
+score; remaining Python cycle components are unchanged outside this CLI slice.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Full DB-backed suite: 1111 passed in 49.27s.
+```
+
+Milestone 6 is unblocked. The next architecture milestone is the first search
+core concern split.
 
 ### Milestone 6: Search Core Split 01
 
@@ -964,7 +1003,7 @@ Use this order unless live evidence changes:
 3. Move one low-risk model domain behind `app.db.models`.
 4. Split search evidence packages out of `app/services/evidence.py` (complete).
 5. Split one agent-task action family out of `app/services/agent_task_actions.py`.
-6. Split one CLI command group out of `app/cli.py`.
+6. Split one CLI command group out of `app/cli.py` (complete).
 7. Split one search core concern out of `app/services/search.py`.
 8. Import or dedupe architecture-quality hotspot improvement cases.
 
