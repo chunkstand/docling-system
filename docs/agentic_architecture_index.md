@@ -79,8 +79,9 @@ chat history or scanning the whole repository.
   `app/services/search_query_features.py` while `app.services.search` remains
   the compatibility facade for existing query helper imports.
 - The Milestone 8 improvement-intake ratchet remains intact, and Hotspot Owner
-  Resolution Milestone 0 is now complete locally: the registry now has
-  `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
+  Resolution Milestone 0 is now complete locally: at the Milestone 0 closeout
+  checkpoint, the registry reported `case_count=25`,
+  `status_counts.open=24`, `status_counts.measured=1`, and
   `measured_case_count=2`, including explicit owner-bootstrap cases
   `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
   `IC-0D58F1624037` for `app/services/retrieval_learning.py`. The milestone is
@@ -114,7 +115,7 @@ chat history or scanning the whole repository.
   `app/services/retrieval_learning.py` remains the compatibility facade. The
   old hotspot is reduced to 2,482 lines, and the new owner module is governed
   under the same improvement case `IC-0D58F1624037` with a 578 line hygiene
-  budget.
+  budget. The milestone is closed by commit `13e8b1c`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in

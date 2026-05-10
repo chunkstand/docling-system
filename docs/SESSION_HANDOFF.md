@@ -292,6 +292,10 @@ Milestone 4 is the retrieval-learning replay-alert corpus split. It is a
 behavior-preserving service modularization pass behind the existing
 `app/services/retrieval_learning.py` compatibility facade.
 
+Commit:
+
+- `13e8b1c` (`architecture: complete hotspot owner milestone 4 retrieval-learning`)
+
 Results:
 
 - Added `app/services/retrieval_learning_replay_alert_sources.py`.
@@ -1430,8 +1434,8 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   `config/improvement_cases.yaml` adds `IC-2112B1ADC5E8` for
   `app/services/audit_bundles.py` and `IC-0D58F1624037` for
   `app/services/retrieval_learning.py`; `config/hygiene_policy.yaml` now routes
-  both surfaces through those case IDs; and
-  `uv run docling-system-improvement-case-summary` reports `case_count=25`,
+  both surfaces through those case IDs. At the Milestone 0 closeout checkpoint,
+  `uv run docling-system-improvement-case-summary` reported `case_count=25`,
   `status_counts.open=24`, `status_counts.measured=1`, and
   `measured_case_count=2`.
 - Milestone 1 is now the document-artifacts model-domain split. It reduces

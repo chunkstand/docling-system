@@ -408,6 +408,7 @@ Status update:
 
 - Implemented and verified locally as the replay-alert corpus source owner
   split.
+- Closed by commit `13e8b1c` (`architecture: complete hotspot owner milestone 4 retrieval-learning`).
 - Added `app/services/retrieval_learning_replay_alert_sources.py` and moved the
   replay-alert corpus lineage validation, judgment materialization, and hard-negative
   construction concern behind the existing `app/services/retrieval_learning.py`
