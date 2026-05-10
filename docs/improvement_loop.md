@@ -15,7 +15,8 @@ codebase failures that are not necessarily retrieval failures.
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
 Current registry state from the 2026-05-10 local / 2026-05-10 UTC High Value
-Technical Paydown Milestones 1-5 committed closeout:
+Technical Paydown Milestones 1-5 committed closeout plus the verified
+Milestone 6 UI split:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
   with one measured hygiene-gate case and 25 open architecture-governance
@@ -27,10 +28,11 @@ Technical Paydown Milestones 1-5 committed closeout:
 - `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` now
   have explicit owner-bootstrap cases (`IC-2112B1ADC5E8` and
   `IC-0D58F1624037`) instead of remaining milestone-owned hygiene debt.
-- `app/ui/app.js` now has explicit owner-bootstrap case `IC-1B643BA0AD90`.
-  Because the hygiene ratchet only scans Python files under `app/`, this UI
-  hotspot is governed through the improvement-case registry and architecture
-  probe output rather than a no-op hygiene entry.
+- `app/ui/app.js` remains governed by explicit owner-bootstrap case
+  `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
+  lines to 107 and moved the shared runtime plus page-family logic into
+  `app/ui/modules/`, so this UI hotspot now routes through a real owner
+  module family rather than one monolithic script.
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
   the committed local retrieval-interaction split narrowed it to a 5,067-line
   compatibility facade with a dedicated owner module at
@@ -59,7 +61,7 @@ Technical Paydown Milestones 1-5 committed closeout:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next routed implementation slice is now High Value Technical Paydown
-  Milestone 6, covering `IC-1B643BA0AD90`.
+  Milestone 7 closeout and reroute.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

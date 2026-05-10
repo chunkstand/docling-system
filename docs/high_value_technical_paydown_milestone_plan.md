@@ -1,8 +1,8 @@
 # High Value Technical Paydown Milestone Plan
 
 Date: 2026-05-10 local / 2026-05-10 UTC
-Status: active locally with Milestones 1-5 verified and committed; next
-implementation slice is Milestone 6 UI monolith split
+Status: active locally with Milestones 1-5 committed and Milestone 6 verified;
+next implementation slice is Milestone 7 closeout and reroute
 Owner context: new standalone paydown plan written after the Hotspot Owner
 Resolution sequence closed locally through Milestone 6. This plan does not add
 new milestones to the prior hotspot-owner plan; it starts a fresh,
@@ -36,7 +36,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=673.78
+  max_hotspot_risk_score=680.78
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -62,14 +62,13 @@ uv run docling-system-improvement-case-summary
   oldest_open_case_id=IC-F2A8110185EB
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  top hotspot app/db/models.py score=364824
-  app/services/evidence.py score=302736
-  app/services/agent_task_actions.py score=162014
-  app/ui/app.js score=108375
+  top hotspot app/db/models.py score=369891
+  app/services/evidence.py score=309043
+  app/services/agent_task_actions.py score=164760
   app/services/agent_task_actions.py fan-out=36
   Python cycle components=3
 
-wc -l app/db/models.py app/services/evidence.py app/services/agent_task_actions.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_agent_task_actions.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_documents_api.py tests/unit/test_documents_api_semantics.py app/ui/app.js
+wc -l app/db/models.py app/services/evidence.py app/services/agent_task_actions.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_agent_task_actions.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_documents_api.py tests/unit/test_documents_api_semantics.py app/ui/app.js app/ui/modules/shared.js app/ui/modules/documents.js app/ui/modules/search.js app/ui/modules/evals.js app/ui/modules/semantics.js app/ui/modules/agents.js
    5067 app/db/models.py
    6307 app/services/evidence.py
    2746 app/services/agent_task_actions.py
@@ -81,7 +80,13 @@ wc -l app/db/models.py app/services/evidence.py app/services/agent_task_actions.
     764 tests/unit/test_search_api_harnesses.py
     613 tests/unit/test_documents_api.py
     394 tests/unit/test_documents_api_semantics.py
-   4335 app/ui/app.js
+    107 app/ui/app.js
+    930 app/ui/modules/shared.js
+    672 app/ui/modules/documents.js
+    560 app/ui/modules/search.js
+    442 app/ui/modules/evals.js
+    271 app/ui/modules/semantics.js
+   1300 app/ui/modules/agents.js
 ```
 
 Current routing notes:
@@ -121,8 +126,12 @@ Current routing notes:
   files, the residual replay-alert change-impact monolith now routes through
   activation, prevalidation, promotion, and governance files, and the
   original monoliths remain reduced to 417 and 337 lines.
-- the active follow-up after the committed Milestone 5 closeout is Milestone 6:
-  UI monolith split for `IC-1B643BA0AD90`.
+- High Value Technical Paydown Milestone 6 is now verified locally under
+  `IC-1B643BA0AD90`; `app/ui/app.js` is reduced to a 107-line bootstrap while
+  shared runtime and page-family logic now live under `app/ui/modules/`, and
+  focused UI asset coverage now lives in `tests/unit/test_ui_static_assets.py`.
+- the active follow-up after the verified Milestone 6 closeout is Milestone 7:
+  closeout and reroute.
 
 ## Goal
 
@@ -557,6 +566,31 @@ Acceptance:
   implementation surface
 - at least one focused UI test file exists and passes
 - every JavaScript file under `app/ui/` passes `node --check`
+
+Status update:
+
+- verified locally on 2026-05-10
+- reduced `app/ui/app.js` from 4,335 lines to 107 lines and kept it as the
+  shipped operator UI bootstrap/composition surface
+- moved shared runtime, landing, documents, search, evals, semantics, and
+  agent page-family logic into:
+  `app/ui/modules/shared.js`,
+  `app/ui/modules/landing.js`,
+  `app/ui/modules/documents.js`,
+  `app/ui/modules/search.js`,
+  `app/ui/modules/evals.js`,
+  `app/ui/modules/semantics.js`, and
+  `app/ui/modules/agents.js`
+- kept the shipped HTML entrypoints stable while loading the new module family
+  ahead of `/ui/app.js`
+- added `tests/unit/test_ui_static_assets.py` as a focused UI smoke test for
+  module asset inclusion and static asset serving
+- verified the UI split with:
+  `find app/ui -name '*.js' -print0 | xargs -0 -n1 node --check`
+  and
+  `uv run pytest -q tests/unit/test_ui.py tests/unit/test_ui_static_assets.py`
+  (`10 passed in 3.74s`)
+- the next routed implementation slice is Milestone 7 closeout and reroute
 
 ### Milestone 7: Closeout And Reroute
 

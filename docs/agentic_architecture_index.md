@@ -174,6 +174,12 @@ chat history or scanning the whole repository.
   `tests/unit/test_documents_api_semantics.py`) while the original monoliths
   are reduced to 424, 436, and 613 lines respectively and no longer appear in
   the current architecture-quality top-hotspot list.
+- High Value Technical Paydown Milestone 6 is now verified locally: the
+  shipped operator UI no longer depends on one 4,335-line JavaScript file.
+  `app/ui/app.js` is reduced to a 107-line bootstrap, the shared runtime and
+  page-family logic now live under `app/ui/modules/`, and
+  `tests/unit/test_ui_static_assets.py` covers module asset inclusion and
+  serving alongside `tests/unit/test_ui.py`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -206,11 +212,8 @@ chat history or scanning the whole repository.
   debt.
 - Current routed follow-up: the next architecture work should use
   `docs/high_value_technical_paydown_milestone_plan.md`; Milestones 1-5 are
-  committed locally, the Milestone 5 alignment pass split the residual
-  replay-alert change-impact monolith into 354, 341, 623, and 401 line
-  scenario files plus a 358-line support module, and the next routed
-  implementation should resume with High Value Technical Paydown Milestone 6
-  for `IC-1B643BA0AD90`.
+  committed locally, Milestone 6 is verified locally, and the next routed
+  implementation slice is Milestone 7 closeout and reroute.
 
 ## Executable Architecture Contracts
 

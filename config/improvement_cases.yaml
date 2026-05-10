@@ -1001,9 +1001,9 @@ cases:
   title: 'Architecture hotspot: app/ui/app.js'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/ui/app.js is a live UI architecture hotspot with
-    line_count=4335 and architecture_probe score=108375, but it is not yet
-    tracked in the improvement-case registry.
+  observed_failure: app/ui/app.js now acts as the shipped operator UI bootstrap,
+    but the compatibility entrypoint still needs to stay narrow while the shared
+    runtime and page-family logic live in app/ui/modules/.
   source:
     source_type: architecture_governance
     source_ref: architecture-probe:hotspot:app/ui/app.js
@@ -1017,10 +1017,12 @@ cases:
   verification:
     commands:
     - uv run pytest -q tests/unit/test_ui.py
+    - uv run pytest -q tests/unit/test_ui_static_assets.py
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
     acceptance_conditions:
-    - Surface has explicit owner-scoped routing and later milestones reduce hotspot
-      burden or leave a narrower verified UI module contract.
+    - Surface remains the narrow bootstrap/composition entrypoint while the
+      operator UI implementation is routed through focused app/ui/modules/*.js
+      owner files.
     catches_old_failure: false
     allows_good_changes: false
   workflow_version: improvement_v1

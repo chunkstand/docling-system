@@ -25,6 +25,8 @@ def test_index_serves_overview_ui() -> None:
     assert "/ui/evals.html" in response.text
     assert "/ui/semantics.html" in response.text
     assert "/ui/agents.html" in response.text
+    assert "/ui/modules/shared.js" in response.text
+    assert "/ui/modules/landing.js" in response.text
     assert "/ui/app.js" in response.text
 
 
@@ -123,7 +125,7 @@ def test_semantics_page_exposes_backfill_observability() -> None:
 def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
     client = TestClient(app)
 
-    response = client.get("/ui/app.js")
+    response = client.get("/ui/modules/evals.js")
 
     assert response.status_code == 200
     assert "/search/harness-evaluations?limit=8" in response.text
@@ -134,21 +136,23 @@ def test_eval_ui_exposes_durable_harness_evaluation_history_actions() -> None:
 def test_agent_ui_exposes_technical_report_harness_observability() -> None:
     client = TestClient(app)
 
-    response = client.get("/ui/app.js")
+    shared_response = client.get("/ui/modules/shared.js")
+    agents_response = client.get("/ui/modules/agents.js")
 
-    assert response.status_code == 200
-    assert "TECHNICAL_REPORT_TASK_TYPES" in response.text
-    assert "/agent-tasks/actions" in response.text
-    assert "/agent-tasks/analytics/workflow-versions" in response.text
-    assert "renderReportHarnessPacket" in response.text
-    assert "missing_wake_context_count" in response.text
-    assert "unresolved_evidence_card_ref_count" in response.text
+    assert shared_response.status_code == 200
+    assert agents_response.status_code == 200
+    assert "TECHNICAL_REPORT_TASK_TYPES" in shared_response.text
+    assert "/agent-tasks/actions" in agents_response.text
+    assert "/agent-tasks/analytics/workflow-versions" in agents_response.text
+    assert "renderReportHarnessPacket" in agents_response.text
+    assert "missing_wake_context_count" in agents_response.text
+    assert "unresolved_evidence_card_ref_count" in agents_response.text
 
 
 def test_semantics_ui_wires_backfill_status_and_slice_actions() -> None:
     client = TestClient(app)
 
-    response = client.get("/ui/app.js")
+    response = client.get("/ui/modules/semantics.js")
 
     assert response.status_code == 200
     assert "/semantics/backfill/status" in response.text

@@ -5,9 +5,10 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: committed local High Value Technical Paydown
-Milestone 5 test hotspot split pack B.
-Active local follow-up owner case: `IC-1B643BA0AD90` under High Value
-Technical Paydown Milestone 6 UI monolith split.
+Milestone 5 test hotspot split pack B; High Value Technical Paydown Milestone 6
+is now verified locally.
+Active local follow-up: High Value Technical Paydown Milestone 7 closeout and
+reroute.
 
 ## Current Position
 
@@ -54,9 +55,15 @@ Technical Paydown Milestone 5 is now also committed locally:
 reduced to 417 and 337 lines after their action-family and claim-support
 scenario coverage moved into focused owner files, and those original monoliths
 no longer appear in the current architecture-probe top hotspot list. The next
-owner-scoped implementation route is High Value Technical Paydown Milestone 6:
-UI monolith split for `app/ui/app.js` under `IC-1B643BA0AD90`. The current
-full DB-backed suite is `1319 passed in 49.94s`.
+owner-scoped implementation route has now verified High Value Technical
+Paydown Milestone 6: the UI monolith split for `app/ui/app.js` under
+`IC-1B643BA0AD90`. `app/ui/app.js` is reduced from 4,335 lines to a 107-line
+bootstrap while the shipped operator UI now loads shared runtime and
+page-family logic from `app/ui/modules/`. `tests/unit/test_ui_static_assets.py`
+now covers module asset inclusion and serving alongside `tests/unit/test_ui.py`.
+The next routed implementation slice is High Value Technical Paydown Milestone 7
+closeout and reroute. The latest full DB-backed suite remains
+`1319 passed in 49.94s` from the prior milestone closeout window.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -81,6 +88,13 @@ full DB-backed suite is `1319 passed in 49.94s`.
 - `app/services/evidence_operator_runs.py`
 - `app/services/evidence_technical_report_exports.py`
 - `app/services/evidence_task_payloads.py`
+- `app/ui/modules/shared.js`
+- `app/ui/modules/landing.js`
+- `app/ui/modules/documents.js`
+- `app/ui/modules/search.js`
+- `app/ui/modules/evals.js`
+- `app/ui/modules/semantics.js`
+- `app/ui/modules/agents.js`
 - `app/services/claim_support_replay_alert_promotions.py`
 - `app/services/retrieval_learning_replay_alert_sources.py`
 - `app/services/search_ranking.py`
@@ -106,6 +120,7 @@ full DB-backed suite is `1319 passed in 49.94s`.
 - `tests/unit/test_search_ranking.py`
 - `tests/unit/test_db_model_import_compatibility.py`
 - `tests/unit/test_ui.py`
+- `tests/unit/test_ui_static_assets.py`
 - `tests/unit/test_documents_api.py`
 - `tests/unit/test_documents_api_artifacts.py`
 - `tests/unit/test_documents_api_semantics.py`
@@ -123,6 +138,64 @@ full DB-backed suite is `1319 passed in 49.94s`.
 - `docs/SESSION_HANDOFF.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
+
+## High Value Technical Paydown Milestone 6 Progress
+
+Milestone 6 is the UI monolith split for `IC-1B643BA0AD90`. It is a
+behavior-preserving decomposition of the shipped operator UI from one
+JavaScript implementation surface into shared runtime and page-family owner
+modules.
+
+Results:
+
+- reduced `app/ui/app.js` from `4335` to `107` lines and kept it as the shipped
+  bootstrap/composition surface
+- moved the shared runtime and page-family logic into
+  `app/ui/modules/shared.js`,
+  `app/ui/modules/landing.js`,
+  `app/ui/modules/documents.js`,
+  `app/ui/modules/search.js`,
+  `app/ui/modules/evals.js`,
+  `app/ui/modules/semantics.js`, and
+  `app/ui/modules/agents.js`
+- kept the shipped HTML entrypoints stable while loading the new module family
+  before `/ui/app.js`
+- added focused UI smoke coverage in `tests/unit/test_ui_static_assets.py` so
+  module asset inclusion and static asset serving are validated alongside the
+  existing UI page-content checks in `tests/unit/test_ui.py`
+- updated `config/improvement_cases.yaml`,
+  `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/improvement_loop.md`,
+  `docs/agentic_architecture_index.md`, and this handoff to record the
+  narrowed UI owner surface and reroute the next milestone
+
+Verification:
+
+- `find app/ui -name '*.js' -print0 | xargs -0 -n1 node --check`
+- `uv run pytest -q tests/unit/test_ui.py tests/unit/test_ui_static_assets.py`
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- UI smoke pack: `10 passed in 3.74s`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=13`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=680.78`; the top hotspot paths
+  remain the large Python service surfaces and no longer include the former UI
+  monolith
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 
 ## High Value Technical Paydown Milestone 5 Progress
 
