@@ -5,20 +5,24 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local Residual Weakness Plan Milestone 1
-hotspot-prevention gate closeout.
+hotspot-prevention gate alignment closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 1 commit
-after the Residual Weakness Plan Milestone 1 hotspot-prevention gate closeout;
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 2 commits
+after the Residual Weakness Plan Milestone 1 hotspot-prevention gate alignment
+closeout;
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
-The latest local architecture closeout commit contains the Residual Weakness
-Plan Milestone 1 hotspot-prevention gate:
+The latest local architecture closeout commits contain the Residual Weakness
+Plan Milestone 1 hotspot-prevention gate and alignment hardening:
 
 - `config/hotspot_prevention.yaml`
 - `app/hotspot_prevention.py`
+- `app/hotspot_prevention_policy.py`
+- `app/hotspot_prevention_diff.py`
+- `app/hotspot_prevention_classifier.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
@@ -42,11 +46,14 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 1 local commit ahead of `origin/main` is:
+The 2 local commits ahead of `origin/main` are:
 
 - current local commit `architecture: complete residual hotspot prevention gate`
+- current local alignment hardening commit for `git diff --numstat` line-count
+  reporting, expired exception coverage, `--base`/`--staged` command selection
+  tests, and focused module ownership under the hygiene file budget
 
-This commit adds the first residual-weakness prevention gate after
+These commits add and harden the first residual-weakness prevention gate after
 `origin/main` planned the broader sequence.
 
 ## Current Architecture And Governance State
@@ -82,8 +89,8 @@ uv run docling-system-improvement-case-summary
   source_type_counts={hygiene_finding: 1, architecture_governance: 22}
 
 uv run docling-system-hotspot-prevention-check --strict
-  known_hotspots=6, changed_hotspots=0, blocked=0,
-  allowed=0, exceptions=0
+  known_hotspots=6, changed_hotspots=0, added_lines=0, deleted_lines=0,
+  blocked=0, allowed=0, exceptions=0
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The

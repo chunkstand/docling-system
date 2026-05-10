@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import tomllib
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -11,7 +12,10 @@ from app.hotspot_prevention import (
     REPORT_SCHEMA_NAME,
     build_hotspot_policy,
     build_hotspot_prevention_report,
+    collect_git_diff,
+    collect_git_numstat,
     load_hotspot_policy,
+    parse_numstat,
     run,
     validate_policy_payload,
 )
@@ -108,6 +112,36 @@ def test_policy_validation_rejects_missing_owner_and_unowned_exception() -> None
     assert "known_hotspots.app/services/evidence.py.exceptions[0].owner_module" in fields
 
 
+def test_policy_validation_rejects_expired_exceptions() -> None:
+    payload = {
+        "schema_name": POLICY_SCHEMA_NAME,
+        "schema_version": "1.0",
+        "known_hotspots": {
+            "app/services/evidence.py": {
+                "target_role": "compatibility facade",
+                "preferred_owner_modules": ["app/services/evidence_new.py"],
+                "block_new": ["private_helper"],
+                "allow": ["import_forwarder"],
+                "exceptions": [
+                    {
+                        "exception_id": "temporary",
+                        "milestone_id": "residual-weakness-milestone-1",
+                        "owner_module": "app/services/evidence_new.py",
+                        "expires_on": "2026-05-01",
+                    }
+                ],
+            }
+        },
+    }
+
+    issues = validate_policy_payload(payload, today=date(2026, 5, 10))
+
+    assert (
+        "known_hotspots.app/services/evidence.py.exceptions[0].expires_on",
+        "is expired",
+    ) in {(issue.field, issue.message) for issue in issues}
+
+
 def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None:
     cases = [
         ("app/db/models.py", ["class NewRuntimeRow(Base):", "    pass"], "orm_class"),
@@ -165,6 +199,36 @@ def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> Non
     assert import_report["findings"][0]["category"] == "import_forwarder"
     assert deletion_report["summary"]["blocked_count"] == 0
     assert deletion_report["findings"][0]["category"] == "deletion"
+
+
+def test_report_includes_numstat_line_counts() -> None:
+    numstat = "2\t1\tapp/services/evidence.py\n"
+
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence.py",
+            ["def _assemble_payload():", "    return {}"],
+            deleted_lines=["def _old_helper():"],
+        ),
+        numstat_text=numstat,
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert parse_numstat(numstat)["app/services/evidence.py"].added_line_count == 2
+    assert report["summary"]["added_line_count"] == 2
+    assert report["summary"]["deleted_line_count"] == 1
+    assert report["changed_files"] == [
+        {
+            "relative_path": "app/services/evidence.py",
+            "added_line_count": 2,
+            "deleted_line_count": 1,
+            "source": "numstat",
+            "known_hotspot": True,
+        }
+    ]
+    assert report["findings"][0]["added_line_count"] == 2
+    assert report["findings"][0]["deleted_line_count"] == 1
 
 
 def test_cli_forwarding_wrapper_is_allowed() -> None:
@@ -257,7 +321,43 @@ def test_json_report_shape_and_cli_strict_exit(tmp_path: Path, capsys) -> None:
     assert exit_code == 1
     assert payload["schema_name"] == REPORT_SCHEMA_NAME
     assert payload["summary"]["blocked_count"] == 1
+    assert payload["summary"]["added_line_count"] == 2
     assert payload["findings"][0]["policy_rule"] == "block_new.private_helper"
+
+
+def test_git_diff_collectors_wire_base_and_staged(monkeypatch, tmp_path: Path) -> None:
+    commands: list[list[str]] = []
+
+    class Completed:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command, *, cwd, capture_output, text):
+        commands.append(command)
+        assert cwd == tmp_path
+        assert capture_output is True
+        assert text is True
+        return Completed()
+
+    monkeypatch.setattr("app.hotspot_prevention_diff.subprocess.run", fake_run)
+
+    collect_git_diff(project_root=tmp_path, base="HEAD~1")
+    collect_git_numstat(project_root=tmp_path, staged=True)
+
+    assert commands == [
+        ["git", "diff", "--no-ext-diff", "--unified=3", "HEAD~1"],
+        ["git", "diff", "--no-ext-diff", "--numstat", "--cached"],
+    ]
+
+
+def test_git_diff_collectors_reject_base_with_staged(tmp_path: Path) -> None:
+    try:
+        collect_git_diff(project_root=tmp_path, base="HEAD", staged=True)
+    except ValueError as exc:
+        assert "--base and --staged cannot be used together" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
 
 
 def test_pyproject_exposes_hotspot_prevention_entrypoint() -> None:

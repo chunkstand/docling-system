@@ -241,9 +241,14 @@ Completed result:
 
 - Added tracked policy in `config/hotspot_prevention.yaml`.
 - Added deterministic diff analyzer and CLI in `app/hotspot_prevention.py`.
+- Split policy, diff parsing, and classification into focused
+  `app/hotspot_prevention_*.py` modules so the gate does not add new
+  file-budget debt.
 - Added `docling-system-hotspot-prevention-check` as a standalone entrypoint.
 - Added focused policy, analyzer, exception, strict-mode, and entrypoint tests
   in `tests/unit/test_hotspot_prevention.py`.
+- Hardened alignment coverage for `git diff --numstat` line-count reporting,
+  expired exception failure, and `--base`/`--staged` diff selection.
 - Updated architecture boundary and routing docs so future hotspot splits run
   the strict gate before closeout.
 

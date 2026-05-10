@@ -71,7 +71,8 @@ forwarding aliases required by a split.
 Allowed owner surfaces:
 
 - Policy: `config/hotspot_prevention.yaml`.
-- Analyzer and CLI: `app/hotspot_prevention.py`.
+- Analyzer and CLI: `app/hotspot_prevention.py` plus focused
+  `app/hotspot_prevention_*.py` owner modules.
 - Entrypoint: `pyproject.toml` under `[project.scripts]`.
 - Tests: `tests/unit/test_hotspot_prevention.py`; do not add this new gate's
   tests to the broad `tests/unit/test_cli.py` hotspot.
@@ -388,6 +389,9 @@ Implemented artifacts:
 
 - `config/hotspot_prevention.yaml`
 - `app/hotspot_prevention.py`
+- `app/hotspot_prevention_policy.py`
+- `app/hotspot_prevention_diff.py`
+- `app/hotspot_prevention_classifier.py`
 - `docling-system-hotspot-prevention-check`
 - `tests/unit/test_hotspot_prevention.py`
 
@@ -396,6 +400,17 @@ classifies additions to known hotspot files, reports preferred owner modules,
 allows deletion-only reductions and facade forwarding, requires owned
 exceptions, and returns non-zero in `--strict` mode when blocked hotspot growth
 is found.
+
+Alignment hardening on 2026-05-10 closed the remaining plan gaps:
+
+- the report now includes `changed_files` plus added/deleted line counts, using
+  `git diff --numstat` for live CLI checks and unified-diff fallback counts for
+  fixture checks
+- expired exception validation is covered by a focused negative test
+- `--base` and `--staged` command construction is covered so the live gate can
+  check caller-selected diffs deterministically
+- the implementation was split into focused policy, diff, classifier, and
+  CLI/report modules so the gate itself does not create new file-budget debt
 
 Closeout verification:
 
@@ -409,6 +424,7 @@ uv run docling-system-hotspot-prevention-check --strict
 uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
 uv run docling-system-architecture-quality-report --summary
+uv run docling-system-hygiene-check
 git diff --check
 ```
 

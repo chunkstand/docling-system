@@ -201,8 +201,9 @@ commands needed to verify the surface.
 ## Hotspot Prevention
 
 Known architecture hotspots have a diff-time prevention gate. The policy lives
-in `config/hotspot_prevention.yaml`; the analyzer and CLI live in
-`app/hotspot_prevention.py`. Run:
+in `config/hotspot_prevention.yaml`; the public CLI/report facade lives in
+`app/hotspot_prevention.py`; focused policy, diff, and classifier ownership
+lives in `app/hotspot_prevention_*.py`. Run:
 
 ```bash
 uv run docling-system-hotspot-prevention-check --strict
