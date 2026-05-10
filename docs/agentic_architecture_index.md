@@ -26,7 +26,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=692.67`.
+  `max_hotspot_risk_score=688.91`.
 - `app/db/models.py` remains the top hotspot, but three model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
@@ -98,6 +98,14 @@ chat history or scanning the whole repository.
   is reduced to 7,143 lines, and `app/services/audit_bundles.py` is reduced to
   3,306 lines while both facades keep their existing entry surfaces. The
   milestone is closed by commit `a0bd36b`.
+- Hotspot Owner Resolution Milestone 3 is now complete locally: replay-alert
+  fixture coverage summary, candidate derivation, promotion receipts, and
+  waiver-closure governance now live in
+  `app/services/claim_support_replay_alert_promotions.py` while
+  `app/services/claim_support_policy_impacts.py` remains the compatibility
+  facade. The old hotspot is reduced to 2,011 lines, and the new owner module
+  is governed under the same improvement case `IC-E2270F89B397` with a 1,536
+  line ratchet.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -128,7 +136,7 @@ chat history or scanning the whole repository.
   ownership rather than untracked or milestone-owned debt.
 - Current routed follow-up: the next architecture work should use
   `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
-  evidence/audit owner split is Milestone 3, Claim Support Policy Impacts
+  claim-support replay-alert owner split is Milestone 4, Retrieval Learning
   Split.
 
 ## Executable Architecture Contracts

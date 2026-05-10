@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 2 evidence/audit split complete locally, Milestone 3 next
+Status: in progress; Milestone 3 claim-support replay-alert split complete locally, Milestone 4 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -23,14 +23,14 @@ workflow contracts.
 
 ## Current Evidence
 
-Status refreshed from live repo commands on 2026-05-09 local / 2026-05-10 UTC:
+Status refreshed from live repo commands on 2026-05-10 local / 2026-05-10 UTC:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=692.67
+  max_hotspot_risk_score=688.91
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -40,12 +40,15 @@ uv run docling-system-architecture-quality-report --summary
   ]
 
 wc -l app/db/models.py app/services/evidence.py app/services/audit_bundles.py app/services/claim_support_policy_impacts.py app/services/retrieval_learning.py app/services/search.py
-  5800 app/db/models.py
-  8076 app/services/evidence.py
-  3862 app/services/audit_bundles.py
-  3477 app/services/claim_support_policy_impacts.py
+  5537 app/db/models.py
+  7143 app/services/evidence.py
+  3306 app/services/audit_bundles.py
+  2011 app/services/claim_support_policy_impacts.py
   3028 app/services/retrieval_learning.py
   3250 app/services/search.py
+
+wc -l app/services/claim_support_replay_alert_promotions.py
+  1536 app/services/claim_support_replay_alert_promotions.py
 
 uv run docling-system-hygiene-check
   inherited budget debt includes:
@@ -53,6 +56,7 @@ uv run docling-system-hygiene-check
     app/services/evidence.py owner=IC-050E60059A34
     app/services/audit_bundles.py owner=IC-2112B1ADC5E8
     app/services/claim_support_policy_impacts.py owner=IC-E2270F89B397
+    app/services/claim_support_replay_alert_promotions.py owner=IC-E2270F89B397
     app/services/retrieval_learning.py owner=IC-0D58F1624037
     app/services/search.py owner=IC-1D03DBFE8492
   new hygiene regressions: none
@@ -356,6 +360,28 @@ Acceptance:
 - focused tests and runtime integration verification pass
 - the improvement case and hygiene owner for the file are updated with the
   verified reduction result
+
+Status update:
+
+- Implemented and verified locally as the replay-alert fixture coverage owner
+  split.
+- Added `app/services/claim_support_replay_alert_promotions.py` and moved the
+  replay-alert fixture coverage summary, candidate derivation, fixture
+  promotion, and waiver-closure governance workflow behind the existing
+  `app/services/claim_support_policy_impacts.py` compatibility surface.
+- Reduced `app/services/claim_support_policy_impacts.py` from 3,477 lines to
+  2,011 while ratcheting the file to `ratchet_max_lines: 2011` and
+  `ratchet_max_private_helpers: 42`.
+- Added a hygiene ratchet entry for
+  `app/services/claim_support_replay_alert_promotions.py` under
+  `owner_case_id: IC-E2270F89B397` with `ratchet_max_lines: 1536` and
+  `ratchet_max_private_helpers: 24`.
+- Updated `config/improvement_cases.yaml` so
+  `IC-E2270F89B397` records the verified Milestone 3 reduction result.
+- Full DB-backed verification, architecture inspection, hotspot prevention,
+  hygiene, evaluation-data readiness, and agent-trace review all passed.
+- The next routed implementation slice is Milestone 4: Retrieval Learning
+  Split.
 
 ### Milestone 4: Retrieval Learning Split
 

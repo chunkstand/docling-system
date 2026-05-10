@@ -60,14 +60,18 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Local Milestone 3 replay-alert fixture coverage split verified; local
+      milestone commit pending.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: claim_support_hotspot_line_count
+    current_value: 2011.0
+    measurement_window: 2026-05-10 local verification
+    notes: Milestone 3 moved replay-alert fixture coverage into
+      app/services/claim_support_replay_alert_promotions.py and reduced
+      app/services/claim_support_policy_impacts.py to 2011 lines with the new
+      owner module ratcheted at 1536 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T06:55:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

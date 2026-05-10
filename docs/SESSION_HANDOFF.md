@@ -1,13 +1,13 @@
 # Session Handoff
 
-Date: 2026-05-09 local / 2026-05-10 UTC
+Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 2
-evidence and audit bundle split pack.
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 3 Claim
-Support Policy Impacts Split.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 3
+claim-support replay-alert fixture coverage split.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 4
+Retrieval Learning Split.
 
 ## Current Position
 
@@ -27,10 +27,10 @@ governance checks with intentional `feedback` no-answer replay coverage. The
 next revision closes Milestone 8 by proving the remaining residual risk is now
 explicitly governed and that the plan, handoff, and architecture index all
 match the current gate state. The current local checkpoint closes Hotspot
-Owner Resolution Milestone 2 by moving the technical-report evidence trace
-graph and retrieval-training replay-alert corpus lineage concerns behind
-focused owner modules while preserving the existing `evidence` and
-`audit_bundles` entry surfaces.
+Owner Resolution Milestone 3 by moving the replay-alert fixture coverage
+summary, candidate derivation, promotion receipts, and waiver-closure
+governance concerns behind a focused owner module while preserving the
+existing `claim_support_policy_impacts` entry surface.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -52,6 +52,7 @@ focused owner modules while preserving the existing `evidence` and
 - `app/services/evidence_manifest_traces.py`
 - `app/services/evidence_operator_runs.py`
 - `app/services/evidence_task_payloads.py`
+- `app/services/claim_support_replay_alert_promotions.py`
 - `tests/unit/test_agent_task_action_lookup.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
@@ -223,6 +224,63 @@ Verified closeout results:
   `hotspot_count=10`, `max_hotspot_risk_score=688.91`
 - `uv run docling-system-hotspot-prevention-check --strict`:
   `blocked=0`, `allowed=6`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+
+## Hotspot Owner Resolution Milestone 3 Closeout
+
+Milestone 3 is the claim-support replay-alert fixture coverage split. It is a
+behavior-preserving service modularization pass behind the existing
+`app/services/claim_support_policy_impacts.py` compatibility facade.
+
+Results:
+
+- Added `app/services/claim_support_replay_alert_promotions.py`.
+- Moved replay-alert fixture coverage summary, candidate derivation, fixture
+  promotion, and waiver-closure governance out of
+  `app/services/claim_support_policy_impacts.py` while keeping the original
+  public service surface import-stable.
+- Reduced `app/services/claim_support_policy_impacts.py` from 3,477 lines to
+  2,011 and ratcheted it to `ratchet_max_lines: 2011` and
+  `ratchet_max_private_helpers: 42`.
+- Added a hygiene ratchet entry for
+  `app/services/claim_support_replay_alert_promotions.py` under
+  `owner_case_id: IC-E2270F89B397` with `ratchet_max_lines: 1536` and
+  `ratchet_max_private_helpers: 24`.
+- Updated `config/improvement_cases.yaml` so
+  `IC-E2270F89B397` records the verified Milestone 3 reduction result.
+- The next routed implementation slice is Milestone 4: Retrieval Learning
+  Split.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_claim_support_policy_impacts.py tests/unit/test_agent_tasks_api.py -k "fixture_candidates or fixture_promotion"`
+- `uv run pytest -q tests/unit/test_api_architecture.py tests/unit/test_architecture_inspection.py -q`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+
+Verified closeout results:
+
+- `uv run pytest -q tests/unit/test_claim_support_policy_impacts.py tests/unit/test_agent_tasks_api.py -k "fixture_candidates or fixture_promotion"`:
+  `4 passed, 34 deselected`
+- `uv run pytest -q tests/unit/test_api_architecture.py tests/unit/test_architecture_inspection.py -q`:
+  `21 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1236 passed in 54.83s`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=688.91`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `blocked=0`, `allowed=0`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
   `observation_count=0`
 

@@ -177,9 +177,15 @@ file_budgets:
       owner_milestone: residual-weakness-milestone-2
     app/services/claim_support_policy_impacts.py:
       max_lines: 600
-      ratchet_max_lines: 3477
+      ratchet_max_lines: 2011
       max_private_helpers: 20
-      ratchet_max_private_helpers: 66
+      ratchet_max_private_helpers: 42
+      owner_case_id: IC-E2270F89B397
+    app/services/claim_support_replay_alert_promotions.py:
+      max_lines: 600
+      ratchet_max_lines: 1536
+      max_private_helpers: 20
+      ratchet_max_private_helpers: 24
       owner_case_id: IC-E2270F89B397
     app/services/claim_support_replay_alert_fixture_corpus.py:
       max_lines: 600
