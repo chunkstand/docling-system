@@ -4,16 +4,18 @@ Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
 Status refreshed: 2026-05-10. `app/db/models.py` remains the highest current
-architecture-quality hotspot, but the first three model-domain splits are
-complete: `platform support` owns `ApiIdempotencyKey` in
+architecture-quality hotspot, but the first four model-domain splits are
+complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
 `IngestBatchItem`, `Document`, and `DocumentRun` in
 `app/db/model_domains/ingest.py`, and `document_artifacts` owns
 `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`, `DocumentChunk`,
 `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` in
-`app/db/model_domains/document_artifacts.py`. `app.db.models` remains the
-public compatibility facade. Each model-domain milestone must finish with a
-local commit before another domain moves.
+`app/db/model_domains/document_artifacts.py`. The retrieval-interaction ledger
+now lives in `app/db/model_domains/retrieval_interactions.py` for the verified
+local Milestone 1 split. `app.db.models` remains the public compatibility
+facade. Each model-domain milestone must finish with a local commit before
+another domain moves.
 
 ## Proposed Domains
 
@@ -53,6 +55,78 @@ local commit before another domain moves.
 - Shared contract: `tests/db_model_contract.py`
 - Public import contract: `tests/unit/test_db_model_import_compatibility.py`
 - Postgres metadata/create-all contract: `tests/integration/test_db_model_metadata.py`
+
+## Owner Surfaces
+
+- hotspot facade: `app/db/models.py`
+- focused owner modules: `app/db/model_domains/*.py`
+- shared metadata contract: `tests/db_model_contract.py`
+- import compatibility gate:
+  `tests/unit/test_db_model_import_compatibility.py`
+- Postgres metadata and `Base.metadata.create_all(...)` gate:
+  `tests/integration/test_db_model_metadata.py`
+- migration drift gate: Alembic commands run against the local Postgres target
+- routing docs: this plan, `docs/hotspot_owner_resolution_plan.md`, and
+  `docs/SESSION_HANDOFF.md`
+
+## Placement Rules
+
+- Keep `app/db/models.py` as the public compatibility facade until the repo
+  deliberately changes that import contract.
+- Move one bounded ORM concern at a time into `app/db/model_domains/`; do not
+  mix retrieval, semantic, agent-task, and claim-support rows in the same
+  milestone.
+- Re-export every moved enum constant or ORM class from `app/db/models.py`
+  before changing any caller imports.
+- Extend the shared metadata contract for every moved table before closing the
+  milestone.
+- Treat generated columns, vector dimensions, named indexes, unique
+  constraints, and relationship strings as compatibility surfaces, not
+  implementation details.
+
+## Weak-Point Prevention Contract
+
+Weak point forecast: a model-domain split can appear clean while silently
+changing emitted DDL, breaking `app.db.models` imports, or creating a new
+`model_domains` dump file that simply relocates the hotspot.
+
+Owner surface: `app/db/models.py`, the target `app/db/model_domains/*.py`
+module, the shared metadata contract tests, Alembic, and the current handoff
+and hotspot-owner plan.
+
+Prevention gates:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+
+Fail thresholds:
+
+- any public `app.db.models` import breaks
+- any named index, unique constraint, generated column, vector dimension, or
+  relationship contract drifts unexpectedly
+- Alembic emits unexpected DDL or `Base.metadata.create_all(...)` changes the
+  supported schema shape
+- the new owner module becomes broad enough that it should have been split
+  again before commit
+
+Controlled violations:
+
+- remove one moved symbol from the `app.db.models` re-export path and verify
+  the import-compatibility test fails
+- change a required index or unique-constraint expectation in the metadata
+  harness and verify the integration gate fails
+
+Future-Codex misuse scenario: the likely failure is moving replay, release, or
+training rows into the same retrieval-interaction module just because they live
+near the same search tables today. This plan prevents that by naming the
+interaction-ledger rows explicitly, keeping the replay/release and learning
+surfaces deferred, and requiring the new owner module to stay narrow enough to
+pass the same gating and review pattern again in the next slice.
 
 The harness currently protects 109 public `app.db.models` symbols: 29 enums and
 80 ORM model classes. It also asserts the 80-table `Base.metadata` contract and
@@ -133,14 +207,46 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, architecture, hygiene,
   hotspot-prevention, and full DB-backed gates.
 
+Verified locally on 2026-05-10: `retrieval interactions`:
+`SearchRequestRecord`, `SearchRequestResult`, `RetrievalEvidenceSpan`,
+`RetrievalEvidenceSpanMultiVector`, `SearchRequestResultSpan`,
+`SearchFeedback`, `ChatAnswerRecord`, and `ChatAnswerFeedback`.
+
+Implemented result:
+
+- Added `app/db/model_domains/retrieval_interactions.py`.
+- Re-exported the retrieval-interaction models from `app/db/models.py` through
+  import-forwarder aliases so the hotspot-prevention gate remains green.
+- Preserved retrieval table names, columns, foreign keys, named indexes, unique
+  constraints, computed TSVECTOR SQL, and vector dimensions.
+- Extended the unit and Postgres create-all metadata contracts for
+  retrieval-interaction table columns, exact index column ordering, exact
+  unique-constraint column ordering, vector dimensions, and computed SQL.
+- Reduced `app/db/models.py` from 5,537 lines to 5,067 lines and ratcheted the
+  `config/hygiene_policy.yaml` ceiling to match.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `681.91` to
+  `673.78` while keeping `app/db/models.py` as the top governed hotspot.
+- Verified with focused import, metadata, Alembic, evaluation-data-readiness,
+  architecture, hygiene, hotspot-prevention, and full DB-backed gates.
+
 Next model-domain candidate when model work resumes:
 
-- `retrieval`: search requests, result rows, replay rows, harness evaluations,
-  releases, training runs, reranker artifacts, feedback, and chat answers
+- `retrieval replay and release governance`: `SearchReplayRun`,
+  `SearchReplayQuery`, `SearchHarnessEvaluation`,
+  `SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
+  `SearchHarnessReleaseReadinessAssessment`
 
-The next overall hotspot-owner milestone is not another model-domain move.
-After this split, the next routed implementation slice is Hotspot Owner
-Resolution Milestone 2: Evidence And Audit Bundle Split Pack.
+Deferred retrieval follow-ons after the replay/release slice proves clean:
+
+- `retrieval learning`: `RetrievalJudgmentSet`, `RetrievalJudgment`,
+  `RetrievalHardNegative`, `RetrievalTrainingRun`,
+  `RetrievalLearningCandidateEvaluation`, and `RetrievalRerankerArtifact`
+
+Current routed follow-up after the verified High Value Technical Paydown
+Milestones 1-3 closeout:
+
+- High Value Technical Paydown Milestone 4: Test Hotspot Split Pack A under
+  `IC-FD18EE2D3309`, `IC-03D7EFA03213`, and `IC-23F2C79C8AA7`
 
 ## Per-Domain Acceptance Gate
 

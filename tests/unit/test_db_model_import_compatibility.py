@@ -15,10 +15,13 @@ from tests.db_model_contract import (
     MODEL_DOMAIN_SYMBOLS,
     MODEL_SYMBOLS,
     PUBLIC_MODEL_IMPORT_SYMBOLS,
+    REQUIRED_COMPUTED_SQL,
     REQUIRED_TABLE_INDEX_COLUMNS,
     REQUIRED_TABLE_INDEX_NAMES,
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS,
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
+    REQUIRED_VECTOR_DIMENSIONS,
+    RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
 )
 
 
@@ -110,6 +113,34 @@ def test_document_artifact_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.document_artifacts"
 
 
+def test_retrieval_interaction_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.retrieval_interactions import (
+        ChatAnswerFeedback,
+        ChatAnswerRecord,
+        RetrievalEvidenceSpan,
+        RetrievalEvidenceSpanMultiVector,
+        SearchFeedback,
+        SearchRequestRecord,
+        SearchRequestResult,
+        SearchRequestResultSpan,
+    )
+
+    expected_models = {
+        "SearchRequestRecord": SearchRequestRecord,
+        "SearchRequestResult": SearchRequestResult,
+        "RetrievalEvidenceSpan": RetrievalEvidenceSpan,
+        "RetrievalEvidenceSpanMultiVector": RetrievalEvidenceSpanMultiVector,
+        "SearchRequestResultSpan": SearchRequestResultSpan,
+        "SearchFeedback": SearchFeedback,
+        "ChatAnswerRecord": ChatAnswerRecord,
+        "ChatAnswerFeedback": ChatAnswerFeedback,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.retrieval_interactions"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -131,6 +162,18 @@ def test_base_metadata_preserves_ingest_domain_table_columns(
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_document_artifact_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_retrieval_interaction_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]
@@ -199,3 +242,32 @@ def test_base_metadata_preserves_required_unique_constraint_columns(
     for constraint_name, expected_columns in constraint_columns_by_name.items():
         constraint = unique_constraints_by_name[constraint_name]
         assert tuple(column.name for column in constraint.columns) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "vector_columns"),
+    REQUIRED_VECTOR_DIMENSIONS.items(),
+)
+def test_base_metadata_preserves_required_vector_dimensions(
+    table_name: str, vector_columns: dict[str, int]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    for column_name, expected_dim in vector_columns.items():
+        assert getattr(table.columns[column_name].type, "dim", None) == expected_dim
+
+
+@pytest.mark.parametrize(
+    ("table_name", "computed_sql_by_column"),
+    REQUIRED_COMPUTED_SQL.items(),
+)
+def test_base_metadata_preserves_required_computed_sql(
+    table_name: str, computed_sql_by_column: dict[str, str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    for column_name, expected_sql in computed_sql_by_column.items():
+        column = table.columns[column_name]
+        assert column.computed is not None
+        assert column.computed.persisted is True
+        assert str(column.computed.sqltext) == expected_sql

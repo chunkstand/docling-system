@@ -15,6 +15,8 @@ from tests.db_model_contract import (
     REQUIRED_TABLE_INDEX_NAMES,
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS,
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
+    REQUIRED_VECTOR_DIMENSIONS,
+    RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -104,6 +106,35 @@ def test_postgres_create_all_preserves_ingest_domain_table_contract(
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_postgres_create_all_preserves_document_artifact_domain_table_contract(
+    postgres_schema_engine,
+    table_name: str,
+    expected_columns: frozenset[str],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    with engine.connect() as connection:
+        column_names = frozenset(
+            connection.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema_name
+                    AND table_name = :table_name
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            ).scalars()
+        )
+
+    assert column_names == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_postgres_create_all_preserves_retrieval_interaction_domain_table_contract(
     postgres_schema_engine,
     table_name: str,
     expected_columns: frozenset[str],
@@ -282,3 +313,40 @@ def test_postgres_create_all_preserves_required_unique_constraint_columns(
             )
 
         assert column_names == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "vector_columns"),
+    REQUIRED_VECTOR_DIMENSIONS.items(),
+)
+def test_postgres_create_all_preserves_required_vector_dimensions(
+    postgres_schema_engine,
+    table_name: str,
+    vector_columns: dict[str, int],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    for column_name, expected_dim in vector_columns.items():
+        with engine.connect() as connection:
+            formatted_type = connection.execute(
+                text(
+                    """
+                    SELECT format_type(attr.atttypid, attr.atttypmod)
+                    FROM pg_class table_cls
+                    JOIN pg_namespace namespace
+                        ON namespace.oid = table_cls.relnamespace
+                    JOIN pg_attribute attr
+                        ON attr.attrelid = table_cls.oid
+                    WHERE namespace.nspname = :schema_name
+                    AND table_cls.relname = :table_name
+                    AND attr.attname = :column_name
+                    """
+                ),
+                {
+                    "schema_name": schema_name,
+                    "table_name": table_name,
+                    "column_name": column_name,
+                },
+            ).scalar_one()
+
+        assert formatted_type == f"vector({expected_dim})"

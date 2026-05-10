@@ -308,6 +308,81 @@ REQUIRED_TABLE_INDEX_NAMES = {
     )
 }
 
+REQUIRED_TABLE_INDEX_NAMES.update(
+    {
+        "search_requests": frozenset(
+            {
+                "ix_search_requests_created_at",
+                "ix_search_requests_origin_created_at",
+                "ix_search_requests_evaluation_id",
+                "ix_search_requests_parent_request_id",
+            }
+        ),
+        "search_request_results": frozenset(
+            {
+                "ix_search_request_results_search_request_id",
+                "ix_search_request_results_result_type",
+            }
+        ),
+        "retrieval_evidence_spans": frozenset(
+            {
+                "ix_retrieval_evidence_spans_document_id",
+                "ix_retrieval_evidence_spans_run_id",
+                "ix_retrieval_evidence_spans_source",
+                "ix_retrieval_evidence_spans_chunk_id",
+                "ix_retrieval_evidence_spans_table_id",
+                "ix_retrieval_evidence_spans_page_from",
+                "ix_retrieval_evidence_spans_page_to",
+                "ix_retrieval_evidence_spans_content_sha256",
+                "ix_retrieval_evidence_spans_textsearch",
+                "ix_retrieval_evidence_spans_embedding_hnsw",
+            }
+        ),
+        "retrieval_evidence_span_multivectors": frozenset(
+            {
+                "ix_retrieval_span_multivectors_span_id",
+                "ix_retrieval_span_multivectors_document_id",
+                "ix_retrieval_span_multivectors_run_id",
+                "ix_retrieval_span_multivectors_source",
+                "ix_retrieval_span_multivectors_model",
+                "ix_retrieval_span_multivectors_content_sha256",
+                "ix_retrieval_span_multivectors_embedding_sha256",
+                "ix_retrieval_span_multivectors_embedding_hnsw",
+            }
+        ),
+        "search_request_result_spans": frozenset(
+            {
+                "ix_search_request_result_spans_request_id",
+                "ix_search_request_result_spans_result_id",
+                "ix_search_request_result_spans_span_id",
+                "ix_search_request_result_spans_source",
+                "ix_search_request_result_spans_content_sha256",
+            }
+        ),
+        "search_feedback": frozenset(
+            {
+                "ix_search_feedback_search_request_id",
+                "ix_search_feedback_search_request_result_id",
+                "ix_search_feedback_feedback_type",
+                "ix_search_feedback_created_at",
+            }
+        ),
+        "chat_answer_records": frozenset(
+            {
+                "ix_chat_answer_records_search_request_id",
+                "ix_chat_answer_records_created_at",
+            }
+        ),
+        "chat_answer_feedback": frozenset(
+            {
+                "ix_chat_answer_feedback_answer_id",
+                "ix_chat_answer_feedback_feedback_type",
+                "ix_chat_answer_feedback_created_at",
+            }
+        ),
+    }
+)
+
 REQUIRED_TABLE_INDEX_COLUMNS = {
     "api_idempotency_keys": {
         "ix_api_idempotency_keys_created_at": ("created_at",),
@@ -366,6 +441,65 @@ REQUIRED_TABLE_INDEX_COLUMNS = {
     }
 }
 
+REQUIRED_TABLE_INDEX_COLUMNS.update(
+    {
+        "search_requests": {
+            "ix_search_requests_created_at": ("created_at",),
+            "ix_search_requests_origin_created_at": ("origin", "created_at"),
+            "ix_search_requests_evaluation_id": ("evaluation_id",),
+            "ix_search_requests_parent_request_id": ("parent_request_id",),
+        },
+        "search_request_results": {
+            "ix_search_request_results_search_request_id": ("search_request_id",),
+            "ix_search_request_results_result_type": ("result_type",),
+        },
+        "retrieval_evidence_spans": {
+            "ix_retrieval_evidence_spans_document_id": ("document_id",),
+            "ix_retrieval_evidence_spans_run_id": ("run_id",),
+            "ix_retrieval_evidence_spans_source": ("source_type", "source_id"),
+            "ix_retrieval_evidence_spans_chunk_id": ("chunk_id",),
+            "ix_retrieval_evidence_spans_table_id": ("table_id",),
+            "ix_retrieval_evidence_spans_page_from": ("page_from",),
+            "ix_retrieval_evidence_spans_page_to": ("page_to",),
+            "ix_retrieval_evidence_spans_content_sha256": ("content_sha256",),
+            "ix_retrieval_evidence_spans_textsearch": ("textsearch",),
+            "ix_retrieval_evidence_spans_embedding_hnsw": ("embedding",),
+        },
+        "retrieval_evidence_span_multivectors": {
+            "ix_retrieval_span_multivectors_span_id": ("retrieval_evidence_span_id",),
+            "ix_retrieval_span_multivectors_document_id": ("document_id",),
+            "ix_retrieval_span_multivectors_run_id": ("run_id",),
+            "ix_retrieval_span_multivectors_source": ("source_type", "source_id"),
+            "ix_retrieval_span_multivectors_model": ("embedding_model",),
+            "ix_retrieval_span_multivectors_content_sha256": ("content_sha256",),
+            "ix_retrieval_span_multivectors_embedding_sha256": ("embedding_sha256",),
+            "ix_retrieval_span_multivectors_embedding_hnsw": ("embedding",),
+        },
+        "search_request_result_spans": {
+            "ix_search_request_result_spans_request_id": ("search_request_id",),
+            "ix_search_request_result_spans_result_id": ("search_request_result_id",),
+            "ix_search_request_result_spans_span_id": ("retrieval_evidence_span_id",),
+            "ix_search_request_result_spans_source": ("source_type", "source_id"),
+            "ix_search_request_result_spans_content_sha256": ("content_sha256",),
+        },
+        "search_feedback": {
+            "ix_search_feedback_search_request_id": ("search_request_id",),
+            "ix_search_feedback_search_request_result_id": ("search_request_result_id",),
+            "ix_search_feedback_feedback_type": ("feedback_type",),
+            "ix_search_feedback_created_at": ("created_at",),
+        },
+        "chat_answer_records": {
+            "ix_chat_answer_records_search_request_id": ("search_request_id",),
+            "ix_chat_answer_records_created_at": ("created_at",),
+        },
+        "chat_answer_feedback": {
+            "ix_chat_answer_feedback_answer_id": ("chat_answer_id",),
+            "ix_chat_answer_feedback_feedback_type": ("feedback_type",),
+            "ix_chat_answer_feedback_created_at": ("created_at",),
+        },
+    }
+)
+
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
     "api_idempotency_keys": frozenset(
         {
@@ -409,6 +543,31 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
     )
 }
 
+REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
+    {
+        "search_request_results": frozenset(
+            {
+                "uq_search_request_results_request_rank",
+            }
+        ),
+        "retrieval_evidence_spans": frozenset(
+            {
+                "uq_retrieval_evidence_spans_run_source_span",
+            }
+        ),
+        "retrieval_evidence_span_multivectors": frozenset(
+            {
+                "uq_retrieval_span_multivectors_span_vector",
+            }
+        ),
+        "search_request_result_spans": frozenset(
+            {
+                "uq_search_request_result_spans_result_rank",
+            }
+        ),
+    }
+)
+
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
     "api_idempotency_keys": {
         "uq_api_idempotency_keys_scope_key": ("scope", "idempotency_key"),
@@ -439,6 +598,34 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
         "uq_document_runs_doc_run_number": ("document_id", "run_number"),
     }
 }
+
+REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
+    {
+        "search_request_results": {
+            "uq_search_request_results_request_rank": ("search_request_id", "rank"),
+        },
+        "retrieval_evidence_spans": {
+            "uq_retrieval_evidence_spans_run_source_span": (
+                "run_id",
+                "source_type",
+                "source_id",
+                "span_index",
+            ),
+        },
+        "retrieval_evidence_span_multivectors": {
+            "uq_retrieval_span_multivectors_span_vector": (
+                "retrieval_evidence_span_id",
+                "vector_index",
+            ),
+        },
+        "search_request_result_spans": {
+            "uq_search_request_result_spans_result_rank": (
+                "search_request_result_id",
+                "span_rank",
+            ),
+        },
+    }
+)
 
 INGEST_DOMAIN_TABLE_COLUMNS = {
     "ingest_batches": frozenset(
@@ -637,6 +824,181 @@ DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS = {
             "created_at",
         }
     ),
+}
+
+RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS = {
+    "search_requests": frozenset(
+        {
+            "id",
+            "parent_request_id",
+            "evaluation_id",
+            "run_id",
+            "origin",
+            "query_text",
+            "mode",
+            "filters",
+            "details",
+            "limit",
+            "tabular_query",
+            "harness_name",
+            "reranker_name",
+            "reranker_version",
+            "retrieval_profile_name",
+            "harness_config",
+            "embedding_status",
+            "embedding_error",
+            "candidate_count",
+            "result_count",
+            "table_hit_count",
+            "duration_ms",
+            "created_at",
+        }
+    ),
+    "search_request_results": frozenset(
+        {
+            "id",
+            "search_request_id",
+            "rank",
+            "base_rank",
+            "result_type",
+            "document_id",
+            "run_id",
+            "chunk_id",
+            "table_id",
+            "score",
+            "keyword_score",
+            "semantic_score",
+            "hybrid_score",
+            "rerank_features",
+            "page_from",
+            "page_to",
+            "source_filename",
+            "label",
+            "preview_text",
+            "created_at",
+        }
+    ),
+    "retrieval_evidence_spans": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "source_type",
+            "source_id",
+            "chunk_id",
+            "table_id",
+            "span_index",
+            "span_text",
+            "heading",
+            "page_from",
+            "page_to",
+            "content_sha256",
+            "source_snapshot_sha256",
+            "metadata",
+            "embedding",
+            "textsearch",
+            "created_at",
+        }
+    ),
+    "retrieval_evidence_span_multivectors": frozenset(
+        {
+            "id",
+            "retrieval_evidence_span_id",
+            "document_id",
+            "run_id",
+            "source_type",
+            "source_id",
+            "vector_index",
+            "token_start",
+            "token_end",
+            "vector_text",
+            "content_sha256",
+            "embedding_model",
+            "embedding_dim",
+            "embedding_sha256",
+            "embedding",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "search_request_result_spans": frozenset(
+        {
+            "id",
+            "search_request_id",
+            "search_request_result_id",
+            "retrieval_evidence_span_id",
+            "span_rank",
+            "score_kind",
+            "score",
+            "source_type",
+            "source_id",
+            "span_index",
+            "page_from",
+            "page_to",
+            "text_excerpt",
+            "content_sha256",
+            "source_snapshot_sha256",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "search_feedback": frozenset(
+        {
+            "id",
+            "search_request_id",
+            "search_request_result_id",
+            "result_rank",
+            "feedback_type",
+            "note",
+            "created_at",
+        }
+    ),
+    "chat_answer_records": frozenset(
+        {
+            "id",
+            "search_request_id",
+            "document_id",
+            "question_text",
+            "mode",
+            "answer_text",
+            "model",
+            "used_fallback",
+            "warning",
+            "citations",
+            "harness_name",
+            "reranker_name",
+            "reranker_version",
+            "retrieval_profile_name",
+            "created_at",
+        }
+    ),
+    "chat_answer_feedback": frozenset(
+        {
+            "id",
+            "chat_answer_id",
+            "feedback_type",
+            "note",
+            "created_at",
+        }
+    ),
+}
+
+REQUIRED_VECTOR_DIMENSIONS = {
+    "retrieval_evidence_spans": {
+        "embedding": 1536,
+    },
+    "retrieval_evidence_span_multivectors": {
+        "embedding": 1536,
+    },
+}
+
+REQUIRED_COMPUTED_SQL = {
+    "retrieval_evidence_spans": {
+        "textsearch": (
+            "setweight(to_tsvector('english', coalesce(heading, '')), 'A') || "
+            "to_tsvector('english', coalesce(span_text, ''))"
+        ),
+    },
 }
 
 PLATFORM_SUPPORT_TABLE_COLUMNS = {
