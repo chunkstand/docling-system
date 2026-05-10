@@ -43,7 +43,7 @@ Current architecture status:
   - `app/services/audit_bundles.py`: 3,862 lines
   - `app/services/agent_task_context.py`: 3,858 lines
   - `app/services/claim_support_policy_impacts.py`: 3,477 lines
-  - `app/services/search.py`: 3,429 lines
+  - `app/services/search.py`: 3,250 lines after the first query-feature split
   - `app/services/agent_task_actions.py`: 2,884 lines after the first
     search-harness registry/helper split
   - `app/services/retrieval_learning.py`: 3,028 lines
@@ -270,8 +270,11 @@ Deliverables:
   `Architecture Plan 01` Milestone 5 completed the first improvement-case
   command-group split in `app/cli_commands/improvement_cases.py`, with
   explicit `app.cli` forwarding functions preserving console entrypoints.
-- Continue the prior `search.py` split by isolating query planning, feature
-  extraction, ranking, and result hydration where tests already give coverage.
+- Continue the prior `search.py` split by isolating query planning, ranking,
+  and result hydration where tests already give coverage. `Architecture Plan
+  01` Milestone 6 completed the first query-feature and query-intent split in
+  `app/services/search_query_features.py` while preserving the
+  `app.services.search` compatibility facade.
 - Continue model-domain splits only when they can be paired with exact
   migration/create-all verification. `Architecture Plan 01` Milestone 2 proved
   the pattern with `ApiIdempotencyKey` in `app/db/model_domains/platform.py`.

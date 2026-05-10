@@ -91,7 +91,9 @@ Next model-domain candidate when model work resumes:
 - `ingest`: `IngestBatch`, `IngestBatchItem`, `Document`, `DocumentRun`
 
 The next overall Architecture Plan 01 milestone is not another model-domain
-move; it is Milestone 3, the first `app/services/evidence.py` split.
+move. Milestones 3-6 have since completed the first evidence, agent-action,
+CLI, and search splits; the next active plan milestone is Milestone 7, the next
+`app/services/evidence.py` split.
 
 ## Per-Domain Acceptance Gate
 

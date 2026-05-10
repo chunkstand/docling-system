@@ -30,10 +30,11 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-09 `Architecture Plan 01` Milestone 3 closeout, the local
+As of the 2026-05-10 `Architecture Plan 01` Milestone 6 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
-plus the first data-model domain split and first evidence-service split. The
-implemented architecture posture is:
+plus the first data-model domain split, first evidence-service split, first
+agent-action registry/helper split, first CLI command-group split, and first
+search-core split. The implemented architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
@@ -53,6 +54,14 @@ implemented architecture posture is:
   persistence, trace integrity, and response assembly now live in focused
   `app/services/evidence_search_*.py` modules while `app.services.evidence`
   remains the public compatibility facade
+- improvement-case CLI command implementations now live in
+  `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
+  entrypoint compatibility facade
+- query-intent classification, tabular-query detection, identifier lookup
+  detection, normalized query feature sets, token/phrase coverage helpers, and
+  metadata-query token extraction now live in
+  `app/services/search_query_features.py` while `app.services.search` remains
+  the search compatibility facade
 - the current top architecture follow-up is hotspot splitting, not a platform
   rewrite or service extraction
 

@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import Float, Select, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session
 
+import app.services.search_query_features as _query_features
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.time import utcnow
 from app.db.models import (
@@ -41,12 +42,13 @@ from app.services.search_plan import (
     SearchStage,
     build_search_execution_plan,
 )
+from app.services.search_query_features import QueryFeatureSet
 from app.services.telemetry import observe_search_results
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
-QUERY_INTENT_TABULAR = "tabular"
-QUERY_INTENT_PROSE_LOOKUP = "prose_lookup"
-QUERY_INTENT_PROSE_BROAD = "prose_broad"
+QUERY_INTENT_TABULAR = _query_features.QUERY_INTENT_TABULAR
+QUERY_INTENT_PROSE_LOOKUP = _query_features.QUERY_INTENT_PROSE_LOOKUP
+QUERY_INTENT_PROSE_BROAD = _query_features.QUERY_INTENT_PROSE_BROAD
 PROSE_SUPPLEMENTARY_CANDIDATE_LIMIT = 12
 PROSE_ADJACENT_EXPANSION_LIMIT = 12
 PROSE_ADJACENT_SEED_LIMIT = 6
@@ -54,7 +56,21 @@ SEARCH_RESULT_SPAN_LIMIT = 5
 LATE_INTERACTION_QUERY_WORD_WINDOW = 6
 LATE_INTERACTION_QUERY_WORD_OVERLAP = 3
 LATE_INTERACTION_FETCH_MULTIPLIER = 4
-TABULAR_REFERENCE_PATTERN = re.compile(r"\b\d+(?:\.\d+)+(?:\s*\(\s*\d+\s*\))?\b")
+TABULAR_REFERENCE_PATTERN = _query_features.TABULAR_REFERENCE_PATTERN
+is_tabular_query = _query_features.is_tabular_query
+_is_tabular_query = is_tabular_query
+_classify_query_intent = _query_features.classify_query_intent
+_looks_like_identifier_lookup = _query_features.looks_like_identifier_lookup
+_normalize_text = _query_features.normalize_search_text
+_salient_tokens = _query_features.salient_tokens
+_salient_tokens_from_normalized = _query_features.salient_tokens_from_normalized
+_phrase_tokens_from_normalized = _query_features.phrase_tokens_from_normalized
+_query_phrases_from_normalized = _query_features.query_phrases_from_normalized
+_build_query_feature_set = _query_features.build_query_feature_set
+_coerce_query_feature_set = _query_features.coerce_query_feature_set
+_token_coverage = _query_features.token_coverage
+_strong_document_phrase_match = _query_features.strong_document_phrase_match
+_metadata_query_tokens = _query_features.metadata_query_tokens
 
 
 @dataclass
@@ -124,15 +140,6 @@ class SearchExecution:
     duration_ms: float
     details: dict = field(default_factory=dict)
     evidence_operator_run_ids: list[UUID] = field(default_factory=list)
-
-
-@dataclass(frozen=True)
-class QueryFeatureSet:
-    normalized_query: str
-    normalized_tokens: frozenset[str]
-    salient_tokens: frozenset[str]
-    rare_tokens: frozenset[str]
-    phrases: frozenset[str]
 
 
 class SearchReranker(Protocol):
@@ -1676,187 +1683,6 @@ def _reciprocal_rank(rank: int) -> float:
     return 1.0 / (60 + rank)
 
 
-def _is_tabular_query(query: str) -> bool:
-    normalized = query.lower()
-    if any(token in normalized for token in ("table", "row", "column")):
-        return True
-    if any(op in normalized for op in (">", "<", ">=", "<=", "greater than", "less than")):
-        return True
-    if TABULAR_REFERENCE_PATTERN.search(normalized):
-        return True
-    return False
-
-
-is_tabular_query = _is_tabular_query
-
-
-def _classify_query_intent(query: str) -> str:
-    if _is_tabular_query(query):
-        return QUERY_INTENT_TABULAR
-    normalized = _normalize_text(query)
-    if not normalized:
-        return QUERY_INTENT_PROSE_LOOKUP
-    salient_count = len(_salient_tokens(query))
-    if (
-        "?" in query
-        or normalized.startswith(
-            (
-                "what ",
-                "what is ",
-                "what does ",
-                "which ",
-                "who ",
-                "when ",
-                "where ",
-                "how many ",
-                "how much ",
-                "does ",
-                "is ",
-                "are ",
-            )
-        )
-        or salient_count <= 6
-    ):
-        return QUERY_INTENT_PROSE_LOOKUP
-    return QUERY_INTENT_PROSE_BROAD
-
-
-def _looks_like_identifier_lookup(query: str) -> bool:
-    normalized = _normalize_text(query)
-    if not normalized:
-        return False
-    stripped = query.strip().lower()
-    if stripped.endswith(".pdf"):
-        return True
-    compact = re.sub(r"\s+", "", stripped)
-    has_alpha = any(char.isalpha() for char in compact)
-    has_digit = any(char.isdigit() for char in compact)
-    if " " not in stripped and has_alpha and has_digit and len(compact) >= 6:
-        return True
-    return (
-        len(compact) >= 8
-        and any(separator in stripped for separator in ("_", "-"))
-        and len(stripped.split()) <= 3
-    )
-
-
-def _normalize_text(value: str | None) -> str:
-    if not value:
-        return ""
-    expanded = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", value)
-    expanded = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", expanded)
-    expanded = re.sub(r"(?<=[A-Za-z])(?=[0-9])|(?<=[0-9])(?=[A-Za-z])", " ", expanded)
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", expanded.lower())).strip()
-
-
-_QUERY_STOPWORDS = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "for",
-        "from",
-        "how",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "what",
-        "when",
-        "where",
-        "which",
-        "who",
-        "why",
-        "with",
-    }
-)
-
-
-def _salient_tokens(value: str | None) -> set[str]:
-    return _salient_tokens_from_normalized(_normalize_text(value))
-
-
-def _salient_tokens_from_normalized(normalized: str) -> set[str]:
-    if not normalized:
-        return set()
-    return {
-        token for token in normalized.split() if len(token) >= 3 and token not in _QUERY_STOPWORDS
-    }
-
-
-def _phrase_tokens_from_normalized(normalized: str) -> list[str]:
-    return [token for token in normalized.split() if token not in _QUERY_STOPWORDS]
-
-
-def _query_phrases_from_normalized(normalized: str, phrase_size: int = 2) -> set[str]:
-    tokens = _phrase_tokens_from_normalized(normalized)
-    if len(tokens) < phrase_size:
-        return set()
-    return {
-        " ".join(tokens[idx : idx + phrase_size]) for idx in range(len(tokens) - phrase_size + 1)
-    }
-
-
-def _build_query_feature_set(query: str | None) -> QueryFeatureSet:
-    normalized_query = _normalize_text(query)
-    normalized_tokens = frozenset(normalized_query.split()) if normalized_query else frozenset()
-    salient_tokens = frozenset(_salient_tokens_from_normalized(normalized_query))
-    return QueryFeatureSet(
-        normalized_query=normalized_query,
-        normalized_tokens=normalized_tokens,
-        salient_tokens=salient_tokens,
-        rare_tokens=frozenset(token for token in salient_tokens if len(token) >= 7),
-        phrases=frozenset(_query_phrases_from_normalized(normalized_query)),
-    )
-
-
-def _coerce_query_feature_set(
-    query_or_features: QueryFeatureSet | str | None,
-) -> QueryFeatureSet:
-    if isinstance(query_or_features, QueryFeatureSet):
-        return query_or_features
-    return _build_query_feature_set(query_or_features)
-
-
-def _token_coverage(query_or_features: QueryFeatureSet | str | None, value: str | None) -> float:
-    query_tokens = _coerce_query_feature_set(query_or_features).salient_tokens
-    value_tokens = _salient_tokens(value)
-    if not query_tokens or not value_tokens:
-        return 0.0
-    return len(query_tokens & value_tokens) / len(query_tokens)
-
-
-def _strong_document_phrase_match(
-    query_or_features: QueryFeatureSet | str | None,
-    value: str | None,
-) -> float:
-    normalized_query = _coerce_query_feature_set(query_or_features).normalized_query
-    normalized_value = _normalize_text(value)
-    if not normalized_query or not normalized_value:
-        return 0.0
-
-    value_tokens = normalized_value.split()
-    if len(value_tokens) < 2 and len(normalized_value) < 8:
-        return 0.0
-
-    if normalized_query in normalized_value:
-        return 1.0
-    if normalized_value in normalized_query:
-        return 1.0
-    return 0.0
-
-
 def _document_query_overlap_features(
     item: RankedResult,
     query_or_features: QueryFeatureSet | str | None,
@@ -2201,11 +2027,6 @@ def _ranked_metadata_overlap_score(
         + 0.25 * chunk_overlap
         + 0.15 * filename_overlap
     )
-
-
-def _metadata_query_tokens(value: str | None) -> list[str]:
-    normalized = _normalize_text(value)
-    return sorted(set(_phrase_tokens_from_normalized(normalized)))
 
 
 def _metadata_tsquery(config: str, tokens: list[str]):

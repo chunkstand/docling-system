@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-5 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-6 complete; local commit-on-closeout policy
 active as of 2026-05-10
 
 Purpose: reduce centralization in the current modular monolith without
@@ -806,6 +806,8 @@ core concern split.
 
 ### Milestone 6: Search Core Split 01
 
+Status: complete on 2026-05-10.
+
 Goal: continue reducing `app/services/search.py` by isolating one internal
 search concern behind stable public search functions.
 
@@ -861,6 +863,54 @@ Closeout:
 - Update retrieval/search docs only if the public contract changes.
 - Update `docs/SESSION_HANDOFF.md`.
 - Commit the search-core split locally before moving another search concern.
+
+Completed result:
+
+- Added `app/services/search_query_features.py` as the focused owner module for
+  query-intent classification, tabular-query detection, identifier lookup
+  detection, normalized query feature sets, token/phrase coverage helpers, and
+  metadata-query token extraction.
+- Kept `app.services.search` import-compatible for `QueryFeatureSet`,
+  `is_tabular_query`, `_is_tabular_query`, `_classify_query_intent`,
+  `_looks_like_identifier_lookup`, `_build_query_feature_set`,
+  `_coerce_query_feature_set`, `_token_coverage`,
+  `_strong_document_phrase_match`, `_normalize_text`, and related private
+  token helpers used by existing tests and callers.
+- Preserved search ranking, metadata-supplement decisions, query-intent detail
+  payloads, replay behavior, and public `execute_search` / `search_documents`
+  contracts.
+- Added focused compatibility coverage in
+  `tests/unit/test_search_query_features.py`.
+- Reduced `app/services/search.py` from 3,429 lines to 3,250 lines. The new
+  query-feature module is 199 lines.
+- Reduced the architecture-probe hotspot score for `app/services/search.py`
+  from 89,154 to 84,500.
+- The architecture-probe import-cycle count remains at the prior 3 known
+  components. An intermediate package-level import form temporarily surfaced a
+  false new search cycle in the static probe; the completed slice uses an exact
+  `import app.services.search_query_features` import so no new cycle component
+  remains.
+
+Verification:
+
+```text
+git diff --check: passed.
+Ruff: passed across app and tests.
+Search query feature/service/API tests: 70 passed.
+Search history/replay/release-gate tests: 20 passed.
+DB-backed search replay/release roundtrips: 4 passed.
+Replay-suite CLI help: command resolved and displayed expected replay sources.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe: app/services/search.py is 3,250 probe-counted lines and
+84,500 hotspot score; Python cycle components remain at 3.
+Full DB-backed suite: 1114 passed in 48.38s.
+```
+
+Milestone 7 is unblocked. The next architecture milestone is the second
+evidence-service split.
 
 ### Milestone 7: Evidence Service Split 02
 
@@ -1014,7 +1064,7 @@ Use this order unless live evidence changes:
 4. Split search evidence packages out of `app/services/evidence.py` (complete).
 5. Split one agent-task action family out of `app/services/agent_task_actions.py`.
 6. Split one CLI command group out of `app/cli.py` (complete).
-7. Split one search core concern out of `app/services/search.py`.
+7. Split one search core concern out of `app/services/search.py` (complete).
 8. Import or dedupe architecture-quality hotspot improvement cases.
 
 If runtime verification remains blocked, start with the evidence split only

@@ -4,17 +4,15 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-09 `Architecture Plan 01` Milestone 3 closeout, the local
-`main` checkout is ahead of `origin/main`. The latest local implementation work
-completed the first evidence-service split: search evidence package assembly,
-export persistence, trace graph persistence, trace integrity, and response
-assembly now live in focused `app/services/evidence_search_*.py` modules while
-`app.services.evidence` remains the public compatibility facade. Earlier local
-architecture work completed the first data-model domain split, narrower
-retrieval and agent-orchestration capability contract companions, agent-action
-manifest validation, trace-first review, architecture quality reporting,
-improvement-case import from generated reports, and the data-model boundary plan
-for `app/db/models.py`.
+As of the 2026-05-10 `Architecture Plan 01` Milestone 6 closeout, the local
+`main` checkout is ahead of `origin/main`. Recent architecture work completed
+the first data-model domain split, first evidence-service split, first
+agent-action registry/helper split, first CLI command-group split, and first
+search-core split. The latest local implementation moved query-intent
+classification, tabular-query detection, identifier lookup detection,
+normalized query feature sets, token/phrase coverage helpers, and
+metadata-query token extraction into `app/services/search_query_features.py`
+while `app.services.search` remains the public compatibility facade.
 
 Current repo-level signals:
 
@@ -26,14 +24,14 @@ Current repo-level signals:
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
   `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
-  `app/services/evidence.py`, `app/cli.py`,
+  `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
 - `uv run docling-system-hygiene-check` still exits non-zero because file/helper
   budget findings remain in large hotspot modules. Ruff, Vulture,
   improvement-case, and architecture findings are clean.
 - DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Milestone 3 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1109 passed`.
+  Postgres runtime; the Milestone 6 closeout ran the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1114 passed`.
 
 ## What It Does
 

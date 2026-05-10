@@ -39,9 +39,13 @@ runtime behavior.
   `1110 passed in 49.04s`.
 - CLI verification is current for `Architecture Plan 01` Milestone 5:
   `uv run pytest -q tests/unit/test_cli.py` passed with `55 passed`.
-- Full DB-backed verification is current for `Architecture Plan 01` Milestone 5:
+- Search verification is current for `Architecture Plan 01` Milestone 6:
+  focused query feature/service/API tests passed with `70 passed`,
+  search history/replay/release-gate tests passed with `20 passed`, and
+  DB-backed search replay/release roundtrips passed with `4 passed`.
+- Full DB-backed verification is current for `Architecture Plan 01` Milestone 6:
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed with
-  `1111 passed in 49.25s`.
+  `1114 passed in 48.38s`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -101,6 +105,16 @@ runtime behavior.
 - The Milestone 5 alignment gap is closed by replacing lint-suppressed
   import-only re-exports with explicit `app.cli` forwarding functions and
   import-resolved console-script coverage.
+- `Architecture Plan 01` Milestone 6 now has the first physical search-core
+  split: query-intent classification, tabular-query detection, identifier
+  lookup detection, normalized query feature sets, token/phrase coverage
+  helpers, and metadata-query token extraction live in
+  `app/services/search_query_features.py` while `app.services.search` remains
+  import-compatible for existing public and private helper names.
+- The Milestone 6 alignment check confirmed that `app/services/search.py`
+  dropped from 3,429 to 3,250 probe-counted lines and its architecture-probe
+  hotspot score dropped from 89,154 to 84,500 without adding a new static
+  import-cycle component.
 
 ## Deferred Large Refactors
 
@@ -112,12 +126,15 @@ should still move one at a time. The first `app/services/agent_task_actions.py`
 registry/helper split is complete; additional action families should still move
 one at a time. The first `app/cli.py` command-group split is complete;
 additional CLI groups should still move one at a time behind compatibility
-forwarding functions. The next active hotspot split is `Architecture Plan 01`
-Milestone 6 for the first `app/services/search.py` core concern. Later governed
-split surfaces include additional CLI command groups, additional agent-action
-families, and additional evidence domains. The next agent-action family split
-should first introduce a dependency seam for executor movement or choose a
-family whose executors do not keep the broad agent-task cycle intact.
+forwarding functions. The first `app/services/search.py` core split is
+complete; additional search concerns should still move one at a time behind the
+same compatibility facade with replay/ranking coverage. The next active
+hotspot split is `Architecture Plan 01` Milestone 7 for the second
+`app/services/evidence.py` concern. Later governed split surfaces include
+additional CLI command groups, additional search concerns, and additional
+agent-action families. The next agent-action family split should first
+introduce a dependency seam for executor movement or choose a family whose
+executors do not keep the broad agent-task cycle intact.
 Each future split should land as a separate
 behavior-preserving milestone with focused tests plus the full integration
 gate.

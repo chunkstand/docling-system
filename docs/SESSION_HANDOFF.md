@@ -4,28 +4,29 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 5 CLI
-command-group split alignment closeout.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 6 search
+query-feature split closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 20
-commits after the Milestone 5 alignment closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 21
+commits after the Milestone 6 search split closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 5 closeout and alignment commits contain the first CLI
-command-group split, explicit `app.cli` forwarding compatibility, and their
-verification/docs updates:
+The latest Milestone 6 closeout commit contains the first `app/services/search.py`
+core split and its verification/docs updates:
 
-- `app/cli.py`
-- `app/cli_commands/__init__.py`
-- `app/cli_commands/improvement_cases.py`
-- `tests/unit/test_cli.py`
+- `app/services/search.py`
+- `app/services/search_query_features.py`
+- `tests/unit/test_search_query_features.py`
 - `docs/architecture_plan_01.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/agentic_architecture_index.md`
 - `docs/agentic_architecture_milestone_audit.md`
 - `docs/agentic_architecture_milestone_plan.md`
+- `docs/data_model_boundary_plan.md`
+- `README.md`
+- `SYSTEM_PLAN.md`
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -40,8 +41,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 20 local commits ahead of `origin/main` are:
+The 21 local commits ahead of `origin/main` are:
 
+- local Milestone 6 closeout commit for the first `app/services/search.py`
+  core split
 - local Milestone 5 alignment closeout commit for explicit `app.cli`
   forwarding compatibility and residual CLI split documentation
 - local Milestone 5 closeout commit for the first `app/cli.py` command-group
@@ -105,6 +108,8 @@ uv run docling-system-architecture-quality-report --summary
 The architecture boundary model is clean, but hotspot debt remains real. The
 top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 `app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
+The latest architecture probe records `app/services/search.py` at 3,250 lines
+and 84,500 hotspot score after the first search-core split.
 
 ## Runtime Gate Snapshot
 
@@ -473,6 +478,63 @@ slice.
 Full DB-backed suite: 1111 passed in 49.25s.
 ```
 
+## Search Core Split Snapshot
+
+Milestone 6 implemented the first `app/services/search.py` core concern split
+on 2026-05-10.
+
+Implemented result:
+
+- Added `app/services/search_query_features.py` as the focused owner for
+  query-intent classification, tabular-query detection, identifier lookup
+  detection, normalized query feature sets, token/phrase coverage helpers, and
+  metadata-query token extraction.
+- Kept `app.services.search` import-compatible for existing query helper names,
+  including `QueryFeatureSet`, `is_tabular_query`, `_classify_query_intent`,
+  `_looks_like_identifier_lookup`, `_build_query_feature_set`,
+  `_token_coverage`, and `_strong_document_phrase_match`.
+- Preserved search API, ranking, metadata-supplement, replay, telemetry, and
+  `execute_search` / `search_documents` contracts.
+- Added focused compatibility tests in `tests/unit/test_search_query_features.py`.
+- Reduced `app/services/search.py` from 3,429 lines to 3,250 lines; the new
+  query-feature owner module is 199 lines.
+- Reduced the architecture-probe hotspot score for `app/services/search.py`
+  from 89,154 to 84,500 while keeping the general architecture-probe cycle
+  count at the prior 3 known components.
+
+Focused verification:
+
+```bash
+git diff --check
+uv run ruff check app tests
+uv run pytest -q tests/unit/test_search_query_features.py tests/unit/test_search_service.py tests/unit/test_search_api.py
+uv run pytest -q tests/unit/test_search_history.py tests/unit/test_search_replays.py tests/unit/test_search_release_gate.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_search_replays_roundtrip.py tests/integration/test_search_harness_releases.py
+uv run docling-system-run-replay-suite --help
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+```
+
+Results:
+
+```text
+Ruff: passed across app and tests.
+Search query feature/service/API tests: 70 passed.
+Search history/replay/release-gate tests: 20 passed.
+DB-backed search replay/release roundtrips: 4 passed.
+Replay-suite CLI help: resolved successfully.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe: app/services/search.py is 3,250 probe-counted lines and
+84,500 hotspot score; Python cycle components remain at 3.
+Full DB-backed suite: 1114 passed in 48.38s.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -494,8 +556,8 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1, 2, 3, 4, and 5 satisfy the revised local commit closeout rule.
-Milestone 6 may begin from this committed checkpoint.
+Milestones 1, 2, 3, 4, 5, and 6 satisfy the revised local commit closeout rule.
+Milestone 7 may begin from this committed checkpoint.
 
 ## Active Weak Points
 
@@ -525,6 +587,11 @@ Milestone 6 may begin from this committed checkpoint.
   Future CLI splits should move one command group at a time behind explicit
   `app.cli` forwarding functions and pair each move with help or parser
   coverage.
+- The first search-core split reduced `app/services/search.py`, but search
+  remains a retrieval-quality hotspot. Future search splits should move one
+  coherent concern at a time behind `app.services.search` compatibility names,
+  with replay and ranking behavior covered before changing another search
+  concern.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.
@@ -543,7 +610,9 @@ the `app.services.evidence` compatibility facade. Milestone 4 is complete:
 search-harness action registry metadata and helper logic moved behind the
 `app.services.agent_task_actions` compatibility facade. Milestone 5 is complete:
 improvement-case CLI commands moved behind the `app.cli` compatibility facade.
+Milestone 6 is complete: query-feature and query-intent helpers moved behind
+the `app.services.search` compatibility facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 6: split
-the first `app/services/search.py` core concern while preserving search API,
-ranking, and response contracts.
+The next architecture milestone is `Architecture Plan 01` Milestone 7: split
+the next `app/services/evidence.py` concern while preserving the evidence
+facade and artifact contracts.
