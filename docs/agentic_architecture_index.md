@@ -93,8 +93,10 @@ chat history or scanning the whole repository.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness now reports
   `regression_ready=true`, `court_grade_ready=false`, and
-  `failed_gate_count=7` on the rebuilt local DB. Remaining blockers are the
-  court-grade data lanes, not the regression tier.
+  `failed_gate_count=7` on the rebuilt local DB. The regression replay tier now
+  includes a passing `live_search_gaps` case plus a reviewed one-document
+  cross-document seed in `docs/evaluation_corpus.yaml`. Remaining blockers are
+  the court-grade data lanes, not the regression tier.
 
 ## Executable Architecture Contracts
 

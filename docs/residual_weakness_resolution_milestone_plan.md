@@ -637,14 +637,24 @@ Completed result:
 - Reset the empty local knowledge-base baseline and rebuilt the regression tier
   on a fresh local Postgres database.
 - Bootstrapped a representative active corpus with 26 validated PDFs and 26
-  completed document evaluations, yielding 51 passed evaluation queries.
+  completed document evaluations, yielding 52 passed evaluation queries after a
+  one-document manual cross-document seed rerun.
 - Refreshed the auto-generated regression corpus so
   `storage/evaluation_corpus.auto.yaml` now exceeds the regression thresholds
   with 26 documents, 26 table queries, and 25 chunk queries.
+- Added a reviewed seed entry to `docs/evaluation_corpus.yaml` for
+  `regression_doc_03.pdf`, giving the manual corpus 1 document, 1 table query,
+  1 chunk query, and 1 explicit cross-document replay query while remaining
+  well below the court-grade thresholds.
 - Completed replay-source coverage for the regression tier:
   `evaluation_queries`, `live_search_gaps`, and
   `cross_document_prose_regressions` each have at least one completed replay
   run in the live DB.
+- Hardened the replay proof so `live_search_gaps` now has a passing recovered
+  gap case (`query_count=1`, `passed_count=1`) and
+  `cross_document_prose_regressions` now has a passing seeded case
+  (`query_count=1`, `passed_count=1`, `mrr=1.0`) instead of completed-but-empty
+  coverage.
 - Refreshed the readiness docs so they now distinguish the achieved
   regression-ready state from the still-incomplete court-grade tier.
 - Isolated two environment-specific runtime issues without expanding milestone
@@ -652,12 +662,18 @@ Completed result:
   not share the same source-file path contract, and the Docker worker hit a
   Docling runtime TLS assertion. The milestone therefore used a host worker
   against the same local Postgres database to complete the required data build.
+- Recorded the first milestone-closeout commit as
+  `4e257e8 docs: close residual weakness milestone 6`; this alignment pass
+  refreshes the closeout proof after replay-lane hardening.
 
 Verified behavior:
 
 ```text
 uv run docling-system-evaluation-data-readiness: regression_ready=true, court_grade_ready=false, regression_blockers=[], court_grade_blockers=[hand_verified_gold_corpus, operator_feedback_coverage, technical_report_claim_feedback_ledger, claim_support_replay_alert_corpus, all_replay_source_coverage, harness_evaluation_source_coverage, retrieval_learning_materialized], passed_gate_count=4, failed_gate_count=7.
-uv run docling-system-run-replay-suite evaluation_queries --limit 100: replay_run_id=91a2bdc8-8416-47dd-94a9-2d180badcec2, query_count=51, passed_count=51, failed_count=0, zero_result_count=0, mrr=1.0.
+DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH=docs/evaluation_corpus.yaml uv run docling-system-eval-corpus: regression_doc_03.pdf now uses fixture_name=regression_doc_03_cross_document_seed and persists 3 passed retrieval queries.
+uv run docling-system-run-replay-suite evaluation_queries --limit 100: completed_runs=2, completed_query_count=102, latest_run passed_count=51, failed_count=0, zero_result_count=0, mrr=1.0.
+uv run docling-system-run-replay-suite live_search_gaps --limit 25: replay_run_id=4c1f86db-86c2-4d5f-8220-e3e835e15642, query_count=1, passed_count=1, failed_count=0, zero_result_count=0.
+uv run docling-system-run-replay-suite cross_document_prose_regressions --limit 25: replay_run_id=29ec4bdf-f189-4997-9fac-a0da01cbfdf0, query_count=1, passed_count=1, failed_count=0, zero_result_count=0, mrr=1.0.
 uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_count=0.
 ```
 

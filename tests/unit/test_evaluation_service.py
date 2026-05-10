@@ -30,7 +30,7 @@ from app.services.evaluations import (
 LEGACY_CORPUS_PATH = Path("tests") / "fixtures" / "evaluation_corpus.legacy.yaml"
 
 
-def test_default_evaluation_corpus_is_empty_reviewed_template(monkeypatch, tmp_path) -> None:
+def test_default_evaluation_corpus_requires_explicit_manual_path(monkeypatch, tmp_path) -> None:
     storage_root = tmp_path / "storage"
     storage_root.mkdir()
     monkeypatch.setattr(
@@ -39,12 +39,42 @@ def test_default_evaluation_corpus_is_empty_reviewed_template(monkeypatch, tmp_p
             storage_root=storage_root,
             openai_embedding_model="text-embedding-3-small",
             embedding_dim=1536,
+            manual_evaluation_corpus_path=None,
         ),
     )
 
-    fixtures = load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+    fixtures = load_evaluation_fixtures()
 
     assert fixtures == []
+
+    manual_fixtures = load_evaluation_fixtures(DEFAULT_CORPUS_PATH)
+
+    assert len(manual_fixtures) == 1
+    fixture = manual_fixtures[0]
+    assert fixture.name == "regression_doc_03_cross_document_seed"
+    assert fixture.kind == "reviewed_regression_seed"
+    assert fixture.source_filename == "regression_doc_03.pdf"
+    assert fixture.document_sha256 == (
+        "504afc31793c86eb31b71c129005ddde9bf22e97eaa4e736534439857265d88c"
+    )
+    assert fixture.thresholds.expected_logical_table_count == 1
+    assert fixture.thresholds.expected_figure_count == 0
+    assert len(fixture.queries) == 3
+    assert fixture.answer_queries == []
+
+    cross_document_query = next(
+        query
+        for query in fixture.queries
+        if query.query == "Blue Mesas readiness narrative explains how milestone six"
+        and query.include_document_filter is False
+    )
+    assert cross_document_query.mode == "hybrid"
+    assert cross_document_query.expected_result_type == "chunk"
+    assert cross_document_query.expected_top_n == 3
+    assert cross_document_query.expected_source_filename == "regression_doc_03.pdf"
+    assert cross_document_query.expected_top_result_source_filename == "regression_doc_03.pdf"
+    assert cross_document_query.minimum_top_n_hits_from_expected_document == 1
+    assert cross_document_query.maximum_foreign_results_before_first_expected_hit == 0
 
 
 def test_load_legacy_evaluation_fixture_compiles_search_queries() -> None:

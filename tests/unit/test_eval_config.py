@@ -5,17 +5,41 @@ from pathlib import Path
 import yaml
 
 
-def test_runtime_evaluation_corpus_is_empty_template() -> None:
+def test_runtime_evaluation_corpus_is_seeded_reviewed_template() -> None:
     config = yaml.safe_load((Path("docs") / "evaluation_corpus.yaml").read_text())
 
-    assert config == {
-        "rollout_mode": "reviewed_empty",
-        "embedding_contract": {
-            "model": "text-embedding-3-small",
-            "dimension": 1536,
-        },
-        "documents": [],
+    assert config["rollout_mode"] == "reviewed_seeded"
+    assert config["embedding_contract"] == {
+        "model": "text-embedding-3-small",
+        "dimension": 1536,
     }
+    assert len(config["documents"]) == 1
+
+    document = config["documents"][0]
+    assert document["name"] == "regression_doc_03_cross_document_seed"
+    assert document["kind"] == "reviewed_regression_seed"
+    assert document["source_filename"] == "regression_doc_03.pdf"
+    assert document["sha256"] == "504afc31793c86eb31b71c129005ddde9bf22e97eaa4e736534439857265d88c"
+
+    thresholds = document["thresholds"]
+    assert thresholds["expected_logical_table_count"] == 1
+    assert thresholds["expected_figure_count"] == 0
+    assert len(thresholds["expected_top_n_table_hit_queries"]) == 1
+    assert len(thresholds["expected_top_n_chunk_hit_queries"]) == 1
+    assert len(thresholds["queries"]) == 1
+
+    cross_document_query = thresholds["queries"][0]
+    assert (
+        cross_document_query["query"]
+        == "Blue Mesas readiness narrative explains how milestone six"
+    )
+    assert cross_document_query["mode"] == "hybrid"
+    assert cross_document_query["include_document_filter"] is False
+    assert cross_document_query["expected_result_type"] == "chunk"
+    assert cross_document_query["expected_source_filename"] == "regression_doc_03.pdf"
+    assert cross_document_query["expected_top_result_source_filename"] == "regression_doc_03.pdf"
+    assert cross_document_query["minimum_top_n_hits_from_expected_document"] == 1
+    assert cross_document_query["maximum_foreign_results_before_first_expected_hit"] == 0
 
 
 def test_legacy_evaluation_fixture_has_required_documents_and_thresholds() -> None:

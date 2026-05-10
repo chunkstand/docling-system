@@ -67,11 +67,14 @@ Results:
   `regression_blockers=[]`, `failed_gate_count=7`
 - active documents: 26
 - completed evaluations: 26
-- passed evaluation queries: 51
+- passed evaluation queries: 52
 - auto-generated corpus coverage: 26 documents, 26 table queries, 25 chunk
   queries
+- manual reviewed seed coverage: 1 document, 1 table query, 1 chunk query, 1
+  cross-document query
 - completed replay coverage present for `evaluation_queries`,
-  `live_search_gaps`, and `cross_document_prose_regressions`
+  `live_search_gaps`, and `cross_document_prose_regressions`, with passing
+  replay cases now present in the latter two lanes
 
 Operational notes:
 
@@ -84,6 +87,15 @@ Operational notes:
   assertion. To keep the milestone scoped to data readiness, the corpus build
   used a host worker against the same local Postgres DB instead of changing
   runtime code.
+- `docs/evaluation_corpus.yaml` is no longer empty. It now contains a reviewed
+  one-document seed fixture for `regression_doc_03.pdf`. Because manual corpus
+  loading is opt-in by design, the persisted manual-fixture evaluation rows were
+  created with
+  `DOCLING_SYSTEM_MANUAL_EVALUATION_CORPUS_PATH=docs/evaluation_corpus.yaml uv run docling-system-eval-corpus`.
+- The first closeout commit for this milestone is
+  `4e257e8 docs: close residual weakness milestone 6`. This handoff revision
+  records the follow-up hardening that turned the empty `live_search_gaps` and
+  `cross_document_prose_regressions` lanes into passing replay coverage.
 - The host worker completed the representative corpus build and document
   evaluations cleanly. The Docker `api`, `worker`, and `agent-worker` services
   were stopped during the milestone execution.
@@ -122,12 +134,13 @@ The local commits ahead of `origin/main` are:
   which routes context and task services through
   `app/services/agent_task_action_lookup.py` and removes the large
   agent-task import-cycle component from the general architecture probe
-- current alignment commit (`architecture: align residual weakness milestone 5
-  closeout`), which keeps the handoff and residual milestone plan synchronized
-  with the committed Milestone 5 hash and Milestone 6 routing
-- current Milestone 6 closeout, which rebuilds the live evaluation
-  corpus so the readiness preflight reports `regression_ready=true` and routes
-  the next milestone to the court-grade data lanes
+- `c6f556e` (`architecture: align residual weakness milestone 5 closeout`),
+  which keeps the handoff and residual milestone plan synchronized with the
+  committed Milestone 5 hash and Milestone 6 routing
+- `4e257e8` (`docs: close residual weakness milestone 6`), which rebuilds the
+  live evaluation corpus so the readiness preflight reports
+  `regression_ready=true` and routes the next milestone to the court-grade data
+  lanes
 
 These commits add and harden the first two residual-weakness prevention gates
 after `origin/main` planned the broader sequence, land the first two
@@ -803,6 +816,9 @@ architecture probe: 3 Python cycle components; top hotspot app/db/models.py=4118
 Milestone 4 sizes: app/db/models.py=5800, app/cli.py=1231, tests/unit/test_cli.py=2210, app/services/evidence.py=8076
 hygiene: inherited file/helper budget debt listed with owners; new hygiene regressions none
 evaluation-data readiness: regression_ready=true, court_grade_ready=false, failed_gate_count=7
+manual reviewed seed corpus: 1 document, 1 table query, 1 chunk query, 1 cross_document query
+live_search_gaps replay: query_count=1, passed_count=1, failed_count=0
+cross_document_prose_regressions replay: query_count=1, passed_count=1, failed_count=0
 ```
 
 Milestone 2 result: `config/hygiene_policy.yaml` now records
@@ -964,6 +980,10 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
   gold corpus coverage, operator feedback ledgers, technical-report claim
   feedback, governed claim-support hard cases, full replay and harness-source
   coverage, and retrieval-learning materialization.
+- The gold-corpus lane is now seeded, not empty: `docs/evaluation_corpus.yaml`
+  contains one reviewed document with one table query, one chunk query, and one
+  explicit cross-document query. That seed is enough to harden Milestone 6
+  replay coverage but still far below the Milestone 7 thresholds.
 - Hygiene remains intentionally strict and currently reports oversized modules,
   especially `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
@@ -1019,7 +1039,8 @@ Hotspot Split Pack B moved the evidence operator-run recorder and audit summary
 payload helpers into focused owner modules; and the Agent-Task Cycle Break added
 the action lookup seam and removed the large agent-task import-cycle component;
 Milestone 6 then rebuilt the live evaluation corpus so the readiness preflight
-now reports `regression_ready=true`.
+now reports `regression_ready=true`, with passing `live_search_gaps` and
+`cross_document_prose_regressions` replay seeds recorded in the live DB.
 
 New planning artifacts:
 

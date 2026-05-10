@@ -42,7 +42,10 @@ Current repo-level signals:
   import-cycle component; `app/services/agent_task_actions.py` remains the
   action-orchestration entrypoint with fan-out 39.
 - The live readiness preflight now reports 26 active documents, 26 completed
-  evaluations, 51 passed evaluation queries, and empty regression blockers.
+  evaluations, 52 passed evaluation queries, and empty regression blockers.
+- The regression replay tier now includes a passing recovered `live_search_gaps`
+  case and a passing seeded `cross_document_prose_regressions` case from the
+  reviewed manual corpus entry in `docs/evaluation_corpus.yaml`.
 - Court-grade readiness remains intentionally false until the hand-verified gold
   corpus, operator feedback, technical-report claim feedback, full replay and
   harness coverage, and retrieval-learning materialization are in place.
