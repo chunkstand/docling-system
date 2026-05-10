@@ -90,6 +90,129 @@ def test_hygiene_flags_duplicate_bodies_and_budget_growth(tmp_path: Path) -> Non
     assert "helper_budget" in kinds
 
 
+def test_hygiene_tolerates_ratcheted_inherited_budget_debt(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "app" / "alpha.py",
+        "\n".join(
+            [
+                "def _one():",
+                "    return 1",
+                "",
+                "def _two():",
+                "    return 2",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+                "  overrides:",
+                "    app/alpha.py:",
+                "      max_lines: 4",
+                "      ratchet_max_lines: 5",
+                "      max_private_helpers: 1",
+                "      ratchet_max_private_helpers: 2",
+                "      owner_milestone: residual-weakness-milestone-2",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_python_hygiene_checks(
+        tmp_path,
+        policy_path=Path("config/policy.yaml"),
+    )
+
+    by_kind = {finding.kind: finding for finding in findings}
+    assert set(by_kind) == {"file_budget_inherited", "helper_budget_inherited"}
+    assert not by_kind["file_budget_inherited"].blocking
+    assert not by_kind["helper_budget_inherited"].blocking
+
+
+def test_hygiene_fails_ratcheted_budget_growth(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "app" / "alpha.py",
+        "\n".join(
+            [
+                "def _one():",
+                "    return 1",
+                "",
+                "def _two():",
+                "    return 2",
+                "",
+                "def _three():",
+                "    return 3",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+                "  overrides:",
+                "    app/alpha.py:",
+                "      max_lines: 4",
+                "      ratchet_max_lines: 5",
+                "      max_private_helpers: 1",
+                "      ratchet_max_private_helpers: 2",
+                "      owner_milestone: residual-weakness-milestone-2",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_python_hygiene_checks(
+        tmp_path,
+        policy_path=Path("config/policy.yaml"),
+    )
+
+    blocking_kinds = {finding.kind for finding in findings if finding.blocking}
+    assert blocking_kinds == {"file_budget_regression", "helper_budget_regression"}
+
+
+def test_hygiene_requires_ratchet_owner(tmp_path: Path) -> None:
+    _write(tmp_path / "app" / "alpha.py", "VALUE = 1\n")
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+                "  overrides:",
+                "    app/alpha.py:",
+                "      max_lines: 4",
+                "      ratchet_max_lines: 5",
+            ]
+        )
+        + "\n",
+    )
+
+    findings = run_python_hygiene_checks(
+        tmp_path,
+        policy_path=Path("config/policy.yaml"),
+    )
+
+    assert [(finding.kind, finding.relative_path) for finding in findings] == [
+        ("hygiene_policy", "app/alpha.py")
+    ]
+
+
 def test_hygiene_allows_explicit_duplicate_helper_bodies(tmp_path: Path) -> None:
     _write(
         tmp_path / "app" / "alpha.py",

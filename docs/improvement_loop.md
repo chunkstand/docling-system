@@ -53,6 +53,15 @@ uv run docling-system-hygiene-check
 uv run docling-system-architecture-inspect
 ```
 
+The hygiene command is now a ratchet gate for strict file/helper budgets. Current
+inherited overages remain visible under an `inherited budget debt` section, but
+they do not fail the command while they stay at or below their recorded
+`ratchet_max_*` ceilings. Growth beyond a ratchet ceiling is reported under
+`new hygiene regressions` and exits non-zero. Every ratcheted budget entry in
+`config/hygiene_policy.yaml` must carry an `owner_case_id` or
+`owner_milestone`; the hygiene tests include a policy negative case so unowned
+ratchets cannot become hidden tolerance.
+
 ## CLI
 
 ```bash

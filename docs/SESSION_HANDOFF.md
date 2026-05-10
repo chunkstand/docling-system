@@ -4,28 +4,34 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local Residual Weakness Plan Milestone 1
-hotspot-prevention gate alignment closeout.
+Latest committed checkpoint: local Residual Weakness Plan Milestone 2 hygiene
+budget ratchet closeout (`architecture: complete residual hygiene ratchet`).
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 2 commits
-after the Residual Weakness Plan Milestone 1 hotspot-prevention gate alignment
-closeout;
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 3 commits
+after the Residual Weakness Plan Milestone 2 hygiene budget ratchet closeout;
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
 The latest local architecture closeout commits contain the Residual Weakness
-Plan Milestone 1 hotspot-prevention gate and alignment hardening:
+Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
+Milestone 2 hygiene budget ratchet:
 
 - `config/hotspot_prevention.yaml`
+- `config/hygiene_policy.yaml`
 - `app/hotspot_prevention.py`
 - `app/hotspot_prevention_policy.py`
 - `app/hotspot_prevention_diff.py`
 - `app/hotspot_prevention_classifier.py`
+- `app/hygiene.py`
+- `app/hygiene_ruff.py`
+- `app/hygiene_types.py`
 - `tests/unit/test_hotspot_prevention.py`
+- `tests/unit/test_hygiene.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
+- `docs/improvement_loop.md`
 - `docs/architecture_boundaries.md`
 - `docs/architecture_plan_01.md`
 - `docs/agentic_architecture_index.md`
@@ -46,15 +52,18 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 2 local commits ahead of `origin/main` are:
+The 3 local commits ahead of `origin/main` are:
 
-- current local commit `architecture: complete residual hotspot prevention gate`
-- current local alignment hardening commit for `git diff --numstat` line-count
+- `2c83c96` (`architecture: complete residual hotspot prevention gate`)
+- `79a117a` alignment hardening commit for `git diff --numstat` line-count
   reporting, expired exception coverage, `--base`/`--staged` command selection
   tests, and focused module ownership under the hygiene file budget
+- `HEAD` (`architecture: complete residual hygiene ratchet`), which converts
+  strict file/helper budget debt into owned inherited debt plus blocking
+  no-growth ceilings
 
-These commits add and harden the first residual-weakness prevention gate after
-`origin/main` planned the broader sequence.
+These commits add and harden the first two residual-weakness prevention gates
+after `origin/main` planned the broader sequence.
 
 ## Current Architecture And Governance State
 
@@ -91,6 +100,13 @@ uv run docling-system-improvement-case-summary
 uv run docling-system-hotspot-prevention-check --strict
   known_hotspots=6, changed_hotspots=0, added_lines=0, deleted_lines=0,
   blocked=0, allowed=0, exceptions=0
+
+uv run docling-system-hygiene-check
+  ruff regressions=none
+  inherited budget debt listed with owner_case_id or owner_milestone
+  new hygiene regressions=none
+  improvement-case findings=none
+  architecture findings=none
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
@@ -99,6 +115,10 @@ top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 The latest post-commit architecture probe records `app/services/evidence.py` at
 8,261 lines and 380,006 hotspot score after the PROV export receipt/integrity
 split.
+
+Strict hygiene debt also remains real, but it is now ratcheted: the current
+file/helper overages are non-blocking inherited entries while unchanged, and any
+growth beyond their `ratchet_max_*` ceilings is a blocking hygiene regression.
 
 ## Runtime Gate Snapshot
 
@@ -684,7 +704,7 @@ The plan resolves the five remaining closeout weaknesses in this order:
 
 1. lock the refreshed baseline evidence
 2. use the implemented hotspot-prevention gate
-3. add a strict hygiene budget ratchet
+3. add the implemented strict hygiene budget ratchet
 4. continue facade-preserving top-hotspot splits
 5. break the large agent-task import-cycle component
 6. lift evaluation-data readiness first to regression readiness, then to
@@ -696,8 +716,31 @@ Refreshed evidence on 2026-05-10:
 ```text
 architecture quality: hotspot_count=10, max_hotspot_risk_score=693.04
 architecture probe: 3 Python cycle components; top hotspot app/db/models.py=420420
-hygiene: no ruff, improvement-case, or architecture findings; strict file/helper budget debt remains
+hygiene: inherited file/helper budget debt listed with owners; new hygiene regressions none
 evaluation-data readiness: regression_ready=false, court_grade_ready=false, failed_gate_count=11
+```
+
+Milestone 2 result: `config/hygiene_policy.yaml` now records
+`ratchet_max_lines` and `ratchet_max_private_helpers` ceilings for every current
+strict budget finding. Existing top-hotspot debts link to open improvement
+cases, and remaining inherited debt links to
+`residual-weakness-milestone-2`. The hygiene CLI prints `inherited budget debt`
+and `new hygiene regressions` separately; inherited debt no longer fails the
+command, while ratchet growth fails.
+
+Milestone 2 verification:
+
+```text
+git diff --check: passed.
+uv run pytest -q tests/unit/test_hygiene.py tests/unit/test_architecture_quality.py tests/unit/test_improvement_case_intake.py: 42 passed.
+uv run ruff check app tests: passed.
+uv run docling-system-hygiene-check: passed; inherited budget debt listed, new hygiene regressions none.
+uv run docling-system-hotspot-prevention-check --strict: passed; changed_hotspots=0, blocked=0.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=693.04.
+uv run docling-system-improvement-case-validate: valid=true, issue_count=0.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1132 passed.
 ```
 
 ## Active Weak Points
@@ -706,10 +749,12 @@ evaluation-data readiness: regression_ready=false, court_grade_ready=false, fail
   document corpus, persisted run evaluations, auto/generated regression corpus,
   hand-verified gold corpus, feedback ledgers, replay coverage, harness-source
   coverage, or retrieval-learning materialization.
-- Hygiene remains intentionally strict and currently fails on oversized modules,
+- Hygiene remains intentionally strict and currently reports oversized modules,
   especially `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
-  `app/services/retrieval_learning.py`, and `app/services/search.py`.
+  `app/services/retrieval_learning.py`, and `app/services/search.py`. These
+  overages are now ratcheted inherited debt, not tolerated hidden debt; growth
+  beyond the recorded ceilings is blocking.
 - The first model-domain split reduced `app/db/models.py`, but it remains the
   top architecture-quality hotspot and should not receive additional unrelated
   ORM concerns.
@@ -748,15 +793,18 @@ evaluation-data readiness: regression_ready=false, court_grade_ready=false, fail
 ## Next Milestone
 
 `Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
-Milestone 1 is complete: the hotspot-prevention policy, analyzer, CLI, and
+Milestones 1-2 are complete: the hotspot-prevention policy, analyzer, CLI, and
 tests now block new implementation growth in known hotspots while allowing
-deletion-only reductions and facade forwarding.
+deletion-only reductions and facade forwarding, and the hygiene budget ratchet
+now turns inherited strict budget debt into visible non-blocking debt with
+blocking no-growth ceilings.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 2,
-the strict hygiene budget ratchet. The prevention gate should remain part of
-closeout before more hotspot split work.
+Recommended next architecture milestone: Residual Weakness Plan Milestone 3,
+Top Hotspot Split Pack A. Keep both prevention gates in closeout:
+`docling-system-hotspot-prevention-check --strict` and
+`docling-system-hygiene-check`.

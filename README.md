@@ -4,12 +4,12 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 1 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 2 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the first data-model domain split, first evidence-service split, first
 agent-action registry/helper split, first CLI command-group split, first
 search-core split, second evidence provenance split, improvement-case intake
-ratchet, and hotspot-prevention gate.
+ratchet, hotspot-prevention gate, and hygiene budget ratchet.
 
 Current repo-level signals:
 
@@ -23,15 +23,15 @@ Current repo-level signals:
   `hotspot_count=10`, and top hotspot paths headed by `app/db/models.py`,
   `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
-- `uv run docling-system-hygiene-check` still exits non-zero because file/helper
-  budget findings remain in large hotspot modules. Ruff, Vulture,
-  improvement-case, and architecture findings are clean.
+- `uv run docling-system-hygiene-check` is green when there are no new
+  regressions. It still reports inherited file/helper budget debt in large
+  hotspot modules, but those entries now have ratchet ceilings and owner links.
 - `uv run docling-system-hotspot-prevention-check --strict` passes on the
   current diff and fails fixture diffs that add implementation to known hotspot
   files instead of the configured owner modules.
 - DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Milestone 6 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1114 passed`.
+  Postgres runtime; the Residual Weakness Plan Milestone 2 closeout ran the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1132 passed`.
 
 ## What It Does
 
@@ -558,7 +558,9 @@ record cases before any DB/API expansion. Existing cases move through deploy and
 measure stages with `docling-system-improvement-case-update`, which validates the
 whole registry before writing lifecycle changes. `docling-system-hygiene-check` validates
 the registry alongside the repo's existing lint, dead-code, duplicate-helper, and
-file-budget gates. `docling-system-improvement-case-import` can also observe
+ratcheted file-budget gates. Inherited strict budget debt stays visible in the
+command output, but only new growth beyond configured ratchet ceilings is
+blocking. `docling-system-improvement-case-import` can also observe
 hygiene findings, architecture governance reports, unresolved eval failure
 cases, failed agent tasks, and failed agent verifications, then write deduped
 open cases keyed by source reference.

@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import argparse
 import ast
-import json
 import subprocess
 import sys
 from collections import defaultdict
-from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
+from app.hygiene_ruff import (
+    DEFAULT_RUFF_BASELINE_PATH,
+    collect_ruff_violation_counts,
+    find_ruff_regression_findings,
+    load_ruff_baseline,
+    write_ruff_baseline,
+)
+from app.hygiene_types import FileBudget, HygieneFinding, HygienePolicy, PrivateHelper
 from app.services.improvement_cases import (
     DEFAULT_IMPROVEMENT_CASES_PATH,
     load_improvement_case_registry_for_validation,
@@ -18,47 +24,7 @@ from app.services.improvement_cases import (
 )
 
 DEFAULT_POLICY_PATH = Path("config") / "hygiene_policy.yaml"
-DEFAULT_RUFF_BASELINE_PATH = Path("config") / "ruff_baseline.yaml"
 DEFAULT_VULTURE_CONFIDENCE = 85
-
-
-@dataclass(frozen=True)
-class PrivateHelper:
-    name: str
-    relative_path: str
-    lineno: int
-    body_fingerprint: str
-
-
-@dataclass(frozen=True)
-class FileBudget:
-    max_lines: int | None = None
-    max_private_helpers: int | None = None
-
-
-@dataclass(frozen=True)
-class HygienePolicy:
-    duplicate_helper_name_allowances: dict[str, frozenset[str]]
-    duplicate_helper_body_allowances: frozenset[frozenset[str]]
-    default_file_budget: FileBudget
-    file_budgets: dict[str, FileBudget]
-
-
-@dataclass(frozen=True)
-class HygieneFinding:
-    kind: str
-    message: str
-    relative_path: str | None = None
-    lineno: int | None = None
-
-    def render(self) -> str:
-        location = ""
-        if self.relative_path is not None:
-            location = self.relative_path
-            if self.lineno is not None:
-                location = f"{location}:{self.lineno}"
-            location = f"{location}: "
-        return f"{location}{self.kind}: {self.message}"
 
 
 def _project_root() -> Path:
@@ -148,15 +114,9 @@ def load_hygiene_policy(
     )
 
     budget_payload = payload.get("file_budgets") or {}
-    default_budget = FileBudget(
-        max_lines=budget_payload.get("defaults", {}).get("max_lines"),
-        max_private_helpers=budget_payload.get("defaults", {}).get("max_private_helpers"),
-    )
+    default_budget = _file_budget_from_payload(budget_payload.get("defaults") or {})
     file_budgets = {
-        str(relative_path): FileBudget(
-            max_lines=values.get("max_lines"),
-            max_private_helpers=values.get("max_private_helpers"),
-        )
+        str(relative_path): _file_budget_from_payload(values or {})
         for relative_path, values in (budget_payload.get("overrides") or {}).items()
     }
     return HygienePolicy(
@@ -165,6 +125,33 @@ def load_hygiene_policy(
         default_file_budget=default_budget,
         file_budgets=file_budgets,
     )
+
+
+def _optional_int(payload: dict[str, object], key: str) -> int | None:
+    value = payload.get(key)
+    return None if value is None else int(value)
+
+
+def _file_budget_from_payload(payload: dict[str, object]) -> FileBudget:
+    return FileBudget(
+        max_lines=_optional_int(payload, "max_lines"),
+        max_private_helpers=_optional_int(payload, "max_private_helpers"),
+        ratchet_max_lines=_optional_int(payload, "ratchet_max_lines"),
+        ratchet_max_private_helpers=_optional_int(
+            payload,
+            "ratchet_max_private_helpers",
+        ),
+        owner_case_id=_optional_str(payload, "owner_case_id"),
+        owner_milestone=_optional_str(payload, "owner_milestone"),
+    )
+
+
+def _optional_str(payload: dict[str, object], key: str) -> str | None:
+    value = payload.get(key)
+    if value is None:
+        return None
+    stripped = str(value).strip()
+    return stripped or None
 
 
 def find_duplicate_helper_name_findings(
@@ -222,119 +209,6 @@ def find_duplicate_helper_body_findings(
     return findings
 
 
-def _normalize_ruff_filename(project_root: Path, filename: str) -> str:
-    path = Path(filename)
-    if not path.is_absolute():
-        path = (project_root / path).resolve()
-    try:
-        return path.relative_to(project_root.resolve()).as_posix()
-    except ValueError:
-        return str(path)
-
-
-def load_ruff_baseline(
-    baseline_path: Path | None = None,
-    *,
-    project_root: Path | None = None,
-) -> dict[str, dict[str, int]]:
-    root = project_root or _project_root()
-    resolved_baseline_path = (root / (baseline_path or DEFAULT_RUFF_BASELINE_PATH)).resolve()
-    if not resolved_baseline_path.exists():
-        return {}
-
-    payload = yaml.safe_load(resolved_baseline_path.read_text()) or {}
-    baseline_payload = payload.get("ruff_baseline") or {}
-    return {
-        str(relative_path): {
-            str(code): int(count) for code, count in sorted((counts or {}).items())
-        }
-        for relative_path, counts in sorted(baseline_payload.items())
-    }
-
-
-def write_ruff_baseline(
-    violation_counts: dict[str, dict[str, int]],
-    baseline_path: Path | None = None,
-    *,
-    project_root: Path | None = None,
-) -> Path:
-    root = project_root or _project_root()
-    resolved_baseline_path = (root / (baseline_path or DEFAULT_RUFF_BASELINE_PATH)).resolve()
-    resolved_baseline_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "ruff_baseline": {
-            relative_path: {code: count for code, count in sorted(counts.items())}
-            for relative_path, counts in sorted(violation_counts.items())
-        }
-    }
-    resolved_baseline_path.write_text(yaml.safe_dump(payload, sort_keys=False))
-    return resolved_baseline_path
-
-
-def collect_ruff_violation_counts(
-    project_root: Path | None = None,
-    *,
-    targets: tuple[str, ...] = (".",),
-    python_executable: str | None = None,
-) -> dict[str, dict[str, int]]:
-    root = project_root or _project_root()
-    executable = python_executable or sys.executable
-    command = [
-        executable,
-        "-m",
-        "ruff",
-        "check",
-        *targets,
-        "--output-format",
-        "json",
-    ]
-    completed = subprocess.run(
-        command,
-        cwd=root,
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode not in (0, 1):
-        stderr = completed.stderr.strip()
-        raise RuntimeError(stderr or "ruff execution failed")
-
-    try:
-        rows = json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError as exc:
-        raise RuntimeError("ruff returned invalid JSON output") from exc
-
-    counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    for row in rows:
-        relative_path = _normalize_ruff_filename(root, row["filename"])
-        counts[relative_path][row["code"]] += 1
-
-    return {
-        relative_path: dict(sorted(code_counts.items()))
-        for relative_path, code_counts in sorted(counts.items())
-    }
-
-
-def find_ruff_regression_findings(
-    current_counts: dict[str, dict[str, int]],
-    baseline_counts: dict[str, dict[str, int]],
-) -> list[HygieneFinding]:
-    findings: list[HygieneFinding] = []
-    for relative_path, code_counts in sorted(current_counts.items()):
-        baseline_code_counts = baseline_counts.get(relative_path, {})
-        for code, current_count in sorted(code_counts.items()):
-            baseline_count = baseline_code_counts.get(code, 0)
-            if current_count <= baseline_count:
-                continue
-            findings.append(
-                HygieneFinding(
-                    kind="ruff_regression",
-                    relative_path=relative_path,
-                    message=f"{code} count {current_count} exceeds baseline {baseline_count}",
-                )
-            )
-    return findings
-
-
 def find_file_budget_findings(
     project_root: Path | None = None,
     *,
@@ -352,25 +226,104 @@ def find_file_budget_findings(
         budget = policy.file_budgets.get(relative_path, policy.default_file_budget)
         line_count = len(path.read_text().splitlines())
         helper_count = helper_counts.get(relative_path, 0)
-        if budget.max_lines is not None and line_count > budget.max_lines:
-            findings.append(
-                HygieneFinding(
-                    kind="file_budget",
-                    relative_path=relative_path,
-                    message=f"{line_count} lines exceeds budget {budget.max_lines}",
+        line_finding = _budget_finding(
+            relative_path=relative_path,
+            metric_name="lines",
+            kind_prefix="file_budget",
+            current_count=line_count,
+            target_budget=budget.max_lines,
+            ratchet_ceiling=budget.ratchet_max_lines,
+            owner_reference=budget.owner_reference,
+        )
+        helper_finding = _budget_finding(
+            relative_path=relative_path,
+            metric_name="private helpers",
+            kind_prefix="helper_budget",
+            current_count=helper_count,
+            target_budget=budget.max_private_helpers,
+            ratchet_ceiling=budget.ratchet_max_private_helpers,
+            owner_reference=budget.owner_reference,
+        )
+        findings.extend(
+            finding for finding in (line_finding, helper_finding) if finding is not None
+        )
+    return findings
+
+
+def _budget_finding(
+    *,
+    relative_path: str,
+    metric_name: str,
+    kind_prefix: str,
+    current_count: int,
+    target_budget: int | None,
+    ratchet_ceiling: int | None,
+    owner_reference: str | None,
+) -> HygieneFinding | None:
+    if target_budget is None or current_count <= target_budget:
+        return None
+    if ratchet_ceiling is None:
+        return HygieneFinding(
+            kind=kind_prefix,
+            relative_path=relative_path,
+            message=f"{current_count} {metric_name} exceeds budget {target_budget}",
+        )
+    if current_count > ratchet_ceiling:
+        return HygieneFinding(
+            kind=f"{kind_prefix}_regression",
+            relative_path=relative_path,
+            message=(
+                f"{current_count} {metric_name} exceeds ratchet ceiling "
+                f"{ratchet_ceiling} and target budget {target_budget}"
+            ),
+        )
+    owner = f"; owner={owner_reference}" if owner_reference else ""
+    return HygieneFinding(
+        kind=f"{kind_prefix}_inherited",
+        relative_path=relative_path,
+        message=(
+            f"{current_count} {metric_name} exceeds target budget {target_budget}; "
+            f"ratchet ceiling {ratchet_ceiling}{owner}"
+        ),
+        severity="inherited",
+    )
+
+
+def find_hygiene_policy_contract_findings(policy: HygienePolicy) -> list[HygieneFinding]:
+    findings: list[HygieneFinding] = []
+    for relative_path, budget in sorted(policy.file_budgets.items()):
+        for field, target, ratchet in (
+            ("lines", budget.max_lines, budget.ratchet_max_lines),
+            (
+                "private helpers",
+                budget.max_private_helpers,
+                budget.ratchet_max_private_helpers,
+            ),
+        ):
+            if ratchet is None:
+                continue
+            if target is not None and ratchet < target:
+                findings.append(
+                    HygieneFinding(
+                        kind="hygiene_policy",
+                        relative_path=relative_path,
+                        message=(
+                            f"{field} ratchet ceiling {ratchet} is below "
+                            f"target budget {target}"
+                        ),
+                    )
                 )
-            )
-        if budget.max_private_helpers is not None and helper_count > budget.max_private_helpers:
-            findings.append(
-                HygieneFinding(
-                    kind="helper_budget",
-                    relative_path=relative_path,
-                    message=(
-                        f"{helper_count} private helpers exceeds budget "
-                        f"{budget.max_private_helpers}"
-                    ),
+            if budget.owner_reference is None:
+                findings.append(
+                    HygieneFinding(
+                        kind="hygiene_policy",
+                        relative_path=relative_path,
+                        message=(
+                            f"{field} ratchet ceiling requires owner_case_id "
+                            "or owner_milestone"
+                        ),
+                    )
                 )
-            )
     return findings
 
 
@@ -384,6 +337,7 @@ def run_python_hygiene_checks(
     policy = load_hygiene_policy(policy_path, project_root=root)
     helpers = collect_private_helpers(root, roots=roots)
     findings = [
+        *find_hygiene_policy_contract_findings(policy),
         *find_duplicate_helper_name_findings(helpers, policy),
         *find_duplicate_helper_body_findings(helpers, policy),
         *find_file_budget_findings(root, policy=policy, roots=roots),
@@ -549,13 +503,21 @@ def run(argv: list[str] | None = None) -> int:
             project_root,
             policy_path=Path(args.policy_path),
         )
-        if findings:
-            print("[hygiene] duplicate/budget findings:")
-            for finding in findings:
+        inherited_findings = [finding for finding in findings if not finding.blocking]
+        blocking_findings = [finding for finding in findings if finding.blocking]
+        if inherited_findings:
+            print("[hygiene] inherited budget debt:")
+            for finding in inherited_findings:
+                print(f"  - {finding.render()}")
+        else:
+            print("[hygiene] inherited budget debt: none")
+        if blocking_findings:
+            print("[hygiene] new hygiene regressions:")
+            for finding in blocking_findings:
                 print(f"  - {finding.render()}")
             failed = True
         else:
-            print("[hygiene] duplicate/budget findings: none")
+            print("[hygiene] new hygiene regressions: none")
 
     if not args.skip_improvement_cases:
         findings = run_improvement_case_contract_checks(project_root)

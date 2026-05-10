@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestone 1 complete
+Status: in progress; Milestones 1-2 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -46,7 +46,8 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
   app/services/agent_task_actions.py fan-out = 39 local modules
 
 uv run docling-system-hygiene-check
-  failed only strict duplicate/file-budget findings
+  emits inherited budget debt separately from new hygiene regressions
+  new hygiene regressions: none
   no ruff regressions
   no improvement-case findings
   no architecture findings
@@ -259,7 +260,7 @@ Stop conditions:
 
 ### Milestone 2: Hygiene Budget Ratchet
 
-Status: planned.
+Status: complete.
 
 Purpose: convert inherited strict-hygiene failures into enforceable
 no-new-debt ratchets and owner-scoped reduction cases.
@@ -291,6 +292,62 @@ Acceptance:
 - The ratchet does not require solving all inherited debt in one milestone.
 - Tests prove both a tolerated inherited-debt baseline and a failing touched-file
   growth case.
+
+Completed result:
+
+- Added explicit `ratchet_max_lines` and `ratchet_max_private_helpers` ceilings
+  for every current strict file/helper budget finding in
+  `config/hygiene_policy.yaml`.
+- Linked top architecture hotspot debt to existing improvement cases:
+  `IC-F2A8110185EB` for `app/db/models.py`,
+  `IC-050E60059A34` for `app/services/evidence.py`,
+  `IC-1D03DBFE8492` for `app/services/search.py`, and
+  `IC-E2270F89B397` for
+  `app/services/claim_support_policy_impacts.py`.
+- Linked remaining strict hygiene debt to
+  `residual-weakness-milestone-2` so the baseline is owned rather than silently
+  tolerated.
+- Split Ruff-baseline helpers and hygiene dataclasses into
+  `app/hygiene_ruff.py` and `app/hygiene_types.py`, keeping
+  `app/hygiene.py` under the file budget while preserving imports through the
+  existing `app.hygiene` facade.
+- Changed the hygiene CLI so inherited budget debt is reported separately from
+  blocking new hygiene regressions; inherited debt no longer makes the command
+  exit non-zero.
+- Added unit coverage for tolerated inherited file/helper budget debt, blocking
+  file/helper budget growth beyond the ratchet, and required ratchet ownership.
+
+Verification:
+
+```bash
+uv run pytest -q tests/unit/test_hygiene.py
+uv run pytest -q tests/unit/test_hygiene.py tests/unit/test_architecture_quality.py tests/unit/test_improvement_case_intake.py
+uv run ruff check app tests
+uv run docling-system-hygiene-check
+uv run docling-system-hotspot-prevention-check --strict
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+uv run docling-system-improvement-case-validate
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+```
+
+Verified behavior:
+
+```text
+Focused hygiene tests: 9 passed.
+Hygiene/architecture-quality/improvement-intake focused tests: 42 passed.
+Ruff: All checks passed.
+Hygiene: ruff regressions none; inherited budget debt listed with owners;
+new hygiene regressions none; improvement-case findings none; architecture
+findings none.
+Hotspot prevention: changed_hotspots=0, blocked=0, findings none.
+Architecture inspection: valid=true, violation_count=0.
+Capability contracts: valid=true, facade_count=6, function_count=110.
+Architecture quality: hotspot_count=10, max_hotspot_risk_score=693.04.
+Improvement-case validation: valid=true, issue_count=0.
+Full DB-backed suite: 1132 passed.
+```
 
 ### Milestone 3: Top Hotspot Split Pack A
 
@@ -610,10 +667,10 @@ requested.
 
 ## Residual Risks And Next Routing
 
-Milestone 1 is complete. The first next milestone is Milestone 2, the hygiene
-budget ratchet, so the repo can distinguish inherited strict-hygiene debt from
-new regressions. Only then should the repo resume broad hotspot splits or
-agent-task cycle reduction.
+Milestones 1-2 are complete. The next milestone is Milestone 3, Top Hotspot
+Split Pack A, with both prevention gates in closeout: hotspot prevention must
+block new implementation growth in known hotspots, and the hygiene ratchet must
+show no new file/helper budget regressions.
 
 If evaluation-data readiness is needed for an external review sooner than the
 architecture cleanup, Milestone 6 may run in parallel as an operational data

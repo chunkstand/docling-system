@@ -30,12 +30,13 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 1 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 2 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the first data-model domain split, first evidence-service split, first
 agent-action registry/helper split, first CLI command-group split, first
 search-core split, second evidence provenance split, improvement-case intake
-ratchet, and hotspot-prevention gate. The implemented architecture posture is:
+ratchet, hotspot-prevention gate, and hygiene budget ratchet. The implemented
+architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
   valid with `violation_count=0`
@@ -50,6 +51,9 @@ ratchet, and hotspot-prevention gate. The implemented architecture posture is:
 - hotspot prevention now runs as a diff-time gate that blocks new
   implementation growth in known hotspot facades unless the policy has an
   owned, time-bounded or follow-up-bound exception
+- strict hygiene budget debt is now ratcheted: current inherited overages are
+  listed with owner cases or the hygiene-ratchet milestone, and any file/helper
+  growth beyond the ratchet ceiling is a blocking hygiene regression
 - trace-first review and architecture-quality report imports can feed
   generated observations into the improvement-case loop
 - `ApiIdempotencyKey` now lives in `app/db/model_domains/platform.py` while
@@ -74,7 +78,8 @@ Current verification status:
 - Ruff, architecture inspection, capability contracts, architecture decisions,
   focused model metadata tests, Alembic drift checks, and the full DB-backed
   test suite pass locally.
-- Hygiene still fails on file/helper budget findings in large modules such as
+- Hygiene now passes when file/helper debt is inherited and unchanged, while
+  still reporting ratcheted debt in large modules such as
   `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`,
   `app/services/claim_support_policy_impacts.py`,

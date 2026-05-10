@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestone 1 is complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-2 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -64,8 +64,11 @@ chat history or scanning the whole repository.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
-  `docs/hotspot_prevention_gate_milestone_plan.md`, is complete. The next
-  milestone is the strict hygiene ratchet before further hotspot split work.
+  `docs/hotspot_prevention_gate_milestone_plan.md`, is complete. The second
+  implementation milestone, the strict hygiene ratchet, is also complete:
+  `docling-system-hygiene-check` now separates inherited budget debt from
+  blocking new hygiene regressions. The next milestone is the first
+  facade-preserving top-hotspot split pack.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   `uv run docling-system-evaluation-data-readiness` currently reaches Postgres
@@ -98,6 +101,8 @@ chat history or scanning the whole repository.
 - Architecture inspection: `app/architecture_inspection.py`, `app/architecture_inspection_rules.py`
 - Architecture quality report: `app/architecture_quality.py`
 - Hotspot prevention: `config/hotspot_prevention.yaml`, `app/hotspot_prevention.py`, and `docs/hotspot_prevention_gate_milestone_plan.md`
+- Hygiene ratchet: `config/hygiene_policy.yaml`, `app/hygiene.py`,
+  `app/hygiene_ruff.py`, and `app/hygiene_types.py`
 - Residual weakness sequence: `docs/residual_weakness_resolution_milestone_plan.md`
 - Trace review report: `app/agent_trace_review.py`
 - Improvement intake: `app/services/improvement_case_intake.py`
