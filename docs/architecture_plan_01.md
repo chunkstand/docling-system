@@ -28,8 +28,8 @@ Current architecture signals:
   - `max_hotspot_risk_score=687.04`
   - top hotspot paths:
     - `app/db/models.py`
-    - `app/services/evidence.py`
     - `app/cli.py`
+    - `app/services/evidence.py`
     - `app/services/agent_task_actions.py`
     - `tests/unit/test_cli.py`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`
@@ -772,9 +772,17 @@ Completed result:
   `app.cli:run_improvement_case_*`.
 - Preserved help text, required arguments, optional arguments, output payloads,
   and exit behavior for the moved commands.
-- Reduced `app/cli.py` from 1,452 lines to 1,273 lines. The new
+- Reduced `app/cli.py` from 1,452 lines to 1,283 lines. The new
   improvement-case command module is 149 lines.
-- Reduced the architecture-probe hotspot score for `app/cli.py` to 66,144.
+- Reduced the architecture-probe hotspot score for `app/cli.py` to 67,999.
+- 2026-05-10 alignment check replaced a lint-suppressed import re-export with
+  explicit `app.cli` forwarding functions. Console entrypoints now resolve to
+  callables whose public module and names remain `app.cli:run_improvement_case_*`,
+  while implementation logic stays in `app/cli_commands/improvement_cases.py`.
+- The remaining CLI debt is explicit: this milestone made the first command
+  group split, but `app/cli.py` is not yet a globally thin dispatch surface.
+  Future CLI slices should move one remaining command group at a time behind the
+  same forwarding pattern.
 
 Verification:
 
@@ -784,11 +792,13 @@ Focused CLI tests: 55 passed.
 Entrypoint compatibility check: app.cli exports the four moved
 run_improvement_case_* callables; pyproject console scripts still target
 app.cli:run_improvement_case_*.
-Architecture probe: app/cli.py is 1,272 probe-counted lines and 66,144 hotspot
+Alignment entrypoint check: moved console callables resolve as app.cli
+forwarders with stable run_improvement_case_* names.
+Architecture probe: app/cli.py is 1,283 probe-counted lines and 67,999 hotspot
 score; remaining Python cycle components are unchanged outside this CLI slice.
 Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
-Full DB-backed suite: 1111 passed in 49.27s.
+Full DB-backed suite: 1111 passed in 49.25s.
 ```
 
 Milestone 6 is unblocked. The next architecture milestone is the first search

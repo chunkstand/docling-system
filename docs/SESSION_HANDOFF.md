@@ -5,16 +5,17 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local `Architecture Plan 01` Milestone 5 CLI
-command-group split closeout.
+command-group split alignment closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 19
-commits after the Milestone 5 closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 20
+commits after the Milestone 5 alignment closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 5 closeout commit contains the first CLI command-group
-split and its verification/docs updates:
+The latest Milestone 5 closeout and alignment commits contain the first CLI
+command-group split, explicit `app.cli` forwarding compatibility, and their
+verification/docs updates:
 
 - `app/cli.py`
 - `app/cli_commands/__init__.py`
@@ -39,8 +40,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 19 local commits ahead of `origin/main` are:
+The 20 local commits ahead of `origin/main` are:
 
+- local Milestone 5 alignment closeout commit for explicit `app.cli`
+  forwarding compatibility and residual CLI split documentation
 - local Milestone 5 closeout commit for the first `app/cli.py` command-group
   split
 - local Milestone 4 alignment closeout commit documenting the remaining
@@ -92,8 +95,8 @@ uv run docling-system-architecture-quality-report --summary
   max_hotspot_risk_score=687.04
   top_hotspot_paths=[
     app/db/models.py,
-    app/services/evidence.py,
     app/cli.py,
+    app/services/evidence.py,
     app/services/agent_task_actions.py,
     tests/unit/test_cli.py
   ]
@@ -436,9 +439,13 @@ Implemented result:
 - Kept the existing console scripts on `app.cli:run_improvement_case_validate`,
   `app.cli:run_improvement_case_list`, `app.cli:run_improvement_case_summary`,
   and `app.cli:run_improvement_case_record`.
+- Alignment pass replaced a lint-suppressed import re-export with explicit
+  forwarding functions in `app.cli`, so console entrypoints resolve to stable
+  `app.cli` callables while implementation logic stays in
+  `app/cli_commands/improvement_cases.py`.
 - Added parser/help coverage for the moved command group in
   `tests/unit/test_cli.py`.
-- Reduced `app/cli.py` from 1,452 lines to 1,273 lines; the new command module
+- Reduced `app/cli.py` from 1,452 lines to 1,283 lines; the new command module
   is 149 lines.
 
 Focused verification:
@@ -456,14 +463,14 @@ Results:
 ```text
 Ruff: passed.
 Focused CLI tests: 55 passed.
-Entrypoint compatibility: moved run_improvement_case_* callables remain
-available from app.cli and preserve their callable names.
+Entrypoint compatibility: moved run_improvement_case_* console scripts resolve
+through app.cli forwarding functions and preserve their callable names.
 Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
-Architecture probe: app/cli.py is 1,272 probe-counted lines and its hotspot
-score is 66,144; the remaining Python cycle components are outside this CLI
+Architecture probe: app/cli.py is 1,283 probe-counted lines and its hotspot
+score is 67,999; the remaining Python cycle components are outside this CLI
 slice.
-Full DB-backed suite: 1111 passed in 49.27s.
+Full DB-backed suite: 1111 passed in 49.25s.
 ```
 
 ## Architecture Milestone Closeout Policy
@@ -514,9 +521,10 @@ Milestone 6 may begin from this committed checkpoint.
   or a semantic executor family with isolated dependencies before moving executor
   paths.
 - The first CLI command-group split reduced `app/cli.py`, but it remains a
-  public operator hotspot. Future CLI splits should move one command group at a
-  time behind `app.cli` compatibility exports and pair each move with help or
-  parser coverage.
+  public operator hotspot and is not yet a globally thin dispatch surface.
+  Future CLI splits should move one command group at a time behind explicit
+  `app.cli` forwarding functions and pair each move with help or parser
+  coverage.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.

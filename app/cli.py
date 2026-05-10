@@ -5,12 +5,7 @@ import json
 from pathlib import Path
 from uuid import UUID
 
-from app.cli_commands.improvement_cases import (  # noqa: F401
-    run_improvement_case_list,
-    run_improvement_case_record,
-    run_improvement_case_summary,
-    run_improvement_case_validate,
-)
+from app.cli_commands import improvement_cases as improvement_case_commands
 from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
@@ -214,6 +209,22 @@ def run_search_harness_optimization_loop(*args, **kwargs):
         "app.services.search_harness_optimization",
         "run_search_harness_optimization_loop",
     )(*args, **kwargs)
+
+
+def run_improvement_case_validate() -> None:
+    return improvement_case_commands.run_improvement_case_validate()
+
+
+def run_improvement_case_list() -> None:
+    return improvement_case_commands.run_improvement_case_list()
+
+
+def run_improvement_case_summary() -> None:
+    return improvement_case_commands.run_improvement_case_summary()
+
+
+def run_improvement_case_record() -> None:
+    return improvement_case_commands.run_improvement_case_record()
 
 
 def execute_knowledge_base_reset(*args, **kwargs):

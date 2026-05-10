@@ -49,7 +49,7 @@ Current architecture status:
   - `app/services/retrieval_learning.py`: 3,028 lines
   - `app/db/models.py`: 6,006 lines and the highest current hotspot score
     after the first model-domain split
-  - `app/cli.py`: 1,273 lines after the first improvement-case command-group
+  - `app/cli.py`: 1,283 lines after the first improvement-case command-group
     split
 - Recent 90-day churn hotspots include `app/db/models.py`,
   `app/schemas/agent_tasks.py`, `app/services/agent_task_actions.py`,
@@ -268,7 +268,8 @@ Deliverables:
   implementations out of the facade.
 - Split `app/cli.py` into command-group modules behind compatibility exports.
   `Architecture Plan 01` Milestone 5 completed the first improvement-case
-  command-group split in `app/cli_commands/improvement_cases.py`.
+  command-group split in `app/cli_commands/improvement_cases.py`, with
+  explicit `app.cli` forwarding functions preserving console entrypoints.
 - Continue the prior `search.py` split by isolating query planning, feature
   extraction, ranking, and result hydration where tests already give coverage.
 - Continue model-domain splits only when they can be paired with exact

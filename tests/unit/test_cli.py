@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import sys
 import tomllib
@@ -2031,16 +2032,30 @@ def test_improvement_case_validate_cli_prints_validation(monkeypatch, capsys, tm
 
 def test_improvement_case_cli_entrypoint_and_help_contracts(monkeypatch, capsys) -> None:
     scripts = tomllib.loads(Path("pyproject.toml").read_text())["project"]["scripts"]
-    assert scripts["docling-system-improvement-case-validate"] == (
-        "app.cli:run_improvement_case_validate"
-    )
-    assert scripts["docling-system-improvement-case-list"] == "app.cli:run_improvement_case_list"
-    assert scripts["docling-system-improvement-case-summary"] == (
-        "app.cli:run_improvement_case_summary"
-    )
-    assert scripts["docling-system-improvement-case-record"] == (
-        "app.cli:run_improvement_case_record"
-    )
+    expected_entrypoints = {
+        "docling-system-improvement-case-validate": (
+            "app.cli:run_improvement_case_validate",
+            run_improvement_case_validate,
+        ),
+        "docling-system-improvement-case-list": (
+            "app.cli:run_improvement_case_list",
+            run_improvement_case_list,
+        ),
+        "docling-system-improvement-case-summary": (
+            "app.cli:run_improvement_case_summary",
+            run_improvement_case_summary,
+        ),
+        "docling-system-improvement-case-record": (
+            "app.cli:run_improvement_case_record",
+            run_improvement_case_record,
+        ),
+    }
+    for script_name, (entrypoint, expected_runner) in expected_entrypoints.items():
+        assert scripts[script_name] == entrypoint
+        module_name, attr_name = entrypoint.split(":", 1)
+        resolved_runner = getattr(importlib.import_module(module_name), attr_name)
+        assert resolved_runner is expected_runner
+        assert resolved_runner.__name__ == expected_runner.__name__
 
     help_cases = [
         (

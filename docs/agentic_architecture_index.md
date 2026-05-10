@@ -44,7 +44,7 @@ chat history or scanning the whole repository.
 - The first `app/cli.py` command-group split is complete:
   improvement-case validate/list/summary/record implementations now live in
   `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
-  script compatibility surface.
+  script compatibility surface through explicit forwarding functions.
 - Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 6,
   the first `app/services/search.py` core split. Later governed splits remain
   for additional `app/cli.py` command groups, additional
