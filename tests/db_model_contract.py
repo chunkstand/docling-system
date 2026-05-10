@@ -234,6 +234,51 @@ REQUIRED_TABLE_INDEX_NAMES = {
             "ix_api_idempotency_keys_created_at",
         }
     ),
+    "document_chunks": frozenset(
+        {
+            "ix_document_chunks_document_id",
+            "ix_document_chunks_embedding_hnsw",
+            "ix_document_chunks_page_from",
+            "ix_document_chunks_page_to",
+            "ix_document_chunks_textsearch",
+        }
+    ),
+    "document_figures": frozenset(
+        {
+            "ix_document_figures_document_id",
+            "ix_document_figures_page_from",
+            "ix_document_figures_page_to",
+            "ix_document_figures_run_id",
+        }
+    ),
+    "document_run_evaluation_queries": frozenset(
+        {
+            "ix_document_run_evaluation_queries_evaluation_id",
+            "ix_document_run_evaluation_queries_query_text",
+        }
+    ),
+    "document_run_evaluations": frozenset(
+        {
+            "ix_document_run_evaluations_run_id",
+            "ix_document_run_evaluations_status",
+        }
+    ),
+    "document_table_segments": frozenset(
+        {
+            "ix_document_table_segments_page_from",
+            "ix_document_table_segments_page_to",
+            "ix_document_table_segments_run_id",
+        }
+    ),
+    "document_tables": frozenset(
+        {
+            "ix_document_tables_document_id",
+            "ix_document_tables_embedding_hnsw",
+            "ix_document_tables_page_from",
+            "ix_document_tables_page_to",
+            "ix_document_tables_textsearch",
+        }
+    ),
     "documents": frozenset(
         {
             "ix_documents_metadata_textsearch",
@@ -267,6 +312,39 @@ REQUIRED_TABLE_INDEX_COLUMNS = {
     "api_idempotency_keys": {
         "ix_api_idempotency_keys_created_at": ("created_at",),
     },
+    "document_chunks": {
+        "ix_document_chunks_document_id": ("document_id",),
+        "ix_document_chunks_embedding_hnsw": ("embedding",),
+        "ix_document_chunks_page_from": ("page_from",),
+        "ix_document_chunks_page_to": ("page_to",),
+        "ix_document_chunks_textsearch": ("textsearch",),
+    },
+    "document_figures": {
+        "ix_document_figures_document_id": ("document_id",),
+        "ix_document_figures_page_from": ("page_from",),
+        "ix_document_figures_page_to": ("page_to",),
+        "ix_document_figures_run_id": ("run_id",),
+    },
+    "document_run_evaluation_queries": {
+        "ix_document_run_evaluation_queries_evaluation_id": ("evaluation_id",),
+        "ix_document_run_evaluation_queries_query_text": ("query_text",),
+    },
+    "document_run_evaluations": {
+        "ix_document_run_evaluations_run_id": ("run_id",),
+        "ix_document_run_evaluations_status": ("status",),
+    },
+    "document_table_segments": {
+        "ix_document_table_segments_page_from": ("page_from",),
+        "ix_document_table_segments_page_to": ("page_to",),
+        "ix_document_table_segments_run_id": ("run_id",),
+    },
+    "document_tables": {
+        "ix_document_tables_document_id": ("document_id",),
+        "ix_document_tables_embedding_hnsw": ("embedding",),
+        "ix_document_tables_page_from": ("page_from",),
+        "ix_document_tables_page_to": ("page_to",),
+        "ix_document_tables_textsearch": ("textsearch",),
+    },
     "documents": {
         "ix_documents_metadata_textsearch": ("metadata_textsearch",),
         "ix_documents_updated_at": ("updated_at",),
@@ -294,6 +372,31 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
             "uq_api_idempotency_keys_scope_key",
         }
     ),
+    "document_chunks": frozenset(
+        {
+            "uq_document_chunks_run_chunk_index",
+        }
+    ),
+    "document_figures": frozenset(
+        {
+            "uq_document_figures_run_figure_index",
+        }
+    ),
+    "document_run_evaluations": frozenset(
+        {
+            "uq_document_run_evaluations_run_corpus_version",
+        }
+    ),
+    "document_table_segments": frozenset(
+        {
+            "uq_document_table_segments_table_segment_index",
+        }
+    ),
+    "document_tables": frozenset(
+        {
+            "uq_document_tables_run_table_index",
+        }
+    ),
     "ingest_batch_items": frozenset(
         {
             "uq_ingest_batch_items_batch_relative_path",
@@ -309,6 +412,25 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
     "api_idempotency_keys": {
         "uq_api_idempotency_keys_scope_key": ("scope", "idempotency_key"),
+    },
+    "document_chunks": {
+        "uq_document_chunks_run_chunk_index": ("run_id", "chunk_index"),
+    },
+    "document_figures": {
+        "uq_document_figures_run_figure_index": ("run_id", "figure_index"),
+    },
+    "document_run_evaluations": {
+        "uq_document_run_evaluations_run_corpus_version": (
+            "run_id",
+            "corpus_name",
+            "eval_version",
+        ),
+    },
+    "document_table_segments": {
+        "uq_document_table_segments_table_segment_index": ("table_id", "segment_index"),
+    },
+    "document_tables": {
+        "uq_document_tables_run_table_index": ("run_id", "table_index"),
     },
     "ingest_batch_items": {
         "uq_ingest_batch_items_batch_relative_path": ("batch_id", "relative_path"),
@@ -397,6 +519,122 @@ INGEST_DOMAIN_TABLE_COLUMNS = {
             "created_at",
             "started_at",
             "completed_at",
+        }
+    ),
+}
+
+DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS = {
+    "document_run_evaluations": frozenset(
+        {
+            "id",
+            "run_id",
+            "corpus_name",
+            "fixture_name",
+            "eval_version",
+            "status",
+            "summary",
+            "error_message",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "document_run_evaluation_queries": frozenset(
+        {
+            "id",
+            "evaluation_id",
+            "query_text",
+            "mode",
+            "filters",
+            "expected_result_type",
+            "expected_top_n",
+            "passed",
+            "candidate_rank",
+            "baseline_rank",
+            "rank_delta",
+            "candidate_score",
+            "baseline_score",
+            "candidate_result_type",
+            "baseline_result_type",
+            "candidate_label",
+            "baseline_label",
+            "details",
+            "created_at",
+        }
+    ),
+    "document_chunks": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "chunk_index",
+            "text",
+            "heading",
+            "page_from",
+            "page_to",
+            "metadata",
+            "embedding",
+            "textsearch",
+            "created_at",
+        }
+    ),
+    "document_tables": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "table_index",
+            "title",
+            "logical_table_key",
+            "table_version",
+            "supersedes_table_id",
+            "lineage_group",
+            "heading",
+            "page_from",
+            "page_to",
+            "row_count",
+            "col_count",
+            "status",
+            "search_text",
+            "preview_text",
+            "metadata",
+            "embedding",
+            "json_path",
+            "yaml_path",
+            "textsearch",
+            "created_at",
+        }
+    ),
+    "document_table_segments": frozenset(
+        {
+            "id",
+            "table_id",
+            "run_id",
+            "segment_index",
+            "source_table_ref",
+            "page_from",
+            "page_to",
+            "segment_order",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "document_figures": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "figure_index",
+            "source_figure_ref",
+            "caption",
+            "heading",
+            "page_from",
+            "page_to",
+            "confidence",
+            "status",
+            "metadata",
+            "json_path",
+            "yaml_path",
+            "created_at",
         }
     ),
 }

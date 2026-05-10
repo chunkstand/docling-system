@@ -4,13 +4,16 @@ Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
 Status refreshed: 2026-05-10. `app/db/models.py` remains the highest current
-architecture-quality hotspot, but the first two model-domain splits are
+architecture-quality hotspot, but the first three model-domain splits are
 complete: `platform support` owns `ApiIdempotencyKey` in
-`app/db/model_domains/platform.py`, and `ingest` owns `IngestBatch`,
+`app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
 `IngestBatchItem`, `Document`, and `DocumentRun` in
-`app/db/model_domains/ingest.py`. `app.db.models` remains the public
-compatibility facade. Each model-domain milestone must finish with a local
-commit before another domain moves.
+`app/db/model_domains/ingest.py`, and `document_artifacts` owns
+`DocumentRunEvaluation`, `DocumentRunEvaluationQuery`, `DocumentChunk`,
+`DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` in
+`app/db/model_domains/document_artifacts.py`. `app.db.models` remains the
+public compatibility facade. Each model-domain milestone must finish with a
+local commit before another domain moves.
 
 ## Proposed Domains
 
@@ -106,15 +109,34 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, architecture, hygiene,
   hotspot-prevention, and full DB-backed gates.
 
+Completed on 2026-05-10: `document_artifacts`: `DocumentRunEvaluation`,
+`DocumentRunEvaluationQuery`, `DocumentChunk`, `DocumentTable`,
+`DocumentTableSegment`, and `DocumentFigure`.
+
+Implemented result:
+
+- Added `app/db/model_domains/document_artifacts.py`.
+- Re-exported the document-artifact models from `app/db/models.py`.
+- Preserved document-artifact table names, columns, computed TSVECTOR columns,
+  HNSW/GIN indexes, foreign keys, and named unique constraints.
+- Extended the unit and Postgres create-all metadata contracts for
+  document-artifact tables, index names, index column ordering, unique
+  constraint names, and unique-constraint column ordering.
+- Reduced `app/db/models.py` from 5,800 lines to 5,537 lines and ratcheted the
+  `config/hygiene_policy.yaml` ceiling to match.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `692.67` to
+  `681.91` while keeping `app/db/models.py` as the top governed hotspot.
+- Verified with focused import, metadata, Alembic, architecture, hygiene,
+  hotspot-prevention, and full DB-backed gates.
+
 Next model-domain candidate when model work resumes:
 
-- `document_artifacts`: `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`,
-  `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure`
+- `retrieval`: search requests, result rows, replay rows, harness evaluations,
+  releases, training runs, reranker artifacts, feedback, and chat answers
 
-The next overall Residual Weakness Plan milestone is not another model-domain
-move. Milestone 4 reduced the evidence operator-run recorder and task-payload
-summary helpers behind the existing compatibility facade; Milestone 5 should
-reduce the agent-task cycle.
+The next overall hotspot-owner milestone is not another model-domain move.
+After this split, the next routed implementation slice is Hotspot Owner
+Resolution Milestone 2: Evidence And Audit Bundle Split Pack.
 
 ## Per-Domain Acceptance Gate
 

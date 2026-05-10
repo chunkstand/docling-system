@@ -43,6 +43,14 @@ maintainability and change amplification. Central files are still large enough
 that future agents and humans will copy local patterns from broad modules,
 increasing entropy even when boundary checks remain green.
 
+Current state note: `app/db/models.py` now re-exports three focused ORM model
+domains behind the compatibility facade: `platform`, `ingest`, and
+`document_artifacts`. The latest model-domain split moved
+`DocumentRunEvaluation`, `DocumentRunEvaluationQuery`, `DocumentChunk`,
+`DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` into
+`app/db/model_domains/document_artifacts.py`, reducing `app/db/models.py` to
+5,537 lines while preserving the metadata contract.
+
 ## Goal
 
 Make the repo easier to change safely by reducing the size, fan-in, and

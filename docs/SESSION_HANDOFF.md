@@ -4,10 +4,10 @@ Date: 2026-05-09 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 0 owner
-bootstrap (`33c7855`).
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 1
-`app/db/models.py` domain continuation.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 1
+document-artifacts model-domain split.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 2 Evidence
+And Audit Bundle Split Pack.
 
 ## Current Position
 
@@ -26,16 +26,17 @@ materializing the court-grade evaluation-data lanes and aligning the remaining
 governance checks with intentional `feedback` no-answer replay coverage. The
 next revision closes Milestone 8 by proving the remaining residual risk is now
 explicitly governed and that the plan, handoff, and architecture index all
-match the current gate state. The current local checkpoint closes Hotspot Owner
-Resolution Milestone 0 by promoting `app/services/audit_bundles.py` and
-`app/services/retrieval_learning.py` from milestone-owned hygiene debt to
-explicit improvement-case ownership before the first owner-module split.
+match the current gate state. The current local checkpoint closes Hotspot
+Owner Resolution Milestone 1 by moving the `document_artifacts` ORM domain
+behind the existing `app.db.models` compatibility facade and tightening the
+metadata ratchet for the reduced hotspot.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
 - `config/improvement_cases.yaml`
 - `app/cli_commands/common.py`
 - `app/cli_commands/ingest.py`
+- `app/db/model_domains/document_artifacts.py`
 - `app/db/model_domains/ingest.py`
 - `app/hotspot_prevention.py`
 - `app/hotspot_prevention_policy.py`
@@ -55,8 +56,12 @@ explicit improvement-case ownership before the first owner-module split.
 - `tests/unit/test_cli_ingest.py`
 - `tests/unit/test_evidence_operator_runs.py`
 - `tests/unit/test_evidence_task_payloads.py`
+- `tests/unit/test_db_model_import_compatibility.py`
+- `tests/integration/test_db_model_metadata.py`
+- `tests/db_model_contract.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
+- `docs/data_model_boundary_plan.md`
 - `docs/improvement_loop.md`
 - `docs/architecture_boundaries.md`
 - `docs/architecture_plan_01.md`
@@ -104,6 +109,54 @@ Verification:
 - `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-hygiene-check`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+## Hotspot Owner Resolution Milestone 1 Closeout
+
+Milestone 1 is the `app/db/models.py` document-artifacts domain continuation.
+It is a behavior-preserving ORM ownership split behind the existing
+`app.db.models` compatibility facade.
+
+Results:
+
+- Added `app/db/model_domains/document_artifacts.py`.
+- Moved `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`,
+  `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and
+  `DocumentFigure` out of `app/db/models.py`.
+- Kept `app.db.models` import-compatible by re-exporting the moved classes.
+- Extended the shared metadata contract to cover document-artifact table
+  columns, required index names, exact index column ordering, required unique
+  constraint names, and exact unique-constraint column ordering.
+- Reduced `app/db/models.py` from 5,800 lines to 5,537 lines.
+- Ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 5537`.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `692.67` to
+  `681.91` while leaving `app/db/models.py` as the top hotspot.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified closeout results:
+
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1236 passed in 51.40s`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`: `50 passed`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`: `271 passed`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=681.91`
 
 ## Milestone 6 Regression Readiness Closeout
 
@@ -1117,10 +1170,11 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
   `app/services/retrieval_learning.py`, and `app/services/search.py`. These
   overages are now ratcheted inherited debt, not tolerated hidden debt; growth
   beyond the recorded ceilings is blocking.
-- The platform and ingest model-domain splits reduced `app/db/models.py` to
-  5,800 lines, but it remains the top architecture-quality hotspot and should
-  not receive additional unrelated ORM concerns. The next model split candidate
-  is `document_artifacts`, but the next residual milestone is not model work.
+- The platform, ingest, and document-artifacts model-domain splits reduced
+  `app/db/models.py` to 5,537 lines, but it remains the top
+  architecture-quality hotspot and should not receive additional unrelated ORM
+  concerns. The next model split candidate is `retrieval`, but the next
+  hotspot-owner milestone is not model work.
 - The first three evidence splits reduced `app/services/evidence.py`, but it
   remains a major architecture-quality hotspot. Future evidence splits should
   move one owner concern at a time behind the same compatibility facade.
@@ -1189,5 +1243,8 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   both surfaces through those case IDs; and
   `uv run docling-system-improvement-case-summary` reports `case_count=25`,
   `open=24`, `measured=1`.
-- Next routed implementation slice: Milestone 1,
-  `app/db/models.py` domain continuation.
+- Milestone 1 is now the document-artifacts model-domain split. It reduces
+  `app/db/models.py` to 5,537 lines and keeps the moved classes importable from
+  `app.db.models` while tightening the metadata contract.
+- Next routed implementation slice: Milestone 2, Evidence And Audit Bundle
+  Split Pack.

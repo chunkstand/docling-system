@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 0 closed in `33c7855`, Milestone 1 next
+Status: in progress; Milestone 1 document_artifacts split complete locally, Milestone 2 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -254,8 +254,9 @@ Status update:
 - Closed by commit `33c7855` (`architecture: complete hotspot owner milestone 0 bootstrap`).
 - New owner cases: `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
   `IC-0D58F1624037` for `app/services/retrieval_learning.py`.
-- Next implementation slice starts at Milestone 1 unless a narrower verified
-  model-domain candidate replaces `document_artifacts`.
+- Milestone 1 is complete locally; the next routed implementation slice is
+  Milestone 2 unless a narrower verified evidence/audit split replaces the
+  current candidate.
 
 ### Milestone 1: `app/db/models.py` Domain Continuation
 
@@ -277,6 +278,18 @@ Acceptance:
 - DB metadata, Alembic, and full integration gates remain green
 - architecture quality or hygiene evidence shows narrower ownership or reduced
   hotspot centrality for the surface
+
+Status update:
+
+- Implemented locally as the `document_artifacts` domain split.
+- Moved `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`,
+  `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and
+  `DocumentFigure` into `app/db/model_domains/document_artifacts.py`.
+- Reduced `app/db/models.py` from 5,800 lines to 5,537 lines, ratcheted the
+  hygiene ceiling to match, and lowered the architecture-quality
+  `max_hotspot_risk_score` to `681.91`.
+- The next routed implementation slice is Milestone 2: Evidence And Audit
+  Bundle Split Pack.
 
 ### Milestone 2: Evidence And Audit Bundle Split Pack
 

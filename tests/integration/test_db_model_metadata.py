@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 import app.db.models  # noqa: F401
 from tests.db_model_contract import (
+    DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     EXPECTED_TABLE_NAMES,
     INGEST_DOMAIN_TABLE_COLUMNS,
     PLATFORM_SUPPORT_TABLE_COLUMNS,
@@ -74,6 +75,35 @@ def test_postgres_create_all_preserves_first_platform_support_table_contract(
     INGEST_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_postgres_create_all_preserves_ingest_domain_table_contract(
+    postgres_schema_engine,
+    table_name: str,
+    expected_columns: frozenset[str],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    with engine.connect() as connection:
+        column_names = frozenset(
+            connection.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema_name
+                    AND table_name = :table_name
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            ).scalars()
+        )
+
+    assert column_names == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_postgres_create_all_preserves_document_artifact_domain_table_contract(
     postgres_schema_engine,
     table_name: str,
     expected_columns: frozenset[str],

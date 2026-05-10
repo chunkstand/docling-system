@@ -8,6 +8,7 @@ from sqlalchemy import UniqueConstraint
 import app.db.models as model_module
 from app.db.base import Base
 from tests.db_model_contract import (
+    DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
     EXPECTED_TABLE_NAMES,
     INGEST_DOMAIN_TABLE_COLUMNS,
@@ -85,6 +86,30 @@ def test_ingest_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.ingest"
 
 
+def test_document_artifact_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.document_artifacts import (
+        DocumentChunk,
+        DocumentFigure,
+        DocumentRunEvaluation,
+        DocumentRunEvaluationQuery,
+        DocumentTable,
+        DocumentTableSegment,
+    )
+
+    expected_models = {
+        "DocumentRunEvaluation": DocumentRunEvaluation,
+        "DocumentRunEvaluationQuery": DocumentRunEvaluationQuery,
+        "DocumentChunk": DocumentChunk,
+        "DocumentTable": DocumentTable,
+        "DocumentTableSegment": DocumentTableSegment,
+        "DocumentFigure": DocumentFigure,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.document_artifacts"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -94,6 +119,18 @@ def test_base_metadata_table_contract_is_complete() -> None:
     INGEST_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_ingest_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_document_artifact_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

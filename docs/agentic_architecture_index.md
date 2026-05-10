@@ -27,11 +27,14 @@ chat history or scanning the whole repository.
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
   `max_hotspot_risk_score=692.67`.
-- `app/db/models.py` remains the top hotspot, but two model domains are now
-  split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`, and
+- `app/db/models.py` remains the top hotspot, but three model domains are now
+  split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
-  `app/db/model_domains/ingest.py` while `app.db.models` remains the public
-  compatibility facade.
+  `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
+  `DocumentRunEvaluationQuery`, `DocumentChunk`, `DocumentTable`,
+  `DocumentTableSegment`, and `DocumentFigure` now live in
+  `app/db/model_domains/document_artifacts.py` while `app.db.models` remains
+  the public compatibility facade.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -80,8 +83,12 @@ chat history or scanning the whole repository.
   `case_count=25`, `open=24`, `measured=1`, including explicit owner-bootstrap
   cases `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
   `IC-0D58F1624037` for `app/services/retrieval_learning.py`. The milestone is
-  closed by commit `33c7855` and the next routed slice is Milestone 1,
-  `app/db/models.py` domain continuation.
+  closed by commit `33c7855`.
+- Hotspot Owner Resolution Milestone 1 is now complete locally: the
+  `document_artifacts` ORM domain lives in
+  `app/db/model_domains/document_artifacts.py`, `app.db.models` re-exports the
+  moved classes, and `app/db/models.py` is reduced to 5,537 lines with the
+  hygiene ratchet updated to match.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -111,8 +118,9 @@ chat history or scanning the whole repository.
   `measured=1`, with open cases concentrated in architecture-governance
   ownership rather than untracked or milestone-owned debt.
 - Current routed follow-up: the next architecture work should use
-  `docs/hotspot_owner_resolution_plan.md` and take one owner surface at a time
-  instead of reopening the completed residual-weakness umbrella plan.
+  `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
+  document-artifacts model split is Milestone 2, Evidence And Audit Bundle
+  Split Pack.
 
 ## Executable Architecture Contracts
 
