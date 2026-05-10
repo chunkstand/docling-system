@@ -39,7 +39,8 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=5067 after the verified local retrieval-interaction owner split.
+    line_count=4525 after the verified local retrieval replay and release
+    governance owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -60,21 +61,22 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "c046db8"
-    notes: Milestone 1 document-artifacts owner split committed; app/db/models.py
-      remains the compatibility facade while narrowed ORM ownership now includes
-      app/db/model_domains/document_artifacts.py.
+    notes: app/db/models.py remains the compatibility facade while narrowed ORM
+      ownership now includes app/db/model_domains/document_artifacts.py,
+      app/db/model_domains/retrieval_interactions.py, and
+      app/db/model_domains/retrieval_replay_governance.py.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 5067.0
+    current_value: 4525.0
     measurement_window: 2026-05-10 local verification
-    notes: High Value Technical Paydown Milestone 1 moved SearchRequestRecord,
-      SearchRequestResult, RetrievalEvidenceSpan,
-      RetrievalEvidenceSpanMultiVector, SearchRequestResultSpan,
-      SearchFeedback, ChatAnswerRecord, and ChatAnswerFeedback into
-      app/db/model_domains/retrieval_interactions.py and reduced
-      app/db/models.py to 5067 lines.
+    notes: High Value Technical Paydown Milestone 8 moved SearchReplayRun,
+      SearchReplayQuery, SearchHarnessEvaluation,
+      SearchHarnessEvaluationSource, SearchHarnessRelease, and
+      SearchHarnessReleaseReadinessAssessment into
+      app/db/model_domains/retrieval_replay_governance.py and reduced
+      app/db/models.py to 4525 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T19:36:00+00:00'
+  updated_at: '2026-05-10T23:25:40+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

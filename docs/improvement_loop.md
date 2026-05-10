@@ -33,11 +33,12 @@ Technical Paydown closeout through Milestone 7:
   `app/ui/modules/`, so this UI hotspot now routes through a real owner
   module family rather than one monolithic script.
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
-  the committed local retrieval-interaction split narrowed it to a 5,067-line
-  compatibility facade with a dedicated owner module at
-  `app/db/model_domains/retrieval_interactions.py`. After the Milestone 7
-  reroute, the next implementation slice returns here for the retrieval replay
-  and release governance domain continuation.
+  the committed local retrieval-interaction and replay/release governance
+  splits narrowed it to a 4,525-line compatibility facade with dedicated owner
+  modules at `app/db/model_domains/retrieval_interactions.py` and
+  `app/db/model_domains/retrieval_replay_governance.py`. After the Milestone 8
+  split, the next implementation slice returns here for the retrieval learning
+  domain continuation.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
   `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
@@ -61,7 +62,7 @@ Technical Paydown closeout through Milestone 7:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next routed implementation slice is now the `IC-F2A8110185EB` /
-  `app/db/models.py` retrieval replay and release governance continuation.
+  `app/db/models.py` retrieval learning continuation.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

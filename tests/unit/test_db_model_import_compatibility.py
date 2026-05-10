@@ -22,6 +22,7 @@ from tests.db_model_contract import (
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
     REQUIRED_VECTOR_DIMENSIONS,
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
+    RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS,
 )
 
 
@@ -141,6 +142,30 @@ def test_retrieval_interaction_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.retrieval_interactions"
 
 
+def test_retrieval_replay_governance_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.retrieval_replay_governance import (
+        SearchHarnessEvaluation,
+        SearchHarnessEvaluationSource,
+        SearchHarnessRelease,
+        SearchHarnessReleaseReadinessAssessment,
+        SearchReplayQuery,
+        SearchReplayRun,
+    )
+
+    expected_models = {
+        "SearchReplayRun": SearchReplayRun,
+        "SearchReplayQuery": SearchReplayQuery,
+        "SearchHarnessEvaluation": SearchHarnessEvaluation,
+        "SearchHarnessEvaluationSource": SearchHarnessEvaluationSource,
+        "SearchHarnessRelease": SearchHarnessRelease,
+        "SearchHarnessReleaseReadinessAssessment": SearchHarnessReleaseReadinessAssessment,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.retrieval_replay_governance"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -174,6 +199,18 @@ def test_base_metadata_preserves_document_artifact_domain_table_columns(
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_retrieval_interaction_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_retrieval_replay_governance_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

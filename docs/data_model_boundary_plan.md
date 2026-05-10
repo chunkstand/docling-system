@@ -4,7 +4,7 @@ Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
 Status refreshed: 2026-05-10. `app/db/models.py` remains the highest current
-architecture-quality hotspot, but the first four model-domain splits are
+architecture-quality hotspot, but the first five model-domain splits are
 complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
 `IngestBatchItem`, `Document`, and `DocumentRun` in
@@ -13,9 +13,11 @@ complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
 `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` in
 `app/db/model_domains/document_artifacts.py`. The retrieval-interaction ledger
 now lives in `app/db/model_domains/retrieval_interactions.py` for the verified
-local Milestone 1 split. `app.db.models` remains the public compatibility
-facade. Each model-domain milestone must finish with a local commit before
-another domain moves.
+local Milestone 1 split, and the retrieval replay and release governance slice
+now lives in `app/db/model_domains/retrieval_replay_governance.py` for the
+verified local Milestone 8 split. `app.db.models` remains the public
+compatibility facade at 4,525 lines. Each model-domain milestone must finish
+with a local commit before another domain moves.
 
 ## Proposed Domains
 
@@ -229,31 +231,50 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, evaluation-data-readiness,
   architecture, hygiene, hotspot-prevention, and full DB-backed gates.
 
+Verified locally on 2026-05-10: `retrieval replay and release governance`:
+`SearchReplayRun`, `SearchReplayQuery`, `SearchHarnessEvaluation`,
+`SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
+`SearchHarnessReleaseReadinessAssessment`.
+
+Implemented result:
+
+- Added `app/db/model_domains/retrieval_replay_governance.py`.
+- Re-exported the replay/release governance models from `app/db/models.py`
+  through import-forwarder aliases so the hotspot-prevention gate remains
+  green.
+- Preserved replay and release governance table names, columns, foreign keys,
+  named indexes, unique constraints, and check constraints.
+- Extended the unit and Postgres create-all metadata contracts for replay and
+  release governance table columns, exact index column ordering, and exact
+  unique-constraint column ordering.
+- Reduced `app/db/models.py` from 5,067 lines to 4,525 lines and ratcheted the
+  `config/hygiene_policy.yaml` ceiling to match.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `673.78` to
+  `668.17` while keeping `app/db/models.py` as the top governed hotspot.
+- Verified with focused import, metadata, Alembic, evaluation-data-readiness,
+  architecture, hygiene, hotspot-prevention, and full DB-backed gates.
+
 Next model-domain candidate when model work resumes:
-
-- `retrieval replay and release governance`: `SearchReplayRun`,
-  `SearchReplayQuery`, `SearchHarnessEvaluation`,
-  `SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
-  `SearchHarnessReleaseReadinessAssessment`
-
-Deferred retrieval follow-ons after the replay/release slice proves clean:
 
 - `retrieval learning`: `RetrievalJudgmentSet`, `RetrievalJudgment`,
   `RetrievalHardNegative`, `RetrievalTrainingRun`,
   `RetrievalLearningCandidateEvaluation`, and `RetrievalRerankerArtifact`
 
+Deferred retrieval follow-ons after the replay/release slice proves clean:
+- none; the retrieval learning family is now the active routed follow-up
+
 Current routed follow-up after the verified High Value Technical Paydown
-Milestone 7 closeout:
+Milestone 8 replay/release split:
 
 - next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
-- next model-domain candidate: `retrieval replay and release governance`
+- next model-domain candidate: `retrieval learning`
 - target ORM family:
-  `SearchReplayRun`,
-  `SearchReplayQuery`,
-  `SearchHarnessEvaluation`,
-  `SearchHarnessEvaluationSource`,
-  `SearchHarnessRelease`, and
-  `SearchHarnessReleaseReadinessAssessment`
+  `RetrievalJudgmentSet`,
+  `RetrievalJudgment`,
+  `RetrievalHardNegative`,
+  `RetrievalTrainingRun`,
+  `RetrievalLearningCandidateEvaluation`, and
+  `RetrievalRerankerArtifact`
 
 ## Per-Domain Acceptance Gate
 

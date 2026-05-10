@@ -1,9 +1,9 @@
 # High Value Technical Paydown Milestone Plan
 
 Date: 2026-05-10 local / 2026-05-10 UTC
-Status: complete locally through Milestone 7 closeout and reroute; next
-implementation slice returns to `IC-F2A8110185EB` /
-`app/db/models.py` retrieval replay and release governance
+Status: complete locally through Milestone 8 retrieval replay and release
+governance; next implementation slice returns to `IC-F2A8110185EB` /
+`app/db/models.py` retrieval learning
 Owner context: new standalone paydown plan written after the Hotspot Owner
 Resolution sequence closed locally through Milestone 6. This plan does not add
 new milestones to the prior hotspot-owner plan; it starts a fresh,
@@ -37,7 +37,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=680.78
+  max_hotspot_risk_score=668.17
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -72,17 +72,18 @@ uv run docling-system-agent-trace-review --limit 5 --skip-hygiene
   observation_count=0
 
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
-  1321 passed in 52.08s
+  1328 passed in 52.06s
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  top hotspot app/db/models.py score=369891
+  top hotspot app/db/models.py score=330325
   app/services/evidence.py score=309043
   app/services/agent_task_actions.py score=164760
   app/services/agent_task_actions.py fan-out=36
   Python cycle components=3
 
-wc -l app/db/models.py app/services/evidence.py app/services/agent_task_actions.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_agent_task_actions.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_documents_api.py tests/unit/test_documents_api_semantics.py app/ui/app.js app/ui/modules/shared.js app/ui/modules/documents.js app/ui/modules/search.js app/ui/modules/evals.js app/ui/modules/semantics.js app/ui/modules/agents.js
-   5067 app/db/models.py
+wc -l app/db/models.py app/db/model_domains/retrieval_replay_governance.py app/services/evidence.py app/services/agent_task_actions.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_agent_task_actions.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_documents_api.py tests/unit/test_documents_api_semantics.py app/ui/app.js app/ui/modules/shared.js app/ui/modules/documents.js app/ui/modules/search.js app/ui/modules/evals.js app/ui/modules/semantics.js app/ui/modules/agents.js
+   4525 app/db/models.py
+    576 app/db/model_domains/retrieval_replay_governance.py
    6307 app/services/evidence.py
    2746 app/services/agent_task_actions.py
     424 tests/unit/test_cli.py
@@ -119,6 +120,11 @@ Current routing notes:
   `IC-F2A8110185EB`; `app/db/models.py` remains the compatibility facade while
   the retrieval-interaction owner surface now lives in
   `app/db/model_domains/retrieval_interactions.py`.
+- High Value Technical Paydown Milestone 8 is now verified locally under
+  `IC-F2A8110185EB`; the retrieval replay and release governance owner surface
+  now lives in `app/db/model_domains/retrieval_replay_governance.py`, and
+  `app/db/models.py` is reduced to 4,525 lines while preserving the metadata
+  contract.
 - High Value Technical Paydown Milestone 2 is now committed locally under
   `IC-050E60059A34`; the technical-report derivation/export owner family now
   lives in `app/services/evidence_technical_report_exports.py` while
@@ -146,10 +152,9 @@ Current routing notes:
 - High Value Technical Paydown Milestone 7 is now verified locally: closeout
   docs, improvement-case deployment refs, and live verification metrics are
   aligned to the committed Milestones 1-6 results.
-- the active follow-up after the Milestone 7 closeout is the next routed owner
-  case `IC-F2A8110185EB` / `app/db/models.py`, starting with the retrieval
-  replay and release governance slice documented in
-  `docs/data_model_boundary_plan.md`.
+- the active follow-up after the Milestone 8 split remains the next routed
+  owner case `IC-F2A8110185EB` / `app/db/models.py`, now continuing with the
+  retrieval learning slice documented in `docs/data_model_boundary_plan.md`.
 
 ## Goal
 

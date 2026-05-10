@@ -6,9 +6,9 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: committed local High Value Technical Paydown
 Milestone 5 test hotspot split pack B; High Value Technical Paydown Milestones
-6 and 7 are now verified locally.
+6, 7, and 8 are now verified locally.
 Active local follow-up owner case: `IC-F2A8110185EB` /
-`app/db/models.py` retrieval replay and release governance continuation.
+`app/db/models.py` retrieval learning continuation.
 
 ## Current Position
 
@@ -33,8 +33,14 @@ committed locally: the retrieval-interaction ledger lives in
 `app/db/model_domains/retrieval_interactions.py`, the shared metadata harness
 now protects the retrieval-interaction table/index/vector/computed-column
 contract, and `app/db/models.py` is reduced to 5,067 lines while remaining the
-public compatibility facade. High Value Technical Paydown Milestone 2 is now
-also committed locally: the technical-report derivation/export owner family
+public compatibility facade. High Value Technical Paydown Milestone 8 is now
+also verified locally: the retrieval replay and release governance owner
+surface lives in `app/db/model_domains/retrieval_replay_governance.py`, the
+shared metadata harness now protects the replay/release governance table and
+index contract, and `app/db/models.py` is reduced further to 4,525 lines while
+remaining the public compatibility facade. High Value Technical Paydown
+Milestone 2 is now also committed locally: the technical-report
+derivation/export owner family
 lives in `app/services/evidence_technical_report_exports.py`,
 `app/services/evidence.py` is reduced to 6,307 architecture-probe lines, the
 focused technical-report DB-backed integration stays green, and the architecture
@@ -64,13 +70,92 @@ now covers module asset inclusion and serving alongside `tests/unit/test_ui.py`.
 High Value Technical Paydown Milestone 7 is now also verified locally: the
 closeout docs, improvement-case deployment refs, readiness report, agent-trace
 review, and full DB-backed suite are aligned to live results. The latest full
-DB-backed suite is `1321 passed in 52.08s`, evaluation-data readiness remains
+DB-backed suite is `1328 passed in 52.06s`, evaluation-data readiness remains
 `regression_ready=true` and `court_grade_ready=true` with
 `failed_gate_count=0`, and `docling-system-agent-trace-review --limit 5 --skip-hygiene`
-reported `observation_count=0`. The next routed implementation slice returns to
-`IC-F2A8110185EB` / `app/db/models.py`, starting with the retrieval replay and
-release governance domain candidate documented in
+reported `observation_count=0`. The next routed implementation slice now
+returns to `IC-F2A8110185EB` / `app/db/models.py`, continuing with the
+retrieval learning domain candidate documented in
 `docs/data_model_boundary_plan.md`.
+
+## High Value Technical Paydown Milestone 8 Progress
+
+Milestone 8 is the retrieval replay and release governance model-domain split
+for `IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM
+owner split behind the existing `app.db.models` compatibility facade.
+
+Results:
+
+- added `app/db/model_domains/retrieval_replay_governance.py`
+- moved `SearchReplayRun`, `SearchReplayQuery`, `SearchHarnessEvaluation`,
+  `SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
+  `SearchHarnessReleaseReadinessAssessment` out of `app/db/models.py`
+- kept `app.db.models` import-compatible by re-exporting the moved classes
+  through import-forwarder aliases that satisfy the hotspot-prevention gate
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` to cover replay/release
+  governance table columns, exact index column ordering, and exact
+  unique-constraint column ordering
+- ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 4525`, and the new owner module
+  `app/db/model_domains/retrieval_replay_governance.py` is governed under the
+  same owner case
+- updated `config/improvement_cases.yaml`,
+  `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/data_model_boundary_plan.md`, `docs/architecture_plan_01.md`,
+  `docs/agentic_architecture_index.md`, `docs/improvement_loop.md`, and this
+  handoff so the routed follow-up now points to retrieval learning
+- reduced `app/db/models.py` from 5,067 lines to 4,525 and reduced the
+  architecture-quality `max_hotspot_risk_score` from `673.78` to `668.17`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `314 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `84 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1328 passed in 52.06s`
+- `uv run --extra dev alembic heads`: single head
+  `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=668.17`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- architecture probe still reports `app/db/models.py` as the top hotspot, but
+  now at `4525` lines and score `330325`
 
 ## High Value Technical Paydown Milestone 7 Progress
 

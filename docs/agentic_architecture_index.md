@@ -27,16 +27,18 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=673.78`.
-- `app/db/models.py` remains the top hotspot, but four model domains are now
+  `max_hotspot_risk_score=668.17`.
+- `app/db/models.py` remains the top hotspot, but five model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
   `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
   `DocumentRunEvaluationQuery`, `DocumentChunk`, `DocumentTable`,
   `DocumentTableSegment`, and `DocumentFigure` now live in
   `app/db/model_domains/document_artifacts.py`. The retrieval-interaction
-  ledger now lives in `app/db/model_domains/retrieval_interactions.py`, while
-  `app.db.models` remains the public compatibility facade at 5,067 lines.
+  ledger now lives in `app/db/model_domains/retrieval_interactions.py`, the
+  replay/release governance slice now lives in
+  `app/db/model_domains/retrieval_replay_governance.py`, and `app.db.models`
+  remains the public compatibility facade at 4,525 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
