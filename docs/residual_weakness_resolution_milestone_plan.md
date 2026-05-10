@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestones 1-7 complete
+Status: complete through Milestone 8
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -747,7 +747,7 @@ uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_c
 
 ### Milestone 8: Residual Weakness Closeout
 
-Status: planned.
+Status: completed.
 
 Purpose: prove the five selected weaknesses are resolved or explicitly routed
 with narrower residual risk.
@@ -764,6 +764,46 @@ Acceptance:
 - Evaluation-data readiness reports `court_grade_ready=true`.
 - `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md`, this plan,
   readiness docs, and affected runbooks match the implemented state.
+
+Completed result:
+
+- Re-ran the closeout gate stack against the Milestone 7 state and confirmed
+  the residual-weakness sequence can close without reopening any runtime or
+  governance blocker: architecture inspection remains valid, capability
+  contracts remain valid, hotspot prevention remains clean on the current diff,
+  hygiene reports only inherited ratcheted debt, evaluation-data readiness
+  remains `court_grade_ready=true`, and trace review remains empty.
+- Confirmed the architecture-quality snapshot shows no new hotspot growth from
+  the post-Milestone-7 baseline: `hotspot_count=10`,
+  `max_hotspot_risk_score=692.67`, and the same top hotspot ordering led by
+  `app/db/models.py`, `app/cli.py`, `app/services/evidence.py`,
+  `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
+- Confirmed the general architecture probe still reports no large agent-task
+  cycle component and no additional Python cycle components beyond the two
+  previously accepted small components.
+- Confirmed the improvement-case registry is the explicit residual-risk owner
+  surface after plan closeout: `case_count=23`, `open=22`, `measured=1`, with
+  open cases concentrated in architecture-governance ownership rather than
+  silent debt.
+- Refreshed the milestone plan, architecture index, README, system plan, and
+  session handoff so the repo now describes the residual-weakness sequence as
+  complete through Milestone 8 and routes future work to owner-scoped follow-up
+  cases instead of another open milestone in this plan.
+
+Verified behavior:
+
+```text
+uv run docling-system-architecture-inspect: valid=true, violation_count=0, api_route_count=130, agent_action_count=51, contract_count=10, inspection_rule_count=13.
+uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110, issues=[].
+uv run docling-system-architecture-quality-report --summary: agent_legibility_average_score=90.0, broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=692.67.
+uv run docling-system-hotspot-prevention-check --strict: known_hotspots=6, changed_hotspots=0, blocked=0, allowed=0, exceptions=0.
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12: Python cycle components=2, large agent-task cycle component absent, app/services/agent_task_actions.py fan-out=39.
+uv run docling-system-hygiene-check: ruff regressions=none, new hygiene regressions=none, inherited budget debt only.
+uv run docling-system-improvement-case-summary: case_count=23, open=22, measured=1, source_type_counts={hygiene_finding: 1, architecture_governance: 22}.
+uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json: regression_ready=true, court_grade_ready=true, passed_gate_count=11, failed_gate_count=0.
+uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_count=0.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1179 passed in 50.20s.
+```
 
 ## Required Implementation Artifacts
 
@@ -882,11 +922,22 @@ requested.
 
 ## Residual Risks And Next Routing
 
-Milestones 1-5 are complete. The next milestone is Milestone 6, Regression
-Evaluation-Data Readiness. Both prevention gates remain in closeout: hotspot
-prevention must block new implementation growth in known hotspots, and the
-hygiene ratchet must show no new file/helper budget regressions.
+The residual-weakness sequence is complete through Milestone 8. The remaining
+debt is explicit, owner-scoped, and still governed:
 
-If evaluation-data readiness is needed for an external review sooner than the
-architecture cleanup, Milestone 6 may run in parallel as an operational data
-milestone, but it must not claim court-grade readiness until Milestone 7 passes.
+- hotspot and file/helper debt remains in large modules such as
+  `app/db/models.py`, `app/services/evidence.py`,
+  `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
+  `app/services/retrieval_learning.py`, and `app/services/search.py`, but that
+  debt is now guarded by hotspot-prevention and hygiene-ratchet gates plus
+  owner-linked improvement cases
+- the large agent-task cycle component is gone, but two smaller Python cycle
+  components remain accepted until a later owner-scoped cleanup chooses to
+  address them
+- the improvement-case registry remains the durable routing surface for
+  continued hotspot reduction instead of another broad residual-weakness plan
+  milestone
+
+Future work should route through owner-scoped improvement cases or new
+milestone plans only when one of these guarded debt surfaces becomes the active
+implementation target.

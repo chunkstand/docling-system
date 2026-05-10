@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-7 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -89,8 +89,10 @@ chat history or scanning the whole repository.
   task-payload summary concerns. The fifth implementation milestone, the
   Agent-Task Cycle Break, is complete. The sixth implementation milestone,
   Regression Evaluation-Data Readiness, is complete. The seventh
-  implementation milestone, Court-Grade Evaluation-Data Readiness, is also
-  complete. The next milestone is Residual Weakness Closeout.
+  implementation milestone, Court-Grade Evaluation-Data Readiness, is complete.
+  The eighth implementation milestone, Residual Weakness Closeout, is also
+  complete. Follow-up work now routes through owner-scoped improvement cases
+  and hotspot owners rather than another open milestone in this sequence.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness now reports
   `regression_ready=true`, `court_grade_ready=true`, and
@@ -99,6 +101,10 @@ chat history or scanning the whole repository.
   operator feedback coverage, technical-report claim-feedback coverage, an
   active claim-support replay-alert corpus snapshot, and materialized
   retrieval-learning data.
+- Residual risk note: the improvement-case registry remains the durable map for
+  remaining architecture debt. Current summary: `case_count=23`, `open=22`,
+  `measured=1`, with open cases concentrated in architecture-governance
+  ownership rather than untracked debt.
 
 ## Executable Architecture Contracts
 

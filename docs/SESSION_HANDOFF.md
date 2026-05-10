@@ -4,8 +4,8 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 7
-court-grade readiness pass.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 8
+closeout alignment pass.
 
 ## Current Position
 
@@ -21,7 +21,10 @@ Milestone 4 Top Hotspot Split Pack B, Milestone 5 Agent-Task Cycle Break, and
 the Milestone 6 regression-readiness data build that makes the live DB pass the
 regression evaluation-data tier. This handoff revision closes Milestone 7 by
 materializing the court-grade evaluation-data lanes and aligning the remaining
-governance checks with intentional `feedback` no-answer replay coverage.
+governance checks with intentional `feedback` no-answer replay coverage. The
+current revision closes Milestone 8 by proving the remaining residual risk is
+now explicitly governed and that the plan, handoff, and architecture index all
+match the current gate state.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -143,6 +146,37 @@ Operational notes:
   the existing replay, harness-evaluation, and retrieval-learning services
   rather than adding a new bootstrap command.
 
+## Milestone 8 Residual Weakness Closeout
+
+Milestone 8 is the closeout-and-alignment pass for the full residual-weakness
+sequence. It does not claim new runtime functionality; it proves the remaining
+weaknesses are now either prevented, reduced, or explicitly routed through
+owner-scoped follow-up surfaces.
+
+Results:
+
+- hotspot prevention remains active and clean on the current diff:
+  `known_hotspots=6`, `changed_hotspots=0`, `blocked=0`
+- architecture quality shows no new hotspot growth:
+  `hotspot_count=10`, `max_hotspot_risk_score=692.67`, top hotspots unchanged
+- the general architecture probe still reports no large agent-task cycle
+  component and only the two previously accepted small Python cycle components
+- hygiene remains in the ratcheted state:
+  `ruff regressions=none`, `new hygiene regressions=none`, inherited debt only
+- evaluation-data readiness remains fully green:
+  `regression_ready=true`, `court_grade_ready=true`,
+  `passed_gate_count=11`, `failed_gate_count=0`
+- the improvement-case registry is now the explicit residual-risk routing
+  surface: `case_count=23`, `open=22`, `measured=1`
+
+Operational notes:
+
+- This milestone is a docs-and-governance closeout, not a new architecture
+  split or runtime-data bootstrap.
+- Remaining debt is no longer routed as another broad residual-weakness
+  milestone. Future work should target owner-scoped improvement cases or new
+  focused milestone plans tied to one governed debt surface at a time.
+
 The current system is a local-first, durable document-intelligence platform with:
 
 - active-run-gated PDF ingest, parsing, validation, and promotion
@@ -184,11 +218,15 @@ The local commits ahead of `origin/main` are:
   live evaluation corpus so the readiness preflight reports
   `regression_ready=true` and routes the next milestone to the court-grade data
   lanes
+- `dde0e22` (`evals: complete residual weakness milestone 7`), which seeds the
+  court-grade corpus, feedback, replay, and retrieval-learning lanes and makes
+  the live readiness preflight report `court_grade_ready=true`
 
 These commits add and harden the first two residual-weakness prevention gates
 after `origin/main` planned the broader sequence, land the first two
 facade-preserving top-hotspot splits, close the first cycle-break slice, lift
-the regression readiness tier, and align the durable closeout docs.
+the regression and court-grade readiness tiers, and align the durable closeout
+docs.
 
 ## Current Architecture And Governance State
 
@@ -1067,32 +1105,23 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
 - Court-grade readiness now passes on the local DB, so the remaining residual
   work is architecture closeout rather than evaluation-data seeding.
 
-## Next Milestone
+## Next Routed Work
 
-`Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
-Milestones 1-6 are complete: the hotspot-prevention policy, analyzer, CLI, and
-tests now block new implementation growth in known hotspots while allowing
-deletion-only reductions and facade forwarding; the hygiene budget ratchet now
-turns inherited strict budget debt into visible non-blocking debt with blocking
-no-growth ceilings; and Top Hotspot Split Pack A moved the ingest ORM domain,
-ingest CLI command group, and ingest CLI tests behind stable facades; Top
-Hotspot Split Pack B moved the evidence operator-run recorder and audit summary
-payload helpers into focused owner modules; and the Agent-Task Cycle Break added
-the action lookup seam and removed the large agent-task import-cycle component;
-Milestone 6 then rebuilt the live evaluation corpus so the readiness preflight
-now reports `regression_ready=true`, with passing `live_search_gaps` and
-`cross_document_prose_regressions` replay seeds recorded in the live DB.
+`Architecture Plan 01` is complete through Milestone 8, and the Residual
+Weakness Plan is now complete through Milestone 8 as well. The prevention gate,
+hygiene ratchet, hotspot splits, agent-task cycle break, regression-readiness
+build, court-grade readiness build, and closeout alignment pass are all in
+place.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 8,
-Residual Weakness Closeout. Keep both prevention gates in closeout:
+Recommended next work shape: owner-scoped follow-up rather than another broad
+residual-weakness milestone. Keep both prevention gates active:
 `docling-system-hotspot-prevention-check --strict` and
-`docling-system-hygiene-check`. The next implementation should build the live
-closeout proof that the remaining residual weaknesses are either resolved or
-explicitly narrowed: refresh the architecture-quality snapshot, rerun the cycle
-probe and prevention gates, confirm `court_grade_ready=true` stays green, and
-close the milestone plan with matched docs and handoff state.
+`docling-system-hygiene-check`. The next implementation should choose one
+governed owner surface at a time from the improvement-case registry or hotspot
+list, verify that the same gates stay green, and avoid reopening this plan as
+an umbrella milestone unless a new cross-cutting weakness appears.

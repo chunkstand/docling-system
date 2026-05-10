@@ -30,7 +30,7 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 7 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 8 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the platform and ingest data-model domain splits, first evidence-service
 split, first agent-action registry/helper split, first two CLI command-group
@@ -87,9 +87,9 @@ architecture posture is:
   `app/services/search_query_features.py` while `app.services.search` remains
   the search compatibility facade
 - the general architecture probe no longer reports the large agent-task
-  import-cycle component; the remaining follow-up is evaluation-data readiness
-  plus continued hotspot splitting, not a platform rewrite or service
-  extraction
+  import-cycle component; the residual-weakness plan itself is now complete,
+  and the remaining follow-up is owner-scoped hotspot reduction plus continued
+  guarded debt retirement, not a platform rewrite or service extraction
 
 Current verification status:
 
@@ -111,6 +111,11 @@ Current verification status:
   source rows for every required source, a governed claim-support replay-alert
   corpus snapshot, operator feedback coverage, technical-report claim-feedback
   coverage, and one materialized retrieval-learning judgment/training set.
+- The residual-weakness closeout gate is now documentary and governance-based:
+  hotspot prevention blocks new growth in known hotspots, hygiene keeps
+  inherited debt ratcheted, the improvement-case registry holds the remaining
+  architecture work as owner-scoped cases, and no additional repo-wide
+  residual-weakness milestone is currently open.
 
 ## Current Goals
 

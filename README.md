@@ -4,7 +4,7 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 7 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 8 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the platform and ingest data-model domain splits, first evidence-service split,
 first agent-action registry/helper split, first two CLI command-group splits,
@@ -16,7 +16,10 @@ agent-task context and task services no longer statically import the executor
 registry facade. The Milestone 6 and 7 runtime closeouts rebuilt the local
 evaluation corpus and court-grade evidence lanes so
 `docling-system-evaluation-data-readiness` now reports both
-`regression_ready=true` and `court_grade_ready=true`.
+`regression_ready=true` and `court_grade_ready=true`. The residual-weakness
+sequence is now complete through its closeout milestone; remaining architecture
+debt is tracked as owner-scoped improvement cases and inherited ratcheted
+hotspot debt rather than as another open repo-wide milestone.
 
 Current repo-level signals:
 
@@ -40,6 +43,9 @@ Current repo-level signals:
 - The general architecture probe no longer reports the large agent-task
   import-cycle component; `app/services/agent_task_actions.py` remains the
   action-orchestration entrypoint with fan-out 39.
+- `uv run docling-system-improvement-case-summary` reports `case_count=23`,
+  `open=22`, and `measured=1`, which is now the explicit routing surface for
+  remaining architecture debt.
 - The live readiness preflight now reports 26 active documents, 26 completed
   evaluations, 52 passed evaluation queries, empty regression blockers, and
   empty court-grade blockers.
