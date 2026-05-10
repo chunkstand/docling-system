@@ -4,21 +4,22 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 5 Agent-Task
-Cycle Break.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 5 alignment
+pass after Agent-Task Cycle Break.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 7 commits
-after the Residual Weakness Plan Milestone 5 closeout.
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 8 commits
+after the Residual Weakness Plan Milestone 5 alignment pass.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
 The latest local architecture closeout commits contain the Residual Weakness
 Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
 Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A,
-Milestone 4 Top Hotspot Split Pack B, and Milestone 5 Agent-Task Cycle Break:
-the action lookup seam that removes the large agent-task import-cycle
+Milestone 4 Top Hotspot Split Pack B, Milestone 5 Agent-Task Cycle Break, and
+the Milestone 5 alignment pass that records the actual closeout hash and next
+route after the action lookup seam removed the large agent-task import-cycle
 component.
 
 - `config/hotspot_prevention.yaml`
@@ -76,22 +77,26 @@ The local commits ahead of `origin/main` are:
 - `00387e7` (`architecture: complete residual hygiene ratchet`), which converts
   strict file/helper budget debt into owned inherited debt plus blocking
   no-growth ceilings
-- `HEAD~1` (`architecture: harden residual hygiene ratchet alignment`), which
+- `19bfad4` (`architecture: harden residual hygiene ratchet alignment`), which
   closes the hygiene import alignment gap and adds direct CLI output coverage
 - `4042c7b` (`architecture: complete residual weakness milestone 3 split pack`),
   which closes Top Hotspot Split Pack A behind stable facades and ratchets the
   affected file budgets
-- `HEAD~1` (`architecture: complete residual weakness milestone 4 operator run split`),
+- `92a411d` (`architecture: complete residual weakness milestone 4 operator run split`),
   which moves knowledge-operator run recording and audit summary payload helpers
   into focused owner modules and ratchets the evidence facade lower
-- `HEAD` (`architecture: complete residual weakness milestone 5 cycle break`),
+- `c58e940` (`architecture: complete residual weakness milestone 5 cycle break`),
   which routes context and task services through
   `app/services/agent_task_action_lookup.py` and removes the large
   agent-task import-cycle component from the general architecture probe
+- current alignment commit (`architecture: align residual weakness milestone 5
+  closeout`), which keeps the handoff and residual milestone plan synchronized
+  with the committed Milestone 5 hash and Milestone 6 routing
 
 These commits add and harden the first two residual-weakness prevention gates
 after `origin/main` planned the broader sequence, land the first two
-facade-preserving top-hotspot splits, and close the first cycle-break slice.
+facade-preserving top-hotspot splits, close the first cycle-break slice, and
+align the durable closeout docs.
 
 ## Current Architecture And Governance State
 
@@ -893,6 +898,12 @@ registry facade:
 - `app/services/agent_task_actions.py` still has fan-out 39, so it is
   documented as the action-orchestration entrypoint rather than claimed as
   reduced.
+
+Milestone 5 implementation closeout commit:
+
+```text
+c58e940 architecture: complete residual weakness milestone 5 cycle break
+```
 
 Milestone 5 verification before full-suite closeout:
 
