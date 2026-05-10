@@ -4,22 +4,24 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 6 search
-query-feature split alignment closeout.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 7 evidence
+PROV export split closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 22
-commits after the Milestone 6 search split alignment closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 23
+commits after the Milestone 7 evidence PROV export split closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 6 closeout and alignment commits contain the first
-`app/services/search.py` core split, full query-helper facade compatibility
-coverage, and their verification/docs updates:
+The latest architecture closeout commits contain the first `app/services/search.py`
+core split and the second `app/services/evidence.py` split:
 
 - `app/services/search.py`
 - `app/services/search_query_features.py`
 - `tests/unit/test_search_query_features.py`
+- `app/services/evidence.py`
+- `app/services/evidence_provenance.py`
+- `tests/unit/test_evidence_provenance.py`
 - `docs/architecture_plan_01.md`
 - `docs/SESSION_HANDOFF.md`
 - `docs/agentic_architecture_index.md`
@@ -42,8 +44,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 22 local commits ahead of `origin/main` are:
+The 23 local commits ahead of `origin/main` are:
 
+- local Milestone 7 closeout commit for the evidence PROV export
+  receipt/integrity owner split
 - local Milestone 6 alignment closeout commit for forwarded query-helper
   compatibility coverage and post-commit architecture-probe score alignment
 - local Milestone 6 closeout commit for the first `app/services/search.py`
@@ -111,9 +115,9 @@ uv run docling-system-architecture-quality-report --summary
 The architecture boundary model is clean, but hotspot debt remains real. The
 top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
 `app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
-The latest architecture probe records `app/services/search.py` at 3,250 lines
-and 87,750 hotspot score after the first search-core split and alignment
-commit.
+The latest post-commit architecture probe records `app/services/evidence.py` at
+8,261 lines and 380,006 hotspot score after the PROV export receipt/integrity
+split.
 
 ## Runtime Gate Snapshot
 
@@ -551,6 +555,69 @@ post-commit app/services/search.py hotspot score is 87,750.
 Alignment closeout full DB-backed suite: 1114 passed in 49.01s.
 ```
 
+## Evidence Provenance Split Snapshot
+
+Milestone 7 implemented the second `app/services/evidence.py` concern split on
+2026-05-10.
+
+Implemented result:
+
+- Added `app/services/evidence_provenance.py` as the focused owner for technical
+  report PROV export constants, PROV entity/activity/relation helpers, relation
+  reference validation, immutable export freeze payloads, hash-chain receipts,
+  signing, and receipt integrity checks.
+- Kept `app.services.evidence` import-compatible for existing PROV export helper
+  names, including `_prov_identifier`, `_prov_entity`, `_prov_activity`,
+  `_prov_relation`, `_prov_export_integrity_payload`,
+  `_frozen_prov_export_payload`, `_frozen_export_sha256`,
+  `_frozen_export_receipt`, and `_prov_export_receipt_integrity`.
+- Preserved technical-report evidence manifests, evidence traces, PROV export
+  artifact kind/path contracts, semantic-governance links, and audit-bundle
+  behavior.
+- Added focused facade compatibility coverage in
+  `tests/unit/test_evidence_provenance.py`.
+- Reduced `app/services/evidence.py` from 8,608 lines to 8,261 lines; the new
+  PROV export owner module is 467 lines.
+- Reduced the post-commit architecture-probe hotspot score for
+  `app/services/evidence.py` from 387,360 to 380,006 while keeping the general
+  architecture-probe cycle count at the prior 3 known components. The
+  post-commit score includes the Milestone 7 closeout commit itself in the
+  architecture-probe churn window.
+
+Focused verification:
+
+```bash
+uv run pytest -q tests/unit/test_evidence_provenance.py
+uv run pytest -q tests/unit/test_evidence_common.py tests/unit/test_evidence_records.py tests/unit/test_evidence_provenance.py tests/unit/test_evidence_search_packages.py tests/unit/test_technical_reports.py
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py
+uv run ruff check app tests
+uv run docling-system-architecture-inspect
+uv run docling-system-capability-contracts
+uv run docling-system-architecture-quality-report --summary
+uv run docling-system-hygiene-check
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q
+```
+
+Results:
+
+```text
+Evidence provenance tests: 12 passed.
+Focused evidence/technical-report tests: 39 passed.
+DB-backed technical-report harness roundtrip: 1 passed.
+Ruff: passed across app and tests.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe: app/services/evidence.py is 8,261 probe-counted lines and
+380,006 post-commit hotspot score; Python cycle components remain at 3.
+Full DB-backed suite: 1115 passed in 54.05s.
+Hygiene: no ruff, improvement-case, or architecture findings; inherited
+file/helper budget debt remains. app/services/evidence.py is now 8,261 lines
+with 107 private helpers, still above the strict hygiene budget.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -572,8 +639,8 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1, 2, 3, 4, 5, and 6 satisfy the revised local commit closeout rule.
-Milestone 7 may begin from this committed checkpoint.
+Milestones 1, 2, 3, 4, 5, 6, and 7 satisfy the revised local commit closeout
+rule. Milestone 8 may begin from this committed checkpoint.
 
 ## Active Weak Points
 
@@ -588,9 +655,9 @@ Milestone 7 may begin from this committed checkpoint.
 - The first model-domain split reduced `app/db/models.py`, but it remains the
   top architecture-quality hotspot and should not receive additional unrelated
   ORM concerns.
-- The first evidence split reduced `app/services/evidence.py`, but it remains a
-  major architecture-quality hotspot. Future evidence splits should move one
-  owner concern at a time behind the same compatibility facade.
+- The first two evidence splits reduced `app/services/evidence.py`, but it
+  remains a major architecture-quality hotspot. Future evidence splits should
+  move one owner concern at a time behind the same compatibility facade.
 - The first agent-action registry split reduced
   `app/services/agent_task_actions.py`, but it remains a hotspot and part of the
   general architecture probe's large agent-task cycle component. Future
@@ -627,8 +694,9 @@ search-harness action registry metadata and helper logic moved behind the
 `app.services.agent_task_actions` compatibility facade. Milestone 5 is complete:
 improvement-case CLI commands moved behind the `app.cli` compatibility facade.
 Milestone 6 is complete: query-feature and query-intent helpers moved behind
-the `app.services.search` compatibility facade.
+the `app.services.search` compatibility facade. Milestone 7 is complete: PROV
+export receipt and integrity helpers moved behind the `app.services.evidence`
+compatibility facade.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 7: split
-the next `app/services/evidence.py` concern while preserving the evidence
-facade and artifact contracts.
+The next architecture milestone is `Architecture Plan 01` Milestone 8:
+improvement intake ratchet for current architecture-quality hotspot findings.

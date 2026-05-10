@@ -46,6 +46,11 @@ runtime behavior.
 - Full DB-backed verification is current for `Architecture Plan 01` Milestone 6:
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
   `1114 passed in 49.01s` after the alignment closeout.
+- Evidence verification is current for `Architecture Plan 01` Milestone 7:
+  focused evidence/technical-report tests passed with `39 passed`, the
+  DB-backed technical-report harness roundtrip passed with `1 passed`, and
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
+  `1115 passed in 54.05s`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -116,13 +121,23 @@ runtime behavior.
   hotspot score dropped from 89,154 to 87,750 without adding a new static
   import-cycle component. The focused compatibility test now covers every
   forwarded query-feature helper alias exposed by `app.services.search`.
+- `Architecture Plan 01` Milestone 7 now has the second physical
+  `app/services/evidence.py` split: technical-report PROV export relation
+  helpers, immutable freeze payloads, hash-chain receipts, signing, and receipt
+  integrity live in `app/services/evidence_provenance.py` while
+  `app.services.evidence` remains import-compatible for existing PROV helper
+  names.
+- The Milestone 7 alignment check confirmed that `app/services/evidence.py`
+  dropped from 8,608 to 8,261 probe-counted lines and its post-commit
+  architecture-probe hotspot score dropped from 387,360 to 380,006 without
+  adding a new static import-cycle component.
 
 ## Deferred Large Refactors
 
 The plan's physical implementation splits remain governed hotspot work, not
 hidden gaps. The first `app/db/models.py` domain split is complete; additional
-model domains should still move one at a time. The first
-`app/services/evidence.py` split is complete; additional evidence domains
+model domains should still move one at a time. The first two
+`app/services/evidence.py` splits are complete; additional evidence domains
 should still move one at a time. The first `app/services/agent_task_actions.py`
 registry/helper split is complete; additional action families should still move
 one at a time. The first `app/cli.py` command-group split is complete;
@@ -130,10 +145,10 @@ additional CLI groups should still move one at a time behind compatibility
 forwarding functions. The first `app/services/search.py` core split is
 complete; additional search concerns should still move one at a time behind the
 same compatibility facade with replay/ranking coverage. The next active
-hotspot split is `Architecture Plan 01` Milestone 7 for the second
-`app/services/evidence.py` concern. Later governed split surfaces include
-additional CLI command groups, additional search concerns, and additional
-agent-action families. The next agent-action family split should first
+architecture milestone is `Architecture Plan 01` Milestone 8 for the
+improvement-intake ratchet. Later governed split surfaces include additional
+evidence concerns, additional CLI command groups, additional search concerns,
+and additional agent-action families. The next agent-action family split should first
 introduce a dependency seam for executor movement or choose a family whose
 executors do not keep the broad agent-task cycle intact.
 Each future split should land as a separate

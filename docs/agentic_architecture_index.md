@@ -13,12 +13,12 @@ chat history or scanning the whole repository.
 
 ## Milestone Status
 
-- Completed through the local `Architecture Plan 01` Milestone 6
+- Completed through the local `Architecture Plan 01` Milestone 7
   closeout:
   baseline quality report, capability subcontracts, agent action hardening,
   trace-first review, repository architecture map, architecture
   garbage-collection candidates, data-model boundary plan, and
-  `Architecture Plan 01` Milestones 0-6.
+  `Architecture Plan 01` Milestones 0-7.
 - Current gate shape: architecture inspection is valid with no violations,
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
@@ -32,6 +32,10 @@ chat history or scanning the whole repository.
   `app/services/evidence_search_packages.py`,
   `app/services/evidence_search_trace_graph.py`, and
   `app/services/evidence_search_trace_store.py`.
+- The second `app/services/evidence.py` split is complete: technical-report
+  PROV export relation helpers, immutable freeze payloads, hash-chain receipts,
+  signing, and receipt integrity now live in
+  `app/services/evidence_provenance.py`.
 - The first `app/services/agent_task_actions.py` registry split is complete:
   search-harness action contract metadata and helper logic now live in
   `app/services/agent_actions/search_harness.py` while
@@ -50,11 +54,11 @@ chat history or scanning the whole repository.
   coverage, and metadata-query token helpers now live in
   `app/services/search_query_features.py` while `app.services.search` remains
   the compatibility facade for existing query helper imports.
-- Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 7,
-  the second `app/services/evidence.py` split. Later governed splits remain for
-  additional `app/cli.py` command groups, additional search core concerns,
-  additional `app/services/agent_task_actions.py` action families, and
-  additional `app/db/models.py` domains.
+- Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 8,
+  the improvement-intake ratchet. Later governed splits remain for additional
+  evidence concerns, additional `app/cli.py` command groups, additional search
+  core concerns, additional `app/services/agent_task_actions.py` action
+  families, and additional `app/db/models.py` domains.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   trace review currently reports `observation_count=0`.

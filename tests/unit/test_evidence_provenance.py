@@ -2,11 +2,13 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
+import app.services.evidence_provenance as evidence_provenance
 from app.db.models import (
     AgentTaskVerification,
     TechnicalReportClaimRetrievalFeedback,
     TechnicalReportReleaseReadinessDbGate,
 )
+from app.services import evidence
 from app.services.evidence import (
     RELEASE_READINESS_DB_GATE_CHECK_KEY,
     _frozen_prov_export_payload,
@@ -18,6 +20,31 @@ from app.services.evidence import (
     _technical_report_release_readiness_db_gate_row_integrity,
     payload_sha256,
 )
+
+
+def test_evidence_facade_preserves_provenance_owner_helpers() -> None:
+    assert (
+        evidence.TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+        == evidence_provenance.TECHNICAL_REPORT_PROV_EXPORT_ARTIFACT_KIND
+    )
+    assert (
+        evidence.TECHNICAL_REPORT_PROV_EXPORT_FILENAME
+        == evidence_provenance.TECHNICAL_REPORT_PROV_EXPORT_FILENAME
+    )
+    assert evidence._prov_identifier is evidence_provenance.prov_identifier
+    assert evidence._prov_entity is evidence_provenance.add_prov_entity
+    assert evidence._prov_activity is evidence_provenance.add_prov_activity
+    assert evidence._prov_relation is evidence_provenance.add_prov_relation
+    assert (
+        evidence._prov_missing_relation_references
+        is evidence_provenance.missing_relation_references
+    )
+    assert (
+        evidence._prov_export_integrity_payload
+        is evidence_provenance.prov_export_integrity_payload
+    )
+    assert evidence._frozen_export_sha256 is evidence_provenance.frozen_export_sha256
+    assert evidence._frozen_export_receipt is evidence_provenance.frozen_export_receipt
 
 
 def _base_prov_export() -> dict:

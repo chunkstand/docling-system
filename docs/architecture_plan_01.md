@@ -1,7 +1,7 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-6 complete; local commit-on-closeout policy
+Status: active plan; Milestones 0-7 complete; local commit-on-closeout policy
 active as of 2026-05-10
 
 Purpose: reduce centralization in the current modular monolith without
@@ -919,6 +919,8 @@ evidence-service split.
 
 ### Milestone 7: Evidence Service Split 02
 
+Status: complete on 2026-05-10.
+
 Goal: continue `evidence.py` decomposition after the first extraction proves
 the facade pattern.
 
@@ -946,6 +948,48 @@ Acceptance:
 - Focused tests for the selected evidence domain pass before the full
   DB-backed integration gate.
 - The milestone lands as one local commit after docs and handoff are updated.
+
+Completed result:
+
+- Added `app/services/evidence_provenance.py` as the focused owner module for
+  technical-report PROV export constants, PROV relation helpers, immutable
+  export freeze payloads, hash-chain receipts, signing, and receipt integrity.
+- Kept `app.services.evidence` import-compatible for existing PROV export helper
+  names used by tests and callers, including `_prov_identifier`, `_prov_entity`,
+  `_prov_activity`, `_prov_relation`, `_prov_export_integrity_payload`,
+  `_frozen_prov_export_payload`, `_frozen_export_sha256`,
+  `_frozen_export_receipt`, and `_prov_export_receipt_integrity`.
+- Preserved technical-report evidence manifest, evidence trace, PROV export
+  artifact kind/path, semantic-governance, and audit-bundle behavior.
+- Added focused compatibility coverage in
+  `tests/unit/test_evidence_provenance.py`.
+- Reduced `app/services/evidence.py` from 8,608 lines to 8,261 lines. The new
+  PROV export owner module is 467 lines.
+- Reduced the post-commit architecture-probe hotspot score for
+  `app/services/evidence.py` from 387,360 to 380,006 without adding a new static
+  import-cycle component. The post-commit score includes the Milestone 7
+  closeout commit itself in the architecture-probe churn window.
+
+Verification:
+
+```text
+Evidence provenance tests: 12 passed.
+Focused evidence/technical-report tests: 39 passed.
+DB-backed technical-report harness roundtrip: 1 passed.
+Ruff: passed across app and tests.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe: app/services/evidence.py is 8,261 probe-counted lines and
+380,006 post-commit hotspot score; Python cycle components remain at 3.
+Full DB-backed suite: 1115 passed in 54.05s.
+Hygiene: no ruff, improvement-case, or architecture findings; inherited
+file/helper budget debt remains.
+```
+
+Milestone 8 is unblocked. The next architecture milestone is the improvement
+intake ratchet.
 
 ### Milestone 8: Improvement Intake Ratchet
 
@@ -1070,7 +1114,9 @@ Use this order unless live evidence changes:
 5. Split one agent-task action family out of `app/services/agent_task_actions.py`.
 6. Split one CLI command group out of `app/cli.py` (complete).
 7. Split one search core concern out of `app/services/search.py` (complete).
-8. Import or dedupe architecture-quality hotspot improvement cases.
+8. Split PROV export receipt/integrity helpers out of `app/services/evidence.py`
+   (complete).
+9. Import or dedupe architecture-quality hotspot improvement cases.
 
 If runtime verification remains blocked, start with the evidence split only
 after recording the runtime blocker and confirming the split does not touch
