@@ -24,7 +24,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: 78ec3c8
+    deployed_ref: "78ec3c8"
     notes: Merged hygiene gate policy on main.
   measurement:
     metric_name: hygiene_architecture_findings
@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=5537 after the Milestone 1 document-artifacts owner split.
+    line_count=5067 after the verified local retrieval-interaction owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -59,28 +59,29 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: 060b537
+    deployed_ref: "c046db8"
     notes: Milestone 1 document-artifacts owner split committed; app/db/models.py
       remains the compatibility facade while narrowed ORM ownership now includes
       app/db/model_domains/document_artifacts.py.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 5537.0
+    current_value: 5067.0
     measurement_window: 2026-05-10 local verification
-    notes: Milestone 1 moved DocumentRunEvaluation,
-      DocumentRunEvaluationQuery, DocumentChunk, DocumentTable,
-      DocumentTableSegment, and DocumentFigure into
-      app/db/model_domains/document_artifacts.py and reduced app/db/models.py
-      to 5537 lines.
+    notes: High Value Technical Paydown Milestone 1 moved SearchRequestRecord,
+      SearchRequestResult, RetrievalEvidenceSpan,
+      RetrievalEvidenceSpanMultiVector, SearchRequestResultSpan,
+      SearchFeedback, ChatAnswerRecord, and ChatAnswerFeedback into
+      app/db/model_domains/retrieval_interactions.py and reduced
+      app/db/models.py to 5067 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T14:29:04+00:00'
+  updated_at: '2026-05-10T19:36:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/evidence.py remains an architecture hotspot with
-    line_count=7143 and private_helper_count=90 after the Milestone 2
-    evidence-audit split.
+    line_count=6307 and private_helper_count=81 after the verified local High
+    Value Technical Paydown Milestone 2 technical-report export split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/evidence.py
@@ -100,20 +101,24 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: a0bd36b
+    deployed_ref: "ac5a72a"
     notes: Milestone 2 evidence trace split committed; app/services/evidence.py
       remains the compatibility facade while the narrowed trace concern now
-      lives in app/services/evidence_manifest_traces.py.
+      lives in app/services/evidence_manifest_traces.py. Verified local High
+      Value Technical Paydown Milestone 2 also moved the technical-report
+      derivation and export owner family into
+      app/services/evidence_technical_report_exports.py.
   measurement:
     metric_name: evidence_hotspot_line_count
-    current_value: 7143.0
+    current_value: 6307.0
     measurement_window: 2026-05-10 local verification
-    notes: Milestone 2 moved technical-report evidence trace graph build,
-      persistence, and integrity into app/services/evidence_manifest_traces.py
-      and reduced app/services/evidence.py to 7143 lines while governing the
-      owner module at 980 lines.
+    notes: Verified local High Value Technical Paydown Milestone 2 moved the
+      technical-report derivation package, provenance-lock assembly, export
+      persistence, attach helpers, and claim-derivation payload helpers into
+      app/services/evidence_technical_report_exports.py; app/services/evidence.py
+      is now 6307 lines and the new owner module is governed at 884 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T14:29:04+00:00'
+  updated_at: '2026-05-10T22:30:00+00:00'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -153,7 +158,9 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/agent_task_actions.py is an architecture hotspot
-    with risk_score=475.23, line_count=2884, changes_90d=59, hygiene_finding_count=0.
+    with risk_score=450.04, line_count=2746, fan_out=36, changes_90d=59,
+    hygiene_finding_count=0 after the verified local High Value Technical
+    Paydown Milestone 3 report action-family split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_actions.py
@@ -174,21 +181,32 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "a3f9189"
+    notes: Verified local High Value Technical Paydown Milestone 3 moved the
+      technical-report action definition family into
+      app/services/agent_actions/report_actions.py while
+      app/services/agent_task_actions.py remains the compatibility registry
+      entrypoint and execution facade.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: agent_task_actions_hotspot_line_count
+    current_value: 2746.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 3 moved the
+      report-generation action contract metadata for plan, evidence cards,
+      harness preparation, context-pack evaluation, draft, and verify into
+      app/services/agent_actions/report_actions.py; app/services/agent_task_actions.py
+      is now 2746 lines with architecture-probe hotspot score 162014 and
+      fan-out 36.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T20:50:39+00:00'
 - case_id: IC-FD18EE2D3309
   title: 'Architecture hotspot: tests/unit/test_cli.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_cli.py is an architecture hotspot with risk_score=447.75,
-    line_count=2362, changes_90d=46, hygiene_finding_count=0.
+  observed_failure: tests/unit/test_cli.py remains the compatibility-owner test
+    surface at line_count=424 after the verified local High Value Technical
+    Paydown Milestone 4 split moved the agent-task, claim-support,
+    improvement-case, and search-harness CLI coverage into focused files.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_cli.py
@@ -208,15 +226,25 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "0701121"
+    notes: Verified local High Value Technical Paydown Milestone 4 moved
+      focused CLI coverage into tests/unit/test_cli_agent_tasks.py,
+      tests/unit/test_cli_agent_task_analytics.py,
+      tests/unit/test_cli_claim_support.py, and
+      tests/unit/test_cli_improvement_cases.py. Milestone alignment follow-up
+      also moved search-harness CLI coverage into
+      tests/unit/test_cli_search_harness.py while tests/unit/test_cli.py
+      remains the core app.cli compatibility surface.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_cli_hotspot_line_count
+    current_value: 424.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 4 plus the
+      milestone-alignment follow-up reduced tests/unit/test_cli.py from 2362
+      lines to 424 lines and moved the search-harness CLI owner coverage into
+      tests/unit/test_cli_search_harness.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T21:50:04+00:00'
 - case_id: IC-24F3558D6091
   title: 'Architecture hotspot: app/schemas/agent_tasks.py'
   status: open
@@ -326,8 +354,10 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
-    is an architecture hotspot with risk_score=321.87, line_count=4368, changes_90d=36,
-    hygiene_finding_count=0.
+    remains the compatibility-owner integration surface at line_count=337 after
+    the verified local High Value Technical Paydown Milestone 5 split moved
+    policy activation, change-impact, and mined-failure coverage into focused
+    scenario-family files.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/integration/test_claim_support_judge_evaluation_roundtrip.py
@@ -349,14 +379,36 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Verified local High Value Technical Paydown Milestone 5 moved
+      activation and waiver coverage into
+      tests/integration/test_claim_support_policy_activation_roundtrip.py,
+      terminal-closure coverage into
+      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py,
+      and mined-failure governance coverage into
+      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      while tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+      remains the core evaluation surface. The Milestone 5 alignment pass then
+      split the residual replay-alert change-impact monolith into
+      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py,
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py,
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py,
+      and
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py,
+      reducing tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      to 354 lines.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_claim_support_judge_roundtrip_hotspot_line_count
+    current_value: 337.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 5 reduced
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py from
+      4368 lines to 337 lines and aligned the moved coverage to focused
+      claim-support scenario-family files. The aligned residual replay-alert
+      split reduced tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      from 2297 lines to 354 lines while moving the remaining scenarios into
+      focused activation, prevalidation, promotion, and governance files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T22:21:07+00:00'
 - case_id: IC-1D03DBFE8492
   title: 'Architecture hotspot: app/services/search.py'
   status: open
@@ -383,7 +435,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: c871dd9
+    deployed_ref: "c871dd9"
     notes: Milestone 5 search-ranking owner split committed; the
       compatibility facade remains in app/services/search.py while the narrowed
       ranking and result-merging implementation now lives in
@@ -437,8 +489,10 @@ cases:
   title: 'Architecture hotspot: tests/unit/test_search_api.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_search_api.py is an architecture hotspot with
-    risk_score=268.07, line_count=1660, changes_90d=28, hygiene_finding_count=0.
+  observed_failure: tests/unit/test_search_api.py remains the core search-route
+    test surface at line_count=436 after the verified local High Value
+    Technical Paydown Milestone 4 split moved replay, harness, and
+    learning/audit route coverage into focused files.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_search_api.py
@@ -459,21 +513,31 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "0701121"
+    notes: Verified local High Value Technical Paydown Milestone 4 moved replay
+      coverage into tests/unit/test_search_api_replays.py, harness and release
+      coverage into tests/unit/test_search_api_harnesses.py, and
+      learning/audit error coverage into
+      tests/unit/test_search_api_learning_audit.py while
+      tests/unit/test_search_api.py remains the core search-route surface.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_search_api_hotspot_line_count
+    current_value: 436.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 4 reduced
+      tests/unit/test_search_api.py from 1660 lines to 436 lines and aligned
+      route-family coverage to focused search API test files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T21:36:56+00:00'
 - case_id: IC-934588120F94
   title: 'Architecture hotspot: tests/unit/test_agent_task_actions.py'
   status: open
   cause_class: unclear_ownership
   observed_failure: tests/unit/test_agent_task_actions.py is an architecture hotspot
-    with risk_score=264.63, line_count=4144, changes_90d=18, hygiene_finding_count=0.
+    only as the compatibility-owner action surface at line_count=417 after the
+    verified local High Value Technical Paydown Milestone 5 split moved search
+    harness, semantic registry, ontology, graph, and semantic document coverage
+    into focused owner-family files.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_agent_task_actions.py
@@ -495,14 +559,24 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Verified local High Value Technical Paydown Milestone 5 moved
+      focused action-family coverage into
+      tests/unit/test_agent_task_actions_search_harness.py,
+      tests/unit/test_agent_task_actions_semantic_registry.py,
+      tests/unit/test_agent_task_actions_ontology.py,
+      tests/unit/test_agent_task_actions_semantic_graph.py, and
+      tests/unit/test_agent_task_actions_semantic_documents.py while
+      tests/unit/test_agent_task_actions.py remains the compatibility and
+      registry-metadata surface.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_agent_task_actions_hotspot_line_count
+    current_value: 417.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 5 reduced
+      tests/unit/test_agent_task_actions.py from 4161 lines to 417 lines and
+      aligned the moved coverage to focused action-family files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T21:59:36+00:00'
 - case_id: IC-7A628A4CBCAC
   title: 'Architecture hotspot: tests/unit/test_evaluation_service.py'
   status: open
@@ -578,8 +652,10 @@ cases:
   title: 'Architecture hotspot: tests/unit/test_documents_api.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: tests/unit/test_documents_api.py is an architecture hotspot with
-    risk_score=242.99, line_count=1273, changes_90d=24, hygiene_finding_count=0.
+  observed_failure: tests/unit/test_documents_api.py remains the core
+    document-route test surface at line_count=613 after the verified local
+    High Value Technical Paydown Milestone 4 split moved artifact and semantic
+    route coverage into focused files.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:tests/unit/test_documents_api.py
@@ -600,15 +676,21 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "0701121"
+    notes: Verified local High Value Technical Paydown Milestone 4 moved
+      artifact-route coverage into tests/unit/test_documents_api_artifacts.py
+      and semantic-route coverage into
+      tests/unit/test_documents_api_semantics.py while
+      tests/unit/test_documents_api.py remains the core document-route surface.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: test_documents_api_hotspot_line_count
+    current_value: 613.0
+    measurement_window: 2026-05-10 local verification
+    notes: Verified local High Value Technical Paydown Milestone 4 reduced
+      tests/unit/test_documents_api.py from 1273 lines to 613 lines and
+      aligned artifact and semantics coverage to focused files.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T21:36:56+00:00'
 - case_id: IC-E2270F89B397
   title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
   status: open
@@ -636,7 +718,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: afc324a
+    deployed_ref: "afc324a"
     notes: Milestone 3 claim-support owner split committed; the compatibility
       facade remains in app/services/claim_support_policy_impacts.py while the
       narrowed replay-alert fixture coverage workflow now lives in
@@ -855,7 +937,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: a0bd36b
+    deployed_ref: "a0bd36b"
     notes: Milestone 2 audit-bundle replay-alert corpus split committed;
       app/services/audit_bundles.py remains the compatibility facade while the
       narrowed corpus-lineage concern now lives in
@@ -899,7 +981,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: 13e8b1c
+    deployed_ref: "13e8b1c"
     notes: Milestone 4 retrieval-learning replay-alert corpus owner split committed;
       locally; the compatibility facade remains in app/services/retrieval_learning.py
       while the narrowed implementation now lives in
@@ -915,3 +997,40 @@ cases:
       owner module at 578 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
   updated_at: '2026-05-10T14:29:04+00:00'
+- case_id: IC-1B643BA0AD90
+  title: 'Architecture hotspot: app/ui/app.js'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/ui/app.js is a live UI architecture hotspot with
+    line_count=4335 and architecture_probe score=108375, but it is not yet
+    tracked in the improvement-case registry.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-probe:hotspot:app/ui/app.js
+    notes: Manual owner-bootstrap case for a JavaScript hotspot that the current
+      Python-only hygiene and architecture-quality import path does not emit; keep
+      this source_ref stable so future UI governance dedupes to the same owner case.
+  artifact:
+    artifact_type: contract
+    target_path: app/ui/app.js
+    description: Architecture owner surface for the shipped operator UI bootstrap.
+  verification:
+    commands:
+    - uv run pytest -q tests/unit/test_ui.py
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
+    acceptance_conditions:
+    - Surface has explicit owner-scoped routing and later milestones reduce hotspot
+      burden or leave a narrower verified UI module contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T19:12:35Z'
+  updated_at: '2026-05-10T19:12:35Z'

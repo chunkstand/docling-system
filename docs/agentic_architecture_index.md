@@ -6,7 +6,8 @@ chat history or scanning the whole repository.
 ## Current Milestone Briefs
 
 - `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
-- `docs/hotspot_owner_resolution_plan.md`: follow-on plan for the remaining owner-scoped hotspot debt in `app/db/models.py`, `app/services/evidence.py`, `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`, `app/services/retrieval_learning.py`, and `app/services/search.py`.
+- `docs/hotspot_owner_resolution_plan.md`: completed owner-scoped hotspot sequence through local Milestone 6; active execution has moved to the high-value paydown plan.
+- `docs/high_value_technical_paydown_milestone_plan.md`: active follow-on paydown program for the next owner-scoped model split, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -26,15 +27,16 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=688.91`.
-- `app/db/models.py` remains the top hotspot, but three model domains are now
+  `max_hotspot_risk_score=673.78`.
+- `app/db/models.py` remains the top hotspot, but four model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
   `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
   `DocumentRunEvaluationQuery`, `DocumentChunk`, `DocumentTable`,
   `DocumentTableSegment`, and `DocumentFigure` now live in
-  `app/db/model_domains/document_artifacts.py` while `app.db.models` remains
-  the public compatibility facade.
+  `app/db/model_domains/document_artifacts.py`. The retrieval-interaction
+  ledger now lives in `app/db/model_domains/retrieval_interactions.py`, while
+  `app.db.models` remains the public compatibility facade at 5,067 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -52,6 +54,11 @@ chat history or scanning the whole repository.
   `app/services/evidence_task_payloads.py`; search and retrieval-span code
   import the focused operator-run owner directly; and `app.services.evidence`
   still re-exports `record_knowledge_operator_run`.
+- The fourth `app/services/evidence.py` split is verified locally: the
+  technical-report derivation package, provenance-lock assembly, export
+  persistence, attach helpers, and claim-derivation payload helpers now live
+  in `app/services/evidence_technical_report_exports.py`, while
+  `app.services.evidence` remains the compatibility facade.
 - The first `app/services/agent_task_actions.py` registry split is complete:
   search-harness action contract metadata and helper logic now live in
   `app/services/agent_actions/search_harness.py` while
@@ -61,7 +68,7 @@ chat history or scanning the whole repository.
   `app/services/agent_task_action_lookup.py` is the narrow lookup seam for
   context and task services, while executor implementations still live in
   `app.services.agent_task_actions`. The general architecture probe no longer
-  reports the large agent-task import-cycle component. Fan-out remains 39 for
+  reports the large agent-task import-cycle component. Fan-out is now 36 for
   `app.services.agent_task_actions`, which is documented as the
   action-orchestration entrypoint rather than a context/task dependency.
 - The first `app/cli.py` command-group split is complete:
@@ -126,9 +133,47 @@ chat history or scanning the whole repository.
 - Hotspot Owner Resolution Milestone 6 is now complete locally: the owner-case
   registry, hotspot plan, architecture index, and session handoff are aligned
   to the committed Milestones 1-5 reductions, explicit owner routing is
-  confirmed for all six targeted surfaces, and the next route returns to the
-  top remaining owner case `IC-F2A8110185EB` / `app/db/models.py`. The
-  milestone is closed by commit `76526ef`.
+  confirmed for all six targeted surfaces, and at that closeout checkpoint the
+  next route returned to the top remaining owner case `IC-F2A8110185EB` /
+  `app/db/models.py`. The milestone is closed by commit `76526ef`.
+- High Value Technical Paydown Milestone 0 is now committed locally: the plan
+  is active, the UI milestone gate now points to `tests/unit/test_ui.py`,
+  `config/improvement_cases.yaml` contains explicit UI owner case
+  `IC-1B643BA0AD90` for `app/ui/app.js`, and the docs now record that this
+  hotspot is governed through the improvement-case registry plus architecture
+  probe rather than the Python-only hygiene ratchet.
+- High Value Technical Paydown Milestone 1 is now committed locally: the
+  retrieval-interaction ORM owner module lives in
+  `app/db/model_domains/retrieval_interactions.py`, `app/db/models.py` is
+  reduced from 5,537 lines to 5,067 lines, the shared metadata harness now
+  protects retrieval-interaction table/index/vector/computed-column contracts,
+  and the hotspot-prevention gate stays green through import-forwarder aliases.
+- High Value Technical Paydown Milestone 2 is now committed locally: the
+  technical-report derivation/export owner family lives in
+  `app/services/evidence_technical_report_exports.py`,
+  `app/services/evidence.py` is reduced from 7,143 to 6,307 architecture-probe
+  lines, the focused technical-report DB-backed integration remains green, and
+  the new owner module is governed at an 884-line ratchet.
+- High Value Technical Paydown Milestone 3 is now committed locally: the
+  technical-report action definition family lives in
+  `app/services/agent_actions/report_actions.py`,
+  `app/services/agent_task_actions.py` is reduced from 2,884 to 2,746
+  architecture-probe lines, hotspot score falls from 170156 to 162014, and
+  fan-out drops from 39 to 36 while the lookup seam stays unchanged.
+- High Value Technical Paydown Milestone 4 is now committed locally: the CLI,
+  search API, and document API hotspot tests are split into focused owner files
+  (`tests/unit/test_cli_agent_tasks.py`,
+  `tests/unit/test_cli_agent_task_analytics.py`,
+  `tests/unit/test_cli_claim_support.py`,
+  `tests/unit/test_cli_improvement_cases.py`,
+  `tests/unit/test_cli_search_harness.py`,
+  `tests/unit/test_search_api_replays.py`,
+  `tests/unit/test_search_api_harnesses.py`,
+  `tests/unit/test_search_api_learning_audit.py`,
+  `tests/unit/test_documents_api_artifacts.py`, and
+  `tests/unit/test_documents_api_semantics.py`) while the original monoliths
+  are reduced to 424, 436, and 613 lines respectively and no longer appear in
+  the current architecture-quality top-hotspot list.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -155,14 +200,17 @@ chat history or scanning the whole repository.
   retrieval-learning data.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
-  `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
-  `measured_case_count=7`, with open cases concentrated in
+  `case_count=26`, `status_counts.open=25`, `status_counts.measured=1`, and
+  `measured_case_count=13`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up: the next architecture work should use
-  `docs/hotspot_owner_resolution_plan.md`; the hotspot owner milestone sequence
-  is complete locally, and the next routed owner-scoped implementation should
-  resume with `IC-F2A8110185EB` / `app/db/models.py`.
+  `docs/high_value_technical_paydown_milestone_plan.md`; Milestones 1-5 are
+  committed locally, the Milestone 5 alignment pass split the residual
+  replay-alert change-impact monolith into 354, 341, 623, and 401 line
+  scenario files plus a 358-line support module, and the next routed
+  implementation should resume with High Value Technical Paydown Milestone 6
+  for `IC-1B643BA0AD90`.
 
 ## Executable Architecture Contracts
 

@@ -1,7 +1,7 @@
 # General Improvement Loop
 
 Status: Active repo-local contract
-Status refreshed: 2026-05-09 local / 2026-05-10 UTC
+Status refreshed: 2026-05-10 local / 2026-05-10 UTC
 
 ## Purpose
 
@@ -14,11 +14,12 @@ codebase failures that are not necessarily retrieval failures.
 
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
-Current registry state from the 2026-05-09 local / 2026-05-10 UTC Hotspot
-Owner Resolution Milestone 0 bootstrap:
+Current registry state from the 2026-05-10 local / 2026-05-10 UTC High Value
+Technical Paydown Milestones 1-5 committed closeout:
 
-- `uv run docling-system-improvement-case-summary` reports `case_count=25`,
-  with one measured hygiene-gate case and 24 open architecture-governance cases.
+- `uv run docling-system-improvement-case-summary` reports `case_count=26`,
+  with one measured hygiene-gate case and 25 open architecture-governance
+  cases.
 - The architecture quality report emits current hotspot candidates for large or
   high-churn surfaces, and those candidates are now imported as open registry
   cases with structured owner surfaces, verification commands, and stop
@@ -26,6 +27,39 @@ Owner Resolution Milestone 0 bootstrap:
 - `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` now
   have explicit owner-bootstrap cases (`IC-2112B1ADC5E8` and
   `IC-0D58F1624037`) instead of remaining milestone-owned hygiene debt.
+- `app/ui/app.js` now has explicit owner-bootstrap case `IC-1B643BA0AD90`.
+  Because the hygiene ratchet only scans Python files under `app/`, this UI
+  hotspot is governed through the improvement-case registry and architecture
+  probe output rather than a no-op hygiene entry.
+- `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
+  the committed local retrieval-interaction split narrowed it to a 5,067-line
+  compatibility facade with a dedicated owner module at
+  `app/db/model_domains/retrieval_interactions.py`. The next routed owner case
+  had been `IC-050E60059A34` for `app/services/evidence.py`.
+- `IC-050E60059A34` remains open but is now narrowed further: the committed
+  local technical-report derivation/export split reduced
+  `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
+  new owner family into `app/services/evidence_technical_report_exports.py`.
+- `IC-A1E186A34097` remains open but is now narrowed further: the committed
+  local report action-family split reduced `app/services/agent_task_actions.py`
+  to 2,746 architecture-probe lines, reduced fan-out to 36, and moved the new
+  owner family into `app/services/agent_actions/report_actions.py`.
+- `IC-FD18EE2D3309`, `IC-03D7EFA03213`, and `IC-23F2C79C8AA7` remain open but
+  are now narrowed substantially: the committed local test hotspot split pack A
+  reduced `tests/unit/test_cli.py` to 424 lines, `tests/unit/test_search_api.py`
+  to 436 lines, and `tests/unit/test_documents_api.py` to 613 lines while
+  moving the split coverage into focused route-family and CLI owner files,
+  including `tests/unit/test_cli_search_harness.py`.
+- `IC-934588120F94` and `IC-40CA7C1FFA84` remain open but are now narrowed
+  substantially: the committed local test hotspot split pack B reduced
+  `tests/unit/test_agent_task_actions.py` to 417 lines and
+  `tests/integration/test_claim_support_judge_evaluation_roundtrip.py` to
+  337 lines while moving the split coverage into focused action-family and
+  claim-support scenario-family files, including the aligned replay-alert
+  change-impact split into activation, prevalidation, promotion, and
+  governance files.
+- The next routed implementation slice is now High Value Technical Paydown
+  Milestone 6, covering `IC-1B643BA0AD90`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

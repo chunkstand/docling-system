@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: complete locally at `76526ef`; remaining debt is routed through explicit owner cases, with `IC-F2A8110185EB` / `app/db/models.py` next by hotspot
+Status: complete locally at `76526ef`; active follow-on execution now lives in `docs/high_value_technical_paydown_milestone_plan.md`, with Milestones 1-5 verified and committed locally and High Value Technical Paydown Milestone 6 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -30,18 +30,18 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=688.91
+  max_hotspot_risk_score=673.78
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
-    app/services/evidence.py,
     app/services/agent_task_actions.py,
+    app/services/evidence.py,
     tests/unit/test_cli.py
   ]
 
 wc -l app/db/models.py app/services/evidence.py app/services/audit_bundles.py app/services/claim_support_policy_impacts.py app/services/retrieval_learning.py app/services/search.py
-  5537 app/db/models.py
-  7143 app/services/evidence.py
+  5067 app/db/models.py
+  6307 app/services/evidence.py
   3306 app/services/audit_bundles.py
   2011 app/services/claim_support_policy_impacts.py
   2482 app/services/retrieval_learning.py
@@ -55,6 +55,7 @@ wc -l app/services/claim_support_replay_alert_promotions.py app/services/retriev
 uv run docling-system-hygiene-check
   inherited budget debt includes:
     app/db/models.py owner=IC-F2A8110185EB
+    app/services/agent_task_actions.py owner=IC-A1E186A34097
     app/services/evidence.py owner=IC-050E60059A34
     app/services/audit_bundles.py owner=IC-2112B1ADC5E8
     app/services/claim_support_policy_impacts.py owner=IC-E2270F89B397
@@ -64,10 +65,10 @@ uv run docling-system-hygiene-check
   new hygiene regressions: none
 
 uv run docling-system-improvement-case-summary
-  case_count=25
-  status_counts.open=24
+  case_count=26
+  status_counts.open=25
   status_counts.measured=1
-  measured_case_count=7
+  measured_case_count=8
   oldest_open_case_id=IC-F2A8110185EB
 ```
 
@@ -79,6 +80,7 @@ Current explicit improvement-case owners already exist for:
 - `app/services/claim_support_policy_impacts.py`: `IC-E2270F89B397`
 - `app/services/retrieval_learning.py`: `IC-0D58F1624037`
 - `app/services/search.py`: `IC-1D03DBFE8492`
+- `app/ui/app.js`: `IC-1B643BA0AD90` in the active follow-on paydown plan
 
 Milestone 0 owner bootstrap is now complete locally: `config/improvement_cases.yaml`
 contains explicit owner cases for `audit_bundles` and `retrieval_learning`, and
@@ -220,6 +222,7 @@ commit.
 | New logic lands back in the hotspot file | hotspot file and owner-module family | `uv run docling-system-hotspot-prevention-check --strict` | any milestone diff adds blocked implementation to a known hotspot instead of the owner module | add a private helper to the hotspot in a negative fixture and verify strict mode fails |
 | A new owner module just becomes the next giant dump file | new `*_*.py` owner modules, hygiene policy, architecture probe | `uv run docling-system-hygiene-check` and architecture probe line-count review | newly introduced owner module exceeds the target file budget or absorbs unrelated concerns in the same milestone | introduce an oversized mixed-concern fixture module and verify the budget or review rule would block it |
 | Runtime-sensitive split claims success from docs only | runtime-facing services and DB model domains | `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` plus surface-specific gates | any service split closes without DB-backed integration verification when runtime paths were touched | comment out the runtime suite in a trial run or change runtime code without running integration gates |
+| Retrieval-ledger model split drifts vector, TSVECTOR, or FK contracts | `app/db/models.py`, `app/db/model_domains/retrieval_interactions.py`, `tests/db_model_contract.py`, `tests/integration/test_db_model_metadata.py` | import-compatibility tests, metadata/create-all checks, Alembic drift checks, and the full DB-backed suite | any retrieval-ledger index, unique constraint, computed column, vector dimension, or cross-table FK changes unintentionally | remove a required retrieval index or stop re-exporting one moved model in a controlled diff and verify the metadata/import harness fails |
 | Search or retrieval quality regresses during modularization | `app/services/search.py`, `app/services/retrieval_learning.py`, replay/eval surfaces | replay, harness, readiness, and full test gates | replay, harness, or readiness signals degrade after a split | run a targeted search change without replay coverage and treat any drop in the governed outputs as a blocking failure |
 
 Future-Codex misuse scenario: the likely failure is adding one more helper to
@@ -505,9 +508,75 @@ Status update:
 - Added the missing Milestone 3 commit reference to
   `docs/SESSION_HANDOFF.md` and aligned this plan, the architecture index, and
   the handoff to one completed-sequence state.
-- The hotspot owner milestone sequence is now complete locally. The next
-  routed owner-scoped implementation should resume with
-  `IC-F2A8110185EB` / `app/db/models.py`.
+- The hotspot owner milestone sequence is now complete locally. The follow-on
+  High Value Technical Paydown plan has since verified and committed
+  Milestones 1-5, so the current routed owner-scoped implementation should
+  resume with `IC-1B643BA0AD90` / `app/ui/app.js`.
+
+### Milestone 7: Retrieval Interaction Model Split
+
+Status: historical carry-forward scope only. This retrieval-interaction split
+has now been verified locally through
+`docs/high_value_technical_paydown_milestone_plan.md` Milestone 1, and the
+active follow-on has advanced through Milestone 2 evidence work and now routes
+to the Milestone 3 agent-action split.
+
+Purpose: resume the top-hotspot reduction path by moving the live
+search-and-chat interaction ledger rows out of `app/db/models.py` and into a
+focused retrieval owner module behind the existing public compatibility facade.
+
+Scope:
+
+- add `app/db/model_domains/retrieval_interactions.py`
+- move the live retrieval interaction rows:
+  `SearchRequestRecord`,
+  `SearchRequestResult`,
+  `RetrievalEvidenceSpan`,
+  `RetrievalEvidenceSpanMultiVector`,
+  `SearchRequestResultSpan`,
+  `SearchFeedback`,
+  `ChatAnswerRecord`, and
+  `ChatAnswerFeedback`
+- preserve `app.db.models` import compatibility via re-exports
+- extend the shared metadata contract for the moved retrieval-interaction
+  tables, including required indexes, unique constraints, exact column
+  ordering, vector dimensions, and computed TSVECTOR fields
+- ratchet `config/hygiene_policy.yaml` to the new verified `app/db/models.py`
+  line count and add a focused budget entry for the new owner module
+
+Out of scope for this milestone:
+
+- `SearchReplayRun`, `SearchReplayQuery`, harness release rows, retrieval
+  learning rows, or audit bundle rows
+- search ranking or service-layer behavior changes
+- API, CLI, or user-facing feature work
+
+Acceptance:
+
+- `app/db.models` still exports the moved retrieval-interaction symbols and
+  `tests/unit/test_db_model_import_compatibility.py` proves the old imports
+  remain valid
+- the metadata harness covers the moved retrieval-interaction tables and
+  required retrieval indexes, unique constraints, and computed/vector column
+  contracts
+- `uv run --extra dev alembic check` reports no unexpected drift and
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+  remains green
+- full DB-backed verification stays green, including
+  `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+  with `failed_gate_count=0`
+- `app/db/models.py` shrinks below the current 5,537-line ratchet ceiling and
+  `uv run docling-system-architecture-quality-report --summary` does not raise
+  hotspot count or max hotspot risk
+
+Planned implementation notes:
+
+- keep this as one bounded ORM-owner slice, not a whole retrieval-domain move
+- prefer moving the live search/chat ledger rows first because they form a
+  coherent contract cluster and reduce the highest-value active hotspot without
+  pulling replay, release, or training governance into the same milestone
+- defer the remaining retrieval ORM surfaces to follow-on milestones after this
+  split proves the new owner-module pattern
 
 ## Required Implementation Artifacts
 

@@ -138,15 +138,26 @@ file_budgets:
       max_private_helpers: 5
     app/db/models.py:
       max_lines: 2588
-      ratchet_max_lines: 5537
+      ratchet_max_lines: 5067
       max_private_helpers: 0
+      owner_case_id: IC-F2A8110185EB
+    app/db/model_domains/retrieval_interactions.py:
+      max_lines: 600
+      max_private_helpers: 20
       owner_case_id: IC-F2A8110185EB
     app/schemas/agent_tasks.py:
       max_lines: 2061
       max_private_helpers: 0
     app/services/agent_task_actions.py:
-      max_lines: 3448
-      max_private_helpers: 53
+      max_lines: 600
+      ratchet_max_lines: 2746
+      max_private_helpers: 20
+      ratchet_max_private_helpers: 36
+      owner_case_id: IC-A1E186A34097
+    app/services/agent_actions/report_actions.py:
+      max_lines: 600
+      max_private_helpers: 20
+      owner_case_id: IC-A1E186A34097
     app/services/agent_task_context.py:
       max_lines: 3860
       max_private_helpers: 42
@@ -206,13 +217,18 @@ file_budgets:
       max_private_helpers: 61
     app/services/evidence.py:
       max_lines: 600
-      ratchet_max_lines: 8076
+      ratchet_max_lines: 6307
       max_private_helpers: 20
-      ratchet_max_private_helpers: 100
+      ratchet_max_private_helpers: 81
       owner_case_id: IC-050E60059A34
     app/services/evidence_manifest_traces.py:
       max_lines: 600
       ratchet_max_lines: 980
+      max_private_helpers: 20
+      owner_case_id: IC-050E60059A34
+    app/services/evidence_technical_report_exports.py:
+      max_lines: 600
+      ratchet_max_lines: 884
       max_private_helpers: 20
       owner_case_id: IC-050E60059A34
     app/services/improvement_case_intake.py:

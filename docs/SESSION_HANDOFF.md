@@ -4,10 +4,10 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 6
-closeout-and-routing pass.
-Active local follow-up owner case: `IC-F2A8110185EB` / `app/db/models.py`
-continuation.
+Latest closeout checkpoint: committed local High Value Technical Paydown
+Milestone 5 test hotspot split pack B.
+Active local follow-up owner case: `IC-1B643BA0AD90` under High Value
+Technical Paydown Milestone 6 UI monolith split.
 
 ## Current Position
 
@@ -16,14 +16,47 @@ the Residual Weakness Plan Milestone 1-6 local closeout sequence.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
-The Residual Weakness Plan is already closed through Milestone 8. Hotspot Owner
-Resolution Milestone 6 is now the current closeout checkpoint: the docs,
-handoff, and improvement-case registry are aligned to the committed Milestones
-1-5 reduction results, every targeted surface now routes through an explicit
-owner case, and no selected hotspot still depends on
-`owner_milestone=residual-weakness-milestone-2`. The next owner-scoped
-implementation route is `IC-F2A8110185EB` / `app/db/models.py`, which remains
-the top hotspot after the Milestone 1 document-artifacts split.
+The Residual Weakness Plan is already closed through Milestone 8, and the
+Hotspot Owner Resolution sequence is closed locally through Milestone 6. The
+new active plan is
+`docs/high_value_technical_paydown_milestone_plan.md`. Its Milestone 0
+baseline-lock slice is now committed locally: the plan’s UI gate now points to
+`tests/unit/test_ui.py`, `config/improvement_cases.yaml` contains explicit UI
+owner case `IC-1B643BA0AD90` for `app/ui/app.js`, and the docs now state
+clearly that this JavaScript hotspot is governed through the improvement-case
+registry plus architecture-probe verification rather than the current
+Python-only hygiene ratchet. The registry summary is now `case_count=26`,
+`status_counts.open=25`, `status_counts.measured=1`, and
+`measured_case_count=13`. High Value Technical Paydown Milestone 1 is now also
+committed locally: the retrieval-interaction ledger lives in
+`app/db/model_domains/retrieval_interactions.py`, the shared metadata harness
+now protects the retrieval-interaction table/index/vector/computed-column
+contract, and `app/db/models.py` is reduced to 5,067 lines while remaining the
+public compatibility facade. High Value Technical Paydown Milestone 2 is now
+also committed locally: the technical-report derivation/export owner family
+lives in `app/services/evidence_technical_report_exports.py`,
+`app/services/evidence.py` is reduced to 6,307 architecture-probe lines, the
+focused technical-report DB-backed integration stays green, and the architecture
+summary remains flat at `max_hotspot_risk_score=673.78`. High Value Technical
+Paydown Milestone 3 is now also committed locally: the technical-report action
+definition family lives in `app/services/agent_actions/report_actions.py`,
+`app/services/agent_task_actions.py` is reduced to 2,746
+architecture-probe lines, hotspot score falls to `162014`, and fan-out drops
+to `36` while the lookup seam remains unchanged. High Value Technical Paydown
+Milestone 4 is now also committed locally: `tests/unit/test_cli.py`,
+`tests/unit/test_search_api.py`, and `tests/unit/test_documents_api.py` are
+reduced to 424, 436, and 613 lines after their command-group and route-family
+coverage moved into focused owner files, and those original monoliths no longer
+appear in the current architecture-quality top-hotspot list. High Value
+Technical Paydown Milestone 5 is now also committed locally:
+`tests/unit/test_agent_task_actions.py` and
+`tests/integration/test_claim_support_judge_evaluation_roundtrip.py` are
+reduced to 417 and 337 lines after their action-family and claim-support
+scenario coverage moved into focused owner files, and those original monoliths
+no longer appear in the current architecture-probe top hotspot list. The next
+owner-scoped implementation route is High Value Technical Paydown Milestone 6:
+UI monolith split for `app/ui/app.js` under `IC-1B643BA0AD90`. The current
+full DB-backed suite is `1319 passed in 49.94s`.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -32,6 +65,7 @@ the top hotspot after the Milestone 1 document-artifacts split.
 - `app/cli_commands/ingest.py`
 - `app/db/model_domains/document_artifacts.py`
 - `app/db/model_domains/ingest.py`
+- `app/db/model_domains/retrieval_interactions.py`
 - `app/hotspot_prevention.py`
 - `app/hotspot_prevention_policy.py`
 - `app/hotspot_prevention_diff.py`
@@ -41,27 +75,45 @@ the top hotspot after the Milestone 1 document-artifacts split.
 - `app/hygiene_types.py`
 - `app/services/improvement_case_intake.py`
 - `app/services/agent_task_action_lookup.py`
+- `app/services/agent_actions/report_actions.py`
 - `app/services/audit_bundle_replay_alert_corpus.py`
 - `app/services/evidence_manifest_traces.py`
 - `app/services/evidence_operator_runs.py`
+- `app/services/evidence_technical_report_exports.py`
 - `app/services/evidence_task_payloads.py`
 - `app/services/claim_support_replay_alert_promotions.py`
 - `app/services/retrieval_learning_replay_alert_sources.py`
 - `app/services/search_ranking.py`
 - `tests/unit/test_agent_task_action_lookup.py`
+- `tests/unit/test_agent_task_actions.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
 - `tests/unit/test_improvement_case_intake.py`
 - `tests/unit/test_cli_ingest.py`
+- `tests/unit/test_cli.py`
+- `tests/unit/test_cli_agent_tasks.py`
+- `tests/unit/test_cli_agent_task_analytics.py`
+- `tests/unit/test_cli_claim_support.py`
+- `tests/unit/test_cli_improvement_cases.py`
 - `tests/unit/test_evidence_operator_runs.py`
+- `tests/unit/test_evidence_technical_report_exports.py`
 - `tests/unit/test_evidence_task_payloads.py`
 - `tests/unit/test_retrieval_learning_replay_alert_sources.py`
+- `tests/unit/test_search_api.py`
+- `tests/unit/test_search_api_replays.py`
+- `tests/unit/test_search_api_harnesses.py`
+- `tests/unit/test_search_api_learning_audit.py`
 - `tests/unit/test_search_ranking.py`
 - `tests/unit/test_db_model_import_compatibility.py`
+- `tests/unit/test_ui.py`
+- `tests/unit/test_documents_api.py`
+- `tests/unit/test_documents_api_artifacts.py`
+- `tests/unit/test_documents_api_semantics.py`
 - `tests/integration/test_db_model_metadata.py`
 - `tests/db_model_contract.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
+- `docs/high_value_technical_paydown_milestone_plan.md`
 - `docs/data_model_boundary_plan.md`
 - `docs/improvement_loop.md`
 - `docs/architecture_boundaries.md`
@@ -71,6 +123,455 @@ the top hotspot after the Milestone 1 document-artifacts split.
 - `docs/SESSION_HANDOFF.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
+
+## High Value Technical Paydown Milestone 5 Progress
+
+Milestone 5 is the test hotspot split pack B for `IC-934588120F94` and
+`IC-40CA7C1FFA84`. It is a behavior-preserving split of the agent-task action
+and claim-support judge roundtrip test monoliths into focused owner files.
+
+Results:
+
+- kept `tests/unit/test_agent_task_actions.py` as the compatibility and
+  registry-metadata surface and moved search-harness, semantic registry,
+  ontology, semantic graph, and semantic document coverage into
+  `tests/unit/test_agent_task_actions_search_harness.py`,
+  `tests/unit/test_agent_task_actions_semantic_registry.py`,
+  `tests/unit/test_agent_task_actions_ontology.py`,
+  `tests/unit/test_agent_task_actions_semantic_graph.py`, and
+  `tests/unit/test_agent_task_actions_semantic_documents.py`
+- kept `tests/integration/test_claim_support_judge_evaluation_roundtrip.py` as
+  the core evaluation surface and moved activation and waiver coverage into
+  `tests/integration/test_claim_support_policy_activation_roundtrip.py`,
+  core terminal-closure coverage into
+  `tests/integration/test_claim_support_policy_change_impacts_roundtrip.py`,
+  and mined-failure governance coverage into
+  `tests/integration/test_claim_support_policy_mined_failures_roundtrip.py`
+- added shared non-test support surfaces
+  `tests/unit/agent_task_actions_support.py` and
+  `tests/integration/claim_support_judge_evaluation_roundtrip_support.py` so
+  the split files reuse helper payloads and DB-backed support routines instead
+  of duplicating them
+- closed the residual Milestone 5 alignment gap by splitting the
+  2,297-line replay-alert change-impact surface into
+  `tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py`,
+  `tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py`,
+  `tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py`,
+  `tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py`,
+  and `tests/integration/claim_support_policy_change_impacts_replay_alert_support.py`,
+  reducing `tests/integration/test_claim_support_policy_change_impacts_roundtrip.py`
+  to 354 lines
+- reduced `tests/unit/test_agent_task_actions.py` from `4161` to `417` lines
+  and `tests/integration/test_claim_support_judge_evaluation_roundtrip.py`
+  from `4368` to `337` lines
+- updated `config/improvement_cases.yaml`,
+  `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/improvement_loop.md`, `docs/agentic_architecture_index.md`, and this
+  handoff to record the narrowed owner surfaces and reroute the next milestone
+
+Verification:
+
+- `uv run ruff check tests/unit/test_agent_task_actions.py tests/unit/agent_task_actions_support.py tests/unit/test_agent_task_actions_search_harness.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_actions_semantic_documents.py tests/integration/claim_support_judge_evaluation_roundtrip_support.py tests/integration/claim_support_policy_change_impacts_replay_alert_support.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/integration/test_claim_support_policy_activation_roundtrip.py tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py tests/integration/test_claim_support_policy_mined_failures_roundtrip.py`
+- `uv run pytest -q tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_actions_search_harness.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_actions_semantic_documents.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py tests/integration/test_claim_support_policy_activation_roundtrip.py tests/integration/test_claim_support_policy_mined_failures_roundtrip.py`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`
+- `git diff --check`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `python /Users/chunkstand/.codex/skills/milestone-plan-writer/scripts/lint_milestone_plan.py --strict docs/high_value_technical_paydown_milestone_plan.md`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+
+Verified results:
+
+- focused unit split pack: `52 passed in 0.93s`
+- focused DB-backed claim-support split pack: `15 passed in 4.59s`
+- architecture probe: the original hotspot files
+  `tests/unit/test_agent_task_actions.py` and
+  `tests/integration/test_claim_support_judge_evaluation_roundtrip.py` no
+  longer appear in the current top 20 hotspot list, and the residual
+  replay-alert split files no longer appear in the current top 20 largest
+  files or hotspot list
+- full integration-backed suite: `1319 passed in 49.94s`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=13`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=673.78`, and the top hotspot
+  paths still route through the core service surfaces rather than the split
+  Milestone 5 tests
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1317 passed in 51.44s`
+
+## High Value Technical Paydown Milestone 4 Progress
+
+Milestone 4 is the test hotspot split pack A for `IC-FD18EE2D3309`,
+`IC-03D7EFA03213`, and `IC-23F2C79C8AA7`. It is a behavior-preserving split of
+the CLI, search API, and document API test monoliths into focused owner files.
+
+Results:
+
+- kept `tests/unit/test_cli.py` as the core `app.cli` compatibility surface and
+  moved agent-task, claim-support replay, and improvement-case coverage into
+  `tests/unit/test_cli_agent_tasks.py`,
+  `tests/unit/test_cli_agent_task_analytics.py`,
+  `tests/unit/test_cli_claim_support.py`, and
+  `tests/unit/test_cli_improvement_cases.py`, then moved the remaining
+  search-harness CLI coverage into `tests/unit/test_cli_search_harness.py`
+- kept `tests/unit/test_search_api.py` as the core search-route surface and
+  moved replay, harness/release, and learning/audit coverage into
+  `tests/unit/test_search_api_replays.py`,
+  `tests/unit/test_search_api_harnesses.py`, and
+  `tests/unit/test_search_api_learning_audit.py`
+- kept `tests/unit/test_documents_api.py` as the core document-route surface
+  and moved artifact and semantics coverage into
+  `tests/unit/test_documents_api_artifacts.py` and
+  `tests/unit/test_documents_api_semantics.py`
+- reduced `tests/unit/test_cli.py` from `2210` to `424` lines,
+  `tests/unit/test_search_api.py` from `1660` to `436` lines, and
+  `tests/unit/test_documents_api.py` from `1273` to `613` lines
+- updated `config/improvement_cases.yaml`,
+  `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/improvement_loop.md`, `docs/agentic_architecture_index.md`, and this
+  handoff to record the narrowed owner surfaces and reroute the next milestone
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_cli_agent_task_analytics.py tests/unit/test_cli_claim_support.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_search_api.py tests/unit/test_search_api_replays.py tests/unit/test_search_api_harnesses.py tests/unit/test_search_api_learning_audit.py tests/unit/test_documents_api.py tests/unit/test_documents_api_artifacts.py tests/unit/test_documents_api_semantics.py`
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_cli_agent_task_analytics.py tests/unit/test_cli_claim_support.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_search_api.py tests/unit/test_search_api_replays.py tests/unit/test_search_api_harnesses.py tests/unit/test_search_api_learning_audit.py tests/unit/test_documents_api.py tests/unit/test_documents_api_artifacts.py tests/unit/test_documents_api_semantics.py`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+
+Verified results:
+
+- focused split-pack tests plus the final CLI search-harness owner split:
+  `119 passed in 4.13s`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=11`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=673.78`, and the top hotspot
+  paths no longer include the three split test files
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`,
+  `allowed=7`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- architecture probe: `tests/unit/test_cli.py` is now 424 lines and no longer
+  appears in the current top 20 hotspot list; the largest-files view also no
+  longer includes `tests/unit/test_cli.py`, `tests/unit/test_search_api.py`,
+  or `tests/unit/test_documents_api.py`; Python cycle components remain at `3`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1317 passed in 52.04s`
+
+## High Value Technical Paydown Milestone 3 Progress
+
+Milestone 3 is the agent action-family continuation for
+`IC-A1E186A34097` / `app/services/agent_task_actions.py`. It is a
+behavior-preserving report action-definition split behind the existing
+`app.services.agent_task_actions` compatibility registry facade.
+
+Results:
+
+- added `app/services/agent_actions/report_actions.py`
+- moved the technical-report action definition family for
+  `plan_technical_report`, `build_report_evidence_cards`,
+  `prepare_report_agent_harness`,
+  `evaluate_document_generation_context_pack`, `draft_technical_report`, and
+  `verify_technical_report` out of `app/services/agent_task_actions.py`
+- kept `app.services.agent_task_actions` import-compatible by composing the
+  new owner registry into the existing action index and leaving
+  `app/services/agent_task_action_lookup.py` unchanged as the narrow lookup
+  seam
+- added focused registry-composition coverage in
+  `tests/unit/test_agent_task_actions.py`
+- ratcheted `config/hygiene_policy.yaml` so
+  `app/services/agent_task_actions.py` now has `ratchet_max_lines: 2746` and
+  `ratchet_max_private_helpers: 36`, while
+  `app/services/agent_actions/report_actions.py` is now governed under
+  `IC-A1E186A34097`
+- updated `config/improvement_cases.yaml` so `IC-A1E186A34097` records the
+  narrowed 2,746-line hotspot, reduced fan-out 36, and the new owner-module
+  placement
+- reduced `app/services/agent_task_actions.py` architecture-probe lines from
+  `2884` to `2746`, hotspot score from `170156` to `162014`, and fan-out from
+  `39` to `36`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/agent_actions/report_actions.py app/services/agent_task_actions.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_action_lookup.py`
+- `uv run pytest -q tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_action_lookup.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_action_lookup.py`:
+  `55 passed in 1.91s`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1317 passed in 56.34s`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=8`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=673.78`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`,
+  `allowed=6`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`;
+  `app/services/agent_task_actions.py` inherited ratchet now records 2,746
+  lines and 36 private helpers
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- architecture probe: `app/services/agent_task_actions.py` is 2,746
+  probe-counted lines with hotspot score `162014`; Python cycle components
+  remain at `3`
+
+## High Value Technical Paydown Milestone 2 Progress
+
+Milestone 2 is the evidence owner-family continuation for
+`IC-050E60059A34` / `app/services/evidence.py`. It is a behavior-preserving
+technical-report derivation/export split behind the existing
+`app.services.evidence` compatibility facade.
+
+Results:
+
+- added `app/services/evidence_technical_report_exports.py`
+- moved the technical-report derivation package builder, provenance-lock
+  assembly, export persistence, attach helpers, and claim-derivation payload
+  helpers out of `app/services/evidence.py`
+- kept `app.services.evidence` import-compatible for
+  `build_technical_report_derivation_package`,
+  `apply_technical_report_derivation_links`,
+  `persist_technical_report_evidence_export`,
+  `attach_artifact_to_evidence_export`, and
+  `attach_operator_run_to_evidence_export`
+- added focused facade/owner coverage in
+  `tests/unit/test_evidence_technical_report_exports.py`
+- ratcheted `config/hygiene_policy.yaml` so `app/services/evidence.py` now has
+  `ratchet_max_lines: 6307` and `ratchet_max_private_helpers: 81`, while the
+  new owner module is governed at `ratchet_max_lines: 884`
+- updated `config/improvement_cases.yaml` so
+  `IC-050E60059A34` records the narrowed 6,307-line hotspot and the new owner
+  module placement
+- reduced `app/services/evidence.py` architecture-probe lines from `7143` to
+  `6307` and hotspot score from `342864` to `302736`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_technical_reports.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_evidence_technical_report_exports.py tests/unit/test_technical_reports.py`:
+  `15 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py`:
+  `1 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1316 passed in 53.75s`
+- `uv run docling-system-improvement-case-validate`: `valid=true`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=7`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=673.78`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`;
+  `app/services/evidence.py` inherited ratchet now records 6,307 lines and 81
+  private helpers; `app/services/evidence_technical_report_exports.py` is now
+  governed as inherited budget debt at 884 lines under `IC-050E60059A34`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- architecture probe: `app/services/evidence.py` is 6,307 probe-counted lines
+  with hotspot score `302736`; Python cycle components remain at `3`
+
+## High Value Technical Paydown Milestone 1 Progress
+
+Milestone 1 is the retrieval-interaction model-domain split for
+`IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM owner
+split behind the existing `app.db.models` compatibility facade.
+
+Results:
+
+- added `app/db/model_domains/retrieval_interactions.py`
+- moved `SearchRequestRecord`, `SearchRequestResult`,
+  `RetrievalEvidenceSpan`, `RetrievalEvidenceSpanMultiVector`,
+  `SearchRequestResultSpan`, `SearchFeedback`, `ChatAnswerRecord`, and
+  `ChatAnswerFeedback` out of `app/db/models.py`
+- kept `app.db.models` import-compatible by re-exporting the moved classes
+  through import-forwarder aliases that satisfy the hotspot-prevention gate
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` to cover retrieval-interaction
+  table columns, exact index column ordering, exact unique-constraint column
+  ordering, vector dimensions, and computed TSVECTOR SQL
+- ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 5067`, and the new owner module
+  `app/db/model_domains/retrieval_interactions.py` is governed under the same
+  owner case
+- reduced `app/db/models.py` from 5,537 lines to 5,067 lines
+- reduced the architecture-quality `max_hotspot_risk_score` from `688.91` at
+  Milestone 0 closeout to `673.78`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `307 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `84 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1311 passed`
+- `uv run --extra dev alembic heads`: single head
+  `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=673.78`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- architecture probe still reports `app/db/models.py` as the top hotspot, but
+  now at `5067` lines and score `364824`
+
+## High Value Technical Paydown Milestone 0 Progress
+
+Milestone 0 is the baseline-lock and UI owner-bootstrap slice for the new
+high-value paydown plan. It is a governance-and-doc checkpoint, not a runtime
+behavior change.
+
+Results:
+
+- corrected the UI milestone verification command in
+  `docs/high_value_technical_paydown_milestone_plan.md` from the nonexistent
+  `tests/unit/test_ui_static_assets.py` to `tests/unit/test_ui.py`
+- added improvement case `IC-1B643BA0AD90` for `app/ui/app.js`
+- recorded in the plan and handoff that `app/ui/app.js` is governed through the
+  improvement-case registry and architecture-probe verification because
+  `uv run docling-system-hygiene-check` only scans Python files under `app/`
+- updated `docs/agentic_architecture_index.md` and `docs/improvement_loop.md`
+  so the next routed milestone is the retrieval-interaction split, not another
+  owner-bootstrap pass
+
+Verification:
+
+- `git diff --check`
+- `python /Users/chunkstand/.codex/skills/milestone-plan-writer/scripts/lint_milestone_plan.py --strict docs/high_value_technical_paydown_milestone_plan.md`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run pytest -q tests/unit/test_ui.py`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `measured_case_count=7`
+- `uv run pytest -q tests/unit/test_ui.py`: `8 passed in 5.32s`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`,
+  `improvement-case findings: none`, `architecture findings: none`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=688.91`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`,
+  `allowed=0`
+- architecture probe still reports `app/ui/app.js` as a hotspot with
+  `4335` lines and score `108375`, which is now the explicitly routed UI debt
+  surface for Milestone 6 rather than an untracked side note
 
 ## Hotspot Owner Resolution Milestone 0 Closeout
 
@@ -419,9 +920,10 @@ Results:
 - Added the missing Milestone 3 commit reference and aligned this handoff,
   `docs/agentic_architecture_index.md`, and
   `docs/hotspot_owner_resolution_plan.md` to the same completed-sequence state.
-- The hotspot owner resolution plan is now complete locally. The next
-  owner-scoped implementation route is `IC-F2A8110185EB` /
-  `app/db/models.py`.
+- The hotspot owner resolution plan is now complete locally. At that closeout
+  checkpoint, the next owner-scoped implementation route was
+  `IC-F2A8110185EB` / `app/db/models.py`; active follow-on routing now lives in
+  the High Value Technical Paydown plan.
 
 Verification:
 
@@ -1545,5 +2047,5 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   aligned the owner-case registry, docs, and handoff to the committed
   Milestones 1-5 reduction results and confirmed explicit owner routing for all
   six targeted surfaces.
-- Next routed owner case: `IC-F2A8110185EB` / `app/db/models.py`
-  continuation.
+- Next routed owner case at that checkpoint: `IC-F2A8110185EB` /
+  `app/db/models.py` continuation.
