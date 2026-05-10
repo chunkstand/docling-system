@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 import uuid
-from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
@@ -27,12 +26,11 @@ from app.db.models import (
     SearchRequestResultSpan,
 )
 from app.schemas.search import (
-    SearchEvidenceSpan,
     SearchFilters,
     SearchRequest,
     SearchResult,
-    SearchScores,
 )
+from app.services import search_ranking as _search_ranking
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
 from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.retrieval_spans import ensure_retrieval_evidence_spans_for_search
@@ -72,56 +70,31 @@ _token_coverage = _query_features.token_coverage
 _strong_document_phrase_match = _query_features.strong_document_phrase_match
 _metadata_query_tokens = _query_features.metadata_query_tokens
 
-
-@dataclass
-class RankedEvidenceSpan:
-    retrieval_evidence_span_id: UUID
-    source_type: str
-    source_id: UUID
-    span_index: int
-    score_kind: str
-    score: float | None
-    page_from: int | None
-    page_to: int | None
-    text_excerpt: str
-    content_sha256: str
-    source_snapshot_sha256: str | None
-    metadata: dict = field(default_factory=dict)
-
-
-@dataclass
-class RankedResult:
-    result_type: str
-    result_id: UUID
-    document_id: UUID
-    run_id: UUID
-    source_filename: str
-    page_from: int | None
-    page_to: int | None
-    chunk_index: int | None = None
-    table_index: int | None = None
-    document_title: str | None = None
-    chunk_text: str | None = None
-    heading: str | None = None
-    table_title: str | None = None
-    table_heading: str | None = None
-    table_preview: str | None = None
-    row_count: int | None = None
-    col_count: int | None = None
-    keyword_score: float | None = None
-    semantic_score: float | None = None
-    hybrid_score: float | None = None
-    retrieval_sources: tuple[str, ...] = ()
-    evidence_spans: tuple[RankedEvidenceSpan, ...] = ()
-
-
-@dataclass
-class RerankedResult:
-    item: RankedResult
-    rank: int
-    base_rank: int | None
-    score: float
-    features: dict = field(default_factory=dict)
+RankedEvidenceSpan = _search_ranking.RankedEvidenceSpan
+RankedResult = _search_ranking.RankedResult
+RerankedResult = _search_ranking.RerankedResult
+_document_query_overlap_features = _search_ranking.document_query_overlap_features
+_prose_result_text = _search_ranking.prose_result_text
+_prose_query_match_features = _search_ranking.prose_query_match_features
+_merge_retrieval_sources = _search_ranking.merge_retrieval_sources
+_merge_evidence_spans = _search_ranking.merge_evidence_spans
+_table_title_match_features = _search_ranking.table_title_match_features
+_exact_filter_priority = _search_ranking.exact_filter_priority
+_result_type_priority = _search_ranking.result_type_priority
+_document_cluster_strengths = _search_ranking.document_cluster_strengths
+_to_search_result = _search_ranking.to_search_result
+_result_key = _search_ranking.result_key
+_keyword_score = _search_ranking.keyword_score
+_semantic_score = _search_ranking.semantic_score
+_hybrid_score = _search_ranking.hybrid_score
+_merge_hybrid_candidates = _search_ranking.merge_hybrid_candidates
+_dedupe_ranked_results = _search_ranking.dedupe_ranked_results
+_strongest_ranked_score = _search_ranking.strongest_ranked_score
+_sort_ranked_candidates_by_score = _search_ranking.sort_ranked_candidates_by_score
+_candidate_source_breakdown = _search_ranking.candidate_source_breakdown
+_result_label = _search_ranking.result_label
+_result_preview = _search_ranking.result_preview
+_unique_uuid = _search_ranking.unique_uuid
 
 
 @dataclass
@@ -1679,333 +1652,6 @@ def _run_late_interaction_search(
     }
 
 
-def _reciprocal_rank(rank: int) -> float:
-    return 1.0 / (60 + rank)
-
-
-def _document_query_overlap_features(
-    item: RankedResult,
-    query_or_features: QueryFeatureSet | str | None,
-) -> dict[str, float]:
-    return {
-        "source_filename_exact_match": _strong_document_phrase_match(
-            query_or_features,
-            Path(item.source_filename).stem,
-        ),
-        "source_filename_token_coverage": _token_coverage(
-            query_or_features,
-            Path(item.source_filename).stem,
-        ),
-        "document_title_exact_match": _strong_document_phrase_match(
-            query_or_features,
-            item.document_title,
-        ),
-        "document_title_token_coverage": _token_coverage(
-            query_or_features,
-            item.document_title,
-        ),
-    }
-
-
-def _prose_result_text(item: RankedResult) -> str:
-    return " ".join(
-        part
-        for part in (
-            item.document_title,
-            Path(item.source_filename).stem,
-            item.heading,
-            item.chunk_text,
-            item.table_title,
-            item.table_heading,
-            item.table_preview,
-        )
-        if part
-    )
-
-
-def _prose_query_match_features(
-    item: RankedResult,
-    query_or_features: QueryFeatureSet | str | None,
-) -> dict[str, float]:
-    query_features = _coerce_query_feature_set(query_or_features)
-    result_text = _normalize_text(_prose_result_text(item))
-    result_tokens = set(result_text.split())
-    heading_value = item.heading or item.table_heading
-    return {
-        "heading_token_coverage": _token_coverage(query_features, heading_value),
-        "phrase_overlap": (
-            sum(1 for phrase in query_features.phrases if phrase in result_text)
-            / len(query_features.phrases)
-            if query_features.phrases
-            else 0.0
-        ),
-        "rare_token_overlap": (
-            len(query_features.rare_tokens & result_tokens) / len(query_features.rare_tokens)
-            if query_features.rare_tokens
-            else 0.0
-        ),
-        "adjacent_chunk_context_signal": float("adjacent_context" in item.retrieval_sources),
-    }
-
-
-def _merge_retrieval_sources(*source_groups: tuple[str, ...]) -> tuple[str, ...]:
-    merged: list[str] = []
-    seen: set[str] = set()
-    for group in source_groups:
-        for source in group:
-            if source in seen:
-                continue
-            seen.add(source)
-            merged.append(source)
-    return tuple(merged)
-
-
-def _merge_evidence_spans(
-    *span_groups: tuple[RankedEvidenceSpan, ...],
-) -> tuple[RankedEvidenceSpan, ...]:
-    merged: dict[UUID, RankedEvidenceSpan] = {}
-    for group in span_groups:
-        for span in group:
-            current = merged.get(span.retrieval_evidence_span_id)
-            if current is None or (span.score or 0.0) > (current.score or 0.0):
-                merged[span.retrieval_evidence_span_id] = span
-    return tuple(
-        sorted(
-            merged.values(),
-            key=lambda span: (
-                -(span.score or 0.0),
-                span.source_type,
-                str(span.source_id),
-                span.span_index,
-            ),
-        )
-    )
-
-
-def _table_title_match_features(
-    item: RankedResult,
-    query_or_features: QueryFeatureSet | str | None,
-) -> dict[str, float]:
-    if query_or_features is None or item.result_type != "table":
-        return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
-    query_features = _coerce_query_feature_set(query_or_features)
-    normalized_query = query_features.normalized_query
-    title_value = " ".join(part for part in (item.table_title, item.table_heading) if part)
-    normalized_title = _normalize_text(title_value)
-    if not normalized_query or not normalized_title:
-        return {"title_exact_match": 0.0, "title_token_coverage": 0.0}
-    exact_match = float(len(normalized_query) >= 4 and normalized_query in normalized_title)
-    if len(normalized_query) >= 4 and normalized_query in normalized_title:
-        return {"title_exact_match": exact_match, "title_token_coverage": 1.0}
-    query_tokens = query_features.normalized_tokens
-    if len(query_tokens) < 2:
-        return {"title_exact_match": exact_match, "title_token_coverage": 0.0}
-    title_tokens = set(normalized_title.split())
-    token_coverage = len(query_tokens & title_tokens) / len(query_tokens)
-    return {
-        "title_exact_match": exact_match,
-        "title_token_coverage": token_coverage if token_coverage >= 0.5 else 0.0,
-    }
-
-
-def _exact_filter_priority(item: RankedResult, filters: SearchFilters | None) -> int:
-    if filters is None or filters.page_range is None:
-        return 0
-    if item.page_from is None or item.page_to is None:
-        return 0
-    if (
-        item.page_from >= filters.page_range.page_from
-        and item.page_to <= filters.page_range.page_to
-    ):
-        return 1
-    return 0
-
-
-def _result_type_priority(item: RankedResult, tabular_query: bool) -> int:
-    if tabular_query:
-        return 1 if item.result_type == "table" else 0
-    return 1 if item.result_type == "chunk" else 0
-
-
-def _document_cluster_strengths(
-    items: list[RankedResult],
-    *,
-    score_getter: Callable[[RankedResult], float],
-    query_intent: str,
-) -> dict[UUID, float]:
-    if query_intent == QUERY_INTENT_TABULAR or len(items) < 2:
-        return {}
-
-    document_counts: dict[UUID, int] = {}
-    document_score_sums: dict[UUID, float] = {}
-    for item in items:
-        document_counts[item.document_id] = document_counts.get(item.document_id, 0) + 1
-        document_score_sums[item.document_id] = document_score_sums.get(
-            item.document_id, 0.0
-        ) + score_getter(item)
-
-    max_count = max(document_counts.values(), default=0)
-    max_score_sum = max(document_score_sums.values(), default=0.0)
-    if max_count <= 1 or max_score_sum <= 0:
-        return {}
-
-    strengths: dict[UUID, float] = {}
-    for document_id, count in document_counts.items():
-        if count <= 1:
-            strengths[document_id] = 0.0
-            continue
-        count_strength = (count - 1) / (max_count - 1)
-        score_strength = document_score_sums[document_id] / max_score_sum
-        strengths[document_id] = count_strength * score_strength
-    return strengths
-
-
-def _to_search_result(item: RankedResult, score: float) -> SearchResult:
-    return SearchResult(
-        result_type=item.result_type,
-        document_id=item.document_id,
-        run_id=item.run_id,
-        score=score,
-        chunk_id=item.result_id if item.result_type == "chunk" else None,
-        chunk_text=item.chunk_text,
-        heading=item.heading,
-        table_id=item.result_id if item.result_type == "table" else None,
-        table_title=item.table_title,
-        table_heading=item.table_heading,
-        table_preview=item.table_preview,
-        row_count=item.row_count,
-        col_count=item.col_count,
-        page_from=item.page_from,
-        page_to=item.page_to,
-        source_filename=item.source_filename,
-        scores=SearchScores(
-            keyword_score=item.keyword_score,
-            semantic_score=item.semantic_score,
-            hybrid_score=item.hybrid_score,
-        ),
-        evidence_spans=[
-            SearchEvidenceSpan(
-                retrieval_evidence_span_id=span.retrieval_evidence_span_id,
-                source_type=span.source_type,
-                source_id=span.source_id,
-                span_index=span.span_index,
-                score_kind=span.score_kind,
-                score=span.score,
-                page_from=span.page_from,
-                page_to=span.page_to,
-                text_excerpt=span.text_excerpt,
-                content_sha256=span.content_sha256,
-                source_snapshot_sha256=span.source_snapshot_sha256,
-                metadata=span.metadata,
-            )
-            for span in item.evidence_spans
-        ],
-    )
-
-
-def _result_key(item: RankedResult) -> tuple[str, UUID]:
-    return item.result_type, item.result_id
-
-
-def _keyword_score(item: RankedResult) -> float:
-    return item.keyword_score or 0.0
-
-
-def _semantic_score(item: RankedResult) -> float:
-    return item.semantic_score or 0.0
-
-
-def _hybrid_score(item: RankedResult) -> float:
-    return item.hybrid_score or 0.0
-
-
-def _merge_hybrid_candidates(
-    keyword_results: list[RankedResult],
-    semantic_results: list[RankedResult],
-) -> list[RankedResult]:
-    merged: dict[tuple[str, UUID], RankedResult] = {}
-
-    for idx, result in enumerate(keyword_results, start=1):
-        current = merged.setdefault(_result_key(result), result)
-        current.keyword_score = result.keyword_score
-        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
-        current.retrieval_sources = _merge_retrieval_sources(
-            current.retrieval_sources,
-            result.retrieval_sources,
-        )
-        current.evidence_spans = _merge_evidence_spans(
-            current.evidence_spans,
-            result.evidence_spans,
-        )
-
-    for idx, result in enumerate(semantic_results, start=1):
-        current = merged.get(_result_key(result))
-        if current is None:
-            current = result
-            merged[_result_key(result)] = current
-        current.semantic_score = result.semantic_score
-        current.hybrid_score = (current.hybrid_score or 0.0) + _reciprocal_rank(idx)
-        current.retrieval_sources = _merge_retrieval_sources(
-            current.retrieval_sources,
-            result.retrieval_sources,
-        )
-        current.evidence_spans = _merge_evidence_spans(
-            current.evidence_spans,
-            result.evidence_spans,
-        )
-
-    return list(merged.values())
-
-
-def _dedupe_ranked_results(items: list[RankedResult]) -> list[RankedResult]:
-    merged: dict[tuple[str, UUID], RankedResult] = {}
-
-    for item in items:
-        key = _result_key(item)
-        current = merged.get(key)
-        if current is None:
-            merged[key] = item
-            continue
-        if item.keyword_score is not None:
-            current.keyword_score = max(current.keyword_score or 0.0, item.keyword_score)
-        if item.semantic_score is not None:
-            current.semantic_score = max(current.semantic_score or 0.0, item.semantic_score)
-        if item.hybrid_score is not None:
-            current.hybrid_score = max(current.hybrid_score or 0.0, item.hybrid_score)
-        current.retrieval_sources = _merge_retrieval_sources(
-            current.retrieval_sources,
-            item.retrieval_sources,
-        )
-        current.evidence_spans = _merge_evidence_spans(
-            current.evidence_spans,
-            item.evidence_spans,
-        )
-    return list(merged.values())
-
-
-def _strongest_ranked_score(item: RankedResult) -> float:
-    return max(
-        item.keyword_score or 0.0,
-        item.semantic_score or 0.0,
-        item.hybrid_score or 0.0,
-    )
-
-
-def _sort_ranked_candidates_by_score(
-    items: list[RankedResult],
-    *,
-    score_getter: Callable[[RankedResult], float],
-) -> list[RankedResult]:
-    return sorted(
-        items,
-        key=lambda item: (
-            -score_getter(item),
-            item.page_from if item.page_from is not None else 10**9,
-            str(item.result_id),
-        ),
-    )
-
-
 def _ranked_metadata_overlap_score(
     query: str,
     *,
@@ -2226,14 +1872,6 @@ def _expand_adjacent_chunk_context(
     return expanded
 
 
-def _candidate_source_breakdown(items: list[RankedResult]) -> dict[str, int]:
-    counter: Counter[str] = Counter()
-    for item in items:
-        for source in item.retrieval_sources:
-            counter[source] += 1
-    return dict(sorted(counter.items()))
-
-
 def _rerank_results(
     items: list[RankedResult],
     *,
@@ -2243,16 +1881,7 @@ def _rerank_results(
     query_intent: str,
     reranker: SearchReranker | None = None,
 ) -> list[RerankedResult]:
-    active_reranker = reranker or get_default_reranker()
-    query_features = _build_query_feature_set(request.query)
-    return active_reranker.rerank(
-        items,
-        request=request,
-        score_getter=score_getter,
-        tabular_query=tabular_query,
-        query_intent=query_intent,
-        query_features=query_features,
-    )
+    return _search_ranking.rerank_results(items, request=request, score_getter=score_getter, tabular_query=tabular_query, query_intent=query_intent, active_reranker=reranker or get_default_reranker())  # noqa: E501
 
 
 def _merge_hybrid_results(
@@ -2264,35 +1893,7 @@ def _merge_hybrid_results(
     query_intent: str = QUERY_INTENT_PROSE_LOOKUP,
     query: str | None = None,
 ) -> list[SearchResult]:
-    merged = _merge_hybrid_candidates(keyword_results, semantic_results)
-    reranked = _rerank_results(
-        merged,
-        request=SearchRequest(
-            query=query or "hybrid results",
-            mode="hybrid",
-            filters=filters,
-            limit=limit,
-        ),
-        score_getter=lambda item: item.hybrid_score or 0.0,
-        tabular_query=tabular_query,
-        query_intent=query_intent,
-    )
-    return [_to_search_result(candidate.item, candidate.score) for candidate in reranked]
-
-
-def _result_label(item: RankedResult) -> str | None:
-    if item.result_type == "table":
-        return item.table_title or item.table_heading or item.table_preview
-    return item.heading or item.chunk_text
-
-
-def _result_preview(item: RankedResult) -> str | None:
-    return item.table_preview if item.result_type == "table" else item.chunk_text
-
-
-def _unique_uuid(values: Iterable[UUID]) -> UUID | None:
-    unique_values = {value for value in values if value is not None}
-    return next(iter(unique_values)) if len(unique_values) == 1 else None
+    return _search_ranking.merge_hybrid_results(keyword_results, semantic_results, limit, filters, tabular_query=tabular_query, active_reranker=get_default_reranker(), query_intent=query_intent, query=query)  # noqa: E501
 
 
 def _ranked_result_evidence_payload(item: RankedResult, index: int) -> dict:

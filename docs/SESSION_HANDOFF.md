@@ -4,10 +4,10 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 4
-retrieval-learning replay-alert corpus split.
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 5
-Search Core Split Continuation.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 5
+search-ranking split.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 6
+Closeout And Case Lifecycle Alignment.
 
 ## Current Position
 
@@ -27,9 +27,9 @@ governance checks with intentional `feedback` no-answer replay coverage. The
 next revision closes Milestone 8 by proving the remaining residual risk is now
 explicitly governed and that the plan, handoff, and architecture index all
 match the current gate state. The current local checkpoint closes Hotspot
-Owner Resolution Milestone 4 by moving replay-alert corpus lineage
-validation, judgment materialization, and hard-negative construction behind a
-focused owner module while preserving the existing `retrieval_learning` entry
+Owner Resolution Milestone 5 by moving ranking helpers, reranking,
+hybrid-result merging, result rendering, and ranked-result utility types
+behind a focused owner module while preserving the existing `search` entry
 surface.
 
 - `config/hotspot_prevention.yaml`
@@ -54,6 +54,7 @@ surface.
 - `app/services/evidence_task_payloads.py`
 - `app/services/claim_support_replay_alert_promotions.py`
 - `app/services/retrieval_learning_replay_alert_sources.py`
+- `app/services/search_ranking.py`
 - `tests/unit/test_agent_task_action_lookup.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
@@ -62,6 +63,7 @@ surface.
 - `tests/unit/test_evidence_operator_runs.py`
 - `tests/unit/test_evidence_task_payloads.py`
 - `tests/unit/test_retrieval_learning_replay_alert_sources.py`
+- `tests/unit/test_search_ranking.py`
 - `tests/unit/test_db_model_import_compatibility.py`
 - `tests/integration/test_db_model_metadata.py`
 - `tests/db_model_contract.py`
@@ -351,6 +353,47 @@ Verified closeout results:
   `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
   `observation_count=0`
+
+## Hotspot Owner Resolution Milestone 5 Closeout
+
+Milestone 5 is the search-ranking split. It is a behavior-preserving service
+modularization pass behind the existing `app/services/search.py`
+compatibility facade.
+
+Results:
+
+- Added `app/services/search_ranking.py`.
+- Moved ranking helpers, reranking, hybrid-result merging, result rendering,
+  and ranked-result utility types out of `app/services/search.py` while
+  keeping the original public service surface import-stable.
+- Reduced `app/services/search.py` from 3,250 lines to 2,851 and ratcheted it
+  to `ratchet_max_lines: 2851`; the facade still carries 53 private helpers
+  under an aligned helper ceiling of 65.
+- Added a hygiene budget entry for `app/services/search_ranking.py` under
+  `owner_case_id: IC-1D03DBFE8492` with `max_lines: 467` and
+  `max_private_helpers: 0`.
+- Updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
+  verified Milestone 5 reduction result.
+- The next routed implementation slice is Milestone 6: Closeout And Case
+  Lifecycle Alignment.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/search.py app/services/search_ranking.py tests/unit/test_search_service.py tests/unit/test_search_ranking.py`
+- `uv run pytest -q tests/unit/test_search_service.py tests/unit/test_search_ranking.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_postgres_roundtrip.py -k "search" -rs`
+- `uv run pytest -q tests/unit/test_api_architecture.py tests/unit/test_architecture_inspection.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
 
 ## Milestone 6 Regression Readiness Closeout
 
@@ -1455,5 +1498,9 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   hard-negative construction into
   `app/services/retrieval_learning_replay_alert_sources.py` and reduced
   `app/services/retrieval_learning.py` to 2,482 lines.
-- Next routed implementation slice: Milestone 5, Search Core Split
-  Continuation.
+- Milestone 5 is now the search-ranking split. It moved ranking helpers,
+  reranking, hybrid-result merging, result rendering, and ranked-result
+  utility types into `app/services/search_ranking.py` and reduced
+  `app/services/search.py` to 2,851 lines.
+- Next routed implementation slice: Milestone 6, Closeout And Case Lifecycle
+  Alignment.

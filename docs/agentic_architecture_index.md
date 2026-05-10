@@ -116,6 +116,12 @@ chat history or scanning the whole repository.
   old hotspot is reduced to 2,482 lines, and the new owner module is governed
   under the same improvement case `IC-0D58F1624037` with a 578 line hygiene
   budget. The milestone is closed by commit `13e8b1c`.
+- Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
+  helpers, reranking, hybrid-result merging, result rendering, and ranked
+  result utility types now live in `app/services/search_ranking.py` while
+  `app/services/search.py` remains the compatibility facade. The old hotspot
+  is reduced to 2,851 lines, and the new owner module is governed under the
+  same improvement case `IC-1D03DBFE8492` with a 467 line hygiene budget.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -143,13 +149,13 @@ chat history or scanning the whole repository.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
   `case_count=25`, `status_counts.open=24`, `status_counts.measured=1`, and
-  `measured_case_count=3`, with open cases concentrated in
+  `measured_case_count=4`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up: the next architecture work should use
   `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
-  retrieval-learning replay-alert corpus owner split is Milestone 5, Search
-  Core Split Continuation.
+  search-ranking owner split is Milestone 6, Closeout And Case Lifecycle
+  Alignment.
 
 ## Executable Architecture Contracts
 

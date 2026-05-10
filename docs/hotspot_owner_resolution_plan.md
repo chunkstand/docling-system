@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 4 retrieval-learning replay-alert corpus split complete locally, Milestone 5 next
+Status: in progress; Milestone 5 search-ranking split complete locally, Milestone 6 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -45,11 +45,12 @@ wc -l app/db/models.py app/services/evidence.py app/services/audit_bundles.py ap
   3306 app/services/audit_bundles.py
   2011 app/services/claim_support_policy_impacts.py
   2482 app/services/retrieval_learning.py
-  3250 app/services/search.py
+  2851 app/services/search.py
 
-wc -l app/services/claim_support_replay_alert_promotions.py app/services/retrieval_learning_replay_alert_sources.py
+wc -l app/services/claim_support_replay_alert_promotions.py app/services/retrieval_learning_replay_alert_sources.py app/services/search_ranking.py
   1536 app/services/claim_support_replay_alert_promotions.py
    578 app/services/retrieval_learning_replay_alert_sources.py
+   467 app/services/search_ranking.py
 
 uv run docling-system-hygiene-check
   inherited budget debt includes:
@@ -66,7 +67,7 @@ uv run docling-system-improvement-case-summary
   case_count=25
   status_counts.open=24
   status_counts.measured=1
-  measured_case_count=3
+  measured_case_count=4
   oldest_open_case_id=IC-F2A8110185EB
 ```
 
@@ -445,6 +446,26 @@ Acceptance:
   owner module family
 - search, replay, harness, and readiness signals remain green
 - hotspot prevention blocks any new helper growth in `app/services/search.py`
+
+Status update:
+
+- Implemented and verified locally as the search-ranking owner split.
+- Added `app/services/search_ranking.py` and moved ranking helpers, reranking,
+  hybrid-result merging, result rendering, and ranked-result utility types
+  behind the existing `app/services/search.py` compatibility surface.
+- Reduced `app/services/search.py` from 3,250 lines to 2,851 while ratcheting
+  the file to `ratchet_max_lines: 2851`; the facade still carries 53 private
+  helpers under an aligned helper ceiling of 65.
+- Added a hygiene budget entry for `app/services/search_ranking.py` under
+  `owner_case_id: IC-1D03DBFE8492` with `max_lines: 467` and
+  `max_private_helpers: 0`.
+- Updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
+  verified Milestone 5 reduction result.
+- Focused search tests, runtime integration verification, full DB-backed
+  verification, architecture inspection, hotspot prevention, hygiene,
+  evaluation-data readiness, and agent-trace review all passed.
+- The next routed implementation slice is Milestone 6: Closeout And Case
+  Lifecycle Alignment.
 
 ### Milestone 6: Closeout And Case Lifecycle Alignment
 
