@@ -4,19 +4,23 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest committed checkpoint: local `Architecture Plan 01` Milestone 7 evidence
-PROV export split alignment closeout.
+Latest committed checkpoint: local `Architecture Plan 01` Milestone 8
+improvement-intake closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 24
-commits after the Milestone 7 evidence PROV export split alignment closeout;
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 25
+commits after the Milestone 8 improvement-intake closeout;
 `origin/main` is `6933eca` (`Add Docker pg_dump fallback for reset`).
 
-The latest architecture closeout commits contain the Milestone 7 alignment
-check, the first `app/services/search.py` core split, and the second
-`app/services/evidence.py` split:
+The latest architecture closeout commits contain the Milestone 8
+improvement-intake ratchet, the Milestone 7 alignment check, the first
+`app/services/search.py` core split, and the second `app/services/evidence.py`
+split:
 
+- `app/services/improvement_case_intake.py`
+- `app/services/improvement_cases.py`
+- `config/improvement_cases.yaml`
 - `app/services/search.py`
 - `app/services/search_query_features.py`
 - `tests/unit/test_search_query_features.py`
@@ -29,6 +33,8 @@ check, the first `app/services/search.py` core split, and the second
 - `docs/agentic_architecture_milestone_audit.md`
 - `docs/agentic_architecture_milestone_plan.md`
 - `docs/data_model_boundary_plan.md`
+- `docs/improvement_loop.md`
+- `docs/hotspot_prevention_gate_milestone_plan.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
 
@@ -45,8 +51,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 24 local commits ahead of `origin/main` are:
+The 25 local commits ahead of `origin/main` are:
 
+- local Milestone 8 closeout commit for architecture-quality hotspot
+  improvement-case import and structured owner/verification metadata
 - local Milestone 7 alignment closeout commit for complete PROV export facade
   alias, constant, and settings-aware wrapper coverage
 - local Milestone 7 closeout commit for the evidence PROV export
@@ -105,7 +113,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=687.04
+  max_hotspot_risk_score=693.04
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -113,6 +121,10 @@ uv run docling-system-architecture-quality-report --summary
     app/services/agent_task_actions.py,
     tests/unit/test_cli.py
   ]
+
+uv run docling-system-improvement-case-summary
+  case_count=23, measured=1, open=22,
+  source_type_counts={hygiene_finding: 1, architecture_governance: 22}
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
@@ -626,6 +638,46 @@ file/helper budget debt remains. app/services/evidence.py is now 8,261 lines
 with 107 private helpers, still above the strict hygiene budget.
 ```
 
+## Improvement Intake Ratchet Snapshot
+
+Milestone 8 completed the `Architecture Plan 01` improvement-intake ratchet on
+2026-05-10.
+
+Implemented result:
+
+- Refreshed `build/architecture-governance/architecture_quality_report.json`
+  from the current checkout.
+- Strengthened architecture-quality imports so accepted cases carry structured
+  owner surfaces, verification commands, and stop conditions.
+- Imported 22 architecture-quality candidates into
+  `config/improvement_cases.yaml` as open `architecture_governance` cases.
+- Confirmed repeat import dedupe: a follow-up dry-run found the same 22
+  candidates and skipped all 22 as `already_imported`.
+- Added `docs/hotspot_prevention_gate_milestone_plan.md` as the next follow-on
+  weakness plan.
+
+Results:
+
+```text
+Improvement-case importer tests: 97 passed.
+Improvement-case import dry-run before import: candidate_count=22,
+imported_count=22, skipped_count=0.
+Improvement-case import applied: candidate_count=22, imported_count=22,
+skipped_count=0.
+Improvement-case import dedupe dry-run: candidate_count=22, imported_count=0,
+skipped_count=22.
+Improvement-case validation: valid=true, issue_count=0.
+Improvement-case summary: case_count=23, measured=1, open=22.
+Ruff: passed across app and tests.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=693.04.
+Full DB-backed suite: 1117 passed in 56.57s.
+Hygiene: no ruff, improvement-case, or architecture findings; strict
+file/helper budget debt remains.
+```
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -647,9 +699,9 @@ The revised closeout rule is:
 - stage only the milestone slice and commit locally before starting the next
   milestone
 
-Milestones 1, 2, 3, 4, 5, 6, and 7 satisfy the revised local commit closeout
-rule, including the Milestone 7 alignment closeout. Milestone 8 may begin from
-this committed checkpoint.
+Milestones 1, 2, 3, 4, 5, 6, 7, and 8 satisfy the revised local commit
+closeout rule. The next follow-on milestone is the hotspot-prevention gate in
+`docs/hotspot_prevention_gate_milestone_plan.md`.
 
 ## Active Weak Points
 
@@ -684,9 +736,10 @@ this committed checkpoint.
   coherent concern at a time behind `app.services.search` compatibility names,
   with replay and ranking behavior covered before changing another search
   concern.
-- The improvement-case registry has not yet imported the current
-  architecture-quality hotspot candidates, so generated hotspot signals are not
-  all represented as tracked cases.
+- The improvement-case registry now tracks the current architecture-quality
+  hotspot candidates, but this records debt after it exists. The remaining gap
+  is preventative: no strict diff-time gate currently blocks new implementation
+  growth in known hotspot files.
 - Court-grade readiness cannot be claimed until the live DB passes
   `docling-system-evaluation-data-readiness` with enough hand-verified fixtures,
   operator feedback, claim feedback, governed hard cases, replay coverage, and
@@ -706,7 +759,13 @@ Milestone 6 is complete: query-feature and query-intent helpers moved behind
 the `app.services.search` compatibility facade. Milestone 7 is complete: PROV
 export receipt and integrity helpers moved behind the `app.services.evidence`
 compatibility facade with complete moved alias, constant, and settings-aware
-wrapper coverage.
+wrapper coverage. Milestone 8 is complete: 22 architecture-quality hotspot and
+agent-legibility candidates are now imported as open improvement cases with
+structured owner surfaces, verification commands, and stop conditions.
 
-The next architecture milestone is `Architecture Plan 01` Milestone 8:
-improvement intake ratchet for current architecture-quality hotspot findings.
+New planning artifact: `docs/hotspot_prevention_gate_milestone_plan.md`.
+
+Recommended next architecture milestone: implement the hotspot-prevention gate
+before more hotspot split work. `Architecture Plan 01` is complete through
+Milestone 8; the prevention gate should block new implementation growth in
+known hotspots at diff time.

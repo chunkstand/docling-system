@@ -130,6 +130,11 @@ class ImprovementCaseObservation(BaseModel):
     source_type: str
     source_ref: str
     source_notes: str | None = None
+    artifact_type: str | None = None
+    artifact_target_path: str | None = None
+    artifact_description: str | None = None
+    verification_commands: list[str] = Field(default_factory=list)
+    acceptance_conditions: list[str] = Field(default_factory=list)
     workflow_version: str = "improvement_v1"
 
 
@@ -481,6 +486,8 @@ def build_improvement_case_manifest(
             "cause_class": case.cause_class,
             "artifact_type": case.artifact.artifact_type,
             "artifact_target_path": case.artifact.target_path,
+            "verification_commands": case.verification.commands,
+            "acceptance_conditions": case.verification.acceptance_conditions,
             "source_type": case.source.source_type,
             "workflow_version": case.workflow_version,
             "deployed_ref": case.deployment.deployed_ref,
@@ -668,6 +675,15 @@ def import_improvement_case_observations(
                 source_type=observation.source_type,
                 source_ref=observation.source_ref,
                 notes=observation.source_notes,
+            ),
+            artifact=ImprovementCaseArtifact(
+                artifact_type=observation.artifact_type or "",
+                target_path=observation.artifact_target_path or "",
+                description=observation.artifact_description or "",
+            ),
+            verification=ImprovementCaseVerification(
+                commands=observation.verification_commands,
+                acceptance_conditions=observation.acceptance_conditions,
             ),
             workflow_version=observation.workflow_version,
             created_at=now,

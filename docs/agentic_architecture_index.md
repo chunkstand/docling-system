@@ -5,7 +5,8 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/architecture_plan_01.md`: active hotspot reduction plan and milestone sequence.
+- `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
+- `docs/hotspot_prevention_gate_milestone_plan.md`: planned gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
 - `docs/agentic_architecture_milestone_audit.md`: latest implementation audit and gap closures.
 - `docs/data_model_boundary_plan.md`: model-domain split plan and DB verification gates.
@@ -13,17 +14,17 @@ chat history or scanning the whole repository.
 
 ## Milestone Status
 
-- Completed through the local `Architecture Plan 01` Milestone 7
-  alignment closeout:
+- Completed through the local `Architecture Plan 01` Milestone 8
+  improvement-intake closeout:
   baseline quality report, capability subcontracts, agent action hardening,
   trace-first review, repository architecture map, architecture
   garbage-collection candidates, data-model boundary plan, and
-  `Architecture Plan 01` Milestones 0-7.
+  `Architecture Plan 01` Milestones 0-8.
 - Current gate shape: architecture inspection is valid with no violations,
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=687.04`.
+  `max_hotspot_risk_score=693.04`.
 - `app/db/models.py` remains the top hotspot, but the first low-risk domain is
   now split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`
   and is re-exported by `app.db.models`.
@@ -56,11 +57,13 @@ chat history or scanning the whole repository.
   coverage, and metadata-query token helpers now live in
   `app/services/search_query_features.py` while `app.services.search` remains
   the compatibility facade for existing query helper imports.
-- Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 8,
-  the improvement-intake ratchet. Later governed splits remain for additional
-  evidence concerns, additional `app/cli.py` command groups, additional search
-  core concerns, additional `app/services/agent_task_actions.py` action
-  families, and additional `app/db/models.py` domains.
+- The Milestone 8 improvement-intake ratchet is complete: 22
+  architecture-quality candidates are imported as open improvement cases with
+  structured owner surfaces, verification commands, and stop conditions.
+- Governed follow-up: implement the hotspot-prevention gate in
+  `docs/hotspot_prevention_gate_milestone_plan.md` before more split work so
+  known hotspots cannot silently receive new implementation responsibility at
+  diff time.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   trace review currently reports `observation_count=0`.
@@ -78,6 +81,7 @@ chat history or scanning the whole repository.
 - `uv run docling-system-architecture-inspect`
 - `uv run docling-system-capability-contracts`
 - `uv run docling-system-architecture-quality-report`
+- planned: `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-agent-task-action-index`
 - `uv run docling-system-agent-trace-review`
 - `uv run docling-system-improvement-case-import --source architecture-quality-report --source-path build/architecture-governance/architecture_quality_report.json --dry-run`
@@ -89,6 +93,7 @@ chat history or scanning the whole repository.
 - Agent action catalog: `app/services/agent_task_actions.py` and `app/services/agent_actions/`
 - Architecture inspection: `app/architecture_inspection.py`, `app/architecture_inspection_rules.py`
 - Architecture quality report: `app/architecture_quality.py`
+- Planned hotspot prevention: `docs/hotspot_prevention_gate_milestone_plan.md`
 - Trace review report: `app/agent_trace_review.py`
 - Improvement intake: `app/services/improvement_case_intake.py`
 - Data model domains: `app/db/model_domains/`
@@ -104,6 +109,8 @@ chat history or scanning the whole repository.
   `uv run docling-system-architecture-quality-report --summary`
 - Improvement-case candidates:
   `uv run docling-system-improvement-case-import --source architecture-quality-report --source-path build/architecture-governance/architecture_quality_report.json --dry-run`
+- Improvement-case registry:
+  `uv run docling-system-improvement-case-summary`
 - DB-backed trace findings:
   `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
 - General import-cycle probe:

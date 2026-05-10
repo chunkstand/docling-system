@@ -17,7 +17,7 @@ runtime behavior.
   `function_count=110`, and no issues.
 - `uv run docling-system-architecture-quality-report --summary`:
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, `max_hotspot_risk_score=687.04`, and top hotspot paths
+  `hotspot_count=10`, `max_hotspot_risk_score=693.04`, and top hotspot paths
   headed by `app/db/models.py`, `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`:
@@ -51,6 +51,12 @@ runtime behavior.
   DB-backed technical-report harness roundtrip passed with `1 passed`, and
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q` passed with
   `1116 passed in 54.37s`.
+- Improvement-intake verification is current for `Architecture Plan 01`
+  Milestone 8: importer-focused tests passed with `97 passed`,
+  architecture-quality import applied `22` open cases, repeat dry-run deduped
+  all `22`, and `uv run docling-system-improvement-case-validate` reports
+  `valid=true`. Full DB-backed verification passed with
+  `1117 passed in 56.57s`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -133,6 +139,11 @@ runtime behavior.
   adding a new static import-cycle component. Focused compatibility coverage
   now proves every moved PROV export identity alias, constant, and
   settings-aware wrapper exposed by `app.services.evidence`.
+- `Architecture Plan 01` Milestone 8 now imports the current
+  architecture-quality hotspot and agent-legibility candidates into
+  `config/improvement_cases.yaml` as 22 open architecture-governance cases.
+  Each imported case carries a structured owner surface, verification command,
+  and stop condition, and repeat import dedupes by source reference.
 
 ## Deferred Large Refactors
 
@@ -147,12 +158,14 @@ additional CLI groups should still move one at a time behind compatibility
 forwarding functions. The first `app/services/search.py` core split is
 complete; additional search concerns should still move one at a time behind the
 same compatibility facade with replay/ranking coverage. The next active
-architecture milestone is `Architecture Plan 01` Milestone 8 for the
-improvement-intake ratchet. Later governed split surfaces include additional
-evidence concerns, additional CLI command groups, additional search concerns,
-and additional agent-action families. The next agent-action family split should first
-introduce a dependency seam for executor movement or choose a family whose
-executors do not keep the broad agent-task cycle intact.
+architecture milestone should be the hotspot-prevention gate in
+`docs/hotspot_prevention_gate_milestone_plan.md`, because the improvement
+registry now records debt but does not prevent new hotspot growth. Later
+governed split surfaces include additional evidence concerns, additional CLI
+command groups, additional search concerns, and additional agent-action
+families. The next agent-action family split should first introduce a
+dependency seam for executor movement or choose a family whose executors do not
+keep the broad agent-task cycle intact.
 Each future split should land as a separate
 behavior-preserving milestone with focused tests plus the full integration
 gate.

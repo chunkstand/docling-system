@@ -1,8 +1,8 @@
 # Architecture Plan 01
 
 Date: 2026-05-09
-Status: active plan; Milestones 0-7 complete; local commit-on-closeout policy
-active as of 2026-05-10
+Status: complete through Milestone 8; local commit-on-closeout policy active
+as of 2026-05-10
 
 Purpose: reduce centralization in the current modular monolith without
 weakening the existing API, CLI, database, worker, retrieval, agent-task, or
@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=687.04`
+  - `max_hotspot_risk_score=693.04`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/cli.py`
@@ -990,10 +990,15 @@ Hygiene: no ruff, improvement-case, or architecture findings; inherited
 file/helper budget debt remains.
 ```
 
-Milestone 8 is unblocked. The next architecture milestone is the improvement
-intake ratchet.
+Milestone 8 is complete and closes the current `Architecture Plan 01`
+sequence. A follow-on hotspot-prevention gate plan now exists at
+`docs/hotspot_prevention_gate_milestone_plan.md`; implement that gate before
+starting more hotspot split work so known hotspots cannot silently receive new
+implementation responsibility.
 
 ### Milestone 8: Improvement Intake Ratchet
+
+Status: complete on 2026-05-10.
 
 Goal: make current hotspot findings durable improvement cases so architecture
 work remains queued and measurable.
@@ -1037,6 +1042,49 @@ Stop conditions:
 - Import dedupe would create duplicate cases for the same hotspot.
 - Generated report path or source vocabulary is unstable.
 - Improvement-case status changes are not measurable.
+
+Completed result:
+
+- Refreshed `build/architecture-governance/architecture_quality_report.json`
+  from the current checkout.
+- Strengthened architecture-quality improvement import so accepted candidates
+  preserve structured owner surface paths, verification commands, and stop
+  conditions in the registry case, not only in source notes.
+- Imported 22 architecture-quality candidates into
+  `config/improvement_cases.yaml` as open `architecture_governance` cases.
+- Confirmed dedupe behavior: a repeat dry-run found 22 candidates, imported 0,
+  and skipped 22 as `already_imported`.
+- `uv run docling-system-improvement-case-summary` now reports `case_count=23`,
+  with 1 measured hygiene case and 22 open architecture-governance cases.
+- Added `docs/hotspot_prevention_gate_milestone_plan.md` as the next follow-on
+  weakness plan because Milestone 8 records hotspot debt, but does not prevent
+  new hotspot growth.
+
+Verification:
+
+```text
+Improvement-case importer tests: 97 passed.
+Improvement-case import dry-run before import: candidate_count=22,
+imported_count=22, skipped_count=0.
+Improvement-case import applied: candidate_count=22, imported_count=22,
+skipped_count=0.
+Improvement-case import dedupe dry-run: candidate_count=22, imported_count=0,
+skipped_count=22.
+Improvement-case validation: valid=true, issue_count=0.
+Improvement-case summary: case_count=23, measured=1, open=22.
+Ruff: passed across app and tests.
+Architecture inspection: valid, violation_count=0.
+Capability contracts: valid, facade_count=6, function_count=110.
+Architecture quality summary: agent_legibility_average_score=90.0,
+broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=693.04.
+Full DB-backed suite: 1117 passed in 56.57s.
+Hygiene: no ruff, improvement-case, or architecture findings; strict
+file/helper budget debt remains.
+```
+
+`Architecture Plan 01` Milestones 0-8 are complete. The next architecture
+milestone should implement the hotspot-prevention gate in
+`docs/hotspot_prevention_gate_milestone_plan.md`.
 
 ## Cross-Milestone Verification Contract
 
@@ -1118,7 +1166,9 @@ Use this order unless live evidence changes:
 7. Split one search core concern out of `app/services/search.py` (complete).
 8. Split PROV export receipt/integrity helpers out of `app/services/evidence.py`
    (complete).
-9. Import or dedupe architecture-quality hotspot improvement cases.
+9. Import or dedupe architecture-quality hotspot improvement cases (complete).
+10. Implement the hotspot-prevention gate from
+    `docs/hotspot_prevention_gate_milestone_plan.md`.
 
 If runtime verification remains blocked, start with the evidence split only
 after recording the runtime blocker and confirming the split does not touch

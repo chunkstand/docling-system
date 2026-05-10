@@ -234,6 +234,12 @@ def test_collect_architecture_quality_report_observations_from_candidates(
         "architecture-quality:hotspot:app/services/evidence.py"
     )
     assert observations[0].cause_class == "unclear_ownership"
+    assert observations[0].artifact_type == "contract"
+    assert observations[0].artifact_target_path == "app/services/evidence.py"
+    assert observations[0].verification_commands == [
+        "uv run docling-system-architecture-quality-report"
+    ]
+    assert observations[0].acceptance_conditions == ["Risk decreases."]
 
 
 def test_collect_agent_trace_review_report_observations(
@@ -581,6 +587,29 @@ def test_run_import_facade_writes_architecture_governance_cases(tmp_path) -> Non
         "architecture-governance:architecture-contract-map-drift:"
         "docs/architecture_contract_map.json"
     )
+
+
+def test_run_import_facade_writes_architecture_quality_case_metadata(
+    tmp_path: Path,
+) -> None:
+    registry_path = tmp_path / "improvement_cases.yaml"
+    report_path = tmp_path / "architecture_quality_report.json"
+    _write_architecture_quality_report(report_path)
+
+    result = intake.run_improvement_case_import(
+        source="architecture-quality-report",
+        source_path=report_path,
+        path=registry_path,
+    )
+    registry = load_improvement_case_registry(registry_path)
+
+    assert result.imported_count == 1
+    assert result.imported[0].artifact_target_path == "app/services/evidence.py"
+    assert result.imported[0].verification_commands == [
+        "uv run docling-system-architecture-quality-report"
+    ]
+    assert registry.cases[0].artifact.target_path == "app/services/evidence.py"
+    assert registry.cases[0].verification.acceptance_conditions == ["Risk decreases."]
 
 
 def test_run_import_facade_accepts_keyed_source_paths(tmp_path) -> None:

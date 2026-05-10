@@ -120,6 +120,8 @@ class ImprovementCaseImportCaseSummary(BaseModel):
     cause_class: str
     artifact_type: str
     artifact_target_path: str
+    verification_commands: list[str] = Field(default_factory=list)
+    acceptance_conditions: list[str] = Field(default_factory=list)
     source_type: str
     workflow_version: str
     deployed_ref: str | None
@@ -367,6 +369,14 @@ def resolve_architecture_quality_report_path(
     return raw_path if raw_path.is_absolute() else (project_root or repo_root()) / raw_path
 
 
+def _architecture_quality_artifact_type(target_path: str) -> str | None:
+    if not target_path:
+        return None
+    if target_path.startswith("tests/"):
+        return "test"
+    return "contract"
+
+
 def collect_architecture_quality_report_observations(
     *,
     source_path: str | Path | None = None,
@@ -407,6 +417,9 @@ def collect_architecture_quality_report_observations(
         source_ref = str(candidate.get("source_ref") or "")
         if not source_ref:
             continue
+        artifact_target_path = str(candidate.get("artifact_target_path") or "")
+        verification_command = str(candidate.get("verification_command") or "")
+        stop_condition = str(candidate.get("stop_condition") or "")
         observations.append(
             ImprovementCaseObservation(
                 title=str(candidate.get("title") or "Architecture quality hotspot"),
@@ -423,6 +436,15 @@ def collect_architecture_quality_report_observations(
                     f"verification_command={candidate.get('verification_command') or 'unknown'}; "
                     f"stop_condition={candidate.get('stop_condition') or 'unknown'}"
                 ),
+                artifact_type=_architecture_quality_artifact_type(artifact_target_path),
+                artifact_target_path=artifact_target_path or None,
+                artifact_description=(
+                    f"Architecture quality owner surface for {artifact_target_path}."
+                    if artifact_target_path
+                    else None
+                ),
+                verification_commands=[verification_command] if verification_command else [],
+                acceptance_conditions=[stop_condition] if stop_condition else [],
                 workflow_version=workflow_version,
             )
         )

@@ -34,3 +34,770 @@ cases:
       returned no findings.
   created_at: '2026-04-24T00:00:00+00:00'
   updated_at: '2026-04-24T23:48:32.939918+00:00'
+- case_id: IC-F2A8110185EB
+  title: 'Architecture hotspot: app/db/models.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/db/models.py is an architecture hotspot with risk_score=695.04,
+    line_count=6006, changes_90d=70, hygiene_finding_count=1.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/db/models.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/db/models.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/db/models.py
+    description: Architecture quality owner surface for app/db/models.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-050E60059A34
+  title: 'Architecture hotspot: app/services/evidence.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/evidence.py is an architecture hotspot with risk_score=507.32,
+    line_count=8261, changes_90d=46, hygiene_finding_count=2.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/evidence.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/evidence.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/evidence.py
+    description: Architecture quality owner surface for app/services/evidence.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-9812A0B138D9
+  title: 'Architecture hotspot: app/cli.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/cli.py is an architecture hotspot with risk_score=507.3, line_count=1283,
+    changes_90d=54, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/cli.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/cli.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/cli.py
+    description: Architecture quality owner surface for app/cli.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-A1E186A34097
+  title: 'Architecture hotspot: app/services/agent_task_actions.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/agent_task_actions.py is an architecture hotspot
+    with risk_score=475.23, line_count=2884, changes_90d=59, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/agent_task_actions.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/agent_task_actions.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/agent_task_actions.py
+    description: Architecture quality owner surface for app/services/agent_task_actions.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-FD18EE2D3309
+  title: 'Architecture hotspot: tests/unit/test_cli.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_cli.py is an architecture hotspot with risk_score=447.75,
+    line_count=2362, changes_90d=46, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_cli.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_cli.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_cli.py
+    description: Architecture quality owner surface for tests/unit/test_cli.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-24F3558D6091
+  title: 'Architecture hotspot: app/schemas/agent_tasks.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/schemas/agent_tasks.py is an architecture hotspot with risk_score=409.07,
+    line_count=461, changes_90d=58, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/schemas/agent_tasks.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/schemas/agent_tasks.py; verification_command=uv run
+      docling-system-architecture-quality-report; stop_condition=Hotspot risk decreases
+      or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/schemas/agent_tasks.py
+    description: Architecture quality owner surface for app/schemas/agent_tasks.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-D9A84C20546B
+  title: 'Architecture hotspot: tests/unit/test_agent_tasks_api.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_agent_tasks_api.py is an architecture hotspot
+    with risk_score=345.07, line_count=1810, changes_90d=37, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_agent_tasks_api.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_agent_tasks_api.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_agent_tasks_api.py
+    description: Architecture quality owner surface for tests/unit/test_agent_tasks_api.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-5B6430FCB929
+  title: 'Architecture hotspot: app/api/main.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/api/main.py is an architecture hotspot with risk_score=331.4,
+    line_count=98, changes_90d=47, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/api/main.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/api/main.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/api/main.py
+    description: Architecture quality owner surface for app/api/main.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-40CA7C1FFA84
+  title: 'Architecture hotspot: tests/integration/test_claim_support_judge_evaluation_roundtrip.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    is an architecture hotspot with risk_score=321.87, line_count=4368, changes_90d=36,
+    hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/integration/test_claim_support_judge_evaluation_roundtrip.py;
+      verification_command=uv run docling-system-architecture-quality-report; stop_condition=Hotspot
+      risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    description: Architecture quality owner surface for tests/integration/test_claim_support_judge_evaluation_roundtrip.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-1D03DBFE8492
+  title: 'Architecture hotspot: app/services/search.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/search.py is an architecture hotspot with risk_score=302.17,
+    line_count=3250, changes_90d=27, hygiene_finding_count=2.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/search.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/search.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/search.py
+    description: Architecture quality owner surface for app/services/search.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-4098E8370B88
+  title: 'Architecture hotspot: app/services/agent_tasks.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/agent_tasks.py is an architecture hotspot with risk_score=297.15,
+    line_count=773, changes_90d=37, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/agent_tasks.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/agent_tasks.py; verification_command=uv run
+      docling-system-architecture-quality-report; stop_condition=Hotspot risk decreases
+      or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/agent_tasks.py
+    description: Architecture quality owner surface for app/services/agent_tasks.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-03D7EFA03213
+  title: 'Architecture hotspot: tests/unit/test_search_api.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_search_api.py is an architecture hotspot with
+    risk_score=268.07, line_count=1660, changes_90d=28, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_search_api.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_search_api.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_search_api.py
+    description: Architecture quality owner surface for tests/unit/test_search_api.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-934588120F94
+  title: 'Architecture hotspot: tests/unit/test_agent_task_actions.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_agent_task_actions.py is an architecture hotspot
+    with risk_score=264.63, line_count=4144, changes_90d=18, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_agent_task_actions.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_agent_task_actions.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_agent_task_actions.py
+    description: Architecture quality owner surface for tests/unit/test_agent_task_actions.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-7A628A4CBCAC
+  title: 'Architecture hotspot: tests/unit/test_evaluation_service.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_evaluation_service.py is an architecture hotspot
+    with risk_score=257.65, line_count=2197, changes_90d=21, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_evaluation_service.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_evaluation_service.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_evaluation_service.py
+    description: Architecture quality owner surface for tests/unit/test_evaluation_service.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-D49E037D5657
+  title: 'Architecture hotspot: tests/integration/test_technical_report_harness_roundtrip.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/integration/test_technical_report_harness_roundtrip.py is
+    an architecture hotspot with risk_score=246.28, line_count=2030, changes_90d=32,
+    hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/integration/test_technical_report_harness_roundtrip.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/integration/test_technical_report_harness_roundtrip.py;
+      verification_command=uv run docling-system-architecture-quality-report; stop_condition=Hotspot
+      risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/integration/test_technical_report_harness_roundtrip.py
+    description: Architecture quality owner surface for tests/integration/test_technical_report_harness_roundtrip.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-23F2C79C8AA7
+  title: 'Architecture hotspot: tests/unit/test_documents_api.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: tests/unit/test_documents_api.py is an architecture hotspot with
+    risk_score=242.99, line_count=1273, changes_90d=24, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:tests/unit/test_documents_api.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=tests/unit/test_documents_api.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: test
+    target_path: tests/unit/test_documents_api.py
+    description: Architecture quality owner surface for tests/unit/test_documents_api.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-E2270F89B397
+  title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/claim_support_policy_impacts.py is an architecture
+    hotspot with risk_score=233.68, line_count=3477, changes_90d=17, hygiene_finding_count=2.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/claim_support_policy_impacts.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/claim_support_policy_impacts.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/claim_support_policy_impacts.py
+    description: Architecture quality owner surface for app/services/claim_support_policy_impacts.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-BF180637814C
+  title: 'Architecture hotspot: app/services/evaluations.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/evaluations.py is an architecture hotspot with risk_score=227.64,
+    line_count=2159, changes_90d=20, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/evaluations.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/evaluations.py; verification_command=uv run
+      docling-system-architecture-quality-report; stop_condition=Hotspot risk decreases
+      or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/evaluations.py
+    description: Architecture quality owner surface for app/services/evaluations.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-E52B6C7B22FD
+  title: 'Architecture hotspot: app/services/agent_task_context.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/agent_task_context.py is an architecture hotspot
+    with risk_score=223.22, line_count=3858, changes_90d=23, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/agent_task_context.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/agent_task_context.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/agent_task_context.py
+    description: Architecture quality owner surface for app/services/agent_task_context.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-DCEE88C7CA97
+  title: 'Architecture hotspot: app/schemas/search.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/schemas/search.py is an architecture hotspot with risk_score=203.82,
+    line_count=348, changes_90d=25, hygiene_finding_count=0.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/schemas/search.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/schemas/search.py; verification_command=uv run docling-system-architecture-quality-report;
+      stop_condition=Hotspot risk decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/schemas/search.py
+    description: Architecture quality owner surface for app/schemas/search.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-2BF32BF40542
+  title: 'Agent-legibility gap: retrieval'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: retrieval has agent_legibility_score=90.0 and function_count=42.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:facade:retrieval
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/capabilities/retrieval.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Surface is under
+      the bounded function threshold or has explicit tests, examples, trace command,
+      and decision rationale.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/capabilities/retrieval.py
+    description: Architecture quality owner surface for app/services/capabilities/retrieval.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Surface is under the bounded function threshold or has explicit tests, examples,
+      trace command, and decision rationale.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
+- case_id: IC-339A0E924F4E
+  title: 'Agent-legibility gap: agent_orchestration'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: agent_orchestration has agent_legibility_score=90.0 and function_count=31.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:facade:agent_orchestration
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/capabilities/agent_orchestration.py; verification_command=uv
+      run docling-system-architecture-quality-report; stop_condition=Surface is under
+      the bounded function threshold or has explicit tests, examples, trace command,
+      and decision rationale.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/capabilities/agent_orchestration.py
+    description: Architecture quality owner surface for app/services/capabilities/agent_orchestration.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Surface is under the bounded function threshold or has explicit tests, examples,
+      trace command, and decision rationale.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: null
+  measurement:
+    metric_name: null
+    current_value: null
+    measurement_window: null
+    notes: null
+  created_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-10T01:15:27.810985+00:00'
