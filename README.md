@@ -31,7 +31,7 @@ Current repo-level signals:
   files instead of the configured owner modules.
 - DB-backed milestone verification is currently available on the local Docker
   Postgres runtime; the Residual Weakness Plan Milestone 2 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1132 passed`.
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1134 passed`.
 
 ## What It Does
 

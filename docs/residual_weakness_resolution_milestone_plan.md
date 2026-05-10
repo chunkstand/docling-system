@@ -316,6 +316,11 @@ Completed result:
   exit non-zero.
 - Added unit coverage for tolerated inherited file/helper budget debt, blocking
   file/helper budget growth beyond the ratchet, and required ratchet ownership.
+- Alignment hardening keeps ratcheted inherited findings out of
+  `docling-system-improvement-case-import --source hygiene --dry-run` while
+  preserving blocking regression import behavior.
+- Alignment hardening adds a direct CLI-boundary test for the inherited debt and
+  new-regression output sections.
 
 Verification:
 
@@ -329,14 +334,15 @@ uv run docling-system-architecture-inspect
 uv run docling-system-capability-contracts
 uv run docling-system-architecture-quality-report --summary
 uv run docling-system-improvement-case-validate
+uv run docling-system-improvement-case-import --source hygiene --dry-run
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
 ```
 
 Verified behavior:
 
 ```text
-Focused hygiene tests: 9 passed.
-Hygiene/architecture-quality/improvement-intake focused tests: 42 passed.
+Focused hygiene tests: 10 passed.
+Hygiene/improvement-intake/architecture-quality focused tests: 44 passed.
 Ruff: All checks passed.
 Hygiene: ruff regressions none; inherited budget debt listed with owners;
 new hygiene regressions none; improvement-case findings none; architecture
@@ -346,7 +352,8 @@ Architecture inspection: valid=true, violation_count=0.
 Capability contracts: valid=true, facade_count=6, function_count=110.
 Architecture quality: hotspot_count=10, max_hotspot_risk_score=693.04.
 Improvement-case validation: valid=true, issue_count=0.
-Full DB-backed suite: 1132 passed.
+Hygiene import dry-run: candidate_count=0 on the ratcheted baseline.
+Full DB-backed suite: 1134 passed.
 ```
 
 ### Milestone 3: Top Hotspot Split Pack A

@@ -60,7 +60,9 @@ they do not fail the command while they stay at or below their recorded
 `new hygiene regressions` and exits non-zero. Every ratcheted budget entry in
 `config/hygiene_policy.yaml` must carry an `owner_case_id` or
 `owner_milestone`; the hygiene tests include a policy negative case so unowned
-ratchets cannot become hidden tolerance.
+ratchets cannot become hidden tolerance. The hygiene improvement-case import
+source observes only blocking hygiene findings, so ratcheted inherited debt does
+not create duplicate open cases while no-growth regressions still can.
 
 ## CLI
 

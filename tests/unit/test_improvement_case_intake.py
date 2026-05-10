@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from app.hygiene_types import HygieneFinding
 from app.services import improvement_case_intake as intake
 from app.services.improvement_cases import (
     ImprovementCaseObservation,
@@ -128,6 +129,36 @@ def test_collect_import_observations_keeps_hygiene_source_out_of_db(
 
     assert observations[0].source_type == "hygiene_finding"
     assert observations[0].workflow_version == "improvement_v2"
+
+
+def test_hygiene_import_observes_only_blocking_findings(monkeypatch) -> None:
+    monkeypatch.setattr(intake, "collect_ruff_violation_counts", lambda root: {})
+    monkeypatch.setattr(intake, "load_ruff_baseline", lambda project_root: {})
+    monkeypatch.setattr(
+        intake,
+        "run_python_hygiene_checks",
+        lambda root: [
+            HygieneFinding(
+                kind="file_budget_inherited",
+                relative_path="app/inherited.py",
+                message="10 lines exceeds target budget 5; ratchet ceiling 10",
+                severity="inherited",
+            ),
+            HygieneFinding(
+                kind="file_budget_regression",
+                relative_path="app/regression.py",
+                message="11 lines exceeds ratchet ceiling 10 and target budget 5",
+            ),
+        ],
+    )
+    monkeypatch.setattr(intake, "run_improvement_case_contract_checks", lambda root: [])
+
+    observations = intake.collect_hygiene_import_observations()
+
+    assert len(observations) == 1
+    assert observations[0].title == "Hygiene finding: file_budget_regression"
+    assert observations[0].source_notes == "app/regression.py"
+    assert "app/inherited.py" not in observations[0].observed_failure
 
 
 def test_collect_architecture_governance_report_observations_from_invalid_report(

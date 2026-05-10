@@ -161,7 +161,7 @@ def collect_hygiene_import_observations(
         *run_improvement_case_contract_checks(root),
     ]
     return collect_hygiene_finding_observations(
-        findings,
+        [finding for finding in findings if getattr(finding, "blocking", True)],
         limit=limit,
         workflow_version=workflow_version,
     )

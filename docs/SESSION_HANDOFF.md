@@ -5,12 +5,13 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local Residual Weakness Plan Milestone 2 hygiene
-budget ratchet closeout (`architecture: complete residual hygiene ratchet`).
+budget ratchet alignment closeout.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 3 commits
-after the Residual Weakness Plan Milestone 2 hygiene budget ratchet closeout;
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 4 commits
+after the Residual Weakness Plan Milestone 2 hygiene budget ratchet alignment
+closeout;
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -27,8 +28,10 @@ Milestone 2 hygiene budget ratchet:
 - `app/hygiene.py`
 - `app/hygiene_ruff.py`
 - `app/hygiene_types.py`
+- `app/services/improvement_case_intake.py`
 - `tests/unit/test_hotspot_prevention.py`
 - `tests/unit/test_hygiene.py`
+- `tests/unit/test_improvement_case_intake.py`
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 - `docs/improvement_loop.md`
@@ -52,15 +55,17 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 3 local commits ahead of `origin/main` are:
+The 4 local commits ahead of `origin/main` are:
 
 - `2c83c96` (`architecture: complete residual hotspot prevention gate`)
 - `79a117a` alignment hardening commit for `git diff --numstat` line-count
   reporting, expired exception coverage, `--base`/`--staged` command selection
   tests, and focused module ownership under the hygiene file budget
-- `HEAD` (`architecture: complete residual hygiene ratchet`), which converts
+- `00387e7` (`architecture: complete residual hygiene ratchet`), which converts
   strict file/helper budget debt into owned inherited debt plus blocking
   no-growth ceilings
+- `HEAD` (`architecture: harden residual hygiene ratchet alignment`), which
+  closes the hygiene import alignment gap and adds direct CLI output coverage
 
 These commits add and harden the first two residual-weakness prevention gates
 after `origin/main` planned the broader sequence.
@@ -107,6 +112,9 @@ uv run docling-system-hygiene-check
   new hygiene regressions=none
   improvement-case findings=none
   architecture findings=none
+
+uv run docling-system-improvement-case-import --source hygiene --dry-run
+  candidate_count=0, imported_count=0, skipped_count=0
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
@@ -728,11 +736,18 @@ cases, and remaining inherited debt links to
 and `new hygiene regressions` separately; inherited debt no longer fails the
 command, while ratchet growth fails.
 
+Milestone 2 alignment hardening found and closed one intake gap: the hygiene
+improvement-case import path initially treated ratcheted inherited debt as new
+open candidates. It now filters non-blocking inherited findings from the import
+source while preserving blocking regression import behavior. The hygiene tests
+also now cover the CLI output boundary for inherited debt versus new
+regressions.
+
 Milestone 2 verification:
 
 ```text
 git diff --check: passed.
-uv run pytest -q tests/unit/test_hygiene.py tests/unit/test_architecture_quality.py tests/unit/test_improvement_case_intake.py: 42 passed.
+uv run pytest -q tests/unit/test_hygiene.py tests/unit/test_improvement_case_intake.py tests/unit/test_architecture_quality.py: 44 passed.
 uv run ruff check app tests: passed.
 uv run docling-system-hygiene-check: passed; inherited budget debt listed, new hygiene regressions none.
 uv run docling-system-hotspot-prevention-check --strict: passed; changed_hotspots=0, blocked=0.
@@ -740,7 +755,8 @@ uv run docling-system-architecture-inspect: valid=true, violation_count=0.
 uv run docling-system-capability-contracts: valid=true, facade_count=6, function_count=110.
 uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=693.04.
 uv run docling-system-improvement-case-validate: valid=true, issue_count=0.
-DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1132 passed.
+uv run docling-system-improvement-case-import --source hygiene --dry-run: candidate_count=0.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1134 passed.
 ```
 
 ## Active Weak Points

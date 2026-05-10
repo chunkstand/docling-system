@@ -4,6 +4,7 @@ from pathlib import Path
 
 from app.hygiene import (
     find_ruff_regression_findings,
+    run,
     run_architecture_contract_checks,
     run_improvement_case_contract_checks,
     run_python_hygiene_checks,
@@ -211,6 +212,65 @@ def test_hygiene_requires_ratchet_owner(tmp_path: Path) -> None:
     assert [(finding.kind, finding.relative_path) for finding in findings] == [
         ("hygiene_policy", "app/alpha.py")
     ]
+
+
+def test_hygiene_cli_reports_inherited_and_regression_sections(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    _write(
+        tmp_path / "app" / "alpha.py",
+        "\n".join(
+            [
+                "def _one():",
+                "    return 1",
+                "",
+                "def _two():",
+                "    return 2",
+            ]
+        )
+        + "\n",
+    )
+    _write(
+        tmp_path / "config" / "policy.yaml",
+        "\n".join(
+            [
+                "duplicate_helper_names: []",
+                "file_budgets:",
+                "  defaults:",
+                "    max_lines: 50",
+                "    max_private_helpers: 5",
+                "  overrides:",
+                "    app/alpha.py:",
+                "      max_lines: 4",
+                "      ratchet_max_lines: 5",
+                "      max_private_helpers: 1",
+                "      ratchet_max_private_helpers: 2",
+                "      owner_milestone: residual-weakness-milestone-2",
+            ]
+        )
+        + "\n",
+    )
+    monkeypatch.setattr("app.hygiene._project_root", lambda: tmp_path)
+
+    exit_code = run(
+        [
+            "--skip-ruff",
+            "--skip-vulture",
+            "--skip-improvement-cases",
+            "--skip-architecture",
+            "--policy-path",
+            "config/policy.yaml",
+        ]
+    )
+
+    output = capsys.readouterr().out
+    assert exit_code == 0
+    assert "[hygiene] inherited budget debt:" in output
+    assert "file_budget_inherited" in output
+    assert "helper_budget_inherited" in output
+    assert "[hygiene] new hygiene regressions: none" in output
 
 
 def test_hygiene_allows_explicit_duplicate_helper_bodies(tmp_path: Path) -> None:
