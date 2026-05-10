@@ -4,7 +4,7 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 5 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 6 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the platform and ingest data-model domain splits, first evidence-service split,
 first agent-action registry/helper split, first two CLI command-group splits,
@@ -13,7 +13,11 @@ intake ratchet, hotspot-prevention gate, hygiene budget ratchet, and the
 evidence operator-run recorder and task-payload summary split. The latest
 cycle-break slice adds `app/services/agent_task_action_lookup.py` so
 agent-task context and task services no longer statically import the executor
-registry facade.
+registry facade. The Milestone 6 runtime closeout then rebuilt the local
+evaluation corpus so `docling-system-evaluation-data-readiness` now reports
+`regression_ready=true` while the stricter court-grade tier remains false until
+the remaining feedback, gold-corpus, replay, and retrieval-learning lanes are
+materialized.
 
 Current repo-level signals:
 
@@ -37,10 +41,11 @@ Current repo-level signals:
 - The general architecture probe no longer reports the large agent-task
   import-cycle component; `app/services/agent_task_actions.py` remains the
   action-orchestration entrypoint with fan-out 39.
-- DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Residual Weakness Plan Milestone 4 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1175 passed`, and the
-  Milestone 5 closeout ran it with `1178 passed`.
+- The live readiness preflight now reports 26 active documents, 26 completed
+  evaluations, 51 passed evaluation queries, and empty regression blockers.
+- Court-grade readiness remains intentionally false until the hand-verified gold
+  corpus, operator feedback, technical-report claim feedback, full replay and
+  harness coverage, and retrieval-learning materialization are in place.
 
 ## What It Does
 

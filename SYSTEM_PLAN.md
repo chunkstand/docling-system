@@ -30,7 +30,7 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 5 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 6 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the platform and ingest data-model domain splits, first evidence-service
 split, first agent-action registry/helper split, first two CLI command-group
@@ -104,9 +104,11 @@ Current verification status:
   `app/services/retrieval_learning.py`, and `app/services/search.py`.
 - Hotspot prevention passes on the current diff and owns the first residual
   weakness gate before further hotspot split work.
-- Evaluation-data readiness remains false on the empty local DB until enough
-  active documents, persisted evaluations, hand-verified fixtures, feedback,
-  replay coverage, and retrieval-learning materialization exist.
+- Evaluation-data readiness now passes the regression tier on the rebuilt local
+  DB with active documents, persisted evaluations, auto-generated fixtures, and
+  basic replay coverage in place. Court-grade readiness remains false until the
+  hand-verified fixture, feedback, claim-feedback, full replay/harness, and
+  retrieval-learning gates are materialized.
 
 ## Current Goals
 

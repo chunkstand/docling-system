@@ -2,11 +2,16 @@
 
 Status refreshed: 2026-05-10. The command remains the required preflight before
 trusting retrieval, reranker, or court-grade document-generation gates. The
-latest run reached local Postgres and reported `regression_ready=false`,
-`court_grade_ready=false`, `passed_gate_count=0`, and `failed_gate_count=11`
-because the local DB is an empty baseline with no active document corpus,
-persisted run evaluations, feedback ledgers, replay coverage, or
-retrieval-learning materialization.
+latest run reached local Postgres and reported `regression_ready=true`,
+`court_grade_ready=false`, `passed_gate_count=4`, and `failed_gate_count=7`.
+The regression tier is now satisfied on the live DB with 26 active documents,
+26 completed evaluations, 51 passed evaluation queries, 26 auto-corpus
+documents, 26 auto table queries, 25 auto chunk queries, and completed replay
+coverage for `evaluation_queries`, `live_search_gaps`, and
+`cross_document_prose_regressions`. Court-grade readiness remains intentionally
+false because the DB still lacks hand-verified gold fixtures, operator feedback,
+technical-report claim feedback, governed claim-support hard cases, full replay
+and harness source coverage, and retrieval-learning materialization.
 
 Use the data-readiness preflight before trusting retrieval, reranker, or
 court-grade document-generation gates. The check is intentionally stricter than
@@ -52,6 +57,12 @@ Required data lanes:
   built from feedback, replay, and claim-feedback sources.
 
 Current blocker interpretation:
+
+- Empty `regression_blockers` means the live database is ready for broad
+  regression detection and replay-backed retrieval checks; that is the Milestone
+  6 claim and no broader claim.
+- Remaining `court_grade_blockers` mean the system is not yet ready to claim
+  auditable technical-report or claim-support gate readiness.
 
 - Failing `operator_feedback_coverage` means the system needs more real search
   labels before feedback replay can represent operator experience.

@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-5 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-6 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -87,13 +87,14 @@ chat history or scanning the whole repository.
   Hotspot Split Pack A, is complete. The fourth implementation milestone, Top
   Hotspot Split Pack B, is complete for the evidence operator-run and
   task-payload summary concerns. The fifth implementation milestone, the
-  Agent-Task Cycle Break, is complete. The next milestone is Regression
-  Evaluation-Data Readiness.
+  Agent-Task Cycle Break, is complete. The sixth implementation milestone,
+  Regression Evaluation-Data Readiness, is complete. The next milestone is
+  Court-Grade Evaluation-Data Readiness.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
-  verification. Evaluation-data readiness is still false on the empty local DB;
-  `uv run docling-system-evaluation-data-readiness` currently reaches Postgres
-  but reports `regression_ready=false`, `court_grade_ready=false`, and
-  `failed_gate_count=11`.
+  verification. Evaluation-data readiness now reports
+  `regression_ready=true`, `court_grade_ready=false`, and
+  `failed_gate_count=7` on the rebuilt local DB. Remaining blockers are the
+  court-grade data lanes, not the regression tier.
 
 ## Executable Architecture Contracts
 

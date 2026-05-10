@@ -601,7 +601,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
 
 ### Milestone 6: Regression Evaluation-Data Readiness
 
-Status: planned.
+Status: complete.
 
 Purpose: make the live database pass the regression-readiness tier before
 claiming broad retrieval or reranker regression coverage.
@@ -631,6 +631,35 @@ Stop conditions:
 - OpenAI quota or runtime failures prevent evaluations and cannot be isolated
   from corpus setup.
 - The readiness command fails due to code defects rather than missing data.
+
+Completed result:
+
+- Reset the empty local knowledge-base baseline and rebuilt the regression tier
+  on a fresh local Postgres database.
+- Bootstrapped a representative active corpus with 26 validated PDFs and 26
+  completed document evaluations, yielding 51 passed evaluation queries.
+- Refreshed the auto-generated regression corpus so
+  `storage/evaluation_corpus.auto.yaml` now exceeds the regression thresholds
+  with 26 documents, 26 table queries, and 25 chunk queries.
+- Completed replay-source coverage for the regression tier:
+  `evaluation_queries`, `live_search_gaps`, and
+  `cross_document_prose_regressions` each have at least one completed replay
+  run in the live DB.
+- Refreshed the readiness docs so they now distinguish the achieved
+  regression-ready state from the still-incomplete court-grade tier.
+- Isolated two environment-specific runtime issues without expanding milestone
+  scope into code changes: host CLI ingest plus Docker worker path handling did
+  not share the same source-file path contract, and the Docker worker hit a
+  Docling runtime TLS assertion. The milestone therefore used a host worker
+  against the same local Postgres database to complete the required data build.
+
+Verified behavior:
+
+```text
+uv run docling-system-evaluation-data-readiness: regression_ready=true, court_grade_ready=false, regression_blockers=[], court_grade_blockers=[hand_verified_gold_corpus, operator_feedback_coverage, technical_report_claim_feedback_ledger, claim_support_replay_alert_corpus, all_replay_source_coverage, harness_evaluation_source_coverage, retrieval_learning_materialized], passed_gate_count=4, failed_gate_count=7.
+uv run docling-system-run-replay-suite evaluation_queries --limit 100: replay_run_id=91a2bdc8-8416-47dd-94a9-2d180badcec2, query_count=51, passed_count=51, failed_count=0, zero_result_count=0, mrr=1.0.
+uv run docling-system-agent-trace-review --limit 5 --skip-hygiene: observation_count=0.
+```
 
 ### Milestone 7: Court-Grade Evaluation-Data Readiness
 

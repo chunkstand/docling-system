@@ -4,13 +4,13 @@ Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 5 alignment
-pass after Agent-Task Cycle Break.
+Latest closeout checkpoint: local Residual Weakness Plan Milestone 6
+regression-readiness pass.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 8 commits
-after the Residual Weakness Plan Milestone 5 alignment pass.
+The checkout is on `main`. Local `main` remains ahead of `origin/main` after
+the Residual Weakness Plan Milestone 1-6 local closeout sequence.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -18,9 +18,8 @@ The latest local architecture closeout commits contain the Residual Weakness
 Plan Milestone 1 hotspot-prevention gate and alignment hardening, plus the
 Milestone 2 hygiene budget ratchet, Milestone 3 Top Hotspot Split Pack A,
 Milestone 4 Top Hotspot Split Pack B, Milestone 5 Agent-Task Cycle Break, and
-the Milestone 5 alignment pass that records the actual closeout hash and next
-route after the action lookup seam removed the large agent-task import-cycle
-component.
+the Milestone 6 regression-readiness data build that makes the live DB pass the
+regression evaluation-data tier.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -54,6 +53,40 @@ component.
 - `docs/SESSION_HANDOFF.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
+
+## Milestone 6 Regression Readiness Closeout
+
+Milestone 6 is a runtime-and-data milestone, not a code-change milestone. The
+implemented result is a rebuilt local evaluation corpus and replay baseline that
+now satisfy the regression tier of
+`uv run docling-system-evaluation-data-readiness`.
+
+Results:
+
+- `regression_ready=true`, `court_grade_ready=false`,
+  `regression_blockers=[]`, `failed_gate_count=7`
+- active documents: 26
+- completed evaluations: 26
+- passed evaluation queries: 51
+- auto-generated corpus coverage: 26 documents, 26 table queries, 25 chunk
+  queries
+- completed replay coverage present for `evaluation_queries`,
+  `live_search_gaps`, and `cross_document_prose_regressions`
+
+Operational notes:
+
+- The empty baseline was reset with
+  `uv run docling-system-knowledge-base-reset --execute --confirm CLEAR_KNOWLEDGE_BASE --allow-active-work`,
+  which created a fresh local database and archived the prior state under
+  `reset-archives/20260510T041438Z`.
+- Host CLI ingest plus the Docker worker did not share a safe source-file path
+  contract for this milestone, and the Docker worker later hit a Docling TLS
+  assertion. To keep the milestone scoped to data readiness, the corpus build
+  used a host worker against the same local Postgres DB instead of changing
+  runtime code.
+- The host worker completed the representative corpus build and document
+  evaluations cleanly. The Docker `api`, `worker`, and `agent-worker` services
+  were stopped during the milestone execution.
 
 The current system is a local-first, durable document-intelligence platform with:
 
@@ -92,11 +125,14 @@ The local commits ahead of `origin/main` are:
 - current alignment commit (`architecture: align residual weakness milestone 5
   closeout`), which keeps the handoff and residual milestone plan synchronized
   with the committed Milestone 5 hash and Milestone 6 routing
+- current Milestone 6 closeout, which rebuilds the live evaluation
+  corpus so the readiness preflight reports `regression_ready=true` and routes
+  the next milestone to the court-grade data lanes
 
 These commits add and harden the first two residual-weakness prevention gates
 after `origin/main` planned the broader sequence, land the first two
-facade-preserving top-hotspot splits, close the first cycle-break slice, and
-align the durable closeout docs.
+facade-preserving top-hotspot splits, close the first cycle-break slice, lift
+the regression readiness tier, and align the durable closeout docs.
 
 ## Current Architecture And Governance State
 
@@ -766,7 +802,7 @@ architecture quality: hotspot_count=10, max_hotspot_risk_score=692.67
 architecture probe: 3 Python cycle components; top hotspot app/db/models.py=411800
 Milestone 4 sizes: app/db/models.py=5800, app/cli.py=1231, tests/unit/test_cli.py=2210, app/services/evidence.py=8076
 hygiene: inherited file/helper budget debt listed with owners; new hygiene regressions none
-evaluation-data readiness: regression_ready=false, court_grade_ready=false, failed_gate_count=11
+evaluation-data readiness: regression_ready=true, court_grade_ready=false, failed_gate_count=7
 ```
 
 Milestone 2 result: `config/hygiene_policy.yaml` now records
@@ -923,10 +959,11 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
 
 ## Active Weak Points
 
-- Evaluation-data readiness is still false because the local DB has no active
-  document corpus, persisted run evaluations, auto/generated regression corpus,
-  hand-verified gold corpus, feedback ledgers, replay coverage, harness-source
-  coverage, or retrieval-learning materialization.
+- Evaluation-data readiness now passes the regression tier on the live DB, but
+  court-grade readiness is still false because the local DB lacks hand-verified
+  gold corpus coverage, operator feedback ledgers, technical-report claim
+  feedback, governed claim-support hard cases, full replay and harness-source
+  coverage, and retrieval-learning materialization.
 - Hygiene remains intentionally strict and currently reports oversized modules,
   especially `app/db/models.py`, `app/services/evidence.py`,
   `app/services/audit_bundles.py`, `app/services/claim_support_policy_impacts.py`,
@@ -972,7 +1009,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1178 passed in 49.53s.
 ## Next Milestone
 
 `Architecture Plan 01` is complete through Milestone 8. Residual Weakness Plan
-Milestones 1-5 are complete: the hotspot-prevention policy, analyzer, CLI, and
+Milestones 1-6 are complete: the hotspot-prevention policy, analyzer, CLI, and
 tests now block new implementation growth in known hotspots while allowing
 deletion-only reductions and facade forwarding; the hygiene budget ratchet now
 turns inherited strict budget debt into visible non-blocking debt with blocking
@@ -980,18 +1017,21 @@ no-growth ceilings; and Top Hotspot Split Pack A moved the ingest ORM domain,
 ingest CLI command group, and ingest CLI tests behind stable facades; Top
 Hotspot Split Pack B moved the evidence operator-run recorder and audit summary
 payload helpers into focused owner modules; and the Agent-Task Cycle Break added
-the action lookup seam and removed the large agent-task import-cycle component.
+the action lookup seam and removed the large agent-task import-cycle component;
+Milestone 6 then rebuilt the live evaluation corpus so the readiness preflight
+now reports `regression_ready=true`.
 
 New planning artifacts:
 
 - `docs/hotspot_prevention_gate_milestone_plan.md`
 - `docs/residual_weakness_resolution_milestone_plan.md`
 
-Recommended next architecture milestone: Residual Weakness Plan Milestone 6,
-Regression Evaluation-Data Readiness. Keep both prevention gates in closeout:
+Recommended next architecture milestone: Residual Weakness Plan Milestone 7,
+Court-Grade Evaluation-Data Readiness. Keep both prevention gates in closeout:
 `docling-system-hotspot-prevention-check --strict` and
 `docling-system-hygiene-check`. The next implementation should build the live
-active corpus and persisted evaluation evidence required for
-`docling-system-evaluation-data-readiness` to report `regression_ready=true`;
-do not claim `court_grade_ready=true` until the separate court-grade milestone
-passes.
+court-grade evidence lanes required for
+`docling-system-evaluation-data-readiness` to report `court_grade_ready=true`:
+hand-verified gold fixtures, operator feedback, technical-report claim
+feedback, governed hard cases, full replay and harness source coverage, and
+retrieval-learning materialization.
