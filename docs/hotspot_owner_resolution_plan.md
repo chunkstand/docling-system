@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 0 owner bootstrap complete locally
+Status: in progress; Milestone 0 closed in `33c7855`, Milestone 1 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -251,6 +251,7 @@ Acceptance:
 Status update:
 
 - Implemented and verified locally on 2026-05-09 MDT / 2026-05-10 UTC.
+- Closed by commit `33c7855` (`architecture: complete hotspot owner milestone 0 bootstrap`).
 - New owner cases: `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
   `IC-0D58F1624037` for `app/services/retrieval_learning.py`.
 - Next implementation slice starts at Milestone 1 unless a narrower verified

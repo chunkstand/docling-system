@@ -4,10 +4,10 @@ Date: 2026-05-09 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Residual Weakness Plan Milestone 8
-closeout alignment pass.
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 0 owner
-bootstrap.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 0 owner
+bootstrap (`33c7855`).
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 1
+`app/db/models.py` domain continuation.
 
 ## Current Position
 
@@ -24,12 +24,16 @@ the Milestone 6 regression-readiness data build that makes the live DB pass the
 regression evaluation-data tier. This handoff revision closes Milestone 7 by
 materializing the court-grade evaluation-data lanes and aligning the remaining
 governance checks with intentional `feedback` no-answer replay coverage. The
-current revision closes Milestone 8 by proving the remaining residual risk is
-now explicitly governed and that the plan, handoff, and architecture index all
-match the current gate state.
+next revision closes Milestone 8 by proving the remaining residual risk is now
+explicitly governed and that the plan, handoff, and architecture index all
+match the current gate state. The current local checkpoint closes Hotspot Owner
+Resolution Milestone 0 by promoting `app/services/audit_bundles.py` and
+`app/services/retrieval_learning.py` from milestone-owned hygiene debt to
+explicit improvement-case ownership before the first owner-module split.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
+- `config/improvement_cases.yaml`
 - `app/cli_commands/common.py`
 - `app/cli_commands/ingest.py`
 - `app/db/model_domains/ingest.py`
@@ -57,9 +61,49 @@ match the current gate state.
 - `docs/architecture_boundaries.md`
 - `docs/architecture_plan_01.md`
 - `docs/agentic_architecture_index.md`
+- `docs/hotspot_owner_resolution_plan.md`
 - `docs/SESSION_HANDOFF.md`
 - `README.md`
 - `SYSTEM_PLAN.md`
+
+## Hotspot Owner Resolution Milestone 0 Closeout
+
+Milestone 0 is the owner-bootstrap and baseline-lock slice for the hotspot
+owner resolution plan. It is a governance-and-doc alignment milestone, not a
+runtime behavior change.
+
+Commit:
+
+- `33c7855` (`architecture: complete hotspot owner milestone 0 bootstrap`)
+
+Results:
+
+- `config/improvement_cases.yaml` now contains explicit open owner cases
+  `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
+  `IC-0D58F1624037` for `app/services/retrieval_learning.py`.
+- `config/hygiene_policy.yaml` now routes both surfaces through
+  `owner_case_id` instead of
+  `owner_milestone=residual-weakness-milestone-2`.
+- `uv run docling-system-improvement-case-summary` now reports
+  `case_count=25`, `open=24`, `measured=1`.
+- `uv run docling-system-hygiene-check` shows both surfaces under explicit case
+  ownership with no new hygiene regressions.
+- `docs/hotspot_owner_resolution_plan.md`, `docs/agentic_architecture_index.md`,
+  `docs/improvement_loop.md`, and this handoff now agree on the owner bootstrap
+  result and route the next implementation slice to Milestone 1.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 
 ## Milestone 6 Regression Readiness Closeout
 
@@ -1138,10 +1182,12 @@ Current follow-up plan for the main remaining hotspot-owner debt:
   into owner-scoped reduction milestones. It also promotes
   `audit_bundles` and `retrieval_learning` from milestone-owned hygiene debt to
   explicit improvement-case ownership before more split work begins.
-- Milestone 0 owner bootstrap is now complete locally and verified:
+- Milestone 0 owner bootstrap closed in `33c7855` and is verified:
   `config/improvement_cases.yaml` adds `IC-2112B1ADC5E8` for
   `app/services/audit_bundles.py` and `IC-0D58F1624037` for
   `app/services/retrieval_learning.py`; `config/hygiene_policy.yaml` now routes
   both surfaces through those case IDs; and
   `uv run docling-system-improvement-case-summary` reports `case_count=25`,
   `open=24`, `measured=1`.
+- Next routed implementation slice: Milestone 1,
+  `app/db/models.py` domain continuation.

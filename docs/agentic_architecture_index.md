@@ -79,7 +79,9 @@ chat history or scanning the whole repository.
   Resolution Milestone 0 is now complete locally: the registry now has
   `case_count=25`, `open=24`, `measured=1`, including explicit owner-bootstrap
   cases `IC-2112B1ADC5E8` for `app/services/audit_bundles.py` and
-  `IC-0D58F1624037` for `app/services/retrieval_learning.py`.
+  `IC-0D58F1624037` for `app/services/retrieval_learning.py`. The milestone is
+  closed by commit `33c7855` and the next routed slice is Milestone 1,
+  `app/db/models.py` domain continuation.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
