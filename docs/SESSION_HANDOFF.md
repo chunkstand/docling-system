@@ -4,10 +4,10 @@ Date: 2026-05-09 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 1
-document-artifacts model-domain split (`060b537`).
-Active local follow-up milestone: Hotspot Owner Resolution Milestone 2 Evidence
-And Audit Bundle Split Pack.
+Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 2
+evidence and audit bundle split pack.
+Active local follow-up milestone: Hotspot Owner Resolution Milestone 3 Claim
+Support Policy Impacts Split.
 
 ## Current Position
 
@@ -27,9 +27,10 @@ governance checks with intentional `feedback` no-answer replay coverage. The
 next revision closes Milestone 8 by proving the remaining residual risk is now
 explicitly governed and that the plan, handoff, and architecture index all
 match the current gate state. The current local checkpoint closes Hotspot
-Owner Resolution Milestone 1 by moving the `document_artifacts` ORM domain
-behind the existing `app.db.models` compatibility facade and tightening the
-metadata ratchet for the reduced hotspot.
+Owner Resolution Milestone 2 by moving the technical-report evidence trace
+graph and retrieval-training replay-alert corpus lineage concerns behind
+focused owner modules while preserving the existing `evidence` and
+`audit_bundles` entry surfaces.
 
 - `config/hotspot_prevention.yaml`
 - `config/hygiene_policy.yaml`
@@ -47,6 +48,8 @@ metadata ratchet for the reduced hotspot.
 - `app/hygiene_types.py`
 - `app/services/improvement_case_intake.py`
 - `app/services/agent_task_action_lookup.py`
+- `app/services/audit_bundle_replay_alert_corpus.py`
+- `app/services/evidence_manifest_traces.py`
 - `app/services/evidence_operator_runs.py`
 - `app/services/evidence_task_payloads.py`
 - `tests/unit/test_agent_task_action_lookup.py`
@@ -161,6 +164,67 @@ Verified closeout results:
 - `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`: `271 passed`
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=681.91`
+
+## Hotspot Owner Resolution Milestone 2 Closeout
+
+Milestone 2 is the evidence and audit bundle split pack. It is a
+behavior-preserving service modularization pass behind the existing
+`app/services/evidence.py` and `app/services/audit_bundles.py` facades.
+
+Commit:
+
+- Pending the local Milestone 2 closeout commit in this worktree.
+
+Results:
+
+- Added `app/services/evidence_manifest_traces.py` and moved the technical
+  report evidence trace graph build, persistence, and integrity concern behind
+  the existing `get_agent_task_evidence_trace` and manifest refresh flows.
+- Added `app/services/audit_bundle_replay_alert_corpus.py` and moved retrieval
+  training replay-alert corpus lineage payload assembly and bundle freshness
+  status checks behind the existing audit-bundle entry points.
+- Reduced `app/services/evidence.py` from 8,076 lines to 7,143 and
+  `app/services/audit_bundles.py` from 3,862 lines to 3,306.
+- Added a hygiene ratchet entry for `app/services/evidence_manifest_traces.py`
+  under `owner_case_id: IC-050E60059A34` with `ratchet_max_lines: 980`, which
+  keeps the new owner module governed without reopening new hygiene debt.
+- Kept `docling-system-hotspot-prevention-check --strict` green by reducing
+  the `evidence` facade change to allowed import-forwarder delegation only.
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+  remains `regression_ready=true`, `court_grade_ready=true`, and
+  `failed_gate_count=0`.
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` reports
+  `observation_count=0`.
+- The next routed implementation slice is Milestone 3: Claim Support Policy
+  Impacts Split.
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_technical_report_harness_roundtrip.py::test_technical_report_harness_roundtrip -rs`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_retrieval_learning_ledger.py -k "claim_support_replay_alert or training_audit_bundle or release_audit" -rs`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified closeout results:
+
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1236 passed in 56.65s`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_technical_report_harness_roundtrip.py::test_technical_report_harness_roundtrip -rs`: `1 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q tests/integration/test_retrieval_learning_ledger.py -k "claim_support_replay_alert or training_audit_bundle or release_audit" -rs`: `2 passed, 8 deselected`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=688.91`
+- `uv run docling-system-hotspot-prevention-check --strict`:
+  `blocked=0`, `allowed=6`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
 
 ## Milestone 6 Regression Readiness Closeout
 

@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: in progress; Milestone 1 document_artifacts split complete locally, Milestone 2 next
+Status: in progress; Milestone 2 evidence/audit split complete locally, Milestone 3 next
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose
@@ -289,8 +289,8 @@ Status update:
 - Reduced `app/db/models.py` from 5,800 lines to 5,537 lines, ratcheted the
   hygiene ceiling to match, and lowered the architecture-quality
   `max_hotspot_risk_score` to `681.91`.
-- The next routed implementation slice is Milestone 2: Evidence And Audit
-  Bundle Split Pack.
+- The next routed implementation slice is Milestone 3: Claim Support Policy
+  Impacts Split.
 
 ### Milestone 2: Evidence And Audit Bundle Split Pack
 
@@ -312,6 +312,30 @@ Acceptance:
 - focused tests cover the moved concern through the original facade or entry
   surface
 - hotspot prevention and hygiene remain green with no touched-file debt growth
+
+Status update:
+
+- Implemented locally as a behavior-preserving evidence/audit owner split.
+- Added `app/services/evidence_manifest_traces.py` for the technical-report
+  evidence trace graph build, persistence, and integrity concern while keeping
+  `app/services/evidence.py` as the compatibility facade.
+- Added `app/services/audit_bundle_replay_alert_corpus.py` for retrieval
+  training replay-alert corpus lineage payload assembly and staleness checks
+  while keeping `app/services/audit_bundles.py` as the entry surface.
+- Reduced `app/services/evidence.py` from 8,076 lines to 7,143 and
+  `app/services/audit_bundles.py` from 3,862 lines to 3,306.
+- Ratcheted `config/hygiene_policy.yaml` so
+  `app/services/evidence_manifest_traces.py` is governed under
+  `owner_case_id: IC-050E60059A34` with `ratchet_max_lines: 980`.
+- Focused integration coverage passed on
+  `test_technical_report_harness_roundtrip`,
+  `test_retrieval_training_audit_bundle_flags_tampered_replay_alert_corpus_lineage`,
+  and
+  `test_release_audit_bundle_refreshes_stale_replay_alert_corpus_training_bundle`.
+- Full DB-backed verification, architecture inspection, hotspot prevention,
+  hygiene, evaluation-data readiness, and agent-trace review all passed.
+- The next routed implementation slice is Milestone 3: Claim Support Policy
+  Impacts Split.
 
 ### Milestone 3: Claim Support Policy Impacts Split
 

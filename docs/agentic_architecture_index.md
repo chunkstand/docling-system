@@ -90,6 +90,13 @@ chat history or scanning the whole repository.
   moved classes, and `app/db/models.py` is reduced to 5,537 lines with the
   hygiene ratchet updated to match. The milestone is closed by commit
   `060b537`.
+- Hotspot Owner Resolution Milestone 2 is now complete locally: the
+  technical-report evidence trace concern lives in
+  `app/services/evidence_manifest_traces.py`, retrieval training replay-alert
+  corpus lineage lives in
+  `app/services/audit_bundle_replay_alert_corpus.py`, `app/services/evidence.py`
+  is reduced to 7,143 lines, and `app/services/audit_bundles.py` is reduced to
+  3,306 lines while both facades keep their existing entry surfaces.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -120,8 +127,8 @@ chat history or scanning the whole repository.
   ownership rather than untracked or milestone-owned debt.
 - Current routed follow-up: the next architecture work should use
   `docs/hotspot_owner_resolution_plan.md`; the next routed slice after the
-  document-artifacts model split is Milestone 2, Evidence And Audit Bundle
-  Split Pack.
+  evidence/audit owner split is Milestone 3, Claim Support Policy Impacts
+  Split.
 
 ## Executable Architecture Contracts
 
