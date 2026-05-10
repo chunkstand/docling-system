@@ -282,6 +282,7 @@ Acceptance:
 Status update:
 
 - Implemented locally as the `document_artifacts` domain split.
+- Closed by commit `060b537` (`architecture: complete hotspot owner milestone 1 document-artifacts`).
 - Moved `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`,
   `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and
   `DocumentFigure` into `app/db/model_domains/document_artifacts.py`.

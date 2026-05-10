@@ -88,7 +88,8 @@ chat history or scanning the whole repository.
   `document_artifacts` ORM domain lives in
   `app/db/model_domains/document_artifacts.py`, `app.db.models` re-exports the
   moved classes, and `app/db/models.py` is reduced to 5,537 lines with the
-  hygiene ratchet updated to match.
+  hygiene ratchet updated to match. The milestone is closed by commit
+  `060b537`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in

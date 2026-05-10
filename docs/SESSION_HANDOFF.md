@@ -5,7 +5,7 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: local Hotspot Owner Resolution Milestone 1
-document-artifacts model-domain split.
+document-artifacts model-domain split (`060b537`).
 Active local follow-up milestone: Hotspot Owner Resolution Milestone 2 Evidence
 And Audit Bundle Split Pack.
 
@@ -115,6 +115,10 @@ Verification:
 Milestone 1 is the `app/db/models.py` document-artifacts domain continuation.
 It is a behavior-preserving ORM ownership split behind the existing
 `app.db.models` compatibility facade.
+
+Commit:
+
+- `060b537` (`architecture: complete hotspot owner milestone 1 document-artifacts`)
 
 Results:
 

@@ -113,6 +113,10 @@ Completed on 2026-05-10: `document_artifacts`: `DocumentRunEvaluation`,
 `DocumentRunEvaluationQuery`, `DocumentChunk`, `DocumentTable`,
 `DocumentTableSegment`, and `DocumentFigure`.
 
+Closeout commit:
+
+- `060b537` (`architecture: complete hotspot owner milestone 1 document-artifacts`)
+
 Implemented result:
 
 - Added `app/db/model_domains/document_artifacts.py`.
