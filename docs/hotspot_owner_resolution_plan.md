@@ -1,7 +1,7 @@
 # Hotspot Owner Resolution Plan
 
 Date: 2026-05-09 local / 2026-05-10 UTC
-Status: complete locally; remaining debt is routed through explicit owner cases, with `IC-F2A8110185EB` / `app/db/models.py` next by hotspot
+Status: complete locally at `76526ef`; remaining debt is routed through explicit owner cases, with `IC-F2A8110185EB` / `app/db/models.py` next by hotspot
 Owner context: follow-on plan after Residual Weakness Plan Milestone 8 closeout.
 
 ## Purpose

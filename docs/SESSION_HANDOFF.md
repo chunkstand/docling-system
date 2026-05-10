@@ -401,6 +401,10 @@ Verification:
 Milestone 6 is the docs-and-case lifecycle closeout for the hotspot owner
 resolution plan. It is a governance milestone, not another code split.
 
+Commit:
+
+- `76526ef` (`architecture: complete hotspot owner milestone 6 closeout`)
+
 Results:
 
 - Updated `config/improvement_cases.yaml` so the six targeted hotspot owner

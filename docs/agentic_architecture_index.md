@@ -127,7 +127,8 @@ chat history or scanning the whole repository.
   registry, hotspot plan, architecture index, and session handoff are aligned
   to the committed Milestones 1-5 reductions, explicit owner routing is
   confirmed for all six targeted surfaces, and the next route returns to the
-  top remaining owner case `IC-F2A8110185EB` / `app/db/models.py`.
+  top remaining owner case `IC-F2A8110185EB` / `app/db/models.py`. The
+  milestone is closed by commit `76526ef`.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
