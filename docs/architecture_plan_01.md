@@ -2,7 +2,7 @@
 
 Date: 2026-05-09
 Status: active plan; Milestones 0-4 complete; local commit-on-closeout policy
-active as of 2026-05-09
+active as of 2026-05-10
 
 Purpose: reduce centralization in the current modular monolith without
 weakening the existing API, CLI, database, worker, retrieval, agent-task, or
@@ -32,6 +32,11 @@ Current architecture signals:
     - `app/services/evidence.py`
     - `app/services/agent_task_actions.py`
     - `tests/unit/test_cli.py`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`
+  reports 3 Python cycle components. The largest remaining component includes
+  `app.services.agent_task_actions` with agent action, context, task,
+  verification, and claim-support modules, and the same probe reports
+  `app.services.agent_task_actions` fan-out at 39 local modules.
 
 Interpretation: this is not an architecture-contract failure. The weakness is
 maintainability and change amplification. Central files are still large enough
@@ -651,6 +656,17 @@ Completed result:
   represented by the focused registry module.
 - Reduced `app/services/agent_task_actions.py` from 3,320 lines to 2,884
   lines. The new search-harness registry/helper module is 539 lines.
+- 2026-05-10 alignment check confirmed this milestone is a registry/helper
+  split, not an executor implementation move. `list_agent_task_actions()` exposes
+  51 actions, the 10 `SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES` are present, and
+  their executor callables still resolve to `app.services.agent_task_actions`.
+- The remaining import-cycle signal is now explicitly documented: the general
+  architecture probe still reports an agent-task cycle component containing
+  `app.services.agent_task_actions` and related agent-action, context, task,
+  verification, and claim-support modules. The next action-family split target
+  is either a search-harness executor dependency seam or a semantic executor
+  family with more isolated dependencies, before moving executor implementations
+  out of the facade.
 
 Verification:
 
@@ -666,6 +682,12 @@ Capability contracts: valid, facade_count=6, function_count=110.
 Architecture decisions: valid, decision_count=9.
 Architecture quality summary: agent_legibility_average_score=90.0,
 broad_facade_count=2, hotspot_count=10, max_hotspot_risk_score=687.04.
+Architecture probe alignment check: 3 Python cycle components remain;
+app.services.agent_task_actions fan-out is 39 local modules; remaining
+agent-task cycle documented with next split target.
+Registry composition check: total_actions=51, search_harness_actions=10,
+executor_modules=['app.services.agent_task_actions'].
+Alignment closeout full DB-backed suite: 1110 passed in 49.04s.
 Hygiene: no ruff, vulture, improvement-case, or architecture findings;
 inherited file/helper budget debt remains.
 ```

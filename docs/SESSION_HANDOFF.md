@@ -1,20 +1,21 @@
 # Session Handoff
 
-Date: 2026-05-09 local / 2026-05-09 UTC
+Date: 2026-05-10 local / 2026-05-10 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest committed checkpoint: local `Architecture Plan 01` Milestone 4
-agent-action registry split closeout.
+alignment closeout after the agent-action registry split.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` is ahead of `origin/main` by 17
-commits after the Milestone 4 closeout; `origin/main` is `6933eca`
+The checkout is on `main`. Local `main` is ahead of `origin/main` by 18
+commits after the Milestone 4 alignment closeout; `origin/main` is `6933eca`
 (`Add Docker pg_dump fallback for reset`).
 
-The latest Milestone 4 closeout commit contains the first agent-task action
-registry family split and its verification/docs updates:
+The latest Milestone 4 closeout and alignment commits contain the first
+agent-task action registry family split, the residual import-cycle alignment
+note, and their verification/docs updates:
 
 - `app/services/agent_task_actions.py`
 - `app/services/agent_actions/search_harness.py`
@@ -38,8 +39,10 @@ The current system is a local-first, durable document-intelligence platform with
 
 ## Recent Local Milestones Since `origin/main`
 
-The 17 local commits ahead of `origin/main` are:
+The 18 local commits ahead of `origin/main` are:
 
+- local Milestone 4 alignment closeout commit documenting the remaining
+  agent-task import-cycle signal and next action-family split target
 - local Milestone 4 closeout commit for `Architecture Plan 01`
 - local closeout-doc policy hardening commit after `Architecture Plan 01`
   Milestone 3
@@ -382,6 +385,42 @@ Hygiene: no ruff, vulture, improvement-case, or architecture findings;
 inherited file/helper budget debt remains.
 ```
 
+Alignment check:
+
+```text
+Architecture probe:
+  command: python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown
+  result: 3 Python cycle components remain.
+  agent_task_actions: 2,884 lines, fan-out 39 local modules, still part of the
+  large agent-task cycle component.
+
+Registry composition:
+  command: uv run python -c '<import action registry and print counts/modules>'
+  result: total_actions=51, search_harness_actions=10,
+  executor_modules=['app.services.agent_task_actions'].
+
+Closeout gates:
+  git diff --check: passed.
+  uv run ruff check app tests: passed.
+  uv run pytest -q tests/unit/test_agent_action_contracts.py: 9 passed.
+  uv run docling-system-agent-task-action-index: generated successfully.
+  uv run docling-system-architecture-inspect: valid, violation_count=0.
+  uv run docling-system-capability-contracts: valid, facade_count=6,
+  function_count=110.
+  uv run docling-system-architecture-decisions: valid, decision_count=9.
+  uv run docling-system-architecture-quality-report --summary:
+  agent_legibility_average_score=90.0, broad_facade_count=2,
+  hotspot_count=10, max_hotspot_risk_score=687.04.
+  DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs:
+  1110 passed in 49.04s.
+```
+
+Milestone 4 should therefore be read as the first search-harness registry/helper
+split, not as an executor implementation move. The next action-family split
+target is a search-harness executor dependency seam, or a semantic executor
+family with more isolated dependencies, before moving executor implementations
+out of the compatibility facade.
+
 ## Architecture Milestone Closeout Policy
 
 The architecture plan was revised on 2026-05-09 so each milestone is complete
@@ -423,9 +462,12 @@ Milestone 5 may begin from this committed checkpoint.
   major architecture-quality hotspot. Future evidence splits should move one
   owner concern at a time behind the same compatibility facade.
 - The first agent-action registry split reduced
-  `app/services/agent_task_actions.py`, but it remains a hotspot. Future
+  `app/services/agent_task_actions.py`, but it remains a hotspot and part of the
+  general architecture probe's large agent-task cycle component. Future
   action-family splits should move one owner concern at a time behind the same
-  compatibility facade before moving executor paths.
+  compatibility facade, starting with a search-harness executor dependency seam
+  or a semantic executor family with isolated dependencies before moving executor
+  paths.
 - The improvement-case registry has not yet imported the current
   architecture-quality hotspot candidates, so generated hotspot signals are not
   all represented as tracked cases.

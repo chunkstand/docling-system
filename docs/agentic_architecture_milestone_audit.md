@@ -1,7 +1,7 @@
 # Agentic Architecture Milestone Audit
 
 Date: 2026-05-04
-Status refreshed: 2026-05-09
+Status refreshed: 2026-05-10
 
 Scope: audit the implemented architecture milestones against
 `docs/agentic_architecture_milestone_plan.md` and close concrete gaps that can
@@ -20,6 +20,9 @@ runtime behavior.
   `hotspot_count=10`, `max_hotspot_risk_score=687.04`, and top hotspot paths
   headed by `app/db/models.py`, `app/cli.py`, `app/services/evidence.py`,
   `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`:
+  3 Python cycle components remain. `app.services.agent_task_actions` still has
+  fan-out 39 and participates in the large agent-task cycle component.
 - `uv run ruff check app tests`: passed.
 - Focused architecture tests:
   `tests/unit/test_architecture_inspection.py`,
@@ -30,9 +33,10 @@ runtime behavior.
   Milestone 2: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
   passed with `1105 passed`, and the focused Postgres metadata/create-all gate
   now passes with `7 passed`.
-- DB-backed service verification is current for `Architecture Plan 01`
-  Milestone 4: `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
-  passed with `1110 passed`.
+- DB-backed service verification is current for the `Architecture Plan 01`
+  Milestone 4 alignment closeout:
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs` passed with
+  `1110 passed in 49.04s`.
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene` is
   current and reports `observation_count=0`.
 - `uv run docling-system-evaluation-data-readiness` is current but still
@@ -80,6 +84,11 @@ runtime behavior.
   in `app/services/agent_actions/search_harness.py` while
   `app.services.agent_task_actions` remains the public registry facade and
   execution entrypoint.
+- The Milestone 4 alignment gap is closed by documenting that the completed
+  slice moved registry/helper ownership, not executor implementations. The
+  remaining import-cycle signal is tracked with a next action-family target:
+  search-harness executor dependency seam or a more isolated semantic executor
+  family.
 
 ## Deferred Large Refactors
 
@@ -92,7 +101,9 @@ registry/helper split is complete; additional action families should still move
 one at a time. The next active hotspot split is `Architecture Plan 01`
 Milestone 5 for the first `app/cli.py` command group. Later governed split
 surfaces include `app/services/search.py`, additional agent-action families,
-and additional evidence domains.
+and additional evidence domains. The next agent-action family split should first
+introduce a dependency seam for executor movement or choose a family whose
+executors do not keep the broad agent-task cycle intact.
 Each future split should land as a separate
 behavior-preserving milestone with focused tests plus the full integration
 gate.

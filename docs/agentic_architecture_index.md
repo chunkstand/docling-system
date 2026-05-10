@@ -13,7 +13,8 @@ chat history or scanning the whole repository.
 
 ## Milestone Status
 
-- Completed through the local `Architecture Plan 01` Milestone 4 closeout:
+- Completed through the local `Architecture Plan 01` Milestone 4 alignment
+  closeout:
   baseline quality report, capability subcontracts, agent action hardening,
   trace-first review, repository architecture map, architecture
   garbage-collection candidates, data-model boundary plan, and
@@ -36,6 +37,10 @@ chat history or scanning the whole repository.
   `app/services/agent_actions/search_harness.py` while
   `app.services.agent_task_actions` remains the compatibility facade and
   execution entrypoint.
+- The Milestone 4 alignment check confirms executor implementations still live
+  in `app.services.agent_task_actions`; the general architecture probe still
+  reports the large agent-task import-cycle component and fan-out 39 for that
+  module.
 - Governed follow-up: `docs/architecture_plan_01.md` now routes to Milestone 5,
   the first `app/cli.py` command-group split. Later governed splits remain for
   `app/services/search.py`, additional `app/services/evidence.py` domains,
@@ -83,6 +88,8 @@ chat history or scanning the whole repository.
   `uv run docling-system-improvement-case-import --source architecture-quality-report --source-path build/architecture-governance/architecture_quality_report.json --dry-run`
 - DB-backed trace findings:
   `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- General import-cycle probe:
+  `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown`
 
 ## Operating Rule
 

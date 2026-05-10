@@ -1,7 +1,7 @@
 # Agentic Architecture Milestone Plan
 
 Date: 2026-05-04
-Status refreshed: 2026-05-09
+Status refreshed: 2026-05-10
 
 Purpose: translate code-review, software-architecture, and agentic-system
 guidance into an implementation plan for making this repository easier for
@@ -23,6 +23,10 @@ Current architecture status:
 - `uv run docling-system-architecture-quality-report --summary` currently
   reports `agent_legibility_average_score: 90.0`, `broad_facade_count: 2`,
   `hotspot_count: 10`, and `max_hotspot_risk_score: 687.04`.
+- The general architecture probe still reports 3 Python cycle components.
+  `app.services.agent_task_actions` remains part of the large agent-task cycle
+  component and has fan-out 39, so the first registry/helper split did not close
+  executor-level coupling.
 - The main architecture control points are:
   - `docs/architecture_boundaries.md`
   - `docs/agentic_architecture_index.md`
@@ -257,7 +261,9 @@ Deliverables:
   plus per-domain action registration modules. Keep the public registry
   functions stable. `Architecture Plan 01` Milestone 4 completed the first
   search-harness action registry/helper split in
-  `app/services/agent_actions/search_harness.py`.
+  `app/services/agent_actions/search_harness.py`; the next action-family split
+  should target an executor dependency seam before moving executor
+  implementations out of the facade.
 - Continue the prior `search.py` split by isolating query planning, feature
   extraction, ranking, and result hydration where tests already give coverage.
 - Continue model-domain splits only when they can be paired with exact
