@@ -19,7 +19,7 @@ from app.db.models import (
     RetrievalEvidenceSpanMultiVector,
 )
 from app.services.embeddings import EmbeddingProvider
-from app.services.evidence import record_knowledge_operator_run
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.retrieval_span_specs import (
     MULTIVECTOR_MIN_TRAILING_WORDS,
     MULTIVECTOR_SCHEMA_VERSION,

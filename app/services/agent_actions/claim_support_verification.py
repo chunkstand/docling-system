@@ -43,8 +43,8 @@ from app.services.claim_support_replay_alert_waivers import (
 )
 from app.services.evidence import (
     payload_sha256,
-    record_knowledge_operator_run,
 )
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 
 

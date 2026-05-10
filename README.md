@@ -4,12 +4,13 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 3 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 4 closeout, the local
 `main` checkout is ahead of `origin/main`. Recent architecture work completed
 the platform and ingest data-model domain splits, first evidence-service split,
 first agent-action registry/helper split, first two CLI command-group splits,
 first search-core split, second evidence provenance split, improvement-case
-intake ratchet, hotspot-prevention gate, and hygiene budget ratchet.
+intake ratchet, hotspot-prevention gate, hygiene budget ratchet, and the
+evidence operator-run recorder and task-payload summary split.
 
 Current repo-level signals:
 
@@ -31,8 +32,8 @@ Current repo-level signals:
   current diff and fails fixture diffs that add implementation to known hotspot
   files instead of the configured owner modules.
 - DB-backed milestone verification is currently available on the local Docker
-  Postgres runtime; the Residual Weakness Plan Milestone 3 closeout ran the full
-  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1168 passed`.
+  Postgres runtime; the Residual Weakness Plan Milestone 4 closeout ran the full
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1` test suite with `1175 passed`.
 
 ## What It Does
 
@@ -46,7 +47,7 @@ The system also records replayable failure artifacts for failed runs, exposes re
 
 The current experimental retrieval-accuracy track adds a non-default `prose_v3` harness for prose-heavy queries. It widens prose candidate generation with metadata and adjacent-context expansion, persists internal `query_intent` and candidate-source telemetry on search requests, and can be evaluated separately from the production-default `default_v1`.
 
-The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. Search requests can now be exported as an evidence package that ties request parameters, selected results, source document checksums, active-run validation state, chunk/table snapshots, table segment provenance, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload. Technical-report preparation also freezes a reusable `document_generation_context_pack` before drafting, then records context-pack evaluation, claim-support judgments, claim derivation evidence, signed audit-bundle material, and replayable support-judge evaluation rows so document generation can be reviewed from the final claim back to the exact evidence and calibration cases. The final technical-report audit bundle now includes the context-pack artifact, context-pack evaluation artifact, verifier record, operator run, hash check, evidence-manifest nodes, and PROV relationships as explicit audit material.
+The evidence-ledger path records retrieval, reranking, judging, generation, and verification as explicit knowledge-operator runs. The operator-run recorder now lives in `app/services/evidence_operator_runs.py`, and task/artifact/verification/operator summary payload helpers live in `app/services/evidence_task_payloads.py`, while `app.services.evidence` remains the compatibility facade. Search requests can now be exported as an evidence package that ties request parameters, selected results, source document checksums, active-run validation state, chunk/table snapshots, table segment provenance, candidate/rerank telemetry, hashes, and operator lineage into one auditable payload. Technical-report preparation also freezes a reusable `document_generation_context_pack` before drafting, then records context-pack evaluation, claim-support judgments, claim derivation evidence, signed audit-bundle material, and replayable support-judge evaluation rows so document generation can be reviewed from the final claim back to the exact evidence and calibration cases. The final technical-report audit bundle now includes the context-pack artifact, context-pack evaluation artifact, verifier record, operator run, hash check, evidence-manifest nodes, and PROV relationships as explicit audit material.
 
 The repository now also includes a Postgres-backed agent-task substrate for orchestration work. Agent tasks are durable records with dependency edges, attempts, approval metadata, failure artifacts, verifier rows, operator outcome labels, and draft/apply review flows for search harness updates. Agent task attempts now persist structured cost and performance payloads so trend, value-density, and recommendation-success analytics can be computed from durable execution records instead of transient logs.
 

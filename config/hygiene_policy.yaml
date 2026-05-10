@@ -200,9 +200,9 @@ file_budgets:
       max_private_helpers: 61
     app/services/evidence.py:
       max_lines: 600
-      ratchet_max_lines: 8261
+      ratchet_max_lines: 8076
       max_private_helpers: 20
-      ratchet_max_private_helpers: 107
+      ratchet_max_private_helpers: 100
       owner_case_id: IC-050E60059A34
     app/services/improvement_case_intake.py:
       max_lines: 600

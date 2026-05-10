@@ -10,6 +10,7 @@ from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 import app.services.evidence_provenance as _evidence_provenance
+import app.services.evidence_task_payloads as _evidence_task_payloads
 from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.config import get_settings
 from app.core.json_utils import json_object_payload as _json_payload
@@ -38,8 +39,6 @@ from app.db.models import (
     EvidencePackageExport,
     EvidenceTraceEdge,
     EvidenceTraceNode,
-    KnowledgeOperatorInput,
-    KnowledgeOperatorOutput,
     KnowledgeOperatorRun,
     RetrievalRerankerArtifact,
     SearchHarnessRelease,
@@ -102,6 +101,9 @@ from app.services.evidence_common import (
 )
 from app.services.evidence_common import (
     uuid_values as _uuid_values,
+)
+from app.services.evidence_operator_runs import (
+    record_knowledge_operator_run as record_knowledge_operator_run,
 )
 from app.services.evidence_provenance import (
     PROV_EXPORT_RECEIPT_SIGNATURE_ALGORITHM,
@@ -203,6 +205,12 @@ from app.services.semantic_governance import (
 )
 from app.services.storage import StorageService
 
+_artifact_payload = _evidence_task_payloads.artifact_payload
+_immutability_event_payload = _evidence_task_payloads.immutability_event_payload
+_operator_run_summary = _evidence_task_payloads.operator_run_summary
+_task_payload = _evidence_task_payloads.task_payload
+_verification_payload = _evidence_task_payloads.verification_payload
+
 _EVIDENCE_RECORD_COMPAT_ALIASES = (
     _late_interaction_matches,
     _operator_run_payload,
@@ -271,121 +279,6 @@ CLAIM_SUPPORT_POLICY_IMPACT_OPEN_REPLAY_STATUSES = {
     "in_progress",
     "blocked",
 }
-
-
-def _record_inputs(
-    session: Session,
-    *,
-    operator_run_id: UUID,
-    rows: Iterable[dict[str, Any]],
-    created_at,
-) -> None:
-    for index, row in enumerate(rows):
-        session.add(
-            KnowledgeOperatorInput(
-                id=uuid.uuid4(),
-                operator_run_id=operator_run_id,
-                input_index=int(row.get("input_index", index)),
-                input_kind=str(row.get("input_kind") or row.get("kind") or "input"),
-                source_table=row.get("source_table"),
-                source_id=_uuid_or_none(row.get("source_id")),
-                artifact_path=row.get("artifact_path"),
-                artifact_sha256=row.get("artifact_sha256"),
-                payload_json=_json_payload(row.get("payload")),
-                created_at=created_at,
-            )
-        )
-
-
-def _record_outputs(
-    session: Session,
-    *,
-    operator_run_id: UUID,
-    rows: Iterable[dict[str, Any]],
-    created_at,
-) -> None:
-    for index, row in enumerate(rows):
-        session.add(
-            KnowledgeOperatorOutput(
-                id=uuid.uuid4(),
-                operator_run_id=operator_run_id,
-                output_index=int(row.get("output_index", index)),
-                output_kind=str(row.get("output_kind") or row.get("kind") or "output"),
-                target_table=row.get("target_table"),
-                target_id=_uuid_or_none(row.get("target_id")),
-                artifact_path=row.get("artifact_path"),
-                artifact_sha256=row.get("artifact_sha256"),
-                payload_json=_json_payload(row.get("payload")),
-                created_at=created_at,
-            )
-        )
-
-
-def record_knowledge_operator_run(
-    session: Session | None,
-    *,
-    operator_kind: str,
-    operator_name: str,
-    operator_version: str | None = None,
-    status: str = "completed",
-    parent_operator_run_id: UUID | None = None,
-    document_id: UUID | None = None,
-    run_id: UUID | None = None,
-    search_request_id: UUID | None = None,
-    search_harness_evaluation_id: UUID | None = None,
-    agent_task_id: UUID | None = None,
-    agent_task_attempt_id: UUID | None = None,
-    model_name: str | None = None,
-    model_version: str | None = None,
-    prompt_sha256: str | None = None,
-    config: Any | None = None,
-    input_payload: Any | None = None,
-    output_payload: Any | None = None,
-    metrics: dict[str, Any] | None = None,
-    metadata: dict[str, Any] | None = None,
-    inputs: Iterable[dict[str, Any]] = (),
-    outputs: Iterable[dict[str, Any]] = (),
-    started_at=None,
-    completed_at=None,
-    duration_ms: float | None = None,
-) -> KnowledgeOperatorRun | None:
-    if session is None or not hasattr(session, "add"):
-        return None
-
-    created_at = utcnow()
-    completed_at = completed_at or created_at
-    run = KnowledgeOperatorRun(
-        id=uuid.uuid4(),
-        parent_operator_run_id=parent_operator_run_id,
-        operator_kind=operator_kind,
-        operator_name=operator_name,
-        operator_version=operator_version,
-        status=status,
-        document_id=document_id,
-        run_id=run_id,
-        search_request_id=search_request_id,
-        search_harness_evaluation_id=search_harness_evaluation_id,
-        agent_task_id=agent_task_id,
-        agent_task_attempt_id=agent_task_attempt_id,
-        model_name=model_name,
-        model_version=model_version,
-        prompt_sha256=prompt_sha256,
-        config_sha256=payload_sha256(config),
-        input_sha256=payload_sha256(input_payload),
-        output_sha256=payload_sha256(output_payload),
-        metrics_json=_json_payload(metrics),
-        metadata_json=_json_payload(metadata),
-        started_at=started_at,
-        completed_at=completed_at,
-        duration_ms=duration_ms,
-        created_at=created_at,
-    )
-    session.add(run)
-    session.flush()
-    _record_inputs(session, operator_run_id=run.id, rows=inputs, created_at=created_at)
-    _record_outputs(session, operator_run_id=run.id, rows=outputs, created_at=created_at)
-    session.flush()
-    return run
 
 
 _ACCEPTABLE_REPORT_SOURCE_MATCH_STATUSES = {
@@ -2363,31 +2256,6 @@ def persist_technical_report_claim_retrieval_feedback_ledger(
     return rows
 
 
-def _task_payload(row: AgentTask | None) -> dict | None:
-    if row is None:
-        return None
-    return {
-        "task_id": row.id,
-        "task_type": row.task_type,
-        "status": row.status,
-        "workflow_version": row.workflow_version,
-        "created_at": row.created_at,
-        "updated_at": row.updated_at,
-        "completed_at": row.completed_at,
-    }
-
-
-def _artifact_payload(row: AgentTaskArtifact) -> dict:
-    return {
-        "artifact_id": row.id,
-        "task_id": row.task_id,
-        "artifact_kind": row.artifact_kind,
-        "storage_path": row.storage_path,
-        "payload_sha256": payload_sha256(row.payload_json or {}),
-        "created_at": row.created_at,
-    }
-
-
 def _provenance_export_receipt_payload(row: AgentTaskArtifact) -> dict:
     payload = _json_payload(row.payload_json or {})
     frozen_export = payload.get("frozen_export") or {}
@@ -2401,59 +2269,6 @@ def _provenance_export_receipt_payload(row: AgentTaskArtifact) -> dict:
         "prov_hash_basis_sha256": frozen_export.get("prov_hash_basis_sha256"),
         "export_receipt": receipt,
         "receipt_integrity": _prov_export_receipt_integrity(payload),
-    }
-
-
-def _immutability_event_payload(row: AgentTaskArtifactImmutabilityEvent) -> dict:
-    return {
-        "event_id": row.id,
-        "artifact_id": row.artifact_id,
-        "task_id": row.task_id,
-        "event_kind": row.event_kind,
-        "mutation_operation": row.mutation_operation,
-        "frozen_artifact_kind": row.frozen_artifact_kind,
-        "attempted_artifact_kind": row.attempted_artifact_kind,
-        "frozen_storage_path": row.frozen_storage_path,
-        "attempted_storage_path": row.attempted_storage_path,
-        "frozen_payload_sha256": row.frozen_payload_sha256,
-        "attempted_payload_sha256": row.attempted_payload_sha256,
-        "details": row.details_json or {},
-        "created_at": row.created_at,
-    }
-
-
-def _verification_payload(row: AgentTaskVerification | None) -> dict | None:
-    if row is None:
-        return None
-    return {
-        "verification_id": row.id,
-        "target_task_id": row.target_task_id,
-        "verification_task_id": row.verification_task_id,
-        "verifier_type": row.verifier_type,
-        "outcome": row.outcome,
-        "metrics": row.metrics_json or {},
-        "reasons": row.reasons_json or [],
-        "details": row.details_json or {},
-        "created_at": row.created_at,
-        "completed_at": row.completed_at,
-    }
-
-
-def _operator_run_summary(row: KnowledgeOperatorRun) -> dict:
-    return {
-        "operator_run_id": row.id,
-        "parent_operator_run_id": row.parent_operator_run_id,
-        "operator_kind": row.operator_kind,
-        "operator_name": row.operator_name,
-        "operator_version": row.operator_version,
-        "status": row.status,
-        "agent_task_id": row.agent_task_id,
-        "search_request_id": row.search_request_id,
-        "config_sha256": row.config_sha256,
-        "input_sha256": row.input_sha256,
-        "output_sha256": row.output_sha256,
-        "metrics": row.metrics_json or {},
-        "created_at": row.created_at,
     }
 
 

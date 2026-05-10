@@ -24,9 +24,9 @@ from app.services.evidence import (
     attach_operator_run_to_evidence_export,
     persist_technical_report_evidence_export,
     persist_technical_report_evidence_manifest,
-    record_knowledge_operator_run,
     technical_report_search_evidence_closure_payload,
 )
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 from app.services.technical_reports import (
     apply_technical_report_claim_support_judgments,

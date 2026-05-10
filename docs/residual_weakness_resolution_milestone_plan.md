@@ -1,7 +1,7 @@
 # Residual Weakness Resolution Milestone Plan
 
 Date: 2026-05-10
-Status: in progress; Milestones 1-3 complete
+Status: in progress; Milestones 1-4 complete
 Owner context: follow-on plan after `Architecture Plan 01` Milestones 0-8.
 
 ## Purpose
@@ -45,7 +45,7 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
   app/db/models.py = 5800 lines
   app/cli.py = 1231 lines
   tests/unit/test_cli.py = 2210 lines
-  app/services/evidence.py = 8261 lines, score 380006
+  app/services/evidence.py = 8076 lines, score 379572
   app/services/agent_task_actions.py fan-out = 39 local modules
 
 uv run docling-system-hygiene-check
@@ -184,7 +184,7 @@ so the correct path is visible in the tool output rather than only in this plan.
 
 ### Milestone 0: Residual Baseline Lock
 
-Status: planned.
+Status: complete.
 
 Purpose: freeze current evidence before changing gates or splitting more code.
 
@@ -484,6 +484,42 @@ Stop conditions:
   support-judge behavior, or audit-bundle JSON without a separately scoped
   runtime milestone.
 
+Completed result:
+
+- Moved knowledge-operator run recording from `app/services/evidence.py` to
+  `app/services/evidence_operator_runs.py`.
+- Moved task, artifact, verification, immutability-event, and operator-run
+  summary payload helpers from `app/services/evidence.py` to
+  `app/services/evidence_task_payloads.py`.
+- Preserved `app.services.evidence.record_knowledge_operator_run` as the public
+  compatibility facade.
+- Updated search, retrieval-span, and agent-action executor call sites to use
+  the focused owner module for operator-run recording.
+- Added `tests/unit/test_evidence_operator_runs.py` to prove facade identity,
+  direct owner imports, persisted input/output row behavior, and missing-session
+  handling.
+- Added `tests/unit/test_evidence_task_payloads.py` to prove the moved payload
+  helpers preserve the existing audit payload shapes and hash behavior.
+- Ratcheted `app/services/evidence.py` in `config/hygiene_policy.yaml` to
+  8,076 lines and 100 private helpers.
+- Reduced the architecture-probe score for `app/services/evidence.py` from
+  380,006 to 379,572 after accounting for commit-count churn, without adding a
+  Python import-cycle component.
+
+Verified behavior:
+
+```text
+uv run ruff check app tests: passed.
+uv run pytest -q tests/unit/test_evidence_task_payloads.py tests/unit/test_evidence_operator_runs.py tests/unit/test_search_service.py tests/unit/test_evidence_records.py: 44 passed.
+uv run docling-system-hotspot-prevention-check --strict: changed_hotspots=1, added_lines=7, deleted_lines=78, blocked=0, allowed=6.
+uv run docling-system-hygiene-check: app/services/evidence.py ratchet ceiling=8076 lines and 100 private helpers; new hygiene regressions none.
+uv run docling-system-architecture-inspect: valid=true, violation_count=0.
+uv run docling-system-capability-contracts: valid=True, facade_count=6, function_count=110, issues=0.
+uv run docling-system-architecture-quality-report --summary: hotspot_count=10, max_hotspot_risk_score=692.67.
+python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12: app/services/evidence.py=8076 lines, app/services/evidence.py score=379572, Python cycle components=3.
+DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs: 1175 passed in 49.92s.
+```
+
 ### Milestone 5: Agent-Task Cycle Break
 
 Status: planned.
@@ -727,12 +763,10 @@ requested.
 
 ## Residual Risks And Next Routing
 
-Milestones 1-3 are complete. The next milestone is Milestone 4, Top Hotspot
-Split Pack B, with both prevention gates in closeout: hotspot prevention must
+Milestones 1-4 are complete. The next milestone is Milestone 5, Agent-Task
+Cycle Break. Both prevention gates remain in closeout: hotspot prevention must
 block new implementation growth in known hotspots, and the hygiene ratchet must
-show no new file/helper budget regressions. Milestone 4 should move one
-evidence, audit, retrieval-learning, or search owner concern at a time behind the
-existing public compatibility facades.
+show no new file/helper budget regressions.
 
 If evaluation-data readiness is needed for an external review sooner than the
 architecture cleanup, Milestone 6 may run in parallel as an operational data

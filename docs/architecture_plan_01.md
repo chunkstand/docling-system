@@ -1086,8 +1086,9 @@ file/helper budget debt remains.
 ```
 
 `Architecture Plan 01` Milestones 0-8 are complete. The residual weakness
-sequence now owns follow-on work; its first three milestones completed the
-hotspot-prevention gate, hygiene budget ratchet, and Top Hotspot Split Pack A.
+sequence now owns follow-on work; its first four milestones completed the
+hotspot-prevention gate, hygiene budget ratchet, Top Hotspot Split Pack A, and
+Top Hotspot Split Pack B.
 
 ## Cross-Milestone Verification Contract
 

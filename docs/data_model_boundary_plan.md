@@ -112,8 +112,9 @@ Next model-domain candidate when model work resumes:
   `DocumentChunk`, `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure`
 
 The next overall Residual Weakness Plan milestone is not another model-domain
-move. Milestone 4 should reduce one evidence, audit, retrieval-learning, or
-search owner concern behind its existing compatibility facade.
+move. Milestone 4 reduced the evidence operator-run recorder and task-payload
+summary helpers behind the existing compatibility facade; Milestone 5 should
+reduce the agent-task cycle.
 
 ## Per-Domain Acceptance Gate
 

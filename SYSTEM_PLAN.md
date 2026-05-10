@@ -30,13 +30,13 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 3 closeout, the local
+As of the 2026-05-10 Residual Weakness Plan Milestone 4 closeout, the local
 `main` checkout has completed the agentic architecture governance milestones
 plus the platform and ingest data-model domain splits, first evidence-service
 split, first agent-action registry/helper split, first two CLI command-group
 splits, first search-core split, second evidence provenance split,
 improvement-case intake ratchet, hotspot-prevention gate, and hygiene budget
-ratchet. The implemented
+ratchet, and evidence operator-run recorder and task-payload summary split. The implemented
 architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
@@ -65,6 +65,13 @@ architecture posture is:
   persistence, trace integrity, and response assembly now live in focused
   `app/services/evidence_search_*.py` modules while `app.services.evidence`
   remains the public compatibility facade
+- knowledge-operator run recording now lives in
+  `app/services/evidence_operator_runs.py`, while `app.services.evidence`
+  remains import-compatible for existing callers
+- task, artifact, verification, immutability-event, and operator summary
+  payload helpers now live in `app/services/evidence_task_payloads.py`, while
+  `app.services.evidence` remains the compatibility facade for audit bundle
+  assembly
 - improvement-case CLI command implementations now live in
   `app/cli_commands/improvement_cases.py` while `app.cli` remains the console
   entrypoint compatibility facade

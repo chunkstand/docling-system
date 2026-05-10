@@ -34,7 +34,7 @@ from app.schemas.search import (
     SearchScores,
 )
 from app.services.embeddings import EmbeddingProvider, get_embedding_provider
-from app.services.evidence import record_knowledge_operator_run
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.retrieval_spans import ensure_retrieval_evidence_spans_for_search
 from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.search_plan import (

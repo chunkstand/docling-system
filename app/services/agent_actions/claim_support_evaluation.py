@@ -19,9 +19,7 @@ from app.services.claim_support_evaluations import (
 from app.services.claim_support_policy_impacts import (
     queue_claim_support_policy_change_impact_replay_tasks,
 )
-from app.services.evidence import (
-    record_knowledge_operator_run,
-)
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 
 

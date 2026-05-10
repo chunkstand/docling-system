@@ -5,7 +5,7 @@ chat history or scanning the whole repository.
 
 ## Current Milestone Briefs
 
-- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-3 are complete.
+- `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; Milestones 1-4 are complete.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -42,6 +42,12 @@ chat history or scanning the whole repository.
   `app/services/evidence_provenance.py`. The alignment closeout proves the
   compatibility facade covers every moved identity alias, constant, and
   settings-aware wrapper.
+- The third `app/services/evidence.py` split is complete: knowledge-operator
+  run recording now lives in `app/services/evidence_operator_runs.py`;
+  task/artifact/verification/operator summary payload helpers now live in
+  `app/services/evidence_task_payloads.py`; search and retrieval-span code
+  import the focused operator-run owner directly; and `app.services.evidence`
+  still re-exports `record_knowledge_operator_run`.
 - The first `app/services/agent_task_actions.py` registry split is complete:
   search-harness action contract metadata and helper logic now live in
   `app/services/agent_actions/search_harness.py` while
@@ -75,8 +81,10 @@ chat history or scanning the whole repository.
   implementation milestone, the strict hygiene ratchet, is also complete:
   `docling-system-hygiene-check` now separates inherited budget debt from
   blocking new hygiene regressions. The third implementation milestone, Top
-  Hotspot Split Pack A, is complete. The next milestone is Top Hotspot Split
-  Pack B for evidence, audit, retrieval-learning, and search owner concerns.
+  Hotspot Split Pack A, is complete. The fourth implementation milestone, Top
+  Hotspot Split Pack B, is complete for the evidence operator-run and
+  task-payload summary concerns. The next milestone is the Agent-Task Cycle
+  Break.
 - Runtime note: local Docker/Postgres is available for DB-backed milestone
   verification. Evaluation-data readiness is still false on the empty local DB;
   `uv run docling-system-evaluation-data-readiness` currently reaches Postgres

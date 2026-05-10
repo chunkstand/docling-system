@@ -25,8 +25,8 @@ from app.services.agent_task_verifications import (
 )
 from app.services.evidence import (
     DOCUMENT_GENERATION_CONTEXT_PACK_GATE,
-    record_knowledge_operator_run,
 )
+from app.services.evidence_operator_runs import record_knowledge_operator_run
 from app.services.storage import StorageService
 from app.services.technical_reports import (
     evaluate_document_generation_context_pack,
