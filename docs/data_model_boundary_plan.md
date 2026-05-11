@@ -346,7 +346,7 @@ Current routed follow-up after the committed evaluation-feedback split:
   `KnowledgeOperatorInput`,
   `KnowledgeOperatorOutput`
 
-Verified locally on 2026-05-11: `agent tasks`:
+Committed locally in `e59f9bf` on 2026-05-11: `agent tasks`:
 `AgentTask`,
 `AgentTaskDependency`,
 `AgentTaskAttempt`,
@@ -370,11 +370,11 @@ Implemented result:
 - Reduced `app/db/models.py` from 3,570 lines to 3,090 lines and kept the new
   owner module at 515 lines, inside the default 600-line budget.
 - Reduced the architecture-quality `max_hotspot_risk_score` from `660.8` to
-  `642.6` while `app/db/models.py` remains in the governed hotspot list.
+  `649.6` while `app/db/models.py` remains in the governed hotspot list.
 - Verified with focused import, metadata, Alembic, architecture, capability,
   and full DB-backed gates.
 
-Current routed follow-up after the verified local agent-task split:
+Current routed follow-up after the committed local agent-task split:
 
 - next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
 - next model-domain candidate when this owner case resumes: `audit and evidence`

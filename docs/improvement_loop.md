@@ -14,8 +14,8 @@ codebase failures that are not necessarily retrieval failures.
 
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
-Current registry state from the 2026-05-11 local / 2026-05-11 UTC High Value
-Technical Paydown closeout through Milestone 10:
+Current registry state from the 2026-05-11 local / 2026-05-11 UTC owner-split
+closeout sequence through the committed agent-task model-domain milestone:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
   with one measured hygiene-gate case and 25 open architecture-governance
@@ -33,15 +33,17 @@ Technical Paydown closeout through Milestone 10:
   `app/ui/modules/`, so this UI hotspot now routes through a real owner
   module family rather than one monolithic script.
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
-  the committed local retrieval-interaction, replay/release governance, and
-  retrieval-learning splits narrowed it to a 3,782-line compatibility facade
-  with dedicated owner modules at
+  the committed local retrieval-interaction, replay/release governance,
+  retrieval-learning, evaluation-feedback, and agent-task splits narrowed it
+  to a 3,090-line compatibility facade with dedicated owner modules at
   `app/db/model_domains/retrieval_interactions.py`,
   `app/db/model_domains/retrieval_replay_governance.py`,
   `app/db/model_domains/retrieval_learning_examples.py`, and
-  `app/db/model_domains/retrieval_learning_artifacts.py`. The High Value
-  Technical Paydown plan is now closed locally, and the next bounded follow-up
-  for this owner case is the `evaluation feedback` model-domain candidate in
+  `app/db/model_domains/retrieval_learning_artifacts.py`,
+  `app/db/model_domains/evaluation_feedback.py`, and
+  `app/db/model_domains/agent_tasks.py`. The High Value Technical Paydown plan
+  is now closed locally, and the next bounded follow-up for this owner case is
+  the `audit and evidence` model-domain candidate in
   `docs/data_model_boundary_plan.md`.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced

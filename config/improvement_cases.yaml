@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=3090 after the verified local agent-task owner split.
+    line_count=3090 after the committed local agent-task owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -59,10 +59,10 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "b69c4f6"
-    notes: Latest recorded checkpoint remains the evaluation-feedback split in
-      b69c4f6; the current verified local follow-up keeps app/db/models.py as
-      the compatibility facade while narrowed ORM ownership now also includes
+    deployed_ref: "e59f9bf"
+    notes: Latest recorded checkpoint is the committed local agent-task split
+      in e59f9bf; app/db/models.py remains the compatibility facade while
+      narrowed ORM ownership now also includes
       app/db/model_domains/agent_tasks.py for the routed agent-task and
       knowledge-operator family.
   measurement:

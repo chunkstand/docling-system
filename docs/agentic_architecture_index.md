@@ -9,7 +9,7 @@ chat history or scanning the whole repository.
 - `docs/hotspot_owner_resolution_plan.md`: completed owner-scoped hotspot sequence through local Milestone 6; active execution has moved to the high-value paydown plan.
 - `docs/high_value_technical_paydown_milestone_plan.md`: completed local paydown program covering the next owner-scoped model splits, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
 - `docs/evaluation_feedback_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` evaluation-feedback split covering `EvalObservation` and `EvalFailureCase`; Milestone 2 closeout is committed locally as `b69c4f6`, and the broader owner case remains reduced.
-- `docs/agent_task_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` agent-task split covering the agent-task and knowledge-operator ORM family; the scoped issue is resolved and the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
+- `docs/agent_task_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` agent-task split covering the agent-task and knowledge-operator ORM family; Milestone 2 closeout is committed locally as `e59f9bf`, and the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -29,7 +29,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=642.6`.
+  `max_hotspot_risk_score=649.6`.
 - `app/db/models.py` remains the top governed hotspot, but the evaluation-feedback
   owner family is now also extracted alongside the prior model-domain splits:
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
@@ -219,7 +219,7 @@ chat history or scanning the whole repository.
   candidate is the agent-task family if `app/db/models.py` stays routed as an
   owner case.
 - Completed bounded milestone record:
-  `docs/agent_task_model_domain_milestone_plan.md` now captures the verified
+  `docs/agent_task_model_domain_milestone_plan.md` now captures the committed
   `IC-F2A8110185EB` agent-task split. Its scoped `resolved` outcome is the
   agent-task and knowledge-operator family moving out of `app/db/models.py`
   into `app/db/model_domains/agent_tasks.py` with exact schema-contract
@@ -262,8 +262,8 @@ chat history or scanning the whole repository.
 - Current routed follow-up: the next architecture work should use
   `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
   locally through Milestone 10, and the next routed implementation slice
-  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation
-  feedback` model-domain candidate.
+  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `audit and
+  evidence` model-domain candidate.
 
 ## Executable Architecture Contracts
 
