@@ -28,7 +28,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=663.21`.
+  `max_hotspot_risk_score=658.21`.
 - `app/db/models.py` remains the top governed hotspot, but six model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
@@ -208,8 +208,9 @@ chat history or scanning the whole repository.
   into a dedicated owner module with exact schema-contract coverage; the
   broader owner case remains `reduced` unless the live architecture-quality
   report retires `app/db/models.py` as an open hotspot. Milestone 0 in that
-  plan is the required preflight baseline lock and must pass before code
-  movement starts.
+  plan is now verified locally: routing agreement, Alembic posture, and
+  DB-backed baseline verification are confirmed, and the next implementation
+  slice is Milestone 1's evaluation-feedback contract and owner split.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in

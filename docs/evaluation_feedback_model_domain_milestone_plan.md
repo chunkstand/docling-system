@@ -1,7 +1,7 @@
 # Evaluation Feedback Model-Domain Milestone Plan
 
 Date: 2026-05-10 local
-Status: proposed active follow-up for `IC-F2A8110185EB`
+Status: Milestone 0 verified locally on 2026-05-11; Milestone 1 ready
 Owner context: bounded follow-up under the open architecture-governance owner
 case for `app/db/models.py`. This milestone resolves the `evaluation feedback`
 ORM concern inside the compatibility facade; it does not claim to retire the
@@ -253,6 +253,26 @@ Acceptance:
 - the repo is proven ready for DB-backed verification, not merely assumed ready
 - the milestone stops before code movement if any preflight condition fails
 
+Status update:
+
+- verified locally on 2026-05-11
+- live routing remains aligned across `docs/SESSION_HANDOFF.md`,
+  `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
+  `config/improvement_cases.yaml`, and this plan
+- live preflight gates confirmed the current owner route and DB-backed baseline:
+  `uv run docling-system-architecture-quality-report --summary` reported
+  `hotspot_count=10`, `max_hotspot_risk_score=658.21`, and
+  `app/db/models.py` still first in `top_hotspot_paths`;
+  `uv run docling-system-improvement-case-summary` kept
+  `IC-F2A8110185EB` as `oldest_open_case_id`;
+  `uv run docling-system-improvement-case-validate` returned `valid=true`;
+  `uv run --extra dev alembic heads`, `current`, and `check` stayed clean; and
+  the focused import and Postgres metadata gates passed at
+  `358 passed` and `132 passed`
+- the missing dedicated evaluation-feedback metadata contract coverage remains
+  the required first implementation step of Milestone 1; Milestone 0 closes
+  without moving `EvalObservation` or `EvalFailureCase`
+
 Closeout:
 
 - update this plan, `docs/agentic_architecture_index.md`, and
@@ -447,7 +467,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_
 
 ## Closeout Checklist
 
-- [ ] Complete Milestone 0 preflight and baseline-lock conditions
+- [x] Complete Milestone 0 preflight and baseline-lock conditions
 - [ ] Add dedicated evaluation-feedback metadata contract coverage before the move
 - [ ] Move `EvalObservation` and `EvalFailureCase` into a focused owner module
 - [ ] Preserve `app.db.models` import compatibility

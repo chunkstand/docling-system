@@ -89,7 +89,7 @@ model-domain candidate.
 
 Post-closeout architecture alignment recheck on 2026-05-11 kept that routing
 intact: `uv run docling-system-architecture-quality-report --summary` now
-reports `max_hotspot_risk_score=663.21` with `app/db/models.py` still first in
+reports `max_hotspot_risk_score=658.21` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
@@ -101,9 +101,66 @@ The dedicated implementation brief for that route now lives in
 (`EvalObservation`, `EvalFailureCase`) and treats the broader
 `IC-F2A8110185EB` owner case as only `reduced` unless the live
 architecture-quality report stops flagging `app/db/models.py`. Milestone 0 in
-that plan is the explicit preflight baseline lock: routing agreement,
-DB-backed verification availability, and missing evaluation-feedback metadata
-contract coverage must all be confirmed before the ORM move starts.
+that plan is now verified locally: routing agreement, DB-backed verification
+availability, and the pre-move Alembic posture are confirmed, while the
+missing dedicated evaluation-feedback metadata contract coverage remains the
+required first implementation step before the ORM move starts. The next routed
+implementation slice is Milestone 1 in that plan.
+
+## Evaluation Feedback Model-Domain Milestone 0 Progress
+
+Milestone 0 is the preflight baseline-lock slice for the
+`IC-F2A8110185EB` / `app/db/models.py` evaluation-feedback follow-up. It is a
+governance-and-verification checkpoint, not an ORM move.
+
+Results:
+
+- confirmed that `docs/evaluation_feedback_model_domain_milestone_plan.md`,
+  `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
+  and this handoff all route the next model-domain candidate to
+  `EvalObservation` and `EvalFailureCase`
+- refreshed the live architecture-quality baseline at
+  `max_hotspot_risk_score=658.21` with `app/db/models.py` still first in
+  `top_hotspot_paths`
+- confirmed that `config/improvement_cases.yaml` still reports
+  `IC-F2A8110185EB` as the oldest open owner case with `app/db/models.py` at
+  3,782 lines
+- confirmed the DB-backed preflight posture required before code movement:
+  Alembic is at a single head with no drift, and the focused import plus
+  Postgres metadata gates are green
+- closed Milestone 0 without moving `EvalObservation` or `EvalFailureCase`;
+  the missing dedicated evaluation-feedback metadata contract coverage remains
+  the first implementation step of Milestone 1
+
+Verification:
+
+- `git diff --check`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic check`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+
+Verified results:
+
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `oldest_open_case_id=IC-F2A8110185EB`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=658.21`
+- `uv run --extra dev alembic heads`: single head
+  `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `358 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `132 passed`
 
 ## High Value Technical Paydown Milestone 10 Closeout
 
