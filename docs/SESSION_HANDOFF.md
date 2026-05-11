@@ -4,8 +4,8 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: DB Models Compatibility Facade Milestone 2 verified
-locally; the prior Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
+Latest closeout checkpoint: DB Models Compatibility Facade Milestone 2 aligned
+and committed locally as `8340dc0`; the prior Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
 checkpoint remains local, the prior claim-support checkpoint remains local, the
 prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
 remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
@@ -38,7 +38,7 @@ fact, semantic review, and governance ORM family now lives in
 lives in `app/db/_model_enums.py`, `app/db/models.py` is now a 159-line pure
 compatibility facade while keeping `app.db.models` as the public compatibility
 surface, and the registry summary now reports `case_count=26`,
-`status_counts.open=24`, `status_counts.verified=1`,
+`status_counts.open=24`, `status_counts.deployed=1`,
 `status_counts.measured=1`, `measured_case_count=14`, and
 `oldest_open_case_id=IC-050E60059A34`. The completed
 evaluation-feedback milestone record remains in
@@ -53,7 +53,7 @@ milestone record now lives in
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=554.06` with `app/db/models.py` still first in
+`max_hotspot_risk_score=561.06` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
@@ -64,7 +64,8 @@ Milestone 2 from `docs/db_models_compatibility_facade_milestone_plan.md` is
 implemented locally: `app/db/models.py` is now a 159-line pure compatibility
 facade, the remaining 29 public enums live in `app/db/_model_enums.py`, the
 facade gate rejects any direct class definitions in `app/db/models.py`, and
-the improvement-case registry now records `IC-F2A8110185EB` as `verified`.
+the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
+under local closeout commit `8340dc0`.
 The next routed follow-up is no longer another `app/db/models.py` split; it is
 the oldest remaining open owner case `IC-050E60059A34` /
 `app/services/evidence.py`.
@@ -72,10 +73,10 @@ the oldest remaining open owner case `IC-050E60059A34` /
 The live alignment snapshot after Milestone 2 verification is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
-  `status_counts.open=24`, `status_counts.verified=1`,
+  `status_counts.open=24`, `status_counts.deployed=1`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=561.06`
 - architecture probe: `app.db.models` import fan-in=`166`; `app/db/models.py`
   is no longer in the top 12 churn hotspots
 
@@ -140,14 +141,14 @@ Verified results:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
-  `status_counts.open=24`, `status_counts.verified=1`,
+  `status_counts.open=24`, `status_counts.deployed=1`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
   `facade_count=6`, `function_count=110`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=561.06`
 - architecture probe reports `app.db.models` import fan-in=`166`; the facade
   is not listed in the top 12 churn hotspots
 

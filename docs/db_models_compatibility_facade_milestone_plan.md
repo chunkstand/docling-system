@@ -1,9 +1,10 @@
 # DB Models Compatibility Facade Milestone Plan
 
 Date: 2026-05-11 local
-Status: Milestone 2 facade ownership narrowing implemented and verified
-locally; `IC-F2A8110185EB` is now closed as a verified ownership-resolution
-case and the next routed owner case is `IC-050E60059A34` / `app/services/evidence.py`
+Status: Milestone 2 facade ownership narrowing implemented, aligned, and
+committed locally as `8340dc0`; `IC-F2A8110185EB` is now deployed as an
+ownership-resolution case and the next routed owner case is
+`IC-050E60059A34` / `app/services/evidence.py`
 Owner context: bounded follow-up under architecture-governance owner case
 `IC-F2A8110185EB` for `app/db/models.py`. This milestone targets the
 remaining `unclear_ownership` weakness in the public `app.db.models`
@@ -26,7 +27,7 @@ Live repo signals refreshed after Milestone 2 verification:
 ```text
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=554.06
+  max_hotspot_risk_score=561.06
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -60,16 +61,16 @@ PY
 uv run docling-system-improvement-case-summary
   case_count=26
   status_counts.open=24
-  status_counts.verified=1
+  status_counts.deployed=1
   status_counts.measured=1
   oldest_open_case_id=IC-050E60059A34
 ```
 
 Repo-current artifact evidence:
 
-- `config/improvement_cases.yaml` now records `IC-F2A8110185EB` as `verified`
-  with `cause_class: unclear_ownership` resolved by the explicit compatibility
-  facade contract for `app/db/models.py`.
+- `config/improvement_cases.yaml` now records `IC-F2A8110185EB` as `deployed`
+  at local closeout commit `8340dc0`, with `cause_class: unclear_ownership`
+  resolved by the explicit compatibility facade contract for `app/db/models.py`.
 - `docs/SESSION_HANDOFF.md` now treats this plan as the completed closeout
   brief for the `app/db/models.py` owner case and routes the next bounded
   follow-up to `IC-050E60059A34` / `app/services/evidence.py`.
@@ -181,7 +182,7 @@ rewrites just to satisfy a cleanliness goal.
 Owner surface:
 `app/db/models.py`, the dedicated facade-structure gate, architecture
 inspection rules if added, and the owner-case registry that decides whether
-`IC-F2A8110185EB` remains `open`.
+`IC-F2A8110185EB` remains an unresolved ownership case.
 
 Prevention gate:
 
@@ -291,8 +292,8 @@ Implemented locally on 2026-05-11:
   symbols plus `DOCUMENT_METADATA_NORMALIZE_SQL` and
   `DOCUMENT_METADATA_TEXTSEARCH_SQL`
 - tightened `app/db/models.py` so support imports and delayed-import holders
-  are private implementation details while preserving the 345-line facade
-  footprint
+  are private implementation details while preserving the Milestone 1
+  345-line facade footprint
 - added controlled-violation coverage proving the gate rejects unexpected
   export additions, direct ORM-class growth, and direct schema-call growth
 - left repo-wide architecture inspection unchanged for this milestone because
@@ -388,14 +389,14 @@ Verified results:
 - `uv run docling-system-improvement-case-validate`:
   `valid=true`, `issue_count=0`
 - `uv run docling-system-improvement-case-summary`:
-  `case_count=26`, `status_counts.open=24`, `status_counts.verified=1`,
+  `case_count=26`, `status_counts.open=24`, `status_counts.deployed=1`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-architecture-inspect`:
   `valid=true`, `violation_count=0`
 - `uv run docling-system-capability-contracts`:
   `valid=true`, `facade_count=6`, `function_count=110`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=561.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`:
   `app.db.models` import fan-in=`166`; the facade is not listed in the top 12
   churn hotspots

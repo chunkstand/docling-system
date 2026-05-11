@@ -33,7 +33,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and `max_hotspot_risk_score=554.06`.
+  `hotspot_count=10`, and `max_hotspot_risk_score=561.06`.
 - `app/db/models.py` remains in the architecture-quality routing list, but the
   semantic-memory owner family is now also extracted alongside the prior
   model-domain splits, and the remaining 159-line facade now has its own
@@ -290,15 +290,15 @@ chat history or scanning the whole repository.
   retrieval-learning data.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
-  `case_count=26`, `status_counts.open=25`, `status_counts.measured=1`, and
+  `case_count=26`, `status_counts.open=24`, `status_counts.deployed=1`,
+  `status_counts.measured=1`, and
   `measured_case_count=14`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up: the next architecture work should use
   `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
   locally through Milestone 10, and the next routed implementation slice
-  returns to `IC-F2A8110185EB` / `app/db/models.py` with the
-  compatibility-facade / public-import-contract continuation.
+  now routes to `IC-050E60059A34` / `app/services/evidence.py`.
 
 ## Executable Architecture Contracts
 

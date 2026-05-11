@@ -18,7 +18,7 @@ Current registry state from the 2026-05-11 local / 2026-05-11 UTC owner-split
 and compatibility-facade closeout sequence:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
-  with one measured hygiene-gate case, one verified architecture-governance
+  with one measured hygiene-gate case, one deployed architecture-governance
   case, and 24 open architecture-governance cases.
 - The architecture quality report emits current hotspot candidates for large or
   high-churn surfaces, and those candidates are now imported as open registry
@@ -32,7 +32,7 @@ and compatibility-facade closeout sequence:
   lines to 107 and moved the shared runtime plus page-family logic into
   `app/ui/modules/`, so this UI hotspot now routes through a real owner
   module family rather than one monolithic script.
-- `IC-F2A8110185EB` is now verified under an explicit compatibility-facade
+- `IC-F2A8110185EB` is now deployed under an explicit compatibility-facade
   contract. The committed local retrieval-interaction, replay/release
   governance, retrieval-learning, evaluation-feedback, agent-task,
   audit-and-evidence, claim-support, and semantic-memory splits narrowed it to

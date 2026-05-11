@@ -36,7 +36,7 @@ cases:
   updated_at: '2026-04-24T23:48:32.939918+00:00'
 - case_id: IC-F2A8110185EB
   title: 'Architecture hotspot: app/db/models.py'
-  status: verified
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: app/db/models.py previously mixed enum ownership, delayed
     import bootstrapping, and import-forwarder aliases inside the public
@@ -73,7 +73,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "8340dc0"
     notes: >-
       Milestone 2 moves the remaining enum ownership into
       app/db/_model_enums.py, reduces app/db/models.py to a pure
@@ -81,7 +81,8 @@ cases:
       support module from becoming a second public import surface. The
       architecture-quality report may still route app/db/models.py because of
       its intentional public fan-in, but the unclear_ownership owner case is
-      now resolved under the explicit compatibility contract.
+      now resolved under the explicit compatibility contract. Local closeout
+      commit: 8340dc0.
   measurement:
     metric_name: db_models_hotspot_line_count
     current_value: 159.0
@@ -91,7 +92,7 @@ cases:
       and reduced app/db/models.py from 345 lines to 159 while preserving the
       governed 111-symbol app.db.models public export contract.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T23:22:26+00:00'
+  updated_at: '2026-05-11T23:35:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open
