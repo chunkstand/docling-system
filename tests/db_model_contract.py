@@ -380,6 +380,128 @@ REQUIRED_TABLE_INDEX_NAMES.update(
                 "ix_chat_answer_feedback_created_at",
             }
         ),
+        "search_replay_runs": frozenset(
+            {
+                "ix_search_replay_runs_created_at",
+                "ix_search_replay_runs_source_type_created_at",
+            }
+        ),
+        "search_replay_queries": frozenset(
+            {
+                "ix_search_replay_queries_replay_run_id",
+                "ix_search_replay_queries_source_search_request_id",
+                "ix_search_replay_queries_replay_search_request_id",
+                "ix_search_replay_queries_feedback_id",
+                "ix_search_replay_queries_evaluation_query_id",
+                "ix_search_replay_queries_created_at",
+            }
+        ),
+        "search_harness_evaluations": frozenset(
+            {
+                "ix_search_harness_evaluations_baseline_candidate",
+                "ix_search_harness_evaluations_candidate_created_at",
+                "ix_search_harness_evaluations_created_at",
+            }
+        ),
+        "search_harness_evaluation_sources": frozenset(
+            {
+                "ix_search_harness_evaluation_sources_eval_id",
+                "ix_search_harness_evaluation_sources_baseline_replay",
+                "ix_search_harness_evaluation_sources_candidate_replay",
+            }
+        ),
+        "search_harness_releases": frozenset(
+            {
+                "ix_search_harness_releases_evaluation_id",
+                "ix_search_harness_releases_candidate_created_at",
+                "ix_search_harness_releases_outcome_created_at",
+                "ix_search_harness_releases_created_at",
+            }
+        ),
+        "search_harness_release_readiness_assessments": frozenset(
+            {
+                "ix_shr_readiness_assessments_release_created",
+                "ix_shr_readiness_assessments_bundle_created",
+                "ix_shr_readiness_assessments_receipt_created",
+                "ix_shr_readiness_assessments_governance",
+                "ix_shr_readiness_assessments_status_created",
+                "ix_shr_readiness_assessments_readiness_sha",
+                "ix_shr_readiness_assessments_payload_sha",
+            }
+        ),
+        "retrieval_judgment_sets": frozenset(
+            {
+                "ix_retrieval_judgment_sets_created_at",
+                "ix_retrieval_judgment_sets_set_kind_created",
+                "ix_retrieval_judgment_sets_payload_sha",
+            }
+        ),
+        "retrieval_judgments": frozenset(
+            {
+                "ix_retrieval_judgments_set_kind",
+                "ix_retrieval_judgments_source",
+                "ix_retrieval_judgments_search_request",
+                "ix_retrieval_judgments_source_request",
+                "ix_retrieval_judgments_search_result",
+                "ix_retrieval_judgments_feedback",
+                "ix_retrieval_judgments_replay_query",
+                "ix_retrieval_judgments_result",
+                "ix_retrieval_judgments_source_payload_sha",
+                "ix_retrieval_judgments_created_at",
+            }
+        ),
+        "retrieval_hard_negatives": frozenset(
+            {
+                "ix_retrieval_hard_negatives_set_kind",
+                "ix_retrieval_hard_negatives_judgment",
+                "ix_retrieval_hard_negatives_positive_judgment",
+                "ix_retrieval_hard_negatives_source",
+                "ix_retrieval_hard_negatives_feedback",
+                "ix_retrieval_hard_negatives_replay_query",
+                "ix_retrieval_hard_negatives_source_request",
+                "ix_retrieval_hard_negatives_request",
+                "ix_retrieval_hard_negatives_search_result",
+                "ix_retrieval_hard_negatives_result",
+                "ix_retrieval_hard_negatives_source_payload_sha",
+                "ix_retrieval_hard_negatives_created_at",
+            }
+        ),
+        "retrieval_training_runs": frozenset(
+            {
+                "ix_retrieval_training_runs_judgment_set",
+                "ix_retrieval_training_runs_release",
+                "ix_retrieval_training_runs_governance",
+                "ix_retrieval_training_runs_dataset_sha",
+                "ix_retrieval_training_runs_created_at",
+            }
+        ),
+        "retrieval_learning_candidate_evaluations": frozenset(
+            {
+                "ix_retrieval_learning_candidate_training",
+                "ix_retrieval_learning_candidate_judgment_set",
+                "ix_retrieval_learning_candidate_evaluation",
+                "ix_retrieval_learning_candidate_release",
+                "ix_retrieval_learning_candidate_governance",
+                "ix_retrieval_learning_candidate_dataset_sha",
+                "ix_retrieval_learning_candidate_harness_created",
+                "ix_retrieval_learning_candidate_outcome_created",
+                "ix_retrieval_learning_candidate_package_sha",
+                "ix_retrieval_learning_candidate_created_at",
+            }
+        ),
+        "retrieval_reranker_artifacts": frozenset(
+            {
+                "ix_retrieval_reranker_artifacts_training_created",
+                "ix_retrieval_reranker_artifacts_candidate_eval",
+                "ix_retrieval_reranker_artifacts_evaluation",
+                "ix_retrieval_reranker_artifacts_release",
+                "ix_retrieval_reranker_artifacts_governance",
+                "ix_retrieval_reranker_artifacts_candidate_created",
+                "ix_retrieval_reranker_artifacts_gate_created",
+                "ix_retrieval_reranker_artifacts_artifact_sha",
+                "ix_retrieval_reranker_artifacts_impact_sha",
+            }
+        ),
     }
 )
 
@@ -497,6 +619,138 @@ REQUIRED_TABLE_INDEX_COLUMNS.update(
             "ix_chat_answer_feedback_feedback_type": ("feedback_type",),
             "ix_chat_answer_feedback_created_at": ("created_at",),
         },
+        "search_replay_runs": {
+            "ix_search_replay_runs_created_at": ("created_at",),
+            "ix_search_replay_runs_source_type_created_at": ("source_type", "created_at"),
+        },
+        "search_replay_queries": {
+            "ix_search_replay_queries_replay_run_id": ("replay_run_id",),
+            "ix_search_replay_queries_source_search_request_id": ("source_search_request_id",),
+            "ix_search_replay_queries_replay_search_request_id": ("replay_search_request_id",),
+            "ix_search_replay_queries_feedback_id": ("feedback_id",),
+            "ix_search_replay_queries_evaluation_query_id": ("evaluation_query_id",),
+            "ix_search_replay_queries_created_at": ("created_at",),
+        },
+        "search_harness_evaluations": {
+            "ix_search_harness_evaluations_baseline_candidate": (
+                "baseline_harness_name",
+                "candidate_harness_name",
+            ),
+            "ix_search_harness_evaluations_candidate_created_at": (
+                "candidate_harness_name",
+                "created_at",
+            ),
+            "ix_search_harness_evaluations_created_at": ("created_at",),
+        },
+        "search_harness_evaluation_sources": {
+            "ix_search_harness_evaluation_sources_eval_id": ("search_harness_evaluation_id",),
+            "ix_search_harness_evaluation_sources_baseline_replay": ("baseline_replay_run_id",),
+            "ix_search_harness_evaluation_sources_candidate_replay": (
+                "candidate_replay_run_id",
+            ),
+        },
+        "search_harness_releases": {
+            "ix_search_harness_releases_evaluation_id": ("search_harness_evaluation_id",),
+            "ix_search_harness_releases_candidate_created_at": (
+                "candidate_harness_name",
+                "created_at",
+            ),
+            "ix_search_harness_releases_outcome_created_at": ("outcome", "created_at"),
+            "ix_search_harness_releases_created_at": ("created_at",),
+        },
+        "search_harness_release_readiness_assessments": {
+            "ix_shr_readiness_assessments_release_created": (
+                "search_harness_release_id",
+                "created_at",
+            ),
+            "ix_shr_readiness_assessments_bundle_created": (
+                "release_audit_bundle_id",
+                "created_at",
+            ),
+            "ix_shr_readiness_assessments_receipt_created": (
+                "release_validation_receipt_id",
+                "created_at",
+            ),
+            "ix_shr_readiness_assessments_governance": ("semantic_governance_event_id",),
+            "ix_shr_readiness_assessments_status_created": ("readiness_status", "created_at"),
+            "ix_shr_readiness_assessments_readiness_sha": ("readiness_payload_sha256",),
+            "ix_shr_readiness_assessments_payload_sha": ("assessment_payload_sha256",),
+        },
+        "retrieval_judgment_sets": {
+            "ix_retrieval_judgment_sets_created_at": ("created_at",),
+            "ix_retrieval_judgment_sets_set_kind_created": ("set_kind", "created_at"),
+            "ix_retrieval_judgment_sets_payload_sha": ("payload_sha256",),
+        },
+        "retrieval_judgments": {
+            "ix_retrieval_judgments_set_kind": ("judgment_set_id", "judgment_kind"),
+            "ix_retrieval_judgments_source": ("source_type", "source_ref_id"),
+            "ix_retrieval_judgments_search_request": ("search_request_id",),
+            "ix_retrieval_judgments_source_request": ("source_search_request_id",),
+            "ix_retrieval_judgments_search_result": ("search_request_result_id",),
+            "ix_retrieval_judgments_feedback": ("search_feedback_id",),
+            "ix_retrieval_judgments_replay_query": ("search_replay_query_id",),
+            "ix_retrieval_judgments_result": ("result_type", "result_id"),
+            "ix_retrieval_judgments_source_payload_sha": ("source_payload_sha256",),
+            "ix_retrieval_judgments_created_at": ("created_at",),
+        },
+        "retrieval_hard_negatives": {
+            "ix_retrieval_hard_negatives_set_kind": ("judgment_set_id", "hard_negative_kind"),
+            "ix_retrieval_hard_negatives_judgment": ("judgment_id",),
+            "ix_retrieval_hard_negatives_positive_judgment": ("positive_judgment_id",),
+            "ix_retrieval_hard_negatives_source": ("source_type", "source_ref_id"),
+            "ix_retrieval_hard_negatives_feedback": ("search_feedback_id",),
+            "ix_retrieval_hard_negatives_replay_query": ("search_replay_query_id",),
+            "ix_retrieval_hard_negatives_source_request": ("source_search_request_id",),
+            "ix_retrieval_hard_negatives_request": ("search_request_id",),
+            "ix_retrieval_hard_negatives_search_result": ("search_request_result_id",),
+            "ix_retrieval_hard_negatives_result": ("result_type", "result_id"),
+            "ix_retrieval_hard_negatives_source_payload_sha": ("source_payload_sha256",),
+            "ix_retrieval_hard_negatives_created_at": ("created_at",),
+        },
+        "retrieval_training_runs": {
+            "ix_retrieval_training_runs_judgment_set": ("judgment_set_id",),
+            "ix_retrieval_training_runs_release": ("search_harness_release_id",),
+            "ix_retrieval_training_runs_governance": ("semantic_governance_event_id",),
+            "ix_retrieval_training_runs_dataset_sha": ("training_dataset_sha256",),
+            "ix_retrieval_training_runs_created_at": ("created_at",),
+        },
+        "retrieval_learning_candidate_evaluations": {
+            "ix_retrieval_learning_candidate_training": (
+                "retrieval_training_run_id",
+                "created_at",
+            ),
+            "ix_retrieval_learning_candidate_judgment_set": ("judgment_set_id", "created_at"),
+            "ix_retrieval_learning_candidate_evaluation": ("search_harness_evaluation_id",),
+            "ix_retrieval_learning_candidate_release": ("search_harness_release_id",),
+            "ix_retrieval_learning_candidate_governance": ("semantic_governance_event_id",),
+            "ix_retrieval_learning_candidate_dataset_sha": ("training_dataset_sha256",),
+            "ix_retrieval_learning_candidate_harness_created": (
+                "candidate_harness_name",
+                "created_at",
+            ),
+            "ix_retrieval_learning_candidate_outcome_created": ("gate_outcome", "created_at"),
+            "ix_retrieval_learning_candidate_package_sha": ("learning_package_sha256",),
+            "ix_retrieval_learning_candidate_created_at": ("created_at",),
+        },
+        "retrieval_reranker_artifacts": {
+            "ix_retrieval_reranker_artifacts_training_created": (
+                "retrieval_training_run_id",
+                "created_at",
+            ),
+            "ix_retrieval_reranker_artifacts_candidate_eval": (
+                "retrieval_learning_candidate_evaluation_id",
+            ),
+            "ix_retrieval_reranker_artifacts_evaluation": ("search_harness_evaluation_id",),
+            "ix_retrieval_reranker_artifacts_release": ("search_harness_release_id",),
+            "ix_retrieval_reranker_artifacts_governance": ("semantic_governance_event_id",),
+            "ix_retrieval_reranker_artifacts_candidate_created": (
+                "candidate_harness_name",
+                "created_at",
+            ),
+            "ix_retrieval_reranker_artifacts_gate_created": ("gate_outcome", "created_at"),
+            "ix_retrieval_reranker_artifacts_artifact_sha": ("artifact_sha256",),
+            "ix_retrieval_reranker_artifacts_impact_sha": ("change_impact_sha256",),
+        },
     }
 )
 
@@ -565,6 +819,36 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
                 "uq_search_request_result_spans_result_rank",
             }
         ),
+        "search_harness_evaluation_sources": frozenset(
+            {
+                "uq_search_harness_evaluation_sources_eval_source",
+            }
+        ),
+        "retrieval_judgment_sets": frozenset(
+            {
+                "uq_retrieval_judgment_sets_set_name",
+            }
+        ),
+        "retrieval_judgments": frozenset(
+            {
+                "uq_retrieval_judgments_dedup_key",
+            }
+        ),
+        "retrieval_hard_negatives": frozenset(
+            {
+                "uq_retrieval_hard_negatives_dedup_key",
+            }
+        ),
+        "retrieval_learning_candidate_evaluations": frozenset(
+            {
+                "uq_retrieval_learning_candidate_training_eval",
+            }
+        ),
+        "retrieval_reranker_artifacts": frozenset(
+            {
+                "uq_retrieval_reranker_artifacts_candidate_eval",
+            }
+        ),
     }
 )
 
@@ -622,6 +906,32 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
             "uq_search_request_result_spans_result_rank": (
                 "search_request_result_id",
                 "span_rank",
+            ),
+        },
+        "search_harness_evaluation_sources": {
+            "uq_search_harness_evaluation_sources_eval_source": (
+                "search_harness_evaluation_id",
+                "source_type",
+            ),
+        },
+        "retrieval_judgment_sets": {
+            "uq_retrieval_judgment_sets_set_name": ("set_name",),
+        },
+        "retrieval_judgments": {
+            "uq_retrieval_judgments_dedup_key": ("deduplication_key",),
+        },
+        "retrieval_hard_negatives": {
+            "uq_retrieval_hard_negatives_dedup_key": ("deduplication_key",),
+        },
+        "retrieval_learning_candidate_evaluations": {
+            "uq_retrieval_learning_candidate_training_eval": (
+                "retrieval_training_run_id",
+                "search_harness_evaluation_id",
+            ),
+        },
+        "retrieval_reranker_artifacts": {
+            "uq_retrieval_reranker_artifacts_candidate_eval": (
+                "retrieval_learning_candidate_evaluation_id",
             ),
         },
     }
@@ -1125,6 +1435,199 @@ RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS = {
             "created_by",
             "review_note",
             "created_at",
+        }
+    ),
+}
+
+RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS = {
+    "retrieval_judgment_sets": frozenset(
+        {
+            "id",
+            "set_name",
+            "set_kind",
+            "source_types",
+            "source_limit",
+            "criteria",
+            "summary",
+            "judgment_count",
+            "positive_count",
+            "negative_count",
+            "missing_count",
+            "hard_negative_count",
+            "payload_sha256",
+            "created_by",
+            "created_at",
+        }
+    ),
+    "retrieval_judgments": frozenset(
+        {
+            "id",
+            "judgment_set_id",
+            "judgment_kind",
+            "judgment_label",
+            "source_type",
+            "source_ref_id",
+            "search_feedback_id",
+            "search_replay_query_id",
+            "search_replay_run_id",
+            "evaluation_query_id",
+            "source_search_request_id",
+            "search_request_id",
+            "search_request_result_id",
+            "result_rank",
+            "result_type",
+            "result_id",
+            "document_id",
+            "run_id",
+            "score",
+            "query_text",
+            "mode",
+            "filters",
+            "expected_result_type",
+            "expected_top_n",
+            "harness_name",
+            "reranker_name",
+            "reranker_version",
+            "retrieval_profile_name",
+            "rerank_features",
+            "evidence_refs",
+            "rationale",
+            "payload",
+            "source_payload_sha256",
+            "deduplication_key",
+            "created_at",
+        }
+    ),
+    "retrieval_hard_negatives": frozenset(
+        {
+            "id",
+            "judgment_set_id",
+            "judgment_id",
+            "positive_judgment_id",
+            "hard_negative_kind",
+            "source_type",
+            "source_ref_id",
+            "search_feedback_id",
+            "search_replay_query_id",
+            "search_replay_run_id",
+            "evaluation_query_id",
+            "source_search_request_id",
+            "search_request_id",
+            "search_request_result_id",
+            "result_rank",
+            "result_type",
+            "result_id",
+            "document_id",
+            "run_id",
+            "score",
+            "query_text",
+            "mode",
+            "filters",
+            "rerank_features",
+            "expected_result_type",
+            "expected_top_n",
+            "evidence_refs",
+            "reason",
+            "details",
+            "source_payload_sha256",
+            "deduplication_key",
+            "created_at",
+        }
+    ),
+    "retrieval_training_runs": frozenset(
+        {
+            "id",
+            "judgment_set_id",
+            "run_kind",
+            "status",
+            "search_harness_evaluation_id",
+            "search_harness_release_id",
+            "semantic_governance_event_id",
+            "training_dataset_sha256",
+            "training_payload",
+            "summary",
+            "example_count",
+            "positive_count",
+            "negative_count",
+            "missing_count",
+            "hard_negative_count",
+            "created_by",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "retrieval_learning_candidate_evaluations": frozenset(
+        {
+            "id",
+            "retrieval_training_run_id",
+            "judgment_set_id",
+            "search_harness_evaluation_id",
+            "search_harness_release_id",
+            "semantic_governance_event_id",
+            "training_dataset_sha256",
+            "training_example_count",
+            "positive_count",
+            "negative_count",
+            "missing_count",
+            "hard_negative_count",
+            "baseline_harness_name",
+            "candidate_harness_name",
+            "source_types",
+            "limit",
+            "status",
+            "gate_outcome",
+            "thresholds",
+            "metrics",
+            "reasons",
+            "evaluation_snapshot",
+            "release_snapshot",
+            "details",
+            "learning_package_sha256",
+            "created_by",
+            "review_note",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "retrieval_reranker_artifacts": frozenset(
+        {
+            "id",
+            "retrieval_training_run_id",
+            "judgment_set_id",
+            "retrieval_learning_candidate_evaluation_id",
+            "search_harness_evaluation_id",
+            "search_harness_release_id",
+            "semantic_governance_event_id",
+            "artifact_kind",
+            "artifact_name",
+            "artifact_version",
+            "status",
+            "gate_outcome",
+            "baseline_harness_name",
+            "candidate_harness_name",
+            "source_types",
+            "limit",
+            "training_dataset_sha256",
+            "training_example_count",
+            "positive_count",
+            "negative_count",
+            "missing_count",
+            "hard_negative_count",
+            "thresholds",
+            "metrics",
+            "reasons",
+            "feature_weights",
+            "harness_overrides",
+            "artifact_payload",
+            "evaluation_snapshot",
+            "release_snapshot",
+            "change_impact_report",
+            "artifact_sha256",
+            "change_impact_sha256",
+            "created_by",
+            "review_note",
+            "created_at",
+            "completed_at",
         }
     ),
 }

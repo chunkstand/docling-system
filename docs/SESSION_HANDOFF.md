@@ -1,15 +1,14 @@
 # Session Handoff
 
-Date: 2026-05-10 local / 2026-05-10 UTC
+Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: committed local High Value Technical Paydown
-Milestone 8 retrieval replay and release governance split committed as
-`47a86d1`; High Value Technical Paydown Milestones 6 and 7 remain verified in
-the same local closeout chain.
-Active local follow-up owner case: `IC-F2A8110185EB` /
-`app/db/models.py` retrieval learning continuation.
+Latest closeout checkpoint: High Value Technical Paydown Milestone 9 retrieval
+learning split is verified locally; final plan closeout and reroute remain the
+active follow-up.
+Active local follow-up owner case: High Value Technical Paydown Milestone 10
+final closeout and checklist completion.
 
 ## Current Position
 
@@ -75,10 +74,99 @@ review, and full DB-backed suite are aligned to live results. The latest full
 DB-backed suite is `1328 passed in 52.06s`, evaluation-data readiness remains
 `regression_ready=true` and `court_grade_ready=true` with
 `failed_gate_count=0`, and `docling-system-agent-trace-review --limit 5 --skip-hygiene`
-reported `observation_count=0`. The next routed implementation slice now
-returns to `IC-F2A8110185EB` / `app/db/models.py`, continuing with the
-retrieval learning domain candidate documented in
-`docs/data_model_boundary_plan.md`.
+reported `observation_count=0`. High Value Technical Paydown Milestone 9 is
+now also verified locally: the retrieval-learning owner family lives in
+`app/db/model_domains/retrieval_learning_examples.py` and
+`app/db/model_domains/retrieval_learning_artifacts.py`, the shared metadata
+contract now covers retrieval learning plus replay/release governance tables,
+and `app/db/models.py` is reduced to 3,782 lines while remaining the public
+compatibility facade. The next routed implementation slice is now the final
+closeout and checklist completion pass for the High Value Technical Paydown
+plan.
+
+## High Value Technical Paydown Milestone 9 Progress
+
+Milestone 9 is the retrieval-learning model-domain split for
+`IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM owner
+split behind the existing `app.db.models` compatibility facade.
+
+Results:
+
+- added `app/db/model_domains/retrieval_learning_examples.py`
+- added `app/db/model_domains/retrieval_learning_artifacts.py`
+- moved `RetrievalJudgmentSet`, `RetrievalJudgment`,
+  `RetrievalHardNegative`, `RetrievalTrainingRun`,
+  `RetrievalLearningCandidateEvaluation`, and
+  `RetrievalRerankerArtifact` out of `app/db/models.py`
+- kept `app.db.models` import-compatible by re-exporting the moved classes
+  through import-forwarder aliases that satisfy the hotspot-prevention gate
+- added explicit ORM relationships on retrieval-learning artifact rows so
+  existing integration fixtures flush `RetrievalJudgmentSet` before dependent
+  training rows without changing schema shape
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` to cover retrieval learning
+  and replay/release governance table columns, exact index column ordering,
+  and exact unique-constraint column ordering
+- ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 3782`, and the new owner modules
+  `app/db/model_domains/retrieval_learning_examples.py` and
+  `app/db/model_domains/retrieval_learning_artifacts.py` are governed under
+  the same owner case
+- updated `docs/high_value_technical_paydown_milestone_plan.md`,
+  `docs/data_model_boundary_plan.md`, and this handoff so the routed follow-up
+  now points to final plan closeout
+- reduced `app/db/models.py` from 4,525 lines to 3,782 and reduced the
+  architecture-quality `max_hotspot_risk_score` from `668.17` to `656.21`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `358 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `132 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1420 passed in 48.03s`
+- `uv run --extra dev alembic heads`: single head
+  `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `regression_ready=true`, `court_grade_ready=true`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=656.21`
+- `uv run docling-system-hotspot-prevention-check --strict`: `blocked=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- architecture probe now reports `app/services/evidence.py` as the top churn
+  hotspot, while `app/db/models.py` remains the top governed hotspot at
+  `3782` lines and score `279868`
 
 ## High Value Technical Paydown Milestone 8 Progress
 

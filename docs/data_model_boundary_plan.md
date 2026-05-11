@@ -3,7 +3,7 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-10. `app/db/models.py` remains the highest current
+Status refreshed: 2026-05-11. `app/db/models.py` remains the highest current
 architecture-quality hotspot, but the first five model-domain splits are
 complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
@@ -15,8 +15,12 @@ complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
 now lives in `app/db/model_domains/retrieval_interactions.py` for the verified
 local Milestone 1 split, and the retrieval replay and release governance slice
 now lives in `app/db/model_domains/retrieval_replay_governance.py` for the
-verified local Milestone 8 split. `app.db.models` remains the public
-compatibility facade at 4,525 lines. Each model-domain milestone must finish
+verified local Milestone 8 split, and the retrieval-learning examples and
+artifacts now live in
+`app/db/model_domains/retrieval_learning_examples.py` and
+`app/db/model_domains/retrieval_learning_artifacts.py` for the verified local
+Milestone 9 split. `app.db.models` remains the public compatibility facade at
+3,782 lines. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -279,6 +283,43 @@ Milestone 8 replay/release split:
   `RetrievalTrainingRun`,
   `RetrievalLearningCandidateEvaluation`, and
   `RetrievalRerankerArtifact`
+
+Verified locally on 2026-05-11: `retrieval learning`:
+`RetrievalJudgmentSet`, `RetrievalJudgment`, `RetrievalHardNegative`,
+`RetrievalTrainingRun`, `RetrievalLearningCandidateEvaluation`, and
+`RetrievalRerankerArtifact`.
+
+Implemented result:
+
+- Added `app/db/model_domains/retrieval_learning_examples.py`.
+- Added `app/db/model_domains/retrieval_learning_artifacts.py`.
+- Re-exported the retrieval-learning models from `app/db/models.py` through
+  import-forwarder aliases so public imports remain unchanged.
+- Added explicit ORM relationships on retrieval-learning artifact rows so
+  existing integration fixtures flush `RetrievalJudgmentSet` before dependent
+  training rows without changing schema shape.
+- Extended the unit and Postgres create-all metadata contracts for retrieval
+  learning and replay/release governance table columns, exact index column
+  ordering, and exact unique-constraint column ordering.
+- Reduced `app/db/models.py` from 4,525 lines to 3,782 lines and ratcheted the
+  `config/hygiene_policy.yaml` ceiling to match.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `668.17` to
+  `656.21` while `app/db/models.py` remains the top governed hotspot.
+- Verified with focused import, metadata, Alembic, evaluation-data-readiness,
+  architecture, hygiene, hotspot-prevention, and full DB-backed gates.
+
+Next model-domain candidate when model work resumes:
+
+- `evaluation feedback`: `EvalObservation`, `EvalFailureCase`
+
+Current routed follow-up after the verified High Value Technical Paydown
+Milestone 9 retrieval-learning split:
+
+- next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
+- next model-domain candidate when this owner case resumes: `evaluation feedback`
+- target ORM family:
+  `EvalObservation`,
+  `EvalFailureCase`
 
 ## Per-Domain Acceptance Gate
 

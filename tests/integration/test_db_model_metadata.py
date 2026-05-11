@@ -17,6 +17,8 @@ from tests.db_model_contract import (
     REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES,
     REQUIRED_VECTOR_DIMENSIONS,
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
+    RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS,
+    RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS,
 )
 
 pytestmark = pytest.mark.skipif(
@@ -135,6 +137,64 @@ def test_postgres_create_all_preserves_document_artifact_domain_table_contract(
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_postgres_create_all_preserves_retrieval_interaction_domain_table_contract(
+    postgres_schema_engine,
+    table_name: str,
+    expected_columns: frozenset[str],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    with engine.connect() as connection:
+        column_names = frozenset(
+            connection.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema_name
+                    AND table_name = :table_name
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            ).scalars()
+        )
+
+    assert column_names == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_postgres_create_all_preserves_retrieval_replay_governance_domain_table_contract(
+    postgres_schema_engine,
+    table_name: str,
+    expected_columns: frozenset[str],
+) -> None:
+    engine, schema_name = postgres_schema_engine
+
+    with engine.connect() as connection:
+        column_names = frozenset(
+            connection.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema_name
+                    AND table_name = :table_name
+                    """
+                ),
+                {"schema_name": schema_name, "table_name": table_name},
+            ).scalars()
+        )
+
+    assert column_names == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_postgres_create_all_preserves_retrieval_learning_domain_table_contract(
     postgres_schema_engine,
     table_name: str,
     expected_columns: frozenset[str],

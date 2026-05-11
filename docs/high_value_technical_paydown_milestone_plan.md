@@ -1,9 +1,8 @@
 # High Value Technical Paydown Milestone Plan
 
-Date: 2026-05-10 local / 2026-05-10 UTC
-Status: complete locally through Milestone 8 retrieval replay and release
-governance; next implementation slice returns to `IC-F2A8110185EB` /
-`app/db/models.py` retrieval learning
+Date: 2026-05-11 local / 2026-05-11 UTC
+Status: complete locally through Milestone 9 retrieval learning; final
+closeout and reroute remain
 Owner context: new standalone paydown plan written after the Hotspot Owner
 Resolution sequence closed locally through Milestone 6. This plan does not add
 new milestones to the prior hotspot-owner plan; it starts a fresh,
@@ -30,14 +29,14 @@ reopen the already-closed hotspot-owner sequence.
 
 ## Current Evidence
 
-Status refreshed from live repo commands on 2026-05-10 local / 2026-05-10 UTC:
+Status refreshed from live repo commands on 2026-05-11 local / 2026-05-11 UTC:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=668.17
+  max_hotspot_risk_score=656.21
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -72,17 +71,17 @@ uv run docling-system-agent-trace-review --limit 5 --skip-hygiene
   observation_count=0
 
 DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
-  1328 passed in 52.06s
+  1420 passed in 48.03s
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  top hotspot app/db/models.py score=330325
-  app/services/evidence.py score=309043
+  top hotspot app/services/evidence.py score=309043
+  app/db/models.py score=279868
   app/services/agent_task_actions.py score=164760
   app/services/agent_task_actions.py fan-out=36
   Python cycle components=3
 
 wc -l app/db/models.py app/db/model_domains/retrieval_replay_governance.py app/services/evidence.py app/services/agent_task_actions.py tests/unit/test_cli.py tests/unit/test_cli_agent_tasks.py tests/unit/test_agent_task_actions.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py tests/unit/test_search_api.py tests/unit/test_search_api_harnesses.py tests/unit/test_documents_api.py tests/unit/test_documents_api_semantics.py app/ui/app.js app/ui/modules/shared.js app/ui/modules/documents.js app/ui/modules/search.js app/ui/modules/evals.js app/ui/modules/semantics.js app/ui/modules/agents.js
-   4525 app/db/models.py
+   3782 app/db/models.py
     576 app/db/model_domains/retrieval_replay_governance.py
    6307 app/services/evidence.py
    2746 app/services/agent_task_actions.py
@@ -153,9 +152,14 @@ Current routing notes:
 - High Value Technical Paydown Milestone 7 is now verified locally: closeout
   docs, improvement-case deployment refs, and live verification metrics are
   aligned to the committed Milestones 1-6 results.
-- the active follow-up after the Milestone 8 split remains the next routed
-  owner case `IC-F2A8110185EB` / `app/db/models.py`, now continuing with the
-  retrieval learning slice documented in `docs/data_model_boundary_plan.md`.
+- High Value Technical Paydown Milestone 9 is now verified locally under
+  `IC-F2A8110185EB`; the retrieval learning owner surfaces now live in
+  `app/db/model_domains/retrieval_learning_examples.py` and
+  `app/db/model_domains/retrieval_learning_artifacts.py`, and
+  `app/db/models.py` is reduced to 3,782 lines while preserving the metadata
+  contract.
+- the active follow-up after the Milestone 9 split is the final closeout and
+  reroute slice for this plan.
 
 ## Goal
 
@@ -655,6 +659,90 @@ Status update:
 - the next routed implementation slice now returns to the top remaining owner
   case `IC-F2A8110185EB` / `app/db/models.py`, beginning with the retrieval
   replay and release governance model-domain candidate
+
+### Milestone 8: Retrieval Replay And Release Governance Split
+
+Purpose: continue shrinking `app/db/models.py` by moving the replay and release
+governance ORM family behind the existing compatibility facade.
+
+Scope:
+
+- move `SearchReplayRun`, `SearchReplayQuery`, `SearchHarnessEvaluation`,
+  `SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
+  `SearchHarnessReleaseReadinessAssessment` into a focused model-domain owner
+  module
+- preserve table names, columns, indexes, unique constraints, and
+  `app.db.models` imports
+- extend the shared metadata contract for replay and release governance
+
+Acceptance:
+
+- the replay and release governance owner family lives outside
+  `app/db/models.py`
+- the metadata harness protects the moved table, index, and unique-constraint
+  contract
+- full DB-backed verification remains green
+
+Status update:
+
+- committed locally on 2026-05-10 as `47a86d1`
+- moved the replay and release governance family into
+  `app/db/model_domains/retrieval_replay_governance.py`
+- preserved the `app.db.models` compatibility facade through import-forwarder
+  aliases
+- reduced `app/db/models.py` from 5,067 lines to 4,525 lines
+- reduced the architecture-quality `max_hotspot_risk_score` from `673.78` to
+  `668.17`
+- the next routed implementation slice is Milestone 9 retrieval learning
+
+### Milestone 9: Retrieval Learning Model Split
+
+Purpose: complete the remaining retrieval-learning ORM family split behind the
+current `app.db.models` compatibility facade.
+
+Scope:
+
+- move `RetrievalJudgmentSet`, `RetrievalJudgment`, `RetrievalHardNegative`,
+  `RetrievalTrainingRun`, `RetrievalLearningCandidateEvaluation`, and
+  `RetrievalRerankerArtifact` into focused retrieval-learning owner modules
+- keep table names, columns, indexes, unique constraints, and import behavior
+  unchanged
+- extend the shared metadata contract so retrieval learning and replay/release
+  governance now have explicit column, index, and unique-constraint coverage
+
+Acceptance:
+
+- the retrieval-learning owner family lives outside `app/db/models.py`
+- the metadata harness protects retrieval-learning and replay/release
+  governance table contracts at unit and Postgres create-all boundaries
+- full DB-backed verification remains green
+
+Status update:
+
+- verified locally on 2026-05-11
+- moved retrieval-learning example rows into
+  `app/db/model_domains/retrieval_learning_examples.py`
+- moved retrieval-learning training and artifact rows into
+  `app/db/model_domains/retrieval_learning_artifacts.py`
+- preserved `app.db.models` import compatibility through import-forwarder
+  aliases and added explicit ORM relationships on retrieval-learning artifact
+  rows so flush ordering remains stable for existing integration fixtures
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` so retrieval learning and
+  replay/release governance table columns, exact index column ordering, and
+  exact unique-constraint column ordering are now covered explicitly
+- reduced `app/db/models.py` from 4,525 lines to 3,782 lines and reduced the
+  architecture-quality `max_hotspot_risk_score` from `668.17` to `656.21`
+- reran the required model-domain stack, including
+  `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+  (`358 passed`),
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+  (`132 passed`), and
+  `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+  (`1420 passed in 48.03s`)
+- the next routed implementation slice is Milestone 10 final closeout and
+  checklist completion
 
 ## Required Implementation Artifacts
 
