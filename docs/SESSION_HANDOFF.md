@@ -4,10 +4,10 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: Agent Task Model-Domain Milestone 1 and Milestone
-2 closeout committed locally as `e59f9bf`; the locally verified follow-up now
-implements the Audit And Evidence Model-Domain Milestone 1 owner split, and
-the prior evaluation-feedback checkpoint remains `b69c4f6`.
+Latest closeout checkpoint: Audit And Evidence Model-Domain Milestone 1
+closeout committed locally as `196d3aa`; the prior alignment checkpoint
+remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
+prior evaluation-feedback checkpoint remains `b69c4f6`.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` claim-support continuation.
 Active bounded implementation brief:
@@ -18,7 +18,9 @@ Active bounded implementation brief:
 The checkout is on `main`. Local `main` remains ahead of `origin/main` after
 the High Value Technical Paydown Milestone 10 closeout, the Evaluation
 Feedback Model-Domain Milestone closeout committed locally as `b69c4f6`, and
-the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`.
+the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`,
+plus the Audit And Evidence Model-Domain Milestone closeout committed locally
+as `196d3aa`.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -40,11 +42,11 @@ completed milestone record now lives in
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=624.43` with `app/db/models.py` still first in
+`max_hotspot_risk_score=631.43` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
-`app/db/models.py` remains a governed model hotspot at score `160853`.
+`app/db/models.py` remains a governed model hotspot at score `162942`.
 
 The completed implementation brief for the new route lives in
 `docs/audit_and_evidence_model_domain_milestone_plan.md`. It scopes
@@ -97,7 +99,8 @@ Results:
   `docs/agentic_architecture_index.md`, and this handoff so the routed
   follow-up now points to the next remaining model-domain concern
 - reduced `app/db/models.py` from 3,090 lines to 2,089 and reduced the
-  architecture-quality `max_hotspot_risk_score` from `649.6` to `624.43`
+  architecture-quality `max_hotspot_risk_score` from `649.6` to `631.43` on
+  the current checkout
 
 Verification:
 
@@ -126,9 +129,9 @@ Verified results:
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
   `1589 passed in 53.56s`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=624.43`
+  `hotspot_count=10`, `max_hotspot_risk_score=631.43`
 - architecture probe reports `app/db/models.py` at `2089` lines with hotspot
-  score `160853`
+  score `162942`
 
 ## Agent Task Model-Domain Milestone 1 Progress
 

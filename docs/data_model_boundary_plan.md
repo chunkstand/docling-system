@@ -412,8 +412,10 @@ Implemented result:
   unique-constraint column ordering.
 - Reduced `app/db/models.py` from 3,090 lines to 2,089 and governed the new
   owner module at 1,053 lines through the hygiene policy ratchet.
-- Reduced the architecture-quality `max_hotspot_risk_score` from `649.6` to
-  `624.43` while `app/db/models.py` remains in the governed hotspot list.
+- The current checkout now reports architecture-quality
+  `max_hotspot_risk_score=631.43` while `app/db/models.py` remains in the
+  governed hotspot list after the reduction from the pre-split `649.6`
+  baseline.
 - Verified with focused import, metadata, Alembic, architecture, capability,
   and full DB-backed gates.
 

@@ -229,10 +229,10 @@ Outcome label: `reduced`
 Closeout evidence refreshed locally on 2026-05-11:
 
 - `uv run docling-system-architecture-quality-report --summary` now reports
-  `max_hotspot_risk_score=624.43` with `app/db/models.py` still first in
+  `max_hotspot_risk_score=631.43` with `app/db/models.py` still first in
   `top_hotspot_paths`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
-  now reports `app/db/models.py` at 2,089 lines with hotspot score `160853`
+  now reports `app/db/models.py` at 2,089 lines with hotspot score `162942`
 - the broader `IC-F2A8110185EB` owner case remains `reduced`, not `resolved`,
   because `app/db/models.py` is still in the governed hotspot list
 - the next remaining routed candidate is now the `claim support` family:
