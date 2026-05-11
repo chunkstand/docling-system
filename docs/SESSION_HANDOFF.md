@@ -12,7 +12,7 @@ remains `e59f9bf`, and the prior evaluation-feedback checkpoint remains
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` semantic-memory continuation.
 Active bounded implementation brief:
-`docs/data_model_boundary_plan.md`.
+`docs/semantic_memory_model_domain_milestone_plan.md`.
 
 ## Current Position
 
