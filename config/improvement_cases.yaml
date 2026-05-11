@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=3090 after the committed local agent-task owner split.
+    line_count=2089 after the locally verified audit-and-evidence owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -59,22 +59,23 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "e59f9bf"
-    notes: Latest recorded checkpoint is the committed local agent-task split
-      in e59f9bf; app/db/models.py remains the compatibility facade while
-      narrowed ORM ownership now also includes
-      app/db/model_domains/agent_tasks.py for the routed agent-task and
-      knowledge-operator family.
+    deployed_ref: null
+    notes: Latest local verification narrowed ORM ownership further so
+      app/db/models.py remains the compatibility facade while the routed
+      audit-and-evidence family now also lives in
+      app/db/model_domains/audit_and_evidence.py alongside the prior
+      agent-task, evaluation-feedback, retrieval, and ingest/domain splits.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 3090.0
+    current_value: 2089.0
     measurement_window: 2026-05-11 local verification
-    notes: Agent Task Model-Domain Milestone 1 moved the routed agent-task and
-      knowledge-operator ORM family into app/db/model_domains/agent_tasks.py,
-      reducing app/db/models.py to 3090 lines while preserving the
-      app.db.models compatibility facade.
+    notes: Audit And Evidence Model-Domain Milestone 1 moved the routed audit
+      bundle, evidence package, manifest, trace, and technical-report
+      readiness/feedback ORM family into
+      app/db/model_domains/audit_and_evidence.py, reducing app/db/models.py to
+      2089 lines while preserving the app.db.models compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T01:00:00+00:00'
+  updated_at: '2026-05-11T12:00:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

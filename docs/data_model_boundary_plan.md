@@ -23,8 +23,10 @@ Milestone 9 split, and `evaluation feedback` now lives in
 `app/db/model_domains/evaluation_feedback.py` for the verified local
 Evaluation Feedback Model-Domain Milestone 1 split, and `agent tasks` now live
 in `app/db/model_domains/agent_tasks.py` for the verified local Agent Task
-Model-Domain Milestone 1 split. `app.db.models` remains the public
-compatibility facade at 3,090 lines. Each model-domain milestone must finish
+Model-Domain Milestone 1 split, and `audit and evidence` now lives in
+`app/db/model_domains/audit_and_evidence.py` for the verified local Audit And
+Evidence Model-Domain Milestone 1 split. `app.db.models` remains the public
+compatibility facade at 2,089 lines. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -381,12 +383,54 @@ Current routed follow-up after the committed local agent-task split:
 - target ORM family:
   `AuditBundleExport`,
   `AuditBundleValidationReceipt`,
+  `EvidencePackageExport`,
   `EvidenceManifest`,
   `TechnicalReportReleaseReadinessDbGate`,
   `TechnicalReportClaimRetrievalFeedback`,
   `EvidenceTraceNode`,
   `EvidenceTraceEdge`,
   `ClaimEvidenceDerivation`
+
+Implemented locally on 2026-05-11: `audit and evidence`:
+`AuditBundleExport`,
+`AuditBundleValidationReceipt`,
+`EvidencePackageExport`,
+`EvidenceManifest`,
+`TechnicalReportReleaseReadinessDbGate`,
+`TechnicalReportClaimRetrievalFeedback`,
+`EvidenceTraceNode`,
+`EvidenceTraceEdge`,
+`ClaimEvidenceDerivation`.
+
+Implemented result:
+
+- Added `app/db/model_domains/audit_and_evidence.py`.
+- Re-exported the audit-and-evidence models from `app/db/models.py` through
+  import-forwarder aliases so public imports remain unchanged.
+- Extended the unit and Postgres create-all metadata contracts for
+  audit-and-evidence table columns, exact index column ordering, and exact
+  unique-constraint column ordering.
+- Reduced `app/db/models.py` from 3,090 lines to 2,089 and governed the new
+  owner module at 1,053 lines through the hygiene policy ratchet.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `649.6` to
+  `624.43` while `app/db/models.py` remains in the governed hotspot list.
+- Verified with focused import, metadata, Alembic, architecture, capability,
+  and full DB-backed gates.
+
+Current routed follow-up after the local audit-and-evidence split:
+
+- next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
+- next model-domain candidate when this owner case resumes: `claim support`
+- target ORM family:
+  `ClaimSupportReplayAlertFixtureCoverageWaiverLedger`,
+  `ClaimSupportReplayAlertFixtureCoverageWaiverEscalation`,
+  `ClaimSupportFixtureSet`,
+  `ClaimSupportReplayAlertFixtureCorpusSnapshot`,
+  `ClaimSupportReplayAlertFixtureCorpusRow`,
+  `ClaimSupportCalibrationPolicy`,
+  `ClaimSupportEvaluation`,
+  `ClaimSupportEvaluationCase`,
+  `ClaimSupportPolicyChangeImpact`
 
 ## Per-Domain Acceptance Gate
 

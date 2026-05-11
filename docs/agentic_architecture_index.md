@@ -10,6 +10,7 @@ chat history or scanning the whole repository.
 - `docs/high_value_technical_paydown_milestone_plan.md`: completed local paydown program covering the next owner-scoped model splits, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
 - `docs/evaluation_feedback_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` evaluation-feedback split covering `EvalObservation` and `EvalFailureCase`; Milestone 2 closeout is committed locally as `b69c4f6`, and the broader owner case remains reduced.
 - `docs/agent_task_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` agent-task split covering the agent-task and knowledge-operator ORM family; Milestone 2 closeout is committed locally as `e59f9bf`, and the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
+- `docs/audit_and_evidence_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` audit-and-evidence split covering the audit bundle, evidence package, manifest, trace, and technical-report readiness/feedback ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -29,7 +30,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=649.6`.
+  `max_hotspot_risk_score=624.43`.
 - `app/db/models.py` remains the top governed hotspot, but the evaluation-feedback
   owner family is now also extracted alongside the prior model-domain splits:
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
@@ -47,7 +48,9 @@ chat history or scanning the whole repository.
   agent-task and knowledge-operator rows now live in
   `app/db/model_domains/agent_tasks.py`, the
   evaluation-feedback rows now live in `app/db/model_domains/evaluation_feedback.py`,
-  and `app.db.models` remains the public compatibility facade at 3,570 lines.
+  the audit-and-evidence rows now live in
+  `app/db/model_domains/audit_and_evidence.py`, and `app.db.models` remains
+  the public compatibility facade at 2,089 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
