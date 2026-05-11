@@ -37,7 +37,7 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=656.21
+  max_hotspot_risk_score=663.21
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -76,7 +76,7 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
   top hotspot app/services/evidence.py score=309043
-  app/db/models.py score=279868
+  app/db/models.py score=283650
   app/services/agent_task_actions.py score=164760
   app/services/agent_task_actions.py fan-out=36
   Python cycle components=3

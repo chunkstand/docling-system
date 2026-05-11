@@ -27,7 +27,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=656.21`.
+  `max_hotspot_risk_score=663.21`.
 - `app/db/models.py` remains the top governed hotspot, but six model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in

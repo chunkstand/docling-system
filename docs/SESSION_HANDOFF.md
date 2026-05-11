@@ -71,7 +71,7 @@ now covers module asset inclusion and serving alongside `tests/unit/test_ui.py`.
 High Value Technical Paydown Milestone 7 is now also verified locally: the
 closeout docs, improvement-case deployment refs, readiness report, agent-trace
 review, and full DB-backed suite are aligned to live results. The latest full
-DB-backed suite is `1328 passed in 52.06s`, evaluation-data readiness remains
+DB-backed suite is `1420 passed in 48.03s`, evaluation-data readiness remains
 `regression_ready=true` and `court_grade_ready=true` with
 `failed_gate_count=0`, and `docling-system-agent-trace-review --limit 5 --skip-hygiene`
 reported `observation_count=0`. High Value Technical Paydown Milestone 9 is
@@ -84,6 +84,14 @@ compatibility facade. The High Value Technical Paydown plan is now complete
 locally through Milestone 10, and the next routed implementation slice returns
 to `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation feedback`
 model-domain candidate.
+
+Post-closeout architecture alignment recheck on 2026-05-11 kept that routing
+intact: `uv run docling-system-architecture-quality-report --summary` now
+reports `max_hotspot_risk_score=663.21` with `app/db/models.py` still first in
+`top_hotspot_paths`, and
+`python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+reports `app/services/evidence.py` as the top churn hotspot while
+`app/db/models.py` remains the top governed model hotspot at score `283650`.
 
 ## High Value Technical Paydown Milestone 10 Closeout
 

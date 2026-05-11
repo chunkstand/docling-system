@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=656.21`
+  - `max_hotspot_risk_score=663.21`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/cli.py`
