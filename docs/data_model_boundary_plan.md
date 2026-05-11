@@ -30,7 +30,7 @@ Evidence Model-Domain Milestone 1 split, and `claim support` now lives in
 Model-Domain Milestone 1 split, and `semantic memory` now lives in
 `app/db/model_domains/semantic_memory.py` for the verified local Semantic
 Memory Model-Domain Milestone 1 split. `app.db.models` remains the public
-compatibility facade at 339 lines with a dedicated facade-structure gate. Each
+compatibility facade at 345 lines with a dedicated facade-structure gate. Each
 model-domain milestone must finish
 with a local commit before another domain moves.
 

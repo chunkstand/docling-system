@@ -4,8 +4,9 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: Semantic Memory Model-Domain Milestone 1 verified
-in this checkout; the prior claim-support checkpoint remains local, the prior
+Latest closeout checkpoint: DB Models Compatibility Facade Milestone 1 verified
+and committed locally as `776fa73`; the prior semantic-memory checkpoint
+remains local, the prior claim-support checkpoint remains local, the prior
 audit checkpoint remains `196d3aa`, the prior alignment checkpoint remains
 `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the prior
 evaluation-feedback checkpoint remains `b69c4f6`.
@@ -32,7 +33,7 @@ High Value Technical Paydown plan remains complete locally through Milestone
 slice: the semantic-memory ontology, graph-state, concept, assertion, entity,
 fact, semantic review, and governance ORM family now lives in
 `app/db/model_domains/semantic_memory.py`, `app/db/models.py` is now a
-339-line gated compatibility facade while keeping `app.db.models` as the
+345-line gated compatibility facade while keeping `app.db.models` as the
 public compatibility surface, and
 the registry summary remains `case_count=26`, `status_counts.open=25`,
 `status_counts.measured=1`, and `measured_case_count=14`. The completed
@@ -48,7 +49,7 @@ milestone record now lives in
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=591.8` with `app/db/models.py` still first in
+`max_hotspot_risk_score=598.8` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
@@ -79,8 +80,8 @@ Results:
 - preserved the import-compatible `app.db.models` ORM surface while adding
   public coverage for `DOCUMENT_METADATA_NORMALIZE_SQL` and
   `DOCUMENT_METADATA_TEXTSEARCH_SQL`
-- tightened `app/db/models.py` from 345 lines to 339 while making the facade
-  structure machine-checked
+- kept `app/db/models.py` at 345 lines while making the facade structure
+  machine-checked
 
 Verification:
 
@@ -119,7 +120,7 @@ Verified results:
 - `uv run docling-system-capability-contracts`: `valid=true`,
   `facade_count=6`, `function_count=110`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=591.8`
+  `hotspot_count=10`, `max_hotspot_risk_score=598.8`
 - architecture probe reports `app.db.models` import fan-in=`166`; the facade
   is not listed in the top 12 churn hotspots
 

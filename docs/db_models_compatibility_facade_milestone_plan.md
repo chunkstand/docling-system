@@ -1,8 +1,8 @@
 # DB Models Compatibility Facade Milestone Plan
 
 Date: 2026-05-11 local
-Status: Milestone 1 implemented locally and verified; Milestone 2 facade
-ownership narrowing remains open
+Status: Milestone 1 implemented, verified, and committed locally as `776fa73`;
+Milestone 2 facade ownership narrowing remains open
 Owner context: bounded follow-up under architecture-governance owner case
 `IC-F2A8110185EB` for `app/db/models.py`. This milestone targets the
 remaining `unclear_ownership` weakness in the public `app.db.models`
@@ -20,12 +20,12 @@ checks, and a prevention gate that blocks future ORM or facade-growth drift.
 
 ## Current Evidence
 
-Live repo signals refreshed before drafting this milestone:
+Live repo signals refreshed after Milestone 1 closeout:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=591.8
+  max_hotspot_risk_score=598.8
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -35,16 +35,22 @@ uv run docling-system-architecture-quality-report --summary
   ]
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  app.db.models import fan-in=165
+  app.db.models import fan-in=166
   app/db/models.py is not in the top 12 churn hotspots
 
 wc -l app/db/models.py
   345 app/db/models.py
 
 python - <<'PY'
-from tests.db_model_contract import PUBLIC_MODEL_IMPORT_SYMBOLS, ENUM_SYMBOLS, MODEL_SYMBOLS
-print(len(PUBLIC_MODEL_IMPORT_SYMBOLS), len(ENUM_SYMBOLS), len(MODEL_SYMBOLS))
+from tests.db_model_contract import (
+    PUBLIC_DB_MODELS_EXPORT_SYMBOLS,
+    PUBLIC_MODEL_IMPORT_SYMBOLS,
+    ENUM_SYMBOLS,
+    MODEL_SYMBOLS,
+)
+print(len(PUBLIC_DB_MODELS_EXPORT_SYMBOLS), len(PUBLIC_MODEL_IMPORT_SYMBOLS), len(ENUM_SYMBOLS), len(MODEL_SYMBOLS))
 PY
+  public_db_models_exports=111
   public_import_symbols=109
   enum_symbols=29
   model_symbols=80
@@ -60,10 +66,11 @@ Repo-current artifact evidence:
   remains under this owner case.
 - `app/db/models.py` no longer owns full ORM implementations, but it still
   mixes public enum declarations, delayed import bootstrapping, direct
-  import-forwarders, and a 109-symbol public export surface in one file.
+  import-forwarders, and a 111-symbol governed export surface in one file.
 - `tests/unit/test_db_model_import_compatibility.py` proves import
-  compatibility, but there is not yet a dedicated gate that constrains the
-  allowed structure of `app/db/models.py` itself as a public facade.
+  compatibility, and `tests/unit/test_db_models_facade_contract.py` now
+  constrains the allowed structure of `app/db/models.py` itself as a public
+  facade.
 
 ## Goal
 
@@ -271,9 +278,8 @@ Implemented locally on 2026-05-11:
   symbols plus `DOCUMENT_METADATA_NORMALIZE_SQL` and
   `DOCUMENT_METADATA_TEXTSEARCH_SQL`
 - tightened `app/db/models.py` so support imports and delayed-import holders
-  are private implementation details, leaving the non-underscore surface at the
-  exact governed export set plus the unavoidable future-import support symbol
-  `annotations`
+  are private implementation details while preserving the 345-line facade
+  footprint
 - added controlled-violation coverage proving the gate rejects unexpected
   export additions, direct ORM-class growth, and direct schema-call growth
 - left repo-wide architecture inspection unchanged for this milestone because
@@ -301,7 +307,7 @@ Verified results:
 - `uv run docling-system-capability-contracts`:
   `valid=true`, `facade_count=6`, `function_count=110`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=591.8`
+  `hotspot_count=10`, `max_hotspot_risk_score=598.8`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`:
   `app.db.models` import fan-in=`166`; the facade is not listed in the top 12
   churn hotspots

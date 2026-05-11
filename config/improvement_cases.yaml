@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains in the architecture-quality
-    hotspot routing with line_count=339 after the locally verified
+    hotspot routing with line_count=345 after the locally verified
     compatibility-facade Milestone 1 gate.
   source:
     source_type: architecture_governance
@@ -63,8 +63,9 @@ cases:
     deployed_ref: null
     notes: >-
       Latest local verification moved the remaining semantic-memory ORM family
-      into app/db/model_domains/semantic_memory.py and then tightened
-      app/db/models.py into a 339-line compatibility facade. The first
+      into app/db/model_domains/semantic_memory.py and then kept
+      app/db/models.py as a 345-line compatibility facade while adding the
+      first dedicated facade gate. The first
       compatibility-facade milestone is now implemented locally: the facade has
       a dedicated structure gate in
       tests/unit/test_db_models_facade_contract.py plus an explicit
@@ -74,7 +75,7 @@ cases:
       ownership narrowing rather than another model-family split.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 339.0
+    current_value: 345.0
     measurement_window: 2026-05-11 local verification
     notes: >-
       Semantic Memory Model-Domain Milestone 1 moved the ontology, graph-state,
@@ -82,8 +83,8 @@ cases:
       family into app/db/model_domains/semantic_memory.py, reducing
       app/db/models.py to 345 lines while preserving the app.db.models
       compatibility facade. The first compatibility-facade milestone then added
-      an exact export and structure gate while tightening the facade to 339
-      lines.
+      an exact export and structure gate while preserving the 345-line facade
+      footprint.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-11T22:56:53+00:00'
 - case_id: IC-050E60059A34

@@ -35,7 +35,7 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
   the committed local retrieval-interaction, replay/release governance,
   retrieval-learning, evaluation-feedback, agent-task, audit-and-evidence,
-  claim-support, and semantic-memory splits narrowed it to a 339-line
+  claim-support, and semantic-memory splits narrowed it to a 345-line
   compatibility facade with
   dedicated owner modules at
   `app/db/model_domains/retrieval_interactions.py`,
@@ -49,7 +49,8 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   `app/db/model_domains/semantic_memory.py`. The High Value Technical Paydown
   plan is now closed locally. The compatibility-facade / public-import-contract
   milestone has started: Milestone 1 now lands an exact facade gate in
-  `tests/unit/test_db_models_facade_contract.py`, and the next bounded
+  `tests/unit/test_db_models_facade_contract.py`, the Milestone 1 closeout is
+  committed locally as `776fa73`, and the next bounded
   follow-up for this owner case is Milestone 2 narrowing in
   `docs/db_models_compatibility_facade_milestone_plan.md`.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
