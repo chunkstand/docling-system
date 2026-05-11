@@ -8,6 +8,7 @@ chat history or scanning the whole repository.
 - `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
 - `docs/hotspot_owner_resolution_plan.md`: completed owner-scoped hotspot sequence through local Milestone 6; active execution has moved to the high-value paydown plan.
 - `docs/high_value_technical_paydown_milestone_plan.md`: completed local paydown program covering the next owner-scoped model splits, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
+- `docs/evaluation_feedback_model_domain_milestone_plan.md`: active bounded implementation brief for the next `IC-F2A8110185EB` model-domain split covering `EvalObservation` and `EvalFailureCase`, with Milestone 0 preflight/baseline lock required before the ORM move.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -201,6 +202,14 @@ chat history or scanning the whole repository.
   is reduced to 3,782 lines, and the shared metadata harness now protects
   retrieval learning plus replay/release governance table, index, and
   unique-constraint contracts.
+- Active bounded follow-up: `docs/evaluation_feedback_model_domain_milestone_plan.md`
+  now owns the next `IC-F2A8110185EB` execution slice. Its scoped `resolved`
+  outcome is the evaluation-feedback family moving out of `app/db/models.py`
+  into a dedicated owner module with exact schema-contract coverage; the
+  broader owner case remains `reduced` unless the live architecture-quality
+  report retires `app/db/models.py` as an open hotspot. Milestone 0 in that
+  plan is the required preflight baseline lock and must pass before code
+  movement starts.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in

@@ -9,6 +9,8 @@ learning split committed locally as `faed562`; High Value Technical Paydown
 Milestone 10 final closeout is now complete locally.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` evaluation-feedback continuation.
+Active bounded implementation brief:
+`docs/evaluation_feedback_model_domain_milestone_plan.md`.
 
 ## Current Position
 
@@ -92,6 +94,16 @@ reports `max_hotspot_risk_score=663.21` with `app/db/models.py` still first in
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
 `app/db/models.py` remains the top governed model hotspot at score `283650`.
+
+The dedicated implementation brief for that route now lives in
+`docs/evaluation_feedback_model_domain_milestone_plan.md`. It scopes
+`resolved` to the evaluation-feedback concern itself
+(`EvalObservation`, `EvalFailureCase`) and treats the broader
+`IC-F2A8110185EB` owner case as only `reduced` unless the live
+architecture-quality report stops flagging `app/db/models.py`. Milestone 0 in
+that plan is the explicit preflight baseline lock: routing agreement,
+DB-backed verification availability, and missing evaluation-feedback metadata
+contract coverage must all be confirmed before the ORM move starts.
 
 ## High Value Technical Paydown Milestone 10 Closeout
 
