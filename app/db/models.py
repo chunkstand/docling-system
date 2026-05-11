@@ -1,8 +1,40 @@
 from __future__ import annotations
 
 import importlib as _importlib
-from enum import StrEnum as _StrEnum
 
+from app.db._model_enums import AgentTaskAttemptStatus as AgentTaskAttemptStatus
+from app.db._model_enums import AgentTaskDependencyKind as AgentTaskDependencyKind
+from app.db._model_enums import AgentTaskOutcomeLabel as AgentTaskOutcomeLabel
+from app.db._model_enums import AgentTaskSideEffectLevel as AgentTaskSideEffectLevel
+from app.db._model_enums import AgentTaskStatus as AgentTaskStatus
+from app.db._model_enums import AgentTaskVerificationOutcome as AgentTaskVerificationOutcome
+from app.db._model_enums import KnowledgeOperatorKind as KnowledgeOperatorKind
+from app.db._model_enums import KnowledgeOperatorStatus as KnowledgeOperatorStatus
+from app.db._model_enums import RetrievalHardNegativeKind as RetrievalHardNegativeKind
+from app.db._model_enums import RetrievalJudgmentKind as RetrievalJudgmentKind
+from app.db._model_enums import RetrievalLearningCandidateStatus as RetrievalLearningCandidateStatus
+from app.db._model_enums import RetrievalTrainingRunStatus as RetrievalTrainingRunStatus
+from app.db._model_enums import RunStatus as RunStatus
+from app.db._model_enums import SemanticAssertionKind as SemanticAssertionKind
+from app.db._model_enums import SemanticBindingOrigin as SemanticBindingOrigin
+from app.db._model_enums import SemanticCategoryBindingType as SemanticCategoryBindingType
+from app.db._model_enums import SemanticContextScope as SemanticContextScope
+from app.db._model_enums import SemanticEntityType as SemanticEntityType
+from app.db._model_enums import SemanticEpistemicStatus as SemanticEpistemicStatus
+from app.db._model_enums import SemanticEvaluationStatus as SemanticEvaluationStatus
+from app.db._model_enums import SemanticEvidenceSourceType as SemanticEvidenceSourceType
+from app.db._model_enums import SemanticGovernanceEventKind as SemanticGovernanceEventKind
+from app.db._model_enums import SemanticGraphSourceKind as SemanticGraphSourceKind
+from app.db._model_enums import SemanticOntologySourceKind as SemanticOntologySourceKind
+from app.db._model_enums import SemanticPassStatus as SemanticPassStatus
+from app.db._model_enums import SemanticReviewStatus as SemanticReviewStatus
+from app.db._model_enums import SemanticTermKind as SemanticTermKind
+from app.db._model_enums import (
+    TechnicalReportClaimRetrievalFeedbackStatus as TechnicalReportClaimRetrievalFeedbackStatus,
+)
+from app.db._model_enums import (
+    TechnicalReportClaimRetrievalLearningLabel as TechnicalReportClaimRetrievalLearningLabel,
+)
 from app.db.model_domains import agent_tasks as _agent_tasks_domain
 from app.db.model_domains import claim_support as _claim_support_domain
 from app.db.model_domains import evaluation_feedback as _evaluation_feedback_domain
@@ -125,221 +157,3 @@ TechnicalReportReleaseReadinessDbGate = (
 )
 WorkspaceSemanticGraphState = _semantic_memory_domain.WorkspaceSemanticGraphState
 WorkspaceSemanticState = _semantic_memory_domain.WorkspaceSemanticState
-
-
-class RunStatus(_StrEnum):
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    VALIDATING = "validating"
-    RETRY_WAIT = "retry_wait"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class AgentTaskStatus(_StrEnum):
-    BLOCKED = "blocked"
-    AWAITING_APPROVAL = "awaiting_approval"
-    REJECTED = "rejected"
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    RETRY_WAIT = "retry_wait"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class AgentTaskSideEffectLevel(_StrEnum):
-    READ_ONLY = "read_only"
-    DRAFT_CHANGE = "draft_change"
-    PROMOTABLE = "promotable"
-
-
-class AgentTaskDependencyKind(_StrEnum):
-    EXPLICIT = "explicit"
-    TARGET_TASK = "target_task"
-    SOURCE_TASK = "source_task"
-    DRAFT_TASK = "draft_task"
-    VERIFICATION_TASK = "verification_task"
-
-
-class AgentTaskAttemptStatus(_StrEnum):
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    ABANDONED = "abandoned"
-
-
-class AgentTaskVerificationOutcome(_StrEnum):
-    PASSED = "passed"
-    FAILED = "failed"
-    ERROR = "error"
-
-
-class AgentTaskOutcomeLabel(_StrEnum):
-    USEFUL = "useful"
-    NOT_USEFUL = "not_useful"
-    CORRECT = "correct"
-    INCORRECT = "incorrect"
-
-
-class KnowledgeOperatorKind(_StrEnum):
-    PARSE = "parse"
-    EMBED = "embed"
-    RETRIEVE = "retrieve"
-    RERANK = "rerank"
-    JUDGE = "judge"
-    GENERATE = "generate"
-    VERIFY = "verify"
-    EXPORT = "export"
-    ORCHESTRATE = "orchestrate"
-
-
-class KnowledgeOperatorStatus(_StrEnum):
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-class SemanticPassStatus(_StrEnum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class SemanticEvaluationStatus(_StrEnum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-class SemanticGovernanceEventKind(_StrEnum):
-    ONTOLOGY_SNAPSHOT_RECORDED = "ontology_snapshot_recorded"
-    ONTOLOGY_SNAPSHOT_ACTIVATED = "ontology_snapshot_activated"
-    SEMANTIC_GRAPH_SNAPSHOT_RECORDED = "semantic_graph_snapshot_recorded"
-    SEMANTIC_GRAPH_SNAPSHOT_ACTIVATED = "semantic_graph_snapshot_activated"
-    SEARCH_HARNESS_RELEASE_RECORDED = "search_harness_release_recorded"
-    SEARCH_HARNESS_RELEASE_READINESS_ASSESSED = (
-        "search_harness_release_readiness_assessed"
-    )
-    TECHNICAL_REPORT_PROV_EXPORT_FROZEN = "technical_report_prov_export_frozen"
-    TECHNICAL_REPORT_READINESS_DB_GATE_RECORDED = (
-        "technical_report_readiness_db_gate_recorded"
-    )
-    TECHNICAL_REPORT_CLAIM_RETRIEVAL_FEEDBACK_RECORDED = (
-        "technical_report_claim_retrieval_feedback_recorded"
-    )
-    RETRIEVAL_TRAINING_RUN_MATERIALIZED = "retrieval_training_run_materialized"
-    RETRIEVAL_LEARNING_CANDIDATE_EVALUATED = "retrieval_learning_candidate_evaluated"
-    RETRIEVAL_RERANKER_ARTIFACT_MATERIALIZED = "retrieval_reranker_artifact_materialized"
-    CLAIM_SUPPORT_POLICY_ACTIVATED = "claim_support_policy_activated"
-    CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_CLOSED = (
-        "claim_support_policy_impact_replay_closed"
-    )
-    CLAIM_SUPPORT_POLICY_IMPACT_REPLAY_ESCALATED = (
-        "claim_support_policy_impact_replay_escalated"
-    )
-    CLAIM_SUPPORT_POLICY_IMPACT_FIXTURE_PROMOTED = (
-        "claim_support_policy_impact_fixture_promoted"
-    )
-    CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_COVERAGE_WAIVER_CLOSED = (
-        "claim_support_replay_alert_fixture_coverage_waiver_closed"
-    )
-    CLAIM_SUPPORT_REPLAY_ALERT_FIXTURE_CORPUS_SNAPSHOT_ACTIVATED = (
-        "claim_support_replay_alert_fixture_corpus_snapshot_activated"
-    )
-
-
-class RetrievalJudgmentKind(_StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-    MISSING = "missing"
-
-
-class RetrievalHardNegativeKind(_StrEnum):
-    EXPLICIT_IRRELEVANT = "explicit_irrelevant"
-    MISSING_EXPECTED = "missing_expected"
-    FAILED_REPLAY_TOP_RESULT = "failed_replay_top_result"
-    WRONG_RESULT_TYPE = "wrong_result_type"
-    NO_ANSWER_RETURNED = "no_answer_returned"
-
-
-class RetrievalTrainingRunStatus(_StrEnum):
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class TechnicalReportClaimRetrievalFeedbackStatus(_StrEnum):
-    SUPPORTED = "supported"
-    WEAK = "weak"
-    MISSING = "missing"
-    CONTRADICTED = "contradicted"
-    REJECTED = "rejected"
-
-
-class TechnicalReportClaimRetrievalLearningLabel(_StrEnum):
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-    MISSING = "missing"
-
-
-class RetrievalLearningCandidateStatus(_StrEnum):
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class SemanticTermKind(_StrEnum):
-    PREFERRED_LABEL = "preferred_label"
-    ALIAS = "alias"
-
-
-class SemanticAssertionKind(_StrEnum):
-    CONCEPT_MENTION = "concept_mention"
-
-
-class SemanticEvidenceSourceType(_StrEnum):
-    CHUNK = "chunk"
-    TABLE = "table"
-    FIGURE = "figure"
-
-
-class SemanticReviewStatus(_StrEnum):
-    CANDIDATE = "candidate"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-
-
-class SemanticEpistemicStatus(_StrEnum):
-    OBSERVED = "observed"
-    INFERRED = "inferred"
-    CURATED = "curated"
-
-
-class SemanticContextScope(_StrEnum):
-    DOCUMENT_RUN = "document_run"
-    DOCUMENT = "document"
-    REGISTRY = "registry"
-
-
-class SemanticBindingOrigin(_StrEnum):
-    REGISTRY = "registry"
-    DERIVED = "derived"
-
-
-class SemanticCategoryBindingType(_StrEnum):
-    CONCEPT_CATEGORY = "concept_category"
-    ASSERTION_CATEGORY = "assertion_category"
-
-
-class SemanticOntologySourceKind(_StrEnum):
-    UPPER_SEED = "upper_seed"
-    ONTOLOGY_EXTENSION_APPLY = "ontology_extension_apply"
-
-
-class SemanticGraphSourceKind(_StrEnum):
-    GRAPH_PROMOTION_APPLY = "graph_promotion_apply"
-
-
-class SemanticEntityType(_StrEnum):
-    DOCUMENT = "document"
-    CONCEPT = "concept"
-    LITERAL = "literal"

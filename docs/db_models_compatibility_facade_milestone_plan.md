@@ -1,8 +1,9 @@
 # DB Models Compatibility Facade Milestone Plan
 
 Date: 2026-05-11 local
-Status: Milestone 1 implemented, verified, and committed locally as `776fa73`;
-Milestone 2 facade ownership narrowing remains open
+Status: Milestone 2 facade ownership narrowing implemented and verified
+locally; `IC-F2A8110185EB` is now closed as a verified ownership-resolution
+case and the next routed owner case is `IC-050E60059A34` / `app/services/evidence.py`
 Owner context: bounded follow-up under architecture-governance owner case
 `IC-F2A8110185EB` for `app/db/models.py`. This milestone targets the
 remaining `unclear_ownership` weakness in the public `app.db.models`
@@ -20,12 +21,12 @@ checks, and a prevention gate that blocks future ORM or facade-growth drift.
 
 ## Current Evidence
 
-Live repo signals refreshed after Milestone 1 closeout:
+Live repo signals refreshed after Milestone 2 verification:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=598.8
+  max_hotspot_risk_score=554.06
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -38,8 +39,9 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
   app.db.models import fan-in=166
   app/db/models.py is not in the top 12 churn hotspots
 
-wc -l app/db/models.py
-  345 app/db/models.py
+wc -l app/db/models.py app/db/_model_enums.py
+  159 app/db/models.py
+  221 app/db/_model_enums.py
 
 python - <<'PY'
 from tests.db_model_contract import (
@@ -54,23 +56,34 @@ PY
   public_import_symbols=109
   enum_symbols=29
   model_symbols=80
+
+uv run docling-system-improvement-case-summary
+  case_count=26
+  status_counts.open=24
+  status_counts.verified=1
+  status_counts.measured=1
+  oldest_open_case_id=IC-050E60059A34
 ```
 
 Repo-current artifact evidence:
 
-- `config/improvement_cases.yaml` still records `IC-F2A8110185EB` as `open`
-  with `cause_class: unclear_ownership` for `app/db/models.py`.
-- `docs/SESSION_HANDOFF.md` routes the next bounded follow-up to an
-  `app/db/models.py` compatibility-facade / public-import-contract milestone.
+- `config/improvement_cases.yaml` now records `IC-F2A8110185EB` as `verified`
+  with `cause_class: unclear_ownership` resolved by the explicit compatibility
+  facade contract for `app/db/models.py`.
+- `docs/SESSION_HANDOFF.md` now treats this plan as the completed closeout
+  brief for the `app/db/models.py` owner case and routes the next bounded
+  follow-up to `IC-050E60059A34` / `app/services/evidence.py`.
 - `docs/data_model_boundary_plan.md` records that no further model-family split
-  remains under this owner case.
-- `app/db/models.py` no longer owns full ORM implementations, but it still
-  mixes public enum declarations, delayed import bootstrapping, direct
-  import-forwarders, and a 111-symbol governed export surface in one file.
+  remains under this owner case; the remaining work is compatibility-facade
+  governance rather than additional ORM movement.
+- `app/db/models.py` is now a 159-line pure compatibility facade. Enum
+  ownership lives in `app/db/_model_enums.py`, delayed import bootstrapping
+  remains private, and the governed public export surface still covers 111
+  symbols.
 - `tests/unit/test_db_model_import_compatibility.py` proves import
-  compatibility, and `tests/unit/test_db_models_facade_contract.py` now
-  constrains the allowed structure of `app/db/models.py` itself as a public
-  facade.
+  compatibility, and `tests/unit/test_db_models_facade_contract.py` constrains
+  the allowed structure of `app/db/models.py` itself while blocking the new
+  private enum support module from becoming a second public import surface.
 
 ## Goal
 
@@ -340,6 +353,53 @@ Acceptance:
 - if architecture-quality still lists `app/db/models.py`, the remaining issue
   is explicitly named and routed as something narrower than unclear ownership
 
+Implemented locally on 2026-05-11:
+
+- moved the remaining 29 public enum definitions out of `app/db/models.py`
+  into new private support module `app/db/_model_enums.py`
+- reduced `app/db/models.py` from 345 lines to 159 while keeping it as the only
+  caller-facing public import surface
+- tightened the facade-structure gate so any top-level class definition in
+  `app/db/models.py` is now a failure, and only approved support-module imports
+  are allowed
+- extended import-compatibility coverage so every public enum re-export is
+  proven to resolve back to `app/db._model_enums`
+- added a private-surface guard that fails if other repo modules begin
+  importing `app.db._model_enums` directly
+- updated hygiene ownership budgets and owner-case registry state so the
+  unclear-ownership case is verified rather than still routed as open
+
+Verified results:
+
+- `git diff --check`: pass
+- `uv run ruff check app tests`: pass
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py`:
+  `6 passed`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `569 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `335 passed`
+- `uv run --extra dev alembic heads`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic upgrade head`: pass
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1840 passed in 55.47s`
+- `uv run docling-system-improvement-case-validate`:
+  `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`:
+  `case_count=26`, `status_counts.open=24`, `status_counts.verified=1`,
+  `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
+- `uv run docling-system-architecture-inspect`:
+  `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`:
+  `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`:
+  `app.db.models` import fan-in=`166`; the facade is not listed in the top 12
+  churn hotspots
+
 ## Required Implementation Artifacts
 
 - `app/db/models.py`
@@ -418,8 +478,12 @@ Acceptance:
 
 ## Residual Risks And Next Milestone Routing
 
-- if this milestone resolves `IC-F2A8110185EB`, route the next architecture
-  milestone to the then-top open case from `config/improvement_cases.yaml`
+- this milestone resolves `IC-F2A8110185EB` as an unclear-ownership case, but
+  `app/db/models.py` may continue to appear in architecture-quality routing
+  because it is an intentional high-fan-in compatibility facade
+- the next architecture milestone should now route to the current oldest open
+  case from `config/improvement_cases.yaml`: `IC-050E60059A34` /
+  `app/services/evidence.py`
 - if architecture-quality still routes `app/db/models.py` after ownership is
   explicit, the next route must name the narrower remaining issue precisely
   rather than reopening `unclear_ownership`

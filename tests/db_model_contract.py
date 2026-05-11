@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+DB_MODELS_ENUM_SUPPORT_MODULE = "app.db._model_enums"
+
 ENUM_SYMBOLS = (
     "RunStatus",
     "AgentTaskStatus",

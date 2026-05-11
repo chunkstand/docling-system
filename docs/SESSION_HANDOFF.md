@@ -4,15 +4,17 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: DB Models Compatibility Facade Milestone 1 verified
-and committed locally as `776fa73`; the prior semantic-memory checkpoint
-remains local, the prior claim-support checkpoint remains local, the prior
-audit checkpoint remains `196d3aa`, the prior alignment checkpoint remains
-`7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the prior
-evaluation-feedback checkpoint remains `b69c4f6`.
-Active local follow-up owner case: `IC-F2A8110185EB` /
-`app/db/models.py` compatibility-facade continuation.
-Active bounded implementation brief:
+Latest closeout checkpoint: DB Models Compatibility Facade Milestone 2 verified
+locally; the prior Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
+checkpoint remains local, the prior claim-support checkpoint remains local, the
+prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
+remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
+prior evaluation-feedback checkpoint remains `b69c4f6`.
+Active local follow-up owner case: `IC-050E60059A34` /
+`app/services/evidence.py` owner narrowing continuation.
+Active bounded implementation brief: next `app/services/evidence.py`
+owner-split milestone to be authored from the current routing artifacts; the
+completed brief for the just-finished slice is
 `docs/db_models_compatibility_facade_milestone_plan.md`.
 
 ## Current Position
@@ -32,11 +34,13 @@ High Value Technical Paydown plan remains complete locally through Milestone
 10, and the routed `app/db/models.py` owner work has advanced one more bounded
 slice: the semantic-memory ontology, graph-state, concept, assertion, entity,
 fact, semantic review, and governance ORM family now lives in
-`app/db/model_domains/semantic_memory.py`, `app/db/models.py` is now a
-345-line gated compatibility facade while keeping `app.db.models` as the
-public compatibility surface, and
-the registry summary remains `case_count=26`, `status_counts.open=25`,
-`status_counts.measured=1`, and `measured_case_count=14`. The completed
+`app/db/model_domains/semantic_memory.py`, the remaining enum ownership now
+lives in `app/db/_model_enums.py`, `app/db/models.py` is now a 159-line pure
+compatibility facade while keeping `app.db.models` as the public compatibility
+surface, and the registry summary now reports `case_count=26`,
+`status_counts.open=24`, `status_counts.verified=1`,
+`status_counts.measured=1`, `measured_case_count=14`, and
+`oldest_open_case_id=IC-050E60059A34`. The completed
 evaluation-feedback milestone record remains in
 `docs/evaluation_feedback_model_domain_milestone_plan.md`, the completed audit
 milestone record remains in
@@ -49,20 +53,109 @@ milestone record now lives in
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=598.8` with `app/db/models.py` still first in
+`max_hotspot_risk_score=554.06` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
 `app/db/models.py` is no longer listed in the top 12 churn hotspots.
 
-The compatibility-facade follow-up has now advanced one bounded step. Milestone
-1 from `docs/db_models_compatibility_facade_milestone_plan.md` is implemented
-locally: `app/db/models.py` now keeps its support imports private, the facade
-export contract explicitly governs 111 supported public symbols, and
-`tests/unit/test_db_models_facade_contract.py` blocks unexpected export growth,
-direct ORM-class additions, and direct schema-call additions. The remaining
-follow-up for `IC-F2A8110185EB` is Milestone 2 facade ownership narrowing, not
-another model-family split.
+The compatibility-facade follow-up is now closed as an ownership milestone.
+Milestone 2 from `docs/db_models_compatibility_facade_milestone_plan.md` is
+implemented locally: `app/db/models.py` is now a 159-line pure compatibility
+facade, the remaining 29 public enums live in `app/db/_model_enums.py`, the
+facade gate rejects any direct class definitions in `app/db/models.py`, and
+the improvement-case registry now records `IC-F2A8110185EB` as `verified`.
+The next routed follow-up is no longer another `app/db/models.py` split; it is
+the oldest remaining open owner case `IC-050E60059A34` /
+`app/services/evidence.py`.
+
+The live alignment snapshot after Milestone 2 verification is:
+
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=24`, `status_counts.verified=1`,
+  `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+- architecture probe: `app.db.models` import fan-in=`166`; `app/db/models.py`
+  is no longer in the top 12 churn hotspots
+
+## DB Models Compatibility Facade Milestone 2 Progress
+
+Milestone 2 is the ownership-closeout slice for
+`IC-F2A8110185EB` / `app/db/models.py`. It resolves the remaining
+`unclear_ownership` issue without changing the public import contract.
+
+Results:
+
+- added `app/db/_model_enums.py` as the private owner for the 29 `StrEnum`
+  definitions still living in the public facade
+- reduced `app/db/models.py` from 345 lines to 159 while keeping
+  `app.db.models` as the only caller-facing public import path
+- tightened `tests/unit/test_db_models_facade_contract.py` so any top-level
+  class definition in `app/db/models.py` now fails
+- extended `tests/unit/test_db_model_import_compatibility.py` so the enum
+  re-exports are proven to resolve back to `app/db._model_enums`
+- added a repo-private import guard that prevents
+  `app/db/_model_enums.py` from becoming a second informal public surface
+- updated `config/hygiene_policy.yaml`, `config/improvement_cases.yaml`,
+  `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
+  `docs/improvement_loop.md`, and this handoff so the closeout artifacts agree
+  on the live facade state and next routed owner case
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `git diff --check`: pass
+- `uv run ruff check app tests`: pass
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `569 passed`
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py`:
+  `6 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `335 passed`
+- `uv run --extra dev alembic heads`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic upgrade head`: pass
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1840 passed in 55.47s`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=24`, `status_counts.verified=1`,
+  `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=554.06`
+- architecture probe reports `app.db.models` import fan-in=`166`; the facade
+  is not listed in the top 12 churn hotspots
+
+Next routed follow-up:
+
+- verified owner case: `IC-F2A8110185EB`
+- next oldest open case: `IC-050E60059A34`
+- next bounded milestone should target `app/services/evidence.py`
 
 ## DB Models Compatibility Facade Milestone 1 Progress
 

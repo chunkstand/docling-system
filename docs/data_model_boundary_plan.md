@@ -29,9 +29,11 @@ Evidence Model-Domain Milestone 1 split, and `claim support` now lives in
 `app/db/model_domains/claim_support.py` for the verified local Claim Support
 Model-Domain Milestone 1 split, and `semantic memory` now lives in
 `app/db/model_domains/semantic_memory.py` for the verified local Semantic
-Memory Model-Domain Milestone 1 split. `app.db.models` remains the public
-compatibility facade at 345 lines with a dedicated facade-structure gate. Each
-model-domain milestone must finish
+Memory Model-Domain Milestone 1 split. The compatibility-facade follow-up is
+also now verified locally: the remaining enum ownership lives in
+`app/db/_model_enums.py`, and `app.db.models` remains the public
+compatibility facade at 159 lines with a dedicated facade-structure gate and a
+private-surface import guard. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -145,12 +147,14 @@ interaction-ledger rows explicitly, keeping the replay/release and learning
 surfaces deferred, and requiring the new owner module to stay narrow enough to
 pass the same gating and review pattern again in the next slice.
 
-The harness currently protects 109 public `app.db.models` symbols: 29 enums and
-80 ORM model classes. It also asserts the 80-table `Base.metadata` contract and
-checks that schema-scoped Postgres `Base.metadata.create_all(...)` creates the
-expected tables. The harness also protects required model indexes, unique
-constraints, and their exact column ordering where required to remain aligned
-with migrations, including
+The harness now protects the full 111-symbol `app.db.models` public facade:
+109 import-compatibility symbols plus
+`DOCUMENT_METADATA_NORMALIZE_SQL` and
+`DOCUMENT_METADATA_TEXTSEARCH_SQL`. It also asserts the 80-table
+`Base.metadata` contract and checks that schema-scoped Postgres
+`Base.metadata.create_all(...)` creates the expected tables. The harness also
+protects required model indexes, unique constraints, and their exact column
+ordering where required to remain aligned with migrations, including
 `ix_document_runs_status_completed_at`,
 `ix_api_idempotency_keys_created_at`, ingest/document indexes, and named unique
 constraints such as `uq_api_idempotency_keys_scope_key`,

@@ -15,11 +15,11 @@ codebase failures that are not necessarily retrieval failures.
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
 Current registry state from the 2026-05-11 local / 2026-05-11 UTC owner-split
-closeout sequence through the local audit-and-evidence model-domain milestone:
+and compatibility-facade closeout sequence:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
-  with one measured hygiene-gate case and 25 open architecture-governance
-  cases.
+  with one measured hygiene-gate case, one verified architecture-governance
+  case, and 24 open architecture-governance cases.
 - The architecture quality report emits current hotspot candidates for large or
   high-churn surfaces, and those candidates are now imported as open registry
   cases with structured owner surfaces, verification commands, and stop
@@ -32,11 +32,11 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   lines to 107 and moved the shared runtime plus page-family logic into
   `app/ui/modules/`, so this UI hotspot now routes through a real owner
   module family rather than one monolithic script.
-- `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
-  the committed local retrieval-interaction, replay/release governance,
-  retrieval-learning, evaluation-feedback, agent-task, audit-and-evidence,
-  claim-support, and semantic-memory splits narrowed it to a 345-line
-  compatibility facade with
+- `IC-F2A8110185EB` is now verified under an explicit compatibility-facade
+  contract. The committed local retrieval-interaction, replay/release
+  governance, retrieval-learning, evaluation-feedback, agent-task,
+  audit-and-evidence, claim-support, and semantic-memory splits narrowed it to
+  a 159-line compatibility facade with
   dedicated owner modules at
   `app/db/model_domains/retrieval_interactions.py`,
   `app/db/model_domains/retrieval_replay_governance.py`,
@@ -46,13 +46,12 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   `app/db/model_domains/agent_tasks.py`, and
   `app/db/model_domains/audit_and_evidence.py`, and
   `app/db/model_domains/claim_support.py`, and
-  `app/db/model_domains/semantic_memory.py`. The High Value Technical Paydown
-  plan is now closed locally. The compatibility-facade / public-import-contract
-  milestone has started: Milestone 1 now lands an exact facade gate in
-  `tests/unit/test_db_models_facade_contract.py`, the Milestone 1 closeout is
-  committed locally as `776fa73`, and the next bounded
-  follow-up for this owner case is Milestone 2 narrowing in
-  `docs/db_models_compatibility_facade_milestone_plan.md`.
+  `app/db/model_domains/semantic_memory.py`. Milestone 2 of
+  `docs/db_models_compatibility_facade_milestone_plan.md` then moved the
+  remaining enum ownership into `app/db/_model_enums.py`, tightened the exact
+  facade structure gate, and closed the remaining `unclear_ownership` issue for
+  `app/db/models.py` without changing the governed 111-symbol public export
+  contract.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
   `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
@@ -75,9 +74,8 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   claim-support scenario-family files, including the aligned replay-alert
   change-impact split into activation, prevalidation, promotion, and
   governance files.
-- The next routed implementation slice is now the `IC-F2A8110185EB` /
-  `app/db/models.py` compatibility-facade Milestone 2 continuation from
-  `docs/db_models_compatibility_facade_milestone_plan.md`.
+- The next routed implementation slice is now the
+  `IC-050E60059A34` / `app/services/evidence.py` owner-narrowing follow-up.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

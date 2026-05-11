@@ -12,6 +12,7 @@ from tests.db_model_contract import (
     ALLOWED_DB_MODELS_SUPPORT_SYMBOLS,
     AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS,
     CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS,
+    DB_MODELS_ENUM_SUPPORT_MODULE,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
@@ -59,6 +60,16 @@ def test_public_model_enum_remains_str_enum(symbol_name: str) -> None:
     symbol = getattr(model_module, symbol_name)
 
     assert issubclass(symbol, StrEnum)
+
+
+def test_public_model_enums_are_owned_by_private_support_module() -> None:
+    from app.db import _model_enums
+
+    for symbol_name in ENUM_SYMBOLS:
+        symbol = getattr(model_module, symbol_name)
+
+        assert symbol is getattr(_model_enums, symbol_name)
+        assert symbol.__module__ == DB_MODELS_ENUM_SUPPORT_MODULE
 
 
 @pytest.mark.parametrize("symbol_name", MODEL_SYMBOLS)

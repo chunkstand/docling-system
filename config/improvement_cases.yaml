@@ -36,11 +36,11 @@ cases:
   updated_at: '2026-04-24T23:48:32.939918+00:00'
 - case_id: IC-F2A8110185EB
   title: 'Architecture hotspot: app/db/models.py'
-  status: open
+  status: verified
   cause_class: unclear_ownership
-  observed_failure: app/db/models.py remains in the architecture-quality
-    hotspot routing with line_count=345 after the locally verified
-    compatibility-facade Milestone 1 gate.
+  observed_failure: app/db/models.py previously mixed enum ownership, delayed
+    import bootstrapping, and import-forwarder aliases inside the public
+    compatibility facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -53,40 +53,45 @@ cases:
     description: Architecture quality owner surface for app/db/models.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check app tests
+    - uv run pytest -q tests/unit/test_db_model_import_compatibility.py
+    - uv run pytest -q tests/unit/test_db_models_facade_contract.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py
+    - uv run --extra dev alembic heads
+    - uv run --extra dev alembic current
+    - uv run --extra dev alembic upgrade head
+    - uv run --extra dev alembic check
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     - uv run docling-system-architecture-quality-report
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/db/models.py is reduced to a pure compatibility facade with no
+      in-file enum ownership or ORM definitions.
+    - The public app.db.models import surface remains import-compatible for all
+      governed symbols.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
     notes: >-
-      Latest local verification moved the remaining semantic-memory ORM family
-      into app/db/model_domains/semantic_memory.py and then kept
-      app/db/models.py as a 345-line compatibility facade while adding the
-      first dedicated facade gate. The first
-      compatibility-facade milestone is now implemented locally: the facade has
-      a dedicated structure gate in
-      tests/unit/test_db_models_facade_contract.py plus an explicit
-      111-symbol export contract. The broader owner case remains open because
-      the architecture-quality summary still routes app/db/models.py in
-      top_hotspot_paths, so the next bounded follow-up is Milestone 2 facade
-      ownership narrowing rather than another model-family split.
+      Milestone 2 moves the remaining enum ownership into
+      app/db/_model_enums.py, reduces app/db/models.py to a pure
+      compatibility facade, and adds a gate that prevents the private enum
+      support module from becoming a second public import surface. The
+      architecture-quality report may still route app/db/models.py because of
+      its intentional public fan-in, but the unclear_ownership owner case is
+      now resolved under the explicit compatibility contract.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 345.0
+    current_value: 159.0
     measurement_window: 2026-05-11 local verification
     notes: >-
-      Semantic Memory Model-Domain Milestone 1 moved the ontology, graph-state,
-      concept, assertion, entity, fact, semantic review, and governance ORM
-      family into app/db/model_domains/semantic_memory.py, reducing
-      app/db/models.py to 345 lines while preserving the app.db.models
-      compatibility facade. The first compatibility-facade milestone then added
-      an exact export and structure gate while preserving the 345-line facade
-      footprint.
+      Milestone 2 moved the remaining enum ownership into app/db/_model_enums.py
+      and reduced app/db/models.py from 345 lines to 159 while preserving the
+      governed 111-symbol app.db.models public export contract.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T22:56:53+00:00'
+  updated_at: '2026-05-11T23:22:26+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

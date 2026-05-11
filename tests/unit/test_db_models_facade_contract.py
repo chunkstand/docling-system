@@ -6,7 +6,6 @@ from pathlib import Path
 import app.db.models as model_module
 from tests.db_model_contract import (
     ALLOWED_DB_MODELS_SUPPORT_SYMBOLS,
-    ENUM_SYMBOLS,
     PUBLIC_DB_MODELS_EXPORT_SYMBOLS,
 )
 
@@ -15,11 +14,17 @@ MODELS_PATH = PROJECT_ROOT / "app/db/models.py"
 ALLOWED_IMPORT_MODULES = frozenset(
     {
         "__future__",
-        "enum",
+        "app.db._model_enums",
         "app.db.model_domains",
         "app.db.model_domains.document_artifacts",
         "app.db.model_domains.ingest",
         "app.db.model_domains.platform",
+    }
+)
+ALLOWED_PRIVATE_SUPPORT_IMPORTERS = frozenset(
+    {
+        MODELS_PATH.resolve(),
+        (PROJECT_ROOT / "tests/unit/test_db_model_import_compatibility.py").resolve(),
     }
 )
 ALLOWED_DELAYED_IMPORTS = {
@@ -69,18 +74,7 @@ def _collect_facade_contract_violations(tree: ast.Module) -> list[dict[str, obje
                             "line": node.lineno,
                             "detail": aliases,
                         }
-                    )
-                continue
-            if node.module == "enum":
-                aliases = {(alias.name, alias.asname) for alias in node.names}
-                if aliases != {("StrEnum", "_StrEnum")}:
-                    violations.append(
-                        {
-                            "category": "unexpected_enum_import",
-                            "line": node.lineno,
-                            "detail": aliases,
-                        }
-                    )
+                )
                 continue
             for alias in node.names:
                 exported_name = alias.asname or alias.name
@@ -165,50 +159,13 @@ def _collect_facade_contract_violations(tree: ast.Module) -> list[dict[str, obje
             continue
 
         if isinstance(node, ast.ClassDef):
-            if node.name not in ENUM_SYMBOLS:
-                violations.append(
-                    {
-                        "category": "unexpected_class",
-                        "line": node.lineno,
-                        "detail": node.name,
-                    }
-                )
-                continue
-            if node.decorator_list or node.keywords:
-                violations.append(
-                    {
-                        "category": "unexpected_enum_decoration",
-                        "line": node.lineno,
-                        "detail": node.name,
-                    }
-                )
-            if len(node.bases) != 1 or not (
-                isinstance(node.bases[0], ast.Name) and node.bases[0].id == "_StrEnum"
-            ):
-                violations.append(
-                    {
-                        "category": "unexpected_enum_base",
-                        "line": node.lineno,
-                        "detail": node.name,
-                    }
-                )
-            for statement in node.body:
-                if (
-                    isinstance(statement, ast.Assign)
-                    and len(statement.targets) == 1
-                    and isinstance(statement.targets[0], ast.Name)
-                    and statement.targets[0].id.isupper()
-                    and isinstance(statement.value, ast.Constant)
-                    and isinstance(statement.value.value, str)
-                ):
-                    continue
-                violations.append(
-                    {
-                        "category": "unexpected_enum_body_statement",
-                        "line": statement.lineno,
-                        "detail": node.name,
-                    }
-                )
+            violations.append(
+                {
+                    "category": "unexpected_class",
+                    "line": node.lineno,
+                    "detail": node.name,
+                }
+            )
             continue
 
         violations.append(
@@ -232,6 +189,27 @@ def test_db_models_facade_public_surface_is_exact() -> None:
 
 def test_db_models_facade_contains_only_allowed_structure() -> None:
     violations = _collect_facade_contract_violations(_load_models_tree())
+
+    assert violations == []
+
+
+def test_db_models_private_enum_support_module_is_not_a_second_public_surface() -> None:
+    violations: list[str] = []
+
+    for path in PROJECT_ROOT.rglob("*.py"):
+        if ".venv" in path.parts:
+            continue
+        if path.resolve() in ALLOWED_PRIVATE_SUPPORT_IMPORTERS:
+            continue
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module == "app.db._model_enums":
+                violations.append(str(path.relative_to(PROJECT_ROOT)))
+                break
+            if isinstance(node, ast.Import):
+                if any(alias.name == "app.db._model_enums" for alias in node.names):
+                    violations.append(str(path.relative_to(PROJECT_ROOT)))
+                    break
 
     assert violations == []
 
