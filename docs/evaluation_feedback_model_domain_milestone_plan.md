@@ -1,7 +1,7 @@
 # Evaluation Feedback Model-Domain Milestone Plan
 
 Date: 2026-05-10 local
-Status: Milestone 1 verified locally on 2026-05-11; broader owner case reduced
+Status: Milestone 2 closeout committed locally as `b69c4f6` on 2026-05-11; broader owner case reduced
 Owner context: bounded follow-up under the open architecture-governance owner
 case for `app/db/models.py`. This milestone resolves the `evaluation feedback`
 ORM concern inside the compatibility facade; it does not claim to retire the
@@ -255,7 +255,7 @@ Acceptance:
 
 Status update:
 
-- verified locally on 2026-05-11
+- verified locally on 2026-05-11 and later committed locally as `b69c4f6`
 - live routing remains aligned across `docs/SESSION_HANDOFF.md`,
   `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
   `config/improvement_cases.yaml`, and this plan
@@ -311,7 +311,7 @@ Acceptance:
 
 Status update:
 
-- verified locally on 2026-05-11
+- verified locally on 2026-05-11 and committed locally as `b69c4f6`
 - added `app/db/model_domains/evaluation_feedback.py` containing only
   `EvalObservation` and `EvalFailureCase`
 - replaced the in-file ORM implementations in `app/db/models.py` with
@@ -328,6 +328,11 @@ Status update:
 - the broader `IC-F2A8110185EB` owner case remains `reduced`, not `resolved`,
   because `uv run docling-system-architecture-quality-report --summary` still
   lists `app/db/models.py` in `top_hotspot_paths`
+- refreshed `config/improvement_cases.yaml`,
+  `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
+  and `docs/SESSION_HANDOFF.md` after the commit so the repo-wide route points
+  back to the agent-task family instead of treating this plan as the next
+  active execution slice
 
 ### Milestone 2: Closeout And Next Routing
 

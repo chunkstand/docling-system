@@ -59,10 +59,10 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "b69c4f6"
     notes: app/db/models.py remains the compatibility facade while narrowed ORM
       ownership now also includes app/db/model_domains/evaluation_feedback.py
-      for EvalObservation and EvalFailureCase in the current local checkout.
+      for EvalObservation and EvalFailureCase, committed locally in b69c4f6.
   measurement:
     metric_name: db_models_hotspot_line_count
     current_value: 3570.0
@@ -72,7 +72,7 @@ cases:
       reducing app/db/models.py to 3570 lines while preserving the
       app.db.models compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T00:00:00+00:00'
+  updated_at: '2026-05-11T01:00:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

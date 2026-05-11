@@ -310,7 +310,7 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, evaluation-data-readiness,
   architecture, hygiene, hotspot-prevention, and full DB-backed gates.
 
-Verified locally on 2026-05-11: `evaluation feedback`:
+Committed locally in `b69c4f6` on 2026-05-11: `evaluation feedback`:
 `EvalObservation`, `EvalFailureCase`.
 
 Implemented result:
@@ -328,7 +328,7 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, architecture, capability,
   and full DB-backed gates.
 
-Current routed follow-up after the verified evaluation-feedback split:
+Current routed follow-up after the committed evaluation-feedback split:
 
 - next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
 - next model-domain candidate when this owner case resumes: `agent tasks`

@@ -4,8 +4,8 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: Evaluation Feedback Model-Domain Milestone 1 owner
-split is now verified locally in the current checkout; High Value Technical
+Latest closeout checkpoint: Evaluation Feedback Model-Domain Milestone 1 and
+Milestone 2 closeout committed locally as `b69c4f6`; High Value Technical
 Paydown Milestone 10 final closeout remains complete locally.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` agent-task continuation.
@@ -17,7 +17,7 @@ Active bounded implementation brief:
 The checkout is on `main`. Local `main` remains ahead of `origin/main` after
 the High Value Technical Paydown Milestone 10 closeout, the Evaluation
 Feedback Model-Domain Milestone 0 preflight closeout, and the Milestone 1
-owner split staged in the current checkout.
+owner split plus Milestone 2 closeout committed locally as `b69c4f6`.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -37,11 +37,11 @@ next dedicated `app/db/models.py` owner-split brief is written.
 Post-closeout architecture alignment recheck on 2026-05-11 kept that routing
 intact after the Milestone 1 owner split:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=653.8` with `app/db/models.py` still first in
+`max_hotspot_risk_score=660.8` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
-`app/db/models.py` remains a governed model hotspot at score `267750`.
+`app/db/models.py` remains a governed model hotspot at score `271320`.
 
 The completed implementation brief for the evaluation-feedback route lives in
 `docs/evaluation_feedback_model_domain_milestone_plan.md`. It scoped
@@ -52,7 +52,7 @@ architecture-quality report stops flagging `app/db/models.py`. Milestone 0 in
 that plan is now verified locally: routing agreement, DB-backed verification
 availability, and the pre-move Alembic posture are confirmed, while the
 evaluation-feedback metadata contract coverage is now in place and the ORM move
-is verified locally. The broader owner case remains `reduced`, and the next
+is committed locally as `b69c4f6`. The broader owner case remains `reduced`, and the next
 remaining model-domain candidate is the agent-task family if model work
 continues in `app/db/models.py`.
 
@@ -60,7 +60,8 @@ continues in `app/db/models.py`.
 
 Milestone 1 is the evaluation-feedback contract and owner split for
 `IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM owner
-split behind the existing `app.db.models` compatibility facade.
+split behind the existing `app.db.models` compatibility facade, committed
+locally as `b69c4f6`.
 
 Results:
 
@@ -1501,7 +1502,13 @@ The current system is a local-first, durable document-intelligence platform with
 ## Recent Local Milestone Commits Since `origin/main`
 
 The most recent routed milestone commits ahead of `origin/main` before the
-current Milestone 1 closeout are:
+current alignment pass are:
+
+- `b69c4f6` (`architecture: split evaluation feedback models`), which moves
+  `EvalObservation` and `EvalFailureCase` into
+  `app/db/model_domains/evaluation_feedback.py`, expands the shared metadata
+  contract harness, refreshes the owner-case registry and routing docs, and
+  leaves the broader `IC-F2A8110185EB` owner case reduced rather than resolved
 
 - `81f6260` (`docs: close evaluation feedback milestone 0 preflight`), which
   closes the evaluation-feedback Milestone 0 baseline lock, records the live
@@ -1514,9 +1521,10 @@ current Milestone 1 closeout are:
   closes the High Value Technical Paydown plan through Milestone 10 and routes
   the next owner-scoped follow-up to the evaluation-feedback candidate
 
-These commits close the High Value Technical Paydown current-state alignment
-pass, add the dedicated evaluation-feedback follow-up brief, and close the
-Milestone 0 preflight slice that must pass before the ORM move begins.
+These commits add the dedicated evaluation-feedback follow-up brief, close the
+Milestone 0 preflight slice that had to pass before the ORM move began, and
+commit the evaluation-feedback owner split that now routes the broader
+`app/db/models.py` owner case to the agent-task family.
 
 ## Current Architecture And Governance State
 
