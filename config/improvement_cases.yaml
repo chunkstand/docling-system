@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=3782 after the committed local retrieval-learning owner split.
+    line_count=3570 after the verified local evaluation-feedback owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -59,25 +59,18 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "faed562"
+    deployed_ref: null
     notes: app/db/models.py remains the compatibility facade while narrowed ORM
-      ownership now includes app/db/model_domains/document_artifacts.py,
-      app/db/model_domains/retrieval_interactions.py, and
-      app/db/model_domains/retrieval_replay_governance.py, plus
-      app/db/model_domains/retrieval_learning_examples.py and
-      app/db/model_domains/retrieval_learning_artifacts.py; Milestone 9 is
-      committed locally as faed562.
+      ownership now also includes app/db/model_domains/evaluation_feedback.py
+      for EvalObservation and EvalFailureCase in the current local checkout.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 3782.0
+    current_value: 3570.0
     measurement_window: 2026-05-11 local verification
-    notes: High Value Technical Paydown Milestone 9 moved
-      RetrievalJudgmentSet, RetrievalJudgment, RetrievalHardNegative,
-      RetrievalTrainingRun, RetrievalLearningCandidateEvaluation, and
-      RetrievalRerankerArtifact into
-      app/db/model_domains/retrieval_learning_examples.py and
-      app/db/model_domains/retrieval_learning_artifacts.py, reducing
-      app/db/models.py to 3782 lines.
+    notes: Evaluation Feedback Model-Domain Milestone 1 moved EvalObservation
+      and EvalFailureCase into app/db/model_domains/evaluation_feedback.py,
+      reducing app/db/models.py to 3570 lines while preserving the
+      app.db.models compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-11T00:00:00+00:00'
 - case_id: IC-050E60059A34

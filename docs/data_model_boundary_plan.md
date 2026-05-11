@@ -3,9 +3,9 @@
 Purpose: reduce `app/db/models.py` centrality without destabilizing Alembic,
 `Base.metadata.create_all(...)`, or active runtime imports.
 
-Status refreshed: 2026-05-11. `app/db/models.py` remains the highest current
-architecture-quality hotspot, but the first five model-domain splits are
-complete or verified locally: `platform support` owns `ApiIdempotencyKey` in
+Status refreshed: 2026-05-11. `app/db/models.py` remains a governed
+architecture hotspot, but several bounded model-domain splits are complete or
+verified locally: `platform support` owns `ApiIdempotencyKey` in
 `app/db/model_domains/platform.py`, `ingest` owns `IngestBatch`,
 `IngestBatchItem`, `Document`, and `DocumentRun` in
 `app/db/model_domains/ingest.py`, and `document_artifacts` owns
@@ -19,8 +19,10 @@ verified local Milestone 8 split, and the retrieval-learning examples and
 artifacts now live in
 `app/db/model_domains/retrieval_learning_examples.py` and
 `app/db/model_domains/retrieval_learning_artifacts.py` for the verified local
-Milestone 9 split. `app.db.models` remains the public compatibility facade at
-3,782 lines. Each model-domain milestone must finish
+Milestone 9 split, and `evaluation feedback` now lives in
+`app/db/model_domains/evaluation_feedback.py` for the verified local
+Evaluation Feedback Model-Domain Milestone 1 split. `app.db.models` remains
+the public compatibility facade at 3,570 lines. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -308,22 +310,39 @@ Implemented result:
 - Verified with focused import, metadata, Alembic, evaluation-data-readiness,
   architecture, hygiene, hotspot-prevention, and full DB-backed gates.
 
-Next model-domain candidate when model work resumes:
+Verified locally on 2026-05-11: `evaluation feedback`:
+`EvalObservation`, `EvalFailureCase`.
 
-- `evaluation feedback`: `EvalObservation`, `EvalFailureCase`
+Implemented result:
 
-Current routed follow-up after the verified High Value Technical Paydown
-Milestone 9 retrieval-learning split:
+- Added `app/db/model_domains/evaluation_feedback.py`.
+- Re-exported the evaluation-feedback models from `app/db/models.py` through
+  import-forwarder aliases so public imports remain unchanged.
+- Extended the unit and Postgres create-all metadata contracts for
+  evaluation-feedback table columns, exact index column ordering, and exact
+  unique-constraint column ordering.
+- Reduced `app/db/models.py` from 3,782 lines to 3,570 lines and ratcheted the
+  `config/hygiene_policy.yaml` ceiling to match.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `658.21` to
+  `653.8` while `app/db/models.py` remains in the governed hotspot list.
+- Verified with focused import, metadata, Alembic, architecture, capability,
+  and full DB-backed gates.
+
+Current routed follow-up after the verified evaluation-feedback split:
 
 - next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
-- next model-domain candidate when this owner case resumes: `evaluation feedback`
+- next model-domain candidate when this owner case resumes: `agent tasks`
 - target ORM family:
-  `EvalObservation`,
-  `EvalFailureCase`
-- the dedicated Milestone 0 preflight for that route is now verified locally in
-  `docs/evaluation_feedback_model_domain_milestone_plan.md`; the next
-  implementation slice is Milestone 1's evaluation-feedback contract and owner
-  split
+  `AgentTask`,
+  `AgentTaskDependency`,
+  `AgentTaskAttempt`,
+  `AgentTaskArtifact`,
+  `AgentTaskArtifactImmutabilityEvent`,
+  `AgentTaskOutcome`,
+  `AgentTaskVerification`,
+  `KnowledgeOperatorRun`,
+  `KnowledgeOperatorInput`,
+  `KnowledgeOperatorOutput`
 
 ## Per-Domain Acceptance Gate
 

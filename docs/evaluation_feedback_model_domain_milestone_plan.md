@@ -1,7 +1,7 @@
 # Evaluation Feedback Model-Domain Milestone Plan
 
 Date: 2026-05-10 local
-Status: Milestone 0 verified locally on 2026-05-11; Milestone 1 ready
+Status: Milestone 1 verified locally on 2026-05-11; broader owner case reduced
 Owner context: bounded follow-up under the open architecture-governance owner
 case for `app/db/models.py`. This milestone resolves the `evaluation feedback`
 ORM concern inside the compatibility facade; it does not claim to retire the
@@ -309,6 +309,26 @@ Acceptance:
 - import compatibility, Postgres metadata, Alembic, and full DB-backed pytest
   gates all pass without loosening prior coverage
 
+Status update:
+
+- verified locally on 2026-05-11
+- added `app/db/model_domains/evaluation_feedback.py` containing only
+  `EvalObservation` and `EvalFailureCase`
+- replaced the in-file ORM implementations in `app/db/models.py` with
+  compatibility re-exports so
+  `from app.db.models import EvalObservation, EvalFailureCase` remains
+  unchanged
+- expanded `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` with dedicated
+  evaluation-feedback table-column, exact index-column, and exact
+  unique-constraint coverage
+- reduced `app/db/models.py` from 3,782 lines to 3,570 and reduced the live
+  architecture-quality `max_hotspot_risk_score` from `658.21` to `653.8`
+- the broader `IC-F2A8110185EB` owner case remains `reduced`, not `resolved`,
+  because `uv run docling-system-architecture-quality-report --summary` still
+  lists `app/db/models.py` in `top_hotspot_paths`
+
 ### Milestone 2: Closeout And Next Routing
 
 Outcome label: `reduced`
@@ -464,14 +484,20 @@ DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_
 - The next owner-case route after this milestone should be whichever remaining
   `app/db/models.py` concern the refreshed `docs/data_model_boundary_plan.md`
   names explicitly. Do not reuse older routing prose without a freshness check.
+- refreshed routing now names the agent-task family as the next remaining
+  `app/db/models.py` concern if model-domain work continues:
+  `AgentTask`, `AgentTaskDependency`, `AgentTaskAttempt`,
+  `AgentTaskArtifact`, `AgentTaskArtifactImmutabilityEvent`,
+  `AgentTaskOutcome`, `AgentTaskVerification`, `KnowledgeOperatorRun`,
+  `KnowledgeOperatorInput`, and `KnowledgeOperatorOutput`
 
 ## Closeout Checklist
 
 - [x] Complete Milestone 0 preflight and baseline-lock conditions
-- [ ] Add dedicated evaluation-feedback metadata contract coverage before the move
-- [ ] Move `EvalObservation` and `EvalFailureCase` into a focused owner module
-- [ ] Preserve `app.db.models` import compatibility
-- [ ] Prove Postgres `create_all(...)` and Alembic drift remain clean
-- [ ] Prove tests did not get easier just to pass
-- [ ] Refresh routing docs and handoff from live measurements
-- [ ] Commit the verified milestone slice locally
+- [x] Add dedicated evaluation-feedback metadata contract coverage before the move
+- [x] Move `EvalObservation` and `EvalFailureCase` into a focused owner module
+- [x] Preserve `app.db.models` import compatibility
+- [x] Prove Postgres `create_all(...)` and Alembic drift remain clean
+- [x] Prove tests did not get easier just to pass
+- [x] Refresh routing docs and handoff from live measurements
+- [x] Commit the verified milestone slice locally

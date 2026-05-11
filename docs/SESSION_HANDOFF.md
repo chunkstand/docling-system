@@ -4,19 +4,20 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: Evaluation Feedback Model-Domain Milestone 0
-preflight committed locally as `81f6260`; High Value Technical Paydown
-Milestone 10 final closeout remains complete locally.
+Latest closeout checkpoint: Evaluation Feedback Model-Domain Milestone 1 owner
+split is now verified locally in the current checkout; High Value Technical
+Paydown Milestone 10 final closeout remains complete locally.
 Active local follow-up owner case: `IC-F2A8110185EB` /
-`app/db/models.py` evaluation-feedback continuation.
+`app/db/models.py` agent-task continuation.
 Active bounded implementation brief:
-`docs/evaluation_feedback_model_domain_milestone_plan.md`.
+`docs/data_model_boundary_plan.md`.
 
 ## Current Position
 
 The checkout is on `main`. Local `main` remains ahead of `origin/main` after
-the High Value Technical Paydown Milestone 10 closeout and the Evaluation
-Feedback Model-Domain Milestone 0 preflight closeout.
+the High Value Technical Paydown Milestone 10 closeout, the Evaluation
+Feedback Model-Domain Milestone 0 preflight closeout, and the Milestone 1
+owner split staged in the current checkout.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -25,31 +26,108 @@ Hotspot Owner Resolution sequence is closed locally through Milestone 6. The
 High Value Technical Paydown plan is now complete locally through Milestone 10:
 it moved the retrieval-interaction, replay/release governance, and
 retrieval-learning ORM families into focused owner modules, reduced
-`app/db/models.py` to 3,782 lines while keeping `app.db.models` as the public
+`app/db/models.py` to 3,570 lines while keeping `app.db.models` as the public
 compatibility facade, and left the registry summary at `case_count=26`,
 `status_counts.open=25`, `status_counts.measured=1`, and
-`measured_case_count=14`. The active implementation brief has now moved to
-`docs/evaluation_feedback_model_domain_milestone_plan.md`.
+`measured_case_count=14`. The completed evaluation-feedback milestone record
+now lives in `docs/evaluation_feedback_model_domain_milestone_plan.md`, while
+the routed follow-up returns to `docs/data_model_boundary_plan.md` until the
+next dedicated `app/db/models.py` owner-split brief is written.
 
 Post-closeout architecture alignment recheck on 2026-05-11 kept that routing
-intact: `uv run docling-system-architecture-quality-report --summary` now
-reports `max_hotspot_risk_score=658.21` with `app/db/models.py` still first in
+intact after the Milestone 1 owner split:
+`uv run docling-system-architecture-quality-report --summary` now reports
+`max_hotspot_risk_score=653.8` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
-`app/db/models.py` remains the top governed model hotspot at score `283650`.
+`app/db/models.py` remains a governed model hotspot at score `267750`.
 
-The dedicated implementation brief for that route now lives in
-`docs/evaluation_feedback_model_domain_milestone_plan.md`. It scopes
+The completed implementation brief for the evaluation-feedback route lives in
+`docs/evaluation_feedback_model_domain_milestone_plan.md`. It scoped
 `resolved` to the evaluation-feedback concern itself
 (`EvalObservation`, `EvalFailureCase`) and treats the broader
 `IC-F2A8110185EB` owner case as only `reduced` unless the live
 architecture-quality report stops flagging `app/db/models.py`. Milestone 0 in
 that plan is now verified locally: routing agreement, DB-backed verification
 availability, and the pre-move Alembic posture are confirmed, while the
-missing dedicated evaluation-feedback metadata contract coverage remains the
-required first implementation step before the ORM move starts. The next routed
-implementation slice is Milestone 1 in that plan.
+evaluation-feedback metadata contract coverage is now in place and the ORM move
+is verified locally. The broader owner case remains `reduced`, and the next
+remaining model-domain candidate is the agent-task family if model work
+continues in `app/db/models.py`.
+
+## Evaluation Feedback Model-Domain Milestone 1 Progress
+
+Milestone 1 is the evaluation-feedback contract and owner split for
+`IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM owner
+split behind the existing `app.db.models` compatibility facade.
+
+Results:
+
+- added `app/db/model_domains/evaluation_feedback.py`
+- moved `EvalObservation` and `EvalFailureCase` out of `app/db/models.py`
+- kept `app.db.models` import-compatible by re-exporting the moved classes
+  through import-forwarder aliases
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` to cover evaluation-feedback
+  table columns, exact index column ordering, and exact unique-constraint
+  column ordering
+- ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 3570`, and the new owner module
+  `app/db/model_domains/evaluation_feedback.py` is governed under the same
+  owner case
+- refreshed `config/improvement_cases.yaml`,
+  `docs/evaluation_feedback_model_domain_milestone_plan.md`,
+  `docs/data_model_boundary_plan.md`,
+  `docs/agentic_architecture_index.md`, and this handoff so the routed
+  follow-up now points to the next remaining model-domain concern
+- reduced `app/db/models.py` from 3,782 lines to 3,570 and reduced the
+  architecture-quality `max_hotspot_risk_score` from `658.21` to `653.8`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `369 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `142 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1441 passed in 51.95s`
+- `uv run --extra dev alembic heads`: single head
+  `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src`
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `oldest_open_case_id=IC-F2A8110185EB`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=653.8`
+- architecture probe now reports `app/services/evidence.py` as the top churn
+  hotspot and `app/db/models.py` at `3570` lines with hotspot score `267750`
 
 ## Evaluation Feedback Model-Domain Milestone 0 Progress
 
@@ -1423,7 +1501,7 @@ The current system is a local-first, durable document-intelligence platform with
 ## Recent Local Milestone Commits Since `origin/main`
 
 The most recent routed milestone commits ahead of `origin/main` before the
-current alignment pass are:
+current Milestone 1 closeout are:
 
 - `81f6260` (`docs: close evaluation feedback milestone 0 preflight`), which
   closes the evaluation-feedback Milestone 0 baseline lock, records the live

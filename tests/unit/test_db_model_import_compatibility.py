@@ -10,6 +10,7 @@ from app.db.base import Base
 from tests.db_model_contract import (
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
+    EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
     EXPECTED_TABLE_NAMES,
     INGEST_DOMAIN_TABLE_COLUMNS,
     MODEL_DOMAIN_SYMBOLS,
@@ -203,6 +204,19 @@ def test_retrieval_learning_artifact_models_are_owned_by_domain_module() -> None
         assert domain_model.__module__ == "app.db.model_domains.retrieval_learning_artifacts"
 
 
+def test_evaluation_feedback_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.evaluation_feedback import EvalFailureCase, EvalObservation
+
+    expected_models = {
+        "EvalObservation": EvalObservation,
+        "EvalFailureCase": EvalFailureCase,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.evaluation_feedback"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -260,6 +274,18 @@ def test_base_metadata_preserves_retrieval_replay_governance_domain_table_column
     RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_retrieval_learning_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_evaluation_feedback_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

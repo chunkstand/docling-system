@@ -502,6 +502,24 @@ REQUIRED_TABLE_INDEX_NAMES.update(
                 "ix_retrieval_reranker_artifacts_impact_sha",
             }
         ),
+        "eval_observations": frozenset(
+            {
+                "ix_eval_observations_surface_last_seen",
+                "ix_eval_observations_status_last_seen",
+                "ix_eval_observations_document_id",
+                "ix_eval_observations_search_request_id",
+                "ix_eval_observations_evaluation_id",
+            }
+        ),
+        "eval_failure_cases": frozenset(
+            {
+                "ix_eval_failure_cases_status_updated",
+                "ix_eval_failure_cases_surface_status",
+                "ix_eval_failure_cases_document_id",
+                "ix_eval_failure_cases_search_request_id",
+                "ix_eval_failure_cases_evaluation_id",
+            }
+        ),
     }
 )
 
@@ -751,6 +769,20 @@ REQUIRED_TABLE_INDEX_COLUMNS.update(
             "ix_retrieval_reranker_artifacts_artifact_sha": ("artifact_sha256",),
             "ix_retrieval_reranker_artifacts_impact_sha": ("change_impact_sha256",),
         },
+        "eval_observations": {
+            "ix_eval_observations_surface_last_seen": ("surface", "last_seen_at"),
+            "ix_eval_observations_status_last_seen": ("status", "last_seen_at"),
+            "ix_eval_observations_document_id": ("document_id",),
+            "ix_eval_observations_search_request_id": ("search_request_id",),
+            "ix_eval_observations_evaluation_id": ("evaluation_id",),
+        },
+        "eval_failure_cases": {
+            "ix_eval_failure_cases_status_updated": ("status", "updated_at"),
+            "ix_eval_failure_cases_surface_status": ("surface", "status"),
+            "ix_eval_failure_cases_document_id": ("document_id",),
+            "ix_eval_failure_cases_search_request_id": ("search_request_id",),
+            "ix_eval_failure_cases_evaluation_id": ("evaluation_id",),
+        },
     }
 )
 
@@ -849,6 +881,16 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
                 "uq_retrieval_reranker_artifacts_candidate_eval",
             }
         ),
+        "eval_observations": frozenset(
+            {
+                "uq_eval_observations_observation_key",
+            }
+        ),
+        "eval_failure_cases": frozenset(
+            {
+                "uq_eval_failure_cases_case_key",
+            }
+        ),
     }
 )
 
@@ -933,6 +975,12 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
             "uq_retrieval_reranker_artifacts_candidate_eval": (
                 "retrieval_learning_candidate_evaluation_id",
             ),
+        },
+        "eval_observations": {
+            "uq_eval_observations_observation_key": ("observation_key",),
+        },
+        "eval_failure_cases": {
+            "uq_eval_failure_cases_case_key": ("case_key",),
         },
     }
 )
@@ -1628,6 +1676,69 @@ RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS = {
             "review_note",
             "created_at",
             "completed_at",
+        }
+    ),
+}
+
+EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS = {
+    "eval_observations": frozenset(
+        {
+            "id",
+            "observation_key",
+            "surface",
+            "subject_kind",
+            "subject_id",
+            "status",
+            "severity",
+            "failure_classification",
+            "summary",
+            "document_id",
+            "run_id",
+            "evaluation_id",
+            "evaluation_query_id",
+            "search_request_id",
+            "replay_run_id",
+            "harness_evaluation_id",
+            "agent_task_id",
+            "details",
+            "evidence_refs",
+            "created_at",
+            "updated_at",
+            "last_seen_at",
+        }
+    ),
+    "eval_failure_cases": frozenset(
+        {
+            "id",
+            "case_key",
+            "status",
+            "severity",
+            "surface",
+            "failure_classification",
+            "problem_statement",
+            "observed_behavior",
+            "expected_behavior",
+            "diagnosis",
+            "source_observation_id",
+            "document_id",
+            "run_id",
+            "evaluation_id",
+            "evaluation_query_id",
+            "search_request_id",
+            "replay_run_id",
+            "harness_evaluation_id",
+            "agent_task_id",
+            "recommended_next_actions",
+            "allowed_repair_surfaces",
+            "blocked_repair_surfaces",
+            "evidence_refs",
+            "verification_requirements",
+            "agent_task_payloads",
+            "details",
+            "created_at",
+            "updated_at",
+            "last_seen_at",
+            "resolved_at",
         }
     ),
 }
