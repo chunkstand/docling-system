@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-import importlib
-from enum import StrEnum
+import importlib as _importlib
+from enum import StrEnum as _StrEnum
 
-from app.db.model_domains import agent_tasks as agent_tasks_domain
-from app.db.model_domains import claim_support as claim_support_domain
-from app.db.model_domains import evaluation_feedback as evaluation_feedback_domain
-from app.db.model_domains import retrieval_interactions as retrieval_interactions_domain
+from app.db.model_domains import agent_tasks as _agent_tasks_domain
+from app.db.model_domains import claim_support as _claim_support_domain
+from app.db.model_domains import evaluation_feedback as _evaluation_feedback_domain
+from app.db.model_domains import retrieval_interactions as _retrieval_interactions_domain
 from app.db.model_domains import (
-    retrieval_learning_artifacts as retrieval_learning_artifacts_domain,
+    retrieval_learning_artifacts as _retrieval_learning_artifacts_domain,
 )
 from app.db.model_domains import (
-    retrieval_learning_examples as retrieval_learning_examples_domain,
+    retrieval_learning_examples as _retrieval_learning_examples_domain,
 )
 from app.db.model_domains import (
-    retrieval_replay_governance as retrieval_replay_governance_domain,
+    retrieval_replay_governance as _retrieval_replay_governance_domain,
 )
 from app.db.model_domains.document_artifacts import DocumentChunk as DocumentChunk
 from app.db.model_domains.document_artifacts import DocumentFigure as DocumentFigure
@@ -37,97 +37,97 @@ from app.db.model_domains.ingest import IngestBatchItem as IngestBatchItem
 from app.db.model_domains.platform import ApiIdempotencyKey as ApiIdempotencyKey
 
 # Delay these imports until their FK target tables are registered.
-audit_and_evidence_domain = importlib.import_module("app.db.model_domains.audit_and_evidence")
-semantic_memory_domain = importlib.import_module("app.db.model_domains.semantic_memory")
+_audit_and_evidence_domain = _importlib.import_module("app.db.model_domains.audit_and_evidence")
+_semantic_memory_domain = _importlib.import_module("app.db.model_domains.semantic_memory")
 
-AgentTask = agent_tasks_domain.AgentTask
-AgentTaskArtifact = agent_tasks_domain.AgentTaskArtifact
-AgentTaskArtifactImmutabilityEvent = agent_tasks_domain.AgentTaskArtifactImmutabilityEvent
-AgentTaskAttempt = agent_tasks_domain.AgentTaskAttempt
-AgentTaskDependency = agent_tasks_domain.AgentTaskDependency
-AgentTaskOutcome = agent_tasks_domain.AgentTaskOutcome
-AgentTaskVerification = agent_tasks_domain.AgentTaskVerification
-AuditBundleExport = audit_and_evidence_domain.AuditBundleExport
-AuditBundleValidationReceipt = audit_and_evidence_domain.AuditBundleValidationReceipt
-ClaimEvidenceDerivation = audit_and_evidence_domain.ClaimEvidenceDerivation
-ClaimSupportCalibrationPolicy = claim_support_domain.ClaimSupportCalibrationPolicy
-ClaimSupportEvaluation = claim_support_domain.ClaimSupportEvaluation
-ClaimSupportEvaluationCase = claim_support_domain.ClaimSupportEvaluationCase
-ClaimSupportFixtureSet = claim_support_domain.ClaimSupportFixtureSet
-ClaimSupportPolicyChangeImpact = claim_support_domain.ClaimSupportPolicyChangeImpact
+AgentTask = _agent_tasks_domain.AgentTask
+AgentTaskArtifact = _agent_tasks_domain.AgentTaskArtifact
+AgentTaskArtifactImmutabilityEvent = _agent_tasks_domain.AgentTaskArtifactImmutabilityEvent
+AgentTaskAttempt = _agent_tasks_domain.AgentTaskAttempt
+AgentTaskDependency = _agent_tasks_domain.AgentTaskDependency
+AgentTaskOutcome = _agent_tasks_domain.AgentTaskOutcome
+AgentTaskVerification = _agent_tasks_domain.AgentTaskVerification
+AuditBundleExport = _audit_and_evidence_domain.AuditBundleExport
+AuditBundleValidationReceipt = _audit_and_evidence_domain.AuditBundleValidationReceipt
+ClaimEvidenceDerivation = _audit_and_evidence_domain.ClaimEvidenceDerivation
+ClaimSupportCalibrationPolicy = _claim_support_domain.ClaimSupportCalibrationPolicy
+ClaimSupportEvaluation = _claim_support_domain.ClaimSupportEvaluation
+ClaimSupportEvaluationCase = _claim_support_domain.ClaimSupportEvaluationCase
+ClaimSupportFixtureSet = _claim_support_domain.ClaimSupportFixtureSet
+ClaimSupportPolicyChangeImpact = _claim_support_domain.ClaimSupportPolicyChangeImpact
 ClaimSupportReplayAlertFixtureCorpusRow = (
-    claim_support_domain.ClaimSupportReplayAlertFixtureCorpusRow
+    _claim_support_domain.ClaimSupportReplayAlertFixtureCorpusRow
 )
 ClaimSupportReplayAlertFixtureCorpusSnapshot = (
-    claim_support_domain.ClaimSupportReplayAlertFixtureCorpusSnapshot
+    _claim_support_domain.ClaimSupportReplayAlertFixtureCorpusSnapshot
 )
 ClaimSupportReplayAlertFixtureCoverageWaiverEscalation = (
-    claim_support_domain.ClaimSupportReplayAlertFixtureCoverageWaiverEscalation
+    _claim_support_domain.ClaimSupportReplayAlertFixtureCoverageWaiverEscalation
 )
 ClaimSupportReplayAlertFixtureCoverageWaiverLedger = (
-    claim_support_domain.ClaimSupportReplayAlertFixtureCoverageWaiverLedger
+    _claim_support_domain.ClaimSupportReplayAlertFixtureCoverageWaiverLedger
 )
-ChatAnswerFeedback = retrieval_interactions_domain.ChatAnswerFeedback
-ChatAnswerRecord = retrieval_interactions_domain.ChatAnswerRecord
-DocumentRunSemanticPass = semantic_memory_domain.DocumentRunSemanticPass
-DocumentSemanticCategoryReview = semantic_memory_domain.DocumentSemanticCategoryReview
-DocumentSemanticConceptReview = semantic_memory_domain.DocumentSemanticConceptReview
-EvidenceManifest = audit_and_evidence_domain.EvidenceManifest
-EvidencePackageExport = audit_and_evidence_domain.EvidencePackageExport
-EvidenceTraceEdge = audit_and_evidence_domain.EvidenceTraceEdge
-EvidenceTraceNode = audit_and_evidence_domain.EvidenceTraceNode
-EvalFailureCase = evaluation_feedback_domain.EvalFailureCase
-EvalObservation = evaluation_feedback_domain.EvalObservation
-KnowledgeOperatorInput = agent_tasks_domain.KnowledgeOperatorInput
-KnowledgeOperatorOutput = agent_tasks_domain.KnowledgeOperatorOutput
-KnowledgeOperatorRun = agent_tasks_domain.KnowledgeOperatorRun
-RetrievalEvidenceSpan = retrieval_interactions_domain.RetrievalEvidenceSpan
-RetrievalEvidenceSpanMultiVector = retrieval_interactions_domain.RetrievalEvidenceSpanMultiVector
-RetrievalHardNegative = retrieval_learning_examples_domain.RetrievalHardNegative
-RetrievalJudgment = retrieval_learning_examples_domain.RetrievalJudgment
-RetrievalJudgmentSet = retrieval_learning_examples_domain.RetrievalJudgmentSet
+ChatAnswerFeedback = _retrieval_interactions_domain.ChatAnswerFeedback
+ChatAnswerRecord = _retrieval_interactions_domain.ChatAnswerRecord
+DocumentRunSemanticPass = _semantic_memory_domain.DocumentRunSemanticPass
+DocumentSemanticCategoryReview = _semantic_memory_domain.DocumentSemanticCategoryReview
+DocumentSemanticConceptReview = _semantic_memory_domain.DocumentSemanticConceptReview
+EvidenceManifest = _audit_and_evidence_domain.EvidenceManifest
+EvidencePackageExport = _audit_and_evidence_domain.EvidencePackageExport
+EvidenceTraceEdge = _audit_and_evidence_domain.EvidenceTraceEdge
+EvidenceTraceNode = _audit_and_evidence_domain.EvidenceTraceNode
+EvalFailureCase = _evaluation_feedback_domain.EvalFailureCase
+EvalObservation = _evaluation_feedback_domain.EvalObservation
+KnowledgeOperatorInput = _agent_tasks_domain.KnowledgeOperatorInput
+KnowledgeOperatorOutput = _agent_tasks_domain.KnowledgeOperatorOutput
+KnowledgeOperatorRun = _agent_tasks_domain.KnowledgeOperatorRun
+RetrievalEvidenceSpan = _retrieval_interactions_domain.RetrievalEvidenceSpan
+RetrievalEvidenceSpanMultiVector = _retrieval_interactions_domain.RetrievalEvidenceSpanMultiVector
+RetrievalHardNegative = _retrieval_learning_examples_domain.RetrievalHardNegative
+RetrievalJudgment = _retrieval_learning_examples_domain.RetrievalJudgment
+RetrievalJudgmentSet = _retrieval_learning_examples_domain.RetrievalJudgmentSet
 RetrievalLearningCandidateEvaluation = (
-    retrieval_learning_artifacts_domain.RetrievalLearningCandidateEvaluation
+    _retrieval_learning_artifacts_domain.RetrievalLearningCandidateEvaluation
 )
-RetrievalRerankerArtifact = retrieval_learning_artifacts_domain.RetrievalRerankerArtifact
-RetrievalTrainingRun = retrieval_learning_artifacts_domain.RetrievalTrainingRun
-SearchFeedback = retrieval_interactions_domain.SearchFeedback
-SearchHarnessEvaluation = retrieval_replay_governance_domain.SearchHarnessEvaluation
-SearchHarnessEvaluationSource = retrieval_replay_governance_domain.SearchHarnessEvaluationSource
-SearchHarnessRelease = retrieval_replay_governance_domain.SearchHarnessRelease
+RetrievalRerankerArtifact = _retrieval_learning_artifacts_domain.RetrievalRerankerArtifact
+RetrievalTrainingRun = _retrieval_learning_artifacts_domain.RetrievalTrainingRun
+SearchFeedback = _retrieval_interactions_domain.SearchFeedback
+SearchHarnessEvaluation = _retrieval_replay_governance_domain.SearchHarnessEvaluation
+SearchHarnessEvaluationSource = _retrieval_replay_governance_domain.SearchHarnessEvaluationSource
+SearchHarnessRelease = _retrieval_replay_governance_domain.SearchHarnessRelease
 SearchHarnessReleaseReadinessAssessment = (
-    retrieval_replay_governance_domain.SearchHarnessReleaseReadinessAssessment
+    _retrieval_replay_governance_domain.SearchHarnessReleaseReadinessAssessment
 )
-SearchReplayQuery = retrieval_replay_governance_domain.SearchReplayQuery
-SearchReplayRun = retrieval_replay_governance_domain.SearchReplayRun
-SearchRequestRecord = retrieval_interactions_domain.SearchRequestRecord
-SearchRequestResult = retrieval_interactions_domain.SearchRequestResult
-SearchRequestResultSpan = retrieval_interactions_domain.SearchRequestResultSpan
-SemanticAssertion = semantic_memory_domain.SemanticAssertion
-SemanticAssertionCategoryBinding = semantic_memory_domain.SemanticAssertionCategoryBinding
-SemanticAssertionEvidence = semantic_memory_domain.SemanticAssertionEvidence
-SemanticCategory = semantic_memory_domain.SemanticCategory
-SemanticConcept = semantic_memory_domain.SemanticConcept
-SemanticConceptCategoryBinding = semantic_memory_domain.SemanticConceptCategoryBinding
-SemanticConceptTerm = semantic_memory_domain.SemanticConceptTerm
-SemanticEntity = semantic_memory_domain.SemanticEntity
-SemanticFact = semantic_memory_domain.SemanticFact
-SemanticFactEvidence = semantic_memory_domain.SemanticFactEvidence
-SemanticGovernanceEvent = semantic_memory_domain.SemanticGovernanceEvent
-SemanticGraphSnapshot = semantic_memory_domain.SemanticGraphSnapshot
-SemanticOntologySnapshot = semantic_memory_domain.SemanticOntologySnapshot
-SemanticTerm = semantic_memory_domain.SemanticTerm
+SearchReplayQuery = _retrieval_replay_governance_domain.SearchReplayQuery
+SearchReplayRun = _retrieval_replay_governance_domain.SearchReplayRun
+SearchRequestRecord = _retrieval_interactions_domain.SearchRequestRecord
+SearchRequestResult = _retrieval_interactions_domain.SearchRequestResult
+SearchRequestResultSpan = _retrieval_interactions_domain.SearchRequestResultSpan
+SemanticAssertion = _semantic_memory_domain.SemanticAssertion
+SemanticAssertionCategoryBinding = _semantic_memory_domain.SemanticAssertionCategoryBinding
+SemanticAssertionEvidence = _semantic_memory_domain.SemanticAssertionEvidence
+SemanticCategory = _semantic_memory_domain.SemanticCategory
+SemanticConcept = _semantic_memory_domain.SemanticConcept
+SemanticConceptCategoryBinding = _semantic_memory_domain.SemanticConceptCategoryBinding
+SemanticConceptTerm = _semantic_memory_domain.SemanticConceptTerm
+SemanticEntity = _semantic_memory_domain.SemanticEntity
+SemanticFact = _semantic_memory_domain.SemanticFact
+SemanticFactEvidence = _semantic_memory_domain.SemanticFactEvidence
+SemanticGovernanceEvent = _semantic_memory_domain.SemanticGovernanceEvent
+SemanticGraphSnapshot = _semantic_memory_domain.SemanticGraphSnapshot
+SemanticOntologySnapshot = _semantic_memory_domain.SemanticOntologySnapshot
+SemanticTerm = _semantic_memory_domain.SemanticTerm
 TechnicalReportClaimRetrievalFeedback = (
-    audit_and_evidence_domain.TechnicalReportClaimRetrievalFeedback
+    _audit_and_evidence_domain.TechnicalReportClaimRetrievalFeedback
 )
 TechnicalReportReleaseReadinessDbGate = (
-    audit_and_evidence_domain.TechnicalReportReleaseReadinessDbGate
+    _audit_and_evidence_domain.TechnicalReportReleaseReadinessDbGate
 )
-WorkspaceSemanticGraphState = semantic_memory_domain.WorkspaceSemanticGraphState
-WorkspaceSemanticState = semantic_memory_domain.WorkspaceSemanticState
+WorkspaceSemanticGraphState = _semantic_memory_domain.WorkspaceSemanticGraphState
+WorkspaceSemanticState = _semantic_memory_domain.WorkspaceSemanticState
 
 
-class RunStatus(StrEnum):
+class RunStatus(_StrEnum):
     QUEUED = "queued"
     PROCESSING = "processing"
     VALIDATING = "validating"
@@ -136,7 +136,7 @@ class RunStatus(StrEnum):
     FAILED = "failed"
 
 
-class AgentTaskStatus(StrEnum):
+class AgentTaskStatus(_StrEnum):
     BLOCKED = "blocked"
     AWAITING_APPROVAL = "awaiting_approval"
     REJECTED = "rejected"
@@ -147,13 +147,13 @@ class AgentTaskStatus(StrEnum):
     FAILED = "failed"
 
 
-class AgentTaskSideEffectLevel(StrEnum):
+class AgentTaskSideEffectLevel(_StrEnum):
     READ_ONLY = "read_only"
     DRAFT_CHANGE = "draft_change"
     PROMOTABLE = "promotable"
 
 
-class AgentTaskDependencyKind(StrEnum):
+class AgentTaskDependencyKind(_StrEnum):
     EXPLICIT = "explicit"
     TARGET_TASK = "target_task"
     SOURCE_TASK = "source_task"
@@ -161,27 +161,27 @@ class AgentTaskDependencyKind(StrEnum):
     VERIFICATION_TASK = "verification_task"
 
 
-class AgentTaskAttemptStatus(StrEnum):
+class AgentTaskAttemptStatus(_StrEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
     ABANDONED = "abandoned"
 
 
-class AgentTaskVerificationOutcome(StrEnum):
+class AgentTaskVerificationOutcome(_StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     ERROR = "error"
 
 
-class AgentTaskOutcomeLabel(StrEnum):
+class AgentTaskOutcomeLabel(_StrEnum):
     USEFUL = "useful"
     NOT_USEFUL = "not_useful"
     CORRECT = "correct"
     INCORRECT = "incorrect"
 
 
-class KnowledgeOperatorKind(StrEnum):
+class KnowledgeOperatorKind(_StrEnum):
     PARSE = "parse"
     EMBED = "embed"
     RETRIEVE = "retrieve"
@@ -193,26 +193,26 @@ class KnowledgeOperatorKind(StrEnum):
     ORCHESTRATE = "orchestrate"
 
 
-class KnowledgeOperatorStatus(StrEnum):
+class KnowledgeOperatorStatus(_StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
 
 
-class SemanticPassStatus(StrEnum):
+class SemanticPassStatus(_StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
 
 
-class SemanticEvaluationStatus(StrEnum):
+class SemanticEvaluationStatus(_StrEnum):
     PENDING = "pending"
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
 
 
-class SemanticGovernanceEventKind(StrEnum):
+class SemanticGovernanceEventKind(_StrEnum):
     ONTOLOGY_SNAPSHOT_RECORDED = "ontology_snapshot_recorded"
     ONTOLOGY_SNAPSHOT_ACTIVATED = "ontology_snapshot_activated"
     SEMANTIC_GRAPH_SNAPSHOT_RECORDED = "semantic_graph_snapshot_recorded"
@@ -249,13 +249,13 @@ class SemanticGovernanceEventKind(StrEnum):
     )
 
 
-class RetrievalJudgmentKind(StrEnum):
+class RetrievalJudgmentKind(_StrEnum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
     MISSING = "missing"
 
 
-class RetrievalHardNegativeKind(StrEnum):
+class RetrievalHardNegativeKind(_StrEnum):
     EXPLICIT_IRRELEVANT = "explicit_irrelevant"
     MISSING_EXPECTED = "missing_expected"
     FAILED_REPLAY_TOP_RESULT = "failed_replay_top_result"
@@ -263,12 +263,12 @@ class RetrievalHardNegativeKind(StrEnum):
     NO_ANSWER_RETURNED = "no_answer_returned"
 
 
-class RetrievalTrainingRunStatus(StrEnum):
+class RetrievalTrainingRunStatus(_StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
 
 
-class TechnicalReportClaimRetrievalFeedbackStatus(StrEnum):
+class TechnicalReportClaimRetrievalFeedbackStatus(_StrEnum):
     SUPPORTED = "supported"
     WEAK = "weak"
     MISSING = "missing"
@@ -276,70 +276,70 @@ class TechnicalReportClaimRetrievalFeedbackStatus(StrEnum):
     REJECTED = "rejected"
 
 
-class TechnicalReportClaimRetrievalLearningLabel(StrEnum):
+class TechnicalReportClaimRetrievalLearningLabel(_StrEnum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
     MISSING = "missing"
 
 
-class RetrievalLearningCandidateStatus(StrEnum):
+class RetrievalLearningCandidateStatus(_StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
 
 
-class SemanticTermKind(StrEnum):
+class SemanticTermKind(_StrEnum):
     PREFERRED_LABEL = "preferred_label"
     ALIAS = "alias"
 
 
-class SemanticAssertionKind(StrEnum):
+class SemanticAssertionKind(_StrEnum):
     CONCEPT_MENTION = "concept_mention"
 
 
-class SemanticEvidenceSourceType(StrEnum):
+class SemanticEvidenceSourceType(_StrEnum):
     CHUNK = "chunk"
     TABLE = "table"
     FIGURE = "figure"
 
 
-class SemanticReviewStatus(StrEnum):
+class SemanticReviewStatus(_StrEnum):
     CANDIDATE = "candidate"
     APPROVED = "approved"
     REJECTED = "rejected"
 
 
-class SemanticEpistemicStatus(StrEnum):
+class SemanticEpistemicStatus(_StrEnum):
     OBSERVED = "observed"
     INFERRED = "inferred"
     CURATED = "curated"
 
 
-class SemanticContextScope(StrEnum):
+class SemanticContextScope(_StrEnum):
     DOCUMENT_RUN = "document_run"
     DOCUMENT = "document"
     REGISTRY = "registry"
 
 
-class SemanticBindingOrigin(StrEnum):
+class SemanticBindingOrigin(_StrEnum):
     REGISTRY = "registry"
     DERIVED = "derived"
 
 
-class SemanticCategoryBindingType(StrEnum):
+class SemanticCategoryBindingType(_StrEnum):
     CONCEPT_CATEGORY = "concept_category"
     ASSERTION_CATEGORY = "assertion_category"
 
 
-class SemanticOntologySourceKind(StrEnum):
+class SemanticOntologySourceKind(_StrEnum):
     UPPER_SEED = "upper_seed"
     ONTOLOGY_EXTENSION_APPLY = "ontology_extension_apply"
 
 
-class SemanticGraphSourceKind(StrEnum):
+class SemanticGraphSourceKind(_StrEnum):
     GRAPH_PROMOTION_APPLY = "graph_promotion_apply"
 
 
-class SemanticEntityType(StrEnum):
+class SemanticEntityType(_StrEnum):
     DOCUMENT = "document"
     CONCEPT = "concept"
     LITERAL = "literal"

@@ -30,7 +30,8 @@ Evidence Model-Domain Milestone 1 split, and `claim support` now lives in
 Model-Domain Milestone 1 split, and `semantic memory` now lives in
 `app/db/model_domains/semantic_memory.py` for the verified local Semantic
 Memory Model-Domain Milestone 1 split. `app.db.models` remains the public
-compatibility facade at 345 lines. Each model-domain milestone must finish
+compatibility facade at 339 lines with a dedicated facade-structure gate. Each
+model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -532,8 +533,13 @@ Implemented result:
 Current routed follow-up after the local semantic-memory split:
 
 - broader owner case remains `IC-F2A8110185EB` / `app/db/models.py`
-- next bounded follow-up for this owner case: a compatibility-facade /
-  public-import-contract milestone for `app/db/models.py`
+- compatibility-facade / public-import-contract Milestone 1 is now implemented
+  locally: `tests/unit/test_db_models_facade_contract.py` governs the exact
+  facade export surface and allowed top-level structure
+- next bounded follow-up for this owner case: Milestone 2 facade ownership
+  narrowing from `docs/db_models_compatibility_facade_milestone_plan.md`
+- active bounded implementation brief:
+  `docs/db_models_compatibility_facade_milestone_plan.md`
 - no further model-family split remains under this owner case
 
 ## Per-Domain Acceptance Gate

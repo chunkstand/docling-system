@@ -9,15 +9,18 @@ import app.db.models as model_module
 from app.db.base import Base
 from tests.db_model_contract import (
     AGENT_TASK_DOMAIN_TABLE_COLUMNS,
+    ALLOWED_DB_MODELS_SUPPORT_SYMBOLS,
     AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS,
     CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
     EXPECTED_TABLE_NAMES,
+    FACADE_CONSTANT_SYMBOLS,
     INGEST_DOMAIN_TABLE_COLUMNS,
     MODEL_DOMAIN_SYMBOLS,
     MODEL_SYMBOLS,
+    PUBLIC_DB_MODELS_EXPORT_SYMBOLS,
     PUBLIC_MODEL_IMPORT_SYMBOLS,
     REQUIRED_COMPUTED_SQL,
     REQUIRED_TABLE_INDEX_COLUMNS,
@@ -41,6 +44,16 @@ def test_public_model_symbol_remains_importable(symbol_name: str) -> None:
     assert symbol.__name__ == symbol_name
 
 
+@pytest.mark.parametrize("symbol_name", FACADE_CONSTANT_SYMBOLS)
+def test_public_model_constant_remains_importable(symbol_name: str) -> None:
+    module = __import__("app.db.models", fromlist=[symbol_name])
+
+    symbol = getattr(module, symbol_name)
+
+    assert isinstance(symbol, str)
+    assert symbol
+
+
 @pytest.mark.parametrize("symbol_name", ENUM_SYMBOLS)
 def test_public_model_enum_remains_str_enum(symbol_name: str) -> None:
     symbol = getattr(model_module, symbol_name)
@@ -61,6 +74,8 @@ def test_public_model_domain_contract_is_complete() -> None:
     assert len(MODEL_SYMBOLS) == 80
     assert len(set(MODEL_SYMBOLS)) == len(MODEL_SYMBOLS)
     assert len(PUBLIC_MODEL_IMPORT_SYMBOLS) == 109
+    assert len(FACADE_CONSTANT_SYMBOLS) == 2
+    assert len(PUBLIC_DB_MODELS_EXPORT_SYMBOLS) == 111
     assert set(MODEL_DOMAIN_SYMBOLS) == {
         "agent_tasks",
         "audit_and_evidence",
@@ -72,6 +87,7 @@ def test_public_model_domain_contract_is_complete() -> None:
         "retrieval",
         "semantic_memory",
     }
+    assert ALLOWED_DB_MODELS_SUPPORT_SYMBOLS == ("annotations",)
 
 
 def test_platform_support_model_is_owned_by_domain_module() -> None:

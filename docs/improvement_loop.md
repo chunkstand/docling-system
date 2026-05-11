@@ -35,7 +35,7 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
   the committed local retrieval-interaction, replay/release governance,
   retrieval-learning, evaluation-feedback, agent-task, audit-and-evidence,
-  claim-support, and semantic-memory splits narrowed it to a 345-line
+  claim-support, and semantic-memory splits narrowed it to a 339-line
   compatibility facade with
   dedicated owner modules at
   `app/db/model_domains/retrieval_interactions.py`,
@@ -47,9 +47,11 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   `app/db/model_domains/audit_and_evidence.py`, and
   `app/db/model_domains/claim_support.py`, and
   `app/db/model_domains/semantic_memory.py`. The High Value Technical Paydown
-  plan is now closed locally, and the next bounded follow-up for this owner
-  case is a compatibility-facade / public-import-contract milestone in
-  `docs/data_model_boundary_plan.md`.
+  plan is now closed locally. The compatibility-facade / public-import-contract
+  milestone has started: Milestone 1 now lands an exact facade gate in
+  `tests/unit/test_db_models_facade_contract.py`, and the next bounded
+  follow-up for this owner case is Milestone 2 narrowing in
+  `docs/db_models_compatibility_facade_milestone_plan.md`.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
   `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
@@ -73,8 +75,8 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next routed implementation slice is now the `IC-F2A8110185EB` /
-  `app/db/models.py` compatibility-facade continuation from
-  `docs/data_model_boundary_plan.md`.
+  `app/db/models.py` compatibility-facade Milestone 2 continuation from
+  `docs/db_models_compatibility_facade_milestone_plan.md`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

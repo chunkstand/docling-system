@@ -12,7 +12,7 @@ evaluation-feedback checkpoint remains `b69c4f6`.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` compatibility-facade continuation.
 Active bounded implementation brief:
-`docs/semantic_memory_model_domain_milestone_plan.md`.
+`docs/db_models_compatibility_facade_milestone_plan.md`.
 
 ## Current Position
 
@@ -31,8 +31,9 @@ High Value Technical Paydown plan remains complete locally through Milestone
 10, and the routed `app/db/models.py` owner work has advanced one more bounded
 slice: the semantic-memory ontology, graph-state, concept, assertion, entity,
 fact, semantic review, and governance ORM family now lives in
-`app/db/model_domains/semantic_memory.py`, `app/db/models.py` is down to 345
-lines while keeping `app.db.models` as the public compatibility facade, and
+`app/db/model_domains/semantic_memory.py`, `app/db/models.py` is now a
+339-line gated compatibility facade while keeping `app.db.models` as the
+public compatibility surface, and
 the registry summary remains `case_count=26`, `status_counts.open=25`,
 `status_counts.measured=1`, and `measured_case_count=14`. The completed
 evaluation-feedback milestone record remains in
@@ -47,11 +48,86 @@ milestone record now lives in
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=584.8` with `app/db/models.py` still first in
+`max_hotspot_risk_score=591.8` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
 `app/db/models.py` is no longer listed in the top 12 churn hotspots.
+
+The compatibility-facade follow-up has now advanced one bounded step. Milestone
+1 from `docs/db_models_compatibility_facade_milestone_plan.md` is implemented
+locally: `app/db/models.py` now keeps its support imports private, the facade
+export contract explicitly governs 111 supported public symbols, and
+`tests/unit/test_db_models_facade_contract.py` blocks unexpected export growth,
+direct ORM-class additions, and direct schema-call additions. The remaining
+follow-up for `IC-F2A8110185EB` is Milestone 2 facade ownership narrowing, not
+another model-family split.
+
+## DB Models Compatibility Facade Milestone 1 Progress
+
+Milestone 1 is the gate-first compatibility-facade slice for
+`IC-F2A8110185EB` / `app/db/models.py`. It does not close the owner case; it
+creates the explicit contract that Milestone 2 must satisfy.
+
+Results:
+
+- added `tests/unit/test_db_models_facade_contract.py`
+- extended `tests/db_model_contract.py` so the governed facade export set now
+  includes 111 supported public symbols
+- tightened `app/db/models.py` so non-underscore support imports are no longer
+  leaked through the facade
+- preserved the import-compatible `app.db.models` ORM surface while adding
+  public coverage for `DOCUMENT_METADATA_NORMALIZE_SQL` and
+  `DOCUMENT_METADATA_TEXTSEARCH_SQL`
+- tightened `app/db/models.py` from 345 lines to 339 while making the facade
+  structure machine-checked
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+
+Verified results:
+
+- `git diff --check`: pass
+- `uv run ruff check app tests`: pass
+- `uv run pytest -q tests/unit/test_db_models_facade_contract.py`: `5 passed`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `568 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `335 passed`
+- `uv run --extra dev alembic heads`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic current`: `0076_claim_feedback_replay_src (head)`
+- `uv run --extra dev alembic upgrade head`: pass
+- `uv run --extra dev alembic check`: `No new upgrade operations detected.`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1838 passed in 52.05s`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=591.8`
+- architecture probe reports `app.db.models` import fan-in=`166`; the facade
+  is not listed in the top 12 churn hotspots
+
+Next routed follow-up:
+
+- owner case remains `IC-F2A8110185EB`
+- next bounded slice is Milestone 2 facade ownership narrowing from
+  `docs/db_models_compatibility_facade_milestone_plan.md`
 
 The completed implementation brief for the new route lives in
 `docs/semantic_memory_model_domain_milestone_plan.md`. It scopes `resolved` to

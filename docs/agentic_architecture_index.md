@@ -13,6 +13,7 @@ chat history or scanning the whole repository.
 - `docs/audit_and_evidence_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` audit-and-evidence split covering the audit bundle, evidence package, manifest, trace, and technical-report readiness/feedback ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/claim_support_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` claim-support split covering the replay-alert waiver, fixture-corpus, calibration, evaluation, and policy-impact ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/semantic_memory_model_domain_milestone_plan.md`: completed local verified milestone record for the `IC-F2A8110185EB` semantic-memory split covering the ontology, graph-state, concept, assertion, entity, fact, semantic review, and governance ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the architecture-quality routing list.
+- `docs/db_models_compatibility_facade_milestone_plan.md`: active bounded milestone brief for the remaining `IC-F2A8110185EB` compatibility-facade / public-import-contract follow-up. Milestone 1 now lands the explicit facade gate; Milestone 2 remains the ownership-closeout slice for `app/db/models.py`.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -32,10 +33,11 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and `max_hotspot_risk_score=584.8`.
+  `hotspot_count=10`, and `max_hotspot_risk_score=591.8`.
 - `app/db/models.py` remains in the architecture-quality routing list, but the
   semantic-memory owner family is now also extracted alongside the prior
-  model-domain splits:
+  model-domain splits, and the remaining 339-line facade now has its own
+  dedicated structure gate:
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
   `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
