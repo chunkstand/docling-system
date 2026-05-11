@@ -7,7 +7,7 @@ chat history or scanning the whole repository.
 
 - `docs/residual_weakness_resolution_milestone_plan.md`: follow-on sequence for hotspot prevention, hygiene ratchets, remaining hotspot splits, agent-task cycle reduction, and evaluation-data readiness; complete through Milestone 8.
 - `docs/hotspot_owner_resolution_plan.md`: completed owner-scoped hotspot sequence through local Milestone 6; active execution has moved to the high-value paydown plan.
-- `docs/high_value_technical_paydown_milestone_plan.md`: active follow-on paydown program for the next owner-scoped model split, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
+- `docs/high_value_technical_paydown_milestone_plan.md`: completed local paydown program covering the next owner-scoped model splits, further evidence and agent-action splits, hotspot test decomposition, and the routed UI monolith split.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -27,8 +27,8 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary reports `agent_legibility_average_score=90.0`,
   `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=668.17`.
-- `app/db/models.py` remains the top hotspot, but five model domains are now
+  `max_hotspot_risk_score=656.21`.
+- `app/db/models.py` remains the top governed hotspot, but six model domains are now
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
   `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
@@ -37,8 +37,11 @@ chat history or scanning the whole repository.
   `app/db/model_domains/document_artifacts.py`. The retrieval-interaction
   ledger now lives in `app/db/model_domains/retrieval_interactions.py`, the
   replay/release governance slice now lives in
-  `app/db/model_domains/retrieval_replay_governance.py`, and `app.db.models`
-  remains the public compatibility facade at 4,525 lines.
+  `app/db/model_domains/retrieval_replay_governance.py`, the retrieval-learning
+  example and artifact rows now live in
+  `app/db/model_domains/retrieval_learning_examples.py` and
+  `app/db/model_domains/retrieval_learning_artifacts.py`, and `app.db.models`
+  remains the public compatibility facade at 3,782 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -186,6 +189,18 @@ chat history or scanning the whole repository.
   paydown closeout docs, improvement-case deployment refs, readiness metrics,
   agent-trace review, and full DB-backed suite are aligned to live artifacts
   instead of the pre-closeout Milestone 6 snapshot.
+- High Value Technical Paydown Milestone 8 is now committed locally: the
+  replay and release governance ORM owner module lives in
+  `app/db/model_domains/retrieval_replay_governance.py`, `app/db/models.py`
+  is reduced to 4,525 lines, and the shared metadata harness protects the
+  replay/release governance table and index contract.
+- High Value Technical Paydown Milestone 9 is now committed locally: the
+  retrieval-learning example and artifact owner modules live in
+  `app/db/model_domains/retrieval_learning_examples.py` and
+  `app/db/model_domains/retrieval_learning_artifacts.py`, `app/db/models.py`
+  is reduced to 3,782 lines, and the shared metadata harness now protects
+  retrieval learning plus replay/release governance table, index, and
+  unique-constraint contracts.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -218,9 +233,9 @@ chat history or scanning the whole repository.
   debt.
 - Current routed follow-up: the next architecture work should use
   `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
-  locally through Milestone 7, and the next routed implementation slice has
-  returned to `IC-F2A8110185EB` / `app/db/models.py` with the retrieval replay
-  and release governance model-domain candidate.
+  locally through Milestone 10, and the next routed implementation slice
+  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation
+  feedback` model-domain candidate.
 
 ## Executable Architecture Contracts
 

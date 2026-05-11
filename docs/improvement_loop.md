@@ -1,7 +1,7 @@
 # General Improvement Loop
 
 Status: Active repo-local contract
-Status refreshed: 2026-05-10 local / 2026-05-10 UTC
+Status refreshed: 2026-05-11 local / 2026-05-11 UTC
 
 ## Purpose
 
@@ -14,8 +14,8 @@ codebase failures that are not necessarily retrieval failures.
 
 The machine-readable registry lives at `config/improvement_cases.yaml`.
 
-Current registry state from the 2026-05-10 local / 2026-05-10 UTC High Value
-Technical Paydown closeout through Milestone 7:
+Current registry state from the 2026-05-11 local / 2026-05-11 UTC High Value
+Technical Paydown closeout through Milestone 10:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
   with one measured hygiene-gate case and 25 open architecture-governance
@@ -33,12 +33,16 @@ Technical Paydown closeout through Milestone 7:
   `app/ui/modules/`, so this UI hotspot now routes through a real owner
   module family rather than one monolithic script.
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
-  the committed local retrieval-interaction and replay/release governance
-  splits narrowed it to a 4,525-line compatibility facade with dedicated owner
-  modules at `app/db/model_domains/retrieval_interactions.py` and
-  `app/db/model_domains/retrieval_replay_governance.py`. After the Milestone 8
-  split, the next implementation slice returns here for the retrieval learning
-  domain continuation.
+  the committed local retrieval-interaction, replay/release governance, and
+  retrieval-learning splits narrowed it to a 3,782-line compatibility facade
+  with dedicated owner modules at
+  `app/db/model_domains/retrieval_interactions.py`,
+  `app/db/model_domains/retrieval_replay_governance.py`,
+  `app/db/model_domains/retrieval_learning_examples.py`, and
+  `app/db/model_domains/retrieval_learning_artifacts.py`. The High Value
+  Technical Paydown plan is now closed locally, and the next bounded follow-up
+  for this owner case is the `evaluation feedback` model-domain candidate in
+  `docs/data_model_boundary_plan.md`.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
   `app/services/evidence.py` to 6,307 architecture-probe lines and moved the
@@ -62,7 +66,8 @@ Technical Paydown closeout through Milestone 7:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next routed implementation slice is now the `IC-F2A8110185EB` /
-  `app/db/models.py` retrieval learning continuation.
+  `app/db/models.py` `evaluation feedback` continuation from
+  `docs/data_model_boundary_plan.md`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

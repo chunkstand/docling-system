@@ -5,10 +5,10 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Latest closeout checkpoint: High Value Technical Paydown Milestone 9 retrieval
-learning split is verified locally; final plan closeout and reroute remain the
-active follow-up.
-Active local follow-up owner case: High Value Technical Paydown Milestone 10
-final closeout and checklist completion.
+learning split committed locally as `faed562`; High Value Technical Paydown
+Milestone 10 final closeout is now complete locally.
+Active local follow-up owner case: `IC-F2A8110185EB` /
+`app/db/models.py` evaluation-feedback continuation.
 
 ## Current Position
 
@@ -80,9 +80,33 @@ now also verified locally: the retrieval-learning owner family lives in
 `app/db/model_domains/retrieval_learning_artifacts.py`, the shared metadata
 contract now covers retrieval learning plus replay/release governance tables,
 and `app/db/models.py` is reduced to 3,782 lines while remaining the public
-compatibility facade. The next routed implementation slice is now the final
-closeout and checklist completion pass for the High Value Technical Paydown
-plan.
+compatibility facade. The High Value Technical Paydown plan is now complete
+locally through Milestone 10, and the next routed implementation slice returns
+to `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation feedback`
+model-domain candidate.
+
+## High Value Technical Paydown Milestone 10 Closeout
+
+Milestone 10 closes the High Value Technical Paydown plan against live
+post-Milestone 9 artifacts and routes the next owner-scoped follow-up.
+
+Results:
+
+- recorded the Milestone 9 deployment ref `faed562` and the reduced
+  `app/db/models.py` line-count measurement in `config/improvement_cases.yaml`
+- completed the stale closeout checklist in
+  `docs/high_value_technical_paydown_milestone_plan.md`
+- refreshed `docs/improvement_loop.md`,
+  `docs/agentic_architecture_index.md`,
+  `docs/architecture_plan_01.md`, and this handoff so the committed
+  retrieval-learning split and the plan closeout route agree
+- closed the plan locally through Milestone 10 instead of leaving Milestone 8
+  and 9 out of the milestone sequence
+- routed the next follow-up by the current architecture-quality report:
+  `IC-F2A8110185EB` / `app/db/models.py` remains the top governed hotspot, and
+  `docs/data_model_boundary_plan.md` now names `evaluation feedback`
+  (`EvalObservation`, `EvalFailureCase`) as the next bounded model-domain
+  candidate when model work resumes
 
 ## High Value Technical Paydown Milestone 9 Progress
 

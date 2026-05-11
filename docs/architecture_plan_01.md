@@ -2,7 +2,7 @@
 
 Date: 2026-05-09
 Status: complete through Milestone 8; local commit-on-closeout policy active
-as of 2026-05-10
+as of 2026-05-11
 
 Purpose: reduce centralization in the current modular monolith without
 weakening the existing API, CLI, database, worker, retrieval, agent-task, or
@@ -25,7 +25,7 @@ Current architecture signals:
   - `agent_legibility_average_score=90.0`
   - `broad_facade_count=2`
   - `hotspot_count=10`
-  - `max_hotspot_risk_score=692.67`
+  - `max_hotspot_risk_score=656.21`
   - top hotspot paths:
     - `app/db/models.py`
     - `app/cli.py`
@@ -43,15 +43,17 @@ maintainability and change amplification. Central files are still large enough
 that future agents and humans will copy local patterns from broad modules,
 increasing entropy even when boundary checks remain green.
 
-Current state note: `app/db/models.py` now re-exports five focused ORM model
+Current state note: `app/db/models.py` now re-exports six focused ORM model
 domains behind the compatibility facade: `platform`, `ingest`,
-`document_artifacts`, `retrieval_interactions`, and
-`retrieval_replay_governance`. The latest verified local model-domain split
-moved `SearchReplayRun`, `SearchReplayQuery`, `SearchHarnessEvaluation`,
-`SearchHarnessEvaluationSource`, `SearchHarnessRelease`, and
-`SearchHarnessReleaseReadinessAssessment` into
-`app/db/model_domains/retrieval_replay_governance.py`, reducing
-`app/db/models.py` to 4,525 lines while preserving the metadata contract.
+`document_artifacts`, `retrieval_interactions`,
+`retrieval_replay_governance`, and `retrieval_learning`. The latest verified
+local model-domain split moved `RetrievalJudgmentSet`, `RetrievalJudgment`,
+`RetrievalHardNegative`, `RetrievalTrainingRun`,
+`RetrievalLearningCandidateEvaluation`, and
+`RetrievalRerankerArtifact` into
+`app/db/model_domains/retrieval_learning_examples.py` and
+`app/db/model_domains/retrieval_learning_artifacts.py`, reducing
+`app/db/models.py` to 3,782 lines while preserving the metadata contract.
 
 ## Goal
 

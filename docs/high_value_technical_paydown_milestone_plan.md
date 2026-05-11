@@ -1,8 +1,9 @@
 # High Value Technical Paydown Milestone Plan
 
 Date: 2026-05-11 local / 2026-05-11 UTC
-Status: complete locally through Milestone 9 retrieval learning; final
-closeout and reroute remain
+Status: complete locally through Milestone 10 final closeout; next routed
+follow-up returns to `IC-F2A8110185EB` / `app/db/models.py` via the
+`evaluation feedback` model-domain candidate
 Owner context: new standalone paydown plan written after the Hotspot Owner
 Resolution sequence closed locally through Milestone 6. This plan does not add
 new milestones to the prior hotspot-owner plan; it starts a fresh,
@@ -744,6 +745,45 @@ Status update:
 - the next routed implementation slice is Milestone 10 final closeout and
   checklist completion
 
+### Milestone 10: Final Closeout And Checklist Completion
+
+Purpose: close the High Value Technical Paydown plan against live post-split
+artifacts, record the Milestone 9 deployment ref, and route the next
+owner-scoped follow-up explicitly.
+
+Scope:
+
+- update the improvement-case registry, architecture index docs, this plan,
+  and the canonical handoff to the committed Milestone 9 state
+- complete the stale closeout checklist now that every implementation
+  milestone is committed and verified
+- route the next architecture follow-up from the current architecture-quality
+  report instead of the pre-Milestone 9 ordering
+
+Acceptance:
+
+- the plan sequence, checklist, handoff, and improvement-case registry all
+  match the committed Milestone 9 repo state
+- the next routed follow-up is explicit about the owner case, owner surface,
+  and next bounded candidate
+- no closeout claim depends on stale pre-split measurements
+
+Status update:
+
+- verified locally on 2026-05-11
+- recorded the Milestone 9 deployment ref and reduced line-count measurement
+  for `IC-F2A8110185EB` in `config/improvement_cases.yaml`
+- refreshed `docs/improvement_loop.md`, `docs/agentic_architecture_index.md`,
+  `docs/architecture_plan_01.md`, and `docs/SESSION_HANDOFF.md` so the
+  retrieval-learning split and the plan closeout route agree on current state
+- completed the closeout checklist now that Milestones 0-10 are verified or
+  committed locally as required by this plan
+- routed the next follow-up by the current architecture-quality report:
+  `IC-F2A8110185EB` / `app/db/models.py` remains the top governed hotspot, and
+  `docs/data_model_boundary_plan.md` now names `evaluation feedback`
+  (`EvalObservation`, `EvalFailureCase`) as the next bounded model-domain
+  candidate when that owner case resumes
+
 ## Required Implementation Artifacts
 
 - focused owner modules under:
@@ -886,11 +926,11 @@ holds.
 ## Closeout Checklist
 
 - [x] Baseline routing validated and UI owner case added
-- [ ] Retrieval-interaction ORM split completed and verified
-- [ ] One additional evidence owner-family split completed and verified
-- [ ] One additional agent action family split completed and verified
-- [ ] Oversized route/CLI tests split and verified
-- [ ] Oversized agent-task/claim-support tests split and verified
-- [ ] UI monolith split into modules and smoke-tested
+- [x] Retrieval-interaction ORM split completed and verified
+- [x] One additional evidence owner-family split completed and verified
+- [x] One additional agent action family split completed and verified
+- [x] Oversized route/CLI tests split and verified
+- [x] Oversized agent-task/claim-support tests split and verified
+- [x] UI monolith split into modules and smoke-tested
 - [x] Docs, handoff, improvement cases, and hygiene routing updated
-- [ ] Each milestone committed atomically after verification
+- [x] Each milestone committed atomically after verification
