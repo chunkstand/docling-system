@@ -320,6 +320,10 @@ Milestone 9 retrieval-learning split:
 - target ORM family:
   `EvalObservation`,
   `EvalFailureCase`
+- the dedicated Milestone 0 preflight for that route is now verified locally in
+  `docs/evaluation_feedback_model_domain_milestone_plan.md`; the next
+  implementation slice is Milestone 1's evaluation-feedback contract and owner
+  split
 
 ## Per-Domain Acceptance Gate
 

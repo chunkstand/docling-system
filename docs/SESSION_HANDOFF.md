@@ -4,9 +4,9 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: High Value Technical Paydown Milestone 9 retrieval
-learning split committed locally as `faed562`; High Value Technical Paydown
-Milestone 10 final closeout is now complete locally.
+Latest closeout checkpoint: Evaluation Feedback Model-Domain Milestone 0
+preflight committed locally as `81f6260`; High Value Technical Paydown
+Milestone 10 final closeout remains complete locally.
 Active local follow-up owner case: `IC-F2A8110185EB` /
 `app/db/models.py` evaluation-feedback continuation.
 Active bounded implementation brief:
@@ -15,77 +15,21 @@ Active bounded implementation brief:
 ## Current Position
 
 The checkout is on `main`. Local `main` remains ahead of `origin/main` after
-the Residual Weakness Plan Milestone 1-6 local closeout sequence.
+the High Value Technical Paydown Milestone 10 closeout and the Evaluation
+Feedback Model-Domain Milestone 0 preflight closeout.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
 The Residual Weakness Plan is already closed through Milestone 8, and the
 Hotspot Owner Resolution sequence is closed locally through Milestone 6. The
-new active plan is
-`docs/high_value_technical_paydown_milestone_plan.md`. Its Milestone 0
-baseline-lock slice is now committed locally: the plan’s UI gate now points to
-`tests/unit/test_ui.py`, `config/improvement_cases.yaml` contains explicit UI
-owner case `IC-1B643BA0AD90` for `app/ui/app.js`, and the docs now state
-clearly that this JavaScript hotspot is governed through the improvement-case
-registry plus architecture-probe verification rather than the current
-Python-only hygiene ratchet. The registry summary is now `case_count=26`,
+High Value Technical Paydown plan is now complete locally through Milestone 10:
+it moved the retrieval-interaction, replay/release governance, and
+retrieval-learning ORM families into focused owner modules, reduced
+`app/db/models.py` to 3,782 lines while keeping `app.db.models` as the public
+compatibility facade, and left the registry summary at `case_count=26`,
 `status_counts.open=25`, `status_counts.measured=1`, and
-`measured_case_count=14`. High Value Technical Paydown Milestone 1 is now also
-committed locally: the retrieval-interaction ledger lives in
-`app/db/model_domains/retrieval_interactions.py`, the shared metadata harness
-now protects the retrieval-interaction table/index/vector/computed-column
-contract, and `app/db/models.py` is reduced to 5,067 lines while remaining the
-public compatibility facade. High Value Technical Paydown Milestone 8 is now
-also committed locally as `47a86d1`: the retrieval replay and release
-governance owner surface lives in
-`app/db/model_domains/retrieval_replay_governance.py`, the shared metadata
-harness now protects the replay/release governance table and index contract,
-and `app/db/models.py` is reduced further to 4,525 lines while remaining the
-public compatibility facade. High Value Technical Paydown
-Milestone 2 is now also committed locally: the technical-report
-derivation/export owner family
-lives in `app/services/evidence_technical_report_exports.py`,
-`app/services/evidence.py` is reduced to 6,307 architecture-probe lines, the
-focused technical-report DB-backed integration stays green, and the architecture
-summary remains flat at `max_hotspot_risk_score=673.78`. High Value Technical
-Paydown Milestone 3 is now also committed locally: the technical-report action
-definition family lives in `app/services/agent_actions/report_actions.py`,
-`app/services/agent_task_actions.py` is reduced to 2,746
-architecture-probe lines, hotspot score falls to `162014`, and fan-out drops
-to `36` while the lookup seam remains unchanged. High Value Technical Paydown
-Milestone 4 is now also committed locally: `tests/unit/test_cli.py`,
-`tests/unit/test_search_api.py`, and `tests/unit/test_documents_api.py` are
-reduced to 424, 436, and 613 lines after their command-group and route-family
-coverage moved into focused owner files, and those original monoliths no longer
-appear in the current architecture-quality top-hotspot list. High Value
-Technical Paydown Milestone 5 is now also committed locally:
-`tests/unit/test_agent_task_actions.py` and
-`tests/integration/test_claim_support_judge_evaluation_roundtrip.py` are
-reduced to 417 and 337 lines after their action-family and claim-support
-scenario coverage moved into focused owner files, and those original monoliths
-no longer appear in the current architecture-probe top hotspot list. The next
-owner-scoped implementation route has now verified High Value Technical
-Paydown Milestone 6: the UI monolith split for `app/ui/app.js` under
-`IC-1B643BA0AD90`. `app/ui/app.js` is reduced from 4,335 lines to a 107-line
-bootstrap while the shipped operator UI now loads shared runtime and
-page-family logic from `app/ui/modules/`. `tests/unit/test_ui_static_assets.py`
-now covers module asset inclusion and serving alongside `tests/unit/test_ui.py`.
-High Value Technical Paydown Milestone 7 is now also verified locally: the
-closeout docs, improvement-case deployment refs, readiness report, agent-trace
-review, and full DB-backed suite are aligned to live results. The latest full
-DB-backed suite is `1420 passed in 48.03s`, evaluation-data readiness remains
-`regression_ready=true` and `court_grade_ready=true` with
-`failed_gate_count=0`, and `docling-system-agent-trace-review --limit 5 --skip-hygiene`
-reported `observation_count=0`. High Value Technical Paydown Milestone 9 is
-now also verified locally: the retrieval-learning owner family lives in
-`app/db/model_domains/retrieval_learning_examples.py` and
-`app/db/model_domains/retrieval_learning_artifacts.py`, the shared metadata
-contract now covers retrieval learning plus replay/release governance tables,
-and `app/db/models.py` is reduced to 3,782 lines while remaining the public
-compatibility facade. The High Value Technical Paydown plan is now complete
-locally through Milestone 10, and the next routed implementation slice returns
-to `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation feedback`
-model-domain candidate.
+`measured_case_count=14`. The active implementation brief has now moved to
+`docs/evaluation_feedback_model_domain_milestone_plan.md`.
 
 Post-closeout architecture alignment recheck on 2026-05-11 kept that routing
 intact: `uv run docling-system-architecture-quality-report --summary` now
@@ -1476,45 +1420,25 @@ The current system is a local-first, durable document-intelligence platform with
 - DB-backed agent-task orchestration with typed actions, context refs, approvals, attempts, outcomes, traces, and cost/performance telemetry
 - architecture, capability, decision, hygiene, improvement-case, and trace-review governance commands
 
-## Recent Local Milestones Since `origin/main`
+## Recent Local Milestone Commits Since `origin/main`
 
-The local commits ahead of `origin/main` are:
+The most recent routed milestone commits ahead of `origin/main` before the
+current alignment pass are:
 
-- `2c83c96` (`architecture: complete residual hotspot prevention gate`)
-- `79a117a` alignment hardening commit for `git diff --numstat` line-count
-  reporting, expired exception coverage, `--base`/`--staged` command selection
-  tests, and focused module ownership under the hygiene file budget
-- `00387e7` (`architecture: complete residual hygiene ratchet`), which converts
-  strict file/helper budget debt into owned inherited debt plus blocking
-  no-growth ceilings
-- `19bfad4` (`architecture: harden residual hygiene ratchet alignment`), which
-  closes the hygiene import alignment gap and adds direct CLI output coverage
-- `4042c7b` (`architecture: complete residual weakness milestone 3 split pack`),
-  which closes Top Hotspot Split Pack A behind stable facades and ratchets the
-  affected file budgets
-- `92a411d` (`architecture: complete residual weakness milestone 4 operator run split`),
-  which moves knowledge-operator run recording and audit summary payload helpers
-  into focused owner modules and ratchets the evidence facade lower
-- `c58e940` (`architecture: complete residual weakness milestone 5 cycle break`),
-  which routes context and task services through
-  `app/services/agent_task_action_lookup.py` and removes the large
-  agent-task import-cycle component from the general architecture probe
-- `c6f556e` (`architecture: align residual weakness milestone 5 closeout`),
-  which keeps the handoff and residual milestone plan synchronized with the
-  committed Milestone 5 hash and Milestone 6 routing
-- `4e257e8` (`docs: close residual weakness milestone 6`), which rebuilds the
-  live evaluation corpus so the readiness preflight reports
-  `regression_ready=true` and routes the next milestone to the court-grade data
-  lanes
-- `dde0e22` (`evals: complete residual weakness milestone 7`), which seeds the
-  court-grade corpus, feedback, replay, and retrieval-learning lanes and makes
-  the live readiness preflight report `court_grade_ready=true`
+- `81f6260` (`docs: close evaluation feedback milestone 0 preflight`), which
+  closes the evaluation-feedback Milestone 0 baseline lock, records the live
+  preflight verification outputs in the handoff and active plan, and routes the
+  next implementation slice to Milestone 1
+- `f8f4590` (`docs: add evaluation feedback milestone preflight`), which adds
+  the bounded evaluation-feedback model-domain plan for
+  `IC-F2A8110185EB` / `app/db/models.py`
+- `b0bf19c` (`docs: align current-state snapshots with milestone 10`), which
+  closes the High Value Technical Paydown plan through Milestone 10 and routes
+  the next owner-scoped follow-up to the evaluation-feedback candidate
 
-These commits add and harden the first two residual-weakness prevention gates
-after `origin/main` planned the broader sequence, land the first two
-facade-preserving top-hotspot splits, close the first cycle-break slice, lift
-the regression and court-grade readiness tiers, and align the durable closeout
-docs.
+These commits close the High Value Technical Paydown current-state alignment
+pass, add the dedicated evaluation-feedback follow-up brief, and close the
+Milestone 0 preflight slice that must pass before the ORM move begins.
 
 ## Current Architecture And Governance State
 
@@ -1535,23 +1459,22 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=692.67
+  max_hotspot_risk_score=658.21
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
-    app/services/evidence.py,
     app/services/agent_task_actions.py,
-    tests/unit/test_cli.py
+    app/services/evidence.py,
+    app/schemas/agent_tasks.py
   ]
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  Python cycle components=2
-  large agent-task cycle component: absent
+  Python cycle components=3
   app/services/agent_task_actions.py fan-out=39 local modules
 
 uv run docling-system-improvement-case-summary
-  case_count=23, measured=1, open=22,
-  source_type_counts={hygiene_finding: 1, architecture_governance: 22}
+  case_count=26, measured=1, open=25,
+  source_type_counts={hygiene_finding: 1, architecture_governance: 25}
 
 uv run docling-system-hotspot-prevention-check --strict
   known_hotspots=6, changed_hotspots=0, added_lines=0, deleted_lines=0,
@@ -1569,12 +1492,13 @@ uv run docling-system-improvement-case-import --source hygiene --dry-run
 ```
 
 The architecture boundary model is clean, but hotspot debt remains real. The
-top governed split targets are `app/db/models.py`, `app/services/evidence.py`,
-`app/cli.py`, `app/services/agent_task_actions.py`, and `app/services/search.py`.
-The latest Milestone 4 architecture probe records `app/db/models.py` at 5,800
-lines and 411,800 hotspot score, `app/cli.py` at 1,231 lines and 67,705 score,
-`tests/unit/test_cli.py` at 2,210 lines and 103,870 score, and
-`app/services/evidence.py` at 8,076 lines and 379,572 score.
+current top governed split targets are `app/db/models.py`, `app/cli.py`,
+`app/services/agent_task_actions.py`, `app/services/evidence.py`, and
+`app/schemas/agent_tasks.py`. The latest architecture probe records
+`app/services/evidence.py` at 6,307 lines and 309,043 hotspot score,
+`app/db/models.py` at 3,782 lines and 283,650 score,
+`app/services/agent_task_actions.py` at 2,746 lines and 164,760 score, and
+`app/cli.py` at 1,231 lines and 67,705 score.
 
 Strict hygiene debt also remains real, but it is now ratcheted: the current
 file/helper overages are non-blocking inherited entries while unchanged, and any
