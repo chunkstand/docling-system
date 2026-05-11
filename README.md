@@ -4,22 +4,21 @@ Docling-based PDF ingestion, retrieval, and auditable document-generation system
 
 ## Current State Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 8 closeout, the local
-`main` checkout is ahead of `origin/main`. Recent architecture work completed
-the platform and ingest data-model domain splits, first evidence-service split,
-first agent-action registry/helper split, first two CLI command-group splits,
-first search-core split, second evidence provenance split, improvement-case
-intake ratchet, hotspot-prevention gate, hygiene budget ratchet, and the
-evidence operator-run recorder and task-payload summary split. The latest
-cycle-break slice adds `app/services/agent_task_action_lookup.py` so
-agent-task context and task services no longer statically import the executor
-registry facade. The Milestone 6 and 7 runtime closeouts rebuilt the local
-evaluation corpus and court-grade evidence lanes so
-`docling-system-evaluation-data-readiness` now reports both
-`regression_ready=true` and `court_grade_ready=true`. The residual-weakness
-sequence is now complete through its closeout milestone; remaining architecture
-debt is tracked as owner-scoped improvement cases and inherited ratcheted
-hotspot debt rather than as another open repo-wide milestone.
+As of the 2026-05-11 High Value Technical Paydown Milestone 10 closeout, the
+local `main` checkout is ahead of `origin/main`. The residual-weakness sequence
+is complete through its closeout milestone, and the follow-on high-value
+technical paydown plan is also complete locally through final closeout. Recent
+architecture work completed the platform, ingest, retrieval-interaction,
+replay/release governance, and retrieval-learning model-domain splits; the
+technical-report evidence export split; the report-action family split; the
+hotspot test decomposition slices; the UI bootstrap/module split; and the
+agent-task lookup seam that broke the prior large import-cycle component.
+Evaluation-data readiness remains green with both
+`regression_ready=true` and `court_grade_ready=true`. Remaining architecture
+debt is now routed through owner-scoped improvement cases and inherited
+ratcheted hotspot ceilings rather than another open repo-wide milestone. The
+next routed follow-up returns to `IC-F2A8110185EB` / `app/db/models.py` via the
+`evaluation feedback` model-domain candidate.
 
 Current repo-level signals:
 
@@ -30,10 +29,10 @@ Current repo-level signals:
   and `function_count=110`.
 - `uv run docling-system-architecture-quality-report --summary` reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, `max_hotspot_risk_score=692.67`, and top hotspot paths
+  `hotspot_count=10`, `max_hotspot_risk_score=663.21`, and top hotspot paths
   headed by `app/db/models.py`,
-  `app/cli.py`, `app/services/evidence.py`,
-  `app/services/agent_task_actions.py`, and `tests/unit/test_cli.py`.
+  `app/cli.py`, `app/services/agent_task_actions.py`,
+  `app/services/evidence.py`, and `app/schemas/agent_tasks.py`.
 - `uv run docling-system-hygiene-check` is green when there are no new
   regressions. It still reports inherited file/helper budget debt in large
   hotspot modules, but those entries now have ratchet ceilings and owner links.
@@ -41,10 +40,11 @@ Current repo-level signals:
   current diff and fails fixture diffs that add implementation to known hotspot
   files instead of the configured owner modules.
 - The general architecture probe no longer reports the large agent-task
-  import-cycle component; `app/services/agent_task_actions.py` remains the
-  action-orchestration entrypoint with fan-out 39.
-- `uv run docling-system-improvement-case-summary` reports `case_count=23`,
-  `open=22`, and `measured=1`, which is now the explicit routing surface for
+  import-cycle component; `app/services/evidence.py` is now the top churn
+  hotspot, and `app/services/agent_task_actions.py` remains the
+  action-orchestration entrypoint with fan-out 36.
+- `uv run docling-system-improvement-case-summary` reports `case_count=26`,
+  `open=25`, and `measured=1`, which is now the explicit routing surface for
   remaining architecture debt.
 - The live readiness preflight now reports 26 active documents, 26 completed
   evaluations, 52 passed evaluation queries, empty regression blockers, and

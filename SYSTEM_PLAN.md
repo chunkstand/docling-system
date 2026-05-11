@@ -30,14 +30,16 @@ The system is intentionally conservative:
 
 ## Current Implementation Snapshot
 
-As of the 2026-05-10 Residual Weakness Plan Milestone 8 closeout, the local
-`main` checkout has completed the agentic architecture governance milestones
-plus the platform and ingest data-model domain splits, first evidence-service
-split, first agent-action registry/helper split, first two CLI command-group
-splits, first search-core split, second evidence provenance split,
-improvement-case intake ratchet, hotspot-prevention gate, and hygiene budget
-ratchet, evidence operator-run recorder and task-payload summary split, and the
-agent-task action lookup seam. The implemented
+As of the 2026-05-11 High Value Technical Paydown Milestone 10 closeout, the
+local `main` checkout has completed the agentic architecture governance
+milestones plus the platform, ingest, retrieval-interaction, replay/release
+governance, and retrieval-learning data-model domain splits; the first
+evidence-service split; the first agent-action registry/helper split; the first
+two CLI command-group splits; the first search-core split; the second evidence
+provenance split; the improvement-case intake ratchet; the hotspot-prevention
+gate; the hygiene budget ratchet; the evidence operator-run recorder and
+task-payload summary split; the UI bootstrap/module split; and the agent-task
+action lookup seam. The implemented
 architecture posture is:
 
 - the modular-monolith boundary model is mechanically checked and currently
@@ -65,6 +67,16 @@ architecture posture is:
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` now live in
   `app/db/model_domains/ingest.py`, while `app.db.models` remains the public
   compatibility facade
+- `DocumentRunEvaluation`, `DocumentRunEvaluationQuery`, `DocumentChunk`,
+  `DocumentTable`, `DocumentTableSegment`, and `DocumentFigure` now live in
+  `app/db/model_domains/document_artifacts.py`; retrieval-interaction rows now
+  live in `app/db/model_domains/retrieval_interactions.py`; replay/release
+  governance rows now live in
+  `app/db/model_domains/retrieval_replay_governance.py`; and retrieval-learning
+  rows now live in
+  `app/db/model_domains/retrieval_learning_examples.py` and
+  `app/db/model_domains/retrieval_learning_artifacts.py`, while
+  `app.db.models` remains the public compatibility facade at 3,782 lines
 - search evidence package assembly, export persistence, trace graph
   persistence, trace integrity, and response assembly now live in focused
   `app/services/evidence_search_*.py` modules while `app.services.evidence`
@@ -86,10 +98,13 @@ architecture posture is:
   metadata-query token extraction now live in
   `app/services/search_query_features.py` while `app.services.search` remains
   the search compatibility facade
+- the shipped browser UI now uses a narrow `app/ui/app.js` bootstrap with
+  shared runtime and page-family logic routed through `app/ui/modules/*.js`
 - the general architecture probe no longer reports the large agent-task
-  import-cycle component; the residual-weakness plan itself is now complete,
-  and the remaining follow-up is owner-scoped hotspot reduction plus continued
-  guarded debt retirement, not a platform rewrite or service extraction
+  import-cycle component; the residual-weakness plan and the follow-on
+  high-value technical paydown plan are now complete locally, and the remaining
+  follow-up is owner-scoped hotspot reduction plus continued guarded debt
+  retirement, not a platform rewrite or service extraction
 
 Current verification status:
 
@@ -116,6 +131,10 @@ Current verification status:
   inherited debt ratcheted, the improvement-case registry holds the remaining
   architecture work as owner-scoped cases, and no additional repo-wide
   residual-weakness milestone is currently open.
+- The High Value Technical Paydown plan is also closed locally through
+  Milestone 10, and the next routed implementation slice returns to
+  `IC-F2A8110185EB` / `app/db/models.py` with the `evaluation feedback`
+  model-domain candidate.
 
 ## Current Goals
 

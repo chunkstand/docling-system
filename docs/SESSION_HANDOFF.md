@@ -104,6 +104,9 @@ Results:
   `app/db/models.py` line-count measurement in `config/improvement_cases.yaml`
 - completed the stale closeout checklist in
   `docs/high_value_technical_paydown_milestone_plan.md`
+- refreshed `README.md` and `SYSTEM_PLAN.md` so the repo's top-level
+  current-state snapshot matches the Milestone 10 closeout route and live
+  architecture metrics
 - refreshed `docs/improvement_loop.md`,
   `docs/agentic_architecture_index.md`,
   `docs/architecture_plan_01.md`, and this handoff so the committed
