@@ -145,6 +145,14 @@ chat history or scanning the whole repository.
   old hotspot is reduced to 2,482 lines, and the new owner module is governed
   under the same improvement case `IC-0D58F1624037` with a 578 line hygiene
   budget. The milestone is closed by commit `13e8b1c`.
+- A new standalone hotspot-reduction plan is now active locally for
+  `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` in
+  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`. Its
+  first implemented slice moves validation-receipt hashing, verification, row
+  creation, and list or latest response assembly into
+  `app/services/audit_bundle_validation_receipts.py`, reducing
+  `app/services/audit_bundles.py` from 3,306 lines to 3,018 while keeping the
+  existing facade contract.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while

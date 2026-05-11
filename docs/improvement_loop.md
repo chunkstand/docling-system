@@ -27,6 +27,14 @@ and compatibility-facade closeout sequence:
 - `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` now
   have explicit owner-bootstrap cases (`IC-2112B1ADC5E8` and
   `IC-0D58F1624037`) instead of remaining milestone-owned hygiene debt.
+- A new standalone hotspot-reduction plan now governs the next reduction pass
+  for those two facades in
+  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
+  Its first implementation slice is already narrowed locally: validation-receipt
+  hashing, verification, persistence, and detail or latest response assembly
+  now live in `app/services/audit_bundle_validation_receipts.py`, reducing
+  `app/services/audit_bundles.py` to 3,018 lines while keeping the public
+  compatibility facade intact.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
   lines to 107 and moved the shared runtime plus page-family logic into
@@ -74,8 +82,10 @@ and compatibility-facade closeout sequence:
   claim-support scenario-family files, including the aligned replay-alert
   change-impact split into activation, prevalidation, promotion, and
   governance files.
-- The next routed implementation slice is now the
-  `IC-050E60059A34` / `app/services/evidence.py` owner-narrowing follow-up.
+- The next oldest open owner case remains
+  `IC-050E60059A34` / `app/services/evidence.py`, but the currently active
+  standalone hotspot implementation brief is
+  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

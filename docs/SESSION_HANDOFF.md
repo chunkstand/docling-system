@@ -4,18 +4,18 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: DB Models Compatibility Facade Milestone 2 aligned
-and committed locally as `8340dc0`; the prior Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
-checkpoint remains local, the prior claim-support checkpoint remains local, the
-prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
-remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
-prior evaluation-feedback checkpoint remains `b69c4f6`.
-Active local follow-up owner case: `IC-050E60059A34` /
-`app/services/evidence.py` owner narrowing continuation.
-Active bounded implementation brief: next `app/services/evidence.py`
-owner-split milestone to be authored from the current routing artifacts; the
-completed brief for the just-finished slice is
-`docs/db_models_compatibility_facade_milestone_plan.md`.
+Most recently documented committed checkpoint: DB Models Compatibility Facade
+Milestone 2 aligned and committed locally as `8340dc0`; the prior Milestone 1
+checkpoint remains `776fa73`, the prior semantic-memory checkpoint remains
+local, the prior claim-support checkpoint remains local, the prior audit
+checkpoint remains `196d3aa`, the prior alignment checkpoint remains
+`7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the prior
+evaluation-feedback checkpoint remains `b69c4f6`.
+Active local follow-up owner case: `IC-2112B1ADC5E8` /
+`app/services/audit_bundles.py` validation-receipt owner split, followed by
+the paired retrieval-learning hotspot work under `IC-0D58F1624037`.
+Active bounded implementation brief:
+`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
 
 ## Current Position
 
@@ -66,9 +66,20 @@ facade, the remaining 29 public enums live in `app/db/_model_enums.py`, the
 facade gate rejects any direct class definitions in `app/db/models.py`, and
 the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
 under local closeout commit `8340dc0`.
-The next routed follow-up is no longer another `app/db/models.py` split; it is
-the oldest remaining open owner case `IC-050E60059A34` /
-`app/services/evidence.py`.
+
+A new standalone hotspot-reduction plan is now the active implementation lane.
+Milestone 0 and Milestone 1 from
+`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
+implemented locally in this checkout: validation-receipt hashing,
+verification, persistence, and detail or latest response assembly now live in
+`app/services/audit_bundle_validation_receipts.py`, the new owner module is
+governed under `IC-2112B1ADC5E8` with a 450 line and 3 private-helper budget,
+and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
+helpers to 3,018 lines / 51 private helpers while preserving its public
+compatibility facade. The paired retrieval-learning hotspot under
+`IC-0D58F1624037` remains open; the next milestone in the active plan is the
+candidate and reranker-artifact split in
+`app/services/retrieval_learning.py`.
 
 The live alignment snapshot after Milestone 2 verification is:
 

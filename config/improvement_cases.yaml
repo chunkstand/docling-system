@@ -932,8 +932,9 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/audit_bundles.py remains a large owner surface with
-    line_count=3306 and private_helper_count=58 after the Milestone 2
-    evidence-audit split.
+    line_count=3018 and private_helper_count=51 after the validation-receipt
+    owner split; the compatibility facade is narrower, but additional payload
+    and PROV construction still live in the facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/audit_bundles.py
@@ -956,21 +957,22 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "a0bd36b"
-    notes: Milestone 2 audit-bundle replay-alert corpus split committed;
-      app/services/audit_bundles.py remains the compatibility facade while the
-      narrowed corpus-lineage concern now lives in
-      app/services/audit_bundle_replay_alert_corpus.py.
+    notes: The latest committed checkpoint remains the Milestone 2 audit-bundle
+      replay-alert corpus split; this checkout additionally routes validation-receipt
+      hashing, verification, row creation, and latest or list retrieval through
+      app/services/audit_bundle_validation_receipts.py while
+      app/services/audit_bundles.py remains the compatibility facade.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
-    current_value: 3306.0
-    measurement_window: 2026-05-10 local verification
-    notes: Milestone 2 moved replay-alert corpus lineage payload assembly and
-      bundle freshness status checks into
-      app/services/audit_bundle_replay_alert_corpus.py and reduced
-      app/services/audit_bundles.py to 3306 lines while governing the owner
-      module at 575 lines.
+    current_value: 3018.0
+    measurement_window: 2026-05-11 local verification
+    notes: The validation-receipt owner split moved receipt hashing, verification,
+      persistence, and detail or latest response assembly into
+      app/services/audit_bundle_validation_receipts.py and reduced
+      app/services/audit_bundles.py to 3018 lines while governing the new owner
+      module at 447 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-10T14:29:04+00:00'
+  updated_at: '2026-05-11T00:00:00+00:00'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: open
