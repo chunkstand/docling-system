@@ -10,6 +10,7 @@ from app.db.base import Base
 from tests.db_model_contract import (
     AGENT_TASK_DOMAIN_TABLE_COLUMNS,
     AUDIT_AND_EVIDENCE_DOMAIN_TABLE_COLUMNS,
+    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
@@ -219,6 +220,42 @@ def test_evaluation_feedback_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.evaluation_feedback"
 
 
+def test_claim_support_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.claim_support import (
+        ClaimSupportCalibrationPolicy,
+        ClaimSupportEvaluation,
+        ClaimSupportEvaluationCase,
+        ClaimSupportFixtureSet,
+        ClaimSupportPolicyChangeImpact,
+        ClaimSupportReplayAlertFixtureCorpusRow,
+        ClaimSupportReplayAlertFixtureCorpusSnapshot,
+        ClaimSupportReplayAlertFixtureCoverageWaiverEscalation,
+        ClaimSupportReplayAlertFixtureCoverageWaiverLedger,
+    )
+
+    expected_models = {
+        "ClaimSupportReplayAlertFixtureCoverageWaiverLedger": (
+            ClaimSupportReplayAlertFixtureCoverageWaiverLedger
+        ),
+        "ClaimSupportReplayAlertFixtureCoverageWaiverEscalation": (
+            ClaimSupportReplayAlertFixtureCoverageWaiverEscalation
+        ),
+        "ClaimSupportFixtureSet": ClaimSupportFixtureSet,
+        "ClaimSupportReplayAlertFixtureCorpusSnapshot": (
+            ClaimSupportReplayAlertFixtureCorpusSnapshot
+        ),
+        "ClaimSupportReplayAlertFixtureCorpusRow": ClaimSupportReplayAlertFixtureCorpusRow,
+        "ClaimSupportCalibrationPolicy": ClaimSupportCalibrationPolicy,
+        "ClaimSupportEvaluation": ClaimSupportEvaluation,
+        "ClaimSupportEvaluationCase": ClaimSupportEvaluationCase,
+        "ClaimSupportPolicyChangeImpact": ClaimSupportPolicyChangeImpact,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.claim_support"
+
+
 def test_agent_task_models_are_owned_by_domain_module() -> None:
     from app.db.model_domains.agent_tasks import (
         AgentTask,
@@ -350,6 +387,18 @@ def test_base_metadata_preserves_retrieval_learning_domain_table_columns(
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_evaluation_feedback_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_claim_support_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

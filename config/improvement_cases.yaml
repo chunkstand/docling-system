@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=2089 after the locally verified audit-and-evidence owner split.
+    line_count=1301 after the locally verified claim-support owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -62,20 +62,21 @@ cases:
     deployed_ref: null
     notes: Latest local verification narrowed ORM ownership further so
       app/db/models.py remains the compatibility facade while the routed
-      audit-and-evidence family now also lives in
-      app/db/model_domains/audit_and_evidence.py alongside the prior
-      agent-task, evaluation-feedback, retrieval, and ingest/domain splits.
+      claim-support family now also lives in
+      app/db/model_domains/claim_support.py alongside the prior
+      audit-and-evidence, agent-task, evaluation-feedback, retrieval, and
+      ingest/domain splits.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 2089.0
+    current_value: 1301.0
     measurement_window: 2026-05-11 local verification
-    notes: Audit And Evidence Model-Domain Milestone 1 moved the routed audit
-      bundle, evidence package, manifest, trace, and technical-report
-      readiness/feedback ORM family into
-      app/db/model_domains/audit_and_evidence.py, reducing app/db/models.py to
-      2089 lines while preserving the app.db.models compatibility facade.
+    notes: Claim Support Model-Domain Milestone 1 moved the routed claim-support
+      replay-alert waiver, fixture-corpus, calibration, evaluation, and
+      policy-impact ORM family into app/db/model_domains/claim_support.py,
+      reducing app/db/models.py to 1301 lines while preserving the
+      app.db.models compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T12:00:00+00:00'
+  updated_at: '2026-05-11T04:18:21+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

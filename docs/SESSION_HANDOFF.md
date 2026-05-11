@@ -4,12 +4,13 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Latest closeout checkpoint: Audit And Evidence Model-Domain Milestone 1
-closeout committed locally as `196d3aa`; the prior alignment checkpoint
-remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
-prior evaluation-feedback checkpoint remains `b69c4f6`.
+Latest closeout checkpoint: Claim Support Model-Domain Milestone 1 verified in
+this checkout; the prior audit checkpoint remains `196d3aa`, the prior
+alignment checkpoint remains `7f04d49`, the prior agent-task checkpoint
+remains `e59f9bf`, and the prior evaluation-feedback checkpoint remains
+`b69c4f6`.
 Active local follow-up owner case: `IC-F2A8110185EB` /
-`app/db/models.py` claim-support continuation.
+`app/db/models.py` semantic-memory continuation.
 Active bounded implementation brief:
 `docs/data_model_boundary_plan.md`.
 
@@ -28,42 +29,116 @@ The Residual Weakness Plan is already closed through Milestone 8, and the
 Hotspot Owner Resolution sequence is closed locally through Milestone 6. The
 High Value Technical Paydown plan remains complete locally through Milestone
 10, and the routed `app/db/models.py` owner work has advanced one more bounded
-slice: the audit bundle, evidence package, manifest, trace, and technical-report
-readiness / feedback ORM family now lives in
-`app/db/model_domains/audit_and_evidence.py`, `app/db/models.py` is down to
-2,089 lines while keeping `app.db.models` as the public compatibility facade,
-and the registry summary remains `case_count=26`, `status_counts.open=25`,
+slice: the claim-support replay-alert waiver, fixture-corpus, calibration,
+evaluation, and policy-impact ORM family now lives in
+`app/db/model_domains/claim_support.py`, `app/db/models.py` is down to 1,301
+lines while keeping `app.db.models` as the public compatibility facade, and
+the registry summary remains `case_count=26`, `status_counts.open=25`,
 `status_counts.measured=1`, and `measured_case_count=14`. The completed
 evaluation-feedback milestone record remains in
-`docs/evaluation_feedback_model_domain_milestone_plan.md`, and the new
+`docs/evaluation_feedback_model_domain_milestone_plan.md`, the completed audit
+milestone record remains in
+`docs/audit_and_evidence_model_domain_milestone_plan.md`, and the new
 completed milestone record now lives in
-`docs/audit_and_evidence_model_domain_milestone_plan.md`.
+`docs/claim_support_model_domain_milestone_plan.md`.
 
 Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
 routing intact:
 `uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=631.43` with `app/db/models.py` still first in
+`max_hotspot_risk_score=612.67` with `app/db/models.py` still first in
 `top_hotspot_paths`, and
 `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 reports `app/services/evidence.py` as the top churn hotspot while
-`app/db/models.py` remains a governed model hotspot at score `162942`.
+`app/db/models.py` remains a governed model hotspot at score `101478`.
 
 The completed implementation brief for the new route lives in
-`docs/audit_and_evidence_model_domain_milestone_plan.md`. It scopes
-`resolved` to the audit-and-evidence concern itself
-(`AuditBundleExport`,
-`AuditBundleValidationReceipt`,
-`EvidencePackageExport`,
-`EvidenceManifest`,
-`TechnicalReportReleaseReadinessDbGate`,
-`TechnicalReportClaimRetrievalFeedback`,
-`EvidenceTraceNode`,
-`EvidenceTraceEdge`,
-`ClaimEvidenceDerivation`) and treats the broader
+`docs/claim_support_model_domain_milestone_plan.md`. It scopes `resolved` to
+the claim-support concern itself
+(`ClaimSupportReplayAlertFixtureCoverageWaiverLedger`,
+`ClaimSupportReplayAlertFixtureCoverageWaiverEscalation`,
+`ClaimSupportFixtureSet`,
+`ClaimSupportReplayAlertFixtureCorpusSnapshot`,
+`ClaimSupportReplayAlertFixtureCorpusRow`,
+`ClaimSupportCalibrationPolicy`,
+`ClaimSupportEvaluation`,
+`ClaimSupportEvaluationCase`,
+`ClaimSupportPolicyChangeImpact`) and treats the broader
 `IC-F2A8110185EB` owner case as only `reduced` unless the live
 architecture-quality report stops flagging `app/db/models.py`. The next
 remaining model-domain candidate if model work continues is now the
-claim-support family.
+semantic-memory family.
+
+## Claim Support Model-Domain Milestone 1 Progress
+
+Milestone 1 is the claim-support contract and owner split for
+`IC-F2A8110185EB` / `app/db/models.py`. It is a behavior-preserving ORM owner
+split behind the existing `app.db.models` compatibility facade.
+
+Results:
+
+- added `app/db/model_domains/claim_support.py`
+- moved `ClaimSupportReplayAlertFixtureCoverageWaiverLedger`,
+  `ClaimSupportReplayAlertFixtureCoverageWaiverEscalation`,
+  `ClaimSupportFixtureSet`,
+  `ClaimSupportReplayAlertFixtureCorpusSnapshot`,
+  `ClaimSupportReplayAlertFixtureCorpusRow`,
+  `ClaimSupportCalibrationPolicy`,
+  `ClaimSupportEvaluation`,
+  `ClaimSupportEvaluationCase`, and
+  `ClaimSupportPolicyChangeImpact` out of `app/db/models.py`
+- kept `app.db.models` import-compatible by re-exporting the moved classes
+  through import-forwarder aliases
+- extended `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` to cover claim-support table
+  columns, exact index column ordering, and exact unique-constraint column
+  ordering
+- ratcheted `config/hygiene_policy.yaml` so `app/db/models.py` now has
+  `ratchet_max_lines: 1301`, and the new owner module
+  `app/db/model_domains/claim_support.py` is governed under the same owner
+  case with `ratchet_max_lines: 829`
+- refreshed `docs/claim_support_model_domain_milestone_plan.md`,
+  `docs/data_model_boundary_plan.md`,
+  `docs/agentic_architecture_index.md`,
+  `docs/improvement_loop.md`, and this handoff so the routed follow-up now
+  points to the next remaining model-domain concern
+- reduced `app/db/models.py` from 2,089 lines to 1,301 and reduced the
+  architecture-quality `max_hotspot_risk_score` from `631.43` to `612.67` on
+  the current checkout
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`
+- `uv run --extra dev alembic heads`
+- `uv run --extra dev alembic current`
+- `uv run --extra dev alembic upgrade head`
+- `uv run --extra dev alembic check`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+
+Verified results:
+
+- `uv run pytest -q tests/unit/test_db_model_import_compatibility.py`:
+  `486 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_db_model_metadata.py`:
+  `256 passed`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=25`, `status_counts.measured=1`,
+  `oldest_open_case_id=IC-F2A8110185EB`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=612.67`
+- architecture probe reports `app/db/models.py` at `1301` lines with hotspot
+  score `101478`
 
 ## Audit And Evidence Model-Domain Milestone 1 Progress
 

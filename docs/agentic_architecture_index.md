@@ -11,6 +11,7 @@ chat history or scanning the whole repository.
 - `docs/evaluation_feedback_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` evaluation-feedback split covering `EvalObservation` and `EvalFailureCase`; Milestone 2 closeout is committed locally as `b69c4f6`, and the broader owner case remains reduced.
 - `docs/agent_task_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` agent-task split covering the agent-task and knowledge-operator ORM family; Milestone 2 closeout is committed locally as `e59f9bf`, and the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/audit_and_evidence_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` audit-and-evidence split covering the audit bundle, evidence package, manifest, trace, and technical-report readiness/feedback ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
+- `docs/claim_support_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` claim-support split covering the replay-alert waiver, fixture-corpus, calibration, evaluation, and policy-impact ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -49,8 +50,9 @@ chat history or scanning the whole repository.
   `app/db/model_domains/agent_tasks.py`, the
   evaluation-feedback rows now live in `app/db/model_domains/evaluation_feedback.py`,
   the audit-and-evidence rows now live in
-  `app/db/model_domains/audit_and_evidence.py`, and `app.db.models` remains
-  the public compatibility facade at 2,089 lines.
+  `app/db/model_domains/audit_and_evidence.py`, the claim-support rows now live
+  in `app/db/model_domains/claim_support.py`, and `app.db.models` remains the
+  public compatibility facade at 1,301 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -232,6 +234,30 @@ chat history or scanning the whole repository.
   `docs/data_model_boundary_plan.md`, where the next remaining model-domain
   candidate is the audit-and-evidence family if `app/db/models.py` stays
   routed as an owner case.
+- Completed bounded milestone record:
+  `docs/audit_and_evidence_model_domain_milestone_plan.md` now captures the
+  committed `IC-F2A8110185EB` audit-and-evidence split. Its scoped `resolved`
+  outcome is the audit bundle, evidence package, manifest, trace, and
+  technical-report readiness/feedback family moving out of `app/db/models.py`
+  into `app/db/model_domains/audit_and_evidence.py` with exact schema-contract
+  coverage; the broader owner case remains `reduced` because the live
+  architecture-quality report still lists `app/db/models.py` as the top
+  governed hotspot. The routed follow-up returns to
+  `docs/data_model_boundary_plan.md`, where the next remaining model-domain
+  candidate is the claim-support family if `app/db/models.py` stays routed as
+  an owner case.
+- Completed bounded milestone record:
+  `docs/claim_support_model_domain_milestone_plan.md` now captures the
+  verified `IC-F2A8110185EB` claim-support split. Its scoped `resolved`
+  outcome is the replay-alert waiver, fixture-corpus, calibration,
+  evaluation, and policy-impact family moving out of `app/db/models.py` into
+  `app/db/model_domains/claim_support.py` with exact schema-contract
+  coverage; the broader owner case remains `reduced` because the live
+  architecture-quality report still lists `app/db/models.py` as the top
+  governed hotspot. The routed follow-up returns to
+  `docs/data_model_boundary_plan.md`, where the next remaining model-domain
+  candidate is the semantic-memory family if `app/db/models.py` stays routed
+  as an owner case.
 - Governed follow-up: the residual weakness sequence is now active in
   `docs/residual_weakness_resolution_milestone_plan.md`. Its first
   implementation milestone, the hotspot-prevention gate in
@@ -265,8 +291,8 @@ chat history or scanning the whole repository.
 - Current routed follow-up: the next architecture work should use
   `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
   locally through Milestone 10, and the next routed implementation slice
-  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `audit and
-  evidence` model-domain candidate.
+  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `semantic memory`
+  model-domain candidate.
 
 ## Executable Architecture Contracts
 

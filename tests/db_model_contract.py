@@ -589,6 +589,86 @@ REQUIRED_TABLE_INDEX_NAMES.update(
                 "ix_eval_failure_cases_evaluation_id",
             }
         ),
+        "claim_support_replay_alert_fixture_coverage_waiver_ledgers": frozenset(
+            {
+                "ix_cs_waiver_ledgers_artifact",
+                "ix_cs_waiver_ledgers_task",
+                "ix_cs_waiver_ledgers_status",
+                "ix_cs_waiver_ledgers_closure",
+            }
+        ),
+        "claim_support_replay_alert_fixture_coverage_waiver_escalations": frozenset(
+            {
+                "ix_cs_waiver_escalations_ledger",
+                "ix_cs_waiver_escalations_event",
+                "ix_cs_waiver_escalations_covered",
+                "ix_cs_waiver_escalations_impact",
+            }
+        ),
+        "claim_support_fixture_sets": frozenset(
+            {
+                "ix_claim_support_fixture_sets_name_version",
+                "ix_claim_support_fixture_sets_status",
+                "ix_claim_support_fixture_sets_sha",
+            }
+        ),
+        "claim_support_replay_alert_fixture_corpus_snapshots": frozenset(
+            {
+                "ix_cs_replay_fixture_corpus_snapshots_status_created",
+                "ix_cs_replay_fixture_corpus_snapshots_sha",
+                "ix_cs_replay_fixture_corpus_snapshots_governance_event",
+                "ix_cs_replay_fixture_corpus_snapshots_governance_artifact",
+            }
+        ),
+        "claim_support_replay_alert_fixture_corpus_rows": frozenset(
+            {
+                "ix_cs_replay_fixture_corpus_rows_snapshot",
+                "ix_cs_replay_fixture_corpus_rows_case",
+                "ix_cs_replay_fixture_corpus_rows_fixture_sha",
+                "ix_cs_replay_fixture_corpus_rows_promotion",
+            }
+        ),
+        "claim_support_calibration_policies": frozenset(
+            {
+                "ix_claim_support_calibration_policies_name_version",
+                "uq_claim_support_calibration_policies_active_name",
+                "ix_claim_support_calibration_policies_status",
+                "ix_claim_support_calibration_policies_sha",
+            }
+        ),
+        "claim_support_evaluations": frozenset(
+            {
+                "ix_claim_support_evaluations_agent_task_id",
+                "ix_claim_support_evaluations_operator_run_id",
+                "ix_claim_support_evaluations_created_at",
+                "ix_claim_support_evaluations_gate_created",
+                "ix_claim_support_evaluations_fixture_sha",
+                "ix_claim_support_evaluations_fixture_set_id",
+                "ix_claim_support_evaluations_policy_id",
+                "ix_claim_support_evaluations_policy_sha",
+            }
+        ),
+        "claim_support_evaluation_cases": frozenset(
+            {
+                "ix_claim_support_evaluation_cases_eval_id",
+                "ix_claim_support_evaluation_cases_case_id",
+                "ix_claim_support_evaluation_cases_expected",
+                "ix_claim_support_evaluation_cases_predicted",
+                "ix_claim_support_evaluation_cases_passed",
+                "ix_claim_support_evaluation_cases_hard_kind",
+            }
+        ),
+        "claim_support_policy_change_impacts": frozenset(
+            {
+                "ix_claim_support_policy_change_impacts_activation_task",
+                "ix_claim_support_policy_change_impacts_policy",
+                "ix_claim_support_policy_change_impacts_governance_event",
+                "ix_claim_support_policy_change_impacts_governance_artifact",
+                "ix_claim_support_policy_change_impacts_scope_created",
+                "ix_claim_support_policy_change_impacts_payload_sha",
+                "ix_claim_support_policy_change_impacts_replay_status",
+            }
+        ),
         "audit_bundle_exports": frozenset(
             {
                 "ix_audit_bundle_exports_bundle_kind_created_at",
@@ -1004,6 +1084,94 @@ REQUIRED_TABLE_INDEX_COLUMNS.update(
             "ix_eval_failure_cases_search_request_id": ("search_request_id",),
             "ix_eval_failure_cases_evaluation_id": ("evaluation_id",),
         },
+        "claim_support_replay_alert_fixture_coverage_waiver_ledgers": {
+            "ix_cs_waiver_ledgers_artifact": ("waiver_artifact_id",),
+            "ix_cs_waiver_ledgers_task": ("verification_task_id",),
+            "ix_cs_waiver_ledgers_status": ("coverage_status", "created_at"),
+            "ix_cs_waiver_ledgers_closure": ("closure_event_id",),
+        },
+        "claim_support_replay_alert_fixture_coverage_waiver_escalations": {
+            "ix_cs_waiver_escalations_ledger": ("ledger_id",),
+            "ix_cs_waiver_escalations_event": ("escalation_event_id",),
+            "ix_cs_waiver_escalations_covered": ("ledger_id", "covered"),
+            "ix_cs_waiver_escalations_impact": ("change_impact_id",),
+        },
+        "claim_support_fixture_sets": {
+            "ix_claim_support_fixture_sets_name_version": (
+                "fixture_set_name",
+                "fixture_set_version",
+            ),
+            "ix_claim_support_fixture_sets_status": ("status",),
+            "ix_claim_support_fixture_sets_sha": ("fixture_set_sha256",),
+        },
+        "claim_support_replay_alert_fixture_corpus_snapshots": {
+            "ix_cs_replay_fixture_corpus_snapshots_status_created": ("status", "created_at"),
+            "ix_cs_replay_fixture_corpus_snapshots_sha": ("snapshot_sha256",),
+            "ix_cs_replay_fixture_corpus_snapshots_governance_event": (
+                "semantic_governance_event_id",
+            ),
+            "ix_cs_replay_fixture_corpus_snapshots_governance_artifact": (
+                "governance_artifact_id",
+            ),
+        },
+        "claim_support_replay_alert_fixture_corpus_rows": {
+            "ix_cs_replay_fixture_corpus_rows_snapshot": ("snapshot_id",),
+            "ix_cs_replay_fixture_corpus_rows_case": ("case_id",),
+            "ix_cs_replay_fixture_corpus_rows_fixture_sha": ("fixture_sha256",),
+            "ix_cs_replay_fixture_corpus_rows_promotion": ("promotion_event_id",),
+        },
+        "claim_support_calibration_policies": {
+            "ix_claim_support_calibration_policies_name_version": (
+                "policy_name",
+                "policy_version",
+            ),
+            "uq_claim_support_calibration_policies_active_name": ("policy_name",),
+            "ix_claim_support_calibration_policies_status": ("status",),
+            "ix_claim_support_calibration_policies_sha": ("policy_sha256",),
+        },
+        "claim_support_evaluations": {
+            "ix_claim_support_evaluations_agent_task_id": ("agent_task_id",),
+            "ix_claim_support_evaluations_operator_run_id": ("operator_run_id",),
+            "ix_claim_support_evaluations_created_at": ("created_at",),
+            "ix_claim_support_evaluations_gate_created": ("gate_outcome", "created_at"),
+            "ix_claim_support_evaluations_fixture_sha": ("fixture_set_sha256",),
+            "ix_claim_support_evaluations_fixture_set_id": ("fixture_set_id",),
+            "ix_claim_support_evaluations_policy_id": ("policy_id",),
+            "ix_claim_support_evaluations_policy_sha": ("policy_sha256",),
+        },
+        "claim_support_evaluation_cases": {
+            "ix_claim_support_evaluation_cases_eval_id": ("evaluation_id",),
+            "ix_claim_support_evaluation_cases_case_id": ("case_id",),
+            "ix_claim_support_evaluation_cases_expected": ("expected_verdict",),
+            "ix_claim_support_evaluation_cases_predicted": ("predicted_verdict",),
+            "ix_claim_support_evaluation_cases_passed": ("passed",),
+            "ix_claim_support_evaluation_cases_hard_kind": ("hard_case_kind",),
+        },
+        "claim_support_policy_change_impacts": {
+            "ix_claim_support_policy_change_impacts_activation_task": (
+                "activation_task_id",
+                "created_at",
+            ),
+            "ix_claim_support_policy_change_impacts_policy": (
+                "activated_policy_id",
+                "created_at",
+            ),
+            "ix_claim_support_policy_change_impacts_governance_event": (
+                "semantic_governance_event_id",
+            ),
+            "ix_claim_support_policy_change_impacts_governance_artifact": (
+                "governance_artifact_id",
+            ),
+            "ix_claim_support_policy_change_impacts_scope_created": (
+                "impact_scope",
+                "created_at",
+            ),
+            "ix_claim_support_policy_change_impacts_payload_sha": ("impact_payload_sha256",),
+            "ix_claim_support_policy_change_impacts_replay_status": (
+                "replay_status",
+                "created_at",
+            ),
+        },
         "audit_bundle_exports": {
             "ix_audit_bundle_exports_bundle_kind_created_at": ("bundle_kind", "created_at"),
             "ix_audit_bundle_exports_source": ("source_table", "source_id"),
@@ -1228,6 +1396,42 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
                 "uq_eval_failure_cases_case_key",
             }
         ),
+        "claim_support_replay_alert_fixture_coverage_waiver_ledgers": frozenset(
+            {
+                "uq_cs_waiver_ledgers_artifact_sha",
+            }
+        ),
+        "claim_support_replay_alert_fixture_coverage_waiver_escalations": frozenset(
+            {
+                "uq_cs_waiver_escalations_ledger_event",
+            }
+        ),
+        "claim_support_fixture_sets": frozenset(
+            {
+                "uq_claim_support_fixture_sets_identity",
+            }
+        ),
+        "claim_support_replay_alert_fixture_corpus_snapshots": frozenset(
+            {
+                "uq_cs_replay_fixture_corpus_snapshots_sha",
+            }
+        ),
+        "claim_support_replay_alert_fixture_corpus_rows": frozenset(
+            {
+                "uq_cs_replay_fixture_corpus_rows_snapshot_identity",
+                "uq_cs_replay_fixture_corpus_rows_snapshot_index",
+            }
+        ),
+        "claim_support_calibration_policies": frozenset(
+            {
+                "uq_claim_support_calibration_policies_identity",
+            }
+        ),
+        "claim_support_evaluation_cases": frozenset(
+            {
+                "uq_claim_support_evaluation_cases_eval_case",
+            }
+        ),
         "evidence_manifests": frozenset(
             {
                 "uq_evidence_manifests_verification_task_kind",
@@ -1358,6 +1562,39 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
         },
         "eval_failure_cases": {
             "uq_eval_failure_cases_case_key": ("case_key",),
+        },
+        "claim_support_replay_alert_fixture_coverage_waiver_ledgers": {
+            "uq_cs_waiver_ledgers_artifact_sha": ("waiver_artifact_id", "waiver_sha256"),
+        },
+        "claim_support_replay_alert_fixture_coverage_waiver_escalations": {
+            "uq_cs_waiver_escalations_ledger_event": ("ledger_id", "escalation_event_id"),
+        },
+        "claim_support_fixture_sets": {
+            "uq_claim_support_fixture_sets_identity": (
+                "fixture_set_name",
+                "fixture_set_version",
+                "fixture_set_sha256",
+            ),
+        },
+        "claim_support_replay_alert_fixture_corpus_snapshots": {
+            "uq_cs_replay_fixture_corpus_snapshots_sha": ("snapshot_sha256",),
+        },
+        "claim_support_replay_alert_fixture_corpus_rows": {
+            "uq_cs_replay_fixture_corpus_rows_snapshot_identity": (
+                "snapshot_id",
+                "case_identity_sha256",
+            ),
+            "uq_cs_replay_fixture_corpus_rows_snapshot_index": ("snapshot_id", "row_index"),
+        },
+        "claim_support_calibration_policies": {
+            "uq_claim_support_calibration_policies_identity": (
+                "policy_name",
+                "policy_version",
+                "policy_sha256",
+            ),
+        },
+        "claim_support_evaluation_cases": {
+            "uq_claim_support_evaluation_cases_eval_case": ("evaluation_id", "case_id"),
         },
         "evidence_manifests": {
             "uq_evidence_manifests_verification_task_kind": (
@@ -2261,6 +2498,216 @@ AGENT_TASK_DOMAIN_TABLE_COLUMNS = {
             "artifact_path",
             "artifact_sha256",
             "payload",
+            "created_at",
+        }
+    ),
+}
+
+CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS = {
+    "claim_support_replay_alert_fixture_coverage_waiver_ledgers": frozenset(
+        {
+            "id",
+            "waiver_artifact_id",
+            "verification_task_id",
+            "target_task_id",
+            "policy_id",
+            "fixture_set_id",
+            "waiver_sha256",
+            "waiver_severity",
+            "waived_by",
+            "waiver_expires_at",
+            "waiver_review_due_at",
+            "waiver_remediation_owner",
+            "waived_escalation_event_count",
+            "covered_escalation_event_count",
+            "coverage_complete",
+            "coverage_status",
+            "waived_escalation_set_sha256",
+            "covered_escalation_set_sha256",
+            "source_change_impact_ids",
+            "source_verification_task_ids",
+            "closure_event_id",
+            "closure_artifact_id",
+            "closure_receipt_sha256",
+            "promotion_event_ids",
+            "promotion_artifact_ids",
+            "promotion_receipt_sha256s",
+            "ledger_payload_sha256",
+            "created_at",
+            "updated_at",
+            "closed_at",
+        }
+    ),
+    "claim_support_replay_alert_fixture_coverage_waiver_escalations": frozenset(
+        {
+            "id",
+            "ledger_id",
+            "waiver_artifact_id",
+            "escalation_event_id",
+            "change_impact_id",
+            "escalation_event_hash",
+            "escalation_receipt_sha256",
+            "alert_kind",
+            "replay_status",
+            "covered",
+            "covered_by_promotion_event_id",
+            "covered_by_promotion_artifact_id",
+            "covered_by_promotion_receipt_sha256",
+            "created_at",
+            "covered_at",
+        }
+    ),
+    "claim_support_fixture_sets": frozenset(
+        {
+            "id",
+            "fixture_set_name",
+            "fixture_set_version",
+            "status",
+            "fixture_set_sha256",
+            "fixture_count",
+            "hard_case_kinds",
+            "verdicts",
+            "fixtures",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "claim_support_replay_alert_fixture_corpus_snapshots": frozenset(
+        {
+            "id",
+            "snapshot_name",
+            "status",
+            "snapshot_sha256",
+            "fixture_count",
+            "promotion_event_count",
+            "promotion_fixture_set_count",
+            "invalid_promotion_event_count",
+            "source_promotion_event_ids",
+            "source_promotion_artifact_ids",
+            "source_promotion_receipt_sha256s",
+            "source_fixture_set_ids",
+            "source_fixture_set_sha256s",
+            "source_escalation_event_ids",
+            "invalid_promotion_event_ids",
+            "snapshot_payload",
+            "semantic_governance_event_id",
+            "governance_artifact_id",
+            "governance_receipt_sha256",
+            "created_at",
+            "superseded_at",
+        }
+    ),
+    "claim_support_replay_alert_fixture_corpus_rows": frozenset(
+        {
+            "id",
+            "snapshot_id",
+            "row_index",
+            "case_id",
+            "case_identity_sha256",
+            "fixture_sha256",
+            "fixture",
+            "fixture_set_id",
+            "promotion_event_id",
+            "promotion_artifact_id",
+            "promotion_receipt_sha256",
+            "source_change_impact_ids",
+            "source_escalation_event_ids",
+            "replay_alert_source",
+            "created_at",
+        }
+    ),
+    "claim_support_calibration_policies": frozenset(
+        {
+            "id",
+            "policy_name",
+            "policy_version",
+            "status",
+            "policy_sha256",
+            "owner",
+            "source",
+            "min_hard_case_kind_count",
+            "required_hard_case_kinds",
+            "required_verdicts",
+            "thresholds",
+            "policy_payload",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "claim_support_evaluations": frozenset(
+        {
+            "id",
+            "agent_task_id",
+            "operator_run_id",
+            "fixture_set_id",
+            "policy_id",
+            "evaluation_name",
+            "fixture_set_name",
+            "fixture_set_version",
+            "fixture_set_sha256",
+            "policy_name",
+            "policy_version",
+            "policy_sha256",
+            "judge_name",
+            "judge_version",
+            "min_support_score",
+            "status",
+            "gate_outcome",
+            "thresholds",
+            "metrics",
+            "reasons",
+            "evaluation_payload",
+            "evaluation_payload_sha256",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "claim_support_evaluation_cases": frozenset(
+        {
+            "id",
+            "evaluation_id",
+            "case_index",
+            "case_id",
+            "hard_case_kind",
+            "expected_verdict",
+            "predicted_verdict",
+            "support_score",
+            "passed",
+            "claim_payload",
+            "support_judgment",
+            "failure_reasons",
+            "created_at",
+        }
+    ),
+    "claim_support_policy_change_impacts": frozenset(
+        {
+            "id",
+            "activation_task_id",
+            "activated_policy_id",
+            "previous_policy_id",
+            "semantic_governance_event_id",
+            "governance_artifact_id",
+            "impact_scope",
+            "policy_name",
+            "policy_version",
+            "activated_policy_sha256",
+            "previous_policy_sha256",
+            "affected_support_judgment_count",
+            "affected_generated_document_count",
+            "affected_verification_count",
+            "replay_recommended_count",
+            "replay_status",
+            "impacted_claim_derivation_ids",
+            "impacted_task_ids",
+            "impacted_verification_task_ids",
+            "impact_payload",
+            "impact_payload_sha256",
+            "replay_task_ids",
+            "replay_task_plan",
+            "replay_closure",
+            "replay_closure_sha256",
+            "replay_status_updated_at",
+            "replay_closed_at",
             "created_at",
         }
     ),
