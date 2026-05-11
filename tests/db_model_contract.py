@@ -310,6 +310,75 @@ REQUIRED_TABLE_INDEX_NAMES = {
 
 REQUIRED_TABLE_INDEX_NAMES.update(
     {
+        "agent_tasks": frozenset(
+            {
+                "ix_agent_tasks_status_priority_next_attempt_at",
+                "ix_agent_tasks_locked_at",
+                "ix_agent_tasks_parent_task_id",
+                "ix_agent_tasks_task_type_created_at",
+            }
+        ),
+        "agent_task_dependencies": frozenset(
+            {
+                "ix_agent_task_dependencies_depends_on_task_id",
+            }
+        ),
+        "agent_task_attempts": frozenset(
+            {
+                "ix_agent_task_attempts_task_id",
+                "ix_agent_task_attempts_created_at",
+            }
+        ),
+        "agent_task_artifacts": frozenset(
+            {
+                "ix_agent_task_artifacts_task_id",
+                "ix_agent_task_artifacts_attempt_id",
+                "ix_agent_task_artifacts_artifact_kind",
+            }
+        ),
+        "agent_task_artifact_immutability_events": frozenset(
+            {
+                "ix_agent_artifact_immut_events_artifact_created",
+                "ix_agent_artifact_immut_events_task_created",
+                "ix_agent_artifact_immut_events_kind",
+            }
+        ),
+        "agent_task_outcomes": frozenset(
+            {
+                "ix_agent_task_outcomes_task_id",
+                "ix_agent_task_outcomes_outcome_label",
+                "ix_agent_task_outcomes_created_at",
+            }
+        ),
+        "agent_task_verifications": frozenset(
+            {
+                "ix_agent_task_verifications_target_task_id",
+                "ix_agent_task_verifications_verification_task_id",
+                "ix_agent_task_verifications_verifier_type",
+                "ix_agent_task_verifications_created_at",
+            }
+        ),
+        "knowledge_operator_runs": frozenset(
+            {
+                "ix_knowledge_operator_runs_created_at",
+                "ix_knowledge_operator_runs_search_request_id",
+                "ix_knowledge_operator_runs_agent_task_id",
+                "ix_knowledge_operator_runs_parent_id",
+                "ix_knowledge_operator_runs_kind_created_at",
+            }
+        ),
+        "knowledge_operator_inputs": frozenset(
+            {
+                "ix_knowledge_operator_inputs_operator_run_id",
+                "ix_knowledge_operator_inputs_source",
+            }
+        ),
+        "knowledge_operator_outputs": frozenset(
+            {
+                "ix_knowledge_operator_outputs_operator_run_id",
+                "ix_knowledge_operator_outputs_target",
+            }
+        ),
         "search_requests": frozenset(
             {
                 "ix_search_requests_created_at",
@@ -583,6 +652,59 @@ REQUIRED_TABLE_INDEX_COLUMNS = {
 
 REQUIRED_TABLE_INDEX_COLUMNS.update(
     {
+        "agent_tasks": {
+            "ix_agent_tasks_status_priority_next_attempt_at": (
+                "status",
+                "priority",
+                "next_attempt_at",
+            ),
+            "ix_agent_tasks_locked_at": ("locked_at",),
+            "ix_agent_tasks_parent_task_id": ("parent_task_id",),
+            "ix_agent_tasks_task_type_created_at": ("task_type", "created_at"),
+        },
+        "agent_task_dependencies": {
+            "ix_agent_task_dependencies_depends_on_task_id": ("depends_on_task_id",),
+        },
+        "agent_task_attempts": {
+            "ix_agent_task_attempts_task_id": ("task_id",),
+            "ix_agent_task_attempts_created_at": ("created_at",),
+        },
+        "agent_task_artifacts": {
+            "ix_agent_task_artifacts_task_id": ("task_id",),
+            "ix_agent_task_artifacts_attempt_id": ("attempt_id",),
+            "ix_agent_task_artifacts_artifact_kind": ("artifact_kind",),
+        },
+        "agent_task_artifact_immutability_events": {
+            "ix_agent_artifact_immut_events_artifact_created": ("artifact_id", "created_at"),
+            "ix_agent_artifact_immut_events_task_created": ("task_id", "created_at"),
+            "ix_agent_artifact_immut_events_kind": ("event_kind",),
+        },
+        "agent_task_outcomes": {
+            "ix_agent_task_outcomes_task_id": ("task_id",),
+            "ix_agent_task_outcomes_outcome_label": ("outcome_label",),
+            "ix_agent_task_outcomes_created_at": ("created_at",),
+        },
+        "agent_task_verifications": {
+            "ix_agent_task_verifications_target_task_id": ("target_task_id",),
+            "ix_agent_task_verifications_verification_task_id": ("verification_task_id",),
+            "ix_agent_task_verifications_verifier_type": ("verifier_type",),
+            "ix_agent_task_verifications_created_at": ("created_at",),
+        },
+        "knowledge_operator_runs": {
+            "ix_knowledge_operator_runs_created_at": ("created_at",),
+            "ix_knowledge_operator_runs_search_request_id": ("search_request_id",),
+            "ix_knowledge_operator_runs_agent_task_id": ("agent_task_id",),
+            "ix_knowledge_operator_runs_parent_id": ("parent_operator_run_id",),
+            "ix_knowledge_operator_runs_kind_created_at": ("operator_kind", "created_at"),
+        },
+        "knowledge_operator_inputs": {
+            "ix_knowledge_operator_inputs_operator_run_id": ("operator_run_id",),
+            "ix_knowledge_operator_inputs_source": ("source_table", "source_id"),
+        },
+        "knowledge_operator_outputs": {
+            "ix_knowledge_operator_outputs_operator_run_id": ("operator_run_id",),
+            "ix_knowledge_operator_outputs_target": ("target_table", "target_id"),
+        },
         "search_requests": {
             "ix_search_requests_created_at": ("created_at",),
             "ix_search_requests_origin_created_at": ("origin", "created_at"),
@@ -831,6 +953,21 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES = {
 
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
     {
+        "agent_task_dependencies": frozenset(
+            {
+                "uq_agent_task_dependencies_task_depends_on",
+            }
+        ),
+        "agent_task_attempts": frozenset(
+            {
+                "uq_agent_task_attempts_task_attempt",
+            }
+        ),
+        "agent_task_outcomes": frozenset(
+            {
+                "uq_agent_task_outcomes_task_label_actor",
+            }
+        ),
         "search_request_results": frozenset(
             {
                 "uq_search_request_results_request_rank",
@@ -927,6 +1064,19 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS = {
 
 REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
     {
+        "agent_task_dependencies": {
+            "uq_agent_task_dependencies_task_depends_on": ("task_id", "depends_on_task_id"),
+        },
+        "agent_task_attempts": {
+            "uq_agent_task_attempts_task_attempt": ("task_id", "attempt_number"),
+        },
+        "agent_task_outcomes": {
+            "uq_agent_task_outcomes_task_label_actor": (
+                "task_id",
+                "outcome_label",
+                "created_by",
+            ),
+        },
         "search_request_results": {
             "uq_search_request_results_request_rank": ("search_request_id", "rank"),
         },
@@ -1676,6 +1826,178 @@ RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS = {
             "review_note",
             "created_at",
             "completed_at",
+        }
+    ),
+}
+
+AGENT_TASK_DOMAIN_TABLE_COLUMNS = {
+    "agent_tasks": frozenset(
+        {
+            "id",
+            "task_type",
+            "status",
+            "priority",
+            "side_effect_level",
+            "requires_approval",
+            "parent_task_id",
+            "input",
+            "result",
+            "error_message",
+            "failure_artifact_path",
+            "attempts",
+            "locked_at",
+            "locked_by",
+            "last_heartbeat_at",
+            "next_attempt_at",
+            "workflow_version",
+            "tool_version",
+            "prompt_version",
+            "model",
+            "model_settings",
+            "approved_at",
+            "approved_by",
+            "approval_note",
+            "rejected_at",
+            "rejected_by",
+            "rejection_note",
+            "created_at",
+            "updated_at",
+            "started_at",
+            "completed_at",
+        }
+    ),
+    "agent_task_dependencies": frozenset(
+        {
+            "id",
+            "task_id",
+            "depends_on_task_id",
+            "dependency_kind",
+            "created_at",
+        }
+    ),
+    "agent_task_attempts": frozenset(
+        {
+            "id",
+            "task_id",
+            "attempt_number",
+            "status",
+            "worker_id",
+            "input",
+            "result",
+            "cost",
+            "performance",
+            "error_message",
+            "created_at",
+            "started_at",
+            "completed_at",
+        }
+    ),
+    "agent_task_artifacts": frozenset(
+        {
+            "id",
+            "task_id",
+            "attempt_id",
+            "artifact_kind",
+            "storage_path",
+            "payload",
+            "created_at",
+        }
+    ),
+    "agent_task_artifact_immutability_events": frozenset(
+        {
+            "id",
+            "artifact_id",
+            "task_id",
+            "event_kind",
+            "mutation_operation",
+            "frozen_artifact_kind",
+            "attempted_artifact_kind",
+            "frozen_storage_path",
+            "attempted_storage_path",
+            "frozen_payload_sha256",
+            "attempted_payload_sha256",
+            "details",
+            "created_at",
+        }
+    ),
+    "agent_task_outcomes": frozenset(
+        {
+            "id",
+            "task_id",
+            "outcome_label",
+            "created_by",
+            "note",
+            "created_at",
+        }
+    ),
+    "agent_task_verifications": frozenset(
+        {
+            "id",
+            "target_task_id",
+            "verification_task_id",
+            "verifier_type",
+            "outcome",
+            "metrics",
+            "reasons",
+            "details",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "knowledge_operator_runs": frozenset(
+        {
+            "id",
+            "parent_operator_run_id",
+            "operator_kind",
+            "operator_name",
+            "operator_version",
+            "status",
+            "document_id",
+            "run_id",
+            "search_request_id",
+            "search_harness_evaluation_id",
+            "agent_task_id",
+            "agent_task_attempt_id",
+            "model_name",
+            "model_version",
+            "prompt_sha256",
+            "config_sha256",
+            "input_sha256",
+            "output_sha256",
+            "metrics",
+            "metadata",
+            "started_at",
+            "completed_at",
+            "duration_ms",
+            "created_at",
+        }
+    ),
+    "knowledge_operator_inputs": frozenset(
+        {
+            "id",
+            "operator_run_id",
+            "input_index",
+            "input_kind",
+            "source_table",
+            "source_id",
+            "artifact_path",
+            "artifact_sha256",
+            "payload",
+            "created_at",
+        }
+    ),
+    "knowledge_operator_outputs": frozenset(
+        {
+            "id",
+            "operator_run_id",
+            "output_index",
+            "output_kind",
+            "target_table",
+            "target_id",
+            "artifact_path",
+            "artifact_sha256",
+            "payload",
+            "created_at",
         }
     ),
 }

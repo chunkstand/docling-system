@@ -8,6 +8,7 @@ from sqlalchemy import UniqueConstraint
 import app.db.models as model_module
 from app.db.base import Base
 from tests.db_model_contract import (
+    AGENT_TASK_DOMAIN_TABLE_COLUMNS,
     DOCUMENT_ARTIFACT_DOMAIN_TABLE_COLUMNS,
     ENUM_SYMBOLS,
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS,
@@ -217,6 +218,38 @@ def test_evaluation_feedback_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.evaluation_feedback"
 
 
+def test_agent_task_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.agent_tasks import (
+        AgentTask,
+        AgentTaskArtifact,
+        AgentTaskArtifactImmutabilityEvent,
+        AgentTaskAttempt,
+        AgentTaskDependency,
+        AgentTaskOutcome,
+        AgentTaskVerification,
+        KnowledgeOperatorInput,
+        KnowledgeOperatorOutput,
+        KnowledgeOperatorRun,
+    )
+
+    expected_models = {
+        "AgentTask": AgentTask,
+        "AgentTaskDependency": AgentTaskDependency,
+        "AgentTaskAttempt": AgentTaskAttempt,
+        "AgentTaskArtifact": AgentTaskArtifact,
+        "AgentTaskArtifactImmutabilityEvent": AgentTaskArtifactImmutabilityEvent,
+        "AgentTaskOutcome": AgentTaskOutcome,
+        "AgentTaskVerification": AgentTaskVerification,
+        "KnowledgeOperatorRun": KnowledgeOperatorRun,
+        "KnowledgeOperatorInput": KnowledgeOperatorInput,
+        "KnowledgeOperatorOutput": KnowledgeOperatorOutput,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.agent_tasks"
+
+
 def test_base_metadata_table_contract_is_complete() -> None:
     assert frozenset(Base.metadata.tables) == EXPECTED_TABLE_NAMES
 
@@ -286,6 +319,18 @@ def test_base_metadata_preserves_retrieval_learning_domain_table_columns(
     EVALUATION_FEEDBACK_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_evaluation_feedback_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    AGENT_TASK_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_agent_task_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

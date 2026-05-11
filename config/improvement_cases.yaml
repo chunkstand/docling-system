@@ -39,7 +39,7 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=3570 after the verified local evaluation-feedback owner split.
+    line_count=3090 after the verified local agent-task owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -60,16 +60,18 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "b69c4f6"
-    notes: app/db/models.py remains the compatibility facade while narrowed ORM
-      ownership now also includes app/db/model_domains/evaluation_feedback.py
-      for EvalObservation and EvalFailureCase, committed locally in b69c4f6.
+    notes: Latest recorded checkpoint remains the evaluation-feedback split in
+      b69c4f6; the current verified local follow-up keeps app/db/models.py as
+      the compatibility facade while narrowed ORM ownership now also includes
+      app/db/model_domains/agent_tasks.py for the routed agent-task and
+      knowledge-operator family.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 3570.0
+    current_value: 3090.0
     measurement_window: 2026-05-11 local verification
-    notes: Evaluation Feedback Model-Domain Milestone 1 moved EvalObservation
-      and EvalFailureCase into app/db/model_domains/evaluation_feedback.py,
-      reducing app/db/models.py to 3570 lines while preserving the
+    notes: Agent Task Model-Domain Milestone 1 moved the routed agent-task and
+      knowledge-operator ORM family into app/db/model_domains/agent_tasks.py,
+      reducing app/db/models.py to 3090 lines while preserving the
       app.db.models compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-11T01:00:00+00:00'

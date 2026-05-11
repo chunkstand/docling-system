@@ -21,8 +21,10 @@ artifacts now live in
 `app/db/model_domains/retrieval_learning_artifacts.py` for the verified local
 Milestone 9 split, and `evaluation feedback` now lives in
 `app/db/model_domains/evaluation_feedback.py` for the verified local
-Evaluation Feedback Model-Domain Milestone 1 split. `app.db.models` remains
-the public compatibility facade at 3,570 lines. Each model-domain milestone must finish
+Evaluation Feedback Model-Domain Milestone 1 split, and `agent tasks` now live
+in `app/db/model_domains/agent_tasks.py` for the verified local Agent Task
+Model-Domain Milestone 1 split. `app.db.models` remains the public
+compatibility facade at 3,090 lines. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -343,6 +345,48 @@ Current routed follow-up after the committed evaluation-feedback split:
   `KnowledgeOperatorRun`,
   `KnowledgeOperatorInput`,
   `KnowledgeOperatorOutput`
+
+Verified locally on 2026-05-11: `agent tasks`:
+`AgentTask`,
+`AgentTaskDependency`,
+`AgentTaskAttempt`,
+`AgentTaskArtifact`,
+`AgentTaskArtifactImmutabilityEvent`,
+`AgentTaskOutcome`,
+`AgentTaskVerification`,
+`KnowledgeOperatorRun`,
+`KnowledgeOperatorInput`,
+`KnowledgeOperatorOutput`.
+
+Implemented result:
+
+- Added `app/db/model_domains/agent_tasks.py`.
+- Re-exported the agent-task and knowledge-operator models from
+  `app/db/models.py` through import-forwarder aliases so public imports remain
+  unchanged.
+- Extended the unit and Postgres create-all metadata contracts for agent-task
+  table columns, exact index column ordering, and exact unique-constraint
+  column ordering.
+- Reduced `app/db/models.py` from 3,570 lines to 3,090 lines and kept the new
+  owner module at 515 lines, inside the default 600-line budget.
+- Reduced the architecture-quality `max_hotspot_risk_score` from `660.8` to
+  `642.6` while `app/db/models.py` remains in the governed hotspot list.
+- Verified with focused import, metadata, Alembic, architecture, capability,
+  and full DB-backed gates.
+
+Current routed follow-up after the verified local agent-task split:
+
+- next owner case remains `IC-F2A8110185EB` / `app/db/models.py`
+- next model-domain candidate when this owner case resumes: `audit and evidence`
+- target ORM family:
+  `AuditBundleExport`,
+  `AuditBundleValidationReceipt`,
+  `EvidenceManifest`,
+  `TechnicalReportReleaseReadinessDbGate`,
+  `TechnicalReportClaimRetrievalFeedback`,
+  `EvidenceTraceNode`,
+  `EvidenceTraceEdge`,
+  `ClaimEvidenceDerivation`
 
 ## Per-Domain Acceptance Gate
 
