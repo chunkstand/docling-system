@@ -27,8 +27,10 @@ Model-Domain Milestone 1 split, and `audit and evidence` now lives in
 `app/db/model_domains/audit_and_evidence.py` for the verified local Audit And
 Evidence Model-Domain Milestone 1 split, and `claim support` now lives in
 `app/db/model_domains/claim_support.py` for the verified local Claim Support
-Model-Domain Milestone 1 split. `app.db.models` remains the public
-compatibility facade at 1,301 lines. Each model-domain milestone must finish
+Model-Domain Milestone 1 split, and `semantic memory` now lives in
+`app/db/model_domains/semantic_memory.py` for the verified local Semantic
+Memory Model-Domain Milestone 1 split. `app.db.models` remains the public
+compatibility facade at 345 lines. Each model-domain milestone must finish
 with a local commit before another domain moves.
 
 ## Proposed Domains
@@ -488,6 +490,51 @@ Current routed follow-up after the local claim-support split:
   `SemanticFact`,
   `SemanticFactEvidence`,
   `SemanticGovernanceEvent`
+
+Implemented locally on 2026-05-11: `semantic memory`:
+`SemanticOntologySnapshot`,
+`WorkspaceSemanticState`,
+`SemanticGraphSnapshot`,
+`WorkspaceSemanticGraphState`,
+`SemanticConcept`,
+`SemanticCategory`,
+`SemanticTerm`,
+`SemanticConceptTerm`,
+`SemanticConceptCategoryBinding`,
+`DocumentSemanticConceptReview`,
+`DocumentSemanticCategoryReview`,
+`DocumentRunSemanticPass`,
+`SemanticAssertion`,
+`SemanticAssertionCategoryBinding`,
+`SemanticAssertionEvidence`,
+`SemanticEntity`,
+`SemanticFact`,
+`SemanticFactEvidence`,
+`SemanticGovernanceEvent`.
+
+Implemented result:
+
+- Added `app/db/model_domains/semantic_memory.py`.
+- Re-exported the semantic-memory models from `app/db/models.py` through
+  import-forwarder aliases so public imports remain unchanged.
+- Extended the unit and Postgres create-all metadata contracts for
+  semantic-memory table columns, exact index column ordering, and exact
+  unique-constraint column ordering.
+- Reduced `app/db/models.py` from 1,301 lines to 345 and governed the new
+  owner module at 979 lines through the hygiene policy ratchet.
+- The current checkout now reports architecture-quality
+  `max_hotspot_risk_score=584.8`; `app/db/models.py` remains listed in
+  `top_hotspot_paths`, but the general architecture probe no longer lists it
+  among the top churn hotspots after the reduction.
+- Verified with focused import and Postgres metadata gates before broader
+  closeout verification.
+
+Current routed follow-up after the local semantic-memory split:
+
+- broader owner case remains `IC-F2A8110185EB` / `app/db/models.py`
+- next bounded follow-up for this owner case: a compatibility-facade /
+  public-import-contract milestone for `app/db/models.py`
+- no further model-family split remains under this owner case
 
 ## Per-Domain Acceptance Gate
 

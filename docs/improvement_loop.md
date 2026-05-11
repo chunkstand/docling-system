@@ -34,8 +34,9 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   module family rather than one monolithic script.
 - `IC-F2A8110185EB` remains the top open architecture-governance owner case, but
   the committed local retrieval-interaction, replay/release governance,
-  retrieval-learning, evaluation-feedback, agent-task, audit-and-evidence, and
-  claim-support splits narrowed it to a 1,301-line compatibility facade with
+  retrieval-learning, evaluation-feedback, agent-task, audit-and-evidence,
+  claim-support, and semantic-memory splits narrowed it to a 345-line
+  compatibility facade with
   dedicated owner modules at
   `app/db/model_domains/retrieval_interactions.py`,
   `app/db/model_domains/retrieval_replay_governance.py`,
@@ -44,9 +45,10 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   `app/db/model_domains/evaluation_feedback.py`, and
   `app/db/model_domains/agent_tasks.py`, and
   `app/db/model_domains/audit_and_evidence.py`, and
-  `app/db/model_domains/claim_support.py`. The High Value Technical Paydown
+  `app/db/model_domains/claim_support.py`, and
+  `app/db/model_domains/semantic_memory.py`. The High Value Technical Paydown
   plan is now closed locally, and the next bounded follow-up for this owner
-  case is the `semantic memory` model-domain candidate in
+  case is a compatibility-facade / public-import-contract milestone in
   `docs/data_model_boundary_plan.md`.
 - `IC-050E60059A34` remains open but is now narrowed further: the committed
   local technical-report derivation/export split reduced
@@ -71,7 +73,7 @@ closeout sequence through the local audit-and-evidence model-domain milestone:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next routed implementation slice is now the `IC-F2A8110185EB` /
-  `app/db/models.py` `semantic memory` continuation from
+  `app/db/models.py` compatibility-facade continuation from
   `docs/data_model_boundary_plan.md`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before

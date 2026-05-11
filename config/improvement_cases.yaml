@@ -38,8 +38,9 @@ cases:
   title: 'Architecture hotspot: app/db/models.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/db/models.py remains an architecture hotspot with
-    line_count=1301 after the locally verified claim-support owner split.
+  observed_failure: app/db/models.py remains in the architecture-quality
+    hotspot routing with line_count=345 after the locally verified semantic-memory
+    owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/db/models.py
@@ -60,23 +61,24 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Latest local verification narrowed ORM ownership further so
-      app/db/models.py remains the compatibility facade while the routed
-      claim-support family now also lives in
-      app/db/model_domains/claim_support.py alongside the prior
-      audit-and-evidence, agent-task, evaluation-feedback, retrieval, and
-      ingest/domain splits.
+    notes: Latest local verification moved the remaining semantic-memory ORM
+      family into app/db/model_domains/semantic_memory.py and reduced
+      app/db/models.py to a 345-line compatibility facade. The broader owner
+      case remains open because the architecture-quality summary still routes
+      app/db/models.py in top_hotspot_paths, so the next bounded follow-up is
+      a compatibility-facade and public-import-contract milestone rather than
+      another model-family split.
   measurement:
     metric_name: db_models_hotspot_line_count
-    current_value: 1301.0
+    current_value: 345.0
     measurement_window: 2026-05-11 local verification
-    notes: Claim Support Model-Domain Milestone 1 moved the routed claim-support
-      replay-alert waiver, fixture-corpus, calibration, evaluation, and
-      policy-impact ORM family into app/db/model_domains/claim_support.py,
-      reducing app/db/models.py to 1301 lines while preserving the
-      app.db.models compatibility facade.
+    notes: Semantic Memory Model-Domain Milestone 1 moved the ontology,
+      graph-state, concept, assertion, entity, fact, semantic review, and
+      governance ORM family into app/db/model_domains/semantic_memory.py,
+      reducing app/db/models.py to 345 lines while preserving the app.db.models
+      compatibility facade.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-11T04:18:21+00:00'
+  updated_at: '2026-05-11T20:30:05+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
   status: open

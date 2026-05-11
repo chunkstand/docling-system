@@ -28,6 +28,7 @@ from tests.db_model_contract import (
     RETRIEVAL_INTERACTION_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS,
     RETRIEVAL_REPLAY_GOVERNANCE_DOMAIN_TABLE_COLUMNS,
+    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS,
 )
 
 
@@ -256,6 +257,56 @@ def test_claim_support_models_are_owned_by_domain_module() -> None:
         assert domain_model.__module__ == "app.db.model_domains.claim_support"
 
 
+def test_semantic_memory_models_are_owned_by_domain_module() -> None:
+    from app.db.model_domains.semantic_memory import (
+        DocumentRunSemanticPass,
+        DocumentSemanticCategoryReview,
+        DocumentSemanticConceptReview,
+        SemanticAssertion,
+        SemanticAssertionCategoryBinding,
+        SemanticAssertionEvidence,
+        SemanticCategory,
+        SemanticConcept,
+        SemanticConceptCategoryBinding,
+        SemanticConceptTerm,
+        SemanticEntity,
+        SemanticFact,
+        SemanticFactEvidence,
+        SemanticGovernanceEvent,
+        SemanticGraphSnapshot,
+        SemanticOntologySnapshot,
+        SemanticTerm,
+        WorkspaceSemanticGraphState,
+        WorkspaceSemanticState,
+    )
+
+    expected_models = {
+        "SemanticOntologySnapshot": SemanticOntologySnapshot,
+        "WorkspaceSemanticState": WorkspaceSemanticState,
+        "SemanticGraphSnapshot": SemanticGraphSnapshot,
+        "WorkspaceSemanticGraphState": WorkspaceSemanticGraphState,
+        "SemanticConcept": SemanticConcept,
+        "SemanticCategory": SemanticCategory,
+        "SemanticTerm": SemanticTerm,
+        "SemanticConceptTerm": SemanticConceptTerm,
+        "SemanticConceptCategoryBinding": SemanticConceptCategoryBinding,
+        "DocumentSemanticConceptReview": DocumentSemanticConceptReview,
+        "DocumentSemanticCategoryReview": DocumentSemanticCategoryReview,
+        "DocumentRunSemanticPass": DocumentRunSemanticPass,
+        "SemanticAssertion": SemanticAssertion,
+        "SemanticAssertionCategoryBinding": SemanticAssertionCategoryBinding,
+        "SemanticAssertionEvidence": SemanticAssertionEvidence,
+        "SemanticEntity": SemanticEntity,
+        "SemanticFact": SemanticFact,
+        "SemanticFactEvidence": SemanticFactEvidence,
+        "SemanticGovernanceEvent": SemanticGovernanceEvent,
+    }
+
+    for model_name, domain_model in expected_models.items():
+        assert getattr(model_module, model_name) is domain_model
+        assert domain_model.__module__ == "app.db.model_domains.semantic_memory"
+
+
 def test_agent_task_models_are_owned_by_domain_module() -> None:
     from app.db.model_domains.agent_tasks import (
         AgentTask,
@@ -399,6 +450,18 @@ def test_base_metadata_preserves_evaluation_feedback_domain_table_columns(
     CLAIM_SUPPORT_DOMAIN_TABLE_COLUMNS.items(),
 )
 def test_base_metadata_preserves_claim_support_domain_table_columns(
+    table_name: str, expected_columns: frozenset[str]
+) -> None:
+    table = Base.metadata.tables[table_name]
+
+    assert frozenset(table.columns.keys()) == expected_columns
+
+
+@pytest.mark.parametrize(
+    ("table_name", "expected_columns"),
+    SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS.items(),
+)
+def test_base_metadata_preserves_semantic_memory_domain_table_columns(
     table_name: str, expected_columns: frozenset[str]
 ) -> None:
     table = Base.metadata.tables[table_name]

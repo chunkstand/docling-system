@@ -12,7 +12,7 @@ chat history or scanning the whole repository.
 - `docs/agent_task_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` agent-task split covering the agent-task and knowledge-operator ORM family; Milestone 2 closeout is committed locally as `e59f9bf`, and the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/audit_and_evidence_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` audit-and-evidence split covering the audit bundle, evidence package, manifest, trace, and technical-report readiness/feedback ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
 - `docs/claim_support_model_domain_milestone_plan.md`: completed bounded milestone record for the `IC-F2A8110185EB` claim-support split covering the replay-alert waiver, fixture-corpus, calibration, evaluation, and policy-impact ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the hotspot list.
-- `docs/semantic_memory_model_domain_milestone_plan.md`: active bounded milestone brief for the next `IC-F2A8110185EB` semantic-memory split covering the remaining ontology, graph-state, concept, assertion, entity, fact, semantic review, and governance ORM family.
+- `docs/semantic_memory_model_domain_milestone_plan.md`: completed local verified milestone record for the `IC-F2A8110185EB` semantic-memory split covering the ontology, graph-state, concept, assertion, entity, fact, semantic review, and governance ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the architecture-quality routing list.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -30,11 +30,12 @@ chat history or scanning the whole repository.
   `Architecture Plan 01` Milestones 0-8.
 - Current gate shape: architecture inspection is valid with no violations,
   capability contracts are valid across 6 facades and 110 functions, and the
-  architecture quality summary reports `agent_legibility_average_score=90.0`,
-  `broad_facade_count=2`, `hotspot_count=10`, and
-  `max_hotspot_risk_score=631.43`.
-- `app/db/models.py` remains the top governed hotspot, but the evaluation-feedback
-  owner family is now also extracted alongside the prior model-domain splits:
+  architecture quality summary now reports
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, and `max_hotspot_risk_score=584.8`.
+- `app/db/models.py` remains in the architecture-quality routing list, but the
+  semantic-memory owner family is now also extracted alongside the prior
+  model-domain splits:
   split: `ApiIdempotencyKey` lives in `app/db/model_domains/platform.py`,
   `IngestBatch`, `IngestBatchItem`, `Document`, and `DocumentRun` live in
   `app/db/model_domains/ingest.py`, and `DocumentRunEvaluation`,
@@ -52,8 +53,9 @@ chat history or scanning the whole repository.
   evaluation-feedback rows now live in `app/db/model_domains/evaluation_feedback.py`,
   the audit-and-evidence rows now live in
   `app/db/model_domains/audit_and_evidence.py`, the claim-support rows now live
-  in `app/db/model_domains/claim_support.py`, and `app.db.models` remains the
-  public compatibility facade at 1,301 lines.
+  in `app/db/model_domains/claim_support.py`, the semantic-memory rows now live
+  in `app/db/model_domains/semantic_memory.py`, and `app.db.models` remains the
+  public compatibility facade at 345 lines.
 - The first `app/services/evidence.py` split is complete: search evidence
   package assembly/export/trace helpers now live in
   `app/services/evidence_search_packages.py`,
@@ -292,8 +294,8 @@ chat history or scanning the whole repository.
 - Current routed follow-up: the next architecture work should use
   `docs/data_model_boundary_plan.md`; the high-value paydown plan is complete
   locally through Milestone 10, and the next routed implementation slice
-  returns to `IC-F2A8110185EB` / `app/db/models.py` with the `semantic memory`
-  model-domain candidate.
+  returns to `IC-F2A8110185EB` / `app/db/models.py` with the
+  compatibility-facade / public-import-contract continuation.
 
 ## Executable Architecture Contracts
 

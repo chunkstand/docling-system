@@ -589,6 +589,130 @@ REQUIRED_TABLE_INDEX_NAMES.update(
                 "ix_eval_failure_cases_evaluation_id",
             }
         ),
+        "semantic_ontology_snapshots": frozenset(
+            {
+                "ix_semantic_ontology_snapshots_created_at",
+                "ix_semantic_ontology_snapshots_upper_ontology_version",
+            }
+        ),
+        "semantic_graph_snapshots": frozenset(
+            {
+                "ix_semantic_graph_snapshots_created_at",
+                "ix_semantic_graph_snapshots_ontology_snapshot_id",
+            }
+        ),
+        "semantic_concepts": frozenset(
+            {
+                "ix_semantic_concepts_concept_key",
+                "ix_semantic_concepts_registry_version",
+            }
+        ),
+        "semantic_categories": frozenset(
+            {
+                "ix_semantic_categories_category_key",
+                "ix_semantic_categories_registry_version",
+            }
+        ),
+        "semantic_terms": frozenset(
+            {
+                "ix_semantic_terms_registry_version",
+                "ix_semantic_terms_normalized_text",
+            }
+        ),
+        "semantic_concept_terms": frozenset(
+            {
+                "ix_semantic_concept_terms_concept_id",
+                "ix_semantic_concept_terms_term_id",
+            }
+        ),
+        "semantic_concept_category_bindings": frozenset(
+            {
+                "ix_semantic_concept_category_bindings_concept_id",
+                "ix_semantic_concept_category_bindings_category_id",
+            }
+        ),
+        "document_semantic_concept_reviews": frozenset(
+            {
+                "ix_document_semantic_concept_reviews_document_id",
+                "ix_document_semantic_concept_reviews_concept_id",
+                "ix_doc_sem_concept_reviews_doc_concept_created_at",
+            }
+        ),
+        "document_semantic_category_reviews": frozenset(
+            {
+                "ix_document_semantic_category_reviews_document_id",
+                "ix_document_semantic_category_reviews_concept_id",
+                "ix_document_semantic_category_reviews_category_id",
+                "ix_doc_sem_category_reviews_doc_binding_created_at",
+            }
+        ),
+        "document_run_semantic_passes": frozenset(
+            {
+                "ix_document_run_semantic_passes_document_id",
+                "ix_document_run_semantic_passes_run_id",
+                "ix_document_run_semantic_passes_baseline_run_id",
+                "ix_document_run_semantic_passes_ontology_snapshot_id",
+                "ix_document_run_semantic_passes_status",
+            }
+        ),
+        "semantic_assertions": frozenset(
+            {
+                "ix_semantic_assertions_semantic_pass_id",
+                "ix_semantic_assertions_concept_id",
+            }
+        ),
+        "semantic_assertion_category_bindings": frozenset(
+            {
+                "ix_semantic_assertion_category_bindings_assertion_id",
+                "ix_semantic_assertion_category_bindings_category_id",
+            }
+        ),
+        "semantic_assertion_evidence": frozenset(
+            {
+                "ix_semantic_assertion_evidence_assertion_id",
+                "ix_semantic_assertion_evidence_run_id",
+                "ix_semantic_assertion_evidence_source_type",
+            }
+        ),
+        "semantic_entities": frozenset(
+            {
+                "ix_semantic_entities_document_id",
+                "ix_semantic_entities_concept_id",
+            }
+        ),
+        "semantic_facts": frozenset(
+            {
+                "ix_semantic_facts_document_id",
+                "ix_semantic_facts_run_id",
+                "ix_semantic_facts_semantic_pass_id",
+                "ix_semantic_facts_relation_key",
+                "ix_semantic_facts_subject_entity_id",
+                "ix_semantic_facts_object_entity_id",
+            }
+        ),
+        "semantic_fact_evidence": frozenset(
+            {
+                "ix_semantic_fact_evidence_fact_id",
+                "ix_semantic_fact_evidence_assertion_id",
+                "ix_semantic_fact_evidence_evidence_id",
+            }
+        ),
+        "semantic_governance_events": frozenset(
+            {
+                "ix_semantic_governance_events_scope_created",
+                "ix_semantic_governance_events_kind_created",
+                "ix_semantic_governance_events_subject",
+                "ix_semantic_governance_events_task_created",
+                "ix_semantic_governance_events_ontology",
+                "ix_semantic_governance_events_graph",
+                "ix_semantic_governance_events_release",
+                "ix_semantic_governance_events_manifest",
+                "ix_semantic_governance_events_artifact",
+                "ix_semantic_governance_events_receipt_sha",
+                "ix_semantic_governance_events_payload_sha",
+                "ix_semantic_governance_events_event_hash",
+            }
+        ),
         "claim_support_replay_alert_fixture_coverage_waiver_ledgers": frozenset(
             {
                 "ix_cs_waiver_ledgers_artifact",
@@ -1084,6 +1208,124 @@ REQUIRED_TABLE_INDEX_COLUMNS.update(
             "ix_eval_failure_cases_search_request_id": ("search_request_id",),
             "ix_eval_failure_cases_evaluation_id": ("evaluation_id",),
         },
+        "semantic_ontology_snapshots": {
+            "ix_semantic_ontology_snapshots_created_at": ("created_at",),
+            "ix_semantic_ontology_snapshots_upper_ontology_version": (
+                "upper_ontology_version",
+            ),
+        },
+        "semantic_graph_snapshots": {
+            "ix_semantic_graph_snapshots_created_at": ("created_at",),
+            "ix_semantic_graph_snapshots_ontology_snapshot_id": ("ontology_snapshot_id",),
+        },
+        "semantic_concepts": {
+            "ix_semantic_concepts_concept_key": ("concept_key",),
+            "ix_semantic_concepts_registry_version": ("registry_version",),
+        },
+        "semantic_categories": {
+            "ix_semantic_categories_category_key": ("category_key",),
+            "ix_semantic_categories_registry_version": ("registry_version",),
+        },
+        "semantic_terms": {
+            "ix_semantic_terms_registry_version": ("registry_version",),
+            "ix_semantic_terms_normalized_text": ("normalized_text",),
+        },
+        "semantic_concept_terms": {
+            "ix_semantic_concept_terms_concept_id": ("concept_id",),
+            "ix_semantic_concept_terms_term_id": ("term_id",),
+        },
+        "semantic_concept_category_bindings": {
+            "ix_semantic_concept_category_bindings_concept_id": ("concept_id",),
+            "ix_semantic_concept_category_bindings_category_id": ("category_id",),
+        },
+        "document_semantic_concept_reviews": {
+            "ix_document_semantic_concept_reviews_document_id": ("document_id",),
+            "ix_document_semantic_concept_reviews_concept_id": ("concept_id",),
+            "ix_doc_sem_concept_reviews_doc_concept_created_at": (
+                "document_id",
+                "concept_id",
+                "created_at",
+            ),
+        },
+        "document_semantic_category_reviews": {
+            "ix_document_semantic_category_reviews_document_id": ("document_id",),
+            "ix_document_semantic_category_reviews_concept_id": ("concept_id",),
+            "ix_document_semantic_category_reviews_category_id": ("category_id",),
+            "ix_doc_sem_category_reviews_doc_binding_created_at": (
+                "document_id",
+                "concept_id",
+                "category_id",
+                "created_at",
+            ),
+        },
+        "document_run_semantic_passes": {
+            "ix_document_run_semantic_passes_document_id": ("document_id",),
+            "ix_document_run_semantic_passes_run_id": ("run_id",),
+            "ix_document_run_semantic_passes_baseline_run_id": ("baseline_run_id",),
+            "ix_document_run_semantic_passes_ontology_snapshot_id": (
+                "ontology_snapshot_id",
+            ),
+            "ix_document_run_semantic_passes_status": ("status",),
+        },
+        "semantic_assertions": {
+            "ix_semantic_assertions_semantic_pass_id": ("semantic_pass_id",),
+            "ix_semantic_assertions_concept_id": ("concept_id",),
+        },
+        "semantic_assertion_category_bindings": {
+            "ix_semantic_assertion_category_bindings_assertion_id": ("assertion_id",),
+            "ix_semantic_assertion_category_bindings_category_id": ("category_id",),
+        },
+        "semantic_assertion_evidence": {
+            "ix_semantic_assertion_evidence_assertion_id": ("assertion_id",),
+            "ix_semantic_assertion_evidence_run_id": ("run_id",),
+            "ix_semantic_assertion_evidence_source_type": ("source_type",),
+        },
+        "semantic_entities": {
+            "ix_semantic_entities_document_id": ("document_id",),
+            "ix_semantic_entities_concept_id": ("concept_id",),
+        },
+        "semantic_facts": {
+            "ix_semantic_facts_document_id": ("document_id",),
+            "ix_semantic_facts_run_id": ("run_id",),
+            "ix_semantic_facts_semantic_pass_id": ("semantic_pass_id",),
+            "ix_semantic_facts_relation_key": ("relation_key",),
+            "ix_semantic_facts_subject_entity_id": ("subject_entity_id",),
+            "ix_semantic_facts_object_entity_id": ("object_entity_id",),
+        },
+        "semantic_fact_evidence": {
+            "ix_semantic_fact_evidence_fact_id": ("fact_id",),
+            "ix_semantic_fact_evidence_assertion_id": ("assertion_id",),
+            "ix_semantic_fact_evidence_evidence_id": ("assertion_evidence_id",),
+        },
+        "semantic_governance_events": {
+            "ix_semantic_governance_events_scope_created": ("governance_scope", "created_at"),
+            "ix_semantic_governance_events_kind_created": ("event_kind", "created_at"),
+            "ix_semantic_governance_events_subject": ("subject_table", "subject_id"),
+            "ix_semantic_governance_events_task_created": ("task_id", "created_at"),
+            "ix_semantic_governance_events_ontology": (
+                "ontology_snapshot_id",
+                "created_at",
+            ),
+            "ix_semantic_governance_events_graph": (
+                "semantic_graph_snapshot_id",
+                "created_at",
+            ),
+            "ix_semantic_governance_events_release": (
+                "search_harness_release_id",
+                "created_at",
+            ),
+            "ix_semantic_governance_events_manifest": (
+                "evidence_manifest_id",
+                "created_at",
+            ),
+            "ix_semantic_governance_events_artifact": (
+                "agent_task_artifact_id",
+                "created_at",
+            ),
+            "ix_semantic_governance_events_receipt_sha": ("receipt_sha256",),
+            "ix_semantic_governance_events_payload_sha": ("payload_sha256",),
+            "ix_semantic_governance_events_event_hash": ("event_hash",),
+        },
         "claim_support_replay_alert_fixture_coverage_waiver_ledgers": {
             "ix_cs_waiver_ledgers_artifact": ("waiver_artifact_id",),
             "ix_cs_waiver_ledgers_task": ("verification_task_id",),
@@ -1396,6 +1638,72 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_NAMES.update(
                 "uq_eval_failure_cases_case_key",
             }
         ),
+        "semantic_ontology_snapshots": frozenset(
+            {
+                "uq_semantic_ontology_snapshots_ontology_version",
+            }
+        ),
+        "semantic_graph_snapshots": frozenset(
+            {
+                "uq_semantic_graph_snapshots_graph_version",
+            }
+        ),
+        "semantic_concepts": frozenset(
+            {
+                "uq_semantic_concepts_key_registry_version",
+            }
+        ),
+        "semantic_categories": frozenset(
+            {
+                "uq_semantic_categories_key_registry_version",
+            }
+        ),
+        "semantic_terms": frozenset(
+            {
+                "uq_semantic_terms_registry_version_normalized_text",
+            }
+        ),
+        "semantic_concept_terms": frozenset(
+            {
+                "uq_semantic_concept_terms_concept_term",
+            }
+        ),
+        "semantic_concept_category_bindings": frozenset(
+            {
+                "uq_semantic_concept_category_bindings_concept_category",
+            }
+        ),
+        "document_run_semantic_passes": frozenset(
+            {
+                "uq_document_run_semantic_passes_run_version_tuple",
+            }
+        ),
+        "semantic_assertions": frozenset(
+            {
+                "uq_semantic_assertions_pass_concept_kind",
+            }
+        ),
+        "semantic_assertion_category_bindings": frozenset(
+            {
+                "uq_semantic_assertion_category_bindings_assertion_category",
+            }
+        ),
+        "semantic_assertion_evidence": frozenset(
+            {
+                "uq_semantic_assertion_evidence_assertion_source",
+            }
+        ),
+        "semantic_entities": frozenset(
+            {
+                "uq_semantic_entities_entity_key",
+            }
+        ),
+        "semantic_governance_events": frozenset(
+            {
+                "uq_semantic_governance_events_dedup_key",
+                "uq_semantic_governance_events_sequence",
+            }
+        ),
         "claim_support_replay_alert_fixture_coverage_waiver_ledgers": frozenset(
             {
                 "uq_cs_waiver_ledgers_artifact_sha",
@@ -1562,6 +1870,68 @@ REQUIRED_TABLE_UNIQUE_CONSTRAINT_COLUMNS.update(
         },
         "eval_failure_cases": {
             "uq_eval_failure_cases_case_key": ("case_key",),
+        },
+        "semantic_ontology_snapshots": {
+            "uq_semantic_ontology_snapshots_ontology_version": ("ontology_version",),
+        },
+        "semantic_graph_snapshots": {
+            "uq_semantic_graph_snapshots_graph_version": ("graph_version",),
+        },
+        "semantic_concepts": {
+            "uq_semantic_concepts_key_registry_version": ("concept_key", "registry_version"),
+        },
+        "semantic_categories": {
+            "uq_semantic_categories_key_registry_version": ("category_key", "registry_version"),
+        },
+        "semantic_terms": {
+            "uq_semantic_terms_registry_version_normalized_text": (
+                "registry_version",
+                "normalized_text",
+            ),
+        },
+        "semantic_concept_terms": {
+            "uq_semantic_concept_terms_concept_term": ("concept_id", "term_id"),
+        },
+        "semantic_concept_category_bindings": {
+            "uq_semantic_concept_category_bindings_concept_category": (
+                "concept_id",
+                "category_id",
+            ),
+        },
+        "document_run_semantic_passes": {
+            "uq_document_run_semantic_passes_run_version_tuple": (
+                "run_id",
+                "registry_version",
+                "extractor_version",
+                "artifact_schema_version",
+            ),
+        },
+        "semantic_assertions": {
+            "uq_semantic_assertions_pass_concept_kind": (
+                "semantic_pass_id",
+                "concept_id",
+                "assertion_kind",
+            ),
+        },
+        "semantic_assertion_category_bindings": {
+            "uq_semantic_assertion_category_bindings_assertion_category": (
+                "assertion_id",
+                "category_id",
+            ),
+        },
+        "semantic_assertion_evidence": {
+            "uq_semantic_assertion_evidence_assertion_source": (
+                "assertion_id",
+                "source_type",
+                "source_locator",
+            ),
+        },
+        "semantic_entities": {
+            "uq_semantic_entities_entity_key": ("entity_key",),
+        },
+        "semantic_governance_events": {
+            "uq_semantic_governance_events_dedup_key": ("deduplication_key",),
+            "uq_semantic_governance_events_sequence": ("event_sequence",),
         },
         "claim_support_replay_alert_fixture_coverage_waiver_ledgers": {
             "uq_cs_waiver_ledgers_artifact_sha": ("waiver_artifact_id", "waiver_sha256"),
@@ -2327,6 +2697,290 @@ RETRIEVAL_LEARNING_DOMAIN_TABLE_COLUMNS = {
             "review_note",
             "created_at",
             "completed_at",
+        }
+    ),
+}
+
+SEMANTIC_MEMORY_DOMAIN_TABLE_COLUMNS = {
+    "semantic_ontology_snapshots": frozenset(
+        {
+            "id",
+            "ontology_name",
+            "ontology_version",
+            "upper_ontology_version",
+            "source_kind",
+            "source_task_id",
+            "source_task_type",
+            "parent_snapshot_id",
+            "payload",
+            "sha256",
+            "created_at",
+            "activated_at",
+        }
+    ),
+    "workspace_semantic_state": frozenset(
+        {
+            "workspace_key",
+            "active_ontology_snapshot_id",
+            "created_at",
+            "updated_at",
+        }
+    ),
+    "semantic_graph_snapshots": frozenset(
+        {
+            "id",
+            "graph_name",
+            "graph_version",
+            "ontology_snapshot_id",
+            "source_kind",
+            "source_task_id",
+            "source_task_type",
+            "parent_snapshot_id",
+            "payload",
+            "sha256",
+            "created_at",
+            "activated_at",
+        }
+    ),
+    "workspace_semantic_graph_state": frozenset(
+        {
+            "workspace_key",
+            "active_graph_snapshot_id",
+            "created_at",
+            "updated_at",
+        }
+    ),
+    "semantic_concepts": frozenset(
+        {
+            "id",
+            "concept_key",
+            "preferred_label",
+            "scope_note",
+            "registry_version",
+            "metadata",
+            "created_at",
+            "updated_at",
+        }
+    ),
+    "semantic_categories": frozenset(
+        {
+            "id",
+            "category_key",
+            "preferred_label",
+            "scope_note",
+            "registry_version",
+            "metadata",
+            "created_at",
+            "updated_at",
+        }
+    ),
+    "semantic_terms": frozenset(
+        {
+            "id",
+            "registry_version",
+            "term_text",
+            "normalized_text",
+            "term_kind",
+            "metadata",
+            "created_at",
+        }
+    ),
+    "semantic_concept_terms": frozenset(
+        {
+            "id",
+            "concept_id",
+            "term_id",
+            "mapping_kind",
+            "created_from",
+            "review_status",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_concept_category_bindings": frozenset(
+        {
+            "id",
+            "concept_id",
+            "category_id",
+            "binding_type",
+            "created_from",
+            "review_status",
+            "details",
+            "created_at",
+        }
+    ),
+    "document_semantic_concept_reviews": frozenset(
+        {
+            "id",
+            "document_id",
+            "concept_id",
+            "review_status",
+            "review_note",
+            "reviewed_by",
+            "created_at",
+        }
+    ),
+    "document_semantic_category_reviews": frozenset(
+        {
+            "id",
+            "document_id",
+            "concept_id",
+            "category_id",
+            "review_status",
+            "review_note",
+            "reviewed_by",
+            "created_at",
+        }
+    ),
+    "document_run_semantic_passes": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "baseline_run_id",
+            "baseline_semantic_pass_id",
+            "ontology_snapshot_id",
+            "upper_ontology_version",
+            "status",
+            "registry_version",
+            "registry_sha256",
+            "extractor_version",
+            "artifact_schema_version",
+            "summary",
+            "evaluation_status",
+            "evaluation_fixture_name",
+            "evaluation_version",
+            "evaluation_summary",
+            "continuity_summary",
+            "error_message",
+            "artifact_json_path",
+            "artifact_yaml_path",
+            "artifact_json_sha256",
+            "artifact_yaml_sha256",
+            "assertion_count",
+            "evidence_count",
+            "created_at",
+            "completed_at",
+        }
+    ),
+    "semantic_assertions": frozenset(
+        {
+            "id",
+            "semantic_pass_id",
+            "concept_id",
+            "assertion_kind",
+            "epistemic_status",
+            "context_scope",
+            "review_status",
+            "matched_terms",
+            "source_types",
+            "evidence_count",
+            "confidence",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_assertion_category_bindings": frozenset(
+        {
+            "id",
+            "assertion_id",
+            "category_id",
+            "concept_category_binding_id",
+            "binding_type",
+            "created_from",
+            "review_status",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_assertion_evidence": frozenset(
+        {
+            "id",
+            "assertion_id",
+            "document_id",
+            "run_id",
+            "source_type",
+            "source_locator",
+            "chunk_id",
+            "table_id",
+            "figure_id",
+            "page_from",
+            "page_to",
+            "matched_terms",
+            "excerpt",
+            "source_label",
+            "source_artifact_path",
+            "source_artifact_sha256",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_entities": frozenset(
+        {
+            "id",
+            "entity_key",
+            "entity_type",
+            "preferred_label",
+            "ontology_snapshot_id",
+            "document_id",
+            "concept_id",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_facts": frozenset(
+        {
+            "id",
+            "document_id",
+            "run_id",
+            "semantic_pass_id",
+            "ontology_snapshot_id",
+            "subject_entity_id",
+            "relation_key",
+            "relation_label",
+            "object_entity_id",
+            "object_value_text",
+            "source_assertion_id",
+            "review_status",
+            "confidence",
+            "details",
+            "created_at",
+        }
+    ),
+    "semantic_fact_evidence": frozenset(
+        {
+            "id",
+            "fact_id",
+            "assertion_id",
+            "assertion_evidence_id",
+            "created_at",
+        }
+    ),
+    "semantic_governance_events": frozenset(
+        {
+            "id",
+            "event_sequence",
+            "event_kind",
+            "governance_scope",
+            "subject_table",
+            "subject_id",
+            "task_id",
+            "ontology_snapshot_id",
+            "semantic_graph_snapshot_id",
+            "search_harness_evaluation_id",
+            "search_harness_release_id",
+            "evidence_manifest_id",
+            "evidence_package_export_id",
+            "agent_task_artifact_id",
+            "previous_event_id",
+            "previous_event_hash",
+            "receipt_sha256",
+            "payload_sha256",
+            "event_hash",
+            "deduplication_key",
+            "event_payload",
+            "created_by",
+            "created_at",
         }
     ),
 }

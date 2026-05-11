@@ -1,7 +1,8 @@
 # Semantic Memory Model-Domain Milestone Plan
 
 Date: 2026-05-11 local
-Status: Planned; not yet implemented
+Status: Implemented locally on 2026-05-11; verification complete; broader
+owner case reduced, not retired
 Owner context: bounded follow-up under the open architecture-governance owner
 case for `app/db/models.py`. This milestone resolves the semantic-memory ORM
 concern inside the compatibility facade; it does not claim to retire the
@@ -18,12 +19,12 @@ and the current semantic-memory behavior.
 
 ## Current Evidence
 
-Live repo signals refreshed before writing this milestone:
+Closeout verification on 2026-05-11 local:
 
 ```text
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=619.67
+  max_hotspot_risk_score=584.8
   top_hotspot_paths=[
     app/db/models.py,
     app/cli.py,
@@ -37,48 +38,47 @@ uv run docling-system-improvement-case-summary
   status_counts.open=25
   oldest_open_case_id=IC-F2A8110185EB
 
-wc -l app/db/models.py
-  1301 app/db/models.py
+wc -l app/db/models.py app/db/model_domains/semantic_memory.py
+  345 app/db/models.py
+  979 app/db/model_domains/semantic_memory.py
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  app/db/models.py score=102779
+  app/db/models.py is no longer listed in the top 12 churn hotspots
 ```
 
 Repo-current artifact evidence:
 
-- `docs/data_model_boundary_plan.md` routes the next
-  `IC-F2A8110185EB` follow-up to the `semantic memory` family.
-- `docs/SESSION_HANDOFF.md` routes the active local follow-up to
-  `app/db/models.py` semantic-memory continuation.
-- `app/db/models.py` still owns the remaining semantic-memory ORM family:
-  `SemanticOntologySnapshot`,
-  `WorkspaceSemanticState`,
-  `SemanticGraphSnapshot`,
-  `WorkspaceSemanticGraphState`,
-  `SemanticConcept`,
-  `SemanticCategory`,
-  `SemanticTerm`,
-  `SemanticConceptTerm`,
-  `SemanticConceptCategoryBinding`,
-  `DocumentSemanticConceptReview`,
-  `DocumentSemanticCategoryReview`,
-  `DocumentRunSemanticPass`,
-  `SemanticAssertion`,
-  `SemanticAssertionCategoryBinding`,
-  `SemanticAssertionEvidence`,
-  `SemanticEntity`,
-  `SemanticFact`,
-  `SemanticFactEvidence`, and
-  `SemanticGovernanceEvent`.
-- `tests/db_model_contract.py` already classifies those symbols under the
-  `semantic_memory` public domain set, but it does not yet expose a dedicated
-  shared semantic-memory table-column harness or explicit semantic-memory
-  index / unique-constraint coverage in the same way the recent
-  claim-support, audit-and-evidence, agent-task, and evaluation-feedback
-  splits now do.
-- `tests/unit/test_db_model_import_compatibility.py` and
-  `tests/integration/test_db_model_metadata.py` do not yet have a dedicated
-  semantic-memory ownership / metadata block.
+- `app/db/model_domains/semantic_memory.py` now owns the ontology,
+  graph-state, concept, assertion, entity, fact, semantic review, and
+  governance ORM family.
+- `app/db/models.py` remains the public compatibility facade and now
+  re-exports the moved semantic-memory symbols at 345 lines.
+- `tests/db_model_contract.py`,
+  `tests/unit/test_db_model_import_compatibility.py`, and
+  `tests/integration/test_db_model_metadata.py` now expose dedicated
+  semantic-memory table-column, exact index-column, exact unique-constraint,
+  ownership, and Postgres metadata coverage.
+- `config/hygiene_policy.yaml` now ratchets `app/db/models.py` at 345 lines
+  and governs the new semantic-memory owner module at 979 lines.
+- `docs/data_model_boundary_plan.md`, `docs/agentic_architecture_index.md`,
+  `docs/improvement_loop.md`, and `docs/SESSION_HANDOFF.md` now route the next
+  owner-case follow-up to a compatibility-facade / public-import-contract
+  milestone rather than another model-family split.
+
+## Implemented Result
+
+- Added `app/db/model_domains/semantic_memory.py`.
+- Re-exported the semantic-memory models from `app/db/models.py` through
+  import-forwarder aliases so public imports remain unchanged.
+- Extended the shared model-contract harness with semantic-memory
+  table-column, exact index-column, and exact unique-constraint coverage.
+- Reduced `app/db/models.py` from 1,301 lines to 345 and reduced the
+  architecture-quality `max_hotspot_risk_score` from the pre-split `619.67`
+  baseline to `584.8`.
+- Resolved the semantic-memory ORM concern for this milestone scope while
+  leaving the broader `IC-F2A8110185EB` owner case only `reduced` because the
+  architecture-quality summary still lists `app/db/models.py` in
+  `top_hotspot_paths`.
 
 ## Goal
 
