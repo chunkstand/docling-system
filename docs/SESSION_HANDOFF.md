@@ -5,7 +5,7 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Most recently documented committed checkpoint: Audit Bundle Payload And PROV
-Milestone 3 committed locally as `7b26bc4`; the prior Retrieval Learning Candidate And
+Milestone 3 closeout aligned after local implementation commit `7b26bc4`; the prior Retrieval Learning Candidate And
 Artifact Milestone 2 checkpoint remains `a5f090a`, the prior Audit Bundle
 Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`, the prior
@@ -97,7 +97,7 @@ helpers to 1,470 lines / 25 private helpers while preserving its compatibility
 facade. The next milestone in the active plan is now the retrieval-learning
 dataset and governance split.
 
-The live alignment snapshot after the current local Milestone 3 verification
+The live alignment snapshot after the Milestone 3 closeout alignment recheck
 is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
@@ -138,6 +138,9 @@ Results:
   `docs/agentic_architecture_index.md`,
   `docs/improvement_loop.md`, and this handoff so the current local milestone
   state and next routed follow-up stay explicit
+- the durable closeout remains aligned to the committed Milestone 3 state while
+  the next routed implementation step stays the retrieval-learning dataset and
+  governance split
 
 Verification:
 

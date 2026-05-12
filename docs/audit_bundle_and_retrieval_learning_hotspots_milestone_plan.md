@@ -364,6 +364,9 @@ Implementation status on 2026-05-11 local / 2026-05-12 UTC:
 - current measured sizes after the split are:
   - `app/services/audit_bundles.py`: 2,203 lines, 41 private helpers
   - `app/services/audit_bundle_training_runs.py`: 917 lines, 2 private helpers
+- Milestone 3 closeout alignment keeps the durable docs and handoff on the
+  committed implementation state while the next routed step remains the
+  retrieval-learning dataset and governance split
 - the remaining routed audit-bundle hotspot work is now the
   search-harness-release payload and provenance family still living in the
   facade
@@ -544,5 +547,5 @@ still dominate the backlog.
 - [x] Audit-bundle payload or PROV split completed
 - [ ] Retrieval-learning dataset and governance split completed
 - [x] Both cases updated with deployed refs and new measurements
-- [x] Docs and handoff aligned
+- [x] Docs and handoff aligned through the Milestone 3 closeout recheck
 - [x] Each milestone committed atomically after verification

@@ -30,9 +30,10 @@ and compatibility-facade closeout sequence:
 - A new standalone hotspot-reduction plan now governs the next reduction pass
   for those two facades in
   `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
-  Its first implementation slice is already narrowed locally: validation-receipt
-  hashing, verification, persistence, and detail or latest response assembly
-  now live in `app/services/audit_bundle_validation_receipts.py`, reducing
+  Its first three implementation slices are now committed locally: Milestone 1
+  moved validation-receipt hashing, verification, persistence, and detail or
+  latest response assembly into
+  `app/services/audit_bundle_validation_receipts.py`, reducing
   `app/services/audit_bundles.py` to 3,018 lines while keeping the public
   compatibility facade intact. Milestone 2 is now committed locally as
   `a5f090a`, moving candidate evaluation and reranker-artifact owner flows into
@@ -43,7 +44,8 @@ and compatibility-facade closeout sequence:
   `7b26bc4`, moving retrieval-training-run payload and provenance construction into
   `app/services/audit_bundle_training_runs.py`, reducing
   `app/services/audit_bundles.py` to 2,203 lines while keeping the public
-  compatibility facade intact.
+  compatibility facade intact. The next routed step remains the
+  retrieval-learning dataset and governance split.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
   lines to 107 and moved the shared runtime plus page-family logic into
