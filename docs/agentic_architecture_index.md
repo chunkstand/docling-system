@@ -157,7 +157,11 @@ chat history or scanning the whole repository.
   `app/services/retrieval_learning_candidates.py` and
   `app/services/retrieval_learning_artifacts.py`, reducing
   `app/services/retrieval_learning.py` from 2,482 lines to 1,470 while keeping
-  the existing facade contract.
+  the existing facade contract. The current local Milestone 3 slice also moves
+  retrieval-training-run payload and provenance construction into
+  `app/services/audit_bundle_training_runs.py`, reducing
+  `app/services/audit_bundles.py` from 3,018 lines to 2,203 while keeping the
+  existing facade contract.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while

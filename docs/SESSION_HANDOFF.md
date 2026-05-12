@@ -13,8 +13,8 @@ checkpoint remains local, the prior claim-support checkpoint remains local,
 the prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
 remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
 prior evaluation-feedback checkpoint remains `b69c4f6`.
-Active local follow-up owner case: `IC-2112B1ADC5E8` /
-`app/services/audit_bundles.py` payload and PROV owner split.
+Active local follow-up owner case: `IC-0D58F1624037` /
+`app/services/retrieval_learning.py` dataset and governance owner split.
 Active bounded implementation brief:
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
 
@@ -71,7 +71,7 @@ the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
 under local closeout commit `8340dc0`.
 
 A new standalone hotspot-reduction plan is now the active implementation lane.
-Milestone 0, Milestone 1, and Milestone 2 from
+Milestone 0, Milestone 1, Milestone 2, and the current local Milestone 3 slice from
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
 implemented and committed locally in this checkout: validation-receipt hashing, verification,
 persistence, and detail or latest response assembly now live in
@@ -79,7 +79,12 @@ persistence, and detail or latest response assembly now live in
 governed under `IC-2112B1ADC5E8` with a 447 line and 2 private-helper budget,
 and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
 helpers to 3,018 lines / 51 private helpers while preserving its public
-compatibility facade. The paired retrieval-learning hotspot under
+compatibility facade. The current local Milestone 3 slice further moves
+retrieval-training-run payload serialization, semantic-governance loading,
+provenance graph construction, and bundle materialization into
+`app/services/audit_bundle_training_runs.py`, and
+`app/services/audit_bundles.py` is reduced again to 2,203 lines / 41 private
+helpers while preserving its compatibility facade. The paired retrieval-learning hotspot under
 `IC-0D58F1624037` is now reduced further by Milestone 2 committed locally as
 `a5f090a`: candidate evaluation, evaluation response assembly, reranker
 artifact creation, and change-impact reporting now live in
@@ -87,10 +92,10 @@ artifact creation, and change-impact reporting now live in
 `app/services/retrieval_learning_artifacts.py`, and
 `app/services/retrieval_learning.py` is reduced from 2,482 lines / 46 private
 helpers to 1,470 lines / 25 private helpers while preserving its compatibility
-facade. The next milestone in the active plan is now the audit-bundle payload
-and PROV split.
+facade. The next milestone in the active plan is now the retrieval-learning
+dataset and governance split.
 
-The live alignment snapshot after the current local Milestone 2 verification
+The live alignment snapshot after the current local Milestone 3 verification
 is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
@@ -99,10 +104,97 @@ is:
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=561.06`
 - architecture probe: `app/db/models.py` remains out of the top 12 churn
-  hotspots, while the remaining large active service hotspots are
-  `app/services/evidence.py`, `app/services/agent_task_actions.py`,
-  `app/services/search.py`, `app/services/audit_bundles.py`, and
+  hotspots; `app/services/audit_bundles.py` is reduced to 2,203 lines and is
+  no longer listed in the top 12 churn hotspots, while the remaining large
+  active service hotspots are `app/services/evidence.py`,
+  `app/services/agent_task_actions.py`, `app/services/search.py`, and
   `app/services/retrieval_learning.py`
+
+## Audit Bundle And Retrieval Learning Hotspots Milestone 3 Progress
+
+Milestone 3 is the audit-bundle slice for
+`IC-2112B1ADC5E8` / `app/services/audit_bundles.py`. It reduces the broad
+compatibility facade by routing retrieval-training-run payload and provenance
+construction into a focused owner module without changing the public service
+surface.
+
+Results:
+
+- added `app/services/audit_bundle_training_runs.py` for retrieval-training-run
+  payload serialization, semantic-governance loading, provenance graph
+  construction, and bundle row materialization
+- reduced `app/services/audit_bundles.py` from 3,018 lines / 51 private
+  helpers to 2,203 lines / 41 private helpers while preserving the
+  compatibility facade and existing release-bundle entrypoints
+- added focused owner tests in
+  `tests/unit/test_audit_bundle_training_runs.py`
+- updated `config/hygiene_policy.yaml`,
+  `config/improvement_cases.yaml`,
+  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`,
+  `docs/agentic_architecture_index.md`,
+  `docs/improvement_loop.md`, and this handoff so the current local milestone
+  state and next routed follow-up stay explicit
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app tests`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-improvement-case-validate`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `uv run pytest -q tests/unit/test_audit_bundle_training_runs.py tests/unit/test_audit_bundle_validation_receipts.py tests/unit/test_search_api_harnesses.py tests/unit/test_search_api_learning_audit.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_search_harness_releases.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_semantic_governance_ledger.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+
+Verified results:
+
+- `git diff --check`: pass
+- `uv run ruff check app tests`: pass
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `hotspot_count=10`, `max_hotspot_risk_score=561.06`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-summary`: `case_count=26`,
+  `status_counts.open=24`, `status_counts.deployed=1`,
+  `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- architecture probe reports `app/services/audit_bundles.py` is reduced to
+  2,203 lines and no longer appears in the top 12 churn hotspots
+- `uv run pytest -q tests/unit/test_audit_bundle_training_runs.py tests/unit/test_audit_bundle_validation_receipts.py tests/unit/test_search_api_harnesses.py tests/unit/test_search_api_learning_audit.py`:
+  `18 passed`
+- `uv run pytest -q tests/unit/test_agent_tasks_api.py`: `37 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_search_harness_releases.py`:
+  `1 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py`:
+  `10 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_semantic_governance_ledger.py`:
+  `2 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py`:
+  `1 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1847 passed`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `passed_gate_count=11`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+
+Next routed follow-up:
+
+- owner case remains `IC-2112B1ADC5E8`
+- next milestone in the active plan is the retrieval-learning dataset and
+  governance split for `IC-0D58F1624037` / `app/services/retrieval_learning.py`
 
 ## Audit Bundle And Retrieval Learning Hotspots Milestone 2 Progress
 

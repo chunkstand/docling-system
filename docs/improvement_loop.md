@@ -39,6 +39,10 @@ and compatibility-facade closeout sequence:
   `app/services/retrieval_learning_candidates.py` and
   `app/services/retrieval_learning_artifacts.py`, reducing
   `app/services/retrieval_learning.py` to 1,470 lines while keeping the public
+  compatibility facade intact. The current local Milestone 3 slice also moves
+  retrieval-training-run payload and provenance construction into
+  `app/services/audit_bundle_training_runs.py`, reducing
+  `app/services/audit_bundles.py` to 2,203 lines while keeping the public
   compatibility facade intact.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335

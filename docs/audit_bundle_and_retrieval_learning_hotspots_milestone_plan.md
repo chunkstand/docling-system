@@ -349,6 +349,23 @@ Acceptance:
 - audit-bundle integration tests remain green
 - the old facade’s line or helper count drops again
 
+Implementation status on 2026-05-11 local / 2026-05-12 UTC:
+
+- retrieval-training-run payload serialization, semantic-governance loading,
+  provenance graph construction, and bundle materialization now live in
+  `app/services/audit_bundle_training_runs.py`
+- `app/services/audit_bundles.py` now delegates retrieval-training-run bundle
+  row creation and release-linked bundle hydration through the new owner module
+  while preserving the public service entrypoints
+- focused owner tests now live in
+  `tests/unit/test_audit_bundle_training_runs.py`
+- current measured sizes after the split are:
+  - `app/services/audit_bundles.py`: 2,203 lines, 41 private helpers
+  - `app/services/audit_bundle_training_runs.py`: 917 lines, 2 private helpers
+- the remaining routed audit-bundle hotspot work is now the
+  search-harness-release payload and provenance family still living in the
+  facade
+
 ### Milestone 4: Retrieval Learning Dataset And Governance Split
 
 Outcome label: reduced
@@ -522,8 +539,8 @@ still dominate the backlog.
 - [x] Baseline lock completed
 - [x] Audit bundle validation-receipt owner split completed
 - [x] Retrieval-learning candidate and artifact split completed
-- [ ] Audit-bundle payload or PROV split completed
+- [x] Audit-bundle payload or PROV split completed
 - [ ] Retrieval-learning dataset and governance split completed
-- [x] Both cases updated with deployed refs and new measurements
-- [x] Docs and handoff aligned
-- [x] Each milestone committed atomically after verification
+- [ ] Both cases updated with deployed refs and new measurements
+- [ ] Docs and handoff aligned
+- [ ] Each milestone committed atomically after verification

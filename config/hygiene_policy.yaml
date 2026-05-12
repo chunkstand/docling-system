@@ -212,9 +212,13 @@ file_budgets:
       max_private_helpers: 42
     app/services/audit_bundles.py:
       max_lines: 600
-      ratchet_max_lines: 3862
+      ratchet_max_lines: 2203
       max_private_helpers: 20
-      ratchet_max_private_helpers: 69
+      ratchet_max_private_helpers: 41
+      owner_case_id: IC-2112B1ADC5E8
+    app/services/audit_bundle_training_runs.py:
+      max_lines: 917
+      max_private_helpers: 2
       owner_case_id: IC-2112B1ADC5E8
     app/services/audit_bundle_validation_receipts.py:
       max_lines: 447
