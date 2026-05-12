@@ -217,8 +217,8 @@ file_budgets:
       ratchet_max_private_helpers: 69
       owner_case_id: IC-2112B1ADC5E8
     app/services/audit_bundle_validation_receipts.py:
-      max_lines: 450
-      max_private_helpers: 3
+      max_lines: 447
+      max_private_helpers: 2
       owner_case_id: IC-2112B1ADC5E8
     app/services/claim_support_evaluations.py:
       max_lines: 600

@@ -4,16 +4,17 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Most recently documented committed checkpoint: DB Models Compatibility Facade
-Milestone 2 aligned and committed locally as `8340dc0`; the prior Milestone 1
-checkpoint remains `776fa73`, the prior semantic-memory checkpoint remains
-local, the prior claim-support checkpoint remains local, the prior audit
-checkpoint remains `196d3aa`, the prior alignment checkpoint remains
-`7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the prior
-evaluation-feedback checkpoint remains `b69c4f6`.
-Active local follow-up owner case: `IC-2112B1ADC5E8` /
-`app/services/audit_bundles.py` validation-receipt owner split, followed by
-the paired retrieval-learning hotspot work under `IC-0D58F1624037`.
+Most recently documented committed checkpoint: Audit Bundle Validation Receipt
+Milestone 1 committed locally as `e2bc144`; the prior DB Models
+Compatibility Facade Milestone 2 checkpoint remains `8340dc0`, the prior
+Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
+checkpoint remains local, the prior claim-support checkpoint remains local,
+the prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
+remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
+prior evaluation-feedback checkpoint remains `b69c4f6`.
+Active local follow-up owner case: `IC-0D58F1624037` /
+`app/services/retrieval_learning.py` candidate and reranker-artifact owner
+split.
 Active bounded implementation brief:
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
 
@@ -24,7 +25,8 @@ the High Value Technical Paydown Milestone 10 closeout, the Evaluation
 Feedback Model-Domain Milestone closeout committed locally as `b69c4f6`, and
 the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`,
 plus the Audit And Evidence Model-Domain Milestone closeout committed locally
-as `196d3aa`.
+as `196d3aa`, and the Audit Bundle Validation Receipt Milestone 1 closeout
+committed locally as `e2bc144`.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -70,10 +72,10 @@ under local closeout commit `8340dc0`.
 A new standalone hotspot-reduction plan is now the active implementation lane.
 Milestone 0 and Milestone 1 from
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
-implemented locally in this checkout: validation-receipt hashing,
+implemented and committed locally in this checkout: validation-receipt hashing,
 verification, persistence, and detail or latest response assembly now live in
 `app/services/audit_bundle_validation_receipts.py`, the new owner module is
-governed under `IC-2112B1ADC5E8` with a 450 line and 3 private-helper budget,
+governed under `IC-2112B1ADC5E8` with a 447 line and 2 private-helper budget,
 and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
 helpers to 3,018 lines / 51 private helpers while preserving its public
 compatibility facade. The paired retrieval-learning hotspot under
@@ -81,15 +83,19 @@ compatibility facade. The paired retrieval-learning hotspot under
 candidate and reranker-artifact split in
 `app/services/retrieval_learning.py`.
 
-The live alignment snapshot after Milestone 2 verification is:
+The live alignment snapshot after Audit Bundle Validation Receipt Milestone 1
+verification is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
   `status_counts.open=24`, `status_counts.deployed=1`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=561.06`
-- architecture probe: `app.db.models` import fan-in=`166`; `app/db/models.py`
-  is no longer in the top 12 churn hotspots
+- architecture probe: `app/db/models.py` remains out of the top 12 churn
+  hotspots, while the remaining large active service hotspots are
+  `app/services/evidence.py`, `app/services/agent_task_actions.py`,
+  `app/services/search.py`, `app/services/audit_bundles.py`, and
+  `app/services/retrieval_learning.py`
 
 ## DB Models Compatibility Facade Milestone 2 Progress
 

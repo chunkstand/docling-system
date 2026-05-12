@@ -956,12 +956,12 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "a0bd36b"
-    notes: The latest committed checkpoint remains the Milestone 2 audit-bundle
-      replay-alert corpus split; this checkout additionally routes validation-receipt
-      hashing, verification, row creation, and latest or list retrieval through
+    deployed_ref: "e2bc144"
+    notes: Milestone 1 validation-receipt owner split committed; receipt hashing,
+      verification, row creation, and latest or list retrieval now live in
       app/services/audit_bundle_validation_receipts.py while
-      app/services/audit_bundles.py remains the compatibility facade.
+      app/services/audit_bundles.py remains the compatibility facade and the
+      next routed reduction is the payload and PROV family.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
     current_value: 3018.0
@@ -972,7 +972,7 @@ cases:
       app/services/audit_bundles.py to 3018 lines while governing the new owner
       module at 447 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-11T00:00:00+00:00'
+  updated_at: '2026-05-11T23:55:34+00:00'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: open

@@ -268,6 +268,8 @@ Implementation status on 2026-05-11 local / 2026-05-11 UTC:
   entrypoints
 - focused receipt tests are added in
   `tests/unit/test_audit_bundle_validation_receipts.py`
+- the milestone is committed locally as `e2bc144`
+  (`services: split audit bundle validation receipts`)
 - current measured sizes after the split are:
   - `app/services/audit_bundles.py`: 3,018 lines, 51 private helpers
   - `app/services/audit_bundle_validation_receipts.py`: 447 lines, 2 private
