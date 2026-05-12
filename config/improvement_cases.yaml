@@ -929,12 +929,11 @@ cases:
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-2112B1ADC5E8
   title: 'Architecture hotspot: app/services/audit_bundles.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/audit_bundles.py remains a large owner surface with
-    line_count=2203 and private_helper_count=41 after the Milestone 3 retrieval-training-run
-    payload and PROV split; the compatibility facade is narrower, but the
-    release payload and provenance family still live in the facade.
+  observed_failure: app/services/audit_bundles.py previously mixed validation-receipt,
+    release-payload, release-PROV, and retrieval-training-run audit-bundle
+    concerns inside a 3,306-line hotspot facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/audit_bundles.py
@@ -952,39 +951,49 @@ cases:
     acceptance_conditions:
     - Surface has explicit owner-scoped routing and later milestones reduce hotspot
       burden or leave a narrower verified owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "7b26bc4"
-    notes: Milestone 1 validation-receipt owner split remains preserved in
-      app/services/audit_bundle_validation_receipts.py, and Milestone 3 is now
-      committed locally as 7b26bc4. Retrieval-training-run payload assembly,
-      provenance graph construction, and bundle materialization now live in
-      app/services/audit_bundle_training_runs.py while
-      app/services/audit_bundles.py remains the compatibility facade and the
-      next routed reduction inside audit_bundles is the search-harness release
-      payload and provenance family.
+    deployed_ref: "local-worktree"
+    notes: Milestone 5 from
+      docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
+      implemented locally in this checkout. Search-harness release payload
+      serialization now lives in
+      app/services/audit_bundle_release_payload_serialization.py, schema and
+      source-integrity validation now live in
+      app/services/audit_bundle_release_payload_validation.py, PROV graph
+      construction and JSON-LD validation now live in
+      app/services/audit_bundle_release_payload_prov.py, and release payload
+      orchestration now lives in app/services/audit_bundle_release_payloads.py.
+      The earlier Milestone 1 and Milestone 3 owner splits remain preserved in
+      app/services/audit_bundle_validation_receipts.py and
+      app/services/audit_bundle_training_runs.py, while
+      app/services/audit_bundles.py is now a narrow compatibility facade with
+      exact no-growth ratchets.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
-    current_value: 2203.0
-    measurement_window: 2026-05-12 local verification
-    notes: Milestone 3 committed locally as 7b26bc4 moved retrieval-training-run
-      payload serialization, semantic-governance loading, provenance graph
-      construction, and bundle row creation into
-      app/services/audit_bundle_training_runs.py, reducing
-      app/services/audit_bundles.py to 2203 lines while governing the new owner
-      module at 917 lines.
+    current_value: 632.0
+    measurement_window: 2026-05-11 local verification
+    notes: Milestone 5 local implementation moved the remaining search-harness
+      release payload, validation, and PROV family into
+      app/services/audit_bundle_release_payload_serialization.py,
+      app/services/audit_bundle_release_payload_validation.py,
+      app/services/audit_bundle_release_payload_prov.py, and
+      app/services/audit_bundle_release_payloads.py, reducing
+      app/services/audit_bundles.py from 2203 lines / 41 private helpers to
+      632 lines / 20 private helpers while keeping the public audit-bundle
+      service surface unchanged.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-12T04:25:00+00:00'
+  updated_at: '2026-05-12T06:30:00+00:00'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/retrieval_learning.py is now a narrow compatibility
-    facade at line_count=143 and private_helper_count=0, but the owner case remains
-    open until the final closeout proves the routed dataset module family and updated
-    ratchets hold under the same governance case.
+  observed_failure: app/services/retrieval_learning.py previously mixed replay-alert
+    source handling, candidate evaluation, reranker artifact creation, dataset
+    materialization, and training-run governance in a 2,482-line hotspot
+    facade.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/retrieval_learning.py
@@ -1002,12 +1011,12 @@ cases:
     acceptance_conditions:
     - Surface has explicit owner-scoped routing and later milestones reduce hotspot
       burden or leave a narrower verified owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "local-worktree"
-    notes: Milestone 4 from
+    notes: Milestone 5 from
       docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
       implemented locally in this checkout. The replay-alert corpus owner split remains
       preserved in app/services/retrieval_learning_replay_alert_sources.py, candidate
@@ -1017,27 +1026,29 @@ cases:
       source normalization, payload assembly, and training-run governance now live in
       the routed owner family app/services/retrieval_learning_datasets.py,
       app/services/retrieval_learning_dataset_rows.py, and
-      app/services/retrieval_learning_dataset_sources.py while
-      app/services/retrieval_learning.py remains the compatibility facade pending the
-      Milestone 5 final contract closeout.
+      app/services/retrieval_learning_dataset_sources.py. The facade contract is
+      now tightened by focused delegation tests and exact no-growth ratchets
+      while app/services/retrieval_learning.py remains the compatibility
+      surface.
   measurement:
     metric_name: retrieval_learning_hotspot_line_count
     current_value: 143.0
     measurement_window: 2026-05-11 local verification
-    notes: Milestone 4 local implementation moved dataset materialization, source
-      normalization, judgment and hard-negative payload assembly, and
-      retrieval-training-run governance into
-      app/services/retrieval_learning_datasets.py,
+    notes: >-
+      Milestone 5 closeout confirms the Milestone 4 owner family and exact
+      ratchets hold: dataset materialization, source normalization, judgment
+      and hard-negative payload assembly, and retrieval-training-run
+      governance live in app/services/retrieval_learning_datasets.py,
       app/services/retrieval_learning_dataset_rows.py, and
-      app/services/retrieval_learning_dataset_sources.py while preserving the routed owner
-      families already living in
+      app/services/retrieval_learning_dataset_sources.py while preserving the
+      routed owner families already living in
       app/services/retrieval_learning_replay_alert_sources.py,
       app/services/retrieval_learning_candidates.py and
       app/services/retrieval_learning_artifacts.py, reducing
-      app/services/retrieval_learning.py to 143 lines and governing the extracted
-      dataset owner family at 326, 547, and 531 lines.
+      app/services/retrieval_learning.py to 143 lines and governing the
+      extracted dataset owner family at 326, 547, and 531 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-11T23:59:00+00:00'
+  updated_at: '2026-05-12T06:30:00+00:00'
 - case_id: IC-1B643BA0AD90
   title: 'Architecture hotspot: app/ui/app.js'
   status: open

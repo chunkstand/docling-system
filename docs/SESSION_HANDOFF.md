@@ -4,163 +4,115 @@ Date: 2026-05-11 local / 2026-05-12 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Most recently documented committed checkpoint before the current Milestone 4
-local closeout: Audit Bundle Payload And PROV Milestone 3 aligned after local
-implementation commit `7b26bc4`; the prior Retrieval Learning Candidate And
-Artifact Milestone 2 checkpoint remains `a5f090a`, the prior Audit Bundle
-Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and the prior DB
-Models Compatibility Facade Milestone 2 checkpoint remains `8340dc0`, the
-prior Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
-checkpoint remains local, the prior claim-support checkpoint remains local,
-the prior audit checkpoint remains `196d3aa`, the prior alignment checkpoint
-remains `7f04d49`, the prior agent-task checkpoint remains `e59f9bf`, and the
-prior evaluation-feedback checkpoint remains `b69c4f6`.
-Active local follow-up owner case: `IC-2112B1ADC5E8` and
-`IC-0D58F1624037` / hotspot compatibility-facade closeout.
+Most recently documented committed checkpoint before the current Milestone 5
+local closeout: Audit Bundle And Retrieval Learning Hotspots Milestone 4
+gap-closeout local commit `a170b28`; the prior Milestone 4 initial split
+checkpoint remains `8181011`, the prior Audit Bundle Payload And PROV
+Milestone 3 checkpoint remains `7b26bc4`, the prior Retrieval Learning
+Candidate And Artifact Milestone 2 checkpoint remains `a5f090a`, the prior
+Audit Bundle Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and
+the prior DB Models Compatibility Facade Milestone 2 checkpoint remains
+`8340dc0`.
+Active local follow-up owner case: `IC-050E60059A34` /
+`app/services/evidence.py`.
 Active bounded implementation brief:
-`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
+`docs/high_value_technical_paydown_milestone_plan.md`.
 
 ## Current Position
 
-The checkout is on `main`. Local `main` remains ahead of `origin/main` after
-the High Value Technical Paydown Milestone 10 closeout, the Evaluation
-Feedback Model-Domain Milestone closeout committed locally as `b69c4f6`, and
-the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`,
-plus the Audit And Evidence Model-Domain Milestone closeout committed locally
-as `196d3aa`, the Audit Bundle Validation Receipt Milestone 1 closeout
-committed locally as `e2bc144`, and the Retrieval Learning Candidate And
-Artifact Milestone 2 closeout committed locally as `a5f090a`, and the Audit
-Bundle Payload And PROV Milestone 3 closeout committed locally as `7b26bc4`.
-`origin/main` is `33acc23` (`docs: plan residual weakness resolution
-milestones`).
+The checkout is on `main`. Local `main` remains ahead of `origin/main`, and
+the standalone hotspot-reduction plan in
+`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` is now
+resolved locally through Milestone 5.
 
-The Residual Weakness Plan is already closed through Milestone 8, and the
-Hotspot Owner Resolution sequence is closed locally through Milestone 6. The
-High Value Technical Paydown plan remains complete locally through Milestone
-10, and the routed `app/db/models.py` owner work has advanced one more bounded
-slice: the semantic-memory ontology, graph-state, concept, assertion, entity,
-fact, semantic review, and governance ORM family now lives in
-`app/db/model_domains/semantic_memory.py`, the remaining enum ownership now
-lives in `app/db/_model_enums.py`, `app/db/models.py` is now a 159-line pure
-compatibility facade while keeping `app.db.models` as the public compatibility
-surface, and the registry summary now reports `case_count=26`,
-`status_counts.open=24`, `status_counts.deployed=1`,
-`status_counts.measured=1`, `measured_case_count=14`, and
-`oldest_open_case_id=IC-050E60059A34`. The completed
-evaluation-feedback milestone record remains in
-`docs/evaluation_feedback_model_domain_milestone_plan.md`, the completed audit
-milestone record remains in
-`docs/audit_and_evidence_model_domain_milestone_plan.md`, the completed
-claim-support milestone record remains in
-`docs/claim_support_model_domain_milestone_plan.md`, and the new completed
-milestone record now lives in
-`docs/semantic_memory_model_domain_milestone_plan.md`.
+The compatibility-facade follow-up for the paired hotspot owner cases is now
+closed under local verification. Search-harness release payload
+serialization now lives in
+`app/services/audit_bundle_release_payload_serialization.py`, release payload
+validation now lives in
+`app/services/audit_bundle_release_payload_validation.py`, release PROV graph
+construction and JSON-LD validation now live in
+`app/services/audit_bundle_release_payload_prov.py`, and release payload
+orchestration now lives in
+`app/services/audit_bundle_release_payloads.py`. `app/services/audit_bundles.py`
+is reduced from 2,203 lines / 41 private helpers to 632 lines / 20 private
+helpers while preserving the public audit-bundle service surface and
+`get_settings` monkeypatch seam used by integration tests.
 
-Post-split architecture alignment recheck on 2026-05-11 kept the owner-case
-routing intact:
-`uv run docling-system-architecture-quality-report --summary` now reports
-`max_hotspot_risk_score=561.06` with `app/db/models.py` still first in
-`top_hotspot_paths`, and
-`python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
-reports `app/services/evidence.py` as the top churn hotspot while
-`app/db/models.py` is no longer listed in the top 12 churn hotspots.
-
-The compatibility-facade follow-up is now closed as an ownership milestone.
-Milestone 2 from `docs/db_models_compatibility_facade_milestone_plan.md` is
-implemented locally: `app/db/models.py` is now a 159-line pure compatibility
-facade, the remaining 29 public enums live in `app/db/_model_enums.py`, the
-facade gate rejects any direct class definitions in `app/db/models.py`, and
-the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
-under local closeout commit `8340dc0`.
-
-A new standalone hotspot-reduction plan is now the active implementation lane.
-Milestone 0, Milestone 1, Milestone 2, and Milestone 3 from
-`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
-committed locally in this checkout, and Milestone 4 is now implemented
-locally: validation-receipt hashing, verification,
-persistence, and detail or latest response assembly now live in
-`app/services/audit_bundle_validation_receipts.py`, the new owner module is
-governed under `IC-2112B1ADC5E8` with a 447 line and 2 private-helper budget,
-and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
-helpers to 3,018 lines / 51 private helpers while preserving its public
-compatibility facade. Milestone 3 committed locally as `7b26bc4` further moves
-retrieval-training-run payload serialization, semantic-governance loading,
-provenance graph construction, and bundle materialization into
-`app/services/audit_bundle_training_runs.py`, and
-`app/services/audit_bundles.py` is reduced again to 2,203 lines / 41 private
-helpers while preserving its compatibility facade. The paired retrieval-learning hotspot under
-`IC-0D58F1624037` is now reduced further by Milestone 2 committed locally as
-`a5f090a`: candidate evaluation, evaluation response assembly, reranker
-artifact creation, and change-impact reporting now live in
-`app/services/retrieval_learning_candidates.py` and
-`app/services/retrieval_learning_artifacts.py`, and
-`app/services/retrieval_learning.py` is reduced from 2,482 lines / 46 private
-helpers to 1,470 lines / 25 private helpers while preserving its compatibility
-facade. Milestone 4 is now implemented locally in this checkout: dataset
-materialization, source normalization, payload assembly, and retrieval-training-run
-governance now live in the routed owner family
+The paired retrieval-learning facade remains closed at the intended narrow
+shape. `app/services/retrieval_learning.py` stays at 143 lines / 0 private
+helpers, the routed owner family remains
+`app/services/retrieval_learning_replay_alert_sources.py`,
+`app/services/retrieval_learning_candidates.py`,
+`app/services/retrieval_learning_artifacts.py`,
 `app/services/retrieval_learning_datasets.py`,
 `app/services/retrieval_learning_dataset_rows.py`, and
-`app/services/retrieval_learning_dataset_sources.py`, and
-`app/services/retrieval_learning.py` is reduced again to 143 lines / 0
-private helpers while preserving its compatibility facade and existing route
-test seams. A follow-up hardening pass inside the same milestone closes the
-initial mega-module gap by reducing the dataset owner family to 326, 547, and
-531 lines. The next milestone in the active plan is now Compatibility Facade
-Closeout.
+`app/services/retrieval_learning_dataset_sources.py`, and the final closeout
+adds focused facade-delegation tests plus exact no-growth ratchets.
 
-The live alignment snapshot after the Milestone 4 local verification recheck
+The live alignment snapshot after the Milestone 5 local verification recheck
 is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
-  `status_counts.open=24`, `status_counts.deployed=1`,
+  `status_counts.open=22`, `status_counts.deployed=3`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=561.06`
-- architecture probe: `app/db/models.py` remains out of the top 12 churn
-  hotspots; `app/services/audit_bundles.py` is reduced to 2,203 lines and is
-  no longer listed in the top 12 churn hotspots, `app/services/retrieval_learning.py`
-  is now reduced to 143 lines and is also out of the top 12 churn hotspots,
-  while the remaining large active service hotspots are
-  `app/services/evidence.py`, `app/services/agent_task_actions.py`, and
-  `app/services/search.py`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- architecture probe still reports `app/services/evidence.py` as the top churn
+  hotspot while `app/services/audit_bundles.py` and
+  `app/services/retrieval_learning.py` no longer appear in the top 12 churn
+  hotspots
 
-## Audit Bundle And Retrieval Learning Hotspots Milestone 4 Progress
+The next routed owner case now returns to
+`IC-050E60059A34` / `app/services/evidence.py` under
+`docs/high_value_technical_paydown_milestone_plan.md`.
 
-Milestone 4 is the retrieval-learning dataset and governance slice for
-`IC-0D58F1624037` / `app/services/retrieval_learning.py`. It reduces the broad
-compatibility facade by routing dataset materialization and
-retrieval-training-run governance into a focused owner module without changing
-the public service surface.
+## Audit Bundle And Retrieval Learning Hotspots Milestone 5 Closeout
+
+Milestone 5 is the final compatibility-facade closeout for
+`IC-2112B1ADC5E8` / `app/services/audit_bundles.py` and
+`IC-0D58F1624037` / `app/services/retrieval_learning.py`. It proves both
+surfaces now operate as narrow compatibility facades with explicit owner
+families, updated improvement-case evidence, and exact no-growth ratchets.
 
 Results:
 
-- added `app/services/retrieval_learning_datasets.py` for dataset
-  orchestration, persistence, and retrieval-training-run governance recording
-- added `app/services/retrieval_learning_dataset_rows.py` for judgment or
-  hard-negative row construction, payload shaping, and source-hash pairing
-- added `app/services/retrieval_learning_dataset_sources.py` for feedback,
-  replay, and technical-report claim-feedback source collection
-- reduced `app/services/retrieval_learning.py` from 1,470 lines / 25 private
-  helpers to 143 lines / 0 private helpers while preserving the compatibility
-  facade and existing monkeypatch seams used by route and CLI tests
-- added focused owner tests in
-  `tests/unit/test_retrieval_learning_datasets.py`
+- added `app/services/audit_bundle_release_payload_serialization.py` for
+  search-harness release payload and reference serialization
+- added `app/services/audit_bundle_release_payload_validation.py` for release
+  payload schema, source-integrity, and semantic-governance validation
+- added `app/services/audit_bundle_release_payload_prov.py` for PROV graph
+  construction and JSON-LD validation
+- added `app/services/audit_bundle_release_payloads.py` for release payload
+  orchestration
+- reduced `app/services/audit_bundles.py` from 2,203 lines / 41 private
+  helpers to 632 lines / 20 private helpers while preserving the public
+  audit-bundle entrypoints
+- kept `app/services/retrieval_learning.py` at 143 lines / 0 private helpers
+  and added focused facade-delegation tests for dataset materialization,
+  candidate evaluation, and reranker artifact creation
 - updated `config/hygiene_policy.yaml`,
   `config/improvement_cases.yaml`,
   `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`,
   `docs/agentic_architecture_index.md`,
-  `docs/improvement_loop.md`, and this handoff so the current local milestone
-  state and next routed follow-up stay explicit
-- the next routed implementation step is now Milestone 5 compatibility-facade
-  closeout for `app/services/audit_bundles.py` and
-  `app/services/retrieval_learning.py`
+  `docs/improvement_loop.md`, and this handoff so the routed next step stays
+  explicit
+- the next routed implementation step is now
+  `IC-050E60059A34` / `app/services/evidence.py`
 
 Verification:
 
 - `git diff --check`
-- `uv run ruff check app/services/retrieval_learning.py app/services/retrieval_learning_datasets.py tests/unit/test_retrieval_learning_datasets.py`
-- `uv run pytest -q tests/unit/test_retrieval_learning_datasets.py tests/unit/test_retrieval_learning_replay_alert_sources.py tests/unit/test_search_api_harnesses.py`
+- `uv run ruff check app/services/audit_bundles.py app/services/audit_bundle_release_payload_serialization.py app/services/audit_bundle_release_payload_validation.py app/services/audit_bundle_release_payload_prov.py app/services/audit_bundle_release_payloads.py tests/unit/test_audit_bundles_facade_contract.py tests/unit/test_audit_bundle_release_payload_validation.py tests/unit/test_retrieval_learning_facade_contract.py`
+- `uv run pytest -q tests/unit/test_audit_bundles_facade_contract.py tests/unit/test_audit_bundle_release_payload_validation.py tests/unit/test_retrieval_learning_facade_contract.py tests/unit/test_audit_bundle_training_runs.py tests/unit/test_audit_bundle_validation_receipts.py tests/unit/test_retrieval_learning_datasets.py tests/unit/test_search_api_harnesses.py tests/unit/test_agent_tasks_api.py tests/unit/test_retrieval_learning_replay_alert_sources.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_search_harness_releases.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_retrieval_learning_ledger.py tests/integration/test_technical_report_harness_roundtrip.py`
 - `uv run docling-system-architecture-inspect`
 - `uv run docling-system-capability-contracts`
 - `uv run docling-system-architecture-quality-report --summary`
@@ -168,7 +120,6 @@ Verification:
 - `uv run docling-system-improvement-case-summary`
 - `uv run docling-system-improvement-case-validate`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
 - `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
@@ -176,10 +127,9 @@ Verification:
 Verified results:
 
 - `git diff --check`: pass
-- `uv run ruff check app/services/retrieval_learning.py app/services/retrieval_learning_datasets.py tests/unit/test_retrieval_learning_datasets.py`:
-  pass
-- `uv run pytest -q tests/unit/test_retrieval_learning_datasets.py tests/unit/test_retrieval_learning_replay_alert_sources.py tests/unit/test_search_api_harnesses.py`:
-  `11 passed`
+- focused `ruff` check: pass
+- focused unit and route suite: `61 passed`
+- focused DB-backed integration suite: `14 passed`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
@@ -188,16 +138,14 @@ Verified results:
   `hotspot_count=10`, `max_hotspot_risk_score=561.06`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-summary`: `case_count=26`,
-  `status_counts.open=24`, `status_counts.deployed=1`,
+  `status_counts.open=22`, `status_counts.deployed=3`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
-- architecture probe reports `app/services/retrieval_learning.py` is now a
-  143-line compatibility facade and no longer appears in the top 12 churn
-  hotspots
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_retrieval_learning_ledger.py`:
-  `10 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1851 passed`
+- architecture probe reports `app/services/evidence.py` as the top churn
+  hotspot while `app/services/audit_bundles.py` and
+  `app/services/retrieval_learning.py` are out of the top 12 churn hotspots
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1859 passed`
 - `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
   `passed_gate_count=11`, `failed_gate_count=0`
 - `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:

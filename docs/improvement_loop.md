@@ -18,8 +18,8 @@ Current registry state from the 2026-05-11 local / 2026-05-11 UTC owner-split
 and compatibility-facade closeout sequence:
 
 - `uv run docling-system-improvement-case-summary` reports `case_count=26`,
-  with one measured hygiene-gate case, one deployed architecture-governance
-  case, and 24 open architecture-governance cases.
+  with one measured hygiene-gate case, three deployed
+  architecture-governance cases, and 22 open architecture-governance cases.
 - The architecture quality report emits current hotspot candidates for large or
   high-churn surfaces, and those candidates are now imported as open registry
   cases with structured owner surfaces, verification commands, and stop
@@ -30,8 +30,7 @@ and compatibility-facade closeout sequence:
 - A new standalone hotspot-reduction plan now governs the next reduction pass
   for those two facades in
   `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
-  Its first four implementation slices are now implemented locally in this
-  checkout: Milestone 1
+  It is now resolved locally through Milestone 5: Milestone 1
   moved validation-receipt hashing, verification, persistence, and detail or
   latest response assembly into
   `app/services/audit_bundle_validation_receipts.py`, reducing
@@ -52,8 +51,15 @@ and compatibility-facade closeout sequence:
   `app/services/retrieval_learning_dataset_rows.py`, and
   `app/services/retrieval_learning_dataset_sources.py`, reducing
   `app/services/retrieval_learning.py` to a 143-line pure compatibility
-  facade and closing the initial mega-module gap inside the milestone. The
-  next routed step is Milestone 5 compatibility-facade closeout.
+  facade and closing the initial mega-module gap inside the milestone.
+  Milestone 5 then moves the remaining search-harness release payload,
+  validation, and PROV family into
+  `app/services/audit_bundle_release_payload_serialization.py`,
+  `app/services/audit_bundle_release_payload_validation.py`,
+  `app/services/audit_bundle_release_payload_prov.py`, and
+  `app/services/audit_bundle_release_payloads.py`, reducing
+  `app/services/audit_bundles.py` to a 632-line compatibility facade and
+  marking both owner-bootstrap cases as `deployed`.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
   lines to 107 and moved the shared runtime plus page-family logic into
@@ -102,9 +108,8 @@ and compatibility-facade closeout sequence:
   change-impact split into activation, prevalidation, promotion, and
   governance files.
 - The next oldest open owner case remains
-  `IC-050E60059A34` / `app/services/evidence.py`, but the currently active
-  standalone hotspot implementation brief is
-  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`.
+  `IC-050E60059A34` / `app/services/evidence.py`, and the active bounded brief
+  now returns to `docs/high_value_technical_paydown_milestone_plan.md`.
 - DB-backed import sources such as `eval-failure-cases`, `failed-agent-tasks`,
   and `failed-agent-verifications` require local Postgres to be available before
   they can be trusted as current.

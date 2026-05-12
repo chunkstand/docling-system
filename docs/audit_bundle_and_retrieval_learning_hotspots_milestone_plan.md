@@ -1,7 +1,7 @@
 # Audit Bundle And Retrieval Learning Hotspots Milestone Plan
 
 Date: 2026-05-11 local / 2026-05-11 UTC
-Status: in_progress
+Status: resolved locally
 Owner context: new standalone hotspot-reduction plan for
 `IC-2112B1ADC5E8` / `app/services/audit_bundles.py` and
 `IC-0D58F1624037` / `app/services/retrieval_learning.py`. This plan does not
@@ -458,6 +458,30 @@ Acceptance:
 - this plan and the handoff explicitly route the next oldest remaining open
   hotspot after these two are closed
 
+Implementation status on 2026-05-11 local / 2026-05-12 UTC:
+
+- search-harness release payload serialization now lives in
+  `app/services/audit_bundle_release_payload_serialization.py`
+- release payload schema and source-integrity validation now live in
+  `app/services/audit_bundle_release_payload_validation.py`
+- release PROV graph construction and JSON-LD validation now live in
+  `app/services/audit_bundle_release_payload_prov.py`
+- release payload orchestration now lives in
+  `app/services/audit_bundle_release_payloads.py`
+- `app/services/audit_bundles.py` is reduced from 2,203 lines / 41 private
+  helpers to 632 lines / 20 private helpers while preserving the public
+  audit-bundle entrypoints and settings monkeypatch seam
+- `app/services/retrieval_learning.py` remains the 143-line / 0 private-helper
+  compatibility facade, and the final closeout now adds focused facade
+  delegation tests plus exact no-growth ratchets for both cases
+- `config/improvement_cases.yaml` now records both `IC-2112B1ADC5E8` and
+  `IC-0D58F1624037` as `deployed` under the final owner-module routing
+- hygiene routing now governs the narrowed audit-bundle facade at a 632-line /
+  20 private-helper ratchet and adds explicit budgets for the new release
+  payload owner family at 278, 495, 388, and 517 lines
+- the next routed owner case after this plan is now
+  `IC-050E60059A34` / `app/services/evidence.py`
+
 ## Required Implementation Artifacts
 
 - new focused owner modules under `app/services/audit_bundle_*.py`
@@ -580,7 +604,8 @@ still dominate the backlog.
 - [x] Audit bundle validation-receipt owner split completed
 - [x] Retrieval-learning candidate and artifact split completed
 - [x] Audit-bundle payload or PROV split completed
-- [ ] Retrieval-learning dataset and governance split completed
+- [x] Retrieval-learning dataset and governance split completed
+- [x] Compatibility-facade closeout completed
 - [x] Both cases updated with deployed refs and new measurements
-- [x] Docs and handoff aligned through the Milestone 3 closeout recheck
+- [x] Docs and handoff aligned through the Milestone 5 closeout recheck
 - [x] Each milestone committed atomically after verification

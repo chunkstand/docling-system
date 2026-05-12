@@ -147,8 +147,8 @@ chat history or scanning the whole repository.
   budget. The milestone is closed by commit `13e8b1c`.
 - A new standalone hotspot-reduction plan is now active locally for
   `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` in
-  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`. Its
-  first four implemented slices are now present in this checkout: Milestone 1 moved
+  `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`. The
+  plan is now resolved locally through Milestone 5: Milestone 1 moved
   validation-receipt hashing, verification, row creation, and list or latest
   response assembly into
   `app/services/audit_bundle_validation_receipts.py`, reducing
@@ -169,8 +169,17 @@ chat history or scanning the whole repository.
   `app/services/retrieval_learning_dataset_rows.py`, and
   `app/services/retrieval_learning_dataset_sources.py`, reducing
   `app/services/retrieval_learning.py` to a 143-line compatibility facade
-  while governing the new owner modules at 326, 547, and 531 lines. The next
-  routed step is Milestone 5 compatibility-facade closeout.
+  while governing the new owner modules at 326, 547, and 531 lines. Milestone
+  5 now moves the remaining search-harness release payload, validation, and
+  PROV family into
+  `app/services/audit_bundle_release_payload_serialization.py`,
+  `app/services/audit_bundle_release_payload_validation.py`,
+  `app/services/audit_bundle_release_payload_prov.py`, and
+  `app/services/audit_bundle_release_payloads.py`, reducing
+  `app/services/audit_bundles.py` to a 632-line compatibility facade with a
+  20 private-helper ratchet and closing both owner-bootstrap cases as
+  `deployed`. The next routed owner case is now
+  `IC-050E60059A34` / `app/services/evidence.py`.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while
