@@ -393,6 +393,32 @@ Acceptance:
 - retrieval-learning ledger integration tests remain green
 - the old facade’s line or helper count drops again
 
+Implementation status on 2026-05-11 local / 2026-05-12 UTC:
+
+- dataset materialization, source normalization, judgment or hard-negative
+  payload assembly, and retrieval-training-run governance now live in
+  `app/services/retrieval_learning_datasets.py`
+- `app/services/retrieval_learning.py` is now a 143-line / 0 private-helper
+  compatibility facade that delegates dataset materialization, candidate
+  evaluation, and reranker-artifact flows through explicit owner modules
+- focused owner tests now live in
+  `tests/unit/test_retrieval_learning_datasets.py`
+- current measured sizes after the split are:
+  - `app/services/retrieval_learning.py`: 143 lines, 0 private helpers
+  - `app/services/retrieval_learning_datasets.py`: 1,353 lines, 23 private
+    helpers
+  - `app/services/retrieval_learning_candidates.py`: 412 lines, 1 private
+    helper
+  - `app/services/retrieval_learning_artifacts.py`: 774 lines, 7 private
+    helpers
+  - `app/services/retrieval_learning_replay_alert_sources.py`: 578 lines, 10
+    private helpers
+- hygiene routing now governs the narrowed facade at its exact verified size
+  and adds an explicit budget for the extracted dataset owner module under the
+  same owner case `IC-0D58F1624037`
+- the remaining routed retrieval-learning work is now the Milestone 5
+  compatibility-facade closeout
+
 ### Milestone 5: Compatibility Facade Closeout
 
 Outcome label: resolved

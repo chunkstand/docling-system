@@ -981,9 +981,10 @@ cases:
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/retrieval_learning.py remains a large owner surface
-    with line_count=1470 and private_helper_count=25 after the Milestone 2 candidate
-    and reranker-artifact owner split.
+  observed_failure: app/services/retrieval_learning.py is now a narrow compatibility
+    facade at line_count=143 and private_helper_count=0, but the owner case remains
+    open until the final closeout proves the routed dataset module family and updated
+    ratchets hold under the same governance case.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/retrieval_learning.py
@@ -1005,27 +1006,34 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "a5f090a"
-    notes: Milestone 4 retrieval-learning replay-alert corpus owner split remains
-      preserved in app/services/retrieval_learning_replay_alert_sources.py, and
-      Milestone 2 is now committed locally as a5f090a. Candidate evaluation and
-      reranker-artifact flows now live in
+    deployed_ref: "local-worktree"
+    notes: Milestone 4 from
+      docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
+      implemented locally in this checkout. The replay-alert corpus owner split remains
+      preserved in app/services/retrieval_learning_replay_alert_sources.py, candidate
+      evaluation and reranker-artifact flows remain in
       app/services/retrieval_learning_candidates.py and
-      app/services/retrieval_learning_artifacts.py while
-      app/services/retrieval_learning.py remains the compatibility facade.
+      app/services/retrieval_learning_artifacts.py, and dataset materialization,
+      source normalization, payload assembly, and training-run governance now live in
+      app/services/retrieval_learning_datasets.py while
+      app/services/retrieval_learning.py remains the compatibility facade pending the
+      Milestone 5 final contract closeout.
   measurement:
     metric_name: retrieval_learning_hotspot_line_count
-    current_value: 1470.0
+    current_value: 143.0
     measurement_window: 2026-05-11 local verification
-    notes: Milestone 2 committed locally as a5f090a moved candidate evaluation,
-      threshold packaging, artifact response assembly, reranker artifact creation,
-      and change-impact reporting into
+    notes: Milestone 4 local implementation moved dataset materialization, source
+      normalization, judgment and hard-negative payload assembly, and
+      retrieval-training-run governance into
+      app/services/retrieval_learning_datasets.py while preserving the routed owner
+      families already living in
+      app/services/retrieval_learning_replay_alert_sources.py,
       app/services/retrieval_learning_candidates.py and
       app/services/retrieval_learning_artifacts.py, reducing
-      app/services/retrieval_learning.py to 1470 lines while governing the new
-      owner modules at 412 and 774 lines.
+      app/services/retrieval_learning.py to 143 lines and governing the new dataset
+      owner module at 1353 lines / 23 private helpers.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-12T03:05:00+00:00'
+  updated_at: '2026-05-11T23:59:00+00:00'
 - case_id: IC-1B643BA0AD90
   title: 'Architecture hotspot: app/ui/app.js'
   status: open

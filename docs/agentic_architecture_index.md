@@ -148,7 +148,7 @@ chat history or scanning the whole repository.
 - A new standalone hotspot-reduction plan is now active locally for
   `app/services/audit_bundles.py` and `app/services/retrieval_learning.py` in
   `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`. Its
-  first three implemented slices are committed locally: Milestone 1 moved
+  first four implemented slices are now present in this checkout: Milestone 1 moved
   validation-receipt hashing, verification, row creation, and list or latest
   response assembly into
   `app/services/audit_bundle_validation_receipts.py`, reducing
@@ -162,8 +162,12 @@ chat history or scanning the whole repository.
   `7b26bc4`, moving retrieval-training-run payload and provenance construction into
   `app/services/audit_bundle_training_runs.py`, reducing
   `app/services/audit_bundles.py` from 3,018 lines to 2,203 while keeping the
-  existing facade contract. The next routed step remains the
-  retrieval-learning dataset and governance split.
+  existing facade contract. Milestone 4 now moves dataset materialization,
+  source normalization, payload assembly, and retrieval-training-run
+  governance into `app/services/retrieval_learning_datasets.py`, reducing
+  `app/services/retrieval_learning.py` to a 143-line compatibility facade
+  while governing the new owner module at 1,353 lines / 23 private helpers.
+  The next routed step is Milestone 5 compatibility-facade closeout.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while
