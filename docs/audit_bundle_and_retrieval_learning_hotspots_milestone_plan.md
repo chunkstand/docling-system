@@ -317,6 +317,8 @@ Implementation status on 2026-05-11 local / 2026-05-11 UTC:
 - focused owner tests now live in
   `tests/unit/test_retrieval_learning_candidates.py` and
   `tests/unit/test_retrieval_learning_artifacts.py`
+- the milestone is committed locally as `a5f090a`
+  (`services: complete hotspot milestone 2 retrieval-learning split`)
 - current measured sizes after the split are:
   - `app/services/retrieval_learning.py`: 1,470 lines, 25 private helpers
   - `app/services/retrieval_learning_candidates.py`: 412 lines, 1 private
@@ -522,6 +524,6 @@ still dominate the backlog.
 - [x] Retrieval-learning candidate and artifact split completed
 - [ ] Audit-bundle payload or PROV split completed
 - [ ] Retrieval-learning dataset and governance split completed
-- [ ] Both cases updated with deployed refs and new measurements
+- [x] Both cases updated with deployed refs and new measurements
 - [x] Docs and handoff aligned
-- [ ] Each milestone committed atomically after verification
+- [x] Each milestone committed atomically after verification

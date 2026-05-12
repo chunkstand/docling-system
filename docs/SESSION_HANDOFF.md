@@ -4,8 +4,9 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Most recently documented committed checkpoint: Audit Bundle Validation Receipt
-Milestone 1 committed locally as `e2bc144`; the prior DB Models
+Most recently documented committed checkpoint: Retrieval Learning Candidate And
+Artifact Milestone 2 committed locally as `a5f090a`; the prior Audit Bundle
+Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`, the prior
 Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
 checkpoint remains local, the prior claim-support checkpoint remains local,
@@ -24,8 +25,9 @@ the High Value Technical Paydown Milestone 10 closeout, the Evaluation
 Feedback Model-Domain Milestone closeout committed locally as `b69c4f6`, and
 the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`,
 plus the Audit And Evidence Model-Domain Milestone closeout committed locally
-as `196d3aa`, and the Audit Bundle Validation Receipt Milestone 1 closeout
-committed locally as `e2bc144`.
+as `196d3aa`, the Audit Bundle Validation Receipt Milestone 1 closeout
+committed locally as `e2bc144`, and the Retrieval Learning Candidate And
+Artifact Milestone 2 closeout committed locally as `a5f090a`.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -69,18 +71,18 @@ the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
 under local closeout commit `8340dc0`.
 
 A new standalone hotspot-reduction plan is now the active implementation lane.
-Milestone 0, Milestone 1, and the current local Milestone 2 slice from
+Milestone 0, Milestone 1, and Milestone 2 from
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
-implemented in this checkout: validation-receipt hashing, verification,
+implemented and committed locally in this checkout: validation-receipt hashing, verification,
 persistence, and detail or latest response assembly now live in
 `app/services/audit_bundle_validation_receipts.py`, the new owner module is
 governed under `IC-2112B1ADC5E8` with a 447 line and 2 private-helper budget,
 and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
 helpers to 3,018 lines / 51 private helpers while preserving its public
 compatibility facade. The paired retrieval-learning hotspot under
-`IC-0D58F1624037` is now reduced further in the current local Milestone 2
-slice: candidate evaluation, evaluation response assembly, reranker artifact
-creation, and change-impact reporting now live in
+`IC-0D58F1624037` is now reduced further by Milestone 2 committed locally as
+`a5f090a`: candidate evaluation, evaluation response assembly, reranker
+artifact creation, and change-impact reporting now live in
 `app/services/retrieval_learning_candidates.py` and
 `app/services/retrieval_learning_artifacts.py`, and
 `app/services/retrieval_learning.py` is reduced from 2,482 lines / 46 private
@@ -120,6 +122,8 @@ Results:
 - reduced `app/services/retrieval_learning.py` from 2,482 lines / 46 private
   helpers to 1,470 lines / 25 private helpers while preserving the
   compatibility facade and existing route-test monkeypatch seams
+- committed the milestone locally as `a5f090a`
+  (`services: complete hotspot milestone 2 retrieval-learning split`)
 - added focused owner tests in
   `tests/unit/test_retrieval_learning_candidates.py` and
   `tests/unit/test_retrieval_learning_artifacts.py`

@@ -1001,20 +1001,19 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "13e8b1c"
-    notes: Milestone 4 retrieval-learning replay-alert corpus owner split committed;
-      locally; the compatibility facade remains in app/services/retrieval_learning.py
-      while the narrowed implementation now lives in
-      app/services/retrieval_learning_replay_alert_sources.py. The current local
-      Milestone 2 slice further routes candidate evaluation and reranker-artifact
-      flows into app/services/retrieval_learning_candidates.py and
-      app/services/retrieval_learning_artifacts.py while keeping
-      app/services/retrieval_learning.py as the compatibility facade.
+    deployed_ref: "a5f090a"
+    notes: Milestone 4 retrieval-learning replay-alert corpus owner split remains
+      preserved in app/services/retrieval_learning_replay_alert_sources.py, and
+      Milestone 2 is now committed locally as a5f090a. Candidate evaluation and
+      reranker-artifact flows now live in
+      app/services/retrieval_learning_candidates.py and
+      app/services/retrieval_learning_artifacts.py while
+      app/services/retrieval_learning.py remains the compatibility facade.
   measurement:
     metric_name: retrieval_learning_hotspot_line_count
     current_value: 1470.0
     measurement_window: 2026-05-11 local verification
-    notes: The current local Milestone 2 slice moved candidate evaluation,
+    notes: Milestone 2 committed locally as a5f090a moved candidate evaluation,
       threshold packaging, artifact response assembly, reranker artifact creation,
       and change-impact reporting into
       app/services/retrieval_learning_candidates.py and
@@ -1022,7 +1021,7 @@ cases:
       app/services/retrieval_learning.py to 1470 lines while governing the new
       owner modules at 412 and 774 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-11T23:59:00+00:00'
+  updated_at: '2026-05-12T03:05:00+00:00'
 - case_id: IC-1B643BA0AD90
   title: 'Architecture hotspot: app/ui/app.js'
   status: open
