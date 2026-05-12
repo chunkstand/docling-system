@@ -34,6 +34,11 @@ and compatibility-facade closeout sequence:
   hashing, verification, persistence, and detail or latest response assembly
   now live in `app/services/audit_bundle_validation_receipts.py`, reducing
   `app/services/audit_bundles.py` to 3,018 lines while keeping the public
+  compatibility facade intact. The current local Milestone 2 slice also moves
+  candidate evaluation and reranker-artifact owner flows into
+  `app/services/retrieval_learning_candidates.py` and
+  `app/services/retrieval_learning_artifacts.py`, reducing
+  `app/services/retrieval_learning.py` to 1,470 lines while keeping the public
   compatibility facade intact.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335

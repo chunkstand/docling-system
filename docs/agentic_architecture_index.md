@@ -152,7 +152,12 @@ chat history or scanning the whole repository.
   creation, and list or latest response assembly into
   `app/services/audit_bundle_validation_receipts.py`, reducing
   `app/services/audit_bundles.py` from 3,306 lines to 3,018 while keeping the
-  existing facade contract.
+  existing facade contract. The current local Milestone 2 slice also moves
+  candidate evaluation and reranker-artifact flows into
+  `app/services/retrieval_learning_candidates.py` and
+  `app/services/retrieval_learning_artifacts.py`, reducing
+  `app/services/retrieval_learning.py` from 2,482 lines to 1,470 while keeping
+  the existing facade contract.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while

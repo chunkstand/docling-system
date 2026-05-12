@@ -296,9 +296,17 @@ file_budgets:
       max_private_helpers: 15
     app/services/retrieval_learning.py:
       max_lines: 600
-      ratchet_max_lines: 2482
+      ratchet_max_lines: 1470
       max_private_helpers: 20
-      ratchet_max_private_helpers: 46
+      ratchet_max_private_helpers: 25
+      owner_case_id: IC-0D58F1624037
+    app/services/retrieval_learning_artifacts.py:
+      max_lines: 774
+      max_private_helpers: 7
+      owner_case_id: IC-0D58F1624037
+    app/services/retrieval_learning_candidates.py:
+      max_lines: 412
+      max_private_helpers: 1
       owner_case_id: IC-0D58F1624037
     app/services/retrieval_learning_replay_alert_sources.py:
       max_lines: 578

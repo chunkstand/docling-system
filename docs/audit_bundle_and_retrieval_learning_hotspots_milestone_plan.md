@@ -303,6 +303,29 @@ Acceptance:
 - `app/services/retrieval_learning.py` line or helper count drops measurably
 - remaining issue is explicitly routed to the next retrieval-learning milestone
 
+Implementation status on 2026-05-11 local / 2026-05-11 UTC:
+
+- candidate package, threshold resolution, candidate evaluation row creation,
+  and evaluation summary or detail response assembly now live in
+  `app/services/retrieval_learning_candidates.py`
+- reranker artifact request normalization, change-impact reporting, feature
+  weight candidate derivation, and artifact summary or detail response assembly
+  now live in `app/services/retrieval_learning_artifacts.py`
+- `app/services/retrieval_learning.py` now delegates both owner families
+  through the existing public service entrypoints while preserving the
+  compatibility facade and existing monkeypatch seams used by route tests
+- focused owner tests now live in
+  `tests/unit/test_retrieval_learning_candidates.py` and
+  `tests/unit/test_retrieval_learning_artifacts.py`
+- current measured sizes after the split are:
+  - `app/services/retrieval_learning.py`: 1,470 lines, 25 private helpers
+  - `app/services/retrieval_learning_candidates.py`: 412 lines, 1 private
+    helper
+  - `app/services/retrieval_learning_artifacts.py`: 774 lines, 7 private
+    helpers
+- the remaining routed retrieval-learning hotspot work is now the dataset and
+  governance split from Milestone 4
+
 ### Milestone 3: Audit Bundle Payload And PROV Split
 
 Outcome label: reduced
@@ -496,9 +519,9 @@ still dominate the backlog.
 
 - [x] Baseline lock completed
 - [x] Audit bundle validation-receipt owner split completed
-- [ ] Retrieval-learning candidate and artifact split completed
+- [x] Retrieval-learning candidate and artifact split completed
 - [ ] Audit-bundle payload or PROV split completed
 - [ ] Retrieval-learning dataset and governance split completed
 - [ ] Both cases updated with deployed refs and new measurements
-- [ ] Docs and handoff aligned
+- [x] Docs and handoff aligned
 - [ ] Each milestone committed atomically after verification

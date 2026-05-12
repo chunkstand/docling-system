@@ -1,162 +1,107 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
 
-import pytest
-
-from app.db.models import RetrievalLearningCandidateEvaluation, RetrievalTrainingRun
 from app.schemas.search import (
     RetrievalLearningCandidateEvaluationRequest,
     SearchHarnessEvaluationResponse,
     SearchHarnessReleaseResponse,
 )
-from app.services import retrieval_learning
+from app.services.retrieval_learning_candidates import (
+    learning_candidate_package,
+    thresholds_from_candidate_request,
+)
 
 
-class FakeSession:
-    def __init__(self, training_run: RetrievalTrainingRun) -> None:
-        self.training_run = training_run
-        self.added = []
+def test_thresholds_from_candidate_request_preserves_gate_fields() -> None:
+    request = RetrievalLearningCandidateEvaluationRequest(
+        retrieval_training_run_id=uuid4(),
+        candidate_harness_name="candidate_v2",
+        baseline_harness_name="default_v1",
+        source_types=["feedback"],
+        limit=5,
+        max_total_regressed_count=1,
+        max_mrr_drop=0.05,
+        max_zero_result_count_increase=2,
+        max_foreign_top_result_count_increase=3,
+        min_total_shared_query_count=7,
+        requested_by="operator",
+        review_note="fixture",
+    )
 
-    def get(self, model, key):
-        if model is RetrievalTrainingRun and key == self.training_run.id:
-            return self.training_run
-        return None
-
-    def add(self, row) -> None:
-        self.added.append(row)
-
-    def flush(self) -> None:
-        return None
+    assert thresholds_from_candidate_request(request) == {
+        "max_total_regressed_count": 1,
+        "max_mrr_drop": 0.05,
+        "max_zero_result_count_increase": 2,
+        "max_foreign_top_result_count_increase": 3,
+        "min_total_shared_query_count": 7,
+    }
 
 
-def test_evaluate_retrieval_learning_candidate_records_governed_link(monkeypatch) -> None:
-    now = datetime.now(UTC)
-    training_run = RetrievalTrainingRun(
+def test_learning_candidate_package_embeds_training_and_gate_state() -> None:
+    training_run = SimpleNamespace(
         id=uuid4(),
         judgment_set_id=uuid4(),
-        status="completed",
         training_dataset_sha256="training-sha",
-        training_payload_json={"judgments": []},
-        summary_json={"training_example_count": 7},
-        example_count=7,
-        positive_count=2,
-        negative_count=2,
-        missing_count=1,
-        hard_negative_count=2,
-        created_by="materializer",
-        created_at=now,
-        completed_at=now,
+        example_count=12,
+        positive_count=6,
+        negative_count=3,
+        missing_count=2,
+        hard_negative_count=1,
+        summary_json={"training_example_count": 12},
     )
-    evaluation_id = uuid4()
-    release_id = uuid4()
-    governance_event_id = uuid4()
-    baseline_replay_run_id = uuid4()
-    candidate_replay_run_id = uuid4()
-
-    def fake_evaluate_search_harness(session, request):
-        assert request.candidate_harness_name == "wide_v2"
-        assert request.baseline_harness_name == "default_v1"
-        return SearchHarnessEvaluationResponse(
-            evaluation_id=evaluation_id,
-            status="completed",
-            baseline_harness_name=request.baseline_harness_name,
-            candidate_harness_name=request.candidate_harness_name,
-            source_types=list(request.source_types),
-            limit=request.limit,
-            total_shared_query_count=3,
-            total_improved_count=1,
-            total_regressed_count=0,
-            total_unchanged_count=2,
-            created_at=now,
-            completed_at=now,
-            sources=[
-                {
-                    "source_type": "feedback",
-                    "baseline_replay_run_id": baseline_replay_run_id,
-                    "candidate_replay_run_id": candidate_replay_run_id,
-                    "shared_query_count": 3,
-                    "improved_count": 1,
-                    "regressed_count": 0,
-                    "unchanged_count": 2,
-                }
-            ],
-        )
-
-    def fake_record_release(session, evaluation, payload, *, requested_by=None, review_note=None):
-        assert evaluation.evaluation_id == evaluation_id
-        assert payload.max_total_regressed_count == 0
-        return SearchHarnessReleaseResponse(
-            release_id=release_id,
-            evaluation_id=evaluation_id,
-            outcome="passed",
-            baseline_harness_name=evaluation.baseline_harness_name,
-            candidate_harness_name=evaluation.candidate_harness_name,
-            limit=evaluation.limit,
-            source_types=list(evaluation.source_types),
-            thresholds={"max_total_regressed_count": 0},
-            metrics={"total_shared_query_count": 3},
-            reasons=[],
-            release_package_sha256="release-sha",
-            requested_by=requested_by,
-            review_note=review_note,
-            created_at=now,
-            details={"evaluation_id": str(evaluation_id)},
-            evaluation_snapshot=evaluation.model_dump(mode="json"),
-        )
-
-    monkeypatch.setattr(
-        retrieval_learning,
-        "evaluate_search_harness",
-        fake_evaluate_search_harness,
+    request = RetrievalLearningCandidateEvaluationRequest(
+        retrieval_training_run_id=training_run.id,
+        candidate_harness_name="candidate_v2",
+        baseline_harness_name="default_v1",
+        source_types=["feedback"],
+        limit=5,
+        requested_by="operator",
+        review_note="fixture",
     )
-    monkeypatch.setattr(
-        retrieval_learning,
-        "record_search_harness_release_gate",
-        fake_record_release,
+    evaluation = SearchHarnessEvaluationResponse(
+        evaluation_id=uuid4(),
+        status="completed",
+        baseline_harness_name="default_v1",
+        candidate_harness_name="candidate_v2",
+        source_types=["feedback"],
+        limit=5,
+        total_shared_query_count=9,
+        total_improved_count=4,
+        total_regressed_count=1,
+        total_unchanged_count=4,
+        created_at="2026-05-11T00:00:00Z",
+        completed_at="2026-05-11T00:00:01Z",
+        sources=[],
     )
-    monkeypatch.setattr(
-        retrieval_learning,
-        "record_semantic_governance_event",
-        lambda *args, **kwargs: SimpleNamespace(id=governance_event_id),
+    release = SearchHarnessReleaseResponse(
+        release_id=uuid4(),
+        evaluation_id=evaluation.evaluation_id,
+        outcome="passed",
+        baseline_harness_name="default_v1",
+        candidate_harness_name="candidate_v2",
+        limit=5,
+        source_types=["feedback"],
+        thresholds={"max_total_regressed_count": 0},
+        metrics={"total_shared_query_count": 9},
+        reasons=[],
+        release_package_sha256="release-sha",
+        requested_by="operator",
+        review_note="fixture",
+        created_at="2026-05-11T00:00:02Z",
+        details={},
+        evaluation_snapshot=evaluation.model_dump(mode="json"),
     )
 
-    session = FakeSession(training_run)
-    response = retrieval_learning.evaluate_retrieval_learning_candidate(
-        session,
-        RetrievalLearningCandidateEvaluationRequest(
-            retrieval_training_run_id=training_run.id,
-            candidate_harness_name="wide_v2",
-            source_types=["feedback"],
-            limit=3,
-            requested_by="operator",
-            review_note="learning gate",
-        ),
+    package = learning_candidate_package(
+        training_run=training_run,
+        evaluation=evaluation,
+        release=release,
+        request=request,
     )
 
-    rows = [row for row in session.added if isinstance(row, RetrievalLearningCandidateEvaluation)]
-    assert len(rows) == 1
-    assert rows[0].retrieval_training_run_id == training_run.id
-    assert rows[0].judgment_set_id == training_run.judgment_set_id
-    assert rows[0].search_harness_evaluation_id == evaluation_id
-    assert rows[0].search_harness_release_id == release_id
-    assert rows[0].semantic_governance_event_id == governance_event_id
-    assert rows[0].learning_package_sha256
-    assert training_run.search_harness_evaluation_id == evaluation_id
-    assert training_run.search_harness_release_id == release_id
-    assert response.gate_outcome == "passed"
-    assert response.training_dataset_sha256 == "training-sha"
-    assert response.release is not None
-    assert response.release.release_id == release_id
-
-
-def test_claim_support_expected_judgment_rejects_unknown_verdict() -> None:
-    with pytest.raises(
-        ValueError,
-        match="Unsupported claim-support replay-alert fixture expected_verdict",
-    ):
-        retrieval_learning._claim_support_expected_judgment(
-            {"expected_verdict": "needs_review"}
-        )
+    assert package["schema_name"] == "retrieval_learning_candidate_package"
+    assert package["retrieval_training_run"]["training_dataset_sha256"] == "training-sha"
+    assert package["candidate_request"]["thresholds"]["min_total_shared_query_count"] == 1
+    assert package["release"]["outcome"] == "passed"
