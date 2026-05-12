@@ -1015,7 +1015,9 @@ cases:
       app/services/retrieval_learning_candidates.py and
       app/services/retrieval_learning_artifacts.py, and dataset materialization,
       source normalization, payload assembly, and training-run governance now live in
-      app/services/retrieval_learning_datasets.py while
+      the routed owner family app/services/retrieval_learning_datasets.py,
+      app/services/retrieval_learning_dataset_rows.py, and
+      app/services/retrieval_learning_dataset_sources.py while
       app/services/retrieval_learning.py remains the compatibility facade pending the
       Milestone 5 final contract closeout.
   measurement:
@@ -1025,13 +1027,15 @@ cases:
     notes: Milestone 4 local implementation moved dataset materialization, source
       normalization, judgment and hard-negative payload assembly, and
       retrieval-training-run governance into
-      app/services/retrieval_learning_datasets.py while preserving the routed owner
+      app/services/retrieval_learning_datasets.py,
+      app/services/retrieval_learning_dataset_rows.py, and
+      app/services/retrieval_learning_dataset_sources.py while preserving the routed owner
       families already living in
       app/services/retrieval_learning_replay_alert_sources.py,
       app/services/retrieval_learning_candidates.py and
       app/services/retrieval_learning_artifacts.py, reducing
-      app/services/retrieval_learning.py to 143 lines and governing the new dataset
-      owner module at 1353 lines / 23 private helpers.
+      app/services/retrieval_learning.py to 143 lines and governing the extracted
+      dataset owner family at 326, 547, and 531 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
   updated_at: '2026-05-11T23:59:00+00:00'
 - case_id: IC-1B643BA0AD90

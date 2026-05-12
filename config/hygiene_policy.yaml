@@ -315,8 +315,16 @@ file_budgets:
       max_private_helpers: 10
       owner_case_id: IC-0D58F1624037
     app/services/retrieval_learning_datasets.py:
-      max_lines: 1353
-      max_private_helpers: 23
+      max_lines: 326
+      max_private_helpers: 3
+      owner_case_id: IC-0D58F1624037
+    app/services/retrieval_learning_dataset_rows.py:
+      max_lines: 547
+      max_private_helpers: 4
+      owner_case_id: IC-0D58F1624037
+    app/services/retrieval_learning_dataset_sources.py:
+      max_lines: 531
+      max_private_helpers: 0
       owner_case_id: IC-0D58F1624037
     app/services/search.py:
       max_lines: 2201

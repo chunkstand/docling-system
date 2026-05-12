@@ -98,10 +98,15 @@ artifact creation, and change-impact reporting now live in
 helpers to 1,470 lines / 25 private helpers while preserving its compatibility
 facade. Milestone 4 is now implemented locally in this checkout: dataset
 materialization, source normalization, payload assembly, and retrieval-training-run
-governance now live in `app/services/retrieval_learning_datasets.py`, and
+governance now live in the routed owner family
+`app/services/retrieval_learning_datasets.py`,
+`app/services/retrieval_learning_dataset_rows.py`, and
+`app/services/retrieval_learning_dataset_sources.py`, and
 `app/services/retrieval_learning.py` is reduced again to 143 lines / 0
 private helpers while preserving its compatibility facade and existing route
-test seams. The next milestone in the active plan is now Compatibility Facade
+test seams. A follow-up hardening pass inside the same milestone closes the
+initial mega-module gap by reducing the dataset owner family to 326, 547, and
+531 lines. The next milestone in the active plan is now Compatibility Facade
 Closeout.
 
 The live alignment snapshot after the Milestone 4 local verification recheck
@@ -130,9 +135,12 @@ the public service surface.
 
 Results:
 
-- added `app/services/retrieval_learning_datasets.py` for dataset source
-  normalization, judgment or hard-negative materialization, payload assembly,
-  and retrieval-training-run governance recording
+- added `app/services/retrieval_learning_datasets.py` for dataset
+  orchestration, persistence, and retrieval-training-run governance recording
+- added `app/services/retrieval_learning_dataset_rows.py` for judgment or
+  hard-negative row construction, payload shaping, and source-hash pairing
+- added `app/services/retrieval_learning_dataset_sources.py` for feedback,
+  replay, and technical-report claim-feedback source collection
 - reduced `app/services/retrieval_learning.py` from 1,470 lines / 25 private
   helpers to 143 lines / 0 private helpers while preserving the compatibility
   facade and existing monkeypatch seams used by route and CLI tests

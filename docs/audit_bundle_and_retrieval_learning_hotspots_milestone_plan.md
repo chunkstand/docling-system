@@ -395,9 +395,12 @@ Acceptance:
 
 Implementation status on 2026-05-11 local / 2026-05-12 UTC:
 
-- dataset materialization, source normalization, judgment or hard-negative
-  payload assembly, and retrieval-training-run governance now live in
-  `app/services/retrieval_learning_datasets.py`
+- dataset orchestration, persistence, and retrieval-training-run governance now
+  live in `app/services/retrieval_learning_datasets.py`
+- judgment or hard-negative payload construction, hashing, and row-shaping now
+  live in `app/services/retrieval_learning_dataset_rows.py`
+- feedback, replay, and technical-report claim-feedback source collection now
+  live in `app/services/retrieval_learning_dataset_sources.py`
 - `app/services/retrieval_learning.py` is now a 143-line / 0 private-helper
   compatibility facade that delegates dataset materialization, candidate
   evaluation, and reranker-artifact flows through explicit owner modules
@@ -405,7 +408,11 @@ Implementation status on 2026-05-11 local / 2026-05-12 UTC:
   `tests/unit/test_retrieval_learning_datasets.py`
 - current measured sizes after the split are:
   - `app/services/retrieval_learning.py`: 143 lines, 0 private helpers
-  - `app/services/retrieval_learning_datasets.py`: 1,353 lines, 23 private
+  - `app/services/retrieval_learning_datasets.py`: 326 lines, 3 private
+    helpers
+  - `app/services/retrieval_learning_dataset_rows.py`: 547 lines, 4 private
+    helpers
+  - `app/services/retrieval_learning_dataset_sources.py`: 531 lines, 0 private
     helpers
   - `app/services/retrieval_learning_candidates.py`: 412 lines, 1 private
     helper
@@ -414,8 +421,10 @@ Implementation status on 2026-05-11 local / 2026-05-12 UTC:
   - `app/services/retrieval_learning_replay_alert_sources.py`: 578 lines, 10
     private helpers
 - hygiene routing now governs the narrowed facade at its exact verified size
-  and adds an explicit budget for the extracted dataset owner module under the
+  and adds explicit budgets for the extracted dataset owner family under the
   same owner case `IC-0D58F1624037`
+- the initial Milestone 4 mega-module gap is now closed: no extracted
+  retrieval-learning dataset owner exceeds the default 600-line review budget
 - the remaining routed retrieval-learning work is now the Milestone 5
   compatibility-facade closeout
 

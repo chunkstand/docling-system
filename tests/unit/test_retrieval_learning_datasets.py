@@ -54,7 +54,7 @@ def test_materialize_retrieval_learning_dataset_records_release_scoped_governanc
     monkeypatch.setattr(retrieval_learning_datasets, "utcnow", lambda: now)
     monkeypatch.setattr(
         retrieval_learning_datasets,
-        "_collect_feedback_sources",
+        "collect_feedback_sources",
         lambda *_args, **_kwargs: ([], []),
     )
 
@@ -99,7 +99,7 @@ def test_materialize_retrieval_learning_dataset_uses_judgment_set_scope_without_
     monkeypatch.setattr(retrieval_learning_datasets, "utcnow", lambda: now)
     monkeypatch.setattr(
         retrieval_learning_datasets,
-        "_collect_feedback_sources",
+        "collect_feedback_sources",
         lambda *_args, **_kwargs: ([], []),
     )
 

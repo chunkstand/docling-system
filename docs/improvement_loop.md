@@ -47,9 +47,13 @@ and compatibility-facade closeout sequence:
   `app/services/audit_bundles.py` to 2,203 lines while keeping the public
   compatibility facade intact. Milestone 4 now moves dataset materialization,
   source normalization, payload assembly, and retrieval-training-run
-  governance into `app/services/retrieval_learning_datasets.py`, reducing
+  governance into the owner family
+  `app/services/retrieval_learning_datasets.py`,
+  `app/services/retrieval_learning_dataset_rows.py`, and
+  `app/services/retrieval_learning_dataset_sources.py`, reducing
   `app/services/retrieval_learning.py` to a 143-line pure compatibility
-  facade. The next routed step is Milestone 5 compatibility-facade closeout.
+  facade and closing the initial mega-module gap inside the milestone. The
+  next routed step is Milestone 5 compatibility-facade closeout.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
   lines to 107 and moved the shared runtime plus page-family logic into

@@ -164,10 +164,13 @@ chat history or scanning the whole repository.
   `app/services/audit_bundles.py` from 3,018 lines to 2,203 while keeping the
   existing facade contract. Milestone 4 now moves dataset materialization,
   source normalization, payload assembly, and retrieval-training-run
-  governance into `app/services/retrieval_learning_datasets.py`, reducing
+  governance into the owner family
+  `app/services/retrieval_learning_datasets.py`,
+  `app/services/retrieval_learning_dataset_rows.py`, and
+  `app/services/retrieval_learning_dataset_sources.py`, reducing
   `app/services/retrieval_learning.py` to a 143-line compatibility facade
-  while governing the new owner module at 1,353 lines / 23 private helpers.
-  The next routed step is Milestone 5 compatibility-facade closeout.
+  while governing the new owner modules at 326, 547, and 531 lines. The next
+  routed step is Milestone 5 compatibility-facade closeout.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked
   result utility types now live in `app/services/search_ranking.py` while
