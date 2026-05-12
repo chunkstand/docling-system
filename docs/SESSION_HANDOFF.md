@@ -4,8 +4,9 @@ Date: 2026-05-11 local / 2026-05-11 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Most recently documented committed checkpoint: Retrieval Learning Candidate And
-Artifact Milestone 2 committed locally as `a5f090a`; the prior Audit Bundle
+Most recently documented committed checkpoint: Audit Bundle Payload And PROV
+Milestone 3 committed locally as `7b26bc4`; the prior Retrieval Learning Candidate And
+Artifact Milestone 2 checkpoint remains `a5f090a`, the prior Audit Bundle
 Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`, the prior
 Milestone 1 checkpoint remains `776fa73`, the prior semantic-memory
@@ -27,7 +28,8 @@ the Agent Task Model-Domain Milestone closeout committed locally as `e59f9bf`,
 plus the Audit And Evidence Model-Domain Milestone closeout committed locally
 as `196d3aa`, the Audit Bundle Validation Receipt Milestone 1 closeout
 committed locally as `e2bc144`, and the Retrieval Learning Candidate And
-Artifact Milestone 2 closeout committed locally as `a5f090a`.
+Artifact Milestone 2 closeout committed locally as `a5f090a`, and the Audit
+Bundle Payload And PROV Milestone 3 closeout committed locally as `7b26bc4`.
 `origin/main` is `33acc23` (`docs: plan residual weakness resolution
 milestones`).
 
@@ -71,7 +73,7 @@ the improvement-case registry now records `IC-F2A8110185EB` as `deployed`
 under local closeout commit `8340dc0`.
 
 A new standalone hotspot-reduction plan is now the active implementation lane.
-Milestone 0, Milestone 1, Milestone 2, and the current local Milestone 3 slice from
+Milestone 0, Milestone 1, Milestone 2, and Milestone 3 from
 `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` are
 implemented and committed locally in this checkout: validation-receipt hashing, verification,
 persistence, and detail or latest response assembly now live in
@@ -79,7 +81,7 @@ persistence, and detail or latest response assembly now live in
 governed under `IC-2112B1ADC5E8` with a 447 line and 2 private-helper budget,
 and `app/services/audit_bundles.py` is reduced from 3,306 lines / 58 private
 helpers to 3,018 lines / 51 private helpers while preserving its public
-compatibility facade. The current local Milestone 3 slice further moves
+compatibility facade. Milestone 3 committed locally as `7b26bc4` further moves
 retrieval-training-run payload serialization, semantic-governance loading,
 provenance graph construction, and bundle materialization into
 `app/services/audit_bundle_training_runs.py`, and
@@ -126,6 +128,8 @@ Results:
 - reduced `app/services/audit_bundles.py` from 3,018 lines / 51 private
   helpers to 2,203 lines / 41 private helpers while preserving the
   compatibility facade and existing release-bundle entrypoints
+- committed the milestone locally as `7b26bc4`
+  (`services: complete hotspot milestone 3 audit-bundle training split`)
 - added focused owner tests in
   `tests/unit/test_audit_bundle_training_runs.py`
 - updated `config/hygiene_policy.yaml`,

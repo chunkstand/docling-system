@@ -359,6 +359,8 @@ Implementation status on 2026-05-11 local / 2026-05-12 UTC:
   while preserving the public service entrypoints
 - focused owner tests now live in
   `tests/unit/test_audit_bundle_training_runs.py`
+- the milestone is committed locally as `7b26bc4`
+  (`services: complete hotspot milestone 3 audit-bundle training split`)
 - current measured sizes after the split are:
   - `app/services/audit_bundles.py`: 2,203 lines, 41 private helpers
   - `app/services/audit_bundle_training_runs.py`: 917 lines, 2 private helpers
@@ -541,6 +543,6 @@ still dominate the backlog.
 - [x] Retrieval-learning candidate and artifact split completed
 - [x] Audit-bundle payload or PROV split completed
 - [ ] Retrieval-learning dataset and governance split completed
-- [ ] Both cases updated with deployed refs and new measurements
-- [ ] Docs and handoff aligned
-- [ ] Each milestone committed atomically after verification
+- [x] Both cases updated with deployed refs and new measurements
+- [x] Docs and handoff aligned
+- [x] Each milestone committed atomically after verification

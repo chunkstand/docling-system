@@ -956,28 +956,27 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "e2bc144"
-    notes: Milestone 1 validation-receipt owner split committed; receipt hashing,
-      verification, row creation, and latest or list retrieval now live in
-      app/services/audit_bundle_validation_receipts.py while
-      app/services/audit_bundles.py remains the compatibility facade. The
-      current local Milestone 3 slice further moves retrieval-training-run
-      payload assembly, provenance graph construction, and bundle
-      materialization into app/services/audit_bundle_training_runs.py while the
+    deployed_ref: "7b26bc4"
+    notes: Milestone 1 validation-receipt owner split remains preserved in
+      app/services/audit_bundle_validation_receipts.py, and Milestone 3 is now
+      committed locally as 7b26bc4. Retrieval-training-run payload assembly,
+      provenance graph construction, and bundle materialization now live in
+      app/services/audit_bundle_training_runs.py while
+      app/services/audit_bundles.py remains the compatibility facade and the
       next routed reduction inside audit_bundles is the search-harness release
       payload and provenance family.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
     current_value: 2203.0
     measurement_window: 2026-05-12 local verification
-    notes: The current local Milestone 3 slice moved retrieval-training-run
+    notes: Milestone 3 committed locally as 7b26bc4 moved retrieval-training-run
       payload serialization, semantic-governance loading, provenance graph
       construction, and bundle row creation into
       app/services/audit_bundle_training_runs.py, reducing
       app/services/audit_bundles.py to 2203 lines while governing the new owner
       module at 917 lines.
   created_at: '2026-05-10T05:45:45.585973+00:00'
-  updated_at: '2026-05-12T03:30:00+00:00'
+  updated_at: '2026-05-12T04:25:00+00:00'
 - case_id: IC-0D58F1624037
   title: 'Architecture hotspot: app/services/retrieval_learning.py'
   status: open

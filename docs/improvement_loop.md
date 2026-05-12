@@ -39,8 +39,8 @@ and compatibility-facade closeout sequence:
   `app/services/retrieval_learning_candidates.py` and
   `app/services/retrieval_learning_artifacts.py`, reducing
   `app/services/retrieval_learning.py` to 1,470 lines while keeping the public
-  compatibility facade intact. The current local Milestone 3 slice also moves
-  retrieval-training-run payload and provenance construction into
+  compatibility facade intact. Milestone 3 is now committed locally as
+  `7b26bc4`, moving retrieval-training-run payload and provenance construction into
   `app/services/audit_bundle_training_runs.py`, reducing
   `app/services/audit_bundles.py` to 2,203 lines while keeping the public
   compatibility facade intact.
