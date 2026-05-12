@@ -176,9 +176,11 @@ chat history or scanning the whole repository.
   `app/services/audit_bundle_release_payload_validation.py`,
   `app/services/audit_bundle_release_payload_prov.py`, and
   `app/services/audit_bundle_release_payloads.py`, reducing
-  `app/services/audit_bundles.py` to a 632-line compatibility facade with a
-  20 private-helper ratchet and closing both owner-bootstrap cases as
-  `deployed`. The next routed owner case is now
+  `app/services/audit_bundles.py` to a 595-line compatibility facade with a
+  20 private-helper ratchet, closing both owner-bootstrap cases as
+  `deployed`, and then adding exact facade-shape gates after the first
+  Milestone 5 closeout exposed residual budget and evidence drift. The next
+  routed owner case is now
   `IC-050E60059A34` / `app/services/evidence.py`.
 - Hotspot Owner Resolution Milestone 5 is now complete locally: ranking
   helpers, reranking, hybrid-result merging, result rendering, and ranked

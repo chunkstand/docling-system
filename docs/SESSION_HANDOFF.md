@@ -93,11 +93,15 @@ Results:
 - added `app/services/audit_bundle_release_payloads.py` for release payload
   orchestration
 - reduced `app/services/audit_bundles.py` from 2,203 lines / 41 private
-  helpers to 632 lines / 20 private helpers while preserving the public
+  helpers to 595 lines / 20 private helpers while preserving the public
   audit-bundle entrypoints
 - kept `app/services/retrieval_learning.py` at 143 lines / 0 private helpers
-  and added focused facade-delegation tests for dataset materialization,
-  candidate evaluation, and reranker artifact creation
+  and added both focused facade-delegation tests plus exact facade-shape gates
+  for the public function surface and helper budget
+- closed the follow-up drift the first Milestone 5 closeout created:
+  `app/services/audit_bundles.py` is now below the default 600-line facade
+  budget, improvement-case deployed refs now point at `d85cd90`, and the
+  facade contract tests now prevent silent surface regrowth
 - updated `config/hygiene_policy.yaml`,
   `config/improvement_cases.yaml`,
   `docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md`,

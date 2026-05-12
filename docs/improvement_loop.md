@@ -58,8 +58,10 @@ and compatibility-facade closeout sequence:
   `app/services/audit_bundle_release_payload_validation.py`,
   `app/services/audit_bundle_release_payload_prov.py`, and
   `app/services/audit_bundle_release_payloads.py`, reducing
-  `app/services/audit_bundles.py` to a 632-line compatibility facade and
-  marking both owner-bootstrap cases as `deployed`.
+  `app/services/audit_bundles.py` to a 595-line compatibility facade,
+  marking both owner-bootstrap cases as `deployed`, and then closing the
+  residual Milestone 5 drift by pinning the real deployed ref plus exact
+  facade-shape gates for both compatibility surfaces.
 - `app/ui/app.js` remains governed by explicit owner-bootstrap case
   `IC-1B643BA0AD90`. Milestone 6 reduced the shipped bootstrap from 4,335
   lines to 107 and moved the shared runtime plus page-family logic into

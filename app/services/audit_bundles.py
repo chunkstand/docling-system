@@ -12,11 +12,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 import app.services.audit_bundle_release_payload_prov as _release_payload_prov
-import app.services.audit_bundle_release_payload_serialization as _release_serialization
-import app.services.audit_bundle_release_payload_validation as _release_validation
+import app.services.audit_bundle_release_payload_serialization as _release_ser
+import app.services.audit_bundle_release_payload_validation as _release_val
 import app.services.audit_bundle_release_payloads as _release_payloads
-import app.services.audit_bundle_training_runs as _audit_bundle_training_runs
-import app.services.audit_bundle_validation_receipts as _audit_bundle_validation_receipts
+import app.services.audit_bundle_training_runs as _training_runs
+import app.services.audit_bundle_validation_receipts as _validation_receipts
 from app.api.errors import api_error
 from app.core.config import get_settings
 from app.core.hashes import file_sha256 as _file_sha256
@@ -32,55 +32,36 @@ from app.schemas.search import (
     RetrievalTrainingRunAuditBundleRequest,
     SearchHarnessReleaseAuditBundleRequest,
 )
-from app.services.search_release_shared import (
-    search_harness_release_not_found_error as _release_not_found,
-)
+from app.services import search_release_shared as _release_shared
 from app.services.storage import StorageService
 
-SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND = (
-    _release_serialization.SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND
-)
-SEARCH_HARNESS_RELEASE_SOURCE_TABLE = (
-    _release_serialization.SEARCH_HARNESS_RELEASE_SOURCE_TABLE
-)
-RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND = (
-    _audit_bundle_training_runs.RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND
-)
-RETRIEVAL_TRAINING_RUN_SOURCE_TABLE = (
-    _audit_bundle_training_runs.RETRIEVAL_TRAINING_RUN_SOURCE_TABLE
-)
+SEARCH_RELEASE_AUDIT_BUNDLE_KIND = _release_ser.SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND
+SEARCH_RELEASE_SOURCE_TABLE = _release_ser.SEARCH_HARNESS_RELEASE_SOURCE_TABLE
+TRAINING_RUN_AUDIT_BUNDLE_KIND = _training_runs.RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND
+TRAINING_RUN_SOURCE_TABLE = _training_runs.RETRIEVAL_TRAINING_RUN_SOURCE_TABLE
+SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND = SEARCH_RELEASE_AUDIT_BUNDLE_KIND
+SEARCH_HARNESS_RELEASE_SOURCE_TABLE = SEARCH_RELEASE_SOURCE_TABLE
 SIGNATURE_ALGORITHM = "hmac-sha256"
 AUDIT_BUNDLE_VALIDATION_PROFILE = "audit_bundle_validation_v1"
-RETRIEVAL_TRAINING_RUN_AUDIT_SCHEMA_VERSION = (
-    _audit_bundle_training_runs.RETRIEVAL_TRAINING_RUN_AUDIT_SCHEMA_VERSION
-)
+TRAINING_RUN_AUDIT_SCHEMA_VERSION = _training_runs.RETRIEVAL_TRAINING_RUN_AUDIT_SCHEMA_VERSION
 
-_release_payload = _release_serialization.release_payload
-_evaluation_payload = _release_serialization.evaluation_payload
-_source_payload = _release_serialization.source_payload
-_replay_payload = _release_serialization.replay_payload
-_retrieval_learning_candidate_payload = (
-    _release_serialization.retrieval_learning_candidate_payload
-)
-_retrieval_reranker_artifact_payload = (
-    _release_serialization.retrieval_reranker_artifact_payload
-)
-_audit_bundle_reference_payload = _release_serialization.audit_bundle_reference_payload
-_validation_receipt_reference_payload = (
-    _release_serialization.validation_receipt_reference_payload
-)
-_semantic_governance_event_payload = (
-    _release_serialization.semantic_governance_event_payload
-)
-_validation_error = _release_validation.validation_error
-_append_missing_key_errors = _release_validation.append_missing_key_errors
-_append_required_list_error = _release_validation.append_required_list_error
-_validate_bundle_payload_schema = _release_validation.validate_bundle_payload_schema
-_validate_bundle_source_integrity = _release_validation.validate_bundle_source_integrity
-_semantic_governance_chain_checks = _release_validation.semantic_governance_chain_checks
-_validate_release_semantic_governance_policy = (
-    _release_validation.validate_release_semantic_governance_policy
-)
+_release_payload = _release_ser.release_payload
+_evaluation_payload = _release_ser.evaluation_payload
+_source_payload = _release_ser.source_payload
+_replay_payload = _release_ser.replay_payload
+_retrieval_learning_candidate_payload = _release_ser.retrieval_learning_candidate_payload
+_retrieval_reranker_artifact_payload = _release_ser.retrieval_reranker_artifact_payload
+_audit_bundle_reference_payload = _release_ser.audit_bundle_reference_payload
+_validation_receipt_reference_payload = _release_ser.validation_receipt_reference_payload
+_semantic_governance_event_payload = _release_ser.semantic_governance_event_payload
+_validation_error = _release_val.validation_error
+_append_missing_key_errors = _release_val.append_missing_key_errors
+_append_required_list_error = _release_val.append_required_list_error
+_validate_bundle_payload_schema = _release_val.validate_bundle_payload_schema
+_validate_bundle_source_integrity = _release_val.validate_bundle_source_integrity
+_semantic_governance_chain_checks = _release_val.semantic_governance_chain_checks
+_validate_release_policy = _release_val.validate_release_semantic_governance_policy
+_validate_release_semantic_governance_policy = _validate_release_policy
 _prov_jsonld_node = _release_payload_prov.prov_jsonld_node
 _prov_edge_id = _release_payload_prov.prov_edge_id
 _prov_jsonld_from_graph = _release_payload_prov.prov_jsonld_from_graph
@@ -101,10 +82,7 @@ def _audit_bundle_not_found(bundle_id: UUID) -> HTTPException:
     )
 
 
-def _audit_bundle_validation_receipt_not_found(
-    bundle_id: UUID,
-    receipt_id: UUID | None = None,
-) -> HTTPException:
+def _receipt_not_found(bundle_id: UUID, receipt_id: UUID | None = None) -> HTTPException:
     context = {"bundle_id": str(bundle_id)}
     if receipt_id is not None:
         context["receipt_id"] = str(receipt_id)
@@ -157,10 +135,7 @@ def _signature(payload_sha256: str, signing_key: str) -> str:
 
 
 def _validate_prov_graph(bundle: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, str]]]:
-    return _release_payload_prov.validate_prov_graph(
-        bundle,
-        validation_error=_validation_error,
-    )
+    return _release_payload_prov.validate_prov_graph(bundle, validation_error=_validation_error)
 
 
 def _bundle_without_bundle_sha256(bundle: dict[str, Any]) -> dict[str, Any]:
@@ -272,16 +247,9 @@ def _verify_bundle(
     return checks
 
 
-def _to_response(
-    row: AuditBundleExport,
-    *,
-    storage_service: StorageService,
-) -> AuditBundleExportResponse:
+def _response(row: AuditBundleExport, *, storage_service: StorageService):
     path = storage_service.resolve_existing_path(row.storage_path)
-    if path is not None:
-        bundle = json.loads(path.read_text())
-    else:
-        bundle = row.bundle_payload_json or {}
+    bundle = json.loads(path.read_text()) if path is not None else row.bundle_payload_json or {}
     integrity = _verify_bundle(row, bundle, storage_service)
     return AuditBundleExportResponse(
         **_to_summary(row).model_dump(),
@@ -290,9 +258,8 @@ def _to_response(
     )
 
 
-def _training_run_audit_bundle_runtime(
-) -> _audit_bundle_training_runs.TrainingRunAuditBundleRuntime:
-    return _audit_bundle_training_runs.TrainingRunAuditBundleRuntime(
+def _training_run_runtime() -> _training_runs.TrainingRunAuditBundleRuntime:
+    return _training_runs.TrainingRunAuditBundleRuntime(
         canonical_json_bytes=_canonical_json_bytes,
         payload_sha256=_payload_sha256,
         sign_bundle=_signed_bundle,
@@ -300,9 +267,8 @@ def _training_run_audit_bundle_runtime(
     )
 
 
-def _validation_receipt_runtime(
-) -> _audit_bundle_validation_receipts.ValidationReceiptRuntime:
-    return _audit_bundle_validation_receipts.ValidationReceiptRuntime(
+def _validation_receipt_runtime() -> _validation_receipts.ValidationReceiptRuntime:
+    return _validation_receipts.ValidationReceiptRuntime(
         verify_bundle=_verify_bundle,
         validate_bundle_payload_schema=lambda row, bundle: _validate_bundle_payload_schema(
             row=row,
@@ -313,14 +279,14 @@ def _validation_receipt_runtime(
             bundle=bundle,
         ),
         validate_prov_graph=_validate_prov_graph,
-        validate_release_semantic_governance_policy=_validate_release_semantic_governance_policy,
+        validate_release_semantic_governance_policy=_validate_release_policy,
         validation_error=_validation_error,
         signature=_signature,
         load_signing_key=_signing_key,
         canonical_json_bytes=_canonical_json_bytes,
         validation_profile=AUDIT_BUNDLE_VALIDATION_PROFILE,
         signature_algorithm=SIGNATURE_ALGORITHM,
-        search_harness_release_bundle_kind=SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
+        search_harness_release_bundle_kind=SEARCH_RELEASE_AUDIT_BUNDLE_KIND,
     )
 
 
@@ -333,7 +299,7 @@ def _ensure_audit_bundle_validation_receipts(
     signing_key: str,
     signing_key_id: str,
 ) -> None:
-    _audit_bundle_validation_receipts.ensure_audit_bundle_validation_receipts(
+    _validation_receipts.ensure_audit_bundle_validation_receipts(
         session,
         runtime=_validation_receipt_runtime(),
         audit_bundles=audit_bundles,
@@ -353,14 +319,14 @@ def _create_retrieval_training_run_audit_bundle_row(
     signing_key: str,
     signing_key_id: str,
 ) -> AuditBundleExport:
-    return _audit_bundle_training_runs.create_retrieval_training_run_audit_bundle_row(
+    return _training_runs.create_retrieval_training_run_audit_bundle_row(
         session,
         training_run=training_run,
         created_by=created_by,
         storage_service=storage_service,
         signing_key=signing_key,
         signing_key_id=signing_key_id,
-        runtime=_training_run_audit_bundle_runtime(),
+        runtime=_training_run_runtime(),
     )
 
 
@@ -373,14 +339,14 @@ def _ensure_retrieval_training_run_audit_bundles_for_release(
     signing_key: str,
     signing_key_id: str,
 ) -> list[AuditBundleExport]:
-    return _audit_bundle_training_runs.ensure_retrieval_training_run_audit_bundles_for_release(
+    return _training_runs.ensure_retrieval_training_run_audit_bundles_for_release(
         session,
         release=release,
         created_by=created_by,
         storage_service=storage_service,
         signing_key=signing_key,
         signing_key_id=signing_key_id,
-        runtime=_training_run_audit_bundle_runtime(),
+        runtime=_training_run_runtime(),
     )
 
 
@@ -393,7 +359,7 @@ def create_search_harness_release_audit_bundle(
 ) -> AuditBundleExportResponse:
     release = session.get(SearchHarnessRelease, release_id)
     if release is None:
-        raise _release_not_found(release_id)
+        raise _release_shared.search_harness_release_not_found_error(release_id)
     signing_key, signing_key_id = _signing_key()
     linked_training_bundles = _ensure_retrieval_training_run_audit_bundles_for_release(
         session,
@@ -422,15 +388,15 @@ def create_search_harness_release_audit_bundle(
     )
     bundle = _signed_bundle(
         bundle_id=bundle_id,
-        bundle_kind=SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
-        source_table=SEARCH_HARNESS_RELEASE_SOURCE_TABLE,
+        bundle_kind=SEARCH_RELEASE_AUDIT_BUNDLE_KIND,
+        source_table=SEARCH_RELEASE_SOURCE_TABLE,
         source_id=release.id,
         payload=audit_payload,
         signing_key=signing_key,
         signing_key_id=signing_key_id,
     )
     bundle_path = storage_service.get_audit_bundle_json_path(
-        SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
+        SEARCH_RELEASE_AUDIT_BUNDLE_KIND,
         bundle_id,
     )
     bundle_path.write_bytes(_canonical_json_bytes(bundle))
@@ -444,8 +410,8 @@ def create_search_harness_release_audit_bundle(
     }
     row = AuditBundleExport(
         id=bundle_id,
-        bundle_kind=SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
-        source_table=SEARCH_HARNESS_RELEASE_SOURCE_TABLE,
+        bundle_kind=SEARCH_RELEASE_AUDIT_BUNDLE_KIND,
+        source_table=SEARCH_RELEASE_SOURCE_TABLE,
         source_id=release.id,
         search_harness_release_id=release.id,
         storage_path=str(bundle_path),
@@ -470,7 +436,7 @@ def create_search_harness_release_audit_bundle(
         signing_key=signing_key,
         signing_key_id=signing_key_id,
     )
-    return _to_response(row, storage_service=storage_service)
+    return _response(row, storage_service=storage_service)
 
 
 def create_retrieval_training_run_audit_bundle(
@@ -492,7 +458,7 @@ def create_retrieval_training_run_audit_bundle(
         signing_key=signing_key,
         signing_key_id=signing_key_id,
     )
-    return _to_response(row, storage_service=storage_service)
+    return _response(row, storage_service=storage_service)
 
 
 def get_audit_bundle_export(
@@ -504,7 +470,7 @@ def get_audit_bundle_export(
     row = session.get(AuditBundleExport, bundle_id)
     if row is None:
         raise _audit_bundle_not_found(bundle_id)
-    return _to_response(row, storage_service=storage_service)
+    return _response(row, storage_service=storage_service)
 
 
 def _get_audit_bundle_row(session: Session, bundle_id: UUID) -> AuditBundleExport:
@@ -523,7 +489,7 @@ def create_audit_bundle_validation_receipt(
 ) -> AuditBundleValidationReceiptResponse:
     audit_bundle = _get_audit_bundle_row(session, bundle_id)
     signing_key, signing_key_id = _signing_key()
-    row = _audit_bundle_validation_receipts.create_audit_bundle_validation_receipt_row(
+    row = _validation_receipts.create_audit_bundle_validation_receipt_row(
         session,
         runtime=_validation_receipt_runtime(),
         audit_bundle=audit_bundle,
@@ -532,7 +498,7 @@ def create_audit_bundle_validation_receipt(
         signing_key=signing_key,
         signing_key_id=signing_key_id,
     )
-    return _audit_bundle_validation_receipts.to_validation_receipt_response(
+    return _validation_receipts.to_validation_receipt_response(
         row,
         runtime=_validation_receipt_runtime(),
         storage_service=storage_service,
@@ -544,10 +510,7 @@ def list_audit_bundle_validation_receipts(
     bundle_id: UUID,
 ) -> list[AuditBundleValidationReceiptSummaryResponse]:
     _get_audit_bundle_row(session, bundle_id)
-    return _audit_bundle_validation_receipts.list_audit_bundle_validation_receipts(
-        session,
-        bundle_id,
-    )
+    return _validation_receipts.list_audit_bundle_validation_receipts(session, bundle_id)
 
 
 def get_audit_bundle_validation_receipt(
@@ -558,13 +521,13 @@ def get_audit_bundle_validation_receipt(
     storage_service: StorageService,
 ) -> AuditBundleValidationReceiptResponse:
     _get_audit_bundle_row(session, bundle_id)
-    return _audit_bundle_validation_receipts.get_audit_bundle_validation_receipt(
+    return _validation_receipts.get_audit_bundle_validation_receipt(
         session,
         bundle_id,
         receipt_id,
         runtime=_validation_receipt_runtime(),
         storage_service=storage_service,
-        not_found_error=_audit_bundle_validation_receipt_not_found,
+        not_found_error=_receipt_not_found,
     )
 
 
@@ -575,12 +538,12 @@ def get_latest_audit_bundle_validation_receipt(
     storage_service: StorageService,
 ) -> AuditBundleValidationReceiptResponse:
     _get_audit_bundle_row(session, bundle_id)
-    return _audit_bundle_validation_receipts.get_latest_audit_bundle_validation_receipt(
+    return _validation_receipts.get_latest_audit_bundle_validation_receipt(
         session,
         bundle_id,
         runtime=_validation_receipt_runtime(),
         storage_service=storage_service,
-        not_found_error=_audit_bundle_validation_receipt_not_found,
+        not_found_error=_receipt_not_found,
     )
 
 
@@ -594,7 +557,7 @@ def get_latest_retrieval_training_run_audit_bundle(
         select(AuditBundleExport)
         .where(
             AuditBundleExport.retrieval_training_run_id == training_run_id,
-            AuditBundleExport.bundle_kind == RETRIEVAL_TRAINING_RUN_AUDIT_BUNDLE_KIND,
+            AuditBundleExport.bundle_kind == TRAINING_RUN_AUDIT_BUNDLE_KIND,
         )
         .order_by(AuditBundleExport.created_at.desc())
     )
@@ -605,7 +568,7 @@ def get_latest_retrieval_training_run_audit_bundle(
             "Retrieval training run audit bundle not found.",
             retrieval_training_run_id=str(training_run_id),
         )
-    return _to_response(row, storage_service=storage_service)
+    return _response(row, storage_service=storage_service)
 
 
 def get_latest_search_harness_release_audit_bundle(
@@ -618,7 +581,7 @@ def get_latest_search_harness_release_audit_bundle(
         select(AuditBundleExport)
         .where(
             AuditBundleExport.search_harness_release_id == release_id,
-            AuditBundleExport.bundle_kind == SEARCH_HARNESS_RELEASE_AUDIT_BUNDLE_KIND,
+            AuditBundleExport.bundle_kind == SEARCH_RELEASE_AUDIT_BUNDLE_KIND,
         )
         .order_by(AuditBundleExport.created_at.desc())
     )
@@ -629,4 +592,4 @@ def get_latest_search_harness_release_audit_bundle(
             "Search harness release audit bundle not found.",
             release_id=str(release_id),
         )
-    return _to_response(row, storage_service=storage_service)
+    return _response(row, storage_service=storage_service)

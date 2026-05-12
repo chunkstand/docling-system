@@ -955,10 +955,12 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "local-worktree"
+    deployed_ref: "d85cd90"
     notes: Milestone 5 from
       docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
-      implemented locally in this checkout. Search-harness release payload
+      committed locally as d85cd90, and a follow-up local gap-closeout pass now
+      tightens the facade contract and removes the residual facade budget miss.
+      Search-harness release payload
       serialization now lives in
       app/services/audit_bundle_release_payload_serialization.py, schema and
       source-integrity validation now live in
@@ -973,7 +975,7 @@ cases:
       exact no-growth ratchets.
   measurement:
     metric_name: audit_bundles_hotspot_line_count
-    current_value: 632.0
+    current_value: 595.0
     measurement_window: 2026-05-11 local verification
     notes: Milestone 5 local implementation moved the remaining search-harness
       release payload, validation, and PROV family into
@@ -982,8 +984,10 @@ cases:
       app/services/audit_bundle_release_payload_prov.py, and
       app/services/audit_bundle_release_payloads.py, reducing
       app/services/audit_bundles.py from 2203 lines / 41 private helpers to
-      632 lines / 20 private helpers while keeping the public audit-bundle
-      service surface unchanged.
+      595 lines / 20 private helpers while keeping the public audit-bundle
+      service surface unchanged. The gap-closeout pass also adds exact facade
+      shape tests so the helper set and public function surface cannot regrow
+      silently.
   created_at: '2026-05-10T05:45:45.585973+00:00'
   updated_at: '2026-05-12T06:30:00+00:00'
 - case_id: IC-0D58F1624037
@@ -1015,10 +1019,10 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "local-worktree"
+    deployed_ref: "d85cd90"
     notes: Milestone 5 from
-      docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md is now
-      implemented locally in this checkout. The replay-alert corpus owner split remains
+      docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md was
+      committed locally as d85cd90. The replay-alert corpus owner split remains
       preserved in app/services/retrieval_learning_replay_alert_sources.py, candidate
       evaluation and reranker-artifact flows remain in
       app/services/retrieval_learning_candidates.py and
@@ -1026,10 +1030,10 @@ cases:
       source normalization, payload assembly, and training-run governance now live in
       the routed owner family app/services/retrieval_learning_datasets.py,
       app/services/retrieval_learning_dataset_rows.py, and
-      app/services/retrieval_learning_dataset_sources.py. The facade contract is
-      now tightened by focused delegation tests and exact no-growth ratchets
-      while app/services/retrieval_learning.py remains the compatibility
-      surface.
+      app/services/retrieval_learning_dataset_sources.py. A follow-up local
+      gap-closeout pass now adds exact facade shape tests on top of the focused
+      delegation tests and no-growth ratchets while
+      app/services/retrieval_learning.py remains the compatibility surface.
   measurement:
     metric_name: retrieval_learning_hotspot_line_count
     current_value: 143.0

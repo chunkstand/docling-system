@@ -469,16 +469,22 @@ Implementation status on 2026-05-11 local / 2026-05-12 UTC:
 - release payload orchestration now lives in
   `app/services/audit_bundle_release_payloads.py`
 - `app/services/audit_bundles.py` is reduced from 2,203 lines / 41 private
-  helpers to 632 lines / 20 private helpers while preserving the public
+  helpers to 595 lines / 20 private helpers while preserving the public
   audit-bundle entrypoints and settings monkeypatch seam
 - `app/services/retrieval_learning.py` remains the 143-line / 0 private-helper
   compatibility facade, and the final closeout now adds focused facade
   delegation tests plus exact no-growth ratchets for both cases
 - `config/improvement_cases.yaml` now records both `IC-2112B1ADC5E8` and
   `IC-0D58F1624037` as `deployed` under the final owner-module routing
-- hygiene routing now governs the narrowed audit-bundle facade at a 632-line /
+- hygiene routing now governs the narrowed audit-bundle facade at a 595-line /
   20 private-helper ratchet and adds explicit budgets for the new release
   payload owner family at 278, 495, 388, and 517 lines
+- the first Milestone 5 closeout created three follow-up gaps that are now
+  closed: `app/services/audit_bundles.py` still sat above the default 600-line
+  facade budget at 632 lines, the deployed improvement-case refs still pointed
+  at `local-worktree` instead of the real milestone commit `d85cd90`, and the
+  facade contract tests did not yet lock the exact public function surface and
+  private helper budget
 - the next routed owner case after this plan is now
   `IC-050E60059A34` / `app/services/evidence.py`
 

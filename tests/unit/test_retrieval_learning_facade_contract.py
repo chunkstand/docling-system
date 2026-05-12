@@ -1,8 +1,27 @@
 from __future__ import annotations
 
+import ast
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.services import retrieval_learning
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RETRIEVAL_LEARNING_PATH = PROJECT_ROOT / "app/services/retrieval_learning.py"
+
+ALLOWED_PUBLIC_FUNCTIONS = {
+    "materialize_retrieval_learning_dataset",
+    "evaluate_retrieval_learning_candidate",
+    "list_retrieval_learning_candidate_evaluations",
+    "get_retrieval_learning_candidate_evaluation_detail",
+    "create_retrieval_reranker_artifact",
+    "list_retrieval_reranker_artifacts",
+    "get_retrieval_reranker_artifact_detail",
+}
+
+
+def _load_retrieval_learning_tree() -> ast.Module:
+    return ast.parse(RETRIEVAL_LEARNING_PATH.read_text(), filename=str(RETRIEVAL_LEARNING_PATH))
 
 
 def test_retrieval_learning_facade_delegates_dataset_materialization(monkeypatch) -> None:
@@ -97,3 +116,23 @@ def test_retrieval_learning_facade_delegates_reranker_artifact_creation_with_run
         captured["record_search_harness_release_gate_fn"]
         is retrieval_learning.record_search_harness_release_gate
     )
+
+
+def test_retrieval_learning_facade_function_surface_is_exact() -> None:
+    tree = _load_retrieval_learning_tree()
+    function_names = {
+        node.name for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    assert function_names == ALLOWED_PUBLIC_FUNCTIONS
+
+
+def test_retrieval_learning_facade_has_no_private_helpers_or_classes() -> None:
+    tree = _load_retrieval_learning_tree()
+
+    assert [
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("_")
+    ] == []
+    assert [node.name for node in tree.body if isinstance(node, ast.ClassDef)] == []
