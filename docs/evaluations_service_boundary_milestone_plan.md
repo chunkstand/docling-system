@@ -49,7 +49,7 @@ Local Milestone 3 snapshot:
   `app/services/evaluations.py` at `21 revisions`, `400 lines`, and
   `score 8400`, even though the architecture-quality summary top-five excludes
   that facade, so the broader owner case remains reduced rather than resolved
-- local closeout commit: `pending_local_milestone_3_commit`
+- local closeout commit: `b05def0`
 - next implementation gate: Milestone 4 latest-read owner extraction
 
 ## Purpose
@@ -438,7 +438,7 @@ Outcome label: reduced
   `app/services/evaluation_fixtures.py` at `966` lines / `32` private
   helpers, and `app/services/evaluation_scoring.py` at `897` lines /
   `25` private helpers
-- local closeout commit: `pending_local_milestone_3_commit`
+- local closeout commit: `b05def0`
 - verification on the resolved slice:
   `15 passed` in `tests/unit/test_evaluation_service.py` and
   `tests/unit/test_evaluation_scoring.py`;

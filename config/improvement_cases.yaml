@@ -1011,14 +1011,13 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "pending_local_milestone_3_commit"
+    deployed_ref: "b05def0"
     notes: >-
-      Milestone 3 scoring/structural extraction is ready to close in the
-      current local milestone commit: the evaluation facade is now narrow, the
-      scoring owner now lives in app/services/evaluation_scoring.py, and the
-      broader owner case remains open only until Milestone 4 moves the
-      latest-read ownership out of app/services/evaluations.py. Record the
-      exact closeout hash in the post-commit alignment pass.
+      Milestone 3 scoring/structural extraction is committed locally as
+      b05def0: the evaluation facade is now narrow, the scoring owner now
+      lives in app/services/evaluation_scoring.py, and the broader owner case
+      remains open only until Milestone 4 moves the latest-read ownership out
+      of app/services/evaluations.py.
   measurement:
     metric_name: evaluation_hotspot_line_count
     current_value: 400.0
@@ -1032,7 +1031,7 @@ cases:
       scoring owner closes at 897 lines / 25 private helpers, and Milestone 4
       latest-read extraction is the next reduction gate.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T23:45:24Z'
+  updated_at: '2026-05-13T23:52:59Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed
