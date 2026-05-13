@@ -287,13 +287,13 @@ cases:
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_task_actions.py remains an architecture
-    hotspot after the locally verified Milestone 3 Semantic Governance Family
-    Composition slice; the compatibility facade is down to 782 lines / 16
-    private helpers, but the owner case stays open until a later milestone
-    reaches the final 600-line / 20-helper boundary.
+  observed_failure: app/services/agent_task_actions.py previously remained an
+    explicit architecture owner case after the earlier report-action split,
+    with the remaining semantic analysis, drafting, and verification families
+    still living in the facade before the Milestone 4 extraction and Milestone
+    5 closeout reduced it to a narrow compatibility surface.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_actions.py
@@ -307,32 +307,86 @@ cases:
     description: Architecture quality owner surface for app/services/agent_task_actions.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check app/services/agent_task_actions.py
+      app/services/agent_actions/search_harness.py
+      app/services/agent_actions/semantic_governance_actions.py
+      app/services/agent_actions/semantic_analysis_actions.py
+      app/services/agent_actions/semantic_drafting_actions.py
+      app/services/agent_actions/semantic_verification_actions.py
+      app/services/agent_actions/report_actions.py
+      app/services/agent_task_context.py
+      app/services/agent_task_context_semantic.py
+      app/services/agent_task_context_search_harness.py
+      app/services/agent_task_context_semantic_governance.py
+      app/services/agent_task_context_semantic_analysis.py
+      app/services/agent_task_context_semantic_drafting.py
+      app/services/agent_task_context_semantic_verification.py
+      app/services/agent_task_context_technical_reports.py
+      tests/unit/test_agent_action_contracts.py
+      tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_actions_ontology.py
+      tests/unit/test_agent_task_actions_semantic_documents.py
+      tests/unit/test_agent_task_actions_semantic_graph.py
+      tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_agent_action_contracts.py
+      tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_actions_ontology.py
+      tests/unit/test_agent_task_actions_semantic_documents.py
+      tests/unit/test_agent_task_actions_semantic_graph.py
+      tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    - uv run docling-system-agent-task-action-index
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-architecture-inspect
     - uv run docling-system-architecture-quality-report
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 12
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/agent_task_actions.py remains a narrow public composition
+      and worker-execution facade at 163 lines / 1 private helper with no
+      executor-family implementation logic moved back into the file.
+    - Family-owned action definitions and executor implementations remain in
+      app/services/agent_actions/*.py while the public action catalog, action
+      index, validation defaults, and worker execution semantics stay stable.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "a3f9189"
-    notes: The most recent deployed checkpoint remains the High Value
-      Technical Paydown Milestone 3 report-action split. The current local
-      Milestone 3 move extracts the semantic-governance family into
-      app/services/agent_actions/semantic_governance_actions.py, reduces
-      app/services/agent_task_actions.py to 782 lines / 16 private helpers,
-      and keeps the compatibility registry entrypoint open for the later
-      semantic-analysis and facade-closeout reductions.
+    deployed_ref: local-uncommitted-2026-05-12
+    notes: Local agent-task orchestration Milestone 5 closeout keeps
+      app/services/agent_task_actions.py as a 163-line / 1-private-helper
+      composition and worker-execution facade, moves the remaining semantic
+      action families into focused owner modules, tightens exact hygiene
+      ceilings to the verified counts, and preserves the public action catalog
+      plus action-index contracts.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
-    current_value: 782.0
-    measurement_window: 2026-05-12 local Milestone 3 verification
-    notes: Local Milestone 3 verification reduces
-      app/services/agent_task_actions.py to 782 lines / 16 private helpers
-      while preserving the public action catalog. The extracted
-      semantic-governance owner module is now
-      app/services/agent_actions/semantic_governance_actions.py at 945 lines / 9
-      private helpers, the architecture-probe hotspot score for the facade is
-      47702, and local import fan-out remains 29.
+    current_value: 163.0
+    measurement_window: 2026-05-12 local Milestone 5 verification
+    notes: Local Milestone 5 verification keeps
+      app/services/agent_task_actions.py at 163 lines / 1 private helper while
+      preserving the public action catalog, action index output, validation
+      defaults, and worker execution entrypoint. The architecture probe no
+      longer lists the facade among the top 12 churn hotspots, strict
+      hotspot-prevention mode now needs no exceptions, hygiene policy locks the
+      facade and the under-budget owner modules to exact verified ceilings, and
+      the next routed hotspot is IC-1D03DBFE8492 / app/services/search.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-FD18EE2D3309
@@ -906,13 +960,14 @@ cases:
   updated_at: '2026-05-10T01:15:27.810985+00:00'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_task_context.py remains an architecture
-    hotspot after the locally verified Milestone 3 Semantic Governance Family
-    Composition slice; the compatibility facade is down to 1879 lines / 21
-    private helpers, but the owner case stays open until a later milestone
-    reaches the final 600-line / 20-helper boundary.
+  observed_failure: app/services/agent_task_context.py previously remained an
+    explicit architecture owner case after the registry-composition milestone,
+    with remaining semantic analysis, drafting, verification, and technical
+    report builder families still living in the facade before the Milestone 4
+    extraction and Milestone 5 closeout reduced it to a narrow compatibility
+    surface.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_context.py
@@ -927,42 +982,86 @@ cases:
   verification:
     commands:
     - git diff --check
-    - uv run ruff check app tests
-    - uv run pytest -q tests/unit/test_hotspot_prevention.py
-      tests/unit/test_agent_task_action_lookup.py
+    - uv run ruff check app/services/agent_task_actions.py
+      app/services/agent_actions/search_harness.py
+      app/services/agent_actions/semantic_governance_actions.py
+      app/services/agent_actions/semantic_analysis_actions.py
+      app/services/agent_actions/semantic_drafting_actions.py
+      app/services/agent_actions/semantic_verification_actions.py
+      app/services/agent_actions/report_actions.py
+      app/services/agent_task_context.py
+      app/services/agent_task_context_semantic.py
+      app/services/agent_task_context_search_harness.py
+      app/services/agent_task_context_semantic_governance.py
+      app/services/agent_task_context_semantic_analysis.py
+      app/services/agent_task_context_semantic_drafting.py
+      app/services/agent_task_context_semantic_verification.py
+      app/services/agent_task_context_technical_reports.py
+      tests/unit/test_agent_action_contracts.py
+      tests/unit/test_agent_task_actions.py
+      tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_actions_ontology.py
+      tests/unit/test_agent_task_actions_semantic_documents.py
+      tests/unit/test_agent_task_actions_semantic_graph.py
+      tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_agent_action_contracts.py
+      tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py
+      tests/unit/test_agent_task_context_semantic.py
+      tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py
+      tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py
+      tests/unit/test_agent_task_actions_semantic_registry.py
+      tests/unit/test_agent_task_actions_ontology.py
+      tests/unit/test_agent_task_actions_semantic_documents.py
+      tests/unit/test_agent_task_actions_semantic_graph.py
+      tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_agent_task_semantic_orchestration_roundtrip.py
+      tests/integration/test_agent_task_triage_roundtrip.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    - uv run docling-system-agent-task-action-index
     - uv run docling-system-hotspot-prevention-check --strict
     - uv run docling-system-hygiene-check
+    - uv run docling-system-capability-contracts
     - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report
     - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
       --format markdown --top 12
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - app/services/agent_task_context.py has explicit hotspot-prevention owner
-      routing to app/services/agent_task_context_*.py and fails strict mode on
-      controlled new context-builder additions.
-    - app/services/agent_task_context.py is governed in config/hygiene_policy.yaml
-      as owner case IC-E52B6C7B22FD with ratcheted line and helper ceilings.
+    - app/services/agent_task_context.py remains a narrow public
+      context-builder lookup and artifact-entrypoint facade at 121 lines / 0
+      private helpers with no builder-family implementation moved back into the
+      file.
+    - Family-owned context builders remain in app/services/agent_task_context_*.py
+      while hotspot prevention, lookup identity, and context artifact contracts
+      stay stable.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Agent-task orchestration boundary Milestone 3 now moves the
-      semantic-governance context builders into
-      app/services/agent_task_context_semantic_governance.py, but the owner
-      case stays open until the facade is reduced under its final boundary
-      budget.
+    deployed_ref: local-uncommitted-2026-05-12
+    notes: Local agent-task orchestration Milestone 5 closeout keeps
+      app/services/agent_task_context.py as a 121-line / 0-private-helper
+      lookup and artifact-entrypoint facade, moves the remaining builder
+      families into focused owner modules, tightens exact hygiene ceilings for
+      the narrowed modules, and leaves only inherited line-budget ratchets on
+      the already-owned oversized context modules.
   measurement:
     metric_name: agent_task_context_hotspot_line_count
-    current_value: 1879.0
-    measurement_window: 2026-05-12 local Milestone 3 verification
-    notes: Local Milestone 3 verification preserves the public context
-      entrypoints while reducing app/services/agent_task_context.py to 1879
-      lines / 21 private helpers. The extracted semantic-governance owner
-      module is now
-      app/services/agent_task_context_semantic_governance.py at 1127 lines /
-      10 private helpers, the architecture-probe hotspot score for the facade
-      is 46975, local import fan-out is 15, and Milestone 4 Semantic
-      Analysis, Generation, And Triage Family Composition is next.
+    current_value: 121.0
+    measurement_window: 2026-05-12 local Milestone 5 verification
+    notes: Local Milestone 5 verification preserves the public context
+      entrypoints while reducing app/services/agent_task_context.py to 121
+      lines / 0 private helpers. The architecture probe no longer lists the
+      facade among the top 12 churn hotspots, strict hotspot-prevention mode
+      now runs with zero exceptions, and the remaining oversized extracted
+      context modules are explicit inherited ratchets rather than unresolved
+      central-owner ambiguity. The next routed hotspot is
+      IC-1D03DBFE8492 / app/services/search.py.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97

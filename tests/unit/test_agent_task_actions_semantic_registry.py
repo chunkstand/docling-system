@@ -14,14 +14,16 @@ from app.schemas.agent_tasks import (
     TriageSemanticPassTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
 )
+from app.services.agent_actions.semantic_analysis_actions import (
+    _discover_semantic_bootstrap_candidates_executor,
+    _latest_semantic_pass_executor,
+)
 from app.services.agent_actions.semantic_governance_actions import (
     _apply_semantic_registry_update_executor,
     _draft_semantic_registry_update_executor,
     _verify_draft_semantic_registry_update_executor,
 )
-from app.services.agent_task_actions import (
-    _discover_semantic_bootstrap_candidates_executor,
-    _latest_semantic_pass_executor,
+from app.services.agent_actions.semantic_verification_actions import (
     _triage_semantic_pass_executor,
 )
 from tests.unit.agent_task_actions_support import _semantic_pass_response
@@ -32,7 +34,7 @@ def test_latest_semantic_pass_executor_returns_typed_output(monkeypatch) -> None
     document_id = semantic_pass.document_id
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_active_semantic_pass_detail",
+        "app.services.agent_actions.semantic_analysis_actions.get_active_semantic_pass_detail",
         lambda session, requested_document_id: (
             semantic_pass if requested_document_id == document_id else None
         ),
@@ -80,7 +82,7 @@ def test_triage_semantic_pass_executor_writes_gap_report_artifact(monkeypatch) -
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_verification_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             task_id=target_task_id,
             task_type="get_latest_semantic_pass",
@@ -95,7 +97,7 @@ def test_triage_semantic_pass_executor_writes_gap_report_artifact(monkeypatch) -
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.triage_semantic_pass",
+        "app.services.agent_actions.semantic_verification_actions.triage_semantic_pass",
         lambda semantic_pass, low_evidence_threshold: SimpleNamespace(
             gap_report={
                 "document_id": semantic_pass.document_id,
@@ -124,7 +126,7 @@ def test_triage_semantic_pass_executor_writes_gap_report_artifact(monkeypatch) -
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_verification_record",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_verification_record",
         lambda session, **kwargs: SimpleNamespace(
             verification_id=uuid4(),
             target_task_id=kwargs["target_task_id"],
@@ -151,7 +153,7 @@ def test_triage_semantic_pass_executor_writes_gap_report_artifact(monkeypatch) -
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -346,7 +348,7 @@ def test_discover_semantic_bootstrap_candidates_executor_writes_artifact(monkeyp
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.discover_semantic_bootstrap_candidates",
+        "app.services.agent_actions.semantic_analysis_actions.discover_semantic_bootstrap_candidates",
         lambda session, **kwargs: {
             "report_name": "semantic_bootstrap_candidate_report",
             "extraction_strategy": "corpus_phrase_mining_v1",
@@ -377,7 +379,7 @@ def test_discover_semantic_bootstrap_candidates_executor_writes_artifact(monkeyp
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],

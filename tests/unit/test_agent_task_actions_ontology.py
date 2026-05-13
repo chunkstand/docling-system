@@ -12,14 +12,14 @@ from app.schemas.agent_tasks import (
     InitializeWorkspaceOntologyTaskInput,
     VerifyDraftOntologyExtensionTaskInput,
 )
+from app.services.agent_actions.semantic_analysis_actions import (
+    _get_active_ontology_snapshot_executor,
+    _initialize_workspace_ontology_executor,
+)
 from app.services.agent_actions.semantic_governance_actions import (
     _apply_ontology_extension_executor,
     _draft_ontology_extension_executor,
     _verify_draft_ontology_extension_executor,
-)
-from app.services.agent_task_actions import (
-    _get_active_ontology_snapshot_executor,
-    _initialize_workspace_ontology_executor,
 )
 
 
@@ -40,7 +40,7 @@ def test_initialize_workspace_ontology_executor_writes_artifact(monkeypatch) -> 
     )
     snapshot_id = uuid4()
     monkeypatch.setattr(
-        "app.services.agent_task_actions.initialize_workspace_ontology",
+        "app.services.agent_actions.semantic_analysis_actions.initialize_workspace_ontology",
         lambda session: {
             "snapshot": {
                 "snapshot_id": snapshot_id,
@@ -62,7 +62,7 @@ def test_initialize_workspace_ontology_executor_writes_artifact(monkeypatch) -> 
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -82,7 +82,7 @@ def test_initialize_workspace_ontology_executor_writes_artifact(monkeypatch) -> 
 def test_get_active_ontology_snapshot_executor_returns_payload(monkeypatch) -> None:
     snapshot_id = uuid4()
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_active_ontology_snapshot_payload",
+        "app.services.agent_actions.semantic_analysis_actions.get_active_ontology_snapshot_payload",
         lambda session: {
             "snapshot": {
                 "snapshot_id": snapshot_id,

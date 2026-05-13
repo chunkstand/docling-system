@@ -14,11 +14,15 @@ from app.schemas.agent_tasks import (
     TriageSemanticCandidateDisagreementsTaskInput,
     VerifySemanticGroundedDocumentTaskInput,
 )
-from app.services.agent_task_actions import (
-    _draft_semantic_grounded_document_executor,
+from app.services.agent_actions.semantic_analysis_actions import (
     _evaluate_semantic_candidate_extractor_executor,
     _export_semantic_supervision_corpus_executor,
+)
+from app.services.agent_actions.semantic_drafting_actions import (
+    _draft_semantic_grounded_document_executor,
     _prepare_semantic_generation_brief_executor,
+)
+from app.services.agent_actions.semantic_verification_actions import (
     _triage_semantic_candidate_disagreements_executor,
     _verify_semantic_grounded_document_executor,
 )
@@ -46,14 +50,14 @@ def test_prepare_semantic_generation_brief_executor_writes_artifact(monkeypatch)
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.prepare_semantic_generation_brief",
+        "app.services.agent_actions.semantic_drafting_actions.prepare_semantic_generation_brief",
         lambda session, **kwargs: _semantic_generation_brief_output_payload(
             task_id=task.id,
             document_id=document_id,
         )["brief"],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_drafting_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -124,11 +128,11 @@ def test_prepare_semantic_generation_brief_executor_passes_shadow_arguments(monk
         return payload
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.prepare_semantic_generation_brief",
+        "app.services.agent_actions.semantic_drafting_actions.prepare_semantic_generation_brief",
         _fake_prepare,
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_drafting_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -180,7 +184,7 @@ def test_export_semantic_supervision_corpus_executor_writes_artifact(monkeypatch
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.export_semantic_supervision_corpus",
+        "app.services.agent_actions.semantic_analysis_actions.export_semantic_supervision_corpus",
         lambda session, **kwargs: {
             "corpus_name": "semantic_supervision_corpus",
             "document_count": 1,
@@ -193,7 +197,7 @@ def test_export_semantic_supervision_corpus_executor_writes_artifact(monkeypatch
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -232,7 +236,7 @@ def test_evaluate_semantic_candidate_extractor_executor_writes_artifact(monkeypa
     document_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.evaluate_semantic_candidate_extractor",
+        "app.services.agent_actions.semantic_analysis_actions.evaluate_semantic_candidate_extractor",
         lambda session, **kwargs: {
             key: value
             for key, value in _semantic_candidate_evaluation_output_payload(
@@ -242,7 +246,7 @@ def test_evaluate_semantic_candidate_extractor_executor_writes_artifact(monkeypa
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -281,13 +285,13 @@ def test_triage_semantic_candidate_disagreements_executor_writes_artifact(monkey
     evaluation_task_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_verification_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output=_semantic_candidate_evaluation_output_payload(),
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.triage_semantic_candidate_disagreements",
+        "app.services.agent_actions.semantic_verification_actions.triage_semantic_candidate_disagreements",
         lambda payload, min_score, include_expected_only: (
             {
                 "baseline_extractor_name": "registry_lexical_v1",
@@ -321,7 +325,7 @@ def test_triage_semantic_candidate_disagreements_executor_writes_artifact(monkey
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_verification_record",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_verification_record",
         lambda session, **kwargs: SimpleNamespace(
             verification_id=uuid4(),
             target_task_id=task.id,
@@ -345,7 +349,7 @@ def test_triage_semantic_candidate_disagreements_executor_writes_artifact(monkey
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -439,18 +443,18 @@ def test_draft_semantic_grounded_document_executor_writes_artifact_and_markdown(
     }
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_drafting_actions.resolve_required_dependency_task_output_context",
         lambda session, **kwargs: SimpleNamespace(output=brief_output),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.draft_semantic_grounded_document",
+        "app.services.agent_actions.semantic_drafting_actions.draft_semantic_grounded_document",
         lambda brief_payload, *, brief_task_id: {
             **draft_payload,
             "brief_task_id": brief_task_id,
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.StorageService",
+        "app.services.agent_actions.semantic_drafting_actions.StorageService",
         lambda: type(
             "FakeStorage",
             (),
@@ -458,7 +462,7 @@ def test_draft_semantic_grounded_document_executor_writes_artifact_and_markdown(
         )(),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_drafting_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -505,7 +509,7 @@ def test_verify_semantic_grounded_document_executor_writes_verification_artifact
     draft_task_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.verify_semantic_grounded_document_task",
+        "app.services.agent_actions.semantic_verification_actions.verify_semantic_grounded_document_task",
         lambda session, task, payload: {
             "draft": {
                 "document_kind": "knowledge_brief",
@@ -550,7 +554,7 @@ def test_verify_semantic_grounded_document_executor_writes_verification_artifact
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),

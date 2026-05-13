@@ -1,8 +1,9 @@
 # Agent-Task Orchestration Boundary Milestone Plan
 
 Date: 2026-05-12 local / 2026-05-13 UTC
-Status: Milestone 3 implemented locally on 2026-05-12; Milestone 4 Semantic
-Analysis, Generation, And Triage Family Composition is next
+Status: Milestone 5 implemented locally on 2026-05-12; the plan is resolved
+locally and the next routed hotspot is `IC-1D03DBFE8492` /
+`app/services/search.py`
 Owner context: dedicated follow-on plan for `IC-A1E186A34097` /
 `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` /
 `app/services/agent_task_context.py` after the Residual Weakness Plan cycle
@@ -10,69 +11,76 @@ break and the first report-action family split.
 
 ## Local Progress
 
-Milestone 3 is now implemented locally in the working tree. The Milestone 1
-registry-composition seam and Milestone 2 search-harness extraction remain the
-enabling baseline, but the current local checkpoint has already completed the
-semantic-governance action and context extraction slice.
+Milestone 5 is now implemented locally in the working tree. Because the
+Milestone 4 semantic-family extraction remained uncommitted, this closeout
+packet carries both the Milestone 4 owner-family move and the Milestone 5
+lifecycle alignment, ratchet tightening, and owner-case transition.
 
-Local Milestone 3 snapshot:
+Local Milestone 5 snapshot:
 
-- semantic-governance draft, verify, and apply action definitions plus executor
-  wiring for semantic registry updates, ontology extension, and graph
-  promotions now live in
-  `app/services/agent_actions/semantic_governance_actions.py`
-- the matching semantic-governance context builders now live in
-  `app/services/agent_task_context_semantic_governance.py`
-- `app/services/agent_task_actions.py` is reduced to 782 lines / 16 private
-  helpers and `app/services/agent_task_context.py` is reduced to 1,879 lines /
-  21 private helpers while preserving the public action catalog, lookup seam,
+- the remaining semantic analysis executors now live in
+  `app/services/agent_actions/semantic_analysis_actions.py`
+- the remaining semantic generation executors now live in
+  `app/services/agent_actions/semantic_drafting_actions.py`
+- the remaining semantic verification and disagreement-triage executors now
+  live in `app/services/agent_actions/semantic_verification_actions.py`
+- the matching semantic context builders now live in
+  `app/services/agent_task_context_semantic_analysis.py`,
+  `app/services/agent_task_context_semantic_drafting.py`, and
+  `app/services/agent_task_context_semantic_verification.py`; the technical
+  report builder family also now lives in
+  `app/services/agent_task_context_technical_reports.py`
+- `app/services/agent_task_actions.py` is reduced to 163 lines / 1 private
+  helper and `app/services/agent_task_context.py` is reduced to 121 lines / 0
+  private helpers while preserving the public action catalog, lookup seam,
   worker execution entrypoint, and context entrypoints
-- `config/hygiene_policy.yaml` now ratchets the new governance owner modules at
-  945 and 1,127 lines, aligns
-  `app/services/agent_task_context_search_harness.py` to its live 868-line
-  ceiling, and keeps the central facade ceilings at 782 and 1,879 lines
-- `config/hotspot_prevention.yaml` now carries the narrow
-  `agent-task-context-milestone-3-semantic-governance-reflow` exception so the
-  strict gate stays green while the unchanged Milestone 4 semantic builders
-  remain in the facade
-- `config/improvement_cases.yaml`, `docs/agentic_architecture_index.md`, and
-  `docs/SESSION_HANDOFF.md` now record the reduced central-facade measurements
-  and route the next slice to Milestone 4
-- `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`:
-  `131 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`:
-  `1 passed`
+- `config/hotspot_prevention.yaml` no longer needs the Milestone 2 or 3
+  reflow exceptions because the central context facade now hosts only
+  composition and artifact-entrypoint logic
+- `config/hygiene_policy.yaml` now tightens the narrow facades and the
+  under-budget owner modules to exact verified ceilings while preserving
+  inherited ratchets only for the oversized extracted modules at 1078, 945,
+  868, 1127, 771, and 646 lines
+- `config/improvement_cases.yaml` now transitions `IC-A1E186A34097` and
+  `IC-E52B6C7B22FD` to deployed locally under the narrowed compatibility
+  contract, and `docs/architecture_boundaries.md`,
+  `docs/agentic_architecture_index.md`, and `docs/SESSION_HANDOFF.md` now
+  record the resolved boundary shape plus the next routed hotspot
+- `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_semantic.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`:
+  `175 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`:
+  `13 passed`
 - `uv run docling-system-agent-task-action-index` still emits
   `schema_name=agent_action_index`, `schema_version=1.0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
   `facade_count=6`, `function_count=110`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=7`, `changed_hotspots=2`, `blocked=0`, `exceptions=5`
+  `known_hotspots=7`, `changed_hotspots=2`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-architecture-inspect`:
   `valid=true`, `violation_count=0`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=536.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=531.06`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1875 passed`
 - architecture probe now routes the top overall hotspot to
-  `app/services/search.py`, while the active orchestration surfaces are reduced
-  to `app/services/agent_task_actions.py` at 782 lines / score `47702` and
-  `app/services/agent_task_context.py` at 1,879 lines / score `46975`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1875 passed`
-- next milestone boundary: Milestone 4 Semantic Analysis, Generation, And
-  Triage Family Composition
+  `app/services/search.py`, while the central orchestration facades are now
+  below the top 12 churn hotspots and the remaining owner-module line debt is
+  explicit inherited hygiene routing rather than unresolved boundary ownership
+- next routed hotspot after this resolved plan: `IC-1D03DBFE8492` /
+  `app/services/search.py`
 
 ## Purpose
 
 Resolve the remaining technical debt in the agent-task orchestration boundary
 end to end.
 
-The scoped problem is no longer the old large import cycle. That was already
-reduced by introducing `app/services/agent_task_action_lookup.py`. The
-remaining debt is that `app/services/agent_task_actions.py` still owns too much
-action definition, executor wiring, and contract assembly, while
-`app/services/agent_task_context.py` still owns too much context-builder
-implementation, context registry composition, and persistence-adjacent context
-assembly.
+The scoped problem is no longer the old large import cycle or the remaining
+semantic-family ownership in the central facades. Those are now resolved
+locally. The Milestone 5 closeout proves the owner cases are actually done by
+locking the narrowed facades to exact ceilings, preserving explicit routing for
+the residual oversized owner modules, and transitioning the central owner cases
+to deployed.
 
 This plan resolves that debt by finishing the boundary shape the repo is
 already moving toward:
@@ -96,38 +104,42 @@ uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
-  max_hotspot_risk_score=536.06
+  max_hotspot_risk_score=531.06
   top_hotspot_paths=[
     app/db/models.py,
-    app/services/agent_task_actions.py,
     app/cli.py,
+    app/services/agent_task_actions.py,
     app/schemas/agent_tasks.py,
     app/services/evidence.py,
   ]
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
-  app/services/agent_task_actions.py: 782 lines, score 47702, fan-out 29
-  app/services/agent_task_context.py: 1879 lines, score 46975, fan-out 15
+  app/services/agent_task_actions.py is no longer in the top 12 churn hotspots
+  app/services/agent_task_context.py is no longer in the top 12 churn hotspots
   Python cycle components: 3
 
-wc -l app/services/agent_task_actions.py app/services/agent_actions/search_harness.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_task_context.py app/services/agent_task_context_search_harness.py app/services/agent_task_context_semantic_governance.py
-   782 app/services/agent_task_actions.py
+wc -l app/services/agent_task_actions.py app/services/agent_actions/search_harness.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_task_context.py app/services/agent_task_context_search_harness.py app/services/agent_task_context_semantic_governance.py app/services/agent_task_context_semantic_analysis.py app/services/agent_task_context_technical_reports.py
+   163 app/services/agent_task_actions.py
   1078 app/services/agent_actions/search_harness.py
    945 app/services/agent_actions/semantic_governance_actions.py
-  1879 app/services/agent_task_context.py
+   121 app/services/agent_task_context.py
    868 app/services/agent_task_context_search_harness.py
   1127 app/services/agent_task_context_semantic_governance.py
+   771 app/services/agent_task_context_semantic_analysis.py
+   646 app/services/agent_task_context_technical_reports.py
 
 uv run docling-system-improvement-case-summary
   case_count=28
-  status_counts.open=23
-  status_counts.deployed=4
+  status_counts.open=21
+  status_counts.deployed=6
   status_counts.measured=1
   measured_case_count=17
 
 config/improvement_cases.yaml
-  IC-A1E186A34097 = open hotspot case for app/services/agent_task_actions.py
-  IC-E52B6C7B22FD = open hotspot case for app/services/agent_task_context.py
+  IC-A1E186A34097 = deployed owner case for app/services/agent_task_actions.py
+  IC-E52B6C7B22FD = deployed owner case for app/services/agent_task_context.py
+  IC-1D03DBFE8492 = next routed architecture hotspot for
+  app/services/search.py
   IC-6C1B516A3F92 = open hygiene follow-on for
   app/hotspot_prevention_classifier.py
 
@@ -137,31 +149,35 @@ config/hotspot_prevention.yaml
   app/services/agent_actions/
   app/services/agent_task_context.py blocks new
   context_builder_implementation and context_family_helper additions and
-  routes them to app/services/agent_task_context_*.py while narrowly allowing
-  the Milestone 2 and Milestone 3 owner-module extraction reflow diffs
+  routes them to app/services/agent_task_context_*.py without owner-module
+  extraction exceptions
 
 config/hygiene_policy.yaml
-  app/services/agent_task_actions.py is ratcheted at 782 lines under
-  owner case IC-A1E186A34097
-  app/services/agent_actions/search_harness.py is ratcheted at 1078 lines and
-  app/services/agent_actions/semantic_governance_actions.py at 945 lines
-  app/services/agent_task_context.py is ratcheted at 1879 lines and 21
-  private helpers under owner case IC-E52B6C7B22FD
-  app/services/agent_task_context_search_harness.py is ratcheted at 868 lines
-  and app/services/agent_task_context_semantic_governance.py at 1127 lines
+  app/services/agent_task_actions.py is now locked at 163 lines / 1 private
+  helper and app/services/agent_task_context.py at 121 lines / 0 private
+  helpers under their owner cases
+  narrowed owner modules are locked to their exact verified counts, including
+  semantic analysis actions at 438 lines / 9 private helpers, semantic
+  drafting actions at 151 / 2, semantic verification actions at 339 / 4,
+  report actions at 151 / 0, semantic drafting context at 324 / 3, semantic
+  verification context at 280 / 2, and the semantic composition seam at
+  27 / 0
+  inherited ratchets remain only on app/services/agent_actions/search_harness.py
+  at 1078 lines, app/services/agent_actions/semantic_governance_actions.py at
+  945 lines, app/services/agent_task_context_search_harness.py at 868 lines,
+  app/services/agent_task_context_semantic_governance.py at 1127 lines,
+  app/services/agent_task_context_semantic_analysis.py at 771 lines, and
+  app/services/agent_task_context_technical_reports.py at 646 lines
 ```
 
 Current structural evidence:
 
 - `app/services/agent_task_actions.py` now composes the public action catalog
-  from owner-family registries and no longer owns the semantic-governance
-  draft, verify, or apply executors. The remaining debt is concentrated in the
-  semantic-analysis family plus the worker execution facade.
+  from owner-family registries and now owns only the worker execution facade
+  plus the enqueue-document compatibility executor.
 - `app/services/agent_task_context.py` now composes `_CONTEXT_BUILDERS` from
-  owner-family registry modules and no longer owns the semantic-governance
-  builders. The remaining debt is concentrated in the semantic analysis,
-  generation, graph-construction, and triage builder family plus the central
-  artifact entrypoints.
+  owner-family registry modules and now owns only the context artifact
+  entrypoint plus builder lookup helpers.
 - `app/services/agent_task_action_lookup.py` is the current directional seam.
   `app/services/agent_task_context.py`, `app/services/agent_task_context_store.py`,
   and `app/services/agent_tasks.py` must keep using that seam instead of
@@ -171,9 +187,9 @@ Current structural evidence:
   `app.services.agent_task_actions`.
 - Existing owner families now own the registry-composition seams under
   `app/services/agent_actions/*.py` and
-  `app/services/agent_task_context_*.py`. The remaining debt is semantic-family
-  implementation extraction, not missing composition contracts or search-
-  harness ownership.
+  `app/services/agent_task_context_*.py`. The remaining oversized owner-module
+  line counts are explicit inherited hygiene debt, not unresolved central
+  boundary ownership.
 
 ## Goal
 
@@ -565,6 +581,11 @@ Outcome label: resolved
 
 Purpose: prove that the orchestration boundary debt is actually closed rather
 than merely redistributed.
+
+Local status: implemented locally on 2026-05-12. The plan is resolved locally,
+`IC-A1E186A34097` and `IC-E52B6C7B22FD` are transitioned to deployed locally,
+and the next routed hotspot is `IC-1D03DBFE8492` /
+`app/services/search.py`.
 
 Scope:
 

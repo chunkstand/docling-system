@@ -14,15 +14,17 @@ from app.schemas.agent_tasks import (
     TriageSemanticGraphDisagreementsTaskInput,
     VerifyDraftGraphPromotionsTaskInput,
 )
+from app.services.agent_actions.semantic_analysis_actions import (
+    _build_document_fact_graph_executor,
+    _build_shadow_semantic_graph_executor,
+    _evaluate_semantic_relation_extractor_executor,
+)
 from app.services.agent_actions.semantic_governance_actions import (
     _apply_graph_promotions_executor,
     _draft_graph_promotions_executor,
     _verify_draft_graph_promotions_executor,
 )
-from app.services.agent_task_actions import (
-    _build_document_fact_graph_executor,
-    _build_shadow_semantic_graph_executor,
-    _evaluate_semantic_relation_extractor_executor,
+from app.services.agent_actions.semantic_verification_actions import (
     _triage_semantic_graph_disagreements_executor,
 )
 from tests.unit.agent_task_actions_support import (
@@ -51,7 +53,7 @@ def test_build_document_fact_graph_executor_writes_artifact(monkeypatch) -> None
     )
     document_id = uuid4()
     monkeypatch.setattr(
-        "app.services.agent_task_actions.build_document_fact_graph",
+        "app.services.agent_actions.semantic_analysis_actions.build_document_fact_graph",
         lambda session, **kwargs: {
             "document_id": document_id,
             "run_id": uuid4(),
@@ -84,7 +86,7 @@ def test_build_document_fact_graph_executor_writes_artifact(monkeypatch) -> None
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -118,13 +120,13 @@ def test_build_shadow_semantic_graph_executor_writes_artifact(monkeypatch) -> No
     )
     document_ids = [uuid4(), uuid4()]
     monkeypatch.setattr(
-        "app.services.agent_task_actions.build_shadow_semantic_graph",
+        "app.services.agent_actions.semantic_analysis_actions.build_shadow_semantic_graph",
         lambda session, **kwargs: _shadow_graph_output_payload(document_ids=document_ids)[
             "shadow_graph"
         ],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -163,7 +165,7 @@ def test_evaluate_semantic_relation_extractor_executor_writes_artifact(monkeypat
     )
     document_ids = [uuid4(), uuid4()]
     monkeypatch.setattr(
-        "app.services.agent_task_actions.evaluate_semantic_relation_extractor",
+        "app.services.agent_actions.semantic_analysis_actions.evaluate_semantic_relation_extractor",
         lambda session, **kwargs: {
             key: value
             for key, value in _semantic_relation_evaluation_output_payload(
@@ -173,7 +175,7 @@ def test_evaluate_semantic_relation_extractor_executor_writes_artifact(monkeypat
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_analysis_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -214,21 +216,21 @@ def test_triage_semantic_graph_disagreements_executor_writes_artifact(monkeypatc
     )
     document_ids = [uuid4(), uuid4()]
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_verification_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output=_semantic_relation_evaluation_output_payload(document_ids=document_ids),
             task_type="evaluate_semantic_relation_extractor",
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.triage_semantic_graph_disagreements",
+        "app.services.agent_actions.semantic_verification_actions.triage_semantic_graph_disagreements",
         lambda evaluation, **kwargs: _graph_triage_output_payload(
             evaluation_task_id=evaluation_task_id,
             verification_task_id=task.id,
         )["disagreement_report"],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_verification_record",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_verification_record",
         lambda session, **kwargs: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "verification_id": str(uuid4()),
@@ -245,7 +247,7 @@ def test_triage_semantic_graph_disagreements_executor_writes_artifact(monkeypatc
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_verification_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],

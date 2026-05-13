@@ -119,6 +119,12 @@ action registry does not become an import-cycle dependency. The static guard is
 `tests/unit/test_agent_task_action_lookup.py`, and the cycle evidence is the
 general architecture probe.
 
+`app.services.agent_task_context` remains the public compatibility facade for
+context-builder lookup and context artifact writing. New context-builder
+implementation belongs in `app/services/agent_task_context_*.py`, not back in
+the facade, and the strict hotspot-prevention policy now blocks new builder
+families from landing in `app/services/agent_task_context.py`.
+
 The contract vocabulary is intentionally closed: capabilities, definition
 kinds, and side-effect levels are enumerated in `app.services.agent_actions`.
 Changing those categories should be a deliberate contract change, not an
@@ -220,9 +226,9 @@ uv run docling-system-hotspot-prevention-check --strict
 The gate checks Git unified diffs for new implementation growth in the current
 hotspot facades: `app/db/models.py`, `app/cli.py`,
 `app/services/evidence.py`, `app/services/agent_task_actions.py`,
-`app/services/search.py`, and `tests/unit/test_cli.py`. New implementation
-belongs in the owner modules named by the policy, while deletion-only
-reductions, import forwarding, alias forwarding, parser registration, and
-narrow compatibility wrappers remain allowed. Any exception must reference an
-improvement case or milestone, an owner module, and either an expiry date or a
-follow-up condition.
+`app/services/agent_task_context.py`, `app/services/search.py`, and
+`tests/unit/test_cli.py`. New implementation belongs in the owner modules named
+by the policy, while deletion-only reductions, import forwarding, alias
+forwarding, parser registration, and narrow compatibility wrappers remain
+allowed. Any exception must reference an improvement case or milestone, an
+owner module, and either an expiry date or a follow-up condition.

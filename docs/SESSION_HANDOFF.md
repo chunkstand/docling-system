@@ -5,26 +5,24 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Most recently documented committed checkpoint before the current Milestone 5
-local closeout: Audit Bundle And Retrieval Learning Hotspots Milestone 4
-gap-closeout local commit `a170b28`; the prior Milestone 4 initial split
-checkpoint remains `8181011`, the prior Audit Bundle Payload And PROV
-Milestone 3 checkpoint remains `7b26bc4`, the prior Retrieval Learning
-Candidate And Artifact Milestone 2 checkpoint remains `a5f090a`, the prior
-Audit Bundle Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and
-the prior DB Models Compatibility Facade Milestone 2 checkpoint remains
-`8340dc0`.
-Active local follow-up owner case: `IC-A1E186A34097` +
-`IC-E52B6C7B22FD` / agent-task orchestration boundary
-Active bounded implementation brief:
-`docs/agent_task_orchestration_boundary_milestone_plan.md`.
+local closeout: agent-task orchestration Milestone 3 local closeout commit
+`faa3827`; the prior evidence and orchestration follow-on checkpoint remains
+`3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots Milestone 5
+checkpoint remains `bf14f2a`, and the prior DB Models Compatibility Facade
+Milestone 2 checkpoint remains `8340dc0`.
+Active local follow-up owner case: `IC-1D03DBFE8492` /
+`app/services/search.py`
+Active bounded implementation brief: `docs/agent_task_orchestration_boundary_milestone_plan.md`
+is resolved locally; the next bounded implementation brief should be created
+for the routed search hotspot before new implementation begins.
 
 ## Current Position
 
 The checkout is on `main`. Local `main` remains ahead of `origin/main`, and
-the active architecture follow-up has moved to
-`docs/agent_task_orchestration_boundary_milestone_plan.md`, where Milestones 1
-through 3 are now implemented locally for the paired agent-task orchestration
-owner cases `IC-A1E186A34097` and `IC-E52B6C7B22FD`.
+`docs/agent_task_orchestration_boundary_milestone_plan.md` is now resolved
+locally through Milestone 5 for the paired agent-task orchestration owner
+cases `IC-A1E186A34097` and `IC-E52B6C7B22FD`. The next routed architecture
+hotspot is `IC-1D03DBFE8492` / `app/services/search.py`.
 
 The previously active evidence hotspot owner plan in
 `docs/evidence_hotspot_owner_milestone_plan.md` remains implemented locally
@@ -61,13 +59,13 @@ The current oversized evidence owner-family modules are
 `app/services/evidence_claim_support_replay_alerts.py` (646).
 
 The live alignment snapshot after the evidence hotspot local closeout and the
-agent-task orchestration Milestone 3 local verification is:
+agent-task orchestration Milestone 5 local verification is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=28`,
-  `status_counts.open=23`, `status_counts.deployed=4`,
+  `status_counts.open=21`, `status_counts.deployed=6`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=536.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=531.06`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
@@ -75,104 +73,116 @@ agent-task orchestration Milestone 3 local verification is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=7`, `changed_hotspots=2`, `blocked=0`, `exceptions=5`
+  `known_hotspots=7`, `changed_hotspots=2`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - architecture probe top hotspot is now `app/services/search.py`; the active
   orchestration facades are down to `app/services/agent_task_actions.py` at
-  782 lines / score `47702` / fan-out `29` and
-  `app/services/agent_task_context.py` at 1,879 lines / score `46975` /
-  fan-out `15`
+  163 lines / 1 private helper and `app/services/agent_task_context.py` at
+  121 lines / 0 private helpers; neither facade appears in the top 12 churn
+  hotspots, while the remaining routed owner-budget debt is
+  `app/services/agent_task_context_semantic_analysis.py` at 771 lines and
+  `app/services/agent_task_context_technical_reports.py` at 646 lines
 
 The evidence-owner follow-up from the prior lane remains
 `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, but the
-active architecture execution slice is now Milestone 4 Semantic Analysis,
-Generation, And Triage Family Composition under
-`docs/agent_task_orchestration_boundary_milestone_plan.md`.
+agent-task orchestration boundary is now locally resolved through Milestone 5.
+The next routed architecture hotspot is
+`IC-1D03DBFE8492` / `app/services/search.py`.
 The Milestone 1 alignment hardening also routes
 `app/hotspot_prevention_classifier.py` into bounded hygiene follow-on case
 `IC-6C1B516A3F92` at 621 lines after the registry-composition allowance update
 expanded that classifier beyond the default file budget.
 
-## Agent-Task Orchestration Boundary Milestone 3 Local Progress
+## Agent-Task Orchestration Boundary Milestone 5 Local Progress
 
-Milestone 3 is implemented locally and uses the Milestone 1 and 2 registry
-seams to move the semantic-governance draft, verify, and apply family out of
-the central orchestration facades.
+Milestone 5 is implemented locally and closes the agent-task orchestration
+boundary. Because the Milestone 4 semantic-family extraction remained
+uncommitted, the current closeout packet includes both the Milestone 4
+owner-family move and the Milestone 5 lifecycle alignment.
 
 Results:
 
-- moved semantic-governance draft, verify, and apply action definitions plus
-  executor wiring for semantic registry updates, ontology extension, and graph
-  promotions into
-  `app/services/agent_actions/semantic_governance_actions.py`
-- moved the matching semantic-governance context builders into
-  `app/services/agent_task_context_semantic_governance.py`
+- moved the remaining semantic analysis executors into
+  `app/services/agent_actions/semantic_analysis_actions.py`
+- moved the remaining semantic drafting executors into
+  `app/services/agent_actions/semantic_drafting_actions.py`
+- moved the remaining semantic verification and disagreement-triage executors
+  into `app/services/agent_actions/semantic_verification_actions.py`
+- moved the matching semantic context builders into
+  `app/services/agent_task_context_semantic_analysis.py`,
+  `app/services/agent_task_context_semantic_drafting.py`, and
+  `app/services/agent_task_context_semantic_verification.py`
+- moved the still-central technical report builder family into
+  `app/services/agent_task_context_technical_reports.py` so the compatibility
+  facade stays purely compositional
 - preserved the public `list_agent_task_actions()`, action index output,
   validation defaults, context-builder lookup names, and worker execution
   semantics while updating focused tests to patch the new owner modules
   directly
-- reduced `app/services/agent_task_actions.py` from 1,504 lines / 25 private
-  helpers to 782 lines / 16 private helpers and reduced
-  `app/services/agent_task_context.py` from 2,950 lines / 31 private helpers
-  to 1,879 lines / 21 private helpers
-- ratcheted `config/hygiene_policy.yaml` so
-  `app/services/agent_actions/semantic_governance_actions.py` is governed at
-  945 lines, `app/services/agent_task_context_semantic_governance.py` at
-  1,127 lines, and `app/services/agent_task_context_search_harness.py` is
-  aligned to its live 868-line ceiling under the same owner cases
-- recorded the narrow
-  `agent-task-context-milestone-3-semantic-governance-reflow`
-  hotspot-prevention exception so strict mode stays green while the unchanged
-  Milestone 4 semantic builder family still lives in the facade
-- refreshed `config/improvement_cases.yaml`,
+- reduced `app/services/agent_task_actions.py` from 782 lines / 16 private
+  helpers to 163 lines / 1 private helper and reduced
+  `app/services/agent_task_context.py` from 1,879 lines / 21 private helpers
+  to 121 lines / 0 private helpers
+- removed the now-obsolete central context reflow exceptions from
+  `config/hotspot_prevention.yaml`; strict mode now passes with zero
+  exceptions
+- tightened `config/hygiene_policy.yaml` so the narrowed facades and
+  under-budget owner modules now use exact verified ceilings, while the
+  oversized extracted owner modules keep explicit inherited ratchets
+- transitioned `IC-A1E186A34097` and `IC-E52B6C7B22FD` to deployed locally in
+  `config/improvement_cases.yaml`
+- refreshed `docs/architecture_boundaries.md`,
   `docs/agentic_architecture_index.md`, and
-  `docs/agent_task_orchestration_boundary_milestone_plan.md` so the live
-  Milestone 3 measurements and next routed slice are recorded
+  `docs/agent_task_orchestration_boundary_milestone_plan.md` so the resolved
+  boundary shape and next routed hotspot are recorded
 
 Verification:
 
 - `git diff --check`
-- `uv run ruff check app/services/agent_task_actions.py app/services/agent_actions/semantic_drafting_actions.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_actions/semantic_verification_actions.py app/services/agent_task_context.py app/services/agent_task_context_semantic.py app/services/agent_task_context_semantic_governance.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
-- `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`
+- `uv run ruff check app/services/agent_task_actions.py app/services/agent_actions/search_harness.py app/services/agent_actions/semantic_governance_actions.py app/services/agent_actions/semantic_analysis_actions.py app/services/agent_actions/semantic_drafting_actions.py app/services/agent_actions/semantic_verification_actions.py app/services/agent_actions/report_actions.py app/services/agent_task_context.py app/services/agent_task_context_semantic.py app/services/agent_task_context_search_harness.py app/services/agent_task_context_semantic_governance.py app/services/agent_task_context_semantic_analysis.py app/services/agent_task_context_semantic_drafting.py app/services/agent_task_context_semantic_verification.py app/services/agent_task_context_technical_reports.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_semantic.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
+- `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_semantic.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`
 - `uv run docling-system-agent-task-action-index`
 - `uv run docling-system-capability-contracts`
 - `uv run docling-system-hotspot-prevention-check --strict`
 - `uv run docling-system-hygiene-check`
 - `uv run docling-system-architecture-inspect`
-- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 - `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-improvement-case-summary`
 - `uv run docling-system-improvement-case-validate`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
 
 Verified results:
 
 - `git diff --check`: pass
 - focused ruff checks: pass
-- focused unit suites: `131 passed`
-- semantic orchestration integration suite: `1 passed`
+- focused unit suites: `175 passed`
+- semantic orchestration, triage, and claim-support integration suites:
+  `13 passed`
 - action index: `schema_name=agent_action_index`, `schema_version=1.0`
 - capability contracts: `valid=true`, `facade_count=6`, `function_count=110`
 - strict hotspot prevention: `known_hotspots=7`, `changed_hotspots=2`,
-  `blocked=0`, `exceptions=5`
+  `blocked=0`, `exceptions=0`
 - hygiene: `new hygiene regressions: none`
 - architecture inspection: `valid=true`, `violation_count=0`
-- architecture quality: `hotspot_count=10`, `max_hotspot_risk_score=536.06`
+- architecture quality: `hotspot_count=10`, `max_hotspot_risk_score=531.06`
+- improvement-case summary: `case_count=28`, `status_counts.open=21`,
+  `status_counts.deployed=6`, `status_counts.measured=1`
 - improvement-case validation: `valid=true`, `issue_count=0`
 - architecture probe: top hotspot is now `app/services/search.py`;
-  `app/services/agent_task_actions.py` is reduced to 782 lines / score
-  `47702` / fan-out `29`; `app/services/agent_task_context.py` is reduced to
-  1,879 lines / score `46975` / fan-out `15`; Python cycle components remain `3`
+  `app/services/agent_task_actions.py` and
+  `app/services/agent_task_context.py` are both out of the top 12 churn
+  hotspots; Python cycle components remain `3`
 - full DB-backed suite: `1875 passed`
 
 Residual risk and next boundary:
 
-- Milestone 3 removes the remaining semantic-governance action and context
-  ownership, but both central facades still carry the semantic analysis,
-  generation, graph-construction, and triage family debt.
-- The next bounded execution slice is Milestone 4 Semantic Analysis,
-  Generation, And Triage Family Composition in
-  `docs/agent_task_orchestration_boundary_milestone_plan.md`.
+- Milestone 5 closes the remaining central ownership ambiguity in the
+  orchestration boundary, but the extracted owner modules still carry explicit
+  inherited hygiene ratchets where they remain above 600 lines.
+- The next routed architecture hotspot is
+  `IC-1D03DBFE8492` / `app/services/search.py`.
 - Do not mix this milestone with the unrelated evidence owner-family follow-up
   when staging a commit.
 

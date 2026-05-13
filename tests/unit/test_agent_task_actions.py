@@ -433,61 +433,13 @@ def test_report_action_registry_is_composed_from_owner_module() -> None:
 def test_action_registry_is_composed_from_owner_modules() -> None:
     owner_actions = compose_action_registries(
         build_evaluation_action_definitions(),
-        build_semantic_analysis_action_definitions(
-            latest_semantic_pass_executor=(
-                agent_task_actions_module._latest_semantic_pass_executor
-            ),
-            initialize_workspace_ontology_executor=(
-                agent_task_actions_module._initialize_workspace_ontology_executor
-            ),
-            get_active_ontology_snapshot_executor=(
-                agent_task_actions_module._get_active_ontology_snapshot_executor
-            ),
-            discover_semantic_bootstrap_candidates_executor=(
-                agent_task_actions_module._discover_semantic_bootstrap_candidates_executor
-            ),
-            export_semantic_supervision_corpus_executor=(
-                agent_task_actions_module._export_semantic_supervision_corpus_executor
-            ),
-            evaluate_semantic_candidate_extractor_executor=(
-                agent_task_actions_module._evaluate_semantic_candidate_extractor_executor
-            ),
-            build_shadow_semantic_graph_executor=(
-                agent_task_actions_module._build_shadow_semantic_graph_executor
-            ),
-            evaluate_semantic_relation_extractor_executor=(
-                agent_task_actions_module._evaluate_semantic_relation_extractor_executor
-            ),
-            build_document_fact_graph_executor=(
-                agent_task_actions_module._build_document_fact_graph_executor
-            ),
-        ),
+        build_semantic_analysis_action_definitions(),
         build_report_action_definitions(),
         build_claim_support_action_definitions(),
         build_search_harness_action_definitions(),
-        build_semantic_drafting_action_definitions(
-            prepare_semantic_generation_brief_executor=(
-                agent_task_actions_module._prepare_semantic_generation_brief_executor
-            ),
-            draft_semantic_grounded_document_executor=(
-                agent_task_actions_module._draft_semantic_grounded_document_executor
-            ),
-        ),
+        build_semantic_drafting_action_definitions(),
         build_semantic_governance_action_definitions(),
-        build_semantic_verification_action_definitions(
-            verify_semantic_grounded_document_executor=(
-                agent_task_actions_module._verify_semantic_grounded_document_executor
-            ),
-            triage_semantic_pass_executor=(
-                agent_task_actions_module._triage_semantic_pass_executor
-            ),
-            triage_semantic_candidate_disagreements_executor=(
-                agent_task_actions_module._triage_semantic_candidate_disagreements_executor
-            ),
-            triage_semantic_graph_disagreements_executor=(
-                agent_task_actions_module._triage_semantic_graph_disagreements_executor
-            ),
-        ),
+        build_semantic_verification_action_definitions(),
         build_document_lifecycle_action_definitions(
             enqueue_document_reprocess_executor=(
                 agent_task_actions_module._enqueue_document_reprocess_executor
