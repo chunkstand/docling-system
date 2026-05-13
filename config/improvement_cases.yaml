@@ -140,14 +140,14 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-uncommitted-2026-05-11
+    deployed_ref: "3fe9132"
     notes: >-
       Local evidence hotspot closeout reduces app/services/evidence.py to a
       141-line / 4-private-helper compatibility facade, preserves the
       settings-aware provenance wrapper seam used by tests, keeps the strict
       hotspot-prevention gate green through an explicit facade exception, and
       routes the remaining oversized owner-family modules into follow-on case
-      IC-65AF4A6D8B1E.
+      IC-65AF4A6D8B1E. Local closeout commit: 3fe9132.
   measurement:
     metric_name: evidence_hotspot_line_count
     current_value: 141.0
@@ -161,7 +161,7 @@ cases:
       Postgres-backed test suite passes, and the architecture probe no longer
       lists app/services/evidence.py in the top 12 churn hotspots.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-12T00:00:00+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-65AF4A6D8B1E
   title: 'Architecture hotspot: evidence owner-family modules'
   status: open
@@ -368,13 +368,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-uncommitted-2026-05-12
+    deployed_ref: "7cf7465"
     notes: Local agent-task orchestration Milestone 5 closeout keeps
       app/services/agent_task_actions.py as a 163-line / 1-private-helper
       composition and worker-execution facade, moves the remaining semantic
       action families into focused owner modules, tightens exact hygiene
-      ceilings to the verified counts, and preserves the public action catalog
-      plus action-index contracts.
+      ceilings to the verified counts, preserves the public action catalog plus
+      action-index contracts, and is closed locally by commit 7cf7465.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
     current_value: 163.0
@@ -1043,13 +1043,15 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: local-uncommitted-2026-05-12
-    notes: Local agent-task orchestration Milestone 5 closeout keeps
+    deployed_ref: "7cf7465"
+    notes: >-
+      Local agent-task orchestration Milestone 5 closeout keeps
       app/services/agent_task_context.py as a 121-line / 0-private-helper
       lookup and artifact-entrypoint facade, moves the remaining builder
       families into focused owner modules, tightens exact hygiene ceilings for
       the narrowed modules, and leaves only inherited line-budget ratchets on
-      the already-owned oversized context modules.
+      the already-owned oversized context modules. Local closeout commit:
+      7cf7465.
   measurement:
     metric_name: agent_task_context_hotspot_line_count
     current_value: 121.0

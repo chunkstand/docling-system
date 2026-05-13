@@ -1,8 +1,8 @@
 # Agent-Task Orchestration Boundary Milestone Plan
 
 Date: 2026-05-12 local / 2026-05-13 UTC
-Status: Milestone 5 implemented locally on 2026-05-12; the plan is resolved
-locally and the next routed hotspot is `IC-1D03DBFE8492` /
+Status: Milestone 5 closed locally as commit `7cf7465` on 2026-05-12; the
+plan is resolved locally and the next routed hotspot is `IC-1D03DBFE8492` /
 `app/services/search.py`
 Owner context: dedicated follow-on plan for `IC-A1E186A34097` /
 `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` /
@@ -11,9 +11,9 @@ break and the first report-action family split.
 
 ## Local Progress
 
-Milestone 5 is now implemented locally in the working tree. Because the
-Milestone 4 semantic-family extraction remained uncommitted, this closeout
-packet carries both the Milestone 4 owner-family move and the Milestone 5
+Milestone 5 is now closed locally as commit `7cf7465`. Because the
+Milestone 4 semantic-family extraction remained uncommitted before closeout,
+this packet carries both the Milestone 4 owner-family move and the Milestone 5
 lifecycle alignment, ratchet tightening, and owner-case transition.
 
 Local Milestone 5 snapshot:
@@ -46,6 +46,7 @@ Local Milestone 5 snapshot:
   contract, and `docs/architecture_boundaries.md`,
   `docs/agentic_architecture_index.md`, and `docs/SESSION_HANDOFF.md` now
   record the resolved boundary shape plus the next routed hotspot
+- local closeout commit: `7cf7465`
 - `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_context_semantic.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_actions_semantic_registry.py tests/unit/test_agent_task_actions_ontology.py tests/unit/test_agent_task_actions_semantic_documents.py tests/unit/test_agent_task_actions_semantic_graph.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`:
   `175 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_agent_task_semantic_orchestration_roundtrip.py tests/integration/test_agent_task_triage_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`:
@@ -582,9 +583,9 @@ Outcome label: resolved
 Purpose: prove that the orchestration boundary debt is actually closed rather
 than merely redistributed.
 
-Local status: implemented locally on 2026-05-12. The plan is resolved locally,
-`IC-A1E186A34097` and `IC-E52B6C7B22FD` are transitioned to deployed locally,
-and the next routed hotspot is `IC-1D03DBFE8492` /
+Local status: closed locally as commit `7cf7465` on 2026-05-12. The plan is
+resolved locally, `IC-A1E186A34097` and `IC-E52B6C7B22FD` are transitioned to
+deployed locally, and the next routed hotspot is `IC-1D03DBFE8492` /
 `app/services/search.py`.
 
 Scope:

@@ -4,17 +4,17 @@ Date: 2026-05-12 local / 2026-05-13 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
-Most recently documented committed checkpoint before the current Milestone 5
-local closeout: agent-task orchestration Milestone 3 local closeout commit
-`faa3827`; the prior evidence and orchestration follow-on checkpoint remains
-`3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots Milestone 5
-checkpoint remains `bf14f2a`, and the prior DB Models Compatibility Facade
-Milestone 2 checkpoint remains `8340dc0`.
+Milestone 5 implementation checkpoint: agent-task orchestration local closeout
+commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
+remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
+remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
+Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
+Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case: `IC-1D03DBFE8492` /
 `app/services/search.py`
-Active bounded implementation brief: `docs/agent_task_orchestration_boundary_milestone_plan.md`
-is resolved locally; the next bounded implementation brief should be created
-for the routed search hotspot before new implementation begins.
+Active bounded implementation brief: none. `docs/agent_task_orchestration_boundary_milestone_plan.md`
+is resolved locally; create the next bounded implementation brief for the
+routed search hotspot before new implementation begins.
 
 ## Current Position
 
@@ -95,10 +95,10 @@ expanded that classifier beyond the default file budget.
 
 ## Agent-Task Orchestration Boundary Milestone 5 Local Progress
 
-Milestone 5 is implemented locally and closes the agent-task orchestration
-boundary. Because the Milestone 4 semantic-family extraction remained
-uncommitted, the current closeout packet includes both the Milestone 4
-owner-family move and the Milestone 5 lifecycle alignment.
+Milestone 5 is closed locally as commit `7cf7465` and closes the agent-task
+orchestration boundary. Because the Milestone 4 semantic-family extraction
+remained uncommitted before closeout, the current packet includes both the
+Milestone 4 owner-family move and the Milestone 5 lifecycle alignment.
 
 Results:
 
@@ -135,6 +135,7 @@ Results:
   `docs/agentic_architecture_index.md`, and
   `docs/agent_task_orchestration_boundary_milestone_plan.md` so the resolved
   boundary shape and next routed hotspot are recorded
+- local closeout commit: `7cf7465`
 
 Verification:
 
