@@ -1,7 +1,7 @@
 duplicate_helper_names:
   - name: _foreign_results_before_first_expected_hit
     modules:
-      - app/services/evaluations.py
+      - app/services/evaluation_scoring.py
       - app/services/search_replays.py
     reason: Evaluation and replay services compute the same concept over different result payloads.
   - name: _extractor_descriptor
@@ -31,7 +31,7 @@ duplicate_helper_names:
     reason: Bootstrap and candidate workflows load target documents for different semantic stages.
   - name: _matching_rank
     modules:
-      - app/services/evaluations.py
+      - app/services/evaluation_fixtures.py
       - app/services/search_replays.py
     reason: Evaluation and replay comparisons calculate rank over different case types.
   - name: _normalize_text
@@ -61,7 +61,7 @@ duplicate_helper_names:
     reason: Harness evaluation and release gating compute rank metrics for separate gate surfaces.
   - name: _reciprocal_rank
     modules:
-      - app/services/evaluations.py
+      - app/services/evaluation_scoring.py
       - app/services/search.py
     reason: Evaluation scoring and live-search scoring own separate ranking math surfaces.
   - name: _result_label
@@ -87,7 +87,7 @@ duplicate_helper_names:
     reason: Document evaluations and harness evaluations summarize different result schemas.
   - name: _top_n_source_hit_count
     modules:
-      - app/services/evaluations.py
+      - app/services/evaluation_scoring.py
       - app/services/search_replays.py
     reason: Evaluation and replay services count expected-document hits in different result models.
   - name: _unique_uuids
@@ -360,10 +360,10 @@ file_budgets:
       max_lines: 964
       max_private_helpers: 20
     app/services/evaluations.py:
-      max_lines: 1244
-      ratchet_max_lines: 1244
-      max_private_helpers: 29
-      ratchet_max_private_helpers: 29
+      max_lines: 400
+      ratchet_max_lines: 400
+      max_private_helpers: 2
+      ratchet_max_private_helpers: 2
       owner_case_id: IC-BF180637814C
     app/services/evaluation_fixtures.py:
       max_lines: 966
@@ -372,8 +372,10 @@ file_budgets:
       ratchet_max_private_helpers: 32
       owner_case_id: IC-BF180637814C
     app/services/evaluation_scoring.py:
-      max_lines: 950
+      max_lines: 897
+      ratchet_max_lines: 897
       max_private_helpers: 25
+      ratchet_max_private_helpers: 25
       owner_case_id: IC-BF180637814C
     app/services/evaluation_reads.py:
       max_lines: 450

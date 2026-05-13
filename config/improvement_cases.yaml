@@ -1011,25 +1011,28 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "3817659"
+    deployed_ref: "pending_local_milestone_3_commit"
     notes: >-
-      Milestone 2 fixture/corpus extraction is now committed locally as
-      3817659: the evaluation facade is reduced and the new fixture owner is
-      governed under the same case, while the broader owner case remains open
-      until Milestones 3-4 move scoring/structural and latest-read ownership
-      out of app/services/evaluations.py.
+      Milestone 3 scoring/structural extraction is ready to close in the
+      current local milestone commit: the evaluation facade is now narrow, the
+      scoring owner now lives in app/services/evaluation_scoring.py, and the
+      broader owner case remains open only until Milestone 4 moves the
+      latest-read ownership out of app/services/evaluations.py. Record the
+      exact closeout hash in the post-commit alignment pass.
   measurement:
     metric_name: evaluation_hotspot_line_count
-    current_value: 1244.0
-    measurement_window: 2026-05-13 local Milestone 2 fixture/corpus verification
+    current_value: 400.0
+    measurement_window: 2026-05-13 local Milestone 3 scoring/structural verification
     notes: >-
-      Milestone 2 moved fixture and corpus ownership into
-      app/services/evaluation_fixtures.py, reducing
-      app/services/evaluations.py to 1244 lines / 29 private helpers. The new
-      fixture owner currently closes at 966 lines / 32 private helpers, and
-      Milestone 3 scoring/structural extraction is the next reduction gate.
+      Milestone 3 moved retrieval scoring, answer evaluation, failure-kind
+      classification, reciprocal-rank summaries, merge-expectation checks, and
+      structural summary assembly into app/services/evaluation_scoring.py,
+      reducing app/services/evaluations.py to 400 lines / 2 private helpers.
+      The fixture owner remains at 966 lines / 32 private helpers, the new
+      scoring owner closes at 897 lines / 25 private helpers, and Milestone 4
+      latest-read extraction is the next reduction gate.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T23:30:00Z'
+  updated_at: '2026-05-13T23:45:24Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed

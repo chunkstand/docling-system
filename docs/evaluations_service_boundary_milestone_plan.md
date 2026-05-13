@@ -1,12 +1,12 @@
 # Evaluations Service Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active stacked follow-on on 2026-05-13 after Milestones 0-2 resolved
+Status: active stacked follow-on on 2026-05-13 after Milestones 0-3 resolved
 locally; `docs/search_execution_orchestration_boundary_milestone_plan.md`
 closed as `dae5e4f`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
-`3d7d090`, Milestone 1 closed locally as `9e3a8e4`, Milestone 2 is now
-resolved locally, and Milestone 3 is the next implementation gate
+`3d7d090`, Milestone 1 closed locally as `9e3a8e4`, Milestone 2 closed
+locally as `3817659`, and Milestone 4 is the next implementation gate
 Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
 orchestration packet closed first as `dae5e4f`, the claim-support boundary
@@ -15,39 +15,42 @@ state before any evaluation-service code moves.
 
 ## Local Progress
 
-Milestone 2 is now resolved locally. Milestone 3 is the next implementation
+Milestone 3 is now resolved locally. Milestone 4 is the next implementation
 gate for the evaluation owner split.
 
-Local Milestone 2 snapshot:
+Local Milestone 3 snapshot:
 
-- extracted fixture and corpus ownership into
+- fixture and corpus ownership remains in
   `app/services/evaluation_fixtures.py`, including fixture dataclasses,
   manual/auto corpus resolution, fixture matching, auto-query generation,
   retrieval-backed query filtering, and `ensure_auto_evaluation_fixture(...)`
+- retrieval scoring, answer evaluation, failure-kind classification,
+  reciprocal-rank summaries, merge-expectation checks, and structural summary
+  assembly now live in `app/services/evaluation_scoring.py`
 - reduced `app/services/evaluations.py` to the narrower orchestration and
-  compatibility facade at `1244` lines / `29` private helpers, while the new
-  fixture owner currently closes at `966` lines / `32` private helpers under
-  the same owner case
-- preserved existing importer stability for callers that continue to import
-  fixture constants and helpers from `app.services.evaluations`, including the
-  older `get_settings` and `search_documents` monkeypatch points used by the
-  integration harness
-- moved the fixture/corpus owner coverage out of
-  `tests/unit/test_evaluation_service.py`, reducing that file from `2237`
-  lines to `752` lines while adding focused owner coverage in
-  `tests/unit/test_evaluation_fixtures.py` at `1506` lines
+  compatibility facade at `400` lines / `2` private helpers, while the
+  fixture owner remains at `966` lines / `32` private helpers and the new
+  scoring owner closes at `897` lines / `25` private helpers under the same
+  owner case
+- preserved importer stability for callers that continue to import the
+  orchestration entrypoints and compatibility helpers from
+  `app.services.evaluations`
+- moved the scoring/structural owner coverage out of
+  `tests/unit/test_evaluation_service.py`, reducing that file from `752`
+  lines to `389` lines while adding focused owner coverage in
+  `tests/unit/test_evaluation_scoring.py` at `381` lines
 - ratcheted `config/hygiene_policy.yaml` to the measured post-split ceilings
-  for both the narrowed facade and the new fixture owner module
+  for the narrowed facade and the new scoring owner module while keeping the
+  fixture owner ratchet unchanged
 - strict hotspot prevention now reports `known_hotspots=9`,
   `changed_hotspots=1`, `blocked=0`, `allowed=3`, `exceptions=0`
 - architecture quality remains `hotspot_count=10` with
   `max_hotspot_risk_score=501.06`; the architecture probe still routes
-  `app/services/evaluations.py` at `20 revisions`, `1244 lines`, and
-  `score 24880`, so the broader owner case remains reduced rather than
-  resolved
-- local closeout commit: `3817659`
-- next implementation gate: Milestone 3 scoring and structural owner
-  extraction
+  `app/services/evaluations.py` at `21 revisions`, `400 lines`, and
+  `score 8400`, even though the architecture-quality summary top-five excludes
+  that facade, so the broader owner case remains reduced rather than resolved
+- local closeout commit: `pending_local_milestone_3_commit`
+- next implementation gate: Milestone 4 latest-read owner extraction
 
 ## Purpose
 
@@ -394,7 +397,7 @@ Outcome label: reduced
   integration harness
 - added focused owner tests in `tests/unit/test_evaluation_fixtures.py` and
   reduced `tests/unit/test_evaluation_service.py` to the remaining
-  orchestration, scoring, and structural assertions
+  orchestration and execution-seam assertions
 - left `app/services/evaluation_scoring.py`,
   `app/services/evaluation_reads.py`, and their unit files absent on purpose;
   those owner surfaces remain reserved for Milestones 3-4 instead of being
@@ -414,17 +417,40 @@ Outcome label: reduced
   evaluation readiness `regression_ready=true`, `court_grade_ready=true`
 
 ### Milestone 3: Scoring And Structural Owner Extraction
+Status: resolved locally on 2026-05-13; Milestone 4 is now the next
+implementation gate
 Outcome label: reduced
 
-- Extract retrieval ranking helpers, answer scoring helpers, failure-kind
+- extracted retrieval ranking helpers, answer scoring helpers, failure-kind
   classification, reciprocal-rank summaries, merge-expectation checks, and
-  structural summary assembly into `app/services/evaluation_scoring.py`.
-- Keep `app/services/evaluation_execution.py` as the batch executor and row
-  persistence seam; it may call the new scoring owner, but it must not become
-  the owner of the scoring logic itself.
-- Add focused owner tests in `tests/unit/test_evaluation_scoring.py`.
-- Preserve the current retrieval and answer summary semantics, including
-  `retrieval_rank_metrics` and `structural_passed`.
+  structural summary assembly into `app/services/evaluation_scoring.py`
+- kept `app/services/evaluation_execution.py` as the batch executor and row
+  persistence seam without shifting the scoring ownership into the executor
+- kept `app/services/evaluations.py` as the stable orchestration and
+  compatibility facade, now reduced to `400` lines / `2` private helpers
+- added focused owner tests in `tests/unit/test_evaluation_scoring.py` and
+  reduced `tests/unit/test_evaluation_service.py` to `389` lines while the new
+  scoring owner tests close at `381` lines
+- preserved the current retrieval and answer summary semantics, including
+  `retrieval_rank_metrics` and `structural_passed`
+- ratcheted `config/hygiene_policy.yaml` to the measured post-split ceilings:
+  `app/services/evaluations.py` at `400` lines / `2` private helpers,
+  `app/services/evaluation_fixtures.py` at `966` lines / `32` private
+  helpers, and `app/services/evaluation_scoring.py` at `897` lines /
+  `25` private helpers
+- local closeout commit: `pending_local_milestone_3_commit`
+- verification on the resolved slice:
+  `15 passed` in `tests/unit/test_evaluation_service.py` and
+  `tests/unit/test_evaluation_scoring.py`;
+  `114 passed` across the Milestone 3 unit boundary suite;
+  `12 passed` in the targeted Postgres integration trio;
+  `1899 passed` in the full `DOCLING_SYSTEM_RUN_INTEGRATION=1` suite;
+  hotspot prevention strict `blocked=0`;
+  hygiene `new hygiene regressions: none`;
+  architecture inspect `valid=true`;
+  capability contracts `valid=true`;
+  architecture quality `hotspot_count=10`, `max_hotspot_risk_score=501.06`;
+  evaluation readiness `regression_ready=true`, `court_grade_ready=true`
 
 ### Milestone 4: Latest-Read Owner Extraction And Facade Reduction
 Outcome label: resolved for the scoped mixed-responsibility knot and reduced for broader owner case `IC-BF180637814C` unless live evidence proves full retirement
