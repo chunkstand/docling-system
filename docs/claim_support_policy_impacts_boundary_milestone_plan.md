@@ -1,11 +1,15 @@
 # Claim Support Policy Impacts Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active bounded implementation brief on 2026-05-13 after
-`docs/search_execution_orchestration_boundary_milestone_plan.md` resolved
-locally through Milestone 1 closeout commit `dae5e4f`; Milestone 0
-post-search refresh is resolved locally and Milestone 1 is the next
-implementation gate
+Status: resolved locally on 2026-05-13 after Milestones 1-4 completed in the
+same local closeout window. The scoped subsystem-knot is resolved, while the
+broader owner case `IC-E2270F89B397` remains reduced and open because
+`app/services/claim_support_replay_alert_promotions.py`,
+`app/services/claim_support_policy_impact_views.py`, and
+`app/services/claim_support_policy_impact_replay.py` still exceed the default
+600-line hygiene budget. The exact closeout commit hash is carried by the same
+atomic commit that updates this plan and cannot be self-recorded here without
+an amend.
 Owner context: queued follow-on under `IC-E2270F89B397` /
 `app/services/claim_support_policy_impacts.py`. This plan assumes the current
 search execution orchestration packet is already closed locally as
@@ -326,7 +330,7 @@ Acceptance:
 
 ### Milestone 1 - Claim-Support Facade Prevention Bootstrap
 
-Status: drafted
+Status: resolved locally on 2026-05-13
 Outcome label: `resolved`
 
 Implementation:
@@ -355,7 +359,7 @@ Acceptance:
 
 ### Milestone 2 - Read-Model And Alert Owner Extraction
 
-Status: drafted
+Status: resolved locally on 2026-05-13
 Outcome label: `reduced`
 
 Implementation:
@@ -389,7 +393,7 @@ Acceptance:
 
 ### Milestone 3 - Replay Queueing And Closure Lifecycle Extraction
 
-Status: drafted
+Status: resolved locally on 2026-05-13
 Outcome label: `resolved` for the scoped subsystem-knot issue and `reduced` for
 the broader owner case unless the live hotspot fully retires
 
@@ -425,7 +429,7 @@ Acceptance:
 
 ### Milestone 4 - Closeout, Ratchets, And Residual Routing
 
-Status: drafted
+Status: resolved locally on 2026-05-13
 Outcome label: `reduced`
 
 Implementation:
@@ -435,8 +439,9 @@ Implementation:
 - update `config/improvement_cases.yaml` so `IC-E2270F89B397` records the new
   measurements and broader owner-case state after the split
 - refresh `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md`, and
-  this plan with the closeout hash, verification commands, and post-closeout
-  routing
+  this plan with the verified closeout status, verification commands, and
+  post-closeout routing; note that the same atomic commit cannot self-record
+  its own closeout hash without an amend
 - stage only the verified claim-support milestone slice and close with one
   local atomic commit
 
@@ -447,6 +452,25 @@ Acceptance:
 - the broader owner case is marked `reduced` unless live architecture evidence
   proves full retirement
 - the same closeout commit contains code, tests, governance config, and docs
+
+Closeout results:
+
+- `app/services/claim_support_policy_impacts.py` now closes at `184` lines and
+  `0` private helpers as a compatibility facade
+- `app/services/claim_support_policy_impact_views.py` now closes at `899` lines
+  and `16` private helpers
+- `app/services/claim_support_policy_impact_replay.py` now closes at `898`
+  lines and `11` private helpers
+- direct owner-module coverage now lives in
+  `tests/unit/test_claim_support_policy_impact_views.py` and
+  `tests/unit/test_claim_support_policy_impact_replay.py`
+- final verification window closed with `64` focused unit passes, `19`
+  claim-support integration passes, `1896` full DB-backed suite passes,
+  `known_hotspots=8`, `changed_hotspots=1`, `blocked=0`, `allowed=1`,
+  `exceptions=0`, and architecture quality
+  `max_hotspot_risk_score=516.06`
+- the next routed follow-on after this local closeout is
+  `docs/evaluations_service_boundary_milestone_plan.md`
 
 ## Required Implementation Artifacts
 
@@ -537,7 +561,9 @@ index after the search orchestration milestone completes.
 - Leave unrelated dirty and untracked files alone.
 - Include implementation, tests, config, docs, and handoff updates in the same
   local atomic commit.
-- Record the closeout commit hash in this plan and in `docs/SESSION_HANDOFF.md`.
+- Record the closeout commit hash in this plan and in
+  `docs/SESSION_HANDOFF.md` during the next alignment pass; the same atomic
+  closeout commit cannot self-record that hash without an amend.
 - Treat the milestone as incomplete until that commit exists.
 - Do not commit if any required verification gate fails.
 

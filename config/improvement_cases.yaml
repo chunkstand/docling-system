@@ -892,9 +892,13 @@ cases:
   title: 'Architecture hotspot: app/services/claim_support_policy_impacts.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/claim_support_policy_impacts.py remains an
-    architecture hotspot with line_count=2011 and private_helper_count=42 after
-    the Milestone 3 claim-support owner split.
+  observed_failure: app/services/claim_support_policy_impacts.py is now a
+    184-line compatibility facade, but the broader claim-support policy-impact
+    owner case remains reduced rather than retired because
+    app/services/claim_support_replay_alert_promotions.py,
+    app/services/claim_support_policy_impact_views.py, and
+    app/services/claim_support_policy_impact_replay.py remain above the
+    600-line default budget at 1536, 899, and 898 lines respectively.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/claim_support_policy_impacts.py
@@ -908,28 +912,80 @@ cases:
     description: Architecture quality owner surface for app/services/claim_support_policy_impacts.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check app/services/claim_support_policy_impacts.py
+      app/services/claim_support_policy_impact_views.py
+      app/services/claim_support_policy_impact_replay.py
+      app/services/claim_support_replay_alert_promotions.py
+      app/api/routers/claim_support_policy_impacts.py
+      app/api/routers/agent_tasks.py app/hotspot_prevention_classifier.py
+      tests/unit/test_claim_support_policy_impacts.py
+      tests/unit/test_claim_support_policy_impact_views.py
+      tests/unit/test_claim_support_policy_impact_replay.py
+      tests/unit/test_agent_tasks_api.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_claim_support_policy_impacts.py
+      tests/unit/test_claim_support_policy_impact_views.py
+      tests/unit/test_claim_support_policy_impact_replay.py
+      tests/unit/test_agent_tasks_api.py
+      tests/unit/test_hotspot_prevention.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
+      tests/integration/test_claim_support_policy_activation_roundtrip.py
+      tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_roundtrip.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py
+      tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py
+      tests/integration/test_claim_support_policy_mined_failures_roundtrip.py
+      tests/integration/test_claim_support_judge_evaluation_roundtrip.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-architecture-quality-report --summary
     - uv run docling-system-architecture-quality-report
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 12
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/claim_support_policy_impacts.py remains a narrow
+      compatibility facade with no read-model, alert, replay queueing, or
+      replay-closure implementation bodies.
+    - The moved claim-support owner modules and route-boundary tests preserve
+      the existing API and replay lifecycle contracts.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "afc324a"
-    notes: Milestone 3 claim-support owner split committed; the compatibility
-      facade remains in app/services/claim_support_policy_impacts.py while the
-      narrowed replay-alert fixture coverage workflow now lives in
-      app/services/claim_support_replay_alert_promotions.py.
+    notes: >-
+      The earlier replay-alert split remains committed as afc324a. This
+      boundary closeout reduces app/services/claim_support_policy_impacts.py
+      to a 184-line compatibility facade, adds
+      app/services/claim_support_policy_impact_views.py and
+      app/services/claim_support_policy_impact_replay.py, and keeps the
+      broader owner case open because the extracted owners still exceed the
+      default 600-line budget. The exact local closeout hash is carried by the
+      same atomic commit that updates this registry and cannot be self-recorded
+      here without an amend.
   measurement:
     metric_name: claim_support_hotspot_line_count
-    current_value: 2011.0
-    measurement_window: 2026-05-10 local verification
-    notes: Milestone 3 moved replay-alert fixture coverage into
-      app/services/claim_support_replay_alert_promotions.py and reduced
-      app/services/claim_support_policy_impacts.py to 2011 lines while
-      governing the new owner module at 1536 lines.
+    current_value: 184.0
+    measurement_window: 2026-05-13 local claim-support boundary verification
+    notes: >-
+      The claim-support policy-impact boundary closeout moved read-model and
+      alert logic into app/services/claim_support_policy_impact_views.py at 899
+      lines / 16 private helpers and replay queueing plus closure lifecycle
+      logic into app/services/claim_support_policy_impact_replay.py at 898
+      lines / 11 private helpers, while the compatibility facade now measures
+      184 lines / 0 private helpers. The broader owner case remains reduced
+      because app/services/claim_support_replay_alert_promotions.py is still
+      1536 lines / 24 private helpers and the new owners remain above the
+      default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T14:29:04+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-BF180637814C
   title: 'Architecture hotspot: app/services/evaluations.py'
   status: open

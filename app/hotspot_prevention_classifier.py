@@ -16,11 +16,7 @@ class ClassifiedLine:
     category: str
     message: str
     policy_rule: str
-
-
 _CLASS_RE = re.compile(r"class\s+([A-Za-z_][A-Za-z0-9_]*)\b")
-
-
 def classify_changed_file(
     *,
     rule: HotspotRule,
@@ -29,7 +25,6 @@ def classify_changed_file(
 ) -> list[dict[str, Any]]:
     if not changed_file.added_lines and changed_file.deleted_line_count:
         return [deletion_finding(rule=rule, diff_stat=diff_stat)]
-
     exception = exception_for_additions(rule, changed_file.added_lines)
     alias_hunk_ids = alias_only_hunk_ids(rule, changed_file)
     registry_hunk_ids = registry_composition_hunk_ids(rule, changed_file)
@@ -121,7 +116,6 @@ def classify_changed_file(
                 exception=exception,
             )
         )
-
     significant = significant_unclassified_lines(
         changed_file.added_lines,
         classified_lines,
@@ -142,26 +136,20 @@ def classify_changed_file(
             )
         )
     return findings
-
-
 def forwarding_only_body_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    if allowed_category_for_forwarder(rule) is None:
-        return set()
-    return hunk_ids_matching(changed_file, is_forwarding_hunk)
-
-
+    return set() if allowed_category_for_forwarder(rule) is None else hunk_ids_matching(
+        changed_file, is_forwarding_hunk
+    )
 def alias_only_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    if allowed_category_for_import(rule) is None:
-        return set()
-    return hunk_ids_matching(changed_file, is_alias_only_hunk)
-
-
+    return set() if allowed_category_for_import(rule) is None else hunk_ids_matching(
+        changed_file, is_alias_only_hunk
+    )
 def registry_composition_hunk_ids(rule: HotspotRule, changed_file: ChangedFile) -> set[int]:
-    if "registry_composition" not in rule.allow:
-        return set()
-    return hunk_ids_matching(changed_file, is_registry_composition_hunk)
-
-
+    return (
+        set()
+        if "registry_composition" not in rule.allow
+        else hunk_ids_matching(changed_file, is_registry_composition_hunk)
+    )
 def hunk_ids_matching(
     changed_file: ChangedFile,
     predicate: Callable[[tuple[str, ...]], bool],
@@ -172,8 +160,6 @@ def hunk_ids_matching(
     return {
         hunk_id for hunk_id, hunk_lines in lines_by_hunk.items() if predicate(tuple(hunk_lines))
     }
-
-
 def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any]:
     return {
         "status": "allowed",
@@ -186,12 +172,8 @@ def deletion_finding(*, rule: HotspotRule, diff_stat: DiffStat) -> dict[str, Any
         "added_line_count": diff_stat.added_line_count,
         "deleted_line_count": diff_stat.deleted_line_count,
         "message": "deletion-only hotspot reduction is allowed",
-        "added_line": None,
-        "exception_id": None,
-        "remediation": None,
+        "added_line": None, "exception_id": None, "remediation": None,
     }
-
-
 def classify_python_addition(
     *,
     rule: HotspotRule,
@@ -227,8 +209,6 @@ def classify_python_addition(
             policy_rule=f"allow.{forwarding_category}",
         )
     return classify_hotspot_implementation(path=path, stripped=stripped, line=line, rule=rule)
-
-
 def classify_hotspot_implementation(
     *,
     path: str,
@@ -238,50 +218,44 @@ def classify_hotspot_implementation(
 ) -> ClassifiedLine | None:
     if path == "app/cli.py":
         return classify_cli_addition(stripped=stripped, line=line, rule=rule)
-    classifier = {
+    classifiers = {
         "app/db/models.py": classify_model_addition,
         "app/services/evidence.py": classify_evidence_addition,
         "app/services/agent_task_actions.py": classify_agent_action_addition,
         "app/services/agent_task_context.py": classify_agent_task_context_addition,
         "app/services/search.py": classify_search_addition,
+        "app/services/claim_support_policy_impacts.py": (
+            classify_claim_support_policy_impact_addition
+        ),
         "tests/unit/test_cli.py": classify_cli_test_addition,
-    }.get(path)
-    return None if classifier is None else classifier(stripped=stripped, line=line)
-
-
+    }
+    classifier = classifiers.get(path)
+    return classifier(stripped=stripped, line=line) if classifier else None
 def classify_model_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if "relationship(" in stripped:
         return blocked(
-            line,
-            "relationship_logic",
-            "new relationship logic belongs in a model domain",
+            line, "relationship_logic", "new relationship logic belongs in a model domain"
         )
     if _CLASS_RE.match(stripped):
         category = "enum" if "Enum" in stripped else "orm_class"
         return blocked(line, category, "new ORM or enum classes belong in app/db/model_domains/")
-    if stripped.startswith(("def ", "async def ")):
-        return blocked(line, "broad_helper", "new model helpers belong in a focused owner module")
-    return None
-
-
+    return (
+        blocked(line, "broad_helper", "new model helpers belong in a focused owner module")
+        if stripped.startswith(("def ", "async def "))
+        else None
+    )
 def classify_evidence_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if stripped.startswith(("def _", "async def _")):
         return blocked(line, "private_helper", "new evidence helpers belong in evidence_* modules")
     if stripped.startswith(("def ", "async def ", "class ")):
         return blocked(
-            line,
-            "payload_builder",
-            "new evidence behavior belongs in evidence_* modules",
+            line, "payload_builder", "new evidence behavior belongs in evidence_* modules"
         )
     if any(token in stripped for token in ("write_text(", "json.dumps(", "artifact", "payload")):
         return blocked(
-            line,
-            "artifact_assembly",
-            "new evidence assembly belongs in evidence_* modules",
+            line, "artifact_assembly", "new evidence assembly belongs in evidence_* modules"
         )
     return None
-
-
 def classify_cli_addition(
     *,
     stripped: str,
@@ -310,8 +284,6 @@ def classify_cli_addition(
             "broad parser logic belongs in app/cli_commands/",
         )
     return None
-
-
 def classify_agent_action_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if stripped.startswith("class "):
         return blocked(
@@ -332,8 +304,6 @@ def classify_agent_action_addition(*, stripped: str, line: ChangedLine) -> Class
             "new executor implementations belong in app/services/agent_actions/",
         )
     return None
-
-
 def classify_agent_task_context_addition(
     *,
     stripped: str,
@@ -364,8 +334,6 @@ def classify_agent_task_context_addition(
             "new context composition belongs in app/services/agent_task_context_*.py",
         )
     return None
-
-
 def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     lowered = stripped.lower()
     if re.match(r"(async def |def )_load_.*candidate", stripped):
@@ -413,8 +381,84 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
     if any(token in lowered for token in ("rank", "score", "hydrate", "telemetry")):
         return blocked(line, "ranking_logic", "new search logic belongs in search_* modules")
     return None
-
-
+def classify_claim_support_policy_impact_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+) -> ClassifiedLine | None:
+    lowered = stripped.lower()
+    closure_patterns = (
+        r"(async def |def )_replay_closure_",
+        r"(async def |def )_record_replay_closure_governance_event",
+    )
+    if any(re.match(pattern, stripped) for pattern in closure_patterns) or (
+        "claim_support_policy_impact_replay_closure" in lowered
+    ):
+        return blocked(
+            line,
+            "replay_closure_receipt_logic",
+            "replay closure receipts belong in claim_support_policy_impact_replay.py",
+        )
+    alert_patterns = (
+        r"(async def |def )_(alert_|fresh_alert_worklist_item)",
+        (
+            r"(async def |def )_("
+            r"record_alert_escalation_event|"
+            r"refresh_existing_evidence_manifests_for_alert_item)"
+        ),
+        r"(async def |def )claim_support_policy_change_impact_alerts",
+        r"(async def |def )record_claim_support_policy_change_impact_alert_escalations",
+    )
+    if any(re.match(pattern, stripped) for pattern in alert_patterns) or (
+        "alert" in lowered and "worklist" in lowered
+    ):
+        return blocked(
+            line,
+            "alert_projection_or_escalation_logic",
+            "alert projection and escalation logic belong in claim_support_policy_impact_views.py",
+        )
+    replay_patterns = (
+        r"(async def |def )_(verify_replay_|replay_response|validated_replay_work_items)",
+        r"(async def |def )_(recommended_source_task|created_task_spec|queue_agent_task)",
+        r"(async def |def )queue_claim_support_policy_change_impact_replay_tasks",
+        r"(async def |def )refresh_claim_support_policy_change_impact_replay_status",
+        r"(async def |def )refresh_claim_support_policy_change_impacts_for_replay_task",
+    )
+    if any(re.match(pattern, stripped) for pattern in replay_patterns) or (
+        "replay" in lowered and any(token in lowered for token in ("queue", "refresh", "closure"))
+    ):
+        return blocked(
+            line,
+            "replay_lifecycle_logic",
+            "replay queueing and refresh logic belong in claim_support_policy_impact_replay.py",
+        )
+    read_model_patterns = (
+        r"(async def |def )_(uuid_list|get_impact_row|impact_response|hours_since|worklist_)",
+        r"(async def |def )list_claim_support_policy_change_impacts",
+        r"(async def |def )summarize_claim_support_policy_change_impacts",
+        r"(async def |def )claim_support_policy_change_impact_worklist",
+        r"(async def |def )get_claim_support_policy_change_impact",
+    )
+    if any(re.match(pattern, stripped) for pattern in read_model_patterns):
+        return blocked(
+            line,
+            "read_model_worklist_logic",
+            "claim-support read-model logic belongs in claim_support_policy_impact_views.py",
+        )
+    if stripped.startswith(("def _", "async def _")):
+        return blocked(
+            line,
+            "read_model_worklist_logic",
+            "claim-support policy impact helpers belong in claim_support_policy_impact_*.py",
+        )
+    if stripped.startswith(("def ", "async def ")):
+        return blocked(
+            line,
+            "read_model_worklist_logic",
+            "claim-support policy impact service behavior belongs in "
+            "claim_support_policy_impact_*.py",
+        )
+    return None
 def classify_cli_test_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if not stripped.startswith("def test_"):
         return None
@@ -432,20 +476,14 @@ def classify_cli_test_addition(*, stripped: str, line: ChangedLine) -> Classifie
         "broad_new_test_group",
         "new CLI command tests belong in focused tests/unit/test_cli_*.py files",
     )
-
-
 def is_comment_or_blank(text: str) -> bool:
     stripped = text.strip()
     return not stripped or stripped.startswith("#")
-
-
 def is_import_or_alias(text: str) -> bool:
     stripped = text.strip()
     return stripped.startswith(("from ", "import ", "__all__")) or bool(
         re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*$", stripped)
     )
-
-
 def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
     significant = [text.strip() for text in lines if not is_comment_or_blank(text)]
     saw_alias = False
@@ -469,26 +507,37 @@ def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
         saw_alias = True
         index += 3
     return saw_alias
-
-
 def is_forwarding_hunk(lines: tuple[str, ...]) -> bool:
     significant: list[str] = []
+    in_signature = False
     for text in lines:
         stripped = text.strip()
-        if not stripped or stripped.startswith(("#", "@")) or stripped in {'"""', "'''", ")", "):"}:
-            continue
-        if stripped.startswith(("def ", "async def ")) or (
-            stripped.endswith(":") and "(" in stripped
+        if (
+            not stripped
+            or stripped.startswith(("#", "@"))
+            or stripped in {'"""', "'''", ")"}
+            or is_import_or_alias(text)
         ):
+            continue
+        if stripped.startswith(("def ", "async def ")):
+            in_signature = not stripped.endswith(":")
+            continue
+        if in_signature:
+            if stripped.endswith(":") or stripped == "):":
+                in_signature = False
             continue
         significant.append(stripped)
     has_forwarding_call = False
     for stripped in significant:
+        if re.match(r"\)(\s*->\s*[^:]+)?:", stripped):
+            continue
         if re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped):
             has_forwarding_call = True
             continue
         if stripped.startswith("raise SystemExit("):
             has_forwarding_call = True
+            continue
+        if re.match(r"[A-Za-z_][A-Za-z0-9_.]*,?$", stripped):
             continue
         if re.match(
             r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*,?$",
@@ -497,34 +546,19 @@ def is_forwarding_hunk(lines: tuple[str, ...]) -> bool:
             continue
         return False
     return has_forwarding_call
-
-
 def is_forwarding_call_line(stripped: str) -> bool:
     return bool(re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped)) or stripped.startswith(
         "raise SystemExit("
     )
-
-
 def is_significant_added_text(text: str) -> bool:
     return not is_comment_or_blank(text) and not is_import_or_alias(text)
-
-
 def is_registry_composition_hunk(lines: tuple[str, ...]) -> bool:
     significant = [raw.strip() for raw in lines if is_significant_added_text(raw)]
     if not significant:
         return False
-
     has_composition_marker = False
-    allowed_tokens = (
-        "compose_action_registries(",
-        "compose_context_builder_registries(",
-        "build_",
-        "_REGISTRY",
-        "_BUILDERS",
-        "_executor",
-        "globals()",
-        "build_generic_task_context",
-    )
+    allowed_tokens = ("compose_action_registries(", "compose_context_builder_registries(",
+        "build_", "_REGISTRY", "_BUILDERS", "_executor", "globals()", "build_generic_task_context")
     for stripped in significant:
         if stripped.startswith(("def ", "async def ", "class ")):
             return False
@@ -535,33 +569,16 @@ def is_registry_composition_hunk(lines: tuple[str, ...]) -> bool:
             continue
         return False
     return has_composition_marker
-
-
 def allowed_category_for_import(rule: HotspotRule) -> str | None:
     return first_allowed_category(
-        rule,
-        "import_forwarder",
-        "alias_forwarder",
-        "registry_composition",
+        rule, "import_forwarder", "alias_forwarder", "registry_composition"
     )
-
-
 def allowed_category_for_forwarder(rule: HotspotRule) -> str | None:
     return first_allowed_category(
-        rule,
-        "explicit_forwarding_function",
-        "alias_forwarder",
-        "import_forwarder",
+        rule, "explicit_forwarding_function", "alias_forwarder", "import_forwarder"
     )
-
-
 def first_allowed_category(rule: HotspotRule, *categories: str) -> str | None:
-    for category in categories:
-        if category in rule.allow:
-            return category
-    return None
-
-
+    return next((category for category in categories if category in rule.allow), None)
 def significant_unclassified_lines(
     lines: tuple[ChangedLine, ...],
     classified_lines: list[ClassifiedLine],
@@ -580,47 +597,22 @@ def significant_unclassified_lines(
         and (line.new_lineno, line.text) not in classified_keys
         and is_significant_added_text(line.text)
     ]
-
-
 def fallback_block_category(rule: HotspotRule) -> str:
     return next(
-        (
-            category
-            for category in (
-                "broad_helper",
-                "artifact_assembly",
-                "broad_parser_logic",
-                "executor_implementation",
-                "ranking_logic",
-                "broad_new_test_group",
-            )
-            if category in rule.block_new
-        ),
+        (category for category in (
+            "broad_helper", "artifact_assembly", "broad_parser_logic",
+            "executor_implementation", "ranking_logic", "broad_new_test_group",
+        ) if category in rule.block_new),
         rule.block_new[0],
     )
-
-
 def exception_for_additions(
     rule: HotspotRule,
     added_lines: tuple[ChangedLine, ...],
 ) -> HotspotException | None:
     raw_lines = tuple(line.text for line in added_lines)
-    for exception in rule.exceptions:
-        if exception.matches(raw_lines):
-            return exception
-    return None
-
-
+    return next((exception for exception in rule.exceptions if exception.matches(raw_lines)), None)
 def blocked(line: ChangedLine, category: str, message: str) -> ClassifiedLine:
-    return ClassifiedLine(
-        line=line,
-        status="blocked",
-        category=category,
-        message=message,
-        policy_rule=f"block_new.{category}",
-    )
-
-
+    return ClassifiedLine(line, "blocked", category, message, f"block_new.{category}")
 def finding_payload(
     *,
     classified: ClassifiedLine,

@@ -97,6 +97,20 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/claim_support_policy_impacts.py:
+    target_role: claim-support policy impact compatibility facade
+    preferred_owner_modules:
+      - app/services/claim_support_policy_impact_*.py
+    block_new:
+      - read_model_worklist_logic
+      - alert_projection_or_escalation_logic
+      - replay_lifecycle_logic
+      - replay_closure_receipt_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   tests/unit/test_cli.py:
     target_role: legacy CLI compatibility tests
     preferred_owner_modules:

@@ -76,6 +76,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/db/models.py",
         "app/services/agent_task_actions.py",
         "app/services/agent_task_context.py",
+        "app/services/claim_support_policy_impacts.py",
         "app/services/evidence.py",
         "app/services/search.py",
         "tests/unit/test_cli.py",
@@ -163,6 +164,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             "context_builder_implementation",
         ),
         ("app/services/search.py", ["def _rank_new():", "    return 1"], "query_feature_helper"),
+        (
+            "app/services/claim_support_policy_impacts.py",
+            ["def _build_replay_alert_worklist():", "    return []"],
+            "alert_projection_or_escalation_logic",
+        ),
         (
             "tests/unit/test_cli.py",
             ["def test_new_command_group():", "    assert True"],
@@ -257,6 +263,43 @@ def test_search_hotspot_blocks_orchestration_candidate_loading_and_detail_growth
     assert candidate_report["findings"][0]["category"] == "candidate_loading"
     assert detail_report["summary"]["blocked_count"] == 1
     assert detail_report["findings"][0]["category"] == "search_detail_payload_builder"
+
+
+def test_claim_support_hotspot_blocks_views_replay_and_closure_growth() -> None:
+    views_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/claim_support_policy_impacts.py",
+            ["def _build_replay_alert_worklist():", "    return []"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    replay_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/claim_support_policy_impacts.py",
+            ["def _queue_more_replay_tasks():", "    return []"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    closure_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/claim_support_policy_impacts.py",
+            ["def _replay_closure_receipt_payload():", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert views_report["summary"]["blocked_count"] == 1
+    assert (
+        views_report["findings"][0]["category"]
+        == "alert_projection_or_escalation_logic"
+    )
+    assert replay_report["summary"]["blocked_count"] == 1
+    assert replay_report["findings"][0]["category"] == "replay_lifecycle_logic"
+    assert closure_report["summary"]["blocked_count"] == 1
+    assert closure_report["findings"][0]["category"] == "replay_closure_receipt_logic"
 
 
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
@@ -398,6 +441,29 @@ def test_search_forwarding_wrapper_with_execution_type_is_allowed() -> None:
                 "        request=request,",
                 "        embedding_provider=embedding_provider,",
                 "        execution_type=SearchExecution,",
+                "    )",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_claim_support_forwarding_wrapper_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/claim_support_policy_impacts.py",
+            [
+                "def claim_support_policy_change_impact_alerts(",
+                "    session, *, stale_after_hours=24, limit=50",
+                "):",
+                "    return _impact_views.claim_support_policy_change_impact_alerts(",
+                "        session,",
+                "        stale_after_hours=stale_after_hours,",
+                "        limit=limit,",
                 "    )",
             ],
         ),

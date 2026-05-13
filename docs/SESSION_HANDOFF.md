@@ -13,16 +13,19 @@ remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-E2270F89B397` /
-`app/services/claim_support_policy_impacts.py`
+Active local follow-up owner case: `IC-BF180637814C` /
+`app/services/evaluations.py`
 Latest planned bounded implementation brief:
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`
+`docs/evaluations_service_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/search_execution_orchestration_boundary_milestone_plan.md`
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md`
 The prior search execution persistence brief remains resolved locally through
 Milestone 1 closeout commit `f55b474`, and the broader search owner case
 `IC-1D03DBFE8492` is now reduced after the orchestration split even though
-`app/services/search.py` still appears in the architecture probe.
+`app/services/search.py` still appears in the architecture probe. The broader
+claim-support owner case `IC-E2270F89B397` also remains reduced and open after
+the current closeout because the extracted owner modules still exceed the
+default 600-line budget even though the compatibility facade is now narrow.
 
 ## Current Position
 
@@ -51,17 +54,19 @@ retired because the architecture probe still routes `app/services/search.py` at
 `32 revisions`, `1592` lines, and `score 50944`, even though the
 architecture-quality summary top-five still excludes that facade.
 
-The next active bounded implementation brief is
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`. Its Milestone 0
-post-search refresh is now resolved locally in the closeout-alignment follow-up,
-and Milestone 1 is the next implementation gate for the
-`IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py` boundary
-split.
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md` is now resolved
+locally in the current closeout window. The scoped subsystem-knot for
+`IC-E2270F89B397` is resolved: `app/services/claim_support_policy_impacts.py`
+is now a 184-line / 0-private-helper compatibility facade, read-model and alert
+logic now live in `app/services/claim_support_policy_impact_views.py` at
+899 lines / 16 private helpers, and replay queueing plus closure lifecycle now
+live in `app/services/claim_support_policy_impact_replay.py` at
+898 lines / 11 private helpers.
 
-Queued stacked follow-on after the claim-support packet:
-`docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 assumes
-the search orchestration and claim-support closeouts are both complete and
-committed first, then refreshes live system state before activating the
+The next active bounded implementation brief is
+`docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 now
+assumes the search orchestration and claim-support closeouts are complete,
+refreshes live system state, and then activates the
 `IC-BF180637814C` / `app/services/evaluations.py` boundary split.
 
 Queued stacked follow-on after the evaluations packet:
@@ -134,14 +139,14 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the search execution orchestration Milestone 1
+The live alignment snapshot after the claim-support policy impacts Milestone 4
 verification window is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=28`,
   `status_counts.open=21`, `status_counts.deployed=6`,
   `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=531.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=516.06`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
@@ -149,27 +154,77 @@ verification window is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=7`, `changed_hotspots=1`, `blocked=0`, `exceptions=0`
+  `known_hotspots=8`, `changed_hotspots=1`, `blocked=0`, `allowed=1`,
+  `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - architecture probe top hotspot is now `app/cli.py`; `app/services/search.py`
   remains in the top twelve churn hotspots at `32 revisions`, `1592` lines /
-  `32` private helpers with `score 50944`; the narrowed hydration owner module
-  lives in `app/services/search_hydration.py` at `392` lines / `11` private
-  helpers, the persistence owner module lives in
-  `app/services/search_execution_persistence.py` at `423` lines /
-  `6` private helpers, the orchestration owner module lives in
-  `app/services/search_execution_orchestration.py` at `532` lines /
-  `6` private helpers, the Python cycle component count remains `3`, and the
-  global architecture-quality top-five still excludes `app/services/search.py`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py`:
-  `11 passed`
+  `32` private helpers with `score 50944`; the claim-support compatibility
+  facade is out of the top twelve churn hotspots after the boundary split; the
+  Python cycle component count is now `4`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_claim_support_policy_activation_roundtrip.py tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py tests/integration/test_claim_support_policy_mined_failures_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`:
+  `19 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1890 passed`
+  `1896 passed`
 
-Reduced or routed follow-on cases remain open after this search closeout:
-`IC-1D03DBFE8492` / `app/services/search.py`,
+Reduced or routed follow-on cases remain open after this claim-support
+closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
+`IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py`,
+`IC-BF180637814C` / `app/services/evaluations.py`,
 `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and
 `IC-6C1B516A3F92` / `app/hotspot_prevention_classifier.py`.
+
+## Claim Support Policy Impacts Boundary Milestone 4 Local Progress
+
+Milestone 4 is closing locally in the current atomic commit. It is a
+behavior-preserving claim-support policy-impact modularization pass behind the
+existing `app/services/claim_support_policy_impacts.py` compatibility facade.
+
+Results:
+
+- added `app/services/claim_support_policy_impact_views.py`
+- added `app/services/claim_support_policy_impact_replay.py`
+- moved list, summary, worklist, alerts, escalation, and detail read-model
+  logic into the views owner while keeping the stable
+  `app.services.claim_support_policy_impacts` import surface through explicit
+  forwarding wrappers
+- moved replay queueing, replay-status refresh, replay-closure governance, and
+  integrity enforcement into the replay owner while keeping the route and
+  agent-task contracts stable
+- hardened `config/hotspot_prevention.yaml` and
+  `app/hotspot_prevention_classifier.py` so new read-model, alert, and
+  replay-lifecycle bodies are blocked directly in the compatibility facade
+- added focused owner-module coverage in
+  `tests/unit/test_claim_support_policy_impact_views.py` and
+  `tests/unit/test_claim_support_policy_impact_replay.py`
+- reduced `app/services/claim_support_policy_impacts.py` from `2011` lines /
+  `42` private helpers to `184` lines / `0` private helpers, governed
+  `app/services/claim_support_policy_impact_views.py` at `899` lines /
+  `16` private helpers, and governed
+  `app/services/claim_support_policy_impact_replay.py` at `898` lines /
+  `11` private helpers under `owner_case_id: IC-E2270F89B397`
+- updated `config/improvement_cases.yaml` so `IC-E2270F89B397` records the
+  reduced-but-still-open owner state after the split
+- local closeout commit: carried by the same atomic commit that updates this
+  handoff; backfill the exact hash in the next alignment pass
+- next routed stacked follow-on is
+  `docs/evaluations_service_boundary_milestone_plan.md`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/claim_support_policy_impacts.py app/services/claim_support_policy_impact_views.py app/services/claim_support_policy_impact_replay.py app/services/claim_support_replay_alert_promotions.py app/api/routers/claim_support_policy_impacts.py app/api/routers/agent_tasks.py app/hotspot_prevention_classifier.py tests/unit/test_claim_support_policy_impacts.py tests/unit/test_claim_support_policy_impact_views.py tests/unit/test_claim_support_policy_impact_replay.py tests/unit/test_agent_tasks_api.py tests/unit/test_hotspot_prevention.py`
+- `uv run pytest -q tests/unit/test_claim_support_policy_impacts.py tests/unit/test_claim_support_policy_impact_views.py tests/unit/test_claim_support_policy_impact_replay.py tests/unit/test_agent_tasks_api.py tests/unit/test_hotspot_prevention.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_claim_support_policy_activation_roundtrip.py tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py tests/integration/test_claim_support_policy_mined_failures_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-improvement-case-summary`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
 
 ## Search Execution Orchestration Boundary Milestone 1 Local Progress
 
