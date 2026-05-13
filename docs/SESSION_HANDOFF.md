@@ -79,13 +79,60 @@ refreshes live system state before activating the
 `app/services/semantics.py` service-boundary split and the missing owner-case
 and hotspot-prevention bootstrap for that facade.
 
+Queued stacked follow-on after the semantics packet:
+`docs/cli_command_dispatch_boundary_milestone_plan.md`. Its Milestone 0 assumes
+the claim-support, evaluations, evidence provenance-export, and semantics
+closeouts are all complete and committed first, then refreshes live system
+state before activating the `IC-9812A0B138D9` / `app/cli.py`
+facade-reduction split.
+
+Queued stacked follow-on after the CLI packet:
+`docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
+Milestone 0 assumes the claim-support, evaluations, evidence
+provenance-export, semantics, and CLI closeouts are all complete and committed
+first, then refreshes live system state before activating the
+`IC-24F3558D6091` / `app/schemas/agent_tasks.py` schema aggregation-facade
+reduction.
+
+Queued stacked follow-on after the agent-task schema packet:
+`docs/oversized_test_hotspots_boundary_milestone_plan.md`. Its Milestone 0
+assumes the claim-support, evaluations, evidence provenance-export, semantics,
+CLI, and agent-task schema closeouts are all complete and committed first,
+then refreshes live system state before activating the dedicated decomposition
+packet for the remaining oversized test hotspots in
+`tests/db_model_contract.py`,
+`tests/unit/test_agent_task_context.py`,
+`tests/integration/test_retrieval_learning_ledger.py`,
+`tests/integration/test_technical_report_harness_roundtrip.py`,
+`tests/unit/test_evaluation_service.py`,
+`tests/unit/test_search_service.py`, and
+`tests/unit/test_agent_tasks_api.py`.
+
+Queued stacked follow-on after the oversized-test packet:
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Its Milestone 0
+assumes the claim-support, evaluations, evidence provenance-export, semantics,
+CLI, agent-task schema, and oversized-test closeouts are all complete and
+committed first, then refreshes live system state before replacing every
+remaining `owner_milestone=residual-weakness-milestone-2` hygiene ratchet with
+explicit owner-case routing and removing the milestone-owned fallback from the
+active hygiene contract.
+
+Queued stacked follow-on after the hygiene owner-case routing packet:
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`. Its
+Milestone 0 assumes the earlier queued boundary, test, and hygiene-routing
+packets are all complete and committed first, then refreshes live system state
+before reusing the architecture-governance owner case, removing the
+`app.architecture_decisions` / `app.architecture_inspection` recursive
+contract-discovery dependency, and eliminating the architecture-governance
+cycle component from the architecture probe without broadening into the other
+remaining cycle families.
+
 Additional committed later-stack follow-ons now exist for
 `docs/runtime_health_orchestration_milestone_plan.md`,
 `docs/ci_release_gate_parity_milestone_plan.md`, and
 `docs/boring_change_architecture_milestone_plan.md`; each still depends on the
-earlier routed packets closing first. `docs/cli_command_dispatch_boundary_milestone_plan.md`
-remains a drafted local follow-on after the claim-support, evaluations,
-evidence provenance-export, and semantics packets.
+earlier routed packets closing first, and the broader coordination queue now
+also sits behind the architecture-governance cycle packet above.
 
 The live alignment snapshot after the search execution orchestration Milestone 1
 verification window is:
