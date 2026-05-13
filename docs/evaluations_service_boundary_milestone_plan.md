@@ -1,17 +1,46 @@
 # Evaluations Service Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active stacked follow-on on 2026-05-13 after
-`docs/search_execution_orchestration_boundary_milestone_plan.md` closed as
-`dae5e4f` and
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
-`3d7d090`; Milestone 0 is resolved locally in the alignment pass that follows
-those closeouts, and Milestone 1 is now the next implementation gate
+Status: active stacked follow-on on 2026-05-13 after Milestones 0-1 resolved
+locally; `docs/search_execution_orchestration_boundary_milestone_plan.md`
+closed as `dae5e4f`, `docs/claim_support_policy_impacts_boundary_milestone_plan.md`
+closed as `3d7d090`, and Milestone 2 is now the next implementation gate
 Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
 orchestration packet closed first as `dae5e4f`, the claim-support boundary
 packet closed second as `3d7d090`, and Milestone 0 refreshed the live system
 state before any evaluation-service code moves.
+
+## Local Progress
+
+Milestone 1 is now resolved locally. Milestone 2 is the next implementation
+gate for the evaluation owner split.
+
+Local Milestone 1 snapshot:
+
+- added explicit hotspot-prevention coverage for `app/services/evaluations.py`
+  in `config/hotspot_prevention.yaml` and
+  `app/hotspot_prevention_classifier.py`
+- tightened the evaluation-facade classifier so fixture/corpus, scoring,
+  structural-check, and latest-read growth are blocked while narrow forwarding
+  wrappers remain allowed
+- extended `tests/unit/test_hotspot_prevention.py` with controlled-violation
+  coverage for those four evaluation concern families plus the forwarding
+  wrapper seam
+- ratcheted `config/hygiene_policy.yaml` so `app/services/evaluations.py` now
+  carries exact `2159`-line / `61`-private-helper ceilings under
+  `IC-BF180637814C`, and the planned owner modules
+  `app/services/evaluation_fixtures.py`,
+  `app/services/evaluation_scoring.py`, and
+  `app/services/evaluation_reads.py` now have explicit budgets before the code
+  extraction work begins
+- strict hotspot prevention now reports `known_hotspots=9`, `blocked=0`,
+  `allowed=0`, `exceptions=0`
+- architecture quality remains `hotspot_count=10` with
+  `max_hotspot_risk_score=501.06`; the architecture probe still routes
+  `app/services/evaluations.py` at `20 revisions`, `2159 lines`, and
+  `score 43180`, so the broader owner case remains open
+- next implementation gate: Milestone 2 fixture and corpus owner extraction
 
 ## Purpose
 
@@ -324,19 +353,23 @@ Outcome label: resolved
   `regression_ready=true`, `court_grade_ready=true`.
 
 ### Milestone 1: Evaluation Facade Prevention Bootstrap
-Status: next implementation gate after the Milestone 0 stacked-state refresh
+Status: resolved locally on 2026-05-13; Milestone 2 is now the next
+implementation gate
 Outcome label: resolved
 
-- Add explicit hotspot-prevention coverage for `app/services/evaluations.py`
-  before moving large code blocks.
-- Update `config/hotspot_prevention.yaml` and
-  `app/hotspot_prevention_classifier.py` so fixture ownership, scoring
-  ownership, structural ownership, and latest-read ownership are blocked from
-  regrowing inside the facade.
-- Add or extend controlled-violation coverage in
-  `tests/unit/test_hotspot_prevention.py`.
-- Update hygiene ratchets so the final facade and new owners have concrete
-  ceilings rather than the current permissive `2161`-line budget.
+- `config/hotspot_prevention.yaml` now governs
+  `app/services/evaluations.py` as an evaluation-service compatibility facade
+  that routes future implementation into `app/services/evaluation_*.py`
+- `app/hotspot_prevention_classifier.py` now blocks new fixture/corpus,
+  scoring, structural-check, and latest-read logic in the facade while still
+  allowing narrow explicit forwarding wrappers
+- `tests/unit/test_hotspot_prevention.py` now proves that fixture refresh,
+  answer scoring, structural summary, and latest-read growth are rejected for
+  `app/services/evaluations.py`, and that a forwarding wrapper to a future
+  owner module remains allowed
+- `config/hygiene_policy.yaml` now ratchets
+  `app/services/evaluations.py` to its exact pre-extraction size and pre-budgets
+  the three planned owner modules before Milestones 2-4
 
 ### Milestone 2: Fixture And Corpus Owner Extraction
 Outcome label: reduced

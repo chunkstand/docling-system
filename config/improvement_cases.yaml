@@ -1012,14 +1012,24 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: >-
+      Milestone 1 prevention bootstrap is closed locally. The evaluation
+      facade now has explicit hotspot-prevention coverage plus exact hygiene
+      ceilings, while the broader owner case remains open until Milestones 2-4
+      move fixture/corpus, scoring/structural, and latest-read ownership out
+      of app/services/evaluations.py.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: evaluation_hotspot_line_count
+    current_value: 2159.0
+    measurement_window: 2026-05-13 Milestone 1 prevention closeout
+    notes: >-
+      Milestone 1 added hotspot-prevention and hygiene governance for
+      fixture/corpus, scoring, structural-check, and latest-read growth in
+      app/services/evaluations.py without yet reducing the facade. The service
+      remains 2159 lines / 61 private helpers, and Milestone 2 is the next
+      extraction gate.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-13T22:41:40Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed

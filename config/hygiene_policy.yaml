@@ -360,8 +360,23 @@ file_budgets:
       max_lines: 964
       max_private_helpers: 20
     app/services/evaluations.py:
-      max_lines: 2161
+      max_lines: 2159
+      ratchet_max_lines: 2159
       max_private_helpers: 61
+      ratchet_max_private_helpers: 61
+      owner_case_id: IC-BF180637814C
+    app/services/evaluation_fixtures.py:
+      max_lines: 950
+      max_private_helpers: 25
+      owner_case_id: IC-BF180637814C
+    app/services/evaluation_scoring.py:
+      max_lines: 950
+      max_private_helpers: 25
+      owner_case_id: IC-BF180637814C
+    app/services/evaluation_reads.py:
+      max_lines: 450
+      max_private_helpers: 10
+      owner_case_id: IC-BF180637814C
     app/services/evidence.py:
       max_lines: 600
       ratchet_max_lines: 600

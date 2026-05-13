@@ -77,6 +77,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/agent_task_actions.py",
         "app/services/agent_task_context.py",
         "app/services/claim_support_policy_impacts.py",
+        "app/services/evaluations.py",
         "app/services/evidence.py",
         "app/services/search.py",
         "tests/unit/test_cli.py",
@@ -168,6 +169,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             "app/services/claim_support_policy_impacts.py",
             ["def _build_replay_alert_worklist():", "    return []"],
             "alert_projection_or_escalation_logic",
+        ),
+        (
+            "app/services/evaluations.py",
+            ["def load_evaluation_fixtures(corpus_path=None):", "    return []"],
+            "fixture_corpus_logic",
         ),
         (
             "tests/unit/test_cli.py",
@@ -300,6 +306,50 @@ def test_claim_support_hotspot_blocks_views_replay_and_closure_growth() -> None:
     assert replay_report["findings"][0]["category"] == "replay_lifecycle_logic"
     assert closure_report["summary"]["blocked_count"] == 1
     assert closure_report["findings"][0]["category"] == "replay_closure_receipt_logic"
+
+
+def test_evaluations_hotspot_blocks_fixture_scoring_structural_and_latest_read_growth() -> None:
+    fixture_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evaluations.py",
+            ["def ensure_auto_evaluation_fixture(session, document, run):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    scoring_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evaluations.py",
+            ["def _evaluate_answer_case(question, answer):", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    structural_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evaluations.py",
+            ["def _summarize_structural_checks(tables, figures, thresholds):", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    latest_read_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evaluations.py",
+            ["def get_latest_document_evaluation(session, document):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert fixture_report["summary"]["blocked_count"] == 1
+    assert fixture_report["findings"][0]["category"] == "fixture_corpus_logic"
+    assert scoring_report["summary"]["blocked_count"] == 1
+    assert scoring_report["findings"][0]["category"] == "scoring_logic"
+    assert structural_report["summary"]["blocked_count"] == 1
+    assert structural_report["findings"][0]["category"] == "structural_check_logic"
+    assert latest_read_report["summary"]["blocked_count"] == 1
+    assert latest_read_report["findings"][0]["category"] == "latest_read_logic"
 
 
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
@@ -464,6 +514,26 @@ def test_claim_support_forwarding_wrapper_is_allowed() -> None:
                 "        session,",
                 "        stale_after_hours=stale_after_hours,",
                 "        limit=limit,",
+                "    )",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_evaluations_forwarding_wrapper_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evaluations.py",
+            [
+                "def get_latest_evaluation_summary(session, run_id):",
+                "    return _evaluation_reads.get_latest_evaluation_summary(",
+                "        session,",
+                "        run_id,",
                 "    )",
             ],
         ),

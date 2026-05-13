@@ -227,6 +227,7 @@ def classify_hotspot_implementation(
         "app/services/claim_support_policy_impacts.py": (
             classify_claim_support_policy_impact_addition
         ),
+        "app/services/evaluations.py": classify_evaluations_addition,
         "tests/unit/test_cli.py": classify_cli_test_addition,
     }
     classifier = classifiers.get(path)
@@ -459,6 +460,19 @@ def classify_claim_support_policy_impact_addition(
             "claim_support_policy_impact_*.py",
         )
     return None
+def classify_evaluations_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
+    lowered = stripped.lower()
+    if re.match(r"(async def |def )(get_latest_|_to_evaluation_summary)", stripped):  # noqa: E501
+        return blocked(line, "latest_read_logic", "latest-evaluation reads belong in app/services/evaluation_reads.py")  # noqa: E501
+    if re.match(r"(async def |def )_((summarize|evaluate)_structural_checks|table_matches_merge_expectation|figure_(provenance|artifact)_count)", stripped) or any(token in lowered for token in ("structural_passed", "expected_merged_tables", "overlay_family_key", "minimum_figures_with_provenance", "maximum_unexpected_merges")):  # noqa: E501
+        return blocked(line, "structural_check_logic", "structural evaluation checks belong in app/services/evaluation_scoring.py")  # noqa: E501
+    if re.match(r"(async def |def )_((evaluate_(retrieval|answer)_case)|summarize_retrieval_rank_metrics|retrieval_failure_kind|rank_delta|classify_delta|reciprocal_rank)", stripped) or any(token in lowered for token in ("retrieval_rank_metrics", "candidate_rank", "baseline_rank", "rank_delta", "minimum_citation_count", "maximum_foreign_citations")):  # noqa: E501
+        return blocked(line, "scoring_logic", "evaluation scoring belongs in app/services/evaluation_scoring.py")  # noqa: E501
+    if re.match(r"(async def |def )(_(load_corpus_documents|write_corpus_documents|normalize_fixture_|fixture_|auto_|source_filename_queries)|load_evaluation_fixtures|fixture_for_document|build_auto_evaluation_fixture_document|ensure_auto_evaluation_fixture)", stripped) or any(token in lowered for token in ("fixture", "corpus_path", "yaml.safe_dump", "load_corpus_documents_cached(", "auto_generated_document")):  # noqa: E501
+        return blocked(line, "fixture_corpus_logic", "fixture and corpus logic belong in app/services/evaluation_fixtures.py")  # noqa: E501
+    if stripped.startswith(("def _", "async def _")):
+        return blocked(line, "fixture_corpus_logic", "new evaluation helpers belong in focused evaluation owner modules")  # noqa: E501
+    return blocked(line, "latest_read_logic", "new evaluation service behavior belongs in focused evaluation owner modules") if stripped.startswith(("def ", "async def ")) else None  # noqa: E501
 def classify_cli_test_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     if not stripped.startswith("def test_"):
         return None
@@ -570,13 +584,9 @@ def is_registry_composition_hunk(lines: tuple[str, ...]) -> bool:
         return False
     return has_composition_marker
 def allowed_category_for_import(rule: HotspotRule) -> str | None:
-    return first_allowed_category(
-        rule, "import_forwarder", "alias_forwarder", "registry_composition"
-    )
+    return first_allowed_category(rule, "import_forwarder", "alias_forwarder", "registry_composition")  # noqa: E501
 def allowed_category_for_forwarder(rule: HotspotRule) -> str | None:
-    return first_allowed_category(
-        rule, "explicit_forwarding_function", "alias_forwarder", "import_forwarder"
-    )
+    return first_allowed_category(rule, "explicit_forwarding_function", "alias_forwarder", "import_forwarder")  # noqa: E501
 def first_allowed_category(rule: HotspotRule, *categories: str) -> str | None:
     return next((category for category in categories if category in rule.allow), None)
 def significant_unclassified_lines(

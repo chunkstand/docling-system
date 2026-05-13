@@ -111,6 +111,20 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/evaluations.py:
+    target_role: evaluation service compatibility facade
+    preferred_owner_modules:
+      - app/services/evaluation_*.py
+    block_new:
+      - fixture_corpus_logic
+      - scoring_logic
+      - structural_check_logic
+      - latest_read_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   tests/unit/test_cli.py:
     target_role: legacy CLI compatibility tests
     preferred_owner_modules:
