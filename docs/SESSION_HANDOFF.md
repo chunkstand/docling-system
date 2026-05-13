@@ -6,25 +6,25 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
-Search Execution Persistence Boundary Milestone 1 status: resolved locally
-through closeout commit `f55b474` for `IC-1D03DBFE8492`; the owner case
-remains open and the next routed follow-on stays inside the search
-compatibility facade.
+Search Execution Orchestration Milestone 1 status: resolved locally in the
+worktree through full verification for `IC-1D03DBFE8492`; final closeout
+commit creation remains the only pending milestone-closeout step
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-1D03DBFE8492` / `app/services/search.py`
+Active local follow-up owner case: `IC-E2270F89B397` /
+`app/services/claim_support_policy_impacts.py`
+Latest planned bounded implementation brief:
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/search_execution_persistence_boundary_milestone_plan.md`
-It is now resolved locally through Milestone 1 closeout commit `f55b474` for the same owner case
-`IC-1D03DBFE8492` after
-`docs/search_hydration_boundary_milestone_plan.md` resolved locally through
-Milestone 1 closeout commit `14390ad`; the next routed follow-on is the
-remaining execution-orchestration cluster in `execute_search(...)` and
-adjacent candidate-loading/detail assembly paths.
+`docs/search_execution_orchestration_boundary_milestone_plan.md`
+The prior search execution persistence brief remains resolved locally through
+Milestone 1 closeout commit `f55b474`, and the broader search owner case
+`IC-1D03DBFE8492` is now reduced after the orchestration split even though
+`app/services/search.py` still appears in the architecture probe.
 
 ## Current Position
 
@@ -32,54 +32,55 @@ The checkout is on `main`. Local `main` remains ahead of `origin/main`, the
 agent-task orchestration follow-on plan is resolved locally through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
 Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`, and
-`docs/search_execution_persistence_boundary_milestone_plan.md` is now resolved
-locally through Milestone 1 for the next search owner reduction.
+`docs/search_execution_persistence_boundary_milestone_plan.md` is resolved
+locally through Milestone 1 for the prior search owner reduction, and
+`docs/search_execution_orchestration_boundary_milestone_plan.md` is now
+resolved locally in the worktree through a full verification window for the
+next search boundary split.
 
-`app/services/search.py` remains the active architecture hotspot owner surface,
-but it is now reduced to `2089` lines / `37` private helpers and delegates the
-hydration family into `app/services/search_hydration.py` at `392` lines /
-`11` private helpers plus the persistence family into
-`app/services/search_execution_persistence.py` at `423` lines / `6` private
-helpers. The next routed search follow-on is the remaining
-execution-orchestration cluster in `execute_search(...)` and adjacent
-candidate-loading/detail assembly paths.
+`app/services/search.py` is now a `1592` line / `32` private-helper
+compatibility facade. It delegates the hydration family into
+`app/services/search_hydration.py` at `392` lines / `11` private helpers, the
+persistence family into `app/services/search_execution_persistence.py` at
+`423` lines / `6` private helpers, and the execution-orchestration family into
+`app/services/search_execution_orchestration.py` at `532` lines /
+`6` private helpers. The public `execute_search(...)` surface now survives
+through a narrow explicit forwarding wrapper in `app/services/search.py`.
 
-The previously active evidence hotspot owner plan in
-`docs/evidence_hotspot_owner_milestone_plan.md` remains implemented locally
-through its facade-resolution closeout.
+The broader search owner case `IC-1D03DBFE8492` remains reduced rather than
+retired because the architecture probe still routes `app/services/search.py` at
+`31 revisions`, `1592` lines, and `score 49352`, even though the
+architecture-quality summary top-five still excludes that facade.
 
-`app/services/evidence.py` is now a 141-line / 4-private-helper compatibility
-facade. The remaining owner families now live in
-`app/services/evidence_claim_feedback.py`,
-`app/services/evidence_release_readiness.py`,
-`app/services/evidence_manifests.py`,
-`app/services/evidence_semantic_trace.py`,
-`app/services/evidence_claim_support_impacts.py`,
-`app/services/evidence_claim_support_replay_alerts.py`,
-`app/services/evidence_provenance_exports.py`, and
-`app/services/evidence_audit_views.py`. The facade keeps the
-settings-aware provenance wrappers used by tests, and
-`tests/unit/test_evidence_facade_contract.py` now guards the public export
-surface explicitly.
+The next active bounded implementation brief is
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md`. Its Milestone 0
+refreshes live system state after the locally verified search orchestration
+closeout, then activates the `IC-E2270F89B397` /
+`app/services/claim_support_policy_impacts.py` boundary split.
 
-This closeout resolves `IC-050E60059A34` under local verification and opens
-follow-on case `IC-65AF4A6D8B1E` for the residual evidence owner-family budget
-debt. The largest routed owner surface is now
-`app/services/evidence_provenance_exports.py` at 1,048 lines;
-`app/services/evidence.py` may still appear in the architecture-quality top
-paths because of intentional public fan-in, but the general architecture probe
-no longer lists it in the top 12 churn hotspots.
-The current oversized evidence owner-family modules are
-`app/services/evidence_provenance_exports.py` (1048),
-`app/services/evidence_technical_report_exports.py` (884),
-`app/services/evidence_semantic_trace.py` (837),
-`app/services/evidence_claim_feedback.py` (834),
-`app/services/evidence_manifests.py` (725),
-`app/services/evidence_audit_views.py` (699), and
-`app/services/evidence_claim_support_replay_alerts.py` (646).
+Queued stacked follow-on after the claim-support packet:
+`docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 assumes
+the search orchestration and claim-support closeouts are both complete and
+committed first, then refreshes live system state before activating the
+`IC-BF180637814C` / `app/services/evaluations.py` boundary split.
 
-The live alignment snapshot after the search execution persistence Milestone 1
-closeout is:
+Queued stacked follow-on after the evaluations packet:
+`docs/evidence_provenance_exports_boundary_milestone_plan.md`. Its Milestone 0
+assumes the search orchestration, claim-support, and evaluations closeouts are
+all complete and committed first, then refreshes live system state before
+activating the `IC-65AF4A6D8B1E` /
+`app/services/evidence_provenance_exports.py` boundary split.
+
+Queued stacked follow-on after the evidence provenance-export packet:
+`docs/semantics_service_boundary_milestone_plan.md`. Its Milestone 0 assumes
+the search orchestration, claim-support, evaluations, and evidence
+provenance-export closeouts are all complete and committed first, then
+refreshes live system state before activating the
+`app/services/semantics.py` service-boundary split and the missing owner-case
+and hotspot-prevention bootstrap for that facade.
+
+The live alignment snapshot after the search execution orchestration Milestone 1
+verification window is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=28`,
   `status_counts.open=21`, `status_counts.deployed=6`,
@@ -95,27 +96,70 @@ closeout is:
 - `uv run docling-system-hotspot-prevention-check --strict`:
   `known_hotspots=7`, `changed_hotspots=1`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- architecture probe top hotspot is still `app/services/search.py` at
-  `30 revisions`, `2089` lines / `37` private helpers with `score 62670`; the narrowed
-  hydration owner module now lives in `app/services/search_hydration.py` at
-  `392` lines / `11` private helpers, the persistence owner module now lives
-  in `app/services/search_execution_persistence.py` at `423` lines /
+- architecture probe top hotspot is now `app/cli.py`; `app/services/search.py`
+  remains in the top twelve churn hotspots at `31 revisions`, `1592` lines /
+  `32` private helpers with `score 49352`; the narrowed hydration owner module
+  lives in `app/services/search_hydration.py` at `392` lines / `11` private
+  helpers, the persistence owner module lives in
+  `app/services/search_execution_persistence.py` at `423` lines /
+  `6` private helpers, the orchestration owner module lives in
+  `app/services/search_execution_orchestration.py` at `532` lines /
   `6` private helpers, the Python cycle component count remains `3`, and the
-  global architecture-quality top-five no longer includes `app/services/search.py`
+  global architecture-quality top-five still excludes `app/services/search.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py`:
+  `11 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1883 passed`
+  `1890 passed`
 
-The evidence-owner follow-up from the prior lane remains
-`IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and the
-agent-task orchestration boundary remains locally resolved through Milestone 5.
-The active architecture owner case is still
-`IC-1D03DBFE8492` / `app/services/search.py`, with the next routed follow-on
-focused on the remaining execution-orchestration cluster in
-`execute_search(...)` and adjacent candidate-loading/detail assembly paths.
-The Milestone 1 alignment hardening also routes
-`app/hotspot_prevention_classifier.py` into bounded hygiene follow-on case
-`IC-6C1B516A3F92` at 658 lines after the persistence/operator-trace search gate
-update expanded that classifier beyond the default file budget.
+Reduced or routed follow-on cases remain open after this search closeout:
+`IC-1D03DBFE8492` / `app/services/search.py`,
+`IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and
+`IC-6C1B516A3F92` / `app/hotspot_prevention_classifier.py`.
+
+## Search Execution Orchestration Boundary Milestone 1 Local Progress
+
+Milestone 1 is fully verified locally. It is a behavior-preserving search
+service modularization pass behind the existing `app/services/search.py`
+compatibility facade.
+
+Results:
+
+- added `app/services/search_execution_orchestration.py`
+- moved `_load_keyword_candidates`, `_load_semantic_candidates`,
+  `_apply_metadata_supplement_stage`, `_resolve_candidate_items`,
+  `_build_search_execution_details`, and `execute_search(...)` into that owner
+  module while keeping the public `app.services.search` import surface stable
+  through an explicit forwarding wrapper
+- hardened `config/hotspot_prevention.yaml` and
+  `app/hotspot_prevention_classifier.py` so execution-orchestration,
+  candidate-loading, and search-detail assembly growth are blocked directly in
+  `app/services/search.py`
+- added focused owner-module coverage in
+  `tests/unit/test_search_execution_orchestration.py`
+- reduced `app/services/search.py` from `2089` lines / `37` private helpers to
+  `1592` lines / `32` private helpers and governed
+  `app/services/search_execution_orchestration.py` at `532` lines /
+  `6` private helpers under `owner_case_id: IC-1D03DBFE8492`
+- updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
+  reduced-but-still-open search hotspot state after the orchestration split
+- next routed stacked follow-on is
+  `docs/claim_support_policy_impacts_boundary_milestone_plan.md`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/search.py app/services/search_execution_orchestration.py app/services/search_execution_persistence.py app/services/search_hydration.py app/hotspot_prevention_classifier.py tests/unit/test_search_service.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_execution_persistence.py tests/unit/test_hotspot_prevention.py`
+- `uv run pytest -q tests/unit/test_search_service.py tests/unit/test_search_execution_orchestration.py tests/unit/test_search_execution_persistence.py tests/unit/test_hotspot_prevention.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-improvement-case-validate`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
 
 ## Search Execution Persistence Boundary Milestone 1 Local Progress
 

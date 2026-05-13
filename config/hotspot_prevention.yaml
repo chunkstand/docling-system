@@ -85,6 +85,9 @@ known_hotspots:
     block_new:
       - ranking_logic
       - query_feature_helper
+      - execution_orchestration
+      - candidate_loading
+      - search_detail_payload_builder
       - hydration_logic
       - persistence_logic
       - operator_trace_payload_builder
@@ -92,6 +95,7 @@ known_hotspots:
     allow:
       - import_forwarder
       - alias_forwarder
+      - explicit_forwarding_function
       - deletion
   tests/unit/test_cli.py:
     target_role: legacy CLI compatibility tests

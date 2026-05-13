@@ -368,7 +368,19 @@ def classify_agent_task_context_addition(
 
 def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
     lowered = stripped.lower()
-    if stripped.startswith(("def _persist_", "async def _persist_")) or any(
+    if re.match(r"(async def |def )_load_.*candidate", stripped):
+        return blocked(line, "candidate_loading", "candidate loading belongs in search_* modules")
+    if re.match(r"(async def |def )_build_search_execution_details", stripped):
+        return blocked(line, "search_detail_payload_builder", "detail assembly belongs in search_*")
+    is_execution_def = re.match(
+        r"(async def |def )_(resolve_candidate_items|run_execution_|execute_search)",
+        stripped,
+    )
+    if is_execution_def or any(
+        token in stripped for token in ("build_search_execution_plan(", "SearchStage.")
+    ):
+        return blocked(line, "execution_orchestration", "execution flow belongs in search_*")
+    if re.match(r"(async def |def )_persist_", stripped) or any(
         token in stripped
         for token in (
             "SearchRequestRecord(",
@@ -376,20 +388,10 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
             "SearchRequestResultSpan(",
         )
     ):
-        return blocked(
-            line,
-            "persistence_logic",
-            "new search persistence belongs in search_* modules",
-        )
-    if stripped.startswith(
-        (
-            "def _ranked_result_evidence_payload",
-            "async def _ranked_result_evidence_payload",
-            "def _reranked_result_evidence_payload",
-            "async def _reranked_result_evidence_payload",
-            "def _build_operator_trace_",
-            "async def _build_operator_trace_",
-        )
+        return blocked(line, "persistence_logic", "search persistence belongs in search_* modules")
+    if re.match(
+        r"(async def |def )_((ranked|reranked)_result_evidence_payload|build_operator_trace_)",
+        stripped,
     ) or any(
         token in lowered
         for token in (
@@ -402,14 +404,10 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
         return blocked(
             line,
             "operator_trace_payload_builder",
-            "new search operator-trace payload assembly belongs in search_* modules",
+            "operator-trace payloads belong in search_* modules",
         )
     if stripped.startswith(("def _", "async def _")):
-        return blocked(
-            line,
-            "query_feature_helper",
-            "new search helpers belong in search_* modules",
-        )
+        return blocked(line, "query_feature_helper", "search helpers belong in search_* modules")
     if stripped.startswith(("def ", "async def ")):
         return blocked(line, "ranking_logic", "new search behavior belongs in search_* modules")
     if any(token in lowered for token in ("rank", "score", "hydrate", "telemetry")):

@@ -452,10 +452,14 @@ file_budgets:
       max_private_helpers: 0
       owner_case_id: IC-0D58F1624037
     app/services/search.py:
-      max_lines: 2089
-      ratchet_max_lines: 2089
-      max_private_helpers: 37
-      ratchet_max_private_helpers: 37
+      max_lines: 1592
+      ratchet_max_lines: 1592
+      max_private_helpers: 32
+      ratchet_max_private_helpers: 32
+      owner_case_id: IC-1D03DBFE8492
+    app/services/search_execution_orchestration.py:
+      max_lines: 532
+      max_private_helpers: 6
       owner_case_id: IC-1D03DBFE8492
     app/services/search_execution_persistence.py:
       max_lines: 423

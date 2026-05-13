@@ -17,6 +17,11 @@ chat history or scanning the whole repository.
 - `docs/evidence_hotspot_owner_milestone_plan.md`: implemented locally through the evidence facade-resolution closeout for `IC-050E60059A34`; `app/services/evidence.py` is reduced to a 141-line compatibility facade, closeout commit `3fe9132` is now recorded in the registry, and follow-on case `IC-65AF4A6D8B1E` governs the oversized evidence owner-family modules.
 - `docs/agent_task_orchestration_boundary_milestone_plan.md`: resolved locally through Milestone 5 closeout commit `7cf7465` for `IC-A1E186A34097` / `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` / `app/services/agent_task_context.py`; the next routed hotspot is `IC-1D03DBFE8492` / `app/services/search.py`.
 - `docs/search_execution_persistence_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `f55b474` for `IC-1D03DBFE8492`; search execution persistence and operator-trace payload assembly now live in `app/services/search_execution_persistence.py`, `app/services/search.py` is reduced to 2089 lines / 37 private helpers, and the next routed follow-on is the remaining execution-orchestration cluster in `execute_search(...)` and adjacent candidate-loading/detail assembly paths.
+- `docs/search_execution_orchestration_boundary_milestone_plan.md`: resolved locally through a fully verified Milestone 1 closeout window for `IC-1D03DBFE8492`; search execution orchestration now lives in `app/services/search_execution_orchestration.py`, `app/services/search.py` is reduced to 1592 lines / 32 private helpers, and the broader owner case remains reduced because the architecture probe still routes the facade.
+- `docs/claim_support_policy_impacts_boundary_milestone_plan.md`: active stacked follow-on after the closed search orchestration packet. Milestone 0 refreshes live system state first, then activates the claim-support subsystem-knot split for `IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py`.
+- `docs/evaluations_service_boundary_milestone_plan.md`: drafted stacked follow-on after the search orchestration and claim-support packets. Milestone 0 assumes both prior plans close first, refreshes live system state, and then activates the evaluation service boundary split for `IC-BF180637814C` / `app/services/evaluations.py`.
+- `docs/evidence_provenance_exports_boundary_milestone_plan.md`: drafted stacked follow-on after the search orchestration, claim-support, and evaluations packets. Milestone 0 assumes all three prior plans close first, refreshes live system state, and then activates the provenance-export owner split for `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`.
+- `docs/semantics_service_boundary_milestone_plan.md`: drafted stacked follow-on after the search orchestration, claim-support, evaluations, and evidence provenance-export packets. Milestone 0 assumes all four prior plans close first, refreshes live system state, and then activates the semantics service-boundary split for `app/services/semantics.py`, starting with the missing owner-case and hotspot-prevention bootstrap.
 - `docs/search_hydration_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`; the hydration-family owner module now lives in `app/services/search_hydration.py`, `app/services/search.py` is reduced to 2496 lines / 42 private helpers, and the next routed follow-on remains search execution persistence and operator-trace payload assembly.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
@@ -185,6 +190,16 @@ chat history or scanning the whole repository.
   routed follow-on is the remaining execution-orchestration cluster in
   `execute_search(...)` plus adjacent candidate-loading/detail assembly paths.
   The closeout commit is `f55b474`.
+- The fourth `app/services/search.py` core split is complete:
+  search execution orchestration, candidate loading, metadata supplement
+  staging, served-mode resolution, and execution detail assembly now live in
+  `app/services/search_execution_orchestration.py` while
+  `app.services.search` remains the compatibility facade through an explicit
+  forwarding wrapper for `execute_search(...)`. The hotspot is reduced to 1592
+  lines / 32 private helpers, the new owner module is governed at 532 lines /
+  6 private helpers under `IC-1D03DBFE8492`, the architecture-quality
+  top-five still excludes `app/services/search.py`, and the next routed
+  stacked follow-on is `docs/claim_support_policy_impacts_boundary_milestone_plan.md`.
 - The Milestone 8 improvement-intake ratchet remains intact, and Hotspot Owner
   Resolution Milestone 0 is now complete locally: at the Milestone 0 closeout
   checkpoint, the registry reported `case_count=25`,
@@ -405,16 +420,18 @@ chat history or scanning the whole repository.
   retrieval-learning data.
 - Residual risk note: the improvement-case registry remains the durable map for
   remaining architecture debt. Current summary:
-  `case_count=28`, `status_counts.open=23`, `status_counts.deployed=4`,
+  `case_count=28`, `status_counts.open=21`, `status_counts.deployed=6`,
   `status_counts.measured=1`, and
   `measured_case_count=17`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up:
-  `docs/agent_task_orchestration_boundary_milestone_plan.md` is resolved
-  locally through Milestone 5; the next routed hotspot is
-  `IC-1D03DBFE8492` / `app/services/search.py`. Evidence owner-family follow-up
-  case `IC-65AF4A6D8B1E` and hotspot-prevention classifier follow-up case
+  `docs/claim_support_policy_impacts_boundary_milestone_plan.md` is the active
+  bounded implementation brief after the locally verified search orchestration
+  closeout. It refreshes current state in Milestone 0 before activating the
+  `IC-E2270F89B397` claim-support boundary work. Evidence owner-family
+  follow-up case `IC-65AF4A6D8B1E`, the reduced search owner case
+  `IC-1D03DBFE8492`, and hotspot-prevention classifier follow-up case
   `IC-6C1B516A3F92` remain open but are not the current architecture
   milestone.
 

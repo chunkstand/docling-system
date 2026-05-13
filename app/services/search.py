@@ -4,13 +4,13 @@ import re
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from time import perf_counter
 from typing import Protocol
 from uuid import UUID
 
 from sqlalchemy import Float, Select, and_, cast, false, func, or_, select
 from sqlalchemy.orm import Session
 
+import app.services.search_execution_orchestration as _search_execution_orchestration
 import app.services.search_execution_persistence as _search_execution_persistence
 import app.services.search_hydration as _search_hydration
 import app.services.search_query_features as _query_features
@@ -28,16 +28,13 @@ from app.schemas.search import (
     SearchResult,
 )
 from app.services import search_ranking as _search_ranking
-from app.services.embeddings import EmbeddingProvider, get_embedding_provider
-from app.services.retrieval_spans import ensure_retrieval_evidence_spans_for_search
-from app.services.search_harness_overrides import load_applied_search_harness_overrides
-from app.services.search_plan import (
-    SearchCandidateStrategy,
-    SearchStage,
-    build_search_execution_plan,
+from app.services.embeddings import EmbeddingProvider, get_embedding_provider  # noqa: F401
+from app.services.retrieval_spans import (  # noqa: F401
+    ensure_retrieval_evidence_spans_for_search,
 )
+from app.services.search_harness_overrides import load_applied_search_harness_overrides
 from app.services.search_query_features import QueryFeatureSet
-from app.services.telemetry import observe_search_results
+from app.services.telemetry import observe_search_results  # noqa: F401
 
 DEFAULT_SEARCH_HARNESS_NAME = "default_v1"
 QUERY_INTENT_TABULAR = _query_features.QUERY_INTENT_TABULAR
@@ -114,6 +111,7 @@ _persist_search_result_spans = (
 )
 _persist_search_execution = _search_execution_persistence._persist_search_execution
 record_knowledge_operator_run = _search_execution_persistence.record_knowledge_operator_run
+
 
 @dataclass
 class SearchExecution:
@@ -1545,268 +1543,6 @@ def _merge_hybrid_results(
     return _search_ranking.merge_hybrid_results(keyword_results, semantic_results, limit, filters, tabular_query=tabular_query, active_reranker=get_default_reranker(), query_intent=query_intent, query=query)  # noqa: E501
 
 
-def _load_keyword_candidates(
-    session: Session,
-    request: SearchRequest,
-    *,
-    candidate_limit: int,
-    run_id: UUID | None,
-    relaxed: bool = False,
-) -> tuple[list[RankedResult], list[RankedResult]]:
-    if relaxed:
-        chunk_loader = _run_relaxed_keyword_chunk_search
-        table_loader = _run_relaxed_keyword_table_search
-    else:
-        chunk_loader = _run_keyword_chunk_search
-        table_loader = _run_keyword_table_search
-
-    if run_id is None:
-        chunk_results = chunk_loader(session, request, candidate_limit=candidate_limit)
-        table_results = table_loader(session, request, candidate_limit=candidate_limit)
-        span_chunk_results = _run_keyword_span_chunk_search(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            relaxed=relaxed,
-        )
-        span_table_results = _run_keyword_span_table_search(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            relaxed=relaxed,
-        )
-    else:
-        chunk_results = chunk_loader(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            run_id=run_id,
-        )
-        table_results = table_loader(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            run_id=run_id,
-        )
-        span_chunk_results = _run_keyword_span_chunk_search(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            run_id=run_id,
-            relaxed=relaxed,
-        )
-        span_table_results = _run_keyword_span_table_search(
-            session,
-            request,
-            candidate_limit=candidate_limit,
-            run_id=run_id,
-            relaxed=relaxed,
-        )
-    return (
-        _dedupe_ranked_results([*chunk_results, *span_chunk_results]),
-        _dedupe_ranked_results([*table_results, *span_table_results]),
-    )
-
-
-def _load_semantic_candidates(
-    session: Session,
-    request: SearchRequest,
-    *,
-    query_embedding: list[float],
-    candidate_limit: int,
-    run_id: UUID | None,
-) -> list[RankedResult]:
-    if run_id is None:
-        semantic_results = _run_semantic_chunk_search(
-            session,
-            request,
-            query_embedding,
-            candidate_limit=candidate_limit,
-        )
-        semantic_results.extend(
-            _run_semantic_table_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-            )
-        )
-        semantic_results.extend(
-            _run_semantic_span_chunk_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-            )
-        )
-        semantic_results.extend(
-            _run_semantic_span_table_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-            )
-        )
-    else:
-        semantic_results = _run_semantic_chunk_search(
-            session,
-            request,
-            query_embedding,
-            candidate_limit=candidate_limit,
-            run_id=run_id,
-        )
-        semantic_results.extend(
-            _run_semantic_table_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-                run_id=run_id,
-            )
-        )
-        semantic_results.extend(
-            _run_semantic_span_chunk_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-                run_id=run_id,
-            )
-        )
-        semantic_results.extend(
-            _run_semantic_span_table_search(
-                session,
-                request,
-                query_embedding,
-                candidate_limit=candidate_limit,
-                run_id=run_id,
-            )
-        )
-    semantic_results = _dedupe_ranked_results(semantic_results)
-    return _sort_ranked_candidates_by_score(semantic_results, score_getter=_semantic_score)
-
-
-def _apply_metadata_supplement_stage(
-    session: Session,
-    request: SearchRequest,
-    *,
-    query_intent: str,
-    strict_keyword_count: int,
-    harness_name: str,
-    keyword_results: list[RankedResult],
-    keyword_strategy: str,
-    run_id: UUID | None,
-) -> tuple[list[RankedResult], list[RankedResult], str]:
-    metadata_enabled = hasattr(session, "execute") and _should_run_metadata_supplement(
-        query=request.query,
-        query_intent=query_intent,
-        strict_keyword_count=strict_keyword_count,
-        harness_name=harness_name,
-    )
-    if not metadata_enabled:
-        return keyword_results, [], keyword_strategy
-
-    metadata_candidates = _run_prose_metadata_chunk_search(
-        session,
-        request,
-        run_id=run_id,
-    )
-    if not metadata_candidates:
-        return keyword_results, [], keyword_strategy
-
-    merged_results = _dedupe_ranked_results([*keyword_results, *metadata_candidates])
-    merged_results = _sort_ranked_candidates_by_score(merged_results, score_getter=_keyword_score)
-    if not keyword_results:
-        next_keyword_strategy = "metadata_supplement"
-    elif keyword_strategy == "strict":
-        next_keyword_strategy = "strict_plus_metadata"
-    elif keyword_strategy == "relaxed_or":
-        next_keyword_strategy = "relaxed_or_plus_metadata"
-    else:
-        next_keyword_strategy = keyword_strategy
-    return merged_results, metadata_candidates, next_keyword_strategy
-
-
-def _resolve_candidate_items(
-    *,
-    candidate_strategy: SearchCandidateStrategy,
-    request_mode: str,
-    embedding_status: str,
-    keyword_results: list[RankedResult],
-    semantic_results: list[RankedResult],
-) -> tuple[list[RankedResult], Callable[[RankedResult], float], str, bool]:
-    served_mode = request_mode if request_mode == "keyword" else "keyword"
-    if request_mode == "semantic" and embedding_status == "completed":
-        if candidate_strategy == SearchCandidateStrategy.SEMANTIC_WITH_KEYWORD_CONTEXT:
-            return (
-                _merge_hybrid_candidates(keyword_results, semantic_results),
-                _hybrid_score,
-                "semantic",
-                True,
-            )
-        return semantic_results, _semantic_score, "semantic", False
-
-    if request_mode == "hybrid" and embedding_status == "completed":
-        return (
-            _merge_hybrid_candidates(keyword_results, semantic_results),
-            _hybrid_score,
-            "hybrid",
-            False,
-        )
-
-    return _dedupe_ranked_results(keyword_results), _keyword_score, served_mode, False
-
-
-def _build_search_execution_details(
-    *,
-    keyword_results: list[RankedResult],
-    strict_keyword_count: int,
-    keyword_strategy: str,
-    semantic_results: list[RankedResult],
-    candidate_items: list[RankedResult],
-    query_intent: str,
-    requested_mode: str,
-    served_mode: str,
-    harness: SearchHarness,
-    fallback_reason: str | None,
-    semantic_augmented_with_keyword_context: bool,
-    late_interaction_details: dict | None,
-) -> dict:
-    details = {
-        "keyword_candidate_count": len(keyword_results),
-        "keyword_strict_candidate_count": strict_keyword_count,
-        "keyword_strategy": keyword_strategy,
-        "semantic_candidate_count": len(semantic_results),
-        "query_intent": query_intent,
-        "candidate_source_breakdown": _candidate_source_breakdown(candidate_items),
-        "metadata_candidate_count": sum(
-            1 for item in candidate_items if "metadata_supplement" in item.retrieval_sources
-        ),
-        "span_candidate_count": sum(1 for item in candidate_items if item.evidence_spans),
-        "context_expansion_count": sum(
-            1 for item in candidate_items if "adjacent_context" in item.retrieval_sources
-        ),
-        "late_interaction_candidate_count": (
-            int(late_interaction_details.get("candidate_count") or 0)
-            if late_interaction_details
-            else 0
-        ),
-        "requested_mode": requested_mode,
-        "served_mode": served_mode,
-        "harness_name": harness.name,
-        "reranker_name": harness.reranker_name,
-        "reranker_version": harness.reranker_version,
-        "retrieval_profile_name": harness.retrieval_profile_name,
-    }
-    if semantic_augmented_with_keyword_context:
-        details["semantic_augmented_with_keyword_context"] = True
-    if late_interaction_details is not None:
-        details["late_interaction"] = late_interaction_details
-    if fallback_reason is not None:
-        details["fallback_reason"] = fallback_reason
-    return details
-
-
 def execute_search(
     session: Session,
     request: SearchRequest,
@@ -1819,250 +1555,17 @@ def execute_search(
     reranker: SearchReranker | None = None,
     harness_overrides: dict[str, dict] | None = None,
 ) -> SearchExecution:
-    start = perf_counter()
-    harness = get_search_harness(request.harness_name, harness_overrides)
-    active_reranker = reranker or harness.build_reranker()
-    tabular_query = _is_tabular_query(request.query)
-    query_intent = _classify_query_intent(request.query)
-    execution_plan = build_search_execution_plan(
-        request_mode=request.mode,
-        harness_name=harness.name,
-        query_intent=query_intent,
-        prose_lookup_intent=QUERY_INTENT_PROSE_LOOKUP,
-        prose_broad_intent=QUERY_INTENT_PROSE_BROAD,
-    )
-    span_backfill_summary = ensure_retrieval_evidence_spans_for_search(
-        session,
+    return _search_execution_orchestration.execute_search(
+        session=session,
+        request=request,
+        embedding_provider=embedding_provider,
         run_id=run_id,
-        document_id=request.filters.document_id if request.filters else None,
-    )
-    keyword_candidate_limit = max(
-        request.limit * harness.retrieval_profile.keyword_candidate_multiplier,
-        harness.retrieval_profile.min_candidate_limit,
-    )
-    keyword_chunk_results: list[RankedResult] = []
-    keyword_table_results: list[RankedResult] = []
-    keyword_results: list[RankedResult] = []
-    keyword_strategy = "strict"
-    strict_keyword_count = 0
-    metadata_candidates: list[RankedResult] = []
-    embedding_status = "skipped"
-    embedding_error: str | None = None
-    fallback_reason: str | None = None
-    semantic_results: list[RankedResult] = []
-    late_interaction_details: dict | None = None
-    adjacent_candidates: list[RankedResult] = []
-    for stage in execution_plan.stages:
-        if stage == SearchStage.STRICT_KEYWORD:
-            keyword_chunk_results, keyword_table_results = _load_keyword_candidates(
-                session,
-                request,
-                candidate_limit=keyword_candidate_limit,
-                run_id=run_id,
-            )
-            keyword_results = _sort_ranked_candidates_by_score(
-                [*keyword_chunk_results, *keyword_table_results],
-                score_getter=_keyword_score,
-            )
-            strict_keyword_count = len(keyword_results)
-        elif stage == SearchStage.RELAXED_KEYWORD and strict_keyword_count == 0:
-            keyword_chunk_results, keyword_table_results = _load_keyword_candidates(
-                session,
-                request,
-                candidate_limit=keyword_candidate_limit,
-                run_id=run_id,
-                relaxed=True,
-            )
-            keyword_results = [*keyword_chunk_results, *keyword_table_results]
-            if keyword_results:
-                keyword_results = _sort_ranked_candidates_by_score(
-                    keyword_results,
-                    score_getter=_keyword_score,
-                )
-                keyword_strategy = "relaxed_or"
-        elif stage == SearchStage.METADATA_SUPPLEMENT:
-            keyword_results, metadata_candidates, keyword_strategy = (
-                _apply_metadata_supplement_stage(
-                    session,
-                    request,
-                    query_intent=query_intent,
-                    strict_keyword_count=strict_keyword_count,
-                    harness_name=harness.name,
-                    keyword_results=keyword_results,
-                    keyword_strategy=keyword_strategy,
-                    run_id=run_id,
-                )
-            )
-        elif stage == SearchStage.SEMANTIC:
-            provider = embedding_provider
-            if provider is None:
-                try:
-                    provider = get_embedding_provider()
-                except Exception as exc:
-                    embedding_status = "provider_unavailable"
-                    embedding_error = str(exc)
-                    fallback_reason = "embedding_provider_unavailable"
-                    continue
-
-            try:
-                query_embedding = provider.embed_texts([request.query])[0]
-                embedding_status = "completed"
-                semantic_candidate_limit = max(
-                    request.limit * harness.retrieval_profile.semantic_candidate_multiplier,
-                    harness.retrieval_profile.min_candidate_limit,
-                )
-                semantic_results = _load_semantic_candidates(
-                    session,
-                    request,
-                    query_embedding=query_embedding,
-                    candidate_limit=semantic_candidate_limit,
-                    run_id=run_id,
-                )
-                if harness.retrieval_profile.late_interaction_enabled:
-                    try:
-                        query_windows = _query_multivector_windows(request.query)
-                        query_vectors = provider.embed_texts(
-                            [window["text"] for window in query_windows]
-                        )
-                        late_interaction_candidate_limit = max(
-                            request.limit
-                            * harness.retrieval_profile.late_interaction_candidate_multiplier,
-                            harness.retrieval_profile.late_interaction_min_candidate_limit,
-                        )
-                        late_interaction_results, late_interaction_details = (
-                            _run_late_interaction_search(
-                                session,
-                                request,
-                                query_windows=query_windows,
-                                query_vectors=query_vectors,
-                                candidate_limit=late_interaction_candidate_limit,
-                                run_id=run_id,
-                            )
-                        )
-                        semantic_results = _sort_ranked_candidates_by_score(
-                            _dedupe_ranked_results(
-                                [*semantic_results, *late_interaction_results]
-                            ),
-                            score_getter=_semantic_score,
-                        )
-                    except Exception as exc:
-                        late_interaction_details = {
-                            "status": "failed",
-                            "error": str(exc),
-                            "candidate_count": 0,
-                        }
-            except Exception as exc:
-                embedding_status = "embedding_failed"
-                embedding_error = str(exc)
-                fallback_reason = "embedding_failed"
-        elif stage == SearchStage.ADJACENT_CONTEXT and execution_plan.prose_query:
-            adjacent_seed_candidates = _dedupe_ranked_results(
-                [*keyword_results, *semantic_results, *metadata_candidates]
-            )
-            adjacent_candidates = _expand_adjacent_chunk_context(
-                session,
-                request,
-                seed_candidates=adjacent_seed_candidates,
-                run_id=run_id,
-            )
-            if adjacent_candidates:
-                keyword_results = _dedupe_ranked_results([*keyword_results, *adjacent_candidates])
-                keyword_results = _sort_ranked_candidates_by_score(
-                    keyword_results,
-                    score_getter=_keyword_score,
-                )
-
-    table_evidence_query = (
-        request.filters is not None
-        and request.filters.document_id is not None
-        and bool(keyword_table_results)
-        and not keyword_chunk_results
-    )
-    effective_tabular_query = tabular_query or table_evidence_query
-
-    candidate_items, score_getter, served_mode, semantic_augmented_with_keyword_context = (
-        _resolve_candidate_items(
-            candidate_strategy=execution_plan.candidate_strategy,
-            request_mode=request.mode,
-            embedding_status=embedding_status,
-            keyword_results=keyword_results,
-            semantic_results=semantic_results,
-        )
-    )
-    details = _build_search_execution_details(
-        keyword_results=keyword_results,
-        strict_keyword_count=strict_keyword_count,
-        keyword_strategy=keyword_strategy,
-        semantic_results=semantic_results,
-        candidate_items=candidate_items,
-        query_intent=query_intent,
-        requested_mode=request.mode,
-        served_mode=served_mode,
-        harness=harness,
-        fallback_reason=fallback_reason,
-        semantic_augmented_with_keyword_context=semantic_augmented_with_keyword_context,
-        late_interaction_details=late_interaction_details,
-    )
-    if span_backfill_summary.get("rebuilt_run_count"):
-        details["retrieval_span_backfill"] = span_backfill_summary
-
-    reranked_results = _rerank_results(
-        candidate_items,
-        request=request,
-        score_getter=score_getter,
-        tabular_query=effective_tabular_query,
-        query_intent=query_intent,
-        reranker=active_reranker,
-    )
-    _ensure_reranked_result_evidence_spans(session, request, reranked_results)
-    details["selected_result_span_count"] = sum(
-        1 for candidate in reranked_results if candidate.item.evidence_spans
-    )
-    results = [_to_search_result(candidate.item, candidate.score) for candidate in reranked_results]
-
-    table_hit_count = sum(1 for item in results if item.result_type == "table")
-    observe_search_results(
-        table_hit_count,
-        mixed_request=request.mode == "hybrid",
-    )
-    duration_ms = round((perf_counter() - start) * 1000, 3)
-    request_id, evidence_operator_run_ids = _persist_search_execution(
-        session,
-        request=request,
         origin=origin,
-        run_id=run_id,
         evaluation_id=evaluation_id,
         parent_request_id=parent_request_id,
-        tabular_query=tabular_query,
-        harness_name=harness.name,
-        reranker_name=active_reranker.name,
-        reranker_version=harness.reranker_version,
-        retrieval_profile_name=harness.retrieval_profile_name,
-        harness_config=harness.config_snapshot,
-        embedding_status=embedding_status,
-        embedding_error=embedding_error,
-        candidate_count=len(candidate_items),
-        duration_ms=duration_ms,
-        details=details,
-        candidate_items=candidate_items,
-        reranked_results=reranked_results,
-    )
-
-    return SearchExecution(
-        results=results,
-        request_id=request_id,
-        harness_name=harness.name,
-        reranker_name=active_reranker.name,
-        reranker_version=harness.reranker_version,
-        retrieval_profile_name=harness.retrieval_profile_name,
-        harness_config=harness.config_snapshot,
-        embedding_status=embedding_status,
-        embedding_error=embedding_error,
-        candidate_count=len(candidate_items),
-        table_hit_count=table_hit_count,
-        duration_ms=duration_ms,
-        details=details,
-        evidence_operator_run_ids=evidence_operator_run_ids,
+        reranker=reranker,
+        harness_overrides=harness_overrides,
+        execution_type=SearchExecution,
     )
 
 

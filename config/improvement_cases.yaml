@@ -604,8 +604,8 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/search.py remains an architecture hotspot with
-    line_count=2089 and private_helper_count=37 after the Milestone 1 search
-    execution persistence owner split.
+    line_count=1592 and private_helper_count=32 after the Milestone 1 search
+    execution orchestration owner split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/search.py
@@ -625,25 +625,28 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "f55b474"
-    notes: Search execution persistence Milestone 1 closed locally as f55b474.
-      The prior hydration split remains committed as 14390ad, and this packet
-      further narrows the compatibility facade to app/services/search.py at
-      2089 lines / 37 private helpers while the search execution persistence
-      owner now lives in app/services/search_execution_persistence.py at 423
-      lines / 6 private helpers.
+    deployed_ref: null
+    notes: >-
+      Search execution orchestration Milestone 1 is fully verified locally and
+      ready for the bounded closeout commit. The prior hydration split remains
+      committed as 14390ad, the prior persistence split remains committed as
+      f55b474, and the broader search owner case stays open because
+      app/services/search.py still appears in the architecture probe.
   measurement:
     metric_name: search_hotspot_line_count
-    current_value: 2089.0
-    measurement_window: 2026-05-13 local alignment verification
-    notes: Milestone 1 moved ranked-result evidence payload assembly, search
-      request/result persistence, result-span persistence, and
-      knowledge-operator trace persistence into
-      app/services/search_execution_persistence.py and reduced
-      app/services/search.py to 2089 lines while governing the new owner module
-      at 423 lines / 6 private helpers.
+    current_value: 1592.0
+    measurement_window: 2026-05-13 local orchestration verification
+    notes: >-
+      Milestone 1 moved execute_search, candidate loading, metadata
+      supplement staging, served-mode resolution, and execution detail
+      assembly into app/services/search_execution_orchestration.py, reducing
+      app/services/search.py to 1592 lines / 32 private helpers while
+      governing the new owner module at 532 lines / 6 private helpers. The
+      architecture-quality top-five still excludes app/services/search.py, but
+      the architecture probe continues to route it at 31 revisions, 1592
+      lines, and score 49352.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T12:13:33Z'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open

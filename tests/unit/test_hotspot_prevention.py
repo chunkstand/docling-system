@@ -225,6 +225,40 @@ def test_search_hotspot_blocks_persistence_and_operator_trace_growth() -> None:
     }
 
 
+def test_search_hotspot_blocks_orchestration_candidate_loading_and_detail_growth() -> None:
+    orchestration_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def _run_execution_stage():", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    candidate_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def _load_candidate_items():", "    return []"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    detail_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def _build_search_execution_details():", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert orchestration_report["summary"]["blocked_count"] == 1
+    assert orchestration_report["findings"][0]["category"] == "execution_orchestration"
+    assert candidate_report["summary"]["blocked_count"] == 1
+    assert candidate_report["findings"][0]["category"] == "candidate_loading"
+    assert detail_report["summary"]["blocked_count"] == 1
+    assert detail_report["findings"][0]["category"] == "search_detail_payload_builder"
+
+
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
     import_report = build_hotspot_prevention_report(
         _diff_for(
@@ -343,6 +377,28 @@ def test_cli_forwarding_wrapper_is_allowed() -> None:
             [
                 "def run_new_command():",
                 "    return run_new_command_impl()",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_search_forwarding_wrapper_with_execution_type_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            [
+                "def execute_search(session, request, embedding_provider=None):",
+                "    return _search_execution_orchestration.execute_search(",
+                "        session=session,",
+                "        request=request,",
+                "        embedding_provider=embedding_provider,",
+                "        execution_type=SearchExecution,",
+                "    )",
             ],
         ),
         policy=load_hotspot_policy(),
