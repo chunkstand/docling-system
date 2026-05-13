@@ -1,9 +1,9 @@
 # Search Execution Persistence Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: resolved locally through Milestone 1 for `IC-1D03DBFE8492` /
-`app/services/search.py`; the owner case remains open and the next routed
-follow-on stays inside the search compatibility facade
+Status: resolved locally through Milestone 1 closeout commit `f55b474` for
+`IC-1D03DBFE8492` / `app/services/search.py`; the owner case remains open and
+the next routed follow-on stays inside the search compatibility facade
 Owner context: follow-on brief created after
 `docs/search_hydration_boundary_milestone_plan.md` resolved locally through
 Milestone 1 closeout commit `14390ad`; the same search owner case remains open
@@ -12,8 +12,8 @@ facade.
 
 ## Local Progress
 
-Milestone 1 is now closed locally. The search execution persistence family is
-no longer implemented inside `app/services/search.py`.
+Milestone 1 is now closed locally as commit `f55b474`. The search execution
+persistence family is no longer implemented inside `app/services/search.py`.
 
 Local Milestone 1 snapshot:
 
@@ -38,6 +38,7 @@ Local Milestone 1 snapshot:
 - refreshed `config/improvement_cases.yaml`, `config/hygiene_policy.yaml`,
   `docs/agentic_architecture_index.md`, and `docs/SESSION_HANDOFF.md` so the
   reduced search boundary and next routed follow-on are durable repo state
+- local closeout commit: `f55b474`
 - architecture probe still routes `app/services/search.py` as the top churn
   hotspot at `30 revisions`, `2089 lines`, and `score 62670`, but the
   architecture-quality summary top-five still excludes `app/services/search.py`
@@ -90,10 +91,11 @@ owner module while preserving the public facade and equivalent or broader
 verification. No milestone in this plan may weaken tests, narrow runtime
 coverage, add skips, loosen gates, or relax assertions merely to get green.
 
-## Current Evidence
+## Pre-Closeout Baseline Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Baseline repo evidence captured before the Milestone 1 implementation window on
+2026-05-13 local / 2026-05-13 UTC. The final closeout state is recorded above
+in `Local Progress` and was committed as `f55b474`:
 
 ```text
 git status -sb
@@ -484,6 +486,6 @@ through `IC-6C1B516A3F92` instead of silently weakening the search gate.
       DB-backed suite verification all passed.
 - [x] This plan, `docs/SESSION_HANDOFF.md`, and
       `docs/agentic_architecture_index.md` were updated in the same closeout
-      slice with live evidence.
-- [ ] The milestone was closed with a local atomic commit; otherwise it is not
+      slice with live evidence and the actual closeout commit hash.
+- [x] The milestone was closed with local atomic commit `f55b474`; otherwise it is not
       complete.

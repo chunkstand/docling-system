@@ -5,20 +5,21 @@ Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
-Search Execution Persistence Boundary Milestone 1 status: resolved locally for
-`IC-1D03DBFE8492`; the owner case remains open and the next routed follow-on
-stays inside the search compatibility facade.
+Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
+Search Execution Persistence Boundary Milestone 1 status: resolved locally
+through closeout commit `f55b474` for `IC-1D03DBFE8492`; the owner case
+remains open and the next routed follow-on stays inside the search
+compatibility facade.
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-1D03DBFE8492` /
-`app/services/search.py`
-Latest bounded implementation brief:
+Active local follow-up owner case: `IC-1D03DBFE8492` / `app/services/search.py`
+Latest resolved bounded implementation brief:
 `docs/search_execution_persistence_boundary_milestone_plan.md`
-It is now resolved locally through Milestone 1 for the same owner case
+It is now resolved locally through Milestone 1 closeout commit `f55b474` for the same owner case
 `IC-1D03DBFE8492` after
 `docs/search_hydration_boundary_milestone_plan.md` resolved locally through
 Milestone 1 closeout commit `14390ad`; the next routed follow-on is the
@@ -133,13 +134,14 @@ Results:
   `app/hotspot_prevention_classifier.py` so new persistence and
   operator-trace payload growth in `app/services/search.py` is blocked
 - added focused owner-module coverage in
-  `tests/unit/test_search_execution_persistence.py`
+`tests/unit/test_search_execution_persistence.py`
 - reduced `app/services/search.py` from `2496` lines / `42` private helpers to
   `2089` lines / `37` private helpers and governed
   `app/services/search_execution_persistence.py` at `423` lines /
   `6` private helpers under `owner_case_id: IC-1D03DBFE8492`
 - updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
   reduced-but-still-open search hotspot state after the persistence split
+- local closeout commit: `f55b474`
 - the next routed implementation slice inside the same owner case is the
   remaining execution-orchestration cluster in `execute_search(...)` and
   adjacent candidate-loading/detail assembly paths

@@ -215,13 +215,12 @@ cases:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
     notes: Captured while re-running the Milestone 1 alignment verification
-      after tightening the agent-task orchestration registry-composition
-      classifier logic.
+      after tightening the search persistence and operator-trace hotspot gate.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
     description: Hotspot prevention classifier budget follow-on after the
-      registry-composition alignment hardening.
+      search persistence/operator-trace gate hardening.
   verification:
     commands:
     - uv run ruff check app/hotspot_prevention_classifier.py
@@ -239,9 +238,9 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: Alignment follow-on created locally; no deployment commit recorded
-      yet.
+    deployed_ref: "f55b474"
+    notes: Residual ratchet increase recorded in the search execution
+      persistence closeout commit f55b474; the hygiene follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
     current_value: 658.0
@@ -626,8 +625,9 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "14390ad"
-    notes: The prior hydration split remains committed as 14390ad. This packet
+    deployed_ref: "f55b474"
+    notes: Search execution persistence Milestone 1 closed locally as f55b474.
+      The prior hydration split remains committed as 14390ad, and this packet
       further narrows the compatibility facade to app/services/search.py at
       2089 lines / 37 private helpers while the search execution persistence
       owner now lives in app/services/search_execution_persistence.py at 423
@@ -643,7 +643,7 @@ cases:
       app/services/search.py to 2089 lines while governing the new owner module
       at 423 lines / 6 private helpers.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T12:00:00Z'
+  updated_at: '2026-05-13T12:13:33Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
