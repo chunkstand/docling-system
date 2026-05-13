@@ -45,6 +45,7 @@ Local Milestone 2 snapshot:
   `app/services/evaluations.py` at `20 revisions`, `1244 lines`, and
   `score 24880`, so the broader owner case remains reduced rather than
   resolved
+- local closeout commit: `3817659`
 - next implementation gate: Milestone 3 scoring and structural owner
   extraction
 
@@ -398,6 +399,7 @@ Outcome label: reduced
   `app/services/evaluation_reads.py`, and their unit files absent on purpose;
   those owner surfaces remain reserved for Milestones 3-4 instead of being
   introduced early in the fixture packet
+- local closeout commit: `3817659`
 - verification on the resolved slice:
   `48 passed` in `tests/unit/test_evaluation_fixtures.py` and
   `tests/unit/test_evaluation_service.py`;
@@ -519,8 +521,9 @@ Outcome label: resolved for the scoped mixed-responsibility knot and reduced for
   latest-evaluation detail assembly.
 - `app/services/evaluations.py` closes at `<= 550` lines and `<= 12` private
   helpers.
-- `app/services/evaluation_fixtures.py` closes at `<= 950` lines and
-  `<= 25` private helpers.
+- `app/services/evaluation_fixtures.py` closes at or below its measured
+  post-Milestone-2 ratchet unless a later extraction reduces it further; the
+  current exact ceiling is `966` lines and `32` private helpers.
 - `app/services/evaluation_scoring.py` closes at `<= 950` lines and
   `<= 25` private helpers.
 - `app/services/evaluation_reads.py` closes at `<= 450` lines and

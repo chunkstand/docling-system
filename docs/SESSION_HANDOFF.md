@@ -9,6 +9,7 @@ Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
+Evaluations Service Boundary Milestone 2 checkpoint: `3817659`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -178,8 +179,8 @@ window is:
   facade is out of the top twelve churn hotspots after the boundary split; the
   Python cycle component count is now `4`
 
-Reduced or routed follow-on cases remain open after this claim-support
-closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
+Reduced or routed follow-on cases remain open after this evaluations
+Milestone 2 closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
 `IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py`,
 `IC-BF180637814C` / `app/services/evaluations.py`,
 `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and
@@ -228,24 +229,30 @@ Results:
 Verification:
 
 - `git diff --check`
-- `uv run ruff check app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`:
+- `uv run ruff check app/services/evaluations.py app/services/evaluation_fixtures.py tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py`:
   pass
-- `uv run pytest -q tests/unit/test_hotspot_prevention.py tests/unit/test_hygiene.py`:
-  `34 passed`
+- `uv run pytest -q tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_service.py`:
+  `48 passed`
+- `uv run pytest -q tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_documents_api.py tests/unit/test_quality_service.py tests/unit/test_eval_config.py tests/unit/test_capability_contracts.py tests/unit/test_api_architecture.py tests/unit/test_hotspot_prevention.py`:
+  `113 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py tests/integration/test_eval_workbench_roundtrip.py`:
+  `12 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1898 passed`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=9`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
+  `known_hotspots=9`, `changed_hotspots=1`, `blocked=0`, `allowed=3`,
   `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-improvement-case-summary`: `case_count=28`,
   `status_counts.open=21`, `status_counts.deployed=6`,
-  `status_counts.measured=1`
+  `status_counts.measured=1`, `measured_case_count=18`
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 15`:
   `app/services/evaluations.py` remains in the top 15 churn hotspots at
-  `20 revisions`, `2159 lines`, `score 43180`; Python cycle component count
+  `20 revisions`, `1244 lines`, `score 24880`; Python cycle component count
   remains `4`
 
 ## Claim Support Policy Impacts Boundary Milestone 4 Local Progress
