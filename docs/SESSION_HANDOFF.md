@@ -1,9 +1,10 @@
 # Session Handoff
 
-Date: 2026-05-12 local / 2026-05-13 UTC
+Date: 2026-05-13 local / 2026-05-13 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
+Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -14,16 +15,16 @@ Active local follow-up owner case: `IC-1D03DBFE8492` /
 `app/services/search.py`
 Active bounded implementation brief:
 `docs/search_hydration_boundary_milestone_plan.md`
-It is now resolved locally through Milestone 1, and the next routed follow-on
-inside the same owner case is search execution persistence and operator-trace
-payload assembly.
+It is now resolved locally through Milestone 1 closeout commit `14390ad`, and
+the next routed follow-on inside the same owner case is search execution
+persistence and operator-trace payload assembly.
 
 ## Current Position
 
 The checkout is on `main`. Local `main` remains ahead of `origin/main`, the
 agent-task orchestration follow-on plan is resolved locally through Milestone 5,
 and `docs/search_hydration_boundary_milestone_plan.md` is now resolved locally
-through Milestone 1 for `IC-1D03DBFE8492`.
+through Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`.
 
 `app/services/search.py` remains the active architecture hotspot owner surface,
 but it is now reduced to `2496` lines / `42` private helpers and delegates the
@@ -82,7 +83,7 @@ The live alignment snapshot after the search hydration Milestone 1 closeout is:
   `known_hotspots=7`, `changed_hotspots=1`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - architecture probe top hotspot is still `app/services/search.py` at
-  `2496` lines / `42` private helpers with `score 72384`; the narrowed
+  `30 revisions`, `2496` lines / `42` private helpers with `score 74880`; the narrowed
   hydration owner module now lives in `app/services/search_hydration.py` at
   `392` lines / `11` private helpers, the Python cycle component count remains
   `3`, and the global architecture-quality top-five no longer includes
@@ -103,7 +104,7 @@ expanded that classifier beyond the default file budget.
 
 ## Search Hydration Boundary Milestone 1 Local Progress
 
-Milestone 1 is closed locally. It is a behavior-preserving search service
+Milestone 1 is closed locally as commit `14390ad`. It is a behavior-preserving search service
 modularization pass behind the existing `app/services/search.py`
 compatibility facade.
 
@@ -122,6 +123,7 @@ Results:
   under `owner_case_id: IC-1D03DBFE8492`
 - updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
   reduced-but-still-open search hotspot state after the hydration split
+- local closeout commit: `14390ad`
 - the next routed implementation slice inside the same owner case is search
   execution persistence and operator-trace payload assembly
 

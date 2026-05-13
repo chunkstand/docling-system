@@ -625,23 +625,21 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "c871dd9"
-    notes: The prior committed search-ranking owner split remains c871dd9.
-      The current follow-on reduction is recorded in
-      docs/search_hydration_boundary_milestone_plan.md; the compatibility
-      facade remains in app/services/search.py while the narrowed hydration
-      implementation now lives in app/services/search_hydration.py.
+    deployed_ref: "14390ad"
+    notes: Milestone 1 search-hydration owner split committed as 14390ad; the
+      compatibility facade remains in app/services/search.py while the narrowed
+      hydration implementation now lives in app/services/search_hydration.py.
   measurement:
     metric_name: search_hotspot_line_count
     current_value: 2496.0
-    measurement_window: 2026-05-12 local verification
+    measurement_window: 2026-05-13 local alignment verification
     notes: Milestone 1 moved span-backed query builders, ranked-result
       hydration, selected-result evidence-span loading, and late-interaction
       hydration into app/services/search_hydration.py and reduced
       app/services/search.py to 2496 lines while governing the new owner module
       at 392 lines.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T05:55:43Z'
+  updated_at: '2026-05-13T06:04:24Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open

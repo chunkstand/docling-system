@@ -1,10 +1,9 @@
 # Search Hydration Boundary Milestone Plan
 
 Date: 2026-05-12 local / 2026-05-13 UTC
-Status: resolved locally through Milestone 1 closeout in the current local
-milestone commit for `IC-1D03DBFE8492` / `app/services/search.py`; the owner
-case remains open and the next routed follow-on stays inside the search
-compatibility facade
+Status: resolved locally through Milestone 1 closeout commit `14390ad` for
+`IC-1D03DBFE8492` / `app/services/search.py`; the owner case remains open and
+the next routed follow-on stays inside the search compatibility facade
 Owner context: fresh bounded implementation brief created after
 `docs/agent_task_orchestration_boundary_milestone_plan.md` resolved locally and
 routed the next hotspot to the search service compatibility facade.
@@ -34,8 +33,9 @@ Local Milestone 1 snapshot:
 - refreshed `config/improvement_cases.yaml`, `config/hygiene_policy.yaml`,
   `docs/agentic_architecture_index.md`, and `docs/SESSION_HANDOFF.md` so the
   reduced search boundary and next routed follow-on are durable repo state
+- local closeout commit: `14390ad`
 - architecture probe still routes `app/services/search.py` as the top churn
-  hotspot at `29 revisions`, `2496 lines`, and `score 72384`, but the
+  hotspot at `30 revisions`, `2496 lines`, and `score 74880`, but the
   architecture-quality summary top-five no longer includes `app/services/search.py`
 - next routed follow-on inside `IC-1D03DBFE8492`:
   search execution persistence and operator-trace payload assembly in
@@ -92,22 +92,24 @@ owner module while preserving import stability and search behavior:
 ## Current Evidence
 
 Live repo evidence refreshed from the current local checkout on 2026-05-12
-local / 2026-05-13 UTC:
+local / 2026-05-13 UTC and refreshed again for alignment on 2026-05-13 local:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 4]
+  ## main...origin/main [ahead 5]
 
-wc -l app/services/search.py app/services/search_ranking.py app/services/search_query_features.py app/services/search_history.py
-  2851 app/services/search.py
+wc -l app/services/search.py app/services/search_hydration.py app/services/search_ranking.py app/services/search_query_features.py app/services/search_history.py
+  2496 app/services/search.py
+   392 app/services/search_hydration.py
    467 app/services/search_ranking.py
    199 app/services/search_query_features.py
    311 app/services/search_history.py
 
 config/improvement_cases.yaml
   IC-1D03DBFE8492 remains open for app/services/search.py
-  observed_failure=line_count=2851 and private_helper_count=53 after the
-  search-ranking owner split
+  observed_failure=line_count=2496 and private_helper_count=42 after the
+  search-hydration owner split
+  deployed_ref=14390ad
 
 config/hotspot_prevention.yaml
   app/services/search.py target_role=search service compatibility facade
@@ -115,8 +117,9 @@ config/hotspot_prevention.yaml
   telemetry_payload_builder
 
 docs/SESSION_HANDOFF.md
-  before this milestone, the routed search hotspot had no bounded
-  implementation brief yet and required a fresh dedicated plan
+  active bounded implementation brief=docs/search_hydration_boundary_milestone_plan.md
+  next routed follow-on=search execution persistence and operator-trace payload
+  assembly
 ```
 
 Current structural evidence:
@@ -124,16 +127,25 @@ Current structural evidence:
 - `app/services/search.py` still owns the public `execute_search(...)` and
   `search_documents(...)` entrypoints and now delegates ranking/query-feature
   families into focused owner modules.
-- The remaining hydration cluster is still local to the facade:
+- The hydration cluster now lives in `app/services/search_hydration.py`:
   `_span_chunk_query`, `_span_table_query`, `_hydrate_ranked_chunks`,
   `_hydrate_ranked_span_chunks`, `_hydrate_ranked_tables`,
   `_hydrate_ranked_span_tables`, `_span_evidence_payload`,
   `_supports_retrieval_span_search`, `_load_source_evidence_spans`,
   `_ensure_reranked_result_evidence_spans`, and
   `_hydrate_late_interaction_results`.
-- The current search governance already expects this move:
+- The remaining largest central search family after this split is persistence
+  and operator-trace payload assembly:
+  `_ranked_result_evidence_payload`, `_reranked_result_evidence_payload`,
+  `_persist_search_operator_runs`, `_persist_search_result_spans`, and
+  `_persist_search_execution`.
+- The current search governance still expects implementation to continue moving
+  out of the facade:
   `config/hotspot_prevention.yaml` blocks new `hydration_logic` additions in
-  `app/services/search.py` and routes them to `app/services/search_*.py`.
+  `app/services/search.py` and routes them to `app/services/search_*.py`;
+  `config/hygiene_policy.yaml` now locks the narrowed facade at `2496` lines /
+  `42` private helpers and governs `app/services/search_hydration.py` at
+  `392` lines / `11` private helpers under `IC-1D03DBFE8492`.
 - Integration coverage already proves the sensitive behaviors this split must
   preserve:
   `tests/integration/test_postgres_roundtrip.py` verifies persisted search
