@@ -100,6 +100,27 @@ duplicate_helper_names:
       - app/services/agent_task_worker.py
       - app/services/runs.py
     reason: Run failures and agent-task failures serialize different artifact schemas.
+  - name: _frozen_prov_export_payload
+    modules:
+      - app/services/evidence.py
+      - app/services/evidence_provenance_exports.py
+    reason: The evidence facade keeps a settings-aware compatibility wrapper while provenance export persistence owns the implementation.
+  - name: _prov_export_receipt
+    modules:
+      - app/services/evidence.py
+      - app/services/evidence_provenance_exports.py
+    reason: The evidence facade keeps a settings-aware compatibility wrapper while provenance export persistence owns the implementation.
+  - name: _prov_export_receipt_integrity
+    modules:
+      - app/services/evidence.py
+      - app/services/evidence_provenance_exports.py
+      - app/services/evidence_release_readiness.py
+    reason: Facade, provenance-export, and release-readiness surfaces each verify the same signed receipt boundary from different contracts.
+  - name: _prov_export_receipt_signature
+    modules:
+      - app/services/evidence.py
+      - app/services/evidence_provenance_exports.py
+    reason: The evidence facade keeps a settings-aware compatibility wrapper while provenance export persistence owns the implementation.
 duplicate_helper_bodies:
   - helpers:
       - app/services/agent_task_context_store.py:_payload_sha256
@@ -185,22 +206,40 @@ file_budgets:
       max_lines: 600
       max_private_helpers: 20
       owner_case_id: IC-F2A8110185EB
+    app/hotspot_prevention_classifier.py:
+      max_lines: 600
+      ratchet_max_lines: 621
+      max_private_helpers: 20
+      owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:
       max_lines: 2061
       max_private_helpers: 0
     app/services/agent_task_actions.py:
       max_lines: 600
-      ratchet_max_lines: 2746
+      ratchet_max_lines: 2081
       max_private_helpers: 20
-      ratchet_max_private_helpers: 36
+      ratchet_max_private_helpers: 35
+      owner_case_id: IC-A1E186A34097
+    app/services/agent_actions/search_harness.py:
+      max_lines: 600
+      ratchet_max_lines: 1078
+      max_private_helpers: 20
       owner_case_id: IC-A1E186A34097
     app/services/agent_actions/report_actions.py:
       max_lines: 600
       max_private_helpers: 20
       owner_case_id: IC-A1E186A34097
     app/services/agent_task_context.py:
-      max_lines: 3860
-      max_private_helpers: 42
+      max_lines: 600
+      ratchet_max_lines: 3833
+      max_private_helpers: 20
+      ratchet_max_private_helpers: 38
+      owner_case_id: IC-E52B6C7B22FD
+    app/services/agent_task_context_search_harness.py:
+      max_lines: 600
+      ratchet_max_lines: 867
+      max_private_helpers: 20
+      owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_verifications.py:
       max_lines: 636
       max_private_helpers: 6
@@ -281,20 +320,50 @@ file_budgets:
       max_private_helpers: 61
     app/services/evidence.py:
       max_lines: 600
-      ratchet_max_lines: 6307
+      ratchet_max_lines: 600
       max_private_helpers: 20
-      ratchet_max_private_helpers: 81
+      ratchet_max_private_helpers: 20
       owner_case_id: IC-050E60059A34
     app/services/evidence_manifest_traces.py:
       max_lines: 600
       ratchet_max_lines: 980
       max_private_helpers: 20
-      owner_case_id: IC-050E60059A34
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_audit_views.py:
+      max_lines: 600
+      ratchet_max_lines: 699
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_claim_feedback.py:
+      max_lines: 600
+      ratchet_max_lines: 834
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_claim_support_replay_alerts.py:
+      max_lines: 600
+      ratchet_max_lines: 646
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_manifests.py:
+      max_lines: 600
+      ratchet_max_lines: 725
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_provenance_exports.py:
+      max_lines: 600
+      ratchet_max_lines: 1048
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
+    app/services/evidence_semantic_trace.py:
+      max_lines: 600
+      ratchet_max_lines: 837
+      max_private_helpers: 20
+      owner_case_id: IC-65AF4A6D8B1E
     app/services/evidence_technical_report_exports.py:
       max_lines: 600
       ratchet_max_lines: 884
       max_private_helpers: 20
-      owner_case_id: IC-050E60059A34
+      owner_case_id: IC-65AF4A6D8B1E
     app/services/improvement_case_intake.py:
       max_lines: 600
       ratchet_max_lines: 820

@@ -9,10 +9,8 @@ from app.schemas.search import (
     SearchHarnessEvaluationResponse,
     SearchHarnessEvaluationSourceResponse,
 )
-from app.services.agent_task_actions import (
-    _triage_replay_regression_executor,
-    validate_agent_task_output,
-)
+from app.services.agent_actions.search_harness import _triage_replay_regression_executor
+from app.services.agent_task_actions import validate_agent_task_output
 from app.services.agent_task_verifications import VerificationOutcome
 from app.services.storage import StorageService
 
@@ -87,7 +85,7 @@ def test_triage_replay_regression_executor_persists_artifact_and_recommendation(
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.list_quality_eval_candidates",
+        "app.services.agent_actions.search_harness.list_quality_eval_candidates",
         lambda session, limit, include_resolved: [
             {
                 "candidate_type": "evaluation_gap",
@@ -100,11 +98,11 @@ def test_triage_replay_regression_executor_persists_artifact_and_recommendation(
         ],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.evaluate_search_harness",
+        "app.services.agent_actions.search_harness.evaluate_search_harness",
         lambda session, request: evaluation,
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.evaluate_search_harness_verification",
+        "app.services.agent_actions.search_harness.evaluate_search_harness_verification",
         lambda session, evaluation, payload: VerificationOutcome(
             outcome="passed",
             metrics={"total_regressed_count": 0},
@@ -113,7 +111,7 @@ def test_triage_replay_regression_executor_persists_artifact_and_recommendation(
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.StorageService",
+        "app.services.agent_actions.search_harness.StorageService",
         lambda: StorageService(storage_root=tmp_path / "storage"),
     )
 

@@ -16,7 +16,7 @@ from app.schemas.agent_tasks import (
     OptimizeSearchHarnessFromCaseTaskInput,
     VerifyDraftHarnessConfigTaskInput,
 )
-from app.services.agent_task_actions import (
+from app.services.agent_actions.search_harness import (
     _apply_harness_config_update_executor,
     _draft_harness_config_from_optimization_executor,
     _draft_harness_config_update_executor,
@@ -51,7 +51,7 @@ def test_draft_harness_config_update_executor_writes_draft_artifact(
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -126,15 +126,15 @@ def test_optimize_search_harness_from_case_does_not_recommend_noop_draft(
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_eval_failure_case",
+        "app.services.agent_actions.search_harness.get_eval_failure_case",
         lambda session, requested_case_id: {"case_id": str(requested_case_id)},
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.run_search_harness_optimization_loop",
+        "app.services.agent_actions.search_harness.run_search_harness_optimization_loop",
         lambda session, request: optimization,
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -191,14 +191,14 @@ def test_draft_harness_from_optimization_uses_augmented_override_for_snapshot(
     captured: dict = {}
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output={},
             task_type="optimize_search_harness_from_case",
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
+        "app.services.agent_actions.search_harness.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
         lambda output: source_output,
     )
 
@@ -218,11 +218,11 @@ def test_draft_harness_from_optimization_uses_augmented_override_for_snapshot(
         )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_search_harness",
+        "app.services.agent_actions.search_harness.get_search_harness",
         fake_get_search_harness,
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -281,18 +281,18 @@ def test_draft_harness_from_optimization_rejects_noop_best_override(monkeypatch)
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output={},
             task_type="optimize_search_harness_from_case",
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
+        "app.services.agent_actions.search_harness.OptimizeSearchHarnessFromCaseTaskOutput.model_validate",
         lambda output: source_output,
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_search_harness",
+        "app.services.agent_actions.search_harness.get_search_harness",
         lambda *args, **kwargs: (_ for _ in ()).throw(
             AssertionError("no-op optimization should not build an effective harness")
         ),
@@ -330,7 +330,7 @@ def test_verify_draft_harness_config_executor_writes_verification_artifact(monke
     target_task_id = uuid4()
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.verify_draft_harness_config_task",
+        "app.services.agent_actions.search_harness.verify_draft_harness_config_task",
         lambda session, verification_task, payload: {
             "draft": {"draft_harness_name": "wide_v2_review"},
             "evaluation": {"candidate_harness_name": "wide_v2_review"},
@@ -338,7 +338,7 @@ def test_verify_draft_harness_config_executor_writes_verification_artifact(monke
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -392,7 +392,7 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         lambda: tmp_path / "config" / "search_harness_overrides.json",
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         lambda session, **kwargs: type(
             "ArtifactRow",
             (),
@@ -431,7 +431,7 @@ def test_apply_harness_config_update_executor_persists_review_harness(
         )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         fake_resolve,
     )
 
@@ -494,7 +494,7 @@ def test_apply_harness_config_update_executor_attaches_follow_up_evidence(
         return artifact
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.search_harness.create_agent_task_artifact",
         fake_create_artifact,
     )
     verification_output = _verification_output_payload(
@@ -525,13 +525,13 @@ def test_apply_harness_config_update_executor_attaches_follow_up_evidence(
         "verify_draft_harness_config": SimpleNamespace(output=verification_output),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         lambda session, *, expected_task_type, **_kwargs: (
             _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.evaluate_search_harness",
+        "app.services.agent_actions.search_harness.evaluate_search_harness",
         lambda session, request: {
             "baseline_harness_name": request.baseline_harness_name,
             "candidate_harness_name": request.candidate_harness_name,
@@ -595,7 +595,7 @@ def test_apply_harness_config_update_executor_rejects_mismatched_verification_ta
         ),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         lambda session, *, expected_task_type, **_kwargs: (
             _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
         ),
@@ -648,7 +648,7 @@ def test_apply_harness_config_update_executor_rejects_failed_verification(monkey
         ),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         lambda session, *, expected_task_type, **_kwargs: (
             _resolve_payload_by_expected_type(resolver_payloads, expected_task_type)
         ),
@@ -700,7 +700,7 @@ def test_apply_harness_config_update_executor_bubbles_dependency_role_errors(mon
         )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         fake_resolve,
     )
 
@@ -746,7 +746,7 @@ def test_apply_harness_config_update_executor_bubbles_schema_errors(monkeypatch)
         return SimpleNamespace(output=_draft_output_payload(draft_task_id=draft_task_id))
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         fake_resolve,
     )
 
@@ -794,7 +794,7 @@ def test_apply_harness_config_update_executor_bubbles_missing_verification(monke
         return SimpleNamespace(output=_draft_output_payload(draft_task_id=draft_task_id))
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.search_harness.resolve_required_dependency_task_output_context",
         fake_resolve,
     )
 

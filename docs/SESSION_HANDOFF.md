@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-11 local / 2026-05-12 UTC
+Date: 2026-05-12 local / 2026-05-13 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -13,51 +13,63 @@ Candidate And Artifact Milestone 2 checkpoint remains `a5f090a`, the prior
 Audit Bundle Validation Receipt Milestone 1 checkpoint remains `e2bc144`, and
 the prior DB Models Compatibility Facade Milestone 2 checkpoint remains
 `8340dc0`.
-Active local follow-up owner case: `IC-050E60059A34` /
-`app/services/evidence.py`.
+Active local follow-up owner case: `IC-A1E186A34097` +
+`IC-E52B6C7B22FD` / agent-task orchestration boundary
 Active bounded implementation brief:
-`docs/high_value_technical_paydown_milestone_plan.md`.
+`docs/agent_task_orchestration_boundary_milestone_plan.md`.
 
 ## Current Position
 
 The checkout is on `main`. Local `main` remains ahead of `origin/main`, and
-the standalone hotspot-reduction plan in
-`docs/audit_bundle_and_retrieval_learning_hotspots_milestone_plan.md` is now
-resolved locally through Milestone 5.
+the active architecture follow-up has moved to
+`docs/agent_task_orchestration_boundary_milestone_plan.md`, where Milestone 1
+Registry Composition Contract and Milestone 2 Search-Harness Execution And
+Specialized Context Extraction are now implemented locally for the paired
+agent-task orchestration owner cases `IC-A1E186A34097` and
+`IC-E52B6C7B22FD`.
 
-The compatibility-facade follow-up for the paired hotspot owner cases is now
-closed under local verification. Search-harness release payload
-serialization now lives in
-`app/services/audit_bundle_release_payload_serialization.py`, release payload
-validation now lives in
-`app/services/audit_bundle_release_payload_validation.py`, release PROV graph
-construction and JSON-LD validation now live in
-`app/services/audit_bundle_release_payload_prov.py`, and release payload
-orchestration now lives in
-`app/services/audit_bundle_release_payloads.py`. `app/services/audit_bundles.py`
-is reduced from 2,203 lines / 41 private helpers to 632 lines / 20 private
-helpers while preserving the public audit-bundle service surface and
-`get_settings` monkeypatch seam used by integration tests.
+The previously active evidence hotspot owner plan in
+`docs/evidence_hotspot_owner_milestone_plan.md` remains implemented locally
+through its facade-resolution closeout.
 
-The paired retrieval-learning facade remains closed at the intended narrow
-shape. `app/services/retrieval_learning.py` stays at 143 lines / 0 private
-helpers, the routed owner family remains
-`app/services/retrieval_learning_replay_alert_sources.py`,
-`app/services/retrieval_learning_candidates.py`,
-`app/services/retrieval_learning_artifacts.py`,
-`app/services/retrieval_learning_datasets.py`,
-`app/services/retrieval_learning_dataset_rows.py`, and
-`app/services/retrieval_learning_dataset_sources.py`, and the final closeout
-adds focused facade-delegation tests plus exact no-growth ratchets.
+`app/services/evidence.py` is now a 141-line / 4-private-helper compatibility
+facade. The remaining owner families now live in
+`app/services/evidence_claim_feedback.py`,
+`app/services/evidence_release_readiness.py`,
+`app/services/evidence_manifests.py`,
+`app/services/evidence_semantic_trace.py`,
+`app/services/evidence_claim_support_impacts.py`,
+`app/services/evidence_claim_support_replay_alerts.py`,
+`app/services/evidence_provenance_exports.py`, and
+`app/services/evidence_audit_views.py`. The facade keeps the
+settings-aware provenance wrappers used by tests, and
+`tests/unit/test_evidence_facade_contract.py` now guards the public export
+surface explicitly.
 
-The live alignment snapshot after the Milestone 5 local verification recheck
-is:
+This closeout resolves `IC-050E60059A34` under local verification and opens
+follow-on case `IC-65AF4A6D8B1E` for the residual evidence owner-family budget
+debt. The largest routed owner surface is now
+`app/services/evidence_provenance_exports.py` at 1,048 lines;
+`app/services/evidence.py` may still appear in the architecture-quality top
+paths because of intentional public fan-in, but the general architecture probe
+no longer lists it in the top 12 churn hotspots.
+The current oversized evidence owner-family modules are
+`app/services/evidence_provenance_exports.py` (1048),
+`app/services/evidence_technical_report_exports.py` (884),
+`app/services/evidence_semantic_trace.py` (837),
+`app/services/evidence_claim_feedback.py` (834),
+`app/services/evidence_manifests.py` (725),
+`app/services/evidence_audit_views.py` (699), and
+`app/services/evidence_claim_support_replay_alerts.py` (646).
 
-- `uv run docling-system-improvement-case-summary`: `case_count=26`,
-  `status_counts.open=22`, `status_counts.deployed=3`,
-  `status_counts.measured=1`, `oldest_open_case_id=IC-050E60059A34`
+The live alignment snapshot after the evidence hotspot local closeout and the
+agent-task orchestration Milestone 2 local verification is:
+
+- `uv run docling-system-improvement-case-summary`: `case_count=28`,
+  `status_counts.open=23`, `status_counts.deployed=4`,
+  `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=561.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=541.06`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
@@ -65,14 +77,167 @@ is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- architecture probe still reports `app/services/evidence.py` as the top churn
-  hotspot while `app/services/audit_bundles.py` and
-  `app/services/retrieval_learning.py` no longer appear in the top 12 churn
-  hotspots
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`:
+  `passed_gate_count=11`, `failed_gate_count=0`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`:
+  `observation_count=0`
+- architecture probe top hotspot is now `app/services/agent_task_actions.py`;
+  `app/services/evidence.py` no longer appears in the top 12 churn hotspots
 
-The next routed owner case now returns to
-`IC-050E60059A34` / `app/services/evidence.py` under
-`docs/high_value_technical_paydown_milestone_plan.md`.
+The evidence-owner follow-up from the prior lane remains
+`IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, but the
+active architecture execution slice is now Milestone 3 Semantic Governance
+Family Composition under
+`docs/agent_task_orchestration_boundary_milestone_plan.md`.
+The Milestone 1 alignment hardening also routes
+`app/hotspot_prevention_classifier.py` into bounded hygiene follow-on case
+`IC-6C1B516A3F92` at 621 lines after the registry-composition allowance update
+expanded that classifier beyond the default file budget.
+
+## Agent-Task Orchestration Boundary Milestone 2 Local Progress
+
+Milestone 2 is implemented locally and uses the Milestone 1 registry seams to
+move the remaining search-harness execution and specialized context-building
+slice out of the central facades.
+
+Results:
+
+- moved the remaining search-harness executors and helper wiring from
+  `app/services/agent_task_actions.py` into
+  `app/services/agent_actions/search_harness.py`; the public search-harness
+  registry now composes from the owner module without passing private executor
+  symbols across the facade boundary
+- moved the remaining search-harness context builders into
+  `app/services/agent_task_context_search_harness.py` and moved
+  `evaluate_claim_support_judge` into
+  `app/services/agent_task_context_technical_reports.py`
+- preserved the public `list_agent_task_actions()`, action index output,
+  validation defaults, context-builder lookup names, and worker execution
+  semantics while updating focused tests to patch the new owner modules
+  directly
+- reduced `app/services/agent_task_actions.py` from 2,081 lines / 35 private
+  helpers to 1,504 lines / 25 private helpers and reduced
+  `app/services/agent_task_context.py` from 3,833 lines / 38 private helpers
+  to 2,950 lines / 31 private helpers
+- ratcheted `config/hygiene_policy.yaml` so
+  `app/services/agent_actions/search_harness.py` is governed at 1,078 lines
+  and `app/services/agent_task_context_search_harness.py` is governed at
+  867 lines under the same owner cases, and recorded the narrow
+  `agent-task-context-milestone-2-reflow` hotspot-prevention exception so the
+  context facade can shrink without false-positive blocking
+- refreshed `config/improvement_cases.yaml`,
+  `docs/agentic_architecture_index.md`, and
+  `docs/agent_task_orchestration_boundary_milestone_plan.md` so the live
+  Milestone 2 measurements and next routed slice are recorded
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/agent_task_actions.py app/services/agent_actions/search_harness.py app/services/agent_task_context.py app/services/agent_task_context_search_harness.py app/services/agent_task_context_technical_reports.py tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_actions_search_harness.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
+- `uv run pytest -q tests/unit/test_agent_action_contracts.py tests/unit/test_agent_task_actions.py tests/unit/test_agent_task_actions_search_harness.py tests/unit/test_agent_task_context.py tests/unit/test_agent_task_action_lookup.py tests/unit/test_agent_tasks.py tests/unit/test_agent_task_worker.py tests/unit/test_agent_tasks_api.py tests/unit/test_agent_task_triage.py tests/unit/test_hotspot_prevention.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_claim_support_judge_evaluation_roundtrip.py`
+- `uv run docling-system-agent-task-action-index`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-architecture-inspect`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `uv run docling-system-architecture-quality-report --summary`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-improvement-case-validate`
+
+Verified results:
+
+- `git diff --check`: pass
+- focused ruff checks: pass
+- focused unit suites: `160 passed`
+- claim-support judge integration suite: `4 passed`
+- action index: `schema_name=agent_action_index`, `schema_version=1.0`
+- capability contracts: `valid=true`, `facade_count=6`, `function_count=110`
+- strict hotspot prevention: `known_hotspots=7`, `changed_hotspots=3`,
+  `blocked=0`, `exceptions=9`
+- hygiene: `new hygiene regressions: none`
+- architecture inspection: `valid=true`, `violation_count=0`
+- architecture quality: `hotspot_count=10`, `max_hotspot_risk_score=541.06`
+- improvement-case summary: `case_count=28`, `status_counts.open=23`,
+  `status_counts.deployed=4`, `status_counts.measured=1`
+- improvement-case validation: `valid=true`, `issue_count=0`
+- architecture probe: `app/services/agent_task_actions.py` remains the top
+  hotspot at 1,504 lines / score `90240` / fan-out `29`;
+  `app/services/agent_task_context.py` remains next at 2,950 lines / score
+  `70800` / fan-out `14`; Python cycle components remain `3`
+
+Residual risk and next boundary:
+
+- Milestone 2 removes the remaining search-harness and specialized
+  technical-report context ownership, but both central facades still carry the
+  semantic-governance and broader semantic-analysis or drafting debt.
+- The next bounded execution slice is Milestone 3 Semantic Governance Family
+  Composition in
+  `docs/agent_task_orchestration_boundary_milestone_plan.md`.
+- Do not mix this milestone with the unrelated evidence owner-family follow-up
+  when staging a commit.
+
+## Evidence Hotspot Owner Plan Local Closeout
+
+This closeout implements the dedicated evidence hotspot execution brief end to
+end under local verification.
+
+Results:
+
+- added `app/services/evidence_claim_feedback.py`,
+  `app/services/evidence_release_readiness.py`,
+  `app/services/evidence_manifests.py`,
+  `app/services/evidence_semantic_trace.py`,
+  `app/services/evidence_claim_support_impacts.py`,
+  `app/services/evidence_claim_support_replay_alerts.py`,
+  `app/services/evidence_provenance_exports.py`, and
+  `app/services/evidence_audit_views.py` for the remaining evidence owner
+  families
+- reduced `app/services/evidence.py` from 6,307 lines / 81 private helpers to
+  a 141-line / 4-private-helper compatibility facade
+- preserved the public `app.services.evidence` surface, including the
+  settings-aware provenance wrappers used by tests, and added
+  `tests/unit/test_evidence_facade_contract.py` to hold that contract
+- updated `config/hotspot_prevention.yaml`,
+  `config/hygiene_policy.yaml`, and `config/improvement_cases.yaml` so the
+  facade is gated explicitly and the residual oversized owner-family debt is
+  routed into `IC-65AF4A6D8B1E`
+
+Verification:
+
+- `git diff --check`
+- `uv run ruff check app/services/evidence.py app/services/evidence_*.py tests/unit/test_evidence_*.py`
+- `uv run pytest -q tests/unit/test_evidence_common.py tests/unit/test_evidence_records.py tests/unit/test_evidence_facade_contract.py tests/unit/test_evidence_provenance.py tests/unit/test_replay_alert_waiver_integrity.py tests/unit/test_evidence_technical_report_exports.py tests/unit/test_technical_reports.py`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py`
+- `uv run docling-system-hotspot-prevention-check --strict`
+- `uv run docling-system-architecture-inspect`
+- `uv run docling-system-capability-contracts`
+- `uv run docling-system-hygiene-check`
+- `uv run docling-system-improvement-case-summary`
+- `uv run docling-system-improvement-case-validate`
+- `uv run docling-system-architecture-quality-report --summary`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`
+- `uv run docling-system-evaluation-data-readiness --output storage/evaluation_data_readiness.latest.json`
+- `uv run docling-system-agent-trace-review --limit 5 --skip-hygiene`
+
+Verified results:
+
+- focused unit suites: `45 passed`
+- focused DB-backed integration suites: `3 passed`
+- strict hotspot prevention: pass, `blocked=0`
+- architecture inspection: `valid=true`, `violation_count=0`
+- capability contracts: `valid=true`, `facade_count=6`, `function_count=110`
+- hygiene: `new hygiene regressions: none`
+- improvement-case summary: `case_count=27`, `status_counts.open=22`,
+  `status_counts.deployed=4`, `status_counts.measured=1`
+- architecture quality: `hotspot_count=10`, `max_hotspot_risk_score=541.06`
+- architecture probe: top hotspot is `app/services/agent_task_actions.py`;
+  `app/services/evidence.py` is out of the top 12 churn hotspots
+- full DB-backed suite: `1867 passed`
+- evaluation-data readiness: `passed_gate_count=11`, `failed_gate_count=0`
+- agent-trace review: `observation_count=0`
 
 ## Audit Bundle And Retrieval Learning Hotspots Milestone 5 Closeout
 

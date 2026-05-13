@@ -75,6 +75,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/cli.py",
         "app/db/models.py",
         "app/services/agent_task_actions.py",
+        "app/services/agent_task_context.py",
         "app/services/evidence.py",
         "app/services/search.py",
         "tests/unit/test_cli.py",
@@ -156,6 +157,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             ["def execute_new_action():", "    return None"],
             "executor_implementation",
         ),
+        (
+            "app/services/agent_task_context.py",
+            ["def _build_new_context(session, task, payload, *, action):", "    return {}"],
+            "context_builder_implementation",
+        ),
         ("app/services/search.py", ["def _rank_new():", "    return 1"], "query_feature_helper"),
         (
             "tests/unit/test_cli.py",
@@ -174,6 +180,20 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
         assert report["findings"][0]["relative_path"] == path
         assert report["findings"][0]["category"] == category
         assert report["findings"][0]["preferred_owner_modules"]
+
+
+def test_context_hotspot_blocks_private_helper_growth() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/agent_task_context.py",
+            ["def _resolve_new_context_dependency():", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 1
+    assert report["findings"][0]["category"] == "context_family_helper"
 
 
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
@@ -199,6 +219,40 @@ def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> Non
     assert import_report["findings"][0]["category"] == "import_forwarder"
     assert deletion_report["summary"]["blocked_count"] == 0
     assert deletion_report["findings"][0]["category"] == "deletion"
+
+
+def test_analyzer_allows_agent_task_registry_composition() -> None:
+    action_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/agent_task_actions.py",
+            [
+                "_ACTION_REGISTRY = compose_action_registries(",
+                "    _EVALUATION_ACTION_REGISTRY,",
+                "    _SEMANTIC_ANALYSIS_ACTION_REGISTRY,",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    context_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/agent_task_context.py",
+            [
+                "_CONTEXT_BUILDERS = compose_context_builder_registries(",
+                "    build_core_context_builders(globals()),",
+                "    build_semantic_context_builders(globals()),",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert action_report["summary"]["blocked_count"] == 0
+    assert action_report["findings"][0]["category"] == "registry_composition"
+    assert context_report["summary"]["blocked_count"] == 0
+    assert context_report["findings"][0]["category"] == "registry_composition"
 
 
 def test_analyzer_allows_parenthesized_alias_forwarding_hunks() -> None:

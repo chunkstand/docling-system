@@ -95,11 +95,12 @@ cases:
   updated_at: '2026-05-11T23:35:00+00:00'
 - case_id: IC-050E60059A34
   title: 'Architecture hotspot: app/services/evidence.py'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
-  observed_failure: app/services/evidence.py remains an architecture hotspot with
-    line_count=6307 and private_helper_count=81 after the verified local High
-    Value Technical Paydown Milestone 2 technical-report export split.
+  observed_failure: app/services/evidence.py previously remained an
+    architecture hotspot with line_count=6307 and private_helper_count=81
+    after the verified local High Value Technical Paydown Milestone 2
+    technical-report export split.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/evidence.py
@@ -112,31 +113,144 @@ cases:
     description: Architecture quality owner surface for app/services/evidence.py.
   verification:
     commands:
+    - git diff --check
+    - uv run ruff check app/services/evidence.py app/services/evidence_*.py
+      tests/unit/test_evidence_*.py
+    - uv run pytest -q tests/unit/test_evidence_common.py
+      tests/unit/test_evidence_records.py
+      tests/unit/test_evidence_facade_contract.py
+      tests/unit/test_evidence_provenance.py
+      tests/unit/test_replay_alert_waiver_integrity.py
+      tests/unit/test_evidence_technical_report_exports.py
+      tests/unit/test_technical_reports.py
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs
     - uv run docling-system-architecture-quality-report
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-improvement-case-validate
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/evidence.py is reduced to a narrow compatibility facade with
+      no remaining owner-family implementation logic.
+    - The public app.services.evidence import surface remains
+      compatibility-preserving for governed callers and tests.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "ac5a72a"
-    notes: Milestone 2 evidence trace split committed; app/services/evidence.py
-      remains the compatibility facade while the narrowed trace concern now
-      lives in app/services/evidence_manifest_traces.py. Verified local High
-      Value Technical Paydown Milestone 2 also moved the technical-report
-      derivation and export owner family into
-      app/services/evidence_technical_report_exports.py.
+    deployed_ref: local-uncommitted-2026-05-11
+    notes: >-
+      Local evidence hotspot closeout reduces app/services/evidence.py to a
+      141-line / 4-private-helper compatibility facade, preserves the
+      settings-aware provenance wrapper seam used by tests, keeps the strict
+      hotspot-prevention gate green through an explicit facade exception, and
+      routes the remaining oversized owner-family modules into follow-on case
+      IC-65AF4A6D8B1E.
   measurement:
     metric_name: evidence_hotspot_line_count
-    current_value: 6307.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 2 moved the
-      technical-report derivation package, provenance-lock assembly, export
-      persistence, attach helpers, and claim-derivation payload helpers into
-      app/services/evidence_technical_report_exports.py; app/services/evidence.py
-      is now 6307 lines and the new owner module is governed at 884 lines.
+    current_value: 141.0
+    measurement_window: 2026-05-11 local verification
+    notes: >-
+      Local evidence hotspot closeout moved the remaining claim-feedback,
+      release-readiness, claim-support impact, manifest, semantic-trace,
+      audit-view, and provenance-export implementation families out of
+      app/services/evidence.py. The facade is now 141 lines with 4 private
+      compatibility wrappers, architecture inspection is clean, the full
+      Postgres-backed test suite passes, and the architecture probe no longer
+      lists app/services/evidence.py in the top 12 churn hotspots.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T22:30:00+00:00'
+  updated_at: '2026-05-12T00:00:00+00:00'
+- case_id: IC-65AF4A6D8B1E
+  title: 'Architecture hotspot: evidence owner-family modules'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: After the evidence facade reduction, extracted evidence
+    owner modules still exceed the 600-line hygiene budget; the largest owner
+    surface is app/services/evidence_provenance_exports.py at 1048 lines.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/services/evidence_provenance_exports.py
+    notes: Captured during the evidence compatibility-facade closeout while
+      ratcheting the new owner-family modules into explicit follow-on budget
+      governance.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/evidence_provenance_exports.py
+    description: Largest routed evidence owner-family module after the evidence
+      facade split.
+  verification:
+    commands:
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Evidence owner-family modules are split or reduced until each governed
+      owner surface is within the configured budget.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Owner-family follow-on created during the local evidence facade
+      reduction; no deployment commit recorded yet.
+  measurement:
+    metric_name: evidence_owner_family_max_line_count
+    current_value: 1048.0
+    measurement_window: 2026-05-11 local verification
+    notes: Largest governed owner-family file after the facade reduction is
+      app/services/evidence_provenance_exports.py at 1048 lines; other routed
+      evidence owner modules remain above the 600-line default budget.
+  created_at: '2026-05-12T00:00:00+00:00'
+  updated_at: '2026-05-12T00:00:00+00:00'
+- case_id: IC-6C1B516A3F92
+  title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/hotspot_prevention_classifier.py exceeds the default
+    file budget at 621 lines after the Milestone 1 alignment pass expanded the
+    hotspot-prevention registry-composition allowances.
+  source:
+    source_type: hygiene_finding
+    source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
+    notes: Captured while re-running the Milestone 1 alignment verification
+      after tightening the agent-task orchestration registry-composition
+      classifier logic.
+  artifact:
+    artifact_type: contract
+    target_path: app/hotspot_prevention_classifier.py
+    description: Hotspot prevention classifier budget follow-on after the
+      registry-composition alignment hardening.
+  verification:
+    commands:
+    - uv run ruff check app/hotspot_prevention_classifier.py
+      tests/unit/test_hotspot_prevention.py
+    - uv run pytest -q tests/unit/test_hotspot_prevention.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    acceptance_conditions:
+    - app/hotspot_prevention_classifier.py is reduced back under the 600-line
+      default budget or split into smaller helpers without changing classifier
+      behavior.
+    - Hotspot prevention fixture coverage remains green for registry
+      composition and strict blocking behavior.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Alignment follow-on created locally; no deployment commit recorded
+      yet.
+  measurement:
+    metric_name: hotspot_prevention_classifier_line_count
+    current_value: 621.0
+    measurement_window: 2026-05-12 local alignment verification
+    notes: The classifier now allows facade registry-composition hunks for the
+      agent-task action and context facades while remaining above the default
+      file budget at 621 lines.
+  created_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -175,10 +289,11 @@ cases:
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_task_actions.py is an architecture hotspot
-    with risk_score=450.04, line_count=2746, fan_out=36, changes_90d=59,
-    hygiene_finding_count=0 after the verified local High Value Technical
-    Paydown Milestone 3 report action-family split.
+  observed_failure: app/services/agent_task_actions.py remains an architecture
+    hotspot after the locally verified Milestone 2 Search-Harness Execution
+    And Specialized Context Extraction slice; the compatibility facade is down
+    to 1504 lines / 25 private helpers, but the owner case stays open until a
+    later milestone reaches the final 600-line / 20-helper boundary.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_actions.py
@@ -200,23 +315,26 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "a3f9189"
-    notes: Verified local High Value Technical Paydown Milestone 3 moved the
-      technical-report action definition family into
-      app/services/agent_actions/report_actions.py while
-      app/services/agent_task_actions.py remains the compatibility registry
-      entrypoint and execution facade.
+    notes: The most recent deployed checkpoint remains the High Value
+      Technical Paydown Milestone 3 report-action split. The current local
+      Milestone 2 move extracts the remaining search-harness executors into
+      app/services/agent_actions/search_harness.py, reduces
+      app/services/agent_task_actions.py to 1504 lines / 25 private helpers,
+      and keeps the compatibility registry entrypoint open for the later
+      semantic-family reductions.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
-    current_value: 2746.0
-    measurement_window: 2026-05-10 local verification
-    notes: Verified local High Value Technical Paydown Milestone 3 moved the
-      report-generation action contract metadata for plan, evidence cards,
-      harness preparation, context-pack evaluation, draft, and verify into
-      app/services/agent_actions/report_actions.py; app/services/agent_task_actions.py
-      is now 2746 lines with architecture-probe hotspot score 162014 and
-      fan-out 36.
+    current_value: 1504.0
+    measurement_window: 2026-05-12 local Milestone 2 verification
+    notes: Local Milestone 2 verification reduces
+      app/services/agent_task_actions.py to 1504 lines / 25 private helpers
+      while preserving the public action catalog. The extracted
+      search-harness owner module is now
+      app/services/agent_actions/search_harness.py at 1078 lines / 14 private
+      helpers, the architecture-probe hotspot score is 90240, and local
+      import fan-out is 29.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T20:50:39+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-FD18EE2D3309
   title: 'Architecture hotspot: tests/unit/test_cli.py'
   status: open
@@ -790,8 +908,11 @@ cases:
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/services/agent_task_context.py is an architecture hotspot
-    with risk_score=223.22, line_count=3858, changes_90d=23, hygiene_finding_count=0.
+  observed_failure: app/services/agent_task_context.py remains an architecture
+    hotspot after the locally verified Milestone 2 Search-Harness Execution
+    And Specialized Context Extraction slice; the compatibility facade is down
+    to 2950 lines / 31 private helpers, but the owner case stays open until a
+    later milestone reaches the final 600-line / 20-helper boundary.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_context.py
@@ -805,22 +926,47 @@ cases:
     description: Architecture quality owner surface for app/services/agent_task_context.py.
   verification:
     commands:
-    - uv run docling-system-architecture-quality-report
+    - git diff --check
+    - uv run ruff check app tests
+    - uv run pytest -q tests/unit/test_hotspot_prevention.py
+      tests/unit/test_agent_task_action_lookup.py
+    - uv run docling-system-hotspot-prevention-check --strict
+    - uv run docling-system-hygiene-check
+    - uv run docling-system-architecture-inspect
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 12
     acceptance_conditions:
-    - Hotspot risk decreases or the surface has a narrower owner contract.
-    catches_old_failure: false
-    allows_good_changes: false
+    - app/services/agent_task_context.py has explicit hotspot-prevention owner
+      routing to app/services/agent_task_context_*.py and fails strict mode on
+      controlled new context-builder additions.
+    - app/services/agent_task_context.py is governed in config/hygiene_policy.yaml
+      as owner case IC-E52B6C7B22FD with ratcheted line and helper ceilings.
+    catches_old_failure: true
+    allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: null
+    notes: Agent-task orchestration boundary Milestone 2 now moves the
+      remaining search-harness context builders into
+      app/services/agent_task_context_search_harness.py and moves
+      evaluate_claim_support_judge into
+      app/services/agent_task_context_technical_reports.py, but the owner case
+      stays open until the facade is reduced under its final boundary budget.
   measurement:
-    metric_name: null
-    current_value: null
-    measurement_window: null
-    notes: null
+    metric_name: agent_task_context_hotspot_line_count
+    current_value: 2950.0
+    measurement_window: 2026-05-12 local Milestone 2 verification
+    notes: Local Milestone 2 verification preserves the public context
+      entrypoints while reducing app/services/agent_task_context.py to 2950
+      lines / 31 private helpers. The extracted owner modules now include
+      app/services/agent_task_context_search_harness.py at 867 lines / 6
+      private helpers and
+      app/services/agent_task_context_technical_reports.py at 123 lines / 1
+      private helper, the architecture-probe hotspot score is 70800, local
+      import fan-out is 14, and Milestone 3 Semantic Governance Family
+      Composition is next.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-10T01:15:27.810985+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97
   title: 'Architecture hotspot: app/schemas/search.py'
   status: open

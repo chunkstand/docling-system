@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
+import app.services.agent_task_actions as agent_task_actions_module
 from app.db.models import AgentTask
 from app.schemas.agent_tasks import (
     ApplyClaimSupportCalibrationPolicyTaskInput,
@@ -23,13 +24,36 @@ from app.schemas.agent_tasks import (
     VerifyClaimSupportCalibrationPolicyTaskOutput,
 )
 from app.schemas.documents import DocumentUploadResponse
+from app.services.agent_actions.claim_support_actions import (
+    build_claim_support_action_definitions,
+)
+from app.services.agent_actions.document_lifecycle_actions import (
+    build_document_lifecycle_action_definitions,
+)
+from app.services.agent_actions.evaluation_actions import (
+    build_evaluation_action_definitions,
+)
+from app.services.agent_actions.registry import compose_action_registries
 from app.services.agent_actions.report_actions import build_report_action_definitions
+from app.services.agent_actions.search_harness import (
+    build_search_harness_action_definitions,
+)
+from app.services.agent_actions.semantic_analysis_actions import (
+    build_semantic_analysis_action_definitions,
+)
+from app.services.agent_actions.semantic_drafting_actions import (
+    build_semantic_drafting_action_definitions,
+)
+from app.services.agent_actions.semantic_verification_actions import (
+    build_semantic_verification_action_definitions,
+)
 from app.services.agent_task_actions import (
     _enqueue_document_reprocess_executor,
     _replay_alert_fixture_coverage_waiver_sha256,
     _require_active_replay_alert_fixture_coverage_waiver,
     execute_agent_task_action,
     get_agent_task_action,
+    list_agent_task_actions,
     validate_agent_task_output,
 )
 
@@ -401,6 +425,102 @@ def test_report_action_registry_is_composed_from_owner_module() -> None:
         "verify_technical_report",
     ):
         assert get_agent_task_action(task_type) == owner_actions[task_type]
+
+
+def test_action_registry_is_composed_from_owner_modules() -> None:
+    owner_actions = compose_action_registries(
+        build_evaluation_action_definitions(),
+        build_semantic_analysis_action_definitions(
+            latest_semantic_pass_executor=(
+                agent_task_actions_module._latest_semantic_pass_executor
+            ),
+            initialize_workspace_ontology_executor=(
+                agent_task_actions_module._initialize_workspace_ontology_executor
+            ),
+            get_active_ontology_snapshot_executor=(
+                agent_task_actions_module._get_active_ontology_snapshot_executor
+            ),
+            discover_semantic_bootstrap_candidates_executor=(
+                agent_task_actions_module._discover_semantic_bootstrap_candidates_executor
+            ),
+            export_semantic_supervision_corpus_executor=(
+                agent_task_actions_module._export_semantic_supervision_corpus_executor
+            ),
+            evaluate_semantic_candidate_extractor_executor=(
+                agent_task_actions_module._evaluate_semantic_candidate_extractor_executor
+            ),
+            build_shadow_semantic_graph_executor=(
+                agent_task_actions_module._build_shadow_semantic_graph_executor
+            ),
+            evaluate_semantic_relation_extractor_executor=(
+                agent_task_actions_module._evaluate_semantic_relation_extractor_executor
+            ),
+            build_document_fact_graph_executor=(
+                agent_task_actions_module._build_document_fact_graph_executor
+            ),
+        ),
+        build_report_action_definitions(),
+        build_claim_support_action_definitions(),
+        build_search_harness_action_definitions(),
+        build_semantic_drafting_action_definitions(
+            prepare_semantic_generation_brief_executor=(
+                agent_task_actions_module._prepare_semantic_generation_brief_executor
+            ),
+            draft_semantic_registry_update_executor=(
+                agent_task_actions_module._draft_semantic_registry_update_executor
+            ),
+            draft_ontology_extension_executor=(
+                agent_task_actions_module._draft_ontology_extension_executor
+            ),
+            draft_graph_promotions_executor=(
+                agent_task_actions_module._draft_graph_promotions_executor
+            ),
+            draft_semantic_grounded_document_executor=(
+                agent_task_actions_module._draft_semantic_grounded_document_executor
+            ),
+        ),
+        build_semantic_verification_action_definitions(
+            verify_draft_semantic_registry_update_executor=(
+                agent_task_actions_module._verify_draft_semantic_registry_update_executor
+            ),
+            verify_draft_ontology_extension_executor=(
+                agent_task_actions_module._verify_draft_ontology_extension_executor
+            ),
+            verify_draft_graph_promotions_executor=(
+                agent_task_actions_module._verify_draft_graph_promotions_executor
+            ),
+            verify_semantic_grounded_document_executor=(
+                agent_task_actions_module._verify_semantic_grounded_document_executor
+            ),
+            triage_semantic_pass_executor=(
+                agent_task_actions_module._triage_semantic_pass_executor
+            ),
+            triage_semantic_candidate_disagreements_executor=(
+                agent_task_actions_module._triage_semantic_candidate_disagreements_executor
+            ),
+            triage_semantic_graph_disagreements_executor=(
+                agent_task_actions_module._triage_semantic_graph_disagreements_executor
+            ),
+            apply_semantic_registry_update_executor=(
+                agent_task_actions_module._apply_semantic_registry_update_executor
+            ),
+            apply_ontology_extension_executor=(
+                agent_task_actions_module._apply_ontology_extension_executor
+            ),
+            apply_graph_promotions_executor=(
+                agent_task_actions_module._apply_graph_promotions_executor
+            ),
+        ),
+        build_document_lifecycle_action_definitions(
+            enqueue_document_reprocess_executor=(
+                agent_task_actions_module._enqueue_document_reprocess_executor
+            )
+        ),
+    )
+
+    assert set(owner_actions) == {action.task_type for action in list_agent_task_actions()}
+    for task_type, owner_action in owner_actions.items():
+        assert get_agent_task_action(task_type) == owner_action
 
 def test_get_agent_task_action_exposes_eval_control_plane_actions() -> None:
     refresh_action = get_agent_task_action("refresh_eval_failure_cases")

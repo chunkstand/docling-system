@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+from app.schemas.agent_tasks import (
+    InspectEvalFailureCaseTaskInput,
+    InspectEvalFailureCaseTaskOutput,
+    LatestEvaluationTaskInput,
+    LatestEvaluationTaskOutput,
+    QualityEvalCandidatesTaskInput,
+    QualityEvalCandidatesTaskOutput,
+    RefreshEvalFailureCasesTaskInput,
+    RefreshEvalFailureCasesTaskOutput,
+    TriageEvalFailureCaseTaskInput,
+    TriageEvalFailureCaseTaskOutput,
+)
+from app.services.agent_actions.evaluation import (
+    inspect_eval_failure_case_executor,
+    latest_evaluation_executor,
+    quality_eval_candidates_executor,
+    refresh_eval_failure_cases_executor,
+    triage_eval_failure_case_executor,
+)
+from app.services.agent_actions.types import AgentTaskActionDefinition
+
+
+def build_evaluation_action_definitions() -> dict[str, AgentTaskActionDefinition]:
+    return {
+        "get_latest_evaluation": AgentTaskActionDefinition(
+            task_type="get_latest_evaluation",
+            capability="evaluation",
+            definition_kind="action",
+            description="Fetch the latest persisted evaluation detail for one document.",
+            payload_model=LatestEvaluationTaskInput,
+            executor=latest_evaluation_executor,
+            output_model=LatestEvaluationTaskOutput,
+            output_schema_name="get_latest_evaluation_output",
+            output_schema_version="1.0",
+            input_example={"document_id": "00000000-0000-0000-0000-000000000000"},
+            context_builder_name="generic",
+        ),
+        "list_quality_eval_candidates": AgentTaskActionDefinition(
+            task_type="list_quality_eval_candidates",
+            capability="evaluation",
+            definition_kind="action",
+            description="List mined evaluation candidates from failed evals and live search gaps.",
+            payload_model=QualityEvalCandidatesTaskInput,
+            executor=quality_eval_candidates_executor,
+            output_model=QualityEvalCandidatesTaskOutput,
+            output_schema_name="list_quality_eval_candidates_output",
+            output_schema_version="1.0",
+            input_example={"limit": 12, "include_resolved": False},
+            context_builder_name="generic",
+        ),
+        "refresh_eval_failure_cases": AgentTaskActionDefinition(
+            task_type="refresh_eval_failure_cases",
+            capability="evaluation",
+            definition_kind="action",
+            description="Upsert durable eval observations and failure cases from quality signals.",
+            payload_model=RefreshEvalFailureCasesTaskInput,
+            executor=refresh_eval_failure_cases_executor,
+            output_model=RefreshEvalFailureCasesTaskOutput,
+            output_schema_name="refresh_eval_failure_cases_output",
+            output_schema_version="1.0",
+            input_example={"limit": 50, "include_resolved": False},
+            context_builder_name="generic",
+        ),
+        "inspect_eval_failure_case": AgentTaskActionDefinition(
+            task_type="inspect_eval_failure_case",
+            capability="evaluation",
+            definition_kind="action",
+            description="Load one eval failure case with linked agent-legible evidence.",
+            payload_model=InspectEvalFailureCaseTaskInput,
+            executor=inspect_eval_failure_case_executor,
+            output_model=InspectEvalFailureCaseTaskOutput,
+            output_schema_name="inspect_eval_failure_case_output",
+            output_schema_version="1.0",
+            input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
+            context_builder_name="generic",
+        ),
+        "triage_eval_failure_case": AgentTaskActionDefinition(
+            task_type="triage_eval_failure_case",
+            capability="evaluation",
+            definition_kind="workflow",
+            description="Classify one eval failure case and produce bounded repair next steps.",
+            payload_model=TriageEvalFailureCaseTaskInput,
+            executor=triage_eval_failure_case_executor,
+            output_model=TriageEvalFailureCaseTaskOutput,
+            output_schema_name="triage_eval_failure_case_output",
+            output_schema_version="1.0",
+            input_example={"case_id": "00000000-0000-0000-0000-000000000000"},
+            context_builder_name="generic",
+        ),
+    }

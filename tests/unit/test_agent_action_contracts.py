@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from app.services.agent_actions.manifest import validate_agent_action_contracts
+from app.services.agent_actions.registry import compose_action_registries
 from app.services.agent_actions.search_harness import SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES
 from app.services.agent_actions.types import (
     AGENT_ACTION_CAPABILITIES,
@@ -13,10 +16,17 @@ from app.services.agent_actions.types import (
 from app.services.agent_task_actions import (
     build_agent_task_action_index,
     build_agent_task_action_manifest,
+    get_agent_task_action,
     list_agent_task_actions,
     validate_agent_task_action_contracts,
 )
-from app.services.agent_task_context import list_agent_task_context_builder_names
+from app.services.agent_task_context import (
+    get_agent_task_context_builder,
+    list_agent_task_context_builder_names,
+)
+from app.services.agent_task_context_registry import (
+    compose_context_builder_registries,
+)
 
 
 def test_agent_task_action_contracts_are_machine_checkable() -> None:
@@ -58,6 +68,36 @@ def test_agent_task_action_contract_validator_rejects_stale_context_builder() ->
     )
 
     assert any(issue.field == "context_builder_name" for issue in issues)
+
+
+def test_compose_action_registries_rejects_duplicate_task_types() -> None:
+    action = get_agent_task_action("get_latest_evaluation")
+
+    with pytest.raises(ValueError, match="duplicate agent action registry key"):
+        compose_action_registries(
+            {action.task_type: action},
+            {action.task_type: action},
+        )
+
+
+def test_compose_action_registries_rejects_stale_registry_entries() -> None:
+    action = replace(
+        get_agent_task_action("get_latest_evaluation"),
+        task_type="fresh_registry_entry",
+    )
+
+    with pytest.raises(ValueError, match="must match task_type"):
+        compose_action_registries({"stale_registry_entry": action})
+
+
+def test_compose_context_builder_registries_rejects_duplicate_builder_names() -> None:
+    builder = get_agent_task_context_builder("generic")
+
+    with pytest.raises(ValueError, match="duplicate agent task context builder"):
+        compose_context_builder_registries(
+            {"generic": builder},
+            {"generic": builder},
+        )
 
 
 def test_agent_task_action_manifest_uses_known_contract_vocabularies() -> None:

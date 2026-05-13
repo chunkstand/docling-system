@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from fastapi import HTTPException
 
+import app.services.agent_task_context as agent_task_context_module
 from app.db.models import (
     AgentTask,
     AgentTaskArtifact,
@@ -16,9 +17,22 @@ from app.db.models import (
 from app.schemas.agent_tasks import ContextFreshnessStatus, ContextRef, TaskContextEnvelope
 from app.services.agent_task_context import (
     build_agent_task_context,
+    get_agent_task_context_builder,
+    list_agent_task_context_builder_names,
     refresh_task_context_freshness,
     resolve_required_dependency_task_output_context,
     resolve_required_task_output_context,
+)
+from app.services.agent_task_context_core import build_core_context_builders
+from app.services.agent_task_context_registry import (
+    compose_context_builder_registries,
+)
+from app.services.agent_task_context_search_harness import (
+    build_search_harness_context_builders,
+)
+from app.services.agent_task_context_semantic import build_semantic_context_builders
+from app.services.agent_task_context_technical_reports import (
+    build_technical_report_context_builders,
 )
 
 
@@ -106,6 +120,21 @@ class FakeSession:
                 rows = [row for row in rows if row.depends_on_task_id == depends_on_task_id]
             return FakeExecuteResult(rows)
         raise AssertionError(f"Unexpected statement: {rendered}")
+
+
+def test_context_builder_registry_is_composed_from_owner_modules() -> None:
+    owner_builders = compose_context_builder_registries(
+        build_core_context_builders(
+            {"build_generic_task_context": agent_task_context_module.build_generic_task_context}
+        ),
+        build_semantic_context_builders(agent_task_context_module.__dict__),
+        build_technical_report_context_builders(agent_task_context_module.__dict__),
+        build_search_harness_context_builders(agent_task_context_module.__dict__),
+    )
+
+    assert set(owner_builders) == list_agent_task_context_builder_names()
+    for builder_name, builder in owner_builders.items():
+        assert get_agent_task_context_builder(builder_name) is builder
 
 
 def _build_draft_task(*, task_id, updated_at) -> AgentTask:

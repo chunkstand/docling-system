@@ -27,7 +27,19 @@ known_hotspots:
     allow:
       - import_forwarder
       - alias_forwarder
+      - explicit_forwarding_function
       - deletion
+    exceptions:
+      - exception_id: evidence-facade-settings-aware-provenance-wrappers
+        case_id: IC-050E60059A34
+        owner_module: app/services/evidence_provenance.py
+        follow_up_condition: Keep app/services/evidence.py limited to settings-aware compatibility wrappers that depend on app.services.evidence.get_settings.
+        match_tokens:
+          - _prov_export_receipt_signature
+          - _prov_export_receipt(
+          - _frozen_prov_export_payload
+          - _prov_export_receipt_integrity
+          - settings_provider=get_settings
   app/cli.py:
     target_role: console script compatibility and dispatch surface
     preferred_owner_modules:
@@ -53,6 +65,28 @@ known_hotspots:
       - import_forwarder
       - alias_forwarder
       - deletion
+  app/services/agent_task_context.py:
+    target_role: context builder lookup and context artifact entrypoint
+    preferred_owner_modules:
+      - app/services/agent_task_context_*.py
+    block_new:
+      - context_builder_implementation
+      - context_family_helper
+    allow:
+      - registry_composition
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
+    exceptions:
+      - exception_id: agent-task-context-milestone-2-reflow
+        case_id: IC-E52B6C7B22FD
+        milestone_id: agent-task-orchestration-boundary-milestone-2
+        owner_module: app/services/agent_task_context_search_harness.py
+        follow_up_condition: Remove after later boundary milestones move the remaining semantic and technical-report builder families or the classifier recognizes pure owner-module extraction reflow without blocking unchanged central builders.
+        match_tokens:
+          - build_search_harness_context_builders,
+          - compose_context_builder_registries(
   app/services/search.py:
     target_role: search service compatibility facade
     preferred_owner_modules:

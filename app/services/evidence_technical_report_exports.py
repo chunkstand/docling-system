@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 from __future__ import annotations
 
 import uuid
@@ -60,7 +61,6 @@ _CLAIM_PROVENANCE_LOCK_LIST_FIELDS = (
     "release_validation_receipt_ids",
 )
 
-
 def _latest_passed_release_bindings_by_request(
     session: Session,
     request_rows_by_id: dict[str, SearchRequestRecord],
@@ -121,7 +121,6 @@ def _latest_passed_release_bindings_by_request(
             releases_by_id[str(selected_release.id)] = selected_release
     return bindings_by_request_id, releases_by_id
 
-
 def _latest_release_audit_bundles_by_release(
     session: Session,
     release_ids: Iterable[UUID],
@@ -150,7 +149,6 @@ def _latest_release_audit_bundles_by_release(
             latest_by_release.setdefault(row.search_harness_release_id, row)
     return latest_by_release
 
-
 def _latest_passed_receipts_by_bundle(
     session: Session,
     bundle_ids: Iterable[UUID],
@@ -177,7 +175,6 @@ def _latest_passed_receipts_by_bundle(
         latest_by_bundle.setdefault(row.audit_bundle_export_id, row)
     return latest_by_bundle
 
-
 def _claim_source_values(
     claim: dict[str, Any],
     *,
@@ -194,7 +191,6 @@ def _claim_source_values(
             ],
         ]
     )
-
 
 def _claim_derivation_provenance_lock_contract_mismatches(
     row: ClaimEvidenceDerivation,
@@ -241,7 +237,6 @@ def _claim_derivation_provenance_lock_contract_mismatches(
         if coverage.get(coverage_key) != len(_string_values(lock.get(field_name) or [])):
             mismatches.append(f"coverage.{coverage_key}")
     return mismatches
-
 
 def _claim_derivation_support_judgment_contract_mismatches(
     row: ClaimEvidenceDerivation,
@@ -536,7 +531,6 @@ def _apply_technical_report_claim_provenance_locks(
         "release_audit_bundle_id_count": len(draft_payload["release_audit_bundle_ids"]),
         "release_validation_receipt_id_count": len(draft_payload["release_validation_receipt_ids"]),
     }
-
 
 def _evidence_card_snapshot(card: dict[str, Any]) -> dict[str, Any]:
     clean_card = _clean_mapping(
@@ -882,3 +876,9 @@ def _claim_derivation_payload(row: ClaimEvidenceDerivation) -> dict:
         "derivation_sha256": row.derivation_sha256,
         "created_at": row.created_at,
     }
+
+latest_passed_release_bindings_by_request = _latest_passed_release_bindings_by_request
+claim_derivation_provenance_lock_contract_mismatches = _claim_derivation_provenance_lock_contract_mismatches
+claim_derivation_support_judgment_contract_mismatches = _claim_derivation_support_judgment_contract_mismatches
+evidence_card_snapshot = _evidence_card_snapshot
+claim_derivation_payload = _claim_derivation_payload
