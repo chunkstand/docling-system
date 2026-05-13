@@ -1,11 +1,11 @@
 # Search Execution Orchestration Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: verified locally on 2026-05-13 for `IC-1D03DBFE8492` /
-`app/services/search.py`; the scoped execution-orchestration issue is resolved
-locally and ready for the bounded closeout commit, while the broader owner case
-remains reduced because `app/services/search.py` still appears in the
-architecture probe
+Status: resolved locally through Milestone 1 closeout commit `dae5e4f` on
+2026-05-13 for `IC-1D03DBFE8492` / `app/services/search.py`; the scoped
+execution-orchestration issue is closed, while the broader owner case remains
+reduced because `app/services/search.py` still appears in the architecture
+probe
 Owner context: follow-on brief created after
 `docs/search_execution_persistence_boundary_milestone_plan.md` resolved locally
 through Milestone 1 closeout commit `f55b474`; the same owner case remains open
@@ -14,8 +14,8 @@ compatibility facade.
 
 ## Local Progress
 
-Milestone 1 is fully verified locally. The remaining execution-orchestration
-cluster no longer lives in `app/services/search.py`.
+Milestone 1 is closed locally as commit `dae5e4f`. The remaining
+execution-orchestration cluster no longer lives in `app/services/search.py`.
 
 Local Milestone 1 snapshot:
 
@@ -41,11 +41,10 @@ Local Milestone 1 snapshot:
 - architecture quality still reports `hotspot_count=10` and
   `max_hotspot_risk_score=531.06`; the architecture-quality top-five still
   excludes `app/services/search.py`, but the architecture probe continues to
-  route it at `31 revisions`, `1592 lines`, and `score 49352`
+  route it at `32 revisions`, `1592 lines`, and `score 50944`
 - next routed stacked follow-on after this closed search packet:
   `docs/claim_support_policy_impacts_boundary_milestone_plan.md`
-- local closeout commit: pending final bounded commit creation for this
-  verified slice
+- local closeout commit: `dae5e4f`
 
 Verification:
 
@@ -72,7 +71,7 @@ Verification:
   `issue_count=0`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`:
   top hotspot remains `app/cli.py`; `app/services/search.py` remains in the
-  top twelve churn hotspots at `31 revisions`, `1592 lines`, `score 49352`,
+  top twelve churn hotspots at `32 revisions`, `1592 lines`, `score 50944`,
   and the Python cycle component count remains `3`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
   `1890 passed`
@@ -100,10 +99,10 @@ must be resolved in one local atomic commit or not claimed complete at all. The
 broader owner case may remain open after closeout, but this plan does not allow
 another partial spill into several new search files.
 
-## Current Evidence
+## Baseline Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Repo evidence captured before implementation from the local checkout on
+2026-05-13 local / 2026-05-13 UTC:
 
 ```text
 git status -sb

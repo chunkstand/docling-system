@@ -1,13 +1,15 @@
 # Claim Support Policy Impacts Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active next bounded implementation brief on 2026-05-13 after the
-locally verified `docs/search_execution_orchestration_boundary_milestone_plan.md`
-closeout; Milestone 0 must refresh live system state before implementation
+Status: active bounded implementation brief on 2026-05-13 after
+`docs/search_execution_orchestration_boundary_milestone_plan.md` resolved
+locally through Milestone 1 closeout commit `dae5e4f`; Milestone 0
+post-search refresh is resolved locally and Milestone 1 is the next
+implementation gate
 Owner context: queued follow-on under `IC-E2270F89B397` /
 `app/services/claim_support_policy_impacts.py`. This plan assumes the current
-search execution orchestration packet is already closed locally and uses
-Milestone 0 to refresh the live system state before any claim-support code
+search execution orchestration packet is already closed locally as
+`dae5e4f` and uses Milestone 1 to activate the first claim-support code
 moves.
 
 ## Purpose
@@ -39,11 +41,8 @@ local / 2026-05-13 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
+  ## main...origin/main [ahead 10]
+  ?? docs/cli_command_dispatch_boundary_milestone_plan.md
 
 wc -l app/services/claim_support_policy_impacts.py app/services/claim_support_replay_alert_promotions.py app/services/claim_support_policy_governance.py app/services/claim_support_evaluations.py tests/unit/test_claim_support_policy_impacts.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py
   2011 app/services/claim_support_policy_impacts.py
@@ -67,7 +66,7 @@ uv run docling-system-architecture-quality-report --summary
 
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12
   app/services/claim_support_policy_impacts.py: 18 revisions, 2011 lines, score 36198
-  app/services/search.py: 31 revisions, 2089 lines, score 64759
+  app/services/search.py: 32 revisions, 1592 lines, score 50944
   Python cycle components=3
 
 config/improvement_cases.yaml
@@ -79,11 +78,16 @@ config/improvement_cases.yaml
 
 Repo-current structural evidence:
 
-- `docs/search_execution_orchestration_boundary_milestone_plan.md` and this
-  stacked claim-support follow-on are both still drafted in the worktree. The
-  active execution packet remains the search orchestration plan, so this
-  claim-support plan must begin with a system-state refresh after that search
-  milestone completes and is committed.
+- `docs/search_execution_orchestration_boundary_milestone_plan.md` is resolved
+  locally through Milestone 1 closeout commit `dae5e4f`, and this
+  claim-support follow-on is now the active bounded implementation brief.
+  Milestone 0 refreshed the post-search system state so Milestone 1 can begin
+  from the committed search baseline instead of the old drafted-worktree state.
+- stacked follow-on milestone plans for evaluations, evidence
+  provenance-export, semantics, runtime health orchestration, CI release gate
+  parity, and boring-change architecture were committed locally as `f5d7823`;
+  `docs/cli_command_dispatch_boundary_milestone_plan.md` remains the only
+  adjacent late-stack follow-on still drafted locally.
 - The prior claim-support split only moved replay-alert fixture coverage,
   candidate derivation, promotion receipts, and waiver-closure governance into
   `app/services/claim_support_replay_alert_promotions.py`; the compatibility
@@ -275,12 +279,13 @@ scope.
 ## Milestone Sequence
 
 This plan is intentionally stacked behind the current search orchestration
-packet. Milestone 0 is mandatory and must run before any claim-support code
-changes start.
+packet. Milestone 0 is now resolved locally, so Milestone 1 is the first
+remaining claim-support implementation gate.
 
 ### Milestone 0 - Post-Search System-State Refresh
 
-Status: drafted
+Status: resolved locally on 2026-05-13 during the post-search closeout
+alignment pass
 Outcome label: `resolved`
 
 Purpose:
@@ -292,18 +297,21 @@ Purpose:
 
 Implementation:
 
-- confirm `docs/search_execution_orchestration_boundary_milestone_plan.md`
-  has a real closeout commit recorded and is no longer merely drafted
-- rerun live routing and hotspot evidence after that search closeout:
+- confirmed `docs/search_execution_orchestration_boundary_milestone_plan.md`
+  records closeout commit `dae5e4f` and is no longer merely a
+  pre-closeout verification snapshot
+- reran live routing and hotspot evidence after that search closeout:
   `git status -sb`,
   `uv run docling-system-architecture-quality-report --summary`,
   `uv run docling-system-improvement-case-summary`,
   `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`,
   and `wc -l` for the active claim-support owner files
-- update `docs/SESSION_HANDOFF.md` and `docs/agentic_architecture_index.md` so
-  this claim-support plan becomes the active bounded implementation brief
-- refresh this plan’s evidence section if the search closeout changed the live
-  counts materially
+- updated `docs/SESSION_HANDOFF.md` and
+  `docs/agentic_architecture_index.md` so this claim-support plan is the active
+  bounded implementation brief and Milestone 1 is the next gate
+- refreshed this plan’s evidence section for the committed post-search
+  baseline, including the reduced `app/services/search.py` architecture-probe
+  footprint
 
 Acceptance:
 

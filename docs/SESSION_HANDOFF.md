@@ -6,9 +6,7 @@ Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
-Search Execution Orchestration Milestone 1 status: resolved locally in the
-worktree through full verification for `IC-1D03DBFE8492`; final closeout
-commit creation remains the only pending milestone-closeout step
+Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -33,10 +31,11 @@ agent-task orchestration follow-on plan is resolved locally through Milestone 5,
 `docs/search_hydration_boundary_milestone_plan.md` is resolved locally through
 Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`, and
 `docs/search_execution_persistence_boundary_milestone_plan.md` is resolved
-locally through Milestone 1 for the prior search owner reduction, and
+locally through Milestone 1 closeout commit `f55b474` for the prior search
+owner reduction, and
 `docs/search_execution_orchestration_boundary_milestone_plan.md` is now
-resolved locally in the worktree through a full verification window for the
-next search boundary split.
+resolved locally through Milestone 1 closeout commit `dae5e4f` for the next
+search boundary split.
 
 `app/services/search.py` is now a `1592` line / `32` private-helper
 compatibility facade. It delegates the hydration family into
@@ -49,14 +48,15 @@ through a narrow explicit forwarding wrapper in `app/services/search.py`.
 
 The broader search owner case `IC-1D03DBFE8492` remains reduced rather than
 retired because the architecture probe still routes `app/services/search.py` at
-`31 revisions`, `1592` lines, and `score 49352`, even though the
+`32 revisions`, `1592` lines, and `score 50944`, even though the
 architecture-quality summary top-five still excludes that facade.
 
 The next active bounded implementation brief is
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`. Its Milestone 0
-refreshes live system state after the locally verified search orchestration
-closeout, then activates the `IC-E2270F89B397` /
-`app/services/claim_support_policy_impacts.py` boundary split.
+post-search refresh is now resolved locally in the closeout-alignment follow-up,
+and Milestone 1 is the next implementation gate for the
+`IC-E2270F89B397` / `app/services/claim_support_policy_impacts.py` boundary
+split.
 
 Queued stacked follow-on after the claim-support packet:
 `docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 assumes
@@ -79,6 +79,14 @@ refreshes live system state before activating the
 `app/services/semantics.py` service-boundary split and the missing owner-case
 and hotspot-prevention bootstrap for that facade.
 
+Additional committed later-stack follow-ons now exist for
+`docs/runtime_health_orchestration_milestone_plan.md`,
+`docs/ci_release_gate_parity_milestone_plan.md`, and
+`docs/boring_change_architecture_milestone_plan.md`; each still depends on the
+earlier routed packets closing first. `docs/cli_command_dispatch_boundary_milestone_plan.md`
+remains a drafted local follow-on after the claim-support, evaluations,
+evidence provenance-export, and semantics packets.
+
 The live alignment snapshot after the search execution orchestration Milestone 1
 verification window is:
 
@@ -97,8 +105,8 @@ verification window is:
   `known_hotspots=7`, `changed_hotspots=1`, `blocked=0`, `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
 - architecture probe top hotspot is now `app/cli.py`; `app/services/search.py`
-  remains in the top twelve churn hotspots at `31 revisions`, `1592` lines /
-  `32` private helpers with `score 49352`; the narrowed hydration owner module
+  remains in the top twelve churn hotspots at `32 revisions`, `1592` lines /
+  `32` private helpers with `score 50944`; the narrowed hydration owner module
   lives in `app/services/search_hydration.py` at `392` lines / `11` private
   helpers, the persistence owner module lives in
   `app/services/search_execution_persistence.py` at `423` lines /
@@ -118,7 +126,7 @@ Reduced or routed follow-on cases remain open after this search closeout:
 
 ## Search Execution Orchestration Boundary Milestone 1 Local Progress
 
-Milestone 1 is fully verified locally. It is a behavior-preserving search
+Milestone 1 is closed locally as commit `dae5e4f`. It is a behavior-preserving search
 service modularization pass behind the existing `app/services/search.py`
 compatibility facade.
 
@@ -142,6 +150,7 @@ Results:
   `6` private helpers under `owner_case_id: IC-1D03DBFE8492`
 - updated `config/improvement_cases.yaml` so `IC-1D03DBFE8492` records the
   reduced-but-still-open search hotspot state after the orchestration split
+- local closeout commit: `dae5e4f`
 - next routed stacked follow-on is
   `docs/claim_support_policy_impacts_boundary_milestone_plan.md`
 

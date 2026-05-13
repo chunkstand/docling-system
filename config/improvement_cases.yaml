@@ -625,17 +625,17 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: dae5e4f
     notes: >-
-      Search execution orchestration Milestone 1 is fully verified locally and
-      ready for the bounded closeout commit. The prior hydration split remains
-      committed as 14390ad, the prior persistence split remains committed as
-      f55b474, and the broader search owner case stays open because
-      app/services/search.py still appears in the architecture probe.
+      Search execution orchestration Milestone 1 closed locally as dae5e4f.
+      The prior hydration split remains committed as 14390ad, the prior
+      persistence split remains committed as f55b474, and the broader search
+      owner case stays open because app/services/search.py still appears in
+      the architecture probe.
   measurement:
     metric_name: search_hotspot_line_count
     current_value: 1592.0
-    measurement_window: 2026-05-13 local orchestration verification
+    measurement_window: 2026-05-13 post-closeout alignment refresh
     notes: >-
       Milestone 1 moved execute_search, candidate loading, metadata
       supplement staging, served-mode resolution, and execution detail
@@ -643,10 +643,10 @@ cases:
       app/services/search.py to 1592 lines / 32 private helpers while
       governing the new owner module at 532 lines / 6 private helpers. The
       architecture-quality top-five still excludes app/services/search.py, but
-      the architecture probe continues to route it at 31 revisions, 1592
-      lines, and score 49352.
+      the architecture probe continues to route it at 32 revisions, 1592
+      lines, and score 50944.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-13T15:18:00Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
