@@ -67,12 +67,13 @@ subsystem-knot for `IC-E2270F89B397` is resolved:
 11 private helpers.
 
 The next active bounded implementation brief remains
-`docs/evaluations_service_boundary_milestone_plan.md`. Milestones 0-1 are now
+`docs/evaluations_service_boundary_milestone_plan.md`. Milestones 0-2 are now
 resolved locally after the search orchestration and claim-support closeouts;
-`app/services/evaluations.py` now carries explicit hotspot-prevention coverage
-plus exact hygiene ceilings at `2159` lines / `61` private helpers under
-`IC-BF180637814C`, and Milestone 2 is the next implementation gate for the
-fixture/corpus extraction.
+`app/services/evaluations.py` is reduced to `1244` lines / `29` private
+helpers, the new fixture/corpus owner now lives in
+`app/services/evaluation_fixtures.py` at `966` lines / `32` private helpers
+under `IC-BF180637814C`, and Milestone 3 is the next implementation gate for
+the scoring/structural extraction.
 
 Queued stacked follow-on after the evaluations packet:
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`. Its Milestone 0
@@ -144,14 +145,15 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the claim-support policy impacts Milestone 4
-verification window is:
+The live alignment snapshot after the evaluations Milestone 2 verification
+window is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=28`,
   `status_counts.open=21`, `status_counts.deployed=6`,
-  `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
+  `status_counts.measured=1`, `measured_case_count=18`,
+  `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
-  `hotspot_count=10`, `max_hotspot_risk_score=516.06`
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `uv run docling-system-architecture-inspect`: `valid=true`,
   `violation_count=0`
 - `uv run docling-system-capability-contracts`: `valid=true`,
@@ -159,18 +161,22 @@ verification window is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=8`, `changed_hotspots=1`, `blocked=0`, `allowed=1`,
+  `known_hotspots=9`, `changed_hotspots=1`, `blocked=0`, `allowed=3`,
   `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run pytest -q tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_documents_api.py tests/unit/test_quality_service.py tests/unit/test_eval_config.py tests/unit/test_capability_contracts.py tests/unit/test_api_architecture.py tests/unit/test_hotspot_prevention.py`:
+  `113 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py tests/integration/test_eval_workbench_roundtrip.py`:
+  `12 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
+  `1898 passed`
 - architecture probe top hotspot is now `app/cli.py`; `app/services/search.py`
   remains in the top twelve churn hotspots at `32 revisions`, `1592` lines /
-  `32` private helpers with `score 50944`; the claim-support compatibility
+  `32` private helpers with `score 50944`; `app/services/evaluations.py`
+  remains in the top fifteen churn hotspots at `20 revisions`, `1244` lines /
+  `29` private helpers with `score 24880`; the claim-support compatibility
   facade is out of the top twelve churn hotspots after the boundary split; the
   Python cycle component count is now `4`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_claim_support_policy_activation_roundtrip.py tests/integration/test_claim_support_policy_activation_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_roundtrip.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_prevalidation.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_promotions.py tests/integration/test_claim_support_policy_change_impacts_replay_alert_governance.py tests/integration/test_claim_support_policy_mined_failures_roundtrip.py tests/integration/test_claim_support_judge_evaluation_roundtrip.py`:
-  `19 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1896 passed`
 
 Reduced or routed follow-on cases remain open after this claim-support
 closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
@@ -179,44 +185,45 @@ closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
 `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`, and
 `IC-6C1B516A3F92` / `app/hotspot_prevention_classifier.py`.
 
-## Evaluations Service Boundary Milestone 1 Local Progress
+## Evaluations Service Boundary Milestone 2 Local Progress
 
-Milestone 1 is closed locally as commit `9e3a8e4`. It is a
-prevention-bootstrap pass for `IC-BF180637814C`. The broader owner case remains open because
-`app/services/evaluations.py` is still a `2159` line / `61` private-helper
-service hotspot, but the facade is now explicitly governed before Milestone 2
-begins moving implementation into new owner modules.
+Milestone 2 is resolved locally on 2026-05-13. It is the fixture/corpus owner
+extraction pass for `IC-BF180637814C`. The broader owner case remains open
+because `app/services/evaluations.py` is still a `1244` line / `29`
+private-helper service hotspot, but the fixture and corpus family now lives in
+`app/services/evaluation_fixtures.py` and Milestone 3 is the next gate for
+the scoring/structural extraction.
 
 Results:
 
-- added `app/services/evaluations.py` to
-  `config/hotspot_prevention.yaml` with `app/services/evaluation_*.py` as the
-  preferred owner family
-- hardened `app/hotspot_prevention_classifier.py` so new fixture/corpus,
-  scoring, structural-check, and latest-read logic in the evaluation facade is
-  blocked while narrow forwarding wrappers remain allowed
-- extended `tests/unit/test_hotspot_prevention.py` with controlled-violation
-  coverage for fixture refresh, answer scoring, structural summary, and latest
-  evaluation reads plus a forwarding-wrapper allowance check
-- ratcheted `config/hygiene_policy.yaml` so `app/services/evaluations.py` now
-  has exact `2159`-line / `61`-private-helper ceilings under
-  `IC-BF180637814C`, and the planned owner modules
-  `app/services/evaluation_fixtures.py`,
-  `app/services/evaluation_scoring.py`, and
-  `app/services/evaluation_reads.py` now have explicit budgets before the
-  extraction milestones begin
+- extracted fixture dataclasses, corpus-path selection, fixture matching,
+  retrieval-backed auto-query filtering, and
+  `ensure_auto_evaluation_fixture(...)` into
+  `app/services/evaluation_fixtures.py`
+- kept `app/services/evaluations.py` as the stable import facade, including
+  compatibility for the older `get_settings` and `search_documents`
+  monkeypatch points used by the Postgres integration harness
+- moved the fixture/corpus owner coverage into
+  `tests/unit/test_evaluation_fixtures.py`, reducing
+  `tests/unit/test_evaluation_service.py` from `2237` lines to `752` lines
+- left `app/services/evaluation_scoring.py`,
+  `app/services/evaluation_reads.py`, and their matching unit files absent on
+  purpose; those owner surfaces remain reserved for Milestones 3-4
+- ratcheted `config/hygiene_policy.yaml` to the measured post-split ceilings:
+  `app/services/evaluations.py` at `1244` lines / `29` private helpers and
+  `app/services/evaluation_fixtures.py` at `966` lines / `32` private helpers
 - refreshed `docs/evaluations_service_boundary_milestone_plan.md`,
-  `docs/agentic_architecture_index.md`, and this handoff so Milestone 2 is now
+  `docs/agentic_architecture_index.md`, and this handoff so Milestone 3 is now
   the next active gate instead of leaving the evaluations packet at draft-only
-  Milestone 1 routing
+  Milestone 2 routing
 - architecture quality remains `hotspot_count=10` with
   `max_hotspot_risk_score=501.06`; the architecture probe still routes
-  `app/services/evaluations.py` at `20 revisions`, `2159 lines`, and
-  `score 43180`, so the broader owner case remains open
+  `app/services/evaluations.py` at `20 revisions`, `1244 lines`, and
+  `score 24880`, so the broader owner case remains reduced rather than
+  resolved
 - next routed stacked follow-on after the evaluations packet still begins with
   `docs/evidence_provenance_exports_boundary_milestone_plan.md`, but only
-  after Milestones 2-4 finish the evaluation owner split
-- local closeout commit: `9e3a8e4`
+  after Milestones 3-4 finish the evaluation owner split
 
 Verification:
 

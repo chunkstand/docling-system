@@ -1013,23 +1013,24 @@ cases:
   deployment:
     deployed_ref: 9e3a8e4
     notes: >-
-      Milestone 1 prevention bootstrap is closed locally. The evaluation
-      facade now has explicit hotspot-prevention coverage plus exact hygiene
-      ceilings, while the broader owner case remains open until Milestones 2-4
-      move fixture/corpus, scoring/structural, and latest-read ownership out
-      of app/services/evaluations.py.
+      Milestone 1 prevention bootstrap is the last recorded committed
+      checkpoint. Milestone 2 fixture/corpus extraction is now resolved
+      locally in the checkout: the evaluation facade is reduced and the new
+      fixture owner is governed under the same case, while the broader owner
+      case remains open until Milestones 3-4 move scoring/structural and
+      latest-read ownership out of app/services/evaluations.py.
   measurement:
     metric_name: evaluation_hotspot_line_count
-    current_value: 2159.0
-    measurement_window: 2026-05-13 Milestone 1 prevention closeout
+    current_value: 1244.0
+    measurement_window: 2026-05-13 local Milestone 2 fixture/corpus verification
     notes: >-
-      Milestone 1 added hotspot-prevention and hygiene governance for
-      fixture/corpus, scoring, structural-check, and latest-read growth in
-      app/services/evaluations.py without yet reducing the facade. The service
-      remains 2159 lines / 61 private helpers, and Milestone 2 is the next
-      extraction gate.
+      Milestone 2 moved fixture and corpus ownership into
+      app/services/evaluation_fixtures.py, reducing
+      app/services/evaluations.py to 1244 lines / 29 private helpers. The new
+      fixture owner currently closes at 966 lines / 32 private helpers, and
+      Milestone 3 scoring/structural extraction is the next reduction gate.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T22:41:40Z'
+  updated_at: '2026-05-13T23:12:33Z'
 - case_id: IC-E52B6C7B22FD
   title: 'Architecture hotspot: app/services/agent_task_context.py'
   status: deployed

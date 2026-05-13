@@ -1,12 +1,12 @@
 # Evaluations Service Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active stacked follow-on on 2026-05-13 after Milestones 0-1 resolved
+Status: active stacked follow-on on 2026-05-13 after Milestones 0-2 resolved
 locally; `docs/search_execution_orchestration_boundary_milestone_plan.md`
 closed as `dae5e4f`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
-`3d7d090`, Milestone 1 closed locally as `9e3a8e4`, and Milestone 2 is now
-the next implementation gate
+`3d7d090`, Milestone 1 closed locally as `9e3a8e4`, Milestone 2 is now
+resolved locally, and Milestone 3 is the next implementation gate
 Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
 orchestration packet closed first as `dae5e4f`, the claim-support boundary
@@ -15,35 +15,38 @@ state before any evaluation-service code moves.
 
 ## Local Progress
 
-Milestone 1 is now resolved locally. Milestone 2 is the next implementation
+Milestone 2 is now resolved locally. Milestone 3 is the next implementation
 gate for the evaluation owner split.
 
-Local Milestone 1 snapshot:
+Local Milestone 2 snapshot:
 
-- added explicit hotspot-prevention coverage for `app/services/evaluations.py`
-  in `config/hotspot_prevention.yaml` and
-  `app/hotspot_prevention_classifier.py`
-- tightened the evaluation-facade classifier so fixture/corpus, scoring,
-  structural-check, and latest-read growth are blocked while narrow forwarding
-  wrappers remain allowed
-- extended `tests/unit/test_hotspot_prevention.py` with controlled-violation
-  coverage for those four evaluation concern families plus the forwarding
-  wrapper seam
-- ratcheted `config/hygiene_policy.yaml` so `app/services/evaluations.py` now
-  carries exact `2159`-line / `61`-private-helper ceilings under
-  `IC-BF180637814C`, and the planned owner modules
-  `app/services/evaluation_fixtures.py`,
-  `app/services/evaluation_scoring.py`, and
-  `app/services/evaluation_reads.py` now have explicit budgets before the code
-  extraction work begins
-- strict hotspot prevention now reports `known_hotspots=9`, `blocked=0`,
-  `allowed=0`, `exceptions=0`
+- extracted fixture and corpus ownership into
+  `app/services/evaluation_fixtures.py`, including fixture dataclasses,
+  manual/auto corpus resolution, fixture matching, auto-query generation,
+  retrieval-backed query filtering, and `ensure_auto_evaluation_fixture(...)`
+- reduced `app/services/evaluations.py` to the narrower orchestration and
+  compatibility facade at `1244` lines / `29` private helpers, while the new
+  fixture owner currently closes at `966` lines / `32` private helpers under
+  the same owner case
+- preserved existing importer stability for callers that continue to import
+  fixture constants and helpers from `app.services.evaluations`, including the
+  older `get_settings` and `search_documents` monkeypatch points used by the
+  integration harness
+- moved the fixture/corpus owner coverage out of
+  `tests/unit/test_evaluation_service.py`, reducing that file from `2237`
+  lines to `752` lines while adding focused owner coverage in
+  `tests/unit/test_evaluation_fixtures.py` at `1506` lines
+- ratcheted `config/hygiene_policy.yaml` to the measured post-split ceilings
+  for both the narrowed facade and the new fixture owner module
+- strict hotspot prevention now reports `known_hotspots=9`,
+  `changed_hotspots=1`, `blocked=0`, `allowed=3`, `exceptions=0`
 - architecture quality remains `hotspot_count=10` with
   `max_hotspot_risk_score=501.06`; the architecture probe still routes
-  `app/services/evaluations.py` at `20 revisions`, `2159 lines`, and
-  `score 43180`, so the broader owner case remains open
-- next implementation gate: Milestone 2 fixture and corpus owner extraction
-- local closeout commit: `9e3a8e4`
+  `app/services/evaluations.py` at `20 revisions`, `1244 lines`, and
+  `score 24880`, so the broader owner case remains reduced rather than
+  resolved
+- next implementation gate: Milestone 3 scoring and structural owner
+  extraction
 
 ## Purpose
 
@@ -71,8 +74,8 @@ spilling into `app/services/eval_workbench.py`, `app/services/documents.py`,
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Milestone 2 baseline evidence captured from the local checkout before the
+fixture/corpus extraction began on 2026-05-13 local / 2026-05-13 UTC:
 
 ```text
 git status -sb
@@ -375,18 +378,38 @@ Outcome label: resolved
   the three planned owner modules before Milestones 2-4
 
 ### Milestone 2: Fixture And Corpus Owner Extraction
+Status: resolved locally on 2026-05-13; Milestone 3 is now the next
+implementation gate
 Outcome label: reduced
 
-- Extract fixture dataclasses, corpus-path selection, fixture normalization,
+- extracted fixture dataclasses, corpus-path selection, fixture normalization,
   fixture matching, auto-fixture query generation, retrieval-backed query
-  filtering, auto-fixture persistence, and `ensure_auto_evaluation_fixture(...)`
-  into `app/services/evaluation_fixtures.py`.
-- Re-export compatibility identities from `app/services/evaluations.py` so
-  callers such as `knowledge_base_reset.py` and `evaluation_embedding_cache.py`
-  stay stable during the packet.
-- Add focused owner tests in `tests/unit/test_evaluation_fixtures.py`.
-- Keep `tests/unit/test_evaluation_service.py` at or below its current line
-  count by moving focused cases instead of adding more monolithic coverage.
+  filtering, auto-fixture persistence, and
+  `ensure_auto_evaluation_fixture(...)` into
+  `app/services/evaluation_fixtures.py`
+- kept `app/services/evaluations.py` as the stable import facade for
+  compatibility identities used by `knowledge_base_reset.py`,
+  `evaluation_embedding_cache.py`, the evaluation runner, and the Postgres
+  integration harness
+- added focused owner tests in `tests/unit/test_evaluation_fixtures.py` and
+  reduced `tests/unit/test_evaluation_service.py` to the remaining
+  orchestration, scoring, and structural assertions
+- left `app/services/evaluation_scoring.py`,
+  `app/services/evaluation_reads.py`, and their unit files absent on purpose;
+  those owner surfaces remain reserved for Milestones 3-4 instead of being
+  introduced early in the fixture packet
+- verification on the resolved slice:
+  `48 passed` in `tests/unit/test_evaluation_fixtures.py` and
+  `tests/unit/test_evaluation_service.py`;
+  `113 passed` across the Milestone 2 unit boundary suite;
+  `12 passed` in the targeted Postgres integration trio;
+  `1898 passed` in the full `DOCLING_SYSTEM_RUN_INTEGRATION=1` suite;
+  hotspot prevention strict `blocked=0`;
+  hygiene `new hygiene regressions: none`;
+  architecture inspect `valid=true`;
+  capability contracts `valid=true`;
+  architecture quality `hotspot_count=10`, `max_hotspot_risk_score=501.06`;
+  evaluation readiness `regression_ready=true`, `court_grade_ready=true`
 
 ### Milestone 3: Scoring And Structural Owner Extraction
 Outcome label: reduced
