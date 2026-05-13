@@ -87,6 +87,13 @@ known_hotspots:
         match_tokens:
           - build_search_harness_context_builders,
           - compose_context_builder_registries(
+      - exception_id: agent-task-context-milestone-3-semantic-governance-reflow
+        case_id: IC-E52B6C7B22FD
+        milestone_id: agent-task-orchestration-boundary-milestone-3
+        owner_module: app/services/agent_task_context_semantic_governance.py
+        follow_up_condition: Remove after Milestone 4 moves the remaining semantic analysis, graph-construction, and triage builders or the classifier recognizes pure owner-module extraction reflow without blocking unchanged central builders.
+        match_tokens:
+          - build_semantic_governance_context_builders(globals()),
   app/services/search.py:
     target_role: search service compatibility facade
     preferred_owner_modules:

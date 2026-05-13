@@ -216,13 +216,17 @@ file_budgets:
       max_private_helpers: 0
     app/services/agent_task_actions.py:
       max_lines: 600
-      ratchet_max_lines: 2081
+      ratchet_max_lines: 782
       max_private_helpers: 20
-      ratchet_max_private_helpers: 35
       owner_case_id: IC-A1E186A34097
     app/services/agent_actions/search_harness.py:
       max_lines: 600
       ratchet_max_lines: 1078
+      max_private_helpers: 20
+      owner_case_id: IC-A1E186A34097
+    app/services/agent_actions/semantic_governance_actions.py:
+      max_lines: 600
+      ratchet_max_lines: 945
       max_private_helpers: 20
       owner_case_id: IC-A1E186A34097
     app/services/agent_actions/report_actions.py:
@@ -231,13 +235,18 @@ file_budgets:
       owner_case_id: IC-A1E186A34097
     app/services/agent_task_context.py:
       max_lines: 600
-      ratchet_max_lines: 3833
+      ratchet_max_lines: 1879
       max_private_helpers: 20
-      ratchet_max_private_helpers: 38
+      ratchet_max_private_helpers: 21
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_context_search_harness.py:
       max_lines: 600
-      ratchet_max_lines: 867
+      ratchet_max_lines: 868
+      max_private_helpers: 20
+      owner_case_id: IC-E52B6C7B22FD
+    app/services/agent_task_context_semantic_governance.py:
+      max_lines: 600
+      ratchet_max_lines: 1127
       max_private_helpers: 20
       owner_case_id: IC-E52B6C7B22FD
     app/services/agent_task_verifications.py:

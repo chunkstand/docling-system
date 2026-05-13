@@ -14,13 +14,15 @@ from app.schemas.agent_tasks import (
     TriageSemanticPassTaskInput,
     VerifyDraftSemanticRegistryUpdateTaskInput,
 )
-from app.services.agent_task_actions import (
+from app.services.agent_actions.semantic_governance_actions import (
     _apply_semantic_registry_update_executor,
-    _discover_semantic_bootstrap_candidates_executor,
     _draft_semantic_registry_update_executor,
+    _verify_draft_semantic_registry_update_executor,
+)
+from app.services.agent_task_actions import (
+    _discover_semantic_bootstrap_candidates_executor,
     _latest_semantic_pass_executor,
     _triage_semantic_pass_executor,
-    _verify_draft_semantic_registry_update_executor,
 )
 from tests.unit.agent_task_actions_support import _semantic_pass_response
 
@@ -210,7 +212,7 @@ def test_draft_semantic_registry_update_executor_writes_draft_artifact(monkeypat
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             task_id=source_task_id,
             task_type="triage_semantic_pass",
@@ -282,7 +284,7 @@ def test_draft_semantic_registry_update_executor_writes_draft_artifact(monkeypat
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.draft_semantic_registry_update",
+        "app.services.agent_actions.semantic_governance_actions.draft_semantic_registry_update",
         lambda session, gap_report, **kwargs: {
             "base_registry_version": "semantics-layer-foundation-alpha.2",
             "proposed_registry_version": "semantics-layer-foundation-alpha.3",
@@ -306,7 +308,7 @@ def test_draft_semantic_registry_update_executor_writes_draft_artifact(monkeypat
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -431,7 +433,7 @@ def test_draft_semantic_registry_update_executor_supports_bootstrap_source(monke
     )
 
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             task_id=source_task_id,
             task_type="discover_semantic_bootstrap_candidates",
@@ -471,7 +473,7 @@ def test_draft_semantic_registry_update_executor_supports_bootstrap_source(monke
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.draft_semantic_registry_update_from_bootstrap_report",
+        "app.services.agent_actions.semantic_governance_actions.draft_semantic_registry_update_from_bootstrap_report",
         lambda session, report, **kwargs: {
             "base_registry_version": "semantics-layer-foundation-alpha.2",
             "proposed_registry_version": "semantics-layer-foundation-alpha.3",
@@ -497,7 +499,7 @@ def test_draft_semantic_registry_update_executor_supports_bootstrap_source(monke
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -535,7 +537,7 @@ def test_verify_draft_semantic_registry_update_executor_writes_verification_arti
         updated_at=datetime.now(UTC),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.verify_draft_semantic_registry_update_task",
+        "app.services.agent_actions.semantic_governance_actions.verify_draft_semantic_registry_update_task",
         lambda session, verification_task, payload: {
             "draft": {
                 "base_registry_version": "semantics-layer-foundation-alpha.2",
@@ -566,7 +568,7 @@ def test_verify_draft_semantic_registry_update_executor_writes_verification_arti
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -686,24 +688,24 @@ def test_apply_semantic_registry_update_executor_persists_registry(monkeypatch) 
         ),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda session, task_id, depends_on_task_id, expected_task_type, **kwargs: dependencies[
             (expected_task_type, depends_on_task_id)
         ],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.persist_semantic_ontology_snapshot",
+        "app.services.agent_actions.semantic_governance_actions.persist_semantic_ontology_snapshot",
         lambda session, payload, **kwargs: SimpleNamespace(id=uuid4()),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.get_semantic_registry",
+        "app.services.agent_actions.semantic_governance_actions.get_semantic_registry",
         lambda session: SimpleNamespace(
             registry_version="semantics-layer-foundation-alpha.3",
             sha256="new-registry-sha",
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],

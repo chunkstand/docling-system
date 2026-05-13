@@ -229,6 +229,7 @@ def test_analyzer_allows_agent_task_registry_composition() -> None:
                 "_ACTION_REGISTRY = compose_action_registries(",
                 "    _EVALUATION_ACTION_REGISTRY,",
                 "    _SEMANTIC_ANALYSIS_ACTION_REGISTRY,",
+                "    _SEMANTIC_GOVERNANCE_ACTION_REGISTRY,",
                 ")",
             ],
         ),
@@ -242,6 +243,7 @@ def test_analyzer_allows_agent_task_registry_composition() -> None:
                 "_CONTEXT_BUILDERS = compose_context_builder_registries(",
                 "    build_core_context_builders(globals()),",
                 "    build_semantic_context_builders(globals()),",
+                "    build_semantic_governance_context_builders(globals()),",
                 ")",
             ],
         ),
@@ -253,6 +255,51 @@ def test_analyzer_allows_agent_task_registry_composition() -> None:
     assert action_report["findings"][0]["category"] == "registry_composition"
     assert context_report["summary"]["blocked_count"] == 0
     assert context_report["findings"][0]["category"] == "registry_composition"
+
+
+def test_current_policy_allows_semantic_governance_reflow_exception() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/agent_task_context.py",
+            [
+                "from app.services.agent_task_context_semantic_governance import (",
+                "    build_semantic_governance_context_builders,",
+                ")",
+                "def _build_build_document_fact_graph_context(",
+                "    session: Session,",
+                "    task: AgentTask,",
+                "    payload: dict,",
+                "    *,",
+                "    action,",
+                ") -> TaskContextEnvelope:",
+                '    headline = "Built semantic fact graph."',
+                '    decision = "Ready for grounded generation."',
+                "    return TaskContextEnvelope.model_construct()",
+                "    build_semantic_governance_context_builders(globals()),",
+            ],
+            deleted_lines=[
+                "def _build_draft_ontology_extension_context(",
+                "    session: Session,",
+                "    task: AgentTask,",
+                "    payload: dict,",
+                "    *,",
+                "    action,",
+                ") -> TaskContextEnvelope:",
+                "    pass",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["summary"]["exception_count"] >= 1
+    assert any(
+        finding["status"] == "allowed_exception"
+        and finding["exception_id"]
+        == "agent-task-context-milestone-3-semantic-governance-reflow"
+        for finding in report["findings"]
+    )
 
 
 def test_analyzer_allows_parenthesized_alias_forwarding_hunks() -> None:

@@ -31,6 +31,9 @@ from app.services.agent_task_context_search_harness import (
     build_search_harness_context_builders,
 )
 from app.services.agent_task_context_semantic import build_semantic_context_builders
+from app.services.agent_task_context_semantic_governance import (
+    build_semantic_governance_context_builders,
+)
 from app.services.agent_task_context_technical_reports import (
     build_technical_report_context_builders,
 )
@@ -128,6 +131,7 @@ def test_context_builder_registry_is_composed_from_owner_modules() -> None:
             {"build_generic_task_context": agent_task_context_module.build_generic_task_context}
         ),
         build_semantic_context_builders(agent_task_context_module.__dict__),
+        build_semantic_governance_context_builders(agent_task_context_module.__dict__),
         build_technical_report_context_builders(agent_task_context_module.__dict__),
         build_search_harness_context_builders(agent_task_context_module.__dict__),
     )

@@ -44,6 +44,9 @@ from app.services.agent_actions.semantic_analysis_actions import (
 from app.services.agent_actions.semantic_drafting_actions import (
     build_semantic_drafting_action_definitions,
 )
+from app.services.agent_actions.semantic_governance_actions import (
+    build_semantic_governance_action_definitions,
+)
 from app.services.agent_actions.semantic_verification_actions import (
     build_semantic_verification_action_definitions,
 )
@@ -466,29 +469,12 @@ def test_action_registry_is_composed_from_owner_modules() -> None:
             prepare_semantic_generation_brief_executor=(
                 agent_task_actions_module._prepare_semantic_generation_brief_executor
             ),
-            draft_semantic_registry_update_executor=(
-                agent_task_actions_module._draft_semantic_registry_update_executor
-            ),
-            draft_ontology_extension_executor=(
-                agent_task_actions_module._draft_ontology_extension_executor
-            ),
-            draft_graph_promotions_executor=(
-                agent_task_actions_module._draft_graph_promotions_executor
-            ),
             draft_semantic_grounded_document_executor=(
                 agent_task_actions_module._draft_semantic_grounded_document_executor
             ),
         ),
+        build_semantic_governance_action_definitions(),
         build_semantic_verification_action_definitions(
-            verify_draft_semantic_registry_update_executor=(
-                agent_task_actions_module._verify_draft_semantic_registry_update_executor
-            ),
-            verify_draft_ontology_extension_executor=(
-                agent_task_actions_module._verify_draft_ontology_extension_executor
-            ),
-            verify_draft_graph_promotions_executor=(
-                agent_task_actions_module._verify_draft_graph_promotions_executor
-            ),
             verify_semantic_grounded_document_executor=(
                 agent_task_actions_module._verify_semantic_grounded_document_executor
             ),
@@ -500,15 +486,6 @@ def test_action_registry_is_composed_from_owner_modules() -> None:
             ),
             triage_semantic_graph_disagreements_executor=(
                 agent_task_actions_module._triage_semantic_graph_disagreements_executor
-            ),
-            apply_semantic_registry_update_executor=(
-                agent_task_actions_module._apply_semantic_registry_update_executor
-            ),
-            apply_ontology_extension_executor=(
-                agent_task_actions_module._apply_ontology_extension_executor
-            ),
-            apply_graph_promotions_executor=(
-                agent_task_actions_module._apply_graph_promotions_executor
             ),
         ),
         build_document_lifecycle_action_definitions(

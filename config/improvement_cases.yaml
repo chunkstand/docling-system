@@ -290,10 +290,10 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/agent_task_actions.py remains an architecture
-    hotspot after the locally verified Milestone 2 Search-Harness Execution
-    And Specialized Context Extraction slice; the compatibility facade is down
-    to 1504 lines / 25 private helpers, but the owner case stays open until a
-    later milestone reaches the final 600-line / 20-helper boundary.
+    hotspot after the locally verified Milestone 3 Semantic Governance Family
+    Composition slice; the compatibility facade is down to 782 lines / 16
+    private helpers, but the owner case stays open until a later milestone
+    reaches the final 600-line / 20-helper boundary.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_actions.py
@@ -317,22 +317,22 @@ cases:
     deployed_ref: "a3f9189"
     notes: The most recent deployed checkpoint remains the High Value
       Technical Paydown Milestone 3 report-action split. The current local
-      Milestone 2 move extracts the remaining search-harness executors into
-      app/services/agent_actions/search_harness.py, reduces
-      app/services/agent_task_actions.py to 1504 lines / 25 private helpers,
+      Milestone 3 move extracts the semantic-governance family into
+      app/services/agent_actions/semantic_governance_actions.py, reduces
+      app/services/agent_task_actions.py to 782 lines / 16 private helpers,
       and keeps the compatibility registry entrypoint open for the later
-      semantic-family reductions.
+      semantic-analysis and facade-closeout reductions.
   measurement:
     metric_name: agent_task_actions_hotspot_line_count
-    current_value: 1504.0
-    measurement_window: 2026-05-12 local Milestone 2 verification
-    notes: Local Milestone 2 verification reduces
-      app/services/agent_task_actions.py to 1504 lines / 25 private helpers
+    current_value: 782.0
+    measurement_window: 2026-05-12 local Milestone 3 verification
+    notes: Local Milestone 3 verification reduces
+      app/services/agent_task_actions.py to 782 lines / 16 private helpers
       while preserving the public action catalog. The extracted
-      search-harness owner module is now
-      app/services/agent_actions/search_harness.py at 1078 lines / 14 private
-      helpers, the architecture-probe hotspot score is 90240, and local
-      import fan-out is 29.
+      semantic-governance owner module is now
+      app/services/agent_actions/semantic_governance_actions.py at 945 lines / 9
+      private helpers, the architecture-probe hotspot score for the facade is
+      47702, and local import fan-out remains 29.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-FD18EE2D3309
@@ -909,10 +909,10 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/services/agent_task_context.py remains an architecture
-    hotspot after the locally verified Milestone 2 Search-Harness Execution
-    And Specialized Context Extraction slice; the compatibility facade is down
-    to 2950 lines / 31 private helpers, but the owner case stays open until a
-    later milestone reaches the final 600-line / 20-helper boundary.
+    hotspot after the locally verified Milestone 3 Semantic Governance Family
+    Composition slice; the compatibility facade is down to 1879 lines / 21
+    private helpers, but the owner case stays open until a later milestone
+    reaches the final 600-line / 20-helper boundary.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/services/agent_task_context.py
@@ -946,25 +946,23 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Agent-task orchestration boundary Milestone 2 now moves the
-      remaining search-harness context builders into
-      app/services/agent_task_context_search_harness.py and moves
-      evaluate_claim_support_judge into
-      app/services/agent_task_context_technical_reports.py, but the owner case
-      stays open until the facade is reduced under its final boundary budget.
+    notes: Agent-task orchestration boundary Milestone 3 now moves the
+      semantic-governance context builders into
+      app/services/agent_task_context_semantic_governance.py, but the owner
+      case stays open until the facade is reduced under its final boundary
+      budget.
   measurement:
     metric_name: agent_task_context_hotspot_line_count
-    current_value: 2950.0
-    measurement_window: 2026-05-12 local Milestone 2 verification
-    notes: Local Milestone 2 verification preserves the public context
-      entrypoints while reducing app/services/agent_task_context.py to 2950
-      lines / 31 private helpers. The extracted owner modules now include
-      app/services/agent_task_context_search_harness.py at 867 lines / 6
-      private helpers and
-      app/services/agent_task_context_technical_reports.py at 123 lines / 1
-      private helper, the architecture-probe hotspot score is 70800, local
-      import fan-out is 14, and Milestone 3 Semantic Governance Family
-      Composition is next.
+    current_value: 1879.0
+    measurement_window: 2026-05-12 local Milestone 3 verification
+    notes: Local Milestone 3 verification preserves the public context
+      entrypoints while reducing app/services/agent_task_context.py to 1879
+      lines / 21 private helpers. The extracted semantic-governance owner
+      module is now
+      app/services/agent_task_context_semantic_governance.py at 1127 lines /
+      10 private helpers, the architecture-probe hotspot score for the facade
+      is 46975, local import fan-out is 15, and Milestone 4 Semantic
+      Analysis, Generation, And Triage Family Composition is next.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-DCEE88C7CA97

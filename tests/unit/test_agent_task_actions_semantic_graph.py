@@ -14,14 +14,16 @@ from app.schemas.agent_tasks import (
     TriageSemanticGraphDisagreementsTaskInput,
     VerifyDraftGraphPromotionsTaskInput,
 )
-from app.services.agent_task_actions import (
+from app.services.agent_actions.semantic_governance_actions import (
     _apply_graph_promotions_executor,
+    _draft_graph_promotions_executor,
+    _verify_draft_graph_promotions_executor,
+)
+from app.services.agent_task_actions import (
     _build_document_fact_graph_executor,
     _build_shadow_semantic_graph_executor,
-    _draft_graph_promotions_executor,
     _evaluate_semantic_relation_extractor_executor,
     _triage_semantic_graph_disagreements_executor,
-    _verify_draft_graph_promotions_executor,
 )
 from tests.unit.agent_task_actions_support import (
     _draft_graph_output_payload,
@@ -282,7 +284,7 @@ def test_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> None:
         updated_at=datetime.now(UTC),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output=_graph_triage_output_payload(
                 evaluation_task_id=uuid4(),
@@ -299,14 +301,14 @@ def test_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> None:
         )
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.draft_graph_promotions",
+        "app.services.agent_actions.semantic_governance_actions.draft_graph_promotions",
         lambda session, **kwargs: _draft_graph_output_payload(
             source_task_id=source_task_id,
             source_task_type="triage_semantic_graph_disagreements",
         )["draft"],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -344,7 +346,7 @@ def test_verify_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> 
         updated_at=datetime.now(UTC),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output=_draft_graph_output_payload(
                 source_task_id=uuid4(),
@@ -354,7 +356,7 @@ def test_verify_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> 
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.verify_draft_graph_promotions",
+        "app.services.agent_actions.semantic_governance_actions.verify_draft_graph_promotions",
         lambda session, draft, **kwargs: (
             {
                 "promoted_edge_count": 1,
@@ -382,7 +384,7 @@ def test_verify_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> 
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_verification_record",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_verification_record",
         lambda session, **kwargs: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "verification_id": str(uuid4()),
@@ -399,7 +401,7 @@ def test_verify_draft_graph_promotions_executor_writes_artifact(monkeypatch) -> 
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -450,13 +452,13 @@ def test_apply_graph_promotions_executor_writes_artifact(monkeypatch) -> None:
         ),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda session, task_id, depends_on_task_id, expected_task_type, **kwargs: dependencies[
             (expected_task_type, depends_on_task_id)
         ],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.apply_graph_promotions",
+        "app.services.agent_actions.semantic_governance_actions.apply_graph_promotions",
         lambda session, draft, **kwargs: {
             "applied_snapshot_id": uuid4(),
             "applied_graph_version": "portable-upper-ontology-v1.1.graph.1",
@@ -468,7 +470,7 @@ def test_apply_graph_promotions_executor_writes_artifact(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],

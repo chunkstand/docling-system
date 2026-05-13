@@ -25,14 +25,6 @@ SEMANTIC_CONTEXT_BUILDER_SYMBOLS = {
         "_build_evaluate_semantic_relation_extractor_context"
     ),
     "prepare_semantic_generation_brief": "_build_prepare_semantic_generation_brief_context",
-    "draft_semantic_registry_update": "_build_draft_semantic_registry_update_context",
-    "draft_ontology_extension": "_build_draft_ontology_extension_context",
-    "draft_graph_promotions": "_build_draft_graph_promotions_context",
-    "verify_draft_semantic_registry_update": (
-        "_build_verify_draft_semantic_registry_update_context"
-    ),
-    "verify_draft_ontology_extension": "_build_verify_draft_ontology_extension_context",
-    "verify_draft_graph_promotions": "_build_verify_draft_graph_promotions_context",
     "draft_semantic_grounded_document": "_build_draft_semantic_grounded_document_context",
     "verify_semantic_grounded_document": (
         "_build_verify_semantic_grounded_document_context"
@@ -44,9 +36,6 @@ SEMANTIC_CONTEXT_BUILDER_SYMBOLS = {
     "triage_semantic_graph_disagreements": (
         "_build_triage_semantic_graph_disagreements_context"
     ),
-    "apply_semantic_registry_update": "_build_apply_semantic_registry_update_context",
-    "apply_ontology_extension": "_build_apply_ontology_extension_context",
-    "apply_graph_promotions": "_build_apply_graph_promotions_context",
     "build_document_fact_graph": "_build_build_document_fact_graph_context",
 }
 

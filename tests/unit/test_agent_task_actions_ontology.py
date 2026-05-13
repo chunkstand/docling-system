@@ -12,12 +12,14 @@ from app.schemas.agent_tasks import (
     InitializeWorkspaceOntologyTaskInput,
     VerifyDraftOntologyExtensionTaskInput,
 )
-from app.services.agent_task_actions import (
+from app.services.agent_actions.semantic_governance_actions import (
     _apply_ontology_extension_executor,
     _draft_ontology_extension_executor,
+    _verify_draft_ontology_extension_executor,
+)
+from app.services.agent_task_actions import (
     _get_active_ontology_snapshot_executor,
     _initialize_workspace_ontology_executor,
-    _verify_draft_ontology_extension_executor,
 )
 
 
@@ -127,7 +129,7 @@ def test_draft_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
     )
     source_task_id = uuid4()
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             output={
                 "report": {
@@ -164,7 +166,7 @@ def test_draft_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.draft_ontology_extension_from_bootstrap_report",
+        "app.services.agent_actions.semantic_governance_actions.draft_ontology_extension_from_bootstrap_report",
         lambda session, report, **kwargs: {
             "base_snapshot_id": uuid4(),
             "base_ontology_version": "portable-upper-ontology-v1",
@@ -191,7 +193,7 @@ def test_draft_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -233,7 +235,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
     )
     draft_task_id = uuid4()
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda *args, **kwargs: SimpleNamespace(
             task_id=draft_task_id,
             task_type="draft_ontology_extension",
@@ -258,7 +260,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.verify_draft_ontology_extension",
+        "app.services.agent_actions.semantic_governance_actions.verify_draft_ontology_extension",
         lambda session, draft, **kwargs: (
             [],
             {"document_count": 1, "improved_document_count": 1, "regressed_document_count": 0},
@@ -269,7 +271,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_verification_record",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_verification_record",
         lambda session, **kwargs: SimpleNamespace(
             model_dump=lambda mode="json": {
                 "verification_id": str(uuid4()),
@@ -286,7 +288,7 @@ def test_verify_draft_ontology_extension_executor_writes_verification_artifact(
         ),
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],
@@ -380,13 +382,13 @@ def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
         ),
     }
     monkeypatch.setattr(
-        "app.services.agent_task_actions.resolve_required_dependency_task_output_context",
+        "app.services.agent_actions.semantic_governance_actions.resolve_required_dependency_task_output_context",
         lambda session, task_id, depends_on_task_id, expected_task_type, **kwargs: dependencies[
             (expected_task_type, depends_on_task_id)
         ],
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.apply_ontology_extension",
+        "app.services.agent_actions.semantic_governance_actions.apply_ontology_extension",
         lambda session, draft, **kwargs: {
             "applied_snapshot_id": uuid4(),
             "applied_ontology_version": "portable-upper-ontology-v1.1",
@@ -398,7 +400,7 @@ def test_apply_ontology_extension_executor_writes_artifact(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(
-        "app.services.agent_task_actions.create_agent_task_artifact",
+        "app.services.agent_actions.semantic_governance_actions.create_agent_task_artifact",
         lambda session, **kwargs: SimpleNamespace(
             id=uuid4(),
             artifact_kind=kwargs["artifact_kind"],

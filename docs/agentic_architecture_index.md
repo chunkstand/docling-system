@@ -15,7 +15,7 @@ chat history or scanning the whole repository.
 - `docs/semantic_memory_model_domain_milestone_plan.md`: completed local verified milestone record for the `IC-F2A8110185EB` semantic-memory split covering the ontology, graph-state, concept, assertion, entity, fact, semantic review, and governance ORM family; the broader owner case remains reduced while `app/db/models.py` stays in the architecture-quality routing list.
 - `docs/db_models_compatibility_facade_milestone_plan.md`: completed local verified milestone brief for the `IC-F2A8110185EB` compatibility-facade / public-import-contract follow-up. Milestone 2 closes the remaining unclear-ownership gap for `app/db/models.py`; the next routed owner case is `IC-050E60059A34` / `app/services/evidence.py`.
 - `docs/evidence_hotspot_owner_milestone_plan.md`: implemented locally through the evidence facade-resolution closeout for `IC-050E60059A34`; `app/services/evidence.py` is reduced to a 141-line compatibility facade, and follow-on case `IC-65AF4A6D8B1E` now governs the oversized evidence owner-family modules.
-- `docs/agent_task_orchestration_boundary_milestone_plan.md`: active local follow-on plan for `IC-A1E186A34097` / `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` / `app/services/agent_task_context.py`; Milestone 2 Search-Harness Execution And Specialized Context Extraction is implemented locally and Milestone 3 Semantic Governance Family Composition is next.
+- `docs/agent_task_orchestration_boundary_milestone_plan.md`: active local follow-on plan for `IC-A1E186A34097` / `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` / `app/services/agent_task_context.py`; Milestone 3 Semantic Governance Family Composition is implemented locally and Milestone 4 Semantic Analysis, Generation, And Triage Family Composition is next.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
 - `docs/agentic_architecture_milestone_plan.md`: expert-panel plan and milestone sequence.
@@ -35,7 +35,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and `max_hotspot_risk_score=541.06`.
+  `hotspot_count=10`, and `max_hotspot_risk_score=536.06`.
 - `app/db/models.py` remains in the architecture-quality routing list, but the
   semantic-memory owner family is now also extracted alongside the prior
   model-domain splits, and the remaining 159-line facade now has its own
@@ -122,6 +122,14 @@ chat history or scanning the whole repository.
   `app/services/agent_task_context_technical_reports.py`. The central
   facades are reduced to 1,504 lines / 25 private helpers and
   2,950 lines / 31 private helpers respectively.
+- The agent-task orchestration boundary Milestone 3 Semantic Governance Family
+  Composition is now implemented locally: semantic registry-update, ontology
+  extension, and graph-promotion draft, verify, and apply actions now live in
+  `app/services/agent_actions/semantic_governance_actions.py`, the matching
+  context builders now live in
+  `app/services/agent_task_context_semantic_governance.py`, and the central
+  facades are reduced to 782 lines / 16 private helpers and 1,879 lines /
+  21 private helpers respectively.
 - The Residual Weakness Plan Milestone 5 cycle break is complete:
   `app/services/agent_task_action_lookup.py` is the narrow lookup seam for
   context and task services, while executor implementations still live in
@@ -130,12 +138,14 @@ chat history or scanning the whole repository.
   `app.services.agent_task_actions`, which is documented as the
   action-orchestration entrypoint rather than a context/task dependency.
 - The agent-task orchestration boundary follow-on plan remains active locally:
-  Milestone 2 now records the live 1,504-line / 25-private-helper and
-  2,950-line / 31-private-helper central-facade measurements under
+  Milestone 3 now records the live 782-line / 16-private-helper and
+  1,879-line / 21-private-helper central-facade measurements under
   `IC-A1E186A34097` and `IC-E52B6C7B22FD`, ratchets the extracted
-  search-harness owner modules at 1,078 and 867 lines, and leaves Milestone 3
-  Semantic Governance Family Composition as the next bounded execution slice.
-  The alignment pass still routes
+  search-harness and semantic-governance owner modules at 1,078, 868, 945,
+  and 1,127 lines, records the narrow
+  `agent-task-context-milestone-3-semantic-governance-reflow` exception, and
+  leaves Milestone 4 Semantic Analysis, Generation, And Triage Family
+  Composition as the next bounded execution slice. The alignment pass still routes
   `app/hotspot_prevention_classifier.py` into bounded hygiene follow-on case
   `IC-6C1B516A3F92` at 621 lines so the prevention gate remains green without
   broadening the current milestone.
@@ -380,8 +390,8 @@ chat history or scanning the whole repository.
   debt.
 - Current routed follow-up:
   `docs/agent_task_orchestration_boundary_milestone_plan.md` is active locally
-  through Milestone 2; the next bounded execution slice is Milestone 3
-  Semantic Governance Family Composition for
+  through Milestone 3; the next bounded execution slice is Milestone 4
+  Semantic Analysis, Generation, And Triage Family Composition for
   `IC-A1E186A34097` and `IC-E52B6C7B22FD`. Evidence owner-family follow-up
   case `IC-65AF4A6D8B1E` and hotspot-prevention classifier follow-up case
   `IC-6C1B516A3F92` remain open but are not the current architecture
