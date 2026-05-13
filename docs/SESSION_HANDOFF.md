@@ -7,6 +7,7 @@ Remote: `origin -> https://github.com/chunkstand/docling-system.git`
 Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
+Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -55,18 +56,19 @@ retired because the architecture probe still routes `app/services/search.py` at
 architecture-quality summary top-five still excludes that facade.
 
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md` is now resolved
-locally in the current closeout window. The scoped subsystem-knot for
-`IC-E2270F89B397` is resolved: `app/services/claim_support_policy_impacts.py`
-is now a 184-line / 0-private-helper compatibility facade, read-model and alert
-logic now live in `app/services/claim_support_policy_impact_views.py` at
-899 lines / 16 private helpers, and replay queueing plus closure lifecycle now
-live in `app/services/claim_support_policy_impact_replay.py` at
-898 lines / 11 private helpers.
+locally through Milestone 4 closeout commit `3d7d090`. The scoped
+subsystem-knot for `IC-E2270F89B397` is resolved:
+`app/services/claim_support_policy_impacts.py` is now a 184-line /
+0-private-helper compatibility facade, read-model and alert logic now live in
+`app/services/claim_support_policy_impact_views.py` at 899 lines /
+16 private helpers, and replay queueing plus closure lifecycle now live in
+`app/services/claim_support_policy_impact_replay.py` at 898 lines /
+11 private helpers.
 
 The next active bounded implementation brief is
-`docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 now
-assumes the search orchestration and claim-support closeouts are complete,
-refreshes live system state, and then activates the
+`docs/evaluations_service_boundary_milestone_plan.md`. Its Milestone 0 is now
+resolved locally after the search orchestration and claim-support closeouts,
+and Milestone 1 is the next implementation gate for the
 `IC-BF180637814C` / `app/services/evaluations.py` boundary split.
 
 Queued stacked follow-on after the evaluations packet:
@@ -176,7 +178,7 @@ closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
 
 ## Claim Support Policy Impacts Boundary Milestone 4 Local Progress
 
-Milestone 4 is closing locally in the current atomic commit. It is a
+Milestone 4 is closed locally as commit `3d7d090`. It is a
 behavior-preserving claim-support policy-impact modularization pass behind the
 existing `app/services/claim_support_policy_impacts.py` compatibility facade.
 
@@ -205,8 +207,7 @@ Results:
   `11` private helpers under `owner_case_id: IC-E2270F89B397`
 - updated `config/improvement_cases.yaml` so `IC-E2270F89B397` records the
   reduced-but-still-open owner state after the split
-- local closeout commit: carried by the same atomic commit that updates this
-  handoff; backfill the exact hash in the next alignment pass
+- local closeout commit: `3d7d090`
 - next routed stacked follow-on is
   `docs/evaluations_service_boundary_milestone_plan.md`
 

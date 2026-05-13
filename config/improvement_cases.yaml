@@ -959,17 +959,16 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "afc324a"
+    deployed_ref: "3d7d090"
     notes: >-
+      Claim-support policy impacts boundary closeout committed as 3d7d090.
       The earlier replay-alert split remains committed as afc324a. This
-      boundary closeout reduces app/services/claim_support_policy_impacts.py
-      to a 184-line compatibility facade, adds
+      boundary closeout reduces app/services/claim_support_policy_impacts.py to
+      a 184-line compatibility facade, adds
       app/services/claim_support_policy_impact_views.py and
       app/services/claim_support_policy_impact_replay.py, and keeps the
       broader owner case open because the extracted owners still exceed the
-      default 600-line budget. The exact local closeout hash is carried by the
-      same atomic commit that updates this registry and cannot be self-recorded
-      here without an amend.
+      default 600-line budget.
   measurement:
     metric_name: claim_support_hotspot_line_count
     current_value: 184.0
@@ -985,7 +984,7 @@ cases:
       1536 lines / 24 private helpers and the new owners remain above the
       default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-13T16:28:33+00:00'
 - case_id: IC-BF180637814C
   title: 'Architecture hotspot: app/services/evaluations.py'
   status: open

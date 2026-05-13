@@ -7,9 +7,7 @@ broader owner case `IC-E2270F89B397` remains reduced and open because
 `app/services/claim_support_replay_alert_promotions.py`,
 `app/services/claim_support_policy_impact_views.py`, and
 `app/services/claim_support_policy_impact_replay.py` still exceed the default
-600-line hygiene budget. The exact closeout commit hash is carried by the same
-atomic commit that updates this plan and cannot be self-recorded here without
-an amend.
+600-line hygiene budget. Milestone 4 closeout commit: `3d7d090`.
 Owner context: queued follow-on under `IC-E2270F89B397` /
 `app/services/claim_support_policy_impacts.py`. This plan assumes the current
 search execution orchestration packet is already closed locally as
@@ -439,9 +437,8 @@ Implementation:
 - update `config/improvement_cases.yaml` so `IC-E2270F89B397` records the new
   measurements and broader owner-case state after the split
 - refresh `docs/SESSION_HANDOFF.md`, `docs/agentic_architecture_index.md`, and
-  this plan with the verified closeout status, verification commands, and
-  post-closeout routing; note that the same atomic commit cannot self-record
-  its own closeout hash without an amend
+  this plan with the verified closeout status, closeout commit hash,
+  verification commands, and post-closeout routing
 - stage only the verified claim-support milestone slice and close with one
   local atomic commit
 
@@ -464,6 +461,7 @@ Closeout results:
 - direct owner-module coverage now lives in
   `tests/unit/test_claim_support_policy_impact_views.py` and
   `tests/unit/test_claim_support_policy_impact_replay.py`
+- Milestone 4 closeout committed locally as `3d7d090`
 - final verification window closed with `64` focused unit passes, `19`
   claim-support integration passes, `1896` full DB-backed suite passes,
   `known_hotspots=8`, `changed_hotspots=1`, `blocked=0`, `allowed=1`,
@@ -561,9 +559,8 @@ index after the search orchestration milestone completes.
 - Leave unrelated dirty and untracked files alone.
 - Include implementation, tests, config, docs, and handoff updates in the same
   local atomic commit.
-- Record the closeout commit hash in this plan and in
-  `docs/SESSION_HANDOFF.md` during the next alignment pass; the same atomic
-  closeout commit cannot self-record that hash without an amend.
+- Record the closeout commit hash in this plan, in
+  `docs/SESSION_HANDOFF.md`, and in `config/improvement_cases.yaml`.
 - Treat the milestone as incomplete until that commit exists.
 - Do not commit if any required verification gate fails.
 

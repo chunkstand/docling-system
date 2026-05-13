@@ -1,15 +1,17 @@
 # Evaluations Service Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
-`docs/search_execution_orchestration_boundary_milestone_plan.md` and
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`; do not start
-implementation until both prior packets close locally
-Owner context: queued follow-on under `IC-BF180637814C` /
+Status: active stacked follow-on on 2026-05-13 after
+`docs/search_execution_orchestration_boundary_milestone_plan.md` closed as
+`dae5e4f` and
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
+`3d7d090`; Milestone 0 is resolved locally in the alignment pass that follows
+those closeouts, and Milestone 1 is now the next implementation gate
+Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
-orchestration packet completes first, the queued claim-support boundary packet
-completes second, and Milestone 0 then refreshes the live system state before
-any evaluation-service code moves.
+orchestration packet closed first as `dae5e4f`, the claim-support boundary
+packet closed second as `3d7d090`, and Milestone 0 refreshed the live system
+state before any evaluation-service code moves.
 
 ## Purpose
 
@@ -42,12 +44,7 @@ local / 2026-05-13 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/evaluations_service_boundary_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
+  ## main...origin/main [ahead 13]
 
 wc -l app/services/evaluations.py tests/unit/test_evaluation_service.py app/services/evaluation_execution.py app/services/evaluation_fixture_cache.py app/services/eval_workbench.py app/services/search_harness_evaluations.py app/services/documents.py
   2159 app/services/evaluations.py
@@ -60,7 +57,7 @@ wc -l app/services/evaluations.py tests/unit/test_evaluation_service.py app/serv
 
 uv run docling-system-architecture-quality-report --summary
   hotspot_count=10
-  max_hotspot_risk_score=531.06
+  max_hotspot_risk_score=516.06
   top_hotspot_paths=[
     app/db/models.py,
     app/services/agent_task_actions.py,
@@ -93,13 +90,13 @@ config/hygiene_policy.yaml
 
 Repo-current structural evidence:
 
-- `docs/search_execution_orchestration_boundary_milestone_plan.md`,
-  `docs/claim_support_policy_impacts_boundary_milestone_plan.md`, and this
-  evaluation follow-on are all still drafted in the worktree. The active
-  execution packet remains the search orchestration plan, with the
-  claim-support split queued behind it. This evaluation plan must therefore
-  begin with a system-state refresh after both prior milestones complete and
-  are committed.
+- `docs/search_execution_orchestration_boundary_milestone_plan.md` is resolved
+  locally through closeout commit `dae5e4f`, and
+  `docs/claim_support_policy_impacts_boundary_milestone_plan.md` is resolved
+  locally through closeout commit `3d7d090`. This evaluation follow-on is now
+  the next active bounded implementation brief, and Milestone 0 is resolved
+  locally through the stacked-state refresh performed in the claim-support
+  closeout alignment pass.
 - `app/services/evaluations.py` still groups the main concern families together:
   `load_evaluation_fixtures(...)`,
   `fixture_for_document(...)`,
@@ -306,23 +303,28 @@ the targeted evaluation concern families no longer live in
 ## Milestone Sequence
 
 ### Milestone 0: Post-Search-And-Claim-Support System-State Refresh
+Status: resolved locally on 2026-05-13 during the claim-support closeout
+alignment pass
 Outcome label: resolved
 
-- Assume `docs/search_execution_orchestration_boundary_milestone_plan.md` has
-  closed and committed first, then
-  `docs/claim_support_policy_impacts_boundary_milestone_plan.md` has closed and
-  committed second.
-- Rerun the live architecture-quality, architecture-probe, improvement-case,
+- `docs/search_execution_orchestration_boundary_milestone_plan.md` closed
+  locally first as `dae5e4f`, then
+  `docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed
+  locally second as `3d7d090`.
+- Reran the live architecture-quality, architecture-probe, improvement-case,
   hotspot-prevention, and evaluation-readiness commands after those closeouts.
-- Refresh this plan, `docs/agentic_architecture_index.md`, and
-  `docs/SESSION_HANDOFF.md` so the evaluation packet becomes the next active
-  queued implementation brief only after the prior two packets are no longer
-  draft-only worktree artifacts.
-- Stop immediately if the prior two milestones are not complete, if
-  `IC-BF180637814C` has already been rerouted, or if the targeted concern
-  families have already moved.
+- Refreshed this plan, `docs/agentic_architecture_index.md`, and
+  `docs/SESSION_HANDOFF.md` so the evaluation packet is now the next active
+  bounded implementation brief instead of a queued draft-only follow-on.
+- The refresh window closed with architecture quality
+  `hotspot_count=10`, `max_hotspot_risk_score=516.06`, strict hotspot
+  prevention `known_hotspots=8`, `changed_hotspots=0`, `blocked=0`,
+  improvement-case summary `case_count=28`, `open=21`, `deployed=6`,
+  `measured=1`, and evaluation-data readiness
+  `regression_ready=true`, `court_grade_ready=true`.
 
 ### Milestone 1: Evaluation Facade Prevention Bootstrap
+Status: next implementation gate after the Milestone 0 stacked-state refresh
 Outcome label: resolved
 
 - Add explicit hotspot-prevention coverage for `app/services/evaluations.py`
