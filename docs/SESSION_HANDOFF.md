@@ -8,6 +8,7 @@ Search Hydration Boundary Milestone 1 checkpoint: `14390ad`
 Search Execution Persistence Boundary Milestone 1 checkpoint: `f55b474`
 Search Execution Orchestration Milestone 1 checkpoint: `dae5e4f`
 Claim Support Policy Impacts Boundary Milestone 4 checkpoint: `3d7d090`
+Evaluations Service Boundary Milestone 1 checkpoint: `9e3a8e4`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -180,8 +181,8 @@ closeout: `IC-1D03DBFE8492` / `app/services/search.py`,
 
 ## Evaluations Service Boundary Milestone 1 Local Progress
 
-Milestone 1 is closed locally as a prevention-bootstrap pass for
-`IC-BF180637814C`. The broader owner case remains open because
+Milestone 1 is closed locally as commit `9e3a8e4`. It is a
+prevention-bootstrap pass for `IC-BF180637814C`. The broader owner case remains open because
 `app/services/evaluations.py` is still a `2159` line / `61` private-helper
 service hotspot, but the facade is now explicitly governed before Milestone 2
 begins moving implementation into new owner modules.
@@ -215,6 +216,7 @@ Results:
 - next routed stacked follow-on after the evaluations packet still begins with
   `docs/evidence_provenance_exports_boundary_milestone_plan.md`, but only
   after Milestones 2-4 finish the evaluation owner split
+- local closeout commit: `9e3a8e4`
 
 Verification:
 

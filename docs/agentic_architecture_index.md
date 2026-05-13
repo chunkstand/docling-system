@@ -19,7 +19,7 @@ chat history or scanning the whole repository.
 - `docs/search_execution_persistence_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `f55b474` for `IC-1D03DBFE8492`; search execution persistence and operator-trace payload assembly now live in `app/services/search_execution_persistence.py`, `app/services/search.py` is reduced to 2089 lines / 37 private helpers, and the next routed follow-on is the remaining execution-orchestration cluster in `execute_search(...)` and adjacent candidate-loading/detail assembly paths.
 - `docs/search_execution_orchestration_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `dae5e4f` for `IC-1D03DBFE8492`; search execution orchestration now lives in `app/services/search_execution_orchestration.py`, `app/services/search.py` is reduced to 1592 lines / 32 private helpers, and the broader owner case remains reduced because the architecture probe still routes the facade.
 - `docs/claim_support_policy_impacts_boundary_milestone_plan.md`: resolved locally through Milestone 4 closeout commit `3d7d090` for `IC-E2270F89B397`; `app/services/claim_support_policy_impacts.py` is now a 184-line compatibility facade, the read-model and alert owner now lives in `app/services/claim_support_policy_impact_views.py` at 899 lines / 16 private helpers, the replay-lifecycle owner now lives in `app/services/claim_support_policy_impact_replay.py` at 898 lines / 11 private helpers, and the broader owner case remains reduced because the extracted owners still exceed the default 600-line budget.
-- `docs/evaluations_service_boundary_milestone_plan.md`: active stacked follow-on after the search orchestration and claim-support packets. Milestones 0-1 are now resolved locally under `IC-BF180637814C` / `app/services/evaluations.py`; hotspot prevention now explicitly governs the evaluation facade, hygiene ratchets it at `2159` lines / `61` private helpers, and Milestone 2 fixture/corpus extraction is the next implementation gate.
+- `docs/evaluations_service_boundary_milestone_plan.md`: active stacked follow-on after the search orchestration and claim-support packets. Milestones 0-1 are now resolved locally under `IC-BF180637814C` / `app/services/evaluations.py`, with Milestone 1 closeout commit `9e3a8e4`; hotspot prevention now explicitly governs the evaluation facade, hygiene ratchets it at `2159` lines / `61` private helpers, and Milestone 2 fixture/corpus extraction is the next implementation gate.
 - `docs/evidence_provenance_exports_boundary_milestone_plan.md`: drafted stacked follow-on after the search orchestration, claim-support, and evaluations packets. Milestone 0 assumes all three prior plans close first, refreshes live system state, and then activates the provenance-export owner split for `IC-65AF4A6D8B1E` / `app/services/evidence_provenance_exports.py`.
 - `docs/semantics_service_boundary_milestone_plan.md`: drafted stacked follow-on after the search orchestration, claim-support, evaluations, and evidence provenance-export packets. Milestone 0 assumes all four prior plans close first, refreshes live system state, and then activates the semantics service-boundary split for `app/services/semantics.py`, starting with the missing owner-case and hotspot-prevention bootstrap.
 - `docs/cli_command_dispatch_boundary_milestone_plan.md`: drafted stacked follow-on after the claim-support, evaluations, evidence provenance-export, and semantics packets. Milestone 0 assumes all four prior plans close first, refreshes live system state, and then activates the CLI facade-reduction split for `IC-9812A0B138D9` / `app/cli.py`, keeping `app/cli.py` as a compatibility surface and routing direct command bodies into bounded `app/cli_commands/` owners.
@@ -50,7 +50,7 @@ chat history or scanning the whole repository.
   capability contracts are valid across 6 facades and 110 functions, and the
   architecture quality summary now reports
   `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
-  `hotspot_count=10`, and `max_hotspot_risk_score=516.06`.
+  `hotspot_count=10`, and `max_hotspot_risk_score=501.06`.
 - `app/db/models.py` remains in the architecture-quality routing list, but the
   semantic-memory owner family is now also extracted alongside the prior
   model-domain splits, and the remaining 159-line facade now has its own
@@ -442,16 +442,18 @@ chat history or scanning the whole repository.
   remaining architecture debt. Current summary:
   `case_count=28`, `status_counts.open=21`, `status_counts.deployed=6`,
   `status_counts.measured=1`, and
-  `measured_case_count=17`, with open cases concentrated in
+  `measured_case_count=18`, with open cases concentrated in
   architecture-governance ownership rather than untracked or milestone-owned
   debt.
 - Current routed follow-up:
   `docs/evaluations_service_boundary_milestone_plan.md` is the active bounded
-  implementation brief after the local claim-support closeout. The reduced
-  claim-support owner case `IC-E2270F89B397`, evidence owner-family follow-up
-  case `IC-65AF4A6D8B1E`, reduced search owner case `IC-1D03DBFE8492`, and
-  hotspot-prevention classifier follow-up case `IC-6C1B516A3F92` remain open
-  but are not the current architecture milestone.
+  implementation brief after the local evaluations Milestone 1 closeout
+  commit `9e3a8e4`, and Milestone 2 fixture/corpus extraction is the next
+  gate. The reduced claim-support owner case `IC-E2270F89B397`, evidence
+  owner-family follow-up case `IC-65AF4A6D8B1E`, reduced search owner case
+  `IC-1D03DBFE8492`, and hotspot-prevention classifier follow-up case
+  `IC-6C1B516A3F92` remain open but are not the current architecture
+  milestone.
 
 ## Executable Architecture Contracts
 

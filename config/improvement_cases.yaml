@@ -1011,7 +1011,7 @@ cases:
     allows_good_changes: false
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: 9e3a8e4
     notes: >-
       Milestone 1 prevention bootstrap is closed locally. The evaluation
       facade now has explicit hotspot-prevention coverage plus exact hygiene

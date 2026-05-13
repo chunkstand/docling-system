@@ -3,8 +3,10 @@
 Date: 2026-05-13 local / 2026-05-13 UTC
 Status: active stacked follow-on on 2026-05-13 after Milestones 0-1 resolved
 locally; `docs/search_execution_orchestration_boundary_milestone_plan.md`
-closed as `dae5e4f`, `docs/claim_support_policy_impacts_boundary_milestone_plan.md`
-closed as `3d7d090`, and Milestone 2 is now the next implementation gate
+closed as `dae5e4f`,
+`docs/claim_support_policy_impacts_boundary_milestone_plan.md` closed as
+`3d7d090`, Milestone 1 closed locally as `9e3a8e4`, and Milestone 2 is now
+the next implementation gate
 Owner context: active follow-on under `IC-BF180637814C` /
 `app/services/evaluations.py`. This plan assumes the current search execution
 orchestration packet closed first as `dae5e4f`, the claim-support boundary
@@ -41,6 +43,7 @@ Local Milestone 1 snapshot:
   `app/services/evaluations.py` at `20 revisions`, `2159 lines`, and
   `score 43180`, so the broader owner case remains open
 - next implementation gate: Milestone 2 fixture and corpus owner extraction
+- local closeout commit: `9e3a8e4`
 
 ## Purpose
 
