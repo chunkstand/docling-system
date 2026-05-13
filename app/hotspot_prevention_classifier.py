@@ -367,6 +367,43 @@ def classify_agent_task_context_addition(
 
 
 def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
+    lowered = stripped.lower()
+    if stripped.startswith(("def _persist_", "async def _persist_")) or any(
+        token in stripped
+        for token in (
+            "SearchRequestRecord(",
+            "SearchRequestResult(",
+            "SearchRequestResultSpan(",
+        )
+    ):
+        return blocked(
+            line,
+            "persistence_logic",
+            "new search persistence belongs in search_* modules",
+        )
+    if stripped.startswith(
+        (
+            "def _ranked_result_evidence_payload",
+            "async def _ranked_result_evidence_payload",
+            "def _reranked_result_evidence_payload",
+            "async def _reranked_result_evidence_payload",
+            "def _build_operator_trace_",
+            "async def _build_operator_trace_",
+        )
+    ) or any(
+        token in lowered
+        for token in (
+            "record_knowledge_operator_run(",
+            "output_payload",
+            "selected_evidence",
+            "knowledge_operator_runs",
+        )
+    ):
+        return blocked(
+            line,
+            "operator_trace_payload_builder",
+            "new search operator-trace payload assembly belongs in search_* modules",
+        )
     if stripped.startswith(("def _", "async def _")):
         return blocked(
             line,
@@ -375,7 +412,7 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
         )
     if stripped.startswith(("def ", "async def ")):
         return blocked(line, "ranking_logic", "new search behavior belongs in search_* modules")
-    if any(token in stripped.lower() for token in ("rank", "score", "hydrate", "telemetry")):
+    if any(token in lowered for token in ("rank", "score", "hydrate", "telemetry")):
         return blocked(line, "ranking_logic", "new search logic belongs in search_* modules")
     return None
 

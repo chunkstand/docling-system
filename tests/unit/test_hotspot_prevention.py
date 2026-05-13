@@ -196,6 +196,35 @@ def test_context_hotspot_blocks_private_helper_growth() -> None:
     assert report["findings"][0]["category"] == "context_family_helper"
 
 
+def test_search_hotspot_blocks_persistence_and_operator_trace_growth() -> None:
+    persistence_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def _persist_more_search_rows(session):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    operator_trace_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/search.py",
+            ["def _build_operator_trace_payload():", "    return {'selected_evidence': []}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert persistence_report["summary"]["blocked_count"] == 1
+    assert persistence_report["findings"][0]["category"] == "persistence_logic"
+    assert operator_trace_report["summary"]["blocked_count"] >= 1
+    assert "operator_trace_payload_builder" in {
+        finding["category"] for finding in operator_trace_report["findings"]
+    }
+    assert "query_feature_helper" not in {
+        finding["category"] for finding in operator_trace_report["findings"]
+    }
+
+
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
     import_report = build_hotspot_prevention_report(
         _diff_for(

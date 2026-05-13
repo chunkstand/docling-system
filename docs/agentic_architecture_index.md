@@ -16,6 +16,7 @@ chat history or scanning the whole repository.
 - `docs/db_models_compatibility_facade_milestone_plan.md`: completed local verified milestone brief for the `IC-F2A8110185EB` compatibility-facade / public-import-contract follow-up. Milestone 2 closes the remaining unclear-ownership gap for `app/db/models.py`; the next routed owner case is `IC-050E60059A34` / `app/services/evidence.py`.
 - `docs/evidence_hotspot_owner_milestone_plan.md`: implemented locally through the evidence facade-resolution closeout for `IC-050E60059A34`; `app/services/evidence.py` is reduced to a 141-line compatibility facade, closeout commit `3fe9132` is now recorded in the registry, and follow-on case `IC-65AF4A6D8B1E` governs the oversized evidence owner-family modules.
 - `docs/agent_task_orchestration_boundary_milestone_plan.md`: resolved locally through Milestone 5 closeout commit `7cf7465` for `IC-A1E186A34097` / `app/services/agent_task_actions.py` and `IC-E52B6C7B22FD` / `app/services/agent_task_context.py`; the next routed hotspot is `IC-1D03DBFE8492` / `app/services/search.py`.
+- `docs/search_execution_persistence_boundary_milestone_plan.md`: resolved locally through Milestone 1 for `IC-1D03DBFE8492`; search execution persistence and operator-trace payload assembly now live in `app/services/search_execution_persistence.py`, `app/services/search.py` is reduced to 2089 lines / 37 private helpers, and the next routed follow-on is the remaining execution-orchestration cluster in `execute_search(...)` and adjacent candidate-loading/detail assembly paths.
 - `docs/search_hydration_boundary_milestone_plan.md`: resolved locally through Milestone 1 closeout commit `14390ad` for `IC-1D03DBFE8492`; the hydration-family owner module now lives in `app/services/search_hydration.py`, `app/services/search.py` is reduced to 2496 lines / 42 private helpers, and the next routed follow-on remains search execution persistence and operator-trace payload assembly.
 - `docs/architecture_plan_01.md`: completed hotspot reduction and improvement-intake sequence.
 - `docs/hotspot_prevention_gate_milestone_plan.md`: implemented gate to block new implementation growth in known hotspot files before more split work.
@@ -149,7 +150,7 @@ chat history or scanning the whole repository.
   next architecture hotspot to `IC-1D03DBFE8492` / `app/services/search.py`.
   The closeout commit is `7cf7465`.
   The alignment pass still routes `app/hotspot_prevention_classifier.py` into
-  bounded hygiene follow-on case `IC-6C1B516A3F92` at 621 lines so the
+  bounded hygiene follow-on case `IC-6C1B516A3F92` at 658 lines so the
   prevention gate remains green without broadening the closed boundary plan.
 - The first `app/cli.py` command-group split is complete:
   improvement-case validate/list/summary/record implementations now live in
@@ -174,6 +175,15 @@ chat history or scanning the whole repository.
   under `IC-1D03DBFE8492`, and the next routed follow-on remains search
   execution persistence and operator-trace payload assembly. The closeout
   commit is `14390ad`.
+- The third `app/services/search.py` core split is complete:
+  ranked-result evidence payload assembly, search request/result persistence,
+  result-span persistence, and knowledge-operator trace persistence now live in
+  `app/services/search_execution_persistence.py` while
+  `app.services.search` remains the compatibility facade. The hotspot is
+  reduced to 2089 lines / 37 private helpers, the new owner module is governed
+  at 423 lines / 6 private helpers under `IC-1D03DBFE8492`, and the next
+  routed follow-on is the remaining execution-orchestration cluster in
+  `execute_search(...)` plus adjacent candidate-loading/detail assembly paths.
 - The Milestone 8 improvement-intake ratchet remains intact, and Hotspot Owner
   Resolution Milestone 0 is now complete locally: at the Milestone 0 closeout
   checkpoint, the registry reported `case_count=25`,

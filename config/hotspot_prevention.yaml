@@ -86,6 +86,8 @@ known_hotspots:
       - ranking_logic
       - query_feature_helper
       - hydration_logic
+      - persistence_logic
+      - operator_trace_payload_builder
       - telemetry_payload_builder
     allow:
       - import_forwarder
