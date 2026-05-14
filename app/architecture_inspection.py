@@ -7,6 +7,7 @@ from typing import Any
 
 from app.api.main import create_app
 from app.api.route_contracts import build_api_route_capability_manifest
+from app.architecture_contract_catalog import ordered_architecture_contracts
 from app.architecture_decisions import (
     ARCHITECTURE_DECISION_SCHEMA_NAME,
     build_architecture_decision_map,
@@ -44,8 +45,8 @@ from app.capability_contracts import (
     build_capability_contract_map,
 )
 from app.core.files import repo_root
-from app.services.agent_task_actions import build_agent_task_action_manifest
-from app.services.improvement_case_intake import (
+from app.services.agent_actions.contracts import build_agent_action_contract_manifest
+from app.services.improvement_case_contracts import (
     IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
     IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
     list_improvement_case_import_source_specs,
@@ -104,7 +105,7 @@ def inspect_architecture_contracts(
 def build_architecture_contract_map(project_root: Path | None = None) -> dict[str, Any]:
     root = project_root or repo_root()
     route_manifest = build_api_route_capability_manifest(create_app())
-    agent_action_manifest = build_agent_task_action_manifest()
+    agent_action_manifest = build_agent_action_contract_manifest()
     capability_contract_map = build_capability_contract_map(root)
     architecture_decision_map = build_architecture_decision_map(root)
     inspection_rules = build_architecture_rule_manifest()
@@ -112,13 +113,118 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         row["contract"]: row["decision_ids"]
         for row in architecture_decision_map["contract_decision_links"]
     }
+    contracts_by_name = {
+        ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME: {
+            "name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+            "source": "docs/architecture_contract_map.json",
+            "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "decision_ids": decision_ids_by_contract.get(
+                ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
+                [],
+            ),
+        },
+        "api_route_capabilities": {
+            "name": "api_route_capabilities",
+            "source": "app.api.route_contracts",
+            "item_count": len(route_manifest),
+            "decision_ids": decision_ids_by_contract.get("api_route_capabilities", []),
+        },
+        "agent_action_catalog": {
+            "name": "agent_action_catalog",
+            "source": "app.services.agent_actions.contracts",
+            "item_count": len(agent_action_manifest),
+            "decision_ids": decision_ids_by_contract.get("agent_action_catalog", []),
+        },
+        "capability_surface_contracts": {
+            "name": "capability_surface_contracts",
+            "source": "docs/capability_contract_map.json",
+            "schema_name": CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "item_count": capability_contract_map["function_count"],
+            "decision_ids": decision_ids_by_contract.get(
+                "capability_surface_contracts",
+                [],
+            ),
+        },
+        "improvement_case_registry": {
+            "name": "improvement_case_registry",
+            "source": "config/improvement_cases.yaml",
+            "schema_name": IMPROVEMENT_CASE_SCHEMA_NAME,
+            "schema_version": IMPROVEMENT_CASE_SCHEMA_VERSION,
+            "decision_ids": decision_ids_by_contract.get("improvement_case_registry", []),
+        },
+        "improvement_case_intake": {
+            "name": "improvement_case_intake",
+            "source": "app.services.improvement_case_contracts",
+            "schema_name": IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
+            "schema_version": IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
+            "import_sources": list(list_improvement_case_import_sources()),
+            "import_source_specs": list(list_improvement_case_import_source_specs()),
+            "decision_ids": decision_ids_by_contract.get("improvement_case_intake", []),
+        },
+        "improvement_case_lifecycle": {
+            "name": "improvement_case_lifecycle",
+            "source": "app.services.improvement_case_lifecycle",
+            "schema_name": "improvement_case_update",
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "decision_ids": decision_ids_by_contract.get("improvement_case_lifecycle", []),
+        },
+        "architecture_decisions": {
+            "name": "architecture_decisions",
+            "source": "docs/architecture_decisions.yaml",
+            "map_source": "docs/architecture_decision_map.json",
+            "schema_name": ARCHITECTURE_DECISION_SCHEMA_NAME,
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "item_count": architecture_decision_map["decision_count"],
+            "decision_ids": decision_ids_by_contract.get("architecture_decisions", []),
+        },
+        "architecture_measurement_history": {
+            "name": "architecture_measurement_history",
+            "source": "app.architecture_measurements",
+            "schema_name": ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "history_path": DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH.as_posix(),
+            "record_schema_name": ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
+            "measurement_schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
+            "summary_schema_name": ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
+            "report_schema_name": ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
+            "measurement_fields": list(ARCHITECTURE_MEASUREMENT_FIELDS),
+            "summary_fields": list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS),
+            "delta_fields": list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS),
+            "report_fields": list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS),
+            "ci_report_path": DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH.as_posix(),
+            "ci_history_path": (
+                "build/architecture-governance/architecture_measurement_history.jsonl"
+            ),
+            "ci_workflow": ".github/workflows/architecture-governance.yml",
+            "decision_ids": decision_ids_by_contract.get(
+                "architecture_measurement_history",
+                [],
+            ),
+        },
+        "architecture_quality_report": {
+            "name": "architecture_quality_report",
+            "source": "app.architecture_quality",
+            "schema_name": "architecture_quality_report",
+            "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
+            "summary_schema_name": "architecture_quality_summary",
+            "report_path": (
+                "build/architecture-governance/architecture_quality_report.json"
+            ),
+            "decision_ids": decision_ids_by_contract.get(
+                "architecture_quality_report",
+                [],
+            ),
+        },
+    }
+    contracts = ordered_architecture_contracts(contracts_by_name)
     return {
         "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
         "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
         "system_style": "modular_monolith",
         "source_documents": [
-            "SYSTEM_PLAN.md",
-            "README.md",
+            "SYSTEM_PLAN.md", "README.md",
             "docs/architecture_boundaries.md",
             "docs/architecture_decisions.yaml",
             "docs/improvement_loop.md",
@@ -127,119 +233,13 @@ def build_architecture_contract_map(project_root: Path | None = None) -> dict[st
         ],
         "boundary_modules": {
             "api_bootstrap": "app/api/main.py",
-            "boundary_dirs": list(BOUNDARY_DIRS),
-            "service_dir": "app/services",
-        },
+            "boundary_dirs": list(BOUNDARY_DIRS), "service_dir": "app/services"},
         "capability_facades": [
-            {
-                "name": facade["name"],
-                "module": facade["module"],
-                "function_count": facade["function_count"],
-            }
+            {"name": facade["name"], "module": facade["module"],
+             "function_count": facade["function_count"]}
             for facade in capability_contract_map["facades"]
         ],
-        "contracts": [
-            {
-                "name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
-                "source": "docs/architecture_contract_map.json",
-                "schema_name": ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "decision_ids": decision_ids_by_contract.get(
-                    ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME,
-                    [],
-                ),
-            },
-            {
-                "name": "api_route_capabilities",
-                "source": "app.api.route_contracts",
-                "item_count": len(route_manifest),
-                "decision_ids": decision_ids_by_contract.get("api_route_capabilities", []),
-            },
-            {
-                "name": "agent_action_catalog",
-                "source": "app.services.agent_actions",
-                "item_count": len(agent_action_manifest),
-                "decision_ids": decision_ids_by_contract.get("agent_action_catalog", []),
-            },
-            {
-                "name": "capability_surface_contracts",
-                "source": "docs/capability_contract_map.json",
-                "schema_name": CAPABILITY_CONTRACT_MAP_SCHEMA_NAME,
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "item_count": capability_contract_map["function_count"],
-                "decision_ids": decision_ids_by_contract.get("capability_surface_contracts", []),
-            },
-            {
-                "name": "improvement_case_registry",
-                "source": "config/improvement_cases.yaml",
-                "schema_name": IMPROVEMENT_CASE_SCHEMA_NAME,
-                "schema_version": IMPROVEMENT_CASE_SCHEMA_VERSION,
-                "decision_ids": decision_ids_by_contract.get("improvement_case_registry", []),
-            },
-            {
-                "name": "improvement_case_intake",
-                "source": "app.services.improvement_case_intake",
-                "schema_name": IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
-                "schema_version": IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
-                "import_sources": list(list_improvement_case_import_sources()),
-                "import_source_specs": list(list_improvement_case_import_source_specs()),
-                "decision_ids": decision_ids_by_contract.get("improvement_case_intake", []),
-            },
-            {
-                "name": "improvement_case_lifecycle",
-                "source": "app.services.improvement_case_lifecycle",
-                "schema_name": "improvement_case_update",
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "decision_ids": decision_ids_by_contract.get("improvement_case_lifecycle", []),
-            },
-            {
-                "name": "architecture_decisions",
-                "source": "docs/architecture_decisions.yaml",
-                "map_source": "docs/architecture_decision_map.json",
-                "schema_name": ARCHITECTURE_DECISION_SCHEMA_NAME,
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "item_count": architecture_decision_map["decision_count"],
-                "decision_ids": decision_ids_by_contract.get("architecture_decisions", []),
-            },
-            {
-                "name": "architecture_measurement_history",
-                "source": "app.architecture_measurements",
-                "schema_name": ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME,
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "history_path": DEFAULT_ARCHITECTURE_MEASUREMENT_HISTORY_PATH.as_posix(),
-                "record_schema_name": ARCHITECTURE_MEASUREMENT_RECORD_SCHEMA_NAME,
-                "measurement_schema_name": ARCHITECTURE_MEASUREMENT_SCHEMA_NAME,
-                "summary_schema_name": ARCHITECTURE_MEASUREMENT_SUMMARY_SCHEMA_NAME,
-                "report_schema_name": ARCHITECTURE_GOVERNANCE_REPORT_SCHEMA_NAME,
-                "measurement_fields": list(ARCHITECTURE_MEASUREMENT_FIELDS),
-                "summary_fields": list(ARCHITECTURE_MEASUREMENT_SUMMARY_FIELDS),
-                "delta_fields": list(ARCHITECTURE_MEASUREMENT_DELTA_FIELDS),
-                "report_fields": list(ARCHITECTURE_GOVERNANCE_REPORT_FIELDS),
-                "ci_report_path": DEFAULT_ARCHITECTURE_GOVERNANCE_REPORT_PATH.as_posix(),
-                "ci_history_path": (
-                    "build/architecture-governance/architecture_measurement_history.jsonl"
-                ),
-                "ci_workflow": ".github/workflows/architecture-governance.yml",
-                "decision_ids": decision_ids_by_contract.get(
-                    "architecture_measurement_history",
-                    [],
-                ),
-            },
-            {
-                "name": "architecture_quality_report",
-                "source": "app.architecture_quality",
-                "schema_name": "architecture_quality_report",
-                "schema_version": ARCHITECTURE_CONTRACT_SCHEMA_VERSION,
-                "summary_schema_name": "architecture_quality_summary",
-                "report_path": (
-                    "build/architecture-governance/architecture_quality_report.json"
-                ),
-                "decision_ids": decision_ids_by_contract.get(
-                    "architecture_quality_report",
-                    [],
-                ),
-            },
-        ],
+        "contracts": contracts,
         "inspection_sources": [
             "API route capability contracts",
             "agent action contracts",

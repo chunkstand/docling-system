@@ -21,6 +21,23 @@ from app.hygiene import (
     run_improvement_case_contract_checks,
     run_python_hygiene_checks,
 )
+from app.services.improvement_case_contracts import (
+    AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME,
+    ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME,
+    DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH,
+    DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH,
+    IMPROVEMENT_CASE_IMPORT_ALL_SOURCE,
+    IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME,
+    IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION,
+    IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE,
+    ImprovementCaseImportSourceContract,
+)
+from app.services.improvement_case_contracts import (
+    list_improvement_case_import_source_specs as _list_improvement_case_import_source_specs,
+)
+from app.services.improvement_case_contracts import (
+    list_improvement_case_import_sources as _list_improvement_case_import_sources,
+)
 from app.services.improvement_cases import (
     ImprovementCaseObservation,
     collect_eval_failure_case_observations,
@@ -28,18 +45,6 @@ from app.services.improvement_cases import (
     collect_failed_agent_verification_observations,
     collect_hygiene_finding_observations,
     import_improvement_case_observations,
-)
-
-IMPROVEMENT_CASE_IMPORT_SCHEMA_NAME = "improvement_case_import"
-IMPROVEMENT_CASE_IMPORT_SCHEMA_VERSION = "1.0"
-IMPROVEMENT_CASE_IMPORT_ALL_SOURCE = "all"
-ARCHITECTURE_QUALITY_REPORT_SCHEMA_NAME = "architecture_quality_report"
-AGENT_TRACE_REVIEW_REPORT_SCHEMA_NAME = "agent_trace_review_report"
-DEFAULT_ARCHITECTURE_QUALITY_REPORT_PATH = (
-    Path("build") / "architecture-governance" / "architecture_quality_report.json"
-)
-DEFAULT_AGENT_TRACE_REVIEW_REPORT_PATH = (
-    Path("build") / "architecture-governance" / "agent_trace_review_report.json"
 )
 
 
@@ -72,12 +77,8 @@ class ImprovementCaseImportSourceSpec:
         }
 
 
-def list_improvement_case_import_sources() -> tuple[str, ...]:
-    return tuple(sorted({IMPROVEMENT_CASE_IMPORT_ALL_SOURCE, *_IMPORT_SOURCE_REGISTRY}))
-
-
-def list_improvement_case_import_source_specs() -> tuple[dict[str, object], ...]:
-    return tuple(spec.to_contract() for spec in _IMPORT_SOURCE_REGISTRY.values())
+list_improvement_case_import_sources = _list_improvement_case_import_sources
+list_improvement_case_import_source_specs = _list_improvement_case_import_source_specs
 
 
 def _validate_import_source(source: str) -> None:
@@ -607,55 +608,52 @@ def _collect_failed_agent_verification_source(
     )
 
 
+def _runtime_import_source_spec(
+    contract: ImprovementCaseImportSourceContract,
+    collector: Callable[
+        [ImprovementCaseImportSourceContext],
+        list[ImprovementCaseObservation],
+    ],
+) -> ImprovementCaseImportSourceSpec:
+    return ImprovementCaseImportSourceSpec(
+        source=contract.source,
+        source_kind=contract.source_kind,
+        requires_db_session=contract.requires_db_session,
+        accepts_source_path=contract.accepts_source_path,
+        collector=collector,
+    )
+
+
 _IMPORT_SOURCE_SPECS = (
-    ImprovementCaseImportSourceSpec(
-        source="hygiene",
-        source_kind="workspace",
-        requires_db_session=False,
-        accepts_source_path=False,
-        collector=_collect_hygiene_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["hygiene"],
+        _collect_hygiene_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="architecture-governance-report",
-        source_kind="file",
-        requires_db_session=False,
-        accepts_source_path=True,
-        collector=_collect_architecture_governance_report_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE[
+            "architecture-governance-report"
+        ],
+        _collect_architecture_governance_report_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="architecture-quality-report",
-        source_kind="file",
-        requires_db_session=False,
-        accepts_source_path=True,
-        collector=_collect_architecture_quality_report_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["architecture-quality-report"],
+        _collect_architecture_quality_report_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="agent-trace-review-report",
-        source_kind="file",
-        requires_db_session=False,
-        accepts_source_path=True,
-        collector=_collect_agent_trace_review_report_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["agent-trace-review-report"],
+        _collect_agent_trace_review_report_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="eval-failure-cases",
-        source_kind="database",
-        requires_db_session=True,
-        accepts_source_path=False,
-        collector=_collect_eval_failure_case_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["eval-failure-cases"],
+        _collect_eval_failure_case_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="failed-agent-tasks",
-        source_kind="database",
-        requires_db_session=True,
-        accepts_source_path=False,
-        collector=_collect_failed_agent_task_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["failed-agent-tasks"],
+        _collect_failed_agent_task_source,
     ),
-    ImprovementCaseImportSourceSpec(
-        source="failed-agent-verifications",
-        source_kind="database",
-        requires_db_session=True,
-        accepts_source_path=False,
-        collector=_collect_failed_agent_verification_source,
+    _runtime_import_source_spec(
+        IMPROVEMENT_CASE_IMPORT_SOURCE_CONTRACTS_BY_SOURCE["failed-agent-verifications"],
+        _collect_failed_agent_verification_source,
     ),
 )
 _IMPORT_SOURCE_REGISTRY = {spec.source: spec for spec in _IMPORT_SOURCE_SPECS}

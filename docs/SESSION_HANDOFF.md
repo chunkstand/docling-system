@@ -45,7 +45,7 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-08C078FD4F45` / architecture-governance cycle Milestone 1 gate-first import contract
+`IC-08C078FD4F45` / architecture-governance cycle Milestone 4 closeout
 Latest planned bounded implementation brief:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -72,8 +72,23 @@ architecture-control cycle component is frozen as
 measures `hotspot_count=10` and `max_hotspot_risk_score=501.06`,
 `docling-system-hotspot-prevention-check --strict` stays at
 `changed_hotspots=0`, `blocked=0`, and `docling-system-hygiene-check`
-continues to report `new hygiene regressions: none`. Milestone 1 gate-first
-architecture import contract is now the next active slice.
+continues to report `new hygiene regressions: none`. Milestone 1
+gate-first architecture import contract is now resolved locally in the
+current worktree: `app/architecture_decisions.py` now uses
+`app/architecture_contract_catalog.py` instead of importing
+`app.architecture_inspection`, `app/architecture_inspection.py` now reads
+improvement-case and agent-action metadata through
+`app/services/improvement_case_contracts.py` and
+`app/services/agent_actions/contracts.py`, and the focused AST gate now lives
+in `tests/unit/test_architecture_governance_imports.py`. The post-change
+architecture probe now reports `4` Python cycle components instead of the
+Milestone 0 baseline of `5`, and the removed component is the targeted
+architecture-governance cycle containing
+`app.architecture_decisions`, `app.architecture_inspection`,
+`app.architecture_inspection_rules`, `app.hygiene`, and
+`app.services.improvement_case_intake`. Milestone 4 closeout is now the next
+active slice because the Milestone 1 implementation already subsumed the
+planned shared-contract extraction and direct-runtime-import removal work.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,

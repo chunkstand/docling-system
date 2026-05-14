@@ -8,6 +8,7 @@ from typing import Any
 
 import yaml
 
+from app.architecture_contract_catalog import list_architecture_contract_names
 from app.core.files import repo_root
 
 ARCHITECTURE_DECISION_SCHEMA_NAME = "architecture_decisions"
@@ -380,12 +381,7 @@ def validate_architecture_decisions(
 
 
 def _default_expected_contracts() -> tuple[str, ...]:
-    from app.architecture_inspection import build_architecture_contract_map
-
-    return tuple(
-        str(contract["name"])
-        for contract in build_architecture_contract_map()["contracts"]
-    )
+    return list_architecture_contract_names()
 
 
 def run(argv: list[str] | None = None) -> int:

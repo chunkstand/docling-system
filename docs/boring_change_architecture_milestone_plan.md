@@ -498,12 +498,15 @@ locally understandable and safer to refactor.
 
 Implementation:
 
-- Break the architecture-control cycle involving:
+- Consume the dedicated closeout from
+  `docs/architecture_governance_cycle_boundary_milestone_plan.md` for the
+  former architecture-control cycle involving
   `app.architecture_decisions`,
   `app.architecture_inspection`,
   `app.architecture_inspection_rules`,
-  `app.hygiene`,
-  `app.services.improvement_case_intake`.
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`; do not reopen that slice here after
+  the dedicated packet lands.
 - Break the search-family cycle involving:
   `app.services.chat`,
   `app.services.search`,

@@ -85,6 +85,11 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         for contract in contract_map["contracts"]
         if contract["name"] == "improvement_case_intake"
     )
+    agent_action_contract = next(
+        contract
+        for contract in contract_map["contracts"]
+        if contract["name"] == "agent_action_catalog"
+    )
 
     assert contract_map["schema_name"] == ARCHITECTURE_CONTRACT_MAP_SCHEMA_NAME
     assert contract_map["system_style"] == "modular_monolith"
@@ -124,6 +129,8 @@ def test_architecture_contract_map_exposes_machine_readable_boundaries() -> None
         ("failed-agent-tasks", "database", True),
         ("failed-agent-verifications", "database", True),
     }
+    assert intake_contract["source"] == "app.services.improvement_case_contracts"
+    assert agent_action_contract["source"] == "app.services.agent_actions.contracts"
     assert measurement_contract["schema_name"] == ARCHITECTURE_MEASUREMENT_HISTORY_SCHEMA_NAME
     assert measurement_contract["history_path"] == "storage/architecture_inspections/history.jsonl"
     assert measurement_contract["measurement_fields"] == list(ARCHITECTURE_MEASUREMENT_FIELDS)

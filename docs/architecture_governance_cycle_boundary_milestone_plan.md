@@ -13,8 +13,11 @@ Status: active stacked follow-on after
 packets are now closed locally, the hygiene owner-case routing packet is
 closed locally through closeout commit `9876f67`, it has bound explicit owner
 cases for the residual governance files, Milestone 0 live refresh is resolved
-locally through baseline commit `46b90a7`, and Milestone 1 gate-first
-architecture import contract is now the next active slice
+locally through baseline commit `46b90a7`, Milestone 1 gate-first
+architecture import contract is resolved locally in the current worktree, the
+minimal contract-only seam already removed the targeted
+architecture-governance cycle component, and Milestone 4 closeout is now the
+next active slice
 Owner context: active follow-on for the architecture-governance owner family
 now that the hygiene owner-case routing packet has closed locally and bound
 explicit owner cases for the residual governance files. This packet consumes the
@@ -29,7 +32,19 @@ Milestone 0 is resolved locally through baseline commit `46b90a7`.
 case across both `config/improvement_cases.yaml` and
 `config/hygiene_policy.yaml`, the exact post-stack architecture-control cycle
 baseline is frozen from the current probe output, and Milestone 1 gate-first
-architecture import contract is now the next active slice.
+architecture import contract is resolved locally in the current worktree.
+The gate landed through a shared architecture contract catalog in `app/`, one
+improvement-case contract metadata module under the existing improvement-case
+owner family, one agent-action contract metadata module under the existing
+agent-action owner family, a focused AST import-boundary test, and refreshed
+contract-map artifacts. The post-change architecture probe now reports only
+four Python cycle components instead of the Milestone 0 baseline of five, and
+the removed component is the targeted architecture-governance cycle containing
+`app.architecture_decisions`, `app.architecture_inspection`,
+`app.architecture_inspection_rules`, `app.hygiene`, and
+`app.services.improvement_case_intake`. Milestone 4 closeout is now the next
+active slice because the Milestone 1 implementation already subsumed the
+planned shared-contract extraction and direct-runtime-import removal work.
 
 ## Purpose
 
@@ -432,9 +447,63 @@ Acceptance signal:
 - The gate is precise enough to block the old coupling pattern without
   broadening unrelated architecture rules.
 
+Local result:
+
+- added `tests/unit/test_architecture_governance_imports.py` so AST-based
+  contract coverage now fails if `app/architecture_decisions.py` imports
+  `app.architecture_inspection` or if `app/architecture_inspection.py`
+  imports `app.services.improvement_case_intake` or
+  `app.services.agent_task_actions` directly, including local-import masking
+- added `app/architecture_contract_catalog.py` so default expected contract
+  discovery is shared and `app/architecture_decisions.py` no longer imports
+  `app.architecture_inspection`
+- added `app/services/improvement_case_contracts.py` so improvement-case
+  import-source schema names, source descriptors, and source-path capabilities
+  are available to architecture tooling without importing the runtime intake
+  service owner directly
+- added `app/services/agent_actions/contracts.py` so the architecture contract
+  map can build `agent_action_catalog` metadata without importing
+  `app.services.agent_task_actions` directly
+- updated `app/architecture_inspection.py` to consume the new contract-only
+  seams and refreshed `docs/architecture_contract_map.json` so the emitted
+  machine-readable map now records
+  `app.services.improvement_case_contracts` and
+  `app.services.agent_actions.contracts` as the metadata sources
+- added a parity assertion in `tests/unit/test_agent_action_contracts.py` so
+  the contract-only manifest stays aligned with the runtime
+  `build_agent_task_action_manifest()` output
+- removed the targeted architecture-governance cycle component earlier than
+  the original staging assumed: the post-change architecture probe now reports
+  four Python cycle components and no longer lists the
+  `app.architecture_decisions` / `app.architecture_inspection` /
+  `app.architecture_inspection_rules` / `app.hygiene` /
+  `app.services.improvement_case_intake` component
+
+Local verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/architecture_contract_catalog.py app/architecture_inspection.py app/architecture_inspection_rules.py app/architecture_decisions.py app/architecture_measurements.py app/hygiene.py app/services/improvement_case_contracts.py app/services/improvement_case_intake.py app/services/agent_actions/contracts.py app/services/agent_task_actions.py app/services/architecture_governance.py app/services/capabilities/system_governance.py tests/unit/test_architecture_governance_imports.py tests/unit/test_architecture_inspection.py tests/unit/test_architecture_decisions.py tests/unit/test_improvement_case_intake.py tests/unit/test_architecture_quality.py tests/unit/test_agent_action_contracts.py tests/unit/test_api_architecture.py`: pass
+- `uv run pytest -q tests/unit/test_architecture_governance_imports.py tests/unit/test_architecture_inspection.py tests/unit/test_architecture_decisions.py tests/unit/test_improvement_case_intake.py tests/unit/test_architecture_quality.py tests/unit/test_agent_action_contracts.py tests/unit/test_api_architecture.py`: `80 passed`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`, `status_counts.measured=1`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`; `app/architecture_inspection.py` now sits exactly at its `412`-line ratchet ceiling and `app/services/improvement_case_intake.py` at `818` lines under its `820`-line ratchet ceiling
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=21`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`: Python cycle components=`4` and the targeted architecture-governance cycle component is gone
+- `uv run docling-system-architecture-inspect --write-map`: refreshed `docs/architecture_contract_map.json`
+- `uv run docling-system-architecture-decisions --write-map`: refreshed `docs/architecture_decision_map.json`
+
 ### Milestone 2 - Extract shared contract metadata and remove recursive discovery
 
 Outcome label: reduced
+
+Current local state: subsumed by the Milestone 1 implementation in the
+current worktree. The shared architecture contract catalog, improvement-case
+contract metadata module, and agent-action contract metadata module already
+removed recursive contract discovery for this scoped packet, so no separate
+Milestone 2 code slice remains before closeout.
 
 Purpose: break the inspection-to-decisions recursion through a shared contract
 catalog rather than through local-import tricks.
@@ -468,6 +537,13 @@ Acceptance signal:
 ### Milestone 3 - Break the architecture-governance cycle and remove runtime reachthrough
 
 Outcome label: resolved
+
+Current local state: subsumed by the Milestone 1 implementation in the
+current worktree. The post-change architecture probe no longer lists the
+targeted architecture-governance cycle component, and
+`app/architecture_inspection.py` no longer imports
+`app.services.improvement_case_intake` or
+`app.services.agent_task_actions` directly.
 
 Purpose: close the scoped debt by making the architecture-control cycle
 disappear from the probe and by leaving the inspection tooling independent from

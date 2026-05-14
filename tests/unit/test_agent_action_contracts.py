@@ -4,6 +4,9 @@ from dataclasses import replace
 
 import pytest
 
+from app.services.agent_actions.contracts import (
+    build_agent_action_contract_manifest,
+)
 from app.services.agent_actions.manifest import validate_agent_action_contracts
 from app.services.agent_actions.registry import compose_action_registries
 from app.services.agent_actions.search_harness import SEARCH_HARNESS_AGENT_ACTION_TASK_TYPES
@@ -119,6 +122,10 @@ def test_agent_task_action_manifest_uses_known_contract_vocabularies() -> None:
         assert agent_contract["when_not_to_use"]
         assert agent_contract["verification_command"]
         assert agent_contract["escalation_condition"]
+
+
+def test_contract_only_agent_action_manifest_matches_runtime_manifest() -> None:
+    assert build_agent_action_contract_manifest() == build_agent_task_action_manifest()
 
 
 def test_agent_task_action_index_groups_actions_by_capability() -> None:
