@@ -1,20 +1,67 @@
 # CLI Command Dispatch Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 1 resolved locally through closeout commit `c674871` on
-2026-05-13 local / 2026-05-14 UTC after the Milestone 0 rebaseline closeout
-`381ca15`; Milestone 2 is now the next active CLI implementation slice
+Status: Milestone 2 resolved locally in the current worktree after the
+Milestone 1 closeout `c674871` and the Milestone 0 rebaseline closeout
+`381ca15`; local closeout commit pending this milestone commit, and Milestone 3
+is now the next active CLI implementation slice
 Owner context: active bounded follow-on under `IC-9812A0B138D9` /
 `app/cli.py`. Milestone 0 refreshed the live post-stack state, Milestone 1
-tightened the facade-prevention ratchet, and Milestone 2 is now the next
-active implementation step.
+tightened the facade-prevention ratchet, Milestone 2 extracted the runtime and
+maintenance command owner, and Milestone 3 is now the next active
+implementation step.
 
 ## Local Progress
 
-Milestone 1 is resolved locally as closeout commit `c674871`. Milestone 0
-remains closed as commit `381ca15`, the CLI facade now has the tightened
-prevention rule required before code extraction begins, and Milestone 2 is now
-the next active CLI implementation slice.
+Milestone 2 is resolved locally in the current worktree. Milestone 1 remains
+closed as commit `c674871`, Milestone 0 remains closed as commit `381ca15`,
+the runtime and maintenance command owner now lives in
+`app/cli_commands/runtime.py`, and Milestone 3 is now the next active CLI
+implementation slice.
+
+Local Milestone 2 snapshot:
+
+- added `app/cli_commands/runtime.py` as the focused runtime and maintenance
+  owner at `463` lines, covering `run_eval_run(...)`,
+  `run_eval_corpus(...)`, `run_audit(...)`,
+  `run_backfill_legacy_audit(...)`, `run_knowledge_base_reset(...)`,
+  `run_semantic_backfill_status(...)`, `run_semantic_backfill(...)`,
+  `run_replay_search(...)`, `run_eval_candidates(...)`,
+  `run_evaluation_data_readiness(...)`, `run_replay_suite(...)`, and
+  `run_export_ranking_dataset(...)`
+- reduced `app/cli.py` from `1231` lines to `926` lines by replacing the
+  extracted runtime command bodies with narrow zero-argument forwarding
+  wrappers and preserving the stable `app.cli:run_*` entrypoint names
+- moved direct runtime owner coverage into `tests/unit/test_cli_runtime.py`
+  at `444` lines, left `tests/unit/test_cli.py` at `106` lines as the legacy
+  compatibility surface, and added `tests/unit/test_cli_entrypoints.py` at
+  `33` lines for the focused app-cli forwarding contract
+- kept `app/cli_commands/common.py` at `6` lines, so the split did not create
+  a generic CLI framework sink
+- reduced the routed CLI hotspot enough that the architecture probe no longer
+  lists `app/cli.py` as the top hotspot; it now measures `55` revisions /
+  `926` lines / `score 50930` while the broader owner case remains open
+  because `app/cli.py` still appears in the architecture-quality top-hotspot
+  routing and still exceeds the default `600`-line budget
+- Milestone 3 is now the next routed CLI slice for retrieval-learning and
+  search-harness command-owner extraction
+- local closeout commit:
+  pending this milestone commit
+
+Local Milestone 2 verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `66 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=2`, `blocked=0`, `allowed=2`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot is now `tests/unit/test_agent_tasks_api.py`; `app/cli.py` measures `55` revisions / `926` lines / `score 50930`; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1932 passed`
 
 Local Milestone 1 snapshot:
 
@@ -438,7 +485,7 @@ Acceptance:
 
 ### Milestone 2 - Runtime Command Owner Extraction
 
-Status: drafted
+Status: resolved locally in the current worktree
 Outcome label: `reduced`
 
 Implementation:

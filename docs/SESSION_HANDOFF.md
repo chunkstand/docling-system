@@ -22,6 +22,8 @@ CLI Command Dispatch Milestone 0 checkpoint:
 `381ca15`
 CLI Command Dispatch Milestone 1 checkpoint:
 `c674871`
+CLI Command Dispatch Milestone 2 checkpoint:
+current worktree closeout pending local commit
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -130,13 +132,14 @@ architecture probe no longer lists the semantics facade among the top 12 churn
 hotspots.
 
 `docs/cli_command_dispatch_boundary_milestone_plan.md` is now through
-Milestone 1 closeout commit `c674871`. The prior stacked prerequisites remain
-closed as `3d7d090`, `1159297`, `1aa8378`, and `a2eb27e`, the tightened CLI
-rule now blocks direct session or storage wiring plus parser-body or
-JSON-render scaffolding in `app/cli.py`, the facade remains the top
-architecture-probe hotspot at `55` revisions / `1231` lines / `score 67705`,
-and Milestone 2 is now the next active CLI command-owner extraction slice
-under `IC-9812A0B138D9`.
+Milestone 2 local closeout in the current worktree. The prior stacked
+prerequisites remain closed as `3d7d090`, `1159297`, `1aa8378`, and
+`a2eb27e`, the tightened CLI rule still blocks direct session or storage
+wiring plus parser-body or JSON-render scaffolding in `app/cli.py`, runtime
+and maintenance command ownership now lives in `app/cli_commands/runtime.py`
+at `463` lines, `app/cli.py` is reduced to `926` lines, and Milestone 3 is
+now the next active CLI retrieval-learning and search-harness command-owner
+extraction slice under `IC-9812A0B138D9`.
 
 Queued stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
@@ -186,7 +189,7 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the CLI Milestone 1 verification window is:
+The live alignment snapshot after the CLI Milestone 2 verification window is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=29`,
   `status_counts.open=21`, `status_counts.deployed=7`,
@@ -201,14 +204,15 @@ The live alignment snapshot after the CLI Milestone 1 verification window is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=11`, `changed_hotspots=0`, `blocked=0`, `allowed=0`,
+  `known_hotspots=11`, `changed_hotspots=2`, `blocked=0`, `allowed=2`,
   `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `31 passed`
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `66 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1928 passed`
-- architecture probe top hotspot remains `app/cli.py` at `55 revisions`,
-  `1231` lines / `score 67705`; the Python cycle component count remains `5`
+  `1932 passed`
+- architecture probe top hotspot is now `tests/unit/test_agent_tasks_api.py`;
+  `app/cli.py` measures `55` revisions / `926` lines / `score 50930`; the
+  Python cycle component count remains `5`
 
 At the time of this evaluations Milestone 4 closeout, the reduced or routed
 follow-on cases were `IC-1D03DBFE8492` / `app/services/search.py`,
@@ -345,6 +349,50 @@ Verification:
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: `app/cli.py` remains the top hotspot at `55` revisions / `1231` lines / `score 67705`; Python cycle components=`5`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1928 passed`
+
+## CLI Command Dispatch Boundary Milestone 2 Local Closeout
+
+Milestone 2 is resolved locally in the current worktree. The runtime and
+maintenance command owner now lives in `app/cli_commands/runtime.py`, the CLI
+facade is reduced, and Milestone 3 is the next active CLI implementation
+slice.
+
+Results:
+
+- added `app/cli_commands/runtime.py` at `463` lines for the runtime and
+  maintenance command family, including evaluation, audit, knowledge-base
+  reset, semantic backfill, replay, evaluation-candidate, readiness, and
+  ranking-dataset entrypoints
+- reduced `app/cli.py` from `1231` lines to `926` by replacing the extracted
+  runtime bodies with narrow zero-argument forwarding wrappers that preserve
+  the stable `app.cli:run_*` entrypoint names
+- moved direct runtime owner coverage into `tests/unit/test_cli_runtime.py`
+  and added a focused `tests/unit/test_cli_entrypoints.py` forwarding-contract
+  test while keeping `tests/unit/test_cli.py` as the legacy compatibility
+  surface
+- kept `app/cli_commands/common.py` at `6` lines, so the split did not create
+  a generic CLI helper sink
+- left `IC-9812A0B138D9` open on `app/cli.py`; the broader owner case is now
+  reduced rather than resolved because `app/cli.py` still appears in the
+  architecture-quality hotspot routing and still exceeds the default
+  `600`-line budget even though it is no longer the top probe hotspot
+- local closeout commit:
+  pending this milestone commit
+
+Verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/cli.py app/cli_commands/common.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/runtime.py tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_cli.py tests/unit/test_cli_entrypoints.py tests/unit/test_cli_runtime.py tests/unit/test_cli_improvement_cases.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py tests/unit/test_hotspot_prevention.py`: `66 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=2`, `blocked=0`, `allowed=2`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`, `facade_count=6`, `function_count=110`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=20`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot is `tests/unit/test_agent_tasks_api.py`; `app/cli.py` measures `55` revisions / `926` lines / `score 50930`; Python cycle components=`5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1932 passed`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 

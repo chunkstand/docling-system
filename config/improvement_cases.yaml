@@ -279,9 +279,9 @@ cases:
   title: 'Architecture hotspot: app/cli.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/cli.py remains the top routed CLI hotspot after the
-    Milestone 1 closeout, with architecture_probe_score=67705,
-    probe_line_count=1231, changes_90d=55, hygiene_finding_count=0.
+  observed_failure: app/cli.py remains a routed CLI hotspot after the
+    Milestone 2 runtime-command extraction, with architecture_probe_score=50930,
+    probe_line_count=926, changes_90d=55, hygiene_finding_count=0.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/cli.py
@@ -328,20 +328,23 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "c674871"
-    notes: CLI Milestone 1 closeout commit c674871 tightened the facade
-      prevention ratchet to block direct session or storage wiring plus
-      parser-body or JSON-render scaffolding in app/cli.py without yet
-      reducing the routed hotspot score or line count.
+    deployed_ref: null
+    notes: Runtime and maintenance command ownership now lives in
+      app/cli_commands/runtime.py at 463 lines, app/cli.py is reduced to 926
+      lines with narrow zero-argument forwarding wrappers, and the focused CLI
+      runtime and forwarding suites are green. Local closeout commit is
+      pending this milestone commit.
   measurement:
     metric_name: architecture_probe_hotspot_score
-    current_value: 67705.0
-    measurement_window: 2026-05-13 CLI Milestone 1 alignment refresh
-    notes: app/cli.py remains the top architecture-probe hotspot at 55
-      revisions / 1231 lines after the Milestone 1 ratchet and alignment
-      refresh.
+    current_value: 50930.0
+    measurement_window: 2026-05-13 CLI Milestone 2 closeout refresh
+    notes: app/cli.py now measures 55 revisions / 926 lines and is no longer
+      the top architecture-probe hotspot after the runtime-command extraction,
+      but it remains routed because the architecture-quality summary still
+      lists the facade among the top hotspot paths and the file remains above
+      the default 600-line budget.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-14T03:34:46Z'
+  updated_at: '2026-05-14T04:06:00Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed

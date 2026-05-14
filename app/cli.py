@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 from uuid import UUID
 
 from app.cli_commands import improvement_cases as improvement_case_commands
 from app.cli_commands import ingest as ingest_commands
+from app.cli_commands import runtime as runtime_commands
 from app.cli_commands.common import lazy_service_attr as _lazy_service_attr
-from app.db.models import Document, DocumentRun
 from app.db.session import get_session_factory
 from app.schemas.agent_tasks import VerifySearchHarnessEvaluationTaskInput
 from app.schemas.search import (
@@ -19,7 +18,6 @@ from app.schemas.search import (
     SearchHarnessEvaluationRequest,
     SearchHarnessOptimizationRequest,
     SearchHarnessReleaseAuditBundleRequest,
-    SearchReplayRunRequest,
 )
 from app.services.storage import StorageService
 
@@ -262,354 +260,51 @@ def run_ingest_batch_show() -> None:
 
 
 def run_eval_run() -> None:
-    parser = argparse.ArgumentParser(
-        description="Evaluate one persisted run against the evaluation corpus."
-    )
-    parser.add_argument("run_id", help="Document run UUID to evaluate.")
-    parser.add_argument(
-        "--baseline-run-id", help="Optional baseline run UUID for rank-delta comparison."
-    )
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        run = session.get(DocumentRun, UUID(args.run_id))
-        if run is None:
-            raise SystemExit(f"Run not found: {args.run_id}")
-        document = session.get(Document, run.document_id)
-        if document is None:
-            raise SystemExit(f"Document not found for run: {args.run_id}")
-        baseline_run_id = resolve_baseline_run_id(
-            run.id,
-            document.active_run_id,
-            explicit_baseline_run_id=UUID(args.baseline_run_id) if args.baseline_run_id else None,
-        )
-        evaluation = evaluate_run(session, document, run, baseline_run_id=baseline_run_id)
-        print(
-            json.dumps(
-                {
-                    "run_id": str(run.id),
-                    "document_id": str(document.id),
-                    "source_filename": document.source_filename,
-                    "status": evaluation.status,
-                    "fixture_name": evaluation.fixture_name,
-                    "summary": evaluation.summary_json,
-                    "error_message": evaluation.error_message,
-                }
-            )
-        )
+    return runtime_commands.run_eval_run()
 
 
 def run_eval_corpus() -> None:
-    parser = argparse.ArgumentParser(
-        description="Evaluate all active documents that match the evaluation corpus."
-    )
-    parser.parse_args()
-    summaries = _lazy_service_attr(
-        "app.services.evaluation_corpus_runner",
-        "run_eval_corpus_summary",
-    )()
-    print(json.dumps(summaries))
+    return runtime_commands.run_eval_corpus()
 
 
 def run_audit() -> None:
-    parser = argparse.ArgumentParser(
-        description="Audit durable run and promotion invariants across the local corpus."
-    )
-    parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        summary = run_integrity_audit(session)
-    print(json.dumps(summary))
+    return runtime_commands.run_audit()
 
 
 def run_backfill_legacy_audit() -> None:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Backfill legacy run audit fields so historical rows satisfy current invariants."
-        )
-    )
-    parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        summary = backfill_legacy_run_audit_fields(session)
-    print(json.dumps(summary))
+    return runtime_commands.run_backfill_legacy_audit()
 
 
 def run_knowledge_base_reset() -> None:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Safely reset the local knowledge base by archiving the current DB/storage "
-            "and cutting over to an empty migrated workspace."
-        )
-    )
-    parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Perform the reset. Without this flag the command only prints a dry-run manifest.",
-    )
-    parser.add_argument(
-        "--confirm",
-        default=None,
-        help="Required confirmation phrase for execution: CLEAR_KNOWLEDGE_BASE.",
-    )
-    parser.add_argument(
-        "--archive-root",
-        type=Path,
-        default=None,
-        help="Optional archive directory. Defaults under the storage parent reset-archives/.",
-    )
-    parser.add_argument(
-        "--target-database-name",
-        "--new-database-name",
-        dest="new_database_name",
-        default=None,
-        help="Optional name for the new empty local database.",
-    )
-    parser.add_argument(
-        "--allow-running-services",
-        action="store_true",
-        help="Allow execution while API/worker/agent-worker services appear to be running.",
-    )
-    parser.add_argument(
-        "--allow-active-work",
-        "--allow-active-runs",
-        dest="allow_active_work",
-        action="store_true",
-        help="Allow execution while queued/processing document runs or agent tasks exist.",
-    )
-    parser.add_argument(
-        "--allow-non-development",
-        action="store_true",
-        help="Allow execution outside DOCLING_SYSTEM_ENV=development.",
-    )
-    args = parser.parse_args()
-
-    options_cls = _lazy_service_attr(
-        "app.services.knowledge_base_reset",
-        "KnowledgeBaseResetOptions",
-    )
-    reset_error_cls = _lazy_service_attr(
-        "app.services.knowledge_base_reset",
-        "KnowledgeBaseResetError",
-    )
-    options = options_cls(
-        execute=args.execute,
-        confirm=args.confirm,
-        allow_running_services=args.allow_running_services,
-        allow_active_work=args.allow_active_work,
-        allow_non_development=args.allow_non_development,
-        archive_root=args.archive_root,
-        new_database_name=args.new_database_name,
-        project_root=Path.cwd(),
-    )
-    try:
-        payload = execute_knowledge_base_reset(options)
-    except reset_error_cls as exc:
-        raise SystemExit(str(exc)) from exc
-    print(json.dumps(payload, indent=2, default=str))
+    return runtime_commands.run_knowledge_base_reset()
 
 
 def run_semantic_backfill_status() -> None:
-    parser = argparse.ArgumentParser(
-        description="Inspect semantic backfill readiness for the active corpus."
-    )
-    parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = get_semantic_backfill_status(session)
-    print(json.dumps(payload.model_dump(mode="json"), default=str))
+    return runtime_commands.run_semantic_backfill_status()
 
 
 def run_semantic_backfill() -> None:
-    from app.schemas.semantic_backfill import SemanticBackfillRequest
-
-    parser = argparse.ArgumentParser(
-        description=(
-            "Run semantic passes and optional document fact graph construction "
-            "over existing active runs without reparsing PDFs."
-        )
-    )
-    parser.add_argument(
-        "--document-id",
-        action="append",
-        dest="document_ids",
-        default=[],
-        help="Restrict backfill to a document UUID. Can be passed multiple times.",
-    )
-    parser.add_argument("--limit", type=int, default=10, help="Maximum active documents to scan.")
-    parser.add_argument("--force", action="store_true", help="Refresh current semantic passes.")
-    parser.add_argument("--dry-run", action="store_true", help="Plan the backfill without writes.")
-    parser.add_argument(
-        "--skip-ontology-init",
-        action="store_true",
-        help="Do not initialize the workspace ontology before backfill.",
-    )
-    parser.add_argument(
-        "--skip-fact-graphs",
-        action="store_true",
-        help="Do not build document fact graphs after semantic passes.",
-    )
-    parser.add_argument(
-        "--minimum-review-status",
-        choices=["candidate", "approved"],
-        default="candidate",
-        help="Minimum semantic assertion review status for fact graph construction.",
-    )
-    args = parser.parse_args()
-
-    request = SemanticBackfillRequest(
-        document_ids=args.document_ids,
-        limit=args.limit,
-        force=args.force,
-        dry_run=args.dry_run,
-        initialize_ontology=not args.skip_ontology_init,
-        build_fact_graphs=not args.skip_fact_graphs,
-        minimum_review_status=args.minimum_review_status,
-    )
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = execute_semantic_backfill(
-            session,
-            request,
-            storage_service=StorageService(),
-        )
-    print(json.dumps(payload.model_dump(mode="json"), default=str))
+    return runtime_commands.run_semantic_backfill()
 
 
 def run_replay_search() -> None:
-    parser = argparse.ArgumentParser(
-        description="Replay one persisted search request against the current search stack."
-    )
-    parser.add_argument("search_request_id", help="Persisted search request UUID to replay.")
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = replay_search_request(session, UUID(args.search_request_id))
-        session.commit()
-    print(json.dumps(payload.model_dump(mode="json")))
+    return runtime_commands.run_replay_search()
 
 
 def run_eval_candidates() -> None:
-    parser = argparse.ArgumentParser(
-        description="List mined evaluation candidates from failed evals and live search gaps."
-    )
-    parser.add_argument("--limit", type=int, default=12, help="Maximum number of candidates.")
-    parser.add_argument(
-        "--include-resolved",
-        action="store_true",
-        help="Include candidates that later evidence has already resolved.",
-    )
-    args = parser.parse_args()
-    if args.limit < 1 or args.limit > 100:
-        parser.error("--limit must be between 1 and 100.")
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = list_quality_eval_candidates(
-            session,
-            limit=args.limit,
-            include_resolved=args.include_resolved,
-        )
-    print(json.dumps([row.model_dump(mode="json") for row in payload]))
+    return runtime_commands.run_eval_candidates()
 
 
 def run_evaluation_data_readiness() -> None:
-    parser = argparse.ArgumentParser(
-        description="Inspect whether the live DB has enough data to run retrieval gates."
-    )
-    parser.add_argument(
-        "--manual-corpus-path",
-        type=Path,
-        default=Path("docs/evaluation_corpus.yaml"),
-        help="Hand-authored evaluation corpus path.",
-    )
-    parser.add_argument(
-        "--auto-corpus-path",
-        type=Path,
-        default=Path("storage/evaluation_corpus.auto.yaml"),
-        help="Auto-generated evaluation corpus path.",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="Optional path to write the JSON readiness report.",
-    )
-    parser.add_argument(
-        "--compact",
-        action="store_true",
-        help="Print compact JSON instead of indented JSON.",
-    )
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = build_evaluation_data_readiness_report(
-            session,
-            manual_corpus_path=args.manual_corpus_path,
-            auto_corpus_path=args.auto_corpus_path,
-        )
-    rendered = json.dumps(payload, indent=None if args.compact else 2)
-    if args.output is not None:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(rendered + "\n")
-    print(rendered)
+    return runtime_commands.run_evaluation_data_readiness()
 
 
 def run_replay_suite() -> None:
-    parser = argparse.ArgumentParser(
-        description="Run a persisted replay suite over evaluation queries, live gaps, or feedback."
-    )
-    parser.add_argument(
-        "source_type",
-        choices=[
-            "evaluation_queries",
-            "live_search_gaps",
-            "feedback",
-            "cross_document_prose_regressions",
-            "technical_report_claim_feedback",
-        ],
-        help="Replay source to execute.",
-    )
-    parser.add_argument("--limit", type=int, default=25, help="Maximum number of queries.")
-    parser.add_argument(
-        "--harness-name",
-        default=None,
-        help="Optional search harness name for replay execution.",
-    )
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = run_search_replay_suite(
-            session,
-            SearchReplayRunRequest(
-                source_type=args.source_type,
-                limit=args.limit,
-                harness_name=args.harness_name,
-            ),
-        )
-        session.commit()
-    print(json.dumps(payload.model_dump(mode="json")))
+    return runtime_commands.run_replay_suite()
 
 
 def run_export_ranking_dataset() -> None:
-    parser = argparse.ArgumentParser(
-        description="Export labeled ranking data from search feedback and replay deltas."
-    )
-    parser.add_argument("--limit", type=int, default=200, help="Maximum rows per source set.")
-    args = parser.parse_args()
-
-    session_factory = get_session_factory()
-    with session_factory() as session:
-        payload = export_ranking_dataset(session, limit=args.limit)
-    print(json.dumps(payload))
+    return runtime_commands.run_export_ranking_dataset()
 
 
 def run_materialize_retrieval_learning_dataset() -> None:
