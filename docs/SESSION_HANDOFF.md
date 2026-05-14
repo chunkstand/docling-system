@@ -1,6 +1,6 @@
 # Session Handoff
 
-Date: 2026-05-13 local / 2026-05-13 UTC
+Date: 2026-05-13 local / 2026-05-14 UTC
 Project: `/Users/chunkstand/Documents/docling-system`
 Branch: `main`
 Remote: `origin -> https://github.com/chunkstand/docling-system.git`
@@ -16,18 +16,20 @@ Evaluations Service Boundary Milestone 4 checkpoint:
 `1159297`
 Evidence Provenance Exports Boundary closeout checkpoint:
 `1aa8378`
+Semantics Service Boundary verified local closeout:
+commit pending in current worktree
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: `IC-65AF4A6D8B1E` /
-`app/services/evidence_technical_report_exports.py`
+Active local follow-up owner case: `IC-9E6B8F5D62A1` /
+`app/services/semantic_pass_lifecycle.py`
 Latest planned bounded implementation brief:
-`docs/semantics_service_boundary_milestone_plan.md`
+`docs/cli_command_dispatch_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`
+`docs/semantics_service_boundary_milestone_plan.md`
 The prior search execution persistence brief remains resolved locally through
 Milestone 1 closeout commit `f55b474`, and the broader search owner case
 `IC-1D03DBFE8492` is now reduced after the orchestration split even though
@@ -107,22 +109,27 @@ retired because `app/services/evidence_technical_report_exports.py` measures
 `app/services/evidence_claim_feedback.py` 834, and
 `app/services/evidence_audit_views.py` 699. The hotspot-prevention classifier
 follow-up case `IC-6C1B516A3F92` also remains open after the new strict
-provenance-export gate expanded `app/hotspot_prevention_classifier.py` to
-773 lines.
+semantics gate expanded `app/hotspot_prevention_classifier.py` to 850 lines.
+
+`docs/semantics_service_boundary_milestone_plan.md` is now resolved locally
+through the verified worktree closeout. The scoped semantics service-boundary
+knot under `IC-9E6B8F5D62A1` is resolved: `app/services/semantics.py` is now a
+54-line / 0-private-helper compatibility facade, semantic pass lifecycle
+ownership now lives in `app/services/semantic_pass_lifecycle.py` at
+961 lines / 10 private helpers, active-pass row/detail/continuity reads now
+live in `app/services/semantic_pass_reads.py` at 762 lines / 13 private
+helpers, and registry preview ownership now lives in
+`app/services/semantic_registry_preview.py` at 558 lines / 5 private helpers.
+The broader owner case remains reduced/open because the extracted lifecycle
+and read owners still exceed the default 600-line budget even though the
+architecture probe no longer lists the semantics facade among the top 12 churn
+hotspots.
 
 The next active bounded implementation brief is now
-`docs/semantics_service_boundary_milestone_plan.md`. Its Milestone 0 assumes
-the search orchestration, claim-support, evaluations, and evidence
-provenance-export closeouts are all complete and committed first, then
-refreshes live system state before activating the
-`app/services/semantics.py` service-boundary split and the missing owner-case
-and hotspot-prevention bootstrap for that facade.
-
-Queued stacked follow-on after the semantics packet:
-`docs/cli_command_dispatch_boundary_milestone_plan.md`. Its Milestone 0 assumes
-the claim-support, evaluations, evidence provenance-export, and semantics
-closeouts are all complete and committed first, then refreshes live system
-state before activating the `IC-9812A0B138D9` / `app/cli.py`
+`docs/cli_command_dispatch_boundary_milestone_plan.md`. Its Milestone 0
+assumes the claim-support, evaluations, evidence provenance-export, and
+semantics closeouts are all complete and committed first, then refreshes live
+system state before activating the `IC-9812A0B138D9` / `app/cli.py`
 facade-reduction split.
 
 Queued stacked follow-on after the CLI packet:
@@ -173,12 +180,11 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the evaluations Milestone 4 verification
-window is:
+The live alignment snapshot after the semantics verification window is:
 
-- `uv run docling-system-improvement-case-summary`: `case_count=28`,
-  `status_counts.open=20`, `status_counts.deployed=7`,
-  `status_counts.measured=1`, `measured_case_count=18`,
+- `uv run docling-system-improvement-case-summary`: `case_count=29`,
+  `status_counts.open=21`, `status_counts.deployed=7`,
+  `status_counts.measured=1`, `measured_case_count=19`,
   `oldest_open_case_id=IC-9812A0B138D9`
 - `uv run docling-system-architecture-quality-report --summary`:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
@@ -189,22 +195,20 @@ window is:
 - `uv run docling-system-improvement-case-validate`: `valid=true`,
   `issue_count=0`
 - `uv run docling-system-hotspot-prevention-check --strict`:
-  `known_hotspots=9`, `changed_hotspots=1`, `blocked=0`, `allowed=4`,
+  `known_hotspots=11`, `changed_hotspots=1`, `blocked=0`, `allowed=31`,
   `exceptions=0`
 - `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
-- `uv run pytest -q tests/unit/test_evaluation_service.py tests/unit/test_evaluation_fixtures.py tests/unit/test_evaluation_scoring.py tests/unit/test_evaluation_reads.py tests/unit/test_documents_api.py tests/unit/test_quality_service.py tests/unit/test_eval_config.py tests/unit/test_capability_contracts.py tests/unit/test_api_architecture.py tests/unit/test_hotspot_prevention.py`:
-  `122 passed`
-- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_multivector_retrieval.py tests/integration/test_eval_workbench_roundtrip.py`:
-  `12 passed`
+- `uv run pytest -q tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py tests/unit/test_semantic_registry_preview.py tests/unit/test_documents_api_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_run_logic.py tests/unit/test_agent_task_verifications.py tests/unit/test_hotspot_prevention.py tests/unit/test_semantic_candidates.py tests/unit/test_semantic_generation.py tests/unit/test_semantic_graph.py`:
+  `95 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_candidate_roundtrip.py tests/integration/test_semantic_generation_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`:
+  `17 passed`
 - `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`:
-  `1907 passed`
+  `1926 passed`
 - architecture probe top hotspot is now `app/cli.py`; `app/services/search.py`
   remains in the top twelve churn hotspots at `32 revisions`, `1592` lines /
-  `32` private helpers with `score 50944`; `app/services/evaluations.py` is
-  absent from the architecture probe top 15 churn hotspots; the
-  claim-support compatibility facade is out of the top twelve churn hotspots
-  after the boundary split; and the Python cycle component count remains `4`
-  without `app.services.evaluations` in the remaining cycle list
+  `32` private helpers with `score 50944`; `app/services/semantics.py` is
+  absent from the architecture probe top 12 churn hotspots; and the Python
+  cycle component count is `5`
 
 At the time of this evaluations Milestone 4 closeout, the reduced or routed
 follow-on cases were `IC-1D03DBFE8492` / `app/services/search.py`,
@@ -214,6 +218,51 @@ follow-on cases were `IC-1D03DBFE8492` / `app/services/search.py`,
 captured at the top of this handoff; after provenance-export closeout commit
 `1aa8378`, `IC-65AF4A6D8B1E` now routes through
 `app/services/evidence_technical_report_exports.py`.
+
+## Semantics Service Boundary Local Closeout
+
+Milestones 0-5 are resolved locally through the verified worktree closeout on
+2026-05-13 local / 2026-05-14 UTC. The scoped semantics boundary knot under
+`IC-9E6B8F5D62A1` is resolved while the broader owner case remains
+reduced/open.
+
+Results:
+
+- extracted semantic pass lifecycle, projection refresh, and review
+  persistence into `app/services/semantic_pass_lifecycle.py`
+- extracted active-pass row/detail/continuity reads and helper shaping into
+  `app/services/semantic_pass_reads.py`
+- extracted registry preview candidate assembly and expectation-delta payload
+  shaping into `app/services/semantic_registry_preview.py`
+- reduced `app/services/semantics.py` to a 54-line compatibility facade that
+  only re-exports the stable semantics surface and preserves the narrow
+  registry-preview forwarding wrapper
+- added a dedicated semantics owner case plus hotspot-prevention rule, focused
+  classifier coverage, and direct owner tests for the three new modules
+- refreshed `config/hygiene_policy.yaml` and `config/improvement_cases.yaml`
+  so the facade, extracted owners, and classifier follow-on all reflect the
+  live post-split state
+- kept the broader owner case reduced/open because
+  `app/services/semantic_pass_lifecycle.py` measures 961 lines and
+  `app/services/semantic_pass_reads.py` measures 762 lines, both still above
+  the default 600-line budget, and routed the next active brief to
+  `docs/cli_command_dispatch_boundary_milestone_plan.md`
+
+Verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/services/semantics.py app/services/semantic_pass_lifecycle.py app/services/semantic_pass_reads.py app/services/semantic_registry_preview.py app/services/runs.py app/services/semantic_backfill.py app/services/semantic_ontology.py app/services/agent_task_verifications.py app/services/capabilities/semantics.py app/api/routers/semantics.py app/hotspot_prevention_classifier.py tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py tests/unit/test_semantic_registry_preview.py tests/unit/test_documents_api_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_run_logic.py tests/unit/test_agent_task_verifications.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py tests/unit/test_semantic_registry_preview.py tests/unit/test_documents_api_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_run_logic.py tests/unit/test_agent_task_verifications.py tests/unit/test_hotspot_prevention.py tests/unit/test_semantic_candidates.py tests/unit/test_semantic_generation.py tests/unit/test_semantic_graph.py`: `95 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_candidate_roundtrip.py tests/integration/test_semantic_generation_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `17 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=1`, `blocked=0`, `allowed=31`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=19`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `app/cli.py`, the semantics facade is absent from the top 12 churn hotspots, and the remaining Python cycle count is `5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1926 passed`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 

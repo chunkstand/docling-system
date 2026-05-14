@@ -230,6 +230,7 @@ def classify_hotspot_implementation(
         "app/services/agent_task_actions.py": classify_agent_action_addition,
         "app/services/agent_task_context.py": classify_agent_task_context_addition,
         "app/services/search.py": classify_search_addition,
+        "app/services/semantics.py": classify_semantics_addition,
         "app/services/claim_support_policy_impacts.py": (
             classify_claim_support_policy_impact_addition
         ),
@@ -471,6 +472,82 @@ def classify_search_addition(*, stripped: str, line: ChangedLine) -> ClassifiedL
     if any(token in lowered for token in ("rank", "score", "hydrate", "telemetry")):
         return blocked(line, "ranking_logic", "new search logic belongs in search_* modules")
     return None
+
+
+def classify_semantics_addition(*, stripped: str, line: ChangedLine) -> ClassifiedLine | None:
+    lowered = stripped.lower()
+    preview_tokens = (
+        "preview_semantic_registry_update_for_document",
+        "_preview_assertions",
+        "_preview_concept_category_bindings",
+        "introduced_expected_concepts",
+        "regressed_expected_concepts",
+        "semantic_evaluation_result",
+        "candidate_registry_version",
+    )
+    read_tokens = (
+        "get_active_semantic_pass_row",
+        "get_active_semantic_pass_detail",
+        "get_active_semantic_continuity",
+        "_assertion_records",
+        "_concept_category_binding_records",
+        "_continuity_summary",
+        "documentsemanticpassresponse",
+        "semanticcontinuityresponse",
+        "semanticassertionresponse",
+    )
+    review_tokens = (
+        "_refresh_semantic_pass_projection",
+        "review_active_semantic_assertion",
+        "review_active_semantic_assertion_category_binding",
+        "documentsemanticconceptreview",
+        "documentsemanticcategoryreview",
+        "review_overlay",
+    )
+    lifecycle_tokens = (
+        "_prepare_semantic_pass_row",
+        "execute_semantic_pass",
+        "_sync_registry_definitions",
+        "_replace_pass_assertions",
+        "_persist_semantic_artifacts",
+        "documentrunsemanticpass",
+        "semanticpassstatus",
+    )
+    if any(token in lowered for token in preview_tokens):
+        return blocked(
+            line,
+            "registry_preview_expectation_logic",
+            "semantic registry preview and expectation-delta logic belongs in "
+            "app/services/semantic_registry_preview.py",
+        )
+    if any(token in lowered for token in read_tokens):
+        return blocked(
+            line,
+            "active_pass_read_logic",
+            "active-pass read logic belongs in app/services/semantic_pass_reads.py",
+        )
+    if any(token in lowered for token in review_tokens):
+        return blocked(
+            line,
+            "projection_refresh_review_logic",
+            "projection refresh and review persistence belongs in "
+            "app/services/semantic_pass_lifecycle.py",
+        )
+    if any(token in lowered for token in lifecycle_tokens):
+        return blocked(
+            line,
+            "semantic_pass_lifecycle_logic",
+            "semantic pass lifecycle logic belongs in app/services/semantic_pass_lifecycle.py",
+        )
+    if stripped.startswith(("def _", "async def _", "def ", "async def ", "class ")):
+        return blocked(
+            line,
+            "semantic_pass_lifecycle_logic",
+            "new semantics behavior belongs in the focused semantic owner modules",
+        )
+    return None
+
+
 def classify_claim_support_policy_impact_addition(
     *,
     stripped: str,

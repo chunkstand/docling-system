@@ -113,6 +113,22 @@ known_hotspots:
       - alias_forwarder
       - explicit_forwarding_function
       - deletion
+  app/services/semantics.py:
+    target_role: semantic service compatibility facade
+    preferred_owner_modules:
+      - app/services/semantic_pass_lifecycle.py
+      - app/services/semantic_pass_reads.py
+      - app/services/semantic_registry_preview.py
+    block_new:
+      - semantic_pass_lifecycle_logic
+      - projection_refresh_review_logic
+      - active_pass_read_logic
+      - registry_preview_expectation_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/services/claim_support_policy_impacts.py:
     target_role: claim-support policy impact compatibility facade
     preferred_owner_modules:

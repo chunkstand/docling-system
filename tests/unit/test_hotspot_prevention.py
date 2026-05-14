@@ -81,6 +81,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/evidence.py",
         "app/services/evidence_provenance_exports.py",
         "app/services/search.py",
+        "app/services/semantics.py",
         "tests/unit/test_cli.py",
     ]
     for rule in policy.known_hotspots.values():
@@ -182,6 +183,14 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             "provenance_graph_logic",
         ),
         (
+            "app/services/semantics.py",
+            [
+                "def _prepare_semantic_pass_row(session, document, run, registry):",
+                "    return None",
+            ],
+            "semantic_pass_lifecycle_logic",
+        ),
+        (
             "tests/unit/test_cli.py",
             ["def test_new_command_group():", "    assert True"],
             "broad_new_test_group",
@@ -275,6 +284,57 @@ def test_search_hotspot_blocks_orchestration_candidate_loading_and_detail_growth
     assert candidate_report["findings"][0]["category"] == "candidate_loading"
     assert detail_report["summary"]["blocked_count"] == 1
     assert detail_report["findings"][0]["category"] == "search_detail_payload_builder"
+
+
+def test_semantics_hotspot_blocks_lifecycle_review_read_and_preview_growth() -> None:
+    lifecycle_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/semantics.py",
+            ["def execute_semantic_pass(session, document, run):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    review_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/semantics.py",
+            [
+                "def review_active_semantic_assertion(session, document_id, assertion_id):",
+                "    return None",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    read_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/semantics.py",
+            ["def get_active_semantic_pass_detail(session, document_id):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    preview_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/semantics.py",
+            [
+                "introduced_expected_concepts = sorted(",
+                "    candidate_concept_keys - current_concept_keys",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert lifecycle_report["summary"]["blocked_count"] == 1
+    assert lifecycle_report["findings"][0]["category"] == "semantic_pass_lifecycle_logic"
+    assert review_report["summary"]["blocked_count"] == 1
+    assert review_report["findings"][0]["category"] == "projection_refresh_review_logic"
+    assert read_report["summary"]["blocked_count"] == 1
+    assert read_report["findings"][0]["category"] == "active_pass_read_logic"
+    assert preview_report["summary"]["blocked_count"] == 1
+    assert preview_report["findings"][0]["category"] == "registry_preview_expectation_logic"
 
 
 def test_claim_support_hotspot_blocks_views_replay_and_closure_growth() -> None:
@@ -541,6 +601,26 @@ def test_search_forwarding_wrapper_with_execution_type_is_allowed() -> None:
                 "        request=request,",
                 "        embedding_provider=embedding_provider,",
                 "        execution_type=SearchExecution,",
+                "    )",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_semantics_forwarding_wrapper_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/semantics.py",
+            [
+                "def get_active_semantic_pass_detail(session, document_id):",
+                "    return _semantic_pass_reads.get_active_semantic_pass_detail(",
+                "        session,",
+                "        document_id,",
                 "    )",
             ],
         ),

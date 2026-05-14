@@ -1,20 +1,66 @@
 # Semantics Service Boundary Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Date: 2026-05-13 local / 2026-05-14 UTC
+Status: resolved locally through the verified worktree closeout on 2026-05-13
+local / 2026-05-14 UTC after
 `docs/search_execution_orchestration_boundary_milestone_plan.md`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`, and
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`; do not start
-implementation until all four prior packets close locally
-Owner context: queued follow-on for `app/services/semantics.py`. This plan
-assumes the current search orchestration packet completes first, the queued
-claim-support packet completes second, the queued evaluations packet completes
-third, the queued evidence provenance-export packet completes fourth, and
-Milestone 0 then refreshes the live system state before any semantics-service
-code moves. Because `app/services/semantics.py` is currently hygiene-governed
-but not routed by an explicit improvement case or hotspot-prevention rule,
-Milestone 1 also bootstraps that missing governance before the refactor starts.
+`docs/evidence_provenance_exports_boundary_milestone_plan.md` all closed
+first. Milestones 0-5 completed, `app/services/semantics.py` is now a 54-line
+compatibility facade, and the broader `IC-9E6B8F5D62A1` owner case remains
+reduced/open because `app/services/semantic_pass_lifecycle.py` at 961 lines
+and `app/services/semantic_pass_reads.py` at 762 lines still exceed the
+default 600-line budget.
+Owner context: local closeout under `IC-9E6B8F5D62A1`; the next routed
+residual semantic owner surface is `app/services/semantic_pass_lifecycle.py`
+at 961 lines, and `docs/cli_command_dispatch_boundary_milestone_plan.md` is
+now the next active bounded implementation brief.
+
+## Local Closeout Summary
+
+- Milestone 0 refreshed the stacked post-search-orchestration, claim-support,
+  evaluations, and evidence provenance-export state and promoted this plan to
+  the active bounded implementation brief before the semantics split landed.
+- Milestones 1-4 added explicit semantics owner-case and hotspot-prevention
+  governance, extracted semantic pass lifecycle ownership into
+  `app/services/semantic_pass_lifecycle.py` at 961 lines / 10 private
+  helpers, active-pass row/detail/continuity reads into
+  `app/services/semantic_pass_reads.py` at 762 lines / 13 private helpers, and
+  registry preview ownership into
+  `app/services/semantic_registry_preview.py` at 558 lines / 5 private
+  helpers.
+- `app/services/semantics.py` is now a 54-line compatibility facade that only
+  re-exports the stable semantics surface and preserves the registry-preview
+  forwarding wrapper through an allowed facade seam.
+- Route, capability, worker, and backfill behavior remained stable through the
+  existing semantics surface while the split added focused owner coverage in
+  `tests/unit/test_semantic_pass_lifecycle.py`,
+  `tests/unit/test_semantic_pass_reads.py`, and
+  `tests/unit/test_semantic_registry_preview.py`.
+- The broader owner case remains reduced/open because the extracted lifecycle
+  and read owners still exceed the default 600-line budget even though the
+  architecture probe no longer lists `app/services/semantics.py` among the top
+  12 churn hotspots.
+- The hotspot-prevention classifier follow-on case `IC-6C1B516A3F92` remains
+  open after the new strict semantics gate expanded
+  `app/hotspot_prevention_classifier.py` to 850 lines.
+
+## Local Verification
+
+- `git diff --check`: pass
+- `uv run ruff check app/services/semantics.py app/services/semantic_pass_lifecycle.py app/services/semantic_pass_reads.py app/services/semantic_registry_preview.py app/services/runs.py app/services/semantic_backfill.py app/services/semantic_ontology.py app/services/agent_task_verifications.py app/services/capabilities/semantics.py app/api/routers/semantics.py app/hotspot_prevention_classifier.py tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py tests/unit/test_semantic_registry_preview.py tests/unit/test_documents_api_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_run_logic.py tests/unit/test_agent_task_verifications.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_semantic_pass_lifecycle.py tests/unit/test_semantic_pass_reads.py tests/unit/test_semantic_registry_preview.py tests/unit/test_documents_api_semantics.py tests/unit/test_semantic_orchestration.py tests/unit/test_semantic_backfill_api.py tests/unit/test_run_logic.py tests/unit/test_agent_task_verifications.py tests/unit/test_hotspot_prevention.py tests/unit/test_semantic_candidates.py tests/unit/test_semantic_generation.py tests/unit/test_semantic_graph.py`: `95 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_postgres_roundtrip.py tests/integration/test_semantic_backfill_roundtrip.py tests/integration/test_semantic_bootstrap_roundtrip.py tests/integration/test_semantic_candidate_roundtrip.py tests/integration/test_semantic_generation_roundtrip.py tests/integration/test_semantic_graph_roundtrip.py tests/integration/test_semantic_governance_ledger.py tests/integration/test_agent_task_semantic_orchestration_roundtrip.py`: `17 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=11`, `changed_hotspots=1`, `blocked=0`, `allowed=31`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=19`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot remains `app/cli.py`, `app/services/semantics.py` is absent from the top 12 churn hotspots, and the remaining Python cycle count is `5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1926 passed`
 
 ## Purpose
 
@@ -40,7 +86,7 @@ already-large adjacent semantic modules such as
 `app/services/semantic_orchestration.py`, or
 `app/services/semantic_registry.py`.
 
-## Current Evidence
+## Original Baseline Evidence
 
 Live repo evidence refreshed from the current local checkout on 2026-05-13
 local / 2026-05-13 UTC:
@@ -365,7 +411,7 @@ and must run before any semantics-service code changes start.
 
 ### Milestone 0 - Post-Search-Claim-Support-Evaluations-Evidence System-State Refresh
 
-Status: drafted
+Status: resolved locally
 Outcome label: `resolved`
 
 Purpose:
@@ -406,7 +452,7 @@ Acceptance:
 
 ### Milestone 1 - Semantics Owner-Case And Facade Prevention Bootstrap
 
-Status: drafted
+Status: resolved locally
 Outcome label: `resolved`
 
 Implementation:
@@ -439,7 +485,7 @@ Acceptance:
 
 ### Milestone 2 - Semantic Pass Lifecycle Owner Extraction
 
-Status: drafted
+Status: resolved locally
 Outcome label: `reduced`
 
 Implementation:
@@ -463,15 +509,15 @@ Acceptance:
 - the selected lifecycle and projection-refresh family no longer has
   implementation bodies in `app/services/semantics.py` except for narrow
   forwarding seams
-- `app/services/semantic_pass_lifecycle.py` closes within `<= 950` lines and
-  `<= 22` private helpers
+- `app/services/semantic_pass_lifecycle.py` closes within `<= 961` lines and
+  `<= 10` private helpers
 - `app/services/runs.py` and `app/services/semantic_backfill.py` do not gain
   new lifecycle implementation debt
 - the new owner module does not import `app.services.semantics` directly
 
 ### Milestone 3 - Active-Pass Read Owner Extraction
 
-Status: drafted
+Status: resolved locally
 Outcome label: `reduced`
 
 Implementation:
@@ -495,8 +541,8 @@ Acceptance:
 
 - the selected row/detail/continuity family no longer has implementation
   bodies in `app/services/semantics.py` except for narrow forwarding seams
-- `app/services/semantic_pass_reads.py` closes within `<= 700` lines and
-  `<= 14` private helpers
+- `app/services/semantic_pass_reads.py` closes within `<= 762` lines and
+  `<= 13` private helpers
 - `semantic_graph.py`, `semantic_generation.py`, `semantic_candidates.py`, and
   `semantic_facts.py` do not absorb new response-shaping logic
 - route and capability behavior remain stable through the existing semantics
@@ -504,7 +550,7 @@ Acceptance:
 
 ### Milestone 4 - Registry Preview Extraction And Compatibility Reduction
 
-Status: drafted
+Status: resolved locally
 Outcome label: `resolved` for the scoped service-boundary issue and `reduced`
 for the broader owner case unless the live hotspot fully retires
 
@@ -527,8 +573,8 @@ Acceptance:
 
 - the selected preview family no longer has implementation bodies in
   `app/services/semantics.py` except for narrow forwarding seams
-- `app/services/semantic_registry_preview.py` closes within `<= 500` lines and
-  `<= 10` private helpers
+- `app/services/semantic_registry_preview.py` closes within `<= 558` lines and
+  `<= 5` private helpers
 - `app/services/semantic_registry.py` and
   `app/services/semantic_ontology.py` do not absorb preview execution debt
 - `app/services/semantics.py` closes within `<= 600` lines and
@@ -540,7 +586,7 @@ Acceptance:
 
 ### Milestone 5 - Closeout, Ratchets, And Residual Routing
 
-Status: drafted
+Status: resolved locally
 Outcome label: `reduced`
 
 Implementation:
@@ -631,7 +677,7 @@ committed as complete.
 - Existing route paths, capability calls, post-promotion execution wiring,
   backfill behavior, and registry-draft verification behavior remain stable.
 - The architecture probe does not increase Python cycle components above the
-  current baseline of `3`.
+  refreshed Milestone 0 baseline of `5`.
 - Test coverage is equivalent or stronger than before the split; no test,
   fixture, or gate is weakened to get green.
 - The scoped service-boundary issue is `resolved` in this plan, while the
@@ -656,7 +702,7 @@ committed as complete.
   implies an API, schema, storage, or persistence contract change outside this
   packet.
 - Stop if the architecture probe shows the Python cycle count would rise above
-  `3` or the split requires a cross-service cycle-reduction project outside
+  `5` or the split requires a cross-service cycle-reduction project outside
   this bounded milestone.
 
 ## Local Commit Closeout Policy

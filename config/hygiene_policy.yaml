@@ -207,7 +207,7 @@ file_budgets:
       owner_case_id: IC-F2A8110185EB
     app/hotspot_prevention_classifier.py:
       max_lines: 600
-      ratchet_max_lines: 773
+      ratchet_max_lines: 850
       max_private_helpers: 20
       owner_case_id: IC-6C1B516A3F92
     app/schemas/agent_tasks.py:
@@ -540,8 +540,23 @@ file_budgets:
       max_lines: 730
       max_private_helpers: 9
     app/services/semantics.py:
-      max_lines: 2309
-      max_private_helpers: 28
+      max_lines: 56
+      ratchet_max_lines: 56
+      max_private_helpers: 0
+      ratchet_max_private_helpers: 0
+      owner_case_id: IC-9E6B8F5D62A1
+    app/services/semantic_pass_lifecycle.py:
+      max_lines: 961
+      max_private_helpers: 10
+      owner_case_id: IC-9E6B8F5D62A1
+    app/services/semantic_pass_reads.py:
+      max_lines: 762
+      max_private_helpers: 13
+      owner_case_id: IC-9E6B8F5D62A1
+    app/services/semantic_registry_preview.py:
+      max_lines: 558
+      max_private_helpers: 5
+      owner_case_id: IC-9E6B8F5D62A1
     app/services/technical_reports.py:
       max_lines: 1193
       max_private_helpers: 10

@@ -221,13 +221,13 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 773 lines after the provenance-export compatibility-facade
-    gate expanded the hotspot-prevention classifier rules again.
+    file budget at 850 lines after the semantics compatibility-facade gate
+    expanded the hotspot-prevention classifier rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
     notes: Captured while re-running the Milestone 1 alignment verification
-      after tightening the search persistence and operator-trace hotspot gate.
+      after tightening the semantics compatibility-facade hotspot gate.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
@@ -254,19 +254,23 @@ cases:
     notes: Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
       provenance-export closeout after adding the dedicated
-      evidence_provenance_exports hotspot classifier rules. The hygiene
-      follow-on remains open.
+      evidence_provenance_exports hotspot classifier rules. The semantics
+      service-boundary closeout expanded the classifier again to cover
+      semantic lifecycle, review, read, and registry-preview regrowth in
+      app/services/semantics.py. The hygiene follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 773.0
-    measurement_window: 2026-05-13 provenance-export closeout refresh
+    current_value: 850.0
+    measurement_window: 2026-05-13 semantics service-boundary closeout refresh
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
-      app/services/evidence_provenance_exports.py, leaving the file above the
-      default budget at 773 lines.
+      app/services/evidence_provenance_exports.py plus semantic pass
+      lifecycle, review persistence, active-pass read, and registry-preview
+      regrowth in app/services/semantics.py, leaving the file above the
+      default budget at 850 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-13T00:00:00+00:00'
+  updated_at: '2026-05-14T03:20:00Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
@@ -712,6 +716,56 @@ cases:
       lines, and score 50944.
   created_at: '2026-05-10T01:15:27.810985+00:00'
   updated_at: '2026-05-13T15:18:00Z'
+- case_id: IC-9E6B8F5D62A1
+  title: 'Architecture hotspot: app/services/semantics.py'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: app/services/semantics.py mixed semantic pass lifecycle,
+    projection refresh and review persistence, active-pass reads, and registry
+    preview behavior in a 2309-line hotspot before the service-boundary split.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-quality:hotspot:app/services/semantics.py
+    notes: report_path=/Users/chunkstand/Documents/docling-system/build/architecture-governance/architecture_quality_report.json;
+      artifact_target_path=app/services/semantics.py; verification_command=uv run
+      docling-system-architecture-quality-report; stop_condition=Hotspot risk
+      decreases or the surface has a narrower owner contract.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/semantics.py
+    description: Architecture quality owner surface for app/services/semantics.py.
+  verification:
+    commands:
+    - uv run docling-system-architecture-quality-report
+    acceptance_conditions:
+    - Hotspot risk decreases or the surface has a narrower owner contract.
+    catches_old_failure: false
+    allows_good_changes: false
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: >-
+      The semantics service-boundary split is verified locally in the
+      worktree. app/services/semantics.py is now a narrow compatibility facade
+      that forwards into app/services/semantic_pass_lifecycle.py,
+      app/services/semantic_pass_reads.py, and
+      app/services/semantic_registry_preview.py. The case remains open and
+      reduced because the extracted lifecycle and read owners still exceed the
+      default 600-line budget even though the architecture probe no longer
+      lists app/services/semantics.py among the top twelve churn hotspots.
+  measurement:
+    metric_name: semantics_hotspot_line_count
+    current_value: 54.0
+    measurement_window: 2026-05-13 local post-split verification refresh
+    notes: >-
+      The scoped service-boundary knot is resolved locally: the compatibility
+      facade now measures 54 lines / 0 private helpers, semantic pass
+      lifecycle ownership measures 961 lines / 10 private helpers, active-pass
+      read ownership measures 762 lines / 13 private helpers, and registry
+      preview ownership measures 558 lines / 5 private helpers. The broader
+      semantic owner-family modules still remain outside this scoped packet.
+  created_at: '2026-05-13T20:30:00Z'
+  updated_at: '2026-05-14T03:20:00Z'
 - case_id: IC-4098E8370B88
   title: 'Architecture hotspot: app/services/agent_tasks.py'
   status: open
