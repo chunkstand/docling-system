@@ -1,7 +1,7 @@
 # Semantics Service Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: resolved locally through the verified worktree closeout on 2026-05-13
+Status: resolved locally through closeout commit `a2eb27e` on 2026-05-13
 local / 2026-05-14 UTC after
 `docs/search_execution_orchestration_boundary_milestone_plan.md`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
@@ -19,6 +19,7 @@ now the next active bounded implementation brief.
 
 ## Local Closeout Summary
 
+- Closeout commit: `a2eb27e`
 - Milestone 0 refreshed the stacked post-search-orchestration, claim-support,
   evaluations, and evidence provenance-export state and promoted this plan to
   the active bounded implementation brief before the semantics split landed.

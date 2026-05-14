@@ -16,8 +16,8 @@ Evaluations Service Boundary Milestone 4 checkpoint:
 `1159297`
 Evidence Provenance Exports Boundary closeout checkpoint:
 `1aa8378`
-Semantics Service Boundary verified local closeout:
-commit pending in current worktree
+Semantics Service Boundary closeout checkpoint:
+`a2eb27e`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -112,7 +112,7 @@ follow-up case `IC-6C1B516A3F92` also remains open after the new strict
 semantics gate expanded `app/hotspot_prevention_classifier.py` to 850 lines.
 
 `docs/semantics_service_boundary_milestone_plan.md` is now resolved locally
-through the verified worktree closeout. The scoped semantics service-boundary
+through closeout commit `a2eb27e`. The scoped semantics service-boundary
 knot under `IC-9E6B8F5D62A1` is resolved: `app/services/semantics.py` is now a
 54-line / 0-private-helper compatibility facade, semantic pass lifecycle
 ownership now lives in `app/services/semantic_pass_lifecycle.py` at
@@ -221,7 +221,7 @@ captured at the top of this handoff; after provenance-export closeout commit
 
 ## Semantics Service Boundary Local Closeout
 
-Milestones 0-5 are resolved locally through the verified worktree closeout on
+Milestones 0-5 are resolved locally through closeout commit `a2eb27e` on
 2026-05-13 local / 2026-05-14 UTC. The scoped semantics boundary knot under
 `IC-9E6B8F5D62A1` is resolved while the broader owner case remains
 reduced/open.
@@ -247,6 +247,8 @@ Results:
   `app/services/semantic_pass_reads.py` measures 762 lines, both still above
   the default 600-line budget, and routed the next active brief to
   `docs/cli_command_dispatch_boundary_milestone_plan.md`
+- local closeout commit:
+  `a2eb27e`
 
 Verification:
 
