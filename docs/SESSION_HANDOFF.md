@@ -49,7 +49,7 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`pending` / runtime-health Milestone 0 owner-case bootstrap
+`IC-0F89DBB1CF9F` / runtime-health Milestone 1 gate-first health contract
 Latest planned bounded implementation brief:
 `docs/runtime_health_orchestration_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -83,10 +83,18 @@ the search/documents/evaluations/runs/semantics family, claim-support policy
 impacts/promotions, evidence-provenance export graph, and evidence-search
 packages/trace-store.
 The next active slice is
-`docs/runtime_health_orchestration_milestone_plan.md` Milestone 0 refresh /
-owner-case bootstrap. No dedicated runtime-health improvement case currently
-exists in `config/improvement_cases.yaml`, so that packet must bind or create
-one before code moves.
+`docs/runtime_health_orchestration_milestone_plan.md` Milestone 1 gate-first
+health contract. Runtime-health Milestone 0 refresh / owner-case bootstrap is
+now resolved locally in the current worktree: `IC-0F89DBB1CF9F` now anchors
+the production-orchestration health gap across
+`app/api/routers/system.py`, `app/services/runtime.py`,
+`app/workers/poller.py`, `app/workers/agent_poller.py`, and
+`docker-compose.yml`; the refreshed baseline confirms those surfaces still
+measure `85 / 194 / 15 / 15 / 307 / 110` lines respectively; and there was no
+prior runtime-health owner case in the registry before this bootstrap. The
+shared runtime-health contract, process-heartbeat freshness, and Compose
+healthchecks remain unimplemented, so Milestone 1 is now the next active
+code-changing slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,

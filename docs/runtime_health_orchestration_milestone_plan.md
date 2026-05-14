@@ -12,15 +12,30 @@ Status: active stacked follow-on after
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`, and
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`; those prior
 packets are now closed locally, including architecture-governance closeout
-commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is the next
-active slice
+commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is now
+resolved locally in the current worktree through `IC-0F89DBB1CF9F`. Milestone
+1 gate-first health contract is now the next active slice
 Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and
-`docker-compose.yml`. No dedicated runtime-health improvement case is currently
-registered in `config/improvement_cases.yaml`; Milestone 0 must refresh live
-system state and either create or bind the correct owner case before code
-moves.
+`docker-compose.yml`. `IC-0F89DBB1CF9F` now anchors the runtime-health
+contract gap across those surfaces. No shared runtime-health owner module or
+worker/API health contract exists yet, so Milestone 1 remains the next
+code-changing slice.
+
+## Local Progress
+
+Milestone 0 is resolved locally in the current worktree. The stacked packet is
+now refreshed to the live post-`7a4c5b0` repo state, and
+`IC-0F89DBB1CF9F` binds the runtime-health orchestration gap before any code
+motion. The refreshed baseline confirms the targeted health surfaces still
+measure `85 / 194 / 15 / 15 / 307 / 110` lines for
+`app/api/routers/system.py`, `app/services/runtime.py`,
+`app/workers/poller.py`, `app/workers/agent_poller.py`,
+`tests/unit/test_health.py`, and `docker-compose.yml`; the architecture quality
+summary still reports `hotspot_count=10` with `max_hotspot_risk_score=501.06`;
+and no prior runtime-health improvement case existed in the registry. Milestone
+1 gate-first health contract is now the next active code-changing slice.
 
 ## Purpose
 
@@ -51,43 +66,45 @@ or public leak of detailed runtime internals.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Milestone 0 baseline evidence refreshed from the current local checkout on
+2026-05-14 local / 2026-05-14 UTC before the owner-case bootstrap:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M app/hotspot_prevention_classifier.py
-   M app/services/search.py
-   M config/hotspot_prevention.yaml
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-   M tests/unit/test_hotspot_prevention.py
-  ?? app/services/search_execution_orchestration.py
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/evaluations_service_boundary_milestone_plan.md
-  ?? docs/evidence_provenance_exports_boundary_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
+  ## main...origin/main [ahead 58]
 
-wc -l app/api/routers/system.py app/services/runtime.py app/workers/poller.py app/workers/agent_poller.py tests/unit/test_health.py docker-compose.yml .github/workflows/architecture-governance.yml
+uv run docling-system-improvement-case-summary
+  case_count=36
+  status_counts.open=25
+  status_counts.deployed=10
+  status_counts.measured=1
+
+uv run docling-system-architecture-quality-report --summary
+  agent_legibility_average_score=90.0
+  broad_facade_count=2
+  hotspot_count=10
+  max_hotspot_risk_score=501.06
+  top_hotspot_paths=[app/db/models.py, app/services/agent_task_actions.py, app/cli.py, app/schemas/agent_tasks.py, app/services/evidence.py]
+
+wc -l app/api/routers/system.py app/services/runtime.py app/workers/poller.py app/workers/agent_poller.py tests/unit/test_health.py docker-compose.yml
     85 app/api/routers/system.py
    194 app/services/runtime.py
     15 app/workers/poller.py
     15 app/workers/agent_poller.py
    307 tests/unit/test_health.py
    110 docker-compose.yml
-    74 .github/workflows/architecture-governance.yml
+   726 total
 
-find .github/workflows -maxdepth 1 -type f | sort
-  .github/workflows/architecture-governance.yml
+rg -n "runtime-health|runtime health|app/services/runtime.py|app/api/routers/system.py|poller.py|agent_poller.py" config/improvement_cases.yaml config/hygiene_policy.yaml
+  no hits
 ```
 
 Repo-current structural evidence:
 
-- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` both say
-  the active execution packet is the search orchestration milestone, with the
-  claim-support and evaluations boundary plans queued behind it. This health
-  plan must therefore begin with a stacked-state refresh before implementation.
+- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now both
+  route runtime-health as the next active packet after architecture-governance
+  closeout commit `7a4c5b0`. Milestone 0 therefore remains a real refresh step,
+  but the upstream stacked prerequisites are no longer open.
 - `app/api/routers/system.py` currently serves a public `GET /health` route
   that returns only `{"status": "ok"}` and a gated `GET /runtime/status`
   route. There is no shared runtime health evaluator yet.
@@ -115,6 +132,10 @@ Repo-current structural evidence:
   `.github/workflows/architecture-governance.yml`. It currently validates
   architecture/governance checks and does not yet run any Compose config check
   or health-focused runtime test slice.
+- Milestone 0 created `IC-0F89DBB1CF9F` in `config/improvement_cases.yaml` as
+  the durable owner-case anchor for this packet. No hygiene-policy changes were
+  needed because the scoped surfaces are not currently budget-ratcheted
+  inherited debt.
 
 ## Goal
 
@@ -257,9 +278,14 @@ surfaces into different owners.
 
 Outcome label: `reduced`
 
-Purpose: refresh this plan to current system state after the currently stacked
-search, claim-support, and evaluations packets close locally, and bind the
-runtime-health gap to a durable owner case before code changes begin.
+Current local state: resolved locally in the current worktree. The prior
+stacked packets are committed, the runtime-health gap remains open on the
+refreshed checkout, and `IC-0F89DBB1CF9F` now binds this packet before code
+moves. Milestone 1 gate-first health contract is the next active slice.
+
+Purpose: refresh this plan to current system state after the stacked
+prerequisite packets close locally, and bind the runtime-health gap to a
+durable owner case before code changes begin.
 
 Implementation:
 

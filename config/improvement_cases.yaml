@@ -1967,6 +1967,66 @@ cases:
       the targeted architecture-governance cycle.
   created_at: '2026-05-14T16:09:02Z'
   updated_at: '2026-05-14T20:55:20Z'
+- case_id: IC-0F89DBB1CF9F
+  title: 'Architecture contract gap: runtime health orchestration'
+  status: open
+  cause_class: unclear_ownership
+  observed_failure: >-
+    Runtime health still lacks a single repo-owned contract: GET /health
+    remains a static unconditional success response, worker and agent-worker
+    still have no Compose healthchecks, and the runtime registry still lacks
+    per-process heartbeat freshness for API and workers across
+    app/api/routers/system.py, app/services/runtime.py, app/workers/poller.py,
+    app/workers/agent_poller.py, and docker-compose.yml.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-governance:runtime-health-orchestration
+    notes: Manual owner-bootstrap case created during runtime-health Milestone
+      0 refresh after architecture-governance closeout 7a4c5b0. Keep this
+      source_ref stable so future runtime-health imports or architecture
+      reviews dedupe to the same owner case.
+  artifact:
+    artifact_type: contract
+    target_path: app/services/runtime.py
+    description: Runtime-health orchestration owner surface spanning public
+      health, runtime status, worker freshness, and Compose healthchecks.
+  verification:
+    commands:
+    - git diff --check
+    - uv run pytest -q tests/unit/test_health.py
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-improvement-case-validate
+    - uv run docling-system-improvement-case-summary
+    - uv run docling-system-architecture-quality-report --summary
+    - uv run docling-system-hygiene-check
+    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
+      --format markdown --top 20
+    acceptance_conditions:
+    - A dedicated runtime-health owner contract exists and is routed through
+      this case before code changes begin.
+    - The refreshed runtime-health plan reflects live post-stack repo state and
+      keeps Milestone 1 focused on one shared health owner plus bounded public
+      health behavior.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Runtime-health Milestone 0 refresh / owner-case bootstrap is
+      resolved locally in the current worktree. The case now anchors
+      docs/runtime_health_orchestration_milestone_plan.md before any code
+      motion, but the shared runtime-health contract, process-heartbeat
+      freshness, and Compose healthchecks remain unimplemented.
+  measurement:
+    metric_name: runtime_health_surface_total_lines
+    current_value: 726.0
+    measurement_window: 2026-05-14 runtime-health Milestone 0 refresh
+    notes: app/api/routers/system.py=85, app/services/runtime.py=194,
+      app/workers/poller.py=15, app/workers/agent_poller.py=15,
+      tests/unit/test_health.py=307, docker-compose.yml=110.
+  created_at: '2026-05-14T20:58:15Z'
+  updated_at: '2026-05-14T20:58:15Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open
