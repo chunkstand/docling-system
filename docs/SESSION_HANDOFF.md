@@ -111,8 +111,9 @@ retired because `app/services/evidence_technical_report_exports.py` measures
 884 lines, `app/services/evidence_semantic_trace.py` 837,
 `app/services/evidence_claim_feedback.py` 834, and
 `app/services/evidence_audit_views.py` 699. The hotspot-prevention classifier
-follow-up case `IC-6C1B516A3F92` also remains open after the new strict
-semantics gate expanded `app/hotspot_prevention_classifier.py` to 850 lines.
+follow-up case `IC-6C1B516A3F92` also remains open after the semantics gate
+and later CLI Milestone 1 facade-prevention ratchet expanded
+`app/hotspot_prevention_classifier.py` to 879 lines.
 
 `docs/semantics_service_boundary_milestone_plan.md` is now resolved locally
 through closeout commit `a2eb27e`. The scoped semantics service-boundary

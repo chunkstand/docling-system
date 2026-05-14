@@ -113,7 +113,7 @@ local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 26]
+  ## main...origin/main [ahead 30]
 
 wc -l app/cli.py app/cli_commands/ingest.py app/cli_commands/improvement_cases.py app/cli_commands/common.py tests/unit/test_cli.py tests/unit/test_cli_search_harness.py tests/unit/test_cli_ingest.py app/agent_task_cli.py app/claim_support_replay_cli.py app/improvement_case_intake_cli.py
   1231 app/cli.py

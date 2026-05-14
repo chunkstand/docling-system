@@ -221,13 +221,13 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 850 lines after the semantics compatibility-facade gate
-    expanded the hotspot-prevention classifier rules again.
+    file budget at 879 lines after the semantics and CLI compatibility-facade
+    gates expanded the hotspot-prevention classifier rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
-    notes: Captured while re-running the Milestone 1 alignment verification
-      after tightening the semantics compatibility-facade hotspot gate.
+    notes: Refreshed while re-running the CLI Milestone 1 alignment
+      verification after tightening the CLI compatibility-facade hotspot gate.
   artifact:
     artifact_type: contract
     target_path: app/hotspot_prevention_classifier.py
@@ -250,7 +250,7 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: "f55b474"
+    deployed_ref: "c674871"
     notes: Residual ratchet increase was first recorded in the search execution
       persistence closeout commit f55b474 and refreshed during the local
       provenance-export closeout after adding the dedicated
@@ -274,14 +274,14 @@ cases:
       wiring plus parser-body or JSON-render scaffolding in app/cli.py,
       leaving the file above the default budget at 879 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-14T03:29:04Z'
+  updated_at: '2026-05-14T03:34:46Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open
   cause_class: unclear_ownership
-  observed_failure: app/cli.py remains the top routed CLI hotspot after the Milestone 0
-    refresh, with architecture_probe_score=67705, probe_line_count=1231, changes_90d=54,
-    hygiene_finding_count=0.
+  observed_failure: app/cli.py remains the top routed CLI hotspot after the
+    Milestone 1 closeout, with architecture_probe_score=67705,
+    probe_line_count=1231, changes_90d=55, hygiene_finding_count=0.
   source:
     source_type: architecture_governance
     source_ref: architecture-quality:hotspot:app/cli.py
@@ -328,16 +328,20 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
-    notes: null
+    deployed_ref: "c674871"
+    notes: CLI Milestone 1 closeout commit c674871 tightened the facade
+      prevention ratchet to block direct session or storage wiring plus
+      parser-body or JSON-render scaffolding in app/cli.py without yet
+      reducing the routed hotspot score or line count.
   measurement:
     metric_name: architecture_probe_hotspot_score
     current_value: 67705.0
-    measurement_window: 2026-05-13 CLI Milestone 0 refresh
+    measurement_window: 2026-05-13 CLI Milestone 1 alignment refresh
     notes: app/cli.py remains the top architecture-probe hotspot at 55
-      revisions / 1231 lines after the stacked Milestone 0 rebaseline.
+      revisions / 1231 lines after the Milestone 1 ratchet and alignment
+      refresh.
   created_at: '2026-05-10T01:15:27.810985+00:00'
-  updated_at: '2026-05-14T03:14:43Z'
+  updated_at: '2026-05-14T03:34:46Z'
 - case_id: IC-A1E186A34097
   title: 'Architecture hotspot: app/services/agent_task_actions.py'
   status: deployed
