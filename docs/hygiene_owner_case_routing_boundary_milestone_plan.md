@@ -10,8 +10,8 @@ Status: active stacked follow-on after
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`, and
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`; all seven prior
 packets are now closed locally, Milestone 0 is resolved from the live
-post-stack refresh, and Milestone 1 owner-case bootstrap is now the next
-active code-changing slice
+post-stack refresh through baseline commit `08a1a75`, and Milestone 1
+owner-case bootstrap is now the next active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -22,10 +22,10 @@ hygiene contract so future sessions cannot hide debt behind milestone labels.
 
 ## Local Progress
 
-Milestone 0 is resolved locally in the current refresh window. The stacked
-queue assumptions were revalidated against the live repo state, the exact
-remaining residual owner set is now frozen in the active docs, and Milestone 1
-owner-case bootstrap is the next active slice.
+Milestone 0 is resolved locally through baseline commit `08a1a75`. The
+stacked queue assumptions were revalidated against the live repo state, the
+exact remaining residual owner set is now frozen in the active docs, and
+Milestone 1 owner-case bootstrap is the next active slice.
 
 Local Milestone 0 results:
 
@@ -48,6 +48,8 @@ Local Milestone 0 results:
 - refreshed the active routing artifacts so this plan, the handoff, and the
   architecture index now agree that Milestone 0 is closed and Milestone 1 is
   the next code-changing slice
+- recorded baseline checkpoint `08a1a75` directly in the routed docs so the
+  packet no longer reads like a pre-commit refresh snapshot
 - confirmed the surrounding architecture state remains aligned with the
   oversized-test closeout baseline: `case_count=33`, `status_counts.open=22`,
   `status_counts.deployed=10`, `hotspot_count=10`,
@@ -55,7 +57,8 @@ Local Milestone 0 results:
 
 Local Milestone 0 verification:
 
-- `git status -sb`: `## main...origin/main [ahead 42]`
+- `git status -sb`: clean worktree at baseline checkpoint `08a1a75`; local
+  `main` remained ahead of `origin/main`
 - `uv run docling-system-improvement-case-summary`: `case_count=33`,
   `status_counts.open=22`, `status_counts.deployed=10`,
   `status_counts.measured=1`, `actionable_buckets.open_unconverted_count=22`
@@ -96,9 +99,9 @@ active hygiene policy.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout after
-oversized-test closeout commit `65c0c67` on 2026-05-14 local / 2026-05-14
-UTC:
+Live repo evidence refreshed from the current local checkout for Milestone 0
+baseline commit `08a1a75` after oversized-test closeout commit `65c0c67` on
+2026-05-14 local / 2026-05-14 UTC:
 
 ```text
 uv run docling-system-improvement-case-summary

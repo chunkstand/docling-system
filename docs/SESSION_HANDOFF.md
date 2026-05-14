@@ -30,6 +30,8 @@ Agent Task Schema Aggregation Milestone 0 checkpoint:
 `5436f6f`
 Agent Task Schema Aggregation closeout checkpoint:
 `efe6d4e`
+Hygiene Owner-Case Routing Milestone 0 checkpoint:
+`08a1a75`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -43,6 +45,9 @@ Latest planned bounded implementation brief:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`
+The hygiene owner-case routing packet remains the active bounded follow-on.
+Its Milestone 0 refresh is now committed locally as `08a1a75`, and Milestone
+1 owner-case bootstrap is the next active code-changing slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -263,7 +268,7 @@ refresh is:
 
 ## Hygiene Owner-Case Routing Boundary Milestone 0 Local Refresh
 
-Milestone 0 is resolved locally in the current 2026-05-14 refresh window. The
+Milestone 0 is resolved locally through baseline commit `08a1a75`. The
 stacked preconditions were revalidated from the live repo state, the exact
 remaining milestone-owned hygiene-routing set is now frozen in the active
 docs, and Milestone 1 owner-case bootstrap is the next active code-changing
@@ -290,10 +295,13 @@ Results:
   semantic-governance owner bootstrap
 - refreshed the plan, handoff, and architecture index so all three routing
   artifacts now agree that Milestone 0 is closed and Milestone 1 is next
+- recorded baseline checkpoint `08a1a75` in the canonical handoff so the
+  packet no longer reads like a pre-commit refresh note
 
 Verification:
 
-- `git status -sb`: `## main...origin/main [ahead 42]`
+- `git status -sb`: clean worktree at baseline checkpoint `08a1a75`; local
+  `main` remained ahead of `origin/main`
 - `uv run docling-system-improvement-case-summary`: `case_count=33`,
   `status_counts.open=22`, `status_counts.deployed=10`,
   `status_counts.measured=1`, `actionable_buckets.open_unconverted_count=22`
