@@ -43,7 +43,7 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-08C078FD4F45` / architecture-governance cycle Milestone 0 refresh
+`IC-08C078FD4F45` / architecture-governance cycle Milestone 1 gate-first import contract
 Latest planned bounded implementation brief:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
@@ -58,6 +58,17 @@ as `0dbd4c7`. Milestone 4 routing-packet closeout now leaves zero live
 `owner_milestone` entries, keeps those three owner-case bindings as the
 durable routing map, and hands the next active slice to
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
+The architecture-governance cycle packet remains the active bounded follow-on.
+Milestone 0 live refresh is now resolved locally in the current worktree:
+`IC-08C078FD4F45` is confirmed across `config/improvement_cases.yaml` and
+`config/hygiene_policy.yaml`, architecture inspection and capability contracts
+remain valid, the exact architecture-control cycle component is frozen as
+`app.architecture_decisions`,
+`app.architecture_inspection`,
+`app.architecture_inspection_rules`,
+`app.hygiene`, and
+`app.services.improvement_case_intake`, and Milestone 1 gate-first
+architecture import contract is now the next active slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -240,9 +251,14 @@ closeout commit `9876f67`, and the next active slice is
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
 Active stacked follow-on after the hygiene owner-case routing packet:
-`docs/architecture_governance_cycle_boundary_milestone_plan.md`. Its
-Milestone 0 now refreshes live system state before reusing the
-architecture-governance owner case, removing the
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`. Milestone 0
+live refresh is now resolved locally in the current worktree: the packet
+reuses `IC-08C078FD4F45` across `config/improvement_cases.yaml` and
+`config/hygiene_policy.yaml`, freezes the architecture-control cycle component
+as `app.architecture_decisions`, `app.architecture_inspection`,
+`app.architecture_inspection_rules`, `app.hygiene`, and
+`app.services.improvement_case_intake`, and leaves Milestone 1 gate-first
+architecture import contract as the next active slice for removing the
 `app.architecture_decisions` / `app.architecture_inspection` recursive
 contract-discovery dependency, and eliminating the architecture-governance
 cycle component from the architecture probe without broadening into the other
@@ -255,8 +271,8 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the hygiene owner-case routing packet
-closeout is:
+The live alignment snapshot at the architecture-governance Milestone 0
+baseline is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=36`,
   `status_counts.open=25`, `status_counts.deployed=10`,
@@ -277,6 +293,62 @@ closeout is:
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; the targeted residual files remain
   large; Python cycle components=`5`
+
+## Architecture Governance Cycle Boundary Milestone 0 Local Refresh
+
+Milestone 0 is resolved locally in the current worktree. The post-stack
+baseline is now refreshed against the live owner-case map, the exact
+architecture-control cycle component is frozen before code motion begins, and
+Milestone 1 gate-first architecture import contract is now the next active
+slice.
+
+Results:
+
+- confirmed the prior hygiene owner-case routing packet is already closed
+  through `9876f67`, so the active architecture-governance packet now reuses
+  the live owner case `IC-08C078FD4F45` instead of creating a duplicate case
+  family
+- confirmed `config/improvement_cases.yaml` and `config/hygiene_policy.yaml`
+  both route `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/improvement_case_intake.py`, and
+  `app/services/improvement_cases.py` through `IC-08C078FD4F45`
+- refreshed the current 2026-05-14 post-stack baseline and froze the exact
+  architecture-control cycle component as
+  `app.architecture_decisions`,
+  `app.architecture_inspection`,
+  `app.architecture_inspection_rules`,
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`
+- updated the active plan, handoff, and architecture index so Milestone 1
+  gate-first architecture import contract is now the next active code-changing
+  slice
+
+Verification:
+
+- `git status -sb`: clean worktree at baseline start commit `6867004`; local
+  `main` ahead of `origin/main` by `52`
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
+  `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; Python cycle components=`5`; the
+  architecture-control cycle component still contains
+  `app.architecture_decisions`,
+  `app.architecture_inspection`,
+  `app.architecture_inspection_rules`,
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`
+- `rg -n "IC-08C078FD4F45|app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py" config/improvement_cases.yaml config/hygiene_policy.yaml`:
+  registry and hygiene-policy hits both confirm `IC-08C078FD4F45` owns the
+  four governed architecture-governance files
 
 ## Hygiene Owner-Case Routing Boundary Milestone 0 Local Refresh
 

@@ -12,14 +12,24 @@ Status: active stacked follow-on after
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`; those prior
 packets are now closed locally, the hygiene owner-case routing packet is
 closed locally through closeout commit `9876f67`, it has bound explicit owner
-cases for the residual governance files, and Milestone 0 live refresh is now
-the next active slice
+cases for the residual governance files, Milestone 0 live refresh is resolved
+locally in the current worktree, and Milestone 1 gate-first architecture
+import contract is now the next active slice
 Owner context: active follow-on for the architecture-governance owner family
 now that the hygiene owner-case routing packet has closed locally and bound
 explicit owner cases for the residual governance files. This packet consumes the
 architecture-control cycle slice currently named in
 `docs/boring_change_architecture_milestone_plan.md`, but it does not replace
 that broader later-stack coordination plan.
+
+## Local Progress
+
+Milestone 0 is resolved locally in the current worktree. `IC-08C078FD4F45` is
+now confirmed as the live architecture-governance owner case across both
+`config/improvement_cases.yaml` and `config/hygiene_policy.yaml`, the exact
+post-stack architecture-control cycle baseline is frozen from the current
+probe output, and Milestone 1 gate-first architecture import contract is now
+the next active slice.
 
 ## Purpose
 
@@ -50,19 +60,46 @@ component, keep public inspection and decision entrypoints stable, and stop
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Live repo evidence refreshed at the Milestone 0 baseline on 2026-05-14 local /
+2026-05-14 UTC:
 
 ```text
+git status -sb
+  ## main...origin/main [ahead 52]
+
+uv run docling-system-improvement-case-summary
+  case_count=36
+  status_counts.open=25
+  status_counts.deployed=10
+  status_counts.measured=1
+  measured_case_count=31
+  oldest_open_case_id=IC-9812A0B138D9
+
+uv run docling-system-improvement-case-validate
+  valid=true
+  issue_count=0
+
+uv run docling-system-architecture-inspect
+  valid=true
+  violation_count=0
+
+uv run docling-system-capability-contracts
+  valid=true
+  facade_count=6
+  function_count=110
+
 python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20
   Python cycles:
-    app.services.chat, app.services.documents, app.services.evaluations,
-    app.services.runs, app.services.search,
-    app.services.search_execution_persistence,
-    app.services.search_hydration, app.services.semantics
     app.architecture_decisions, app.architecture_inspection,
     app.architecture_inspection_rules, app.hygiene,
     app.services.improvement_case_intake
+    app.services.chat, app.services.search,
+    app.services.search_execution_persistence,
+    app.services.search_hydration
+    app.services.claim_support_policy_impacts,
+    app.services.claim_support_replay_alert_promotions
+    app.services.evidence_provenance_export_graph_core,
+    app.services.evidence_provenance_export_graph_report
     app.services.evidence_search_packages,
     app.services.evidence_search_trace_store
   Python import fan out:
@@ -71,8 +108,22 @@ python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/arch
     app/architecture_inspection.py = 412 lines
     app/architecture_inspection_rules.py = 604 lines
     app/services/improvement_case_intake.py = 820 lines
+  Top hotspot:
+    app/services/search.py = score 50944
 
-rg -n "build_agent_task_action_manifest|list_improvement_case_import_source_specs|validate_architecture_decisions|validate_agent_task_action_contracts|inspect_architecture_contracts" app/architecture_inspection.py app/architecture_inspection_rules.py app/architecture_decisions.py app/hygiene.py app/services/improvement_case_intake.py
+rg -n "IC-08C078FD4F45|app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py" config/improvement_cases.yaml config/hygiene_policy.yaml
+  config/hygiene_policy.yaml:
+    app/architecture_inspection.py -> owner_case_id=IC-08C078FD4F45
+    app/architecture_inspection_rules.py -> owner_case_id=IC-08C078FD4F45
+    app/services/improvement_case_intake.py -> owner_case_id=IC-08C078FD4F45
+    app/services/improvement_cases.py -> owner_case_id=IC-08C078FD4F45
+  config/improvement_cases.yaml:
+    IC-08C078FD4F45 remains the live architecture-governance owner case
+
+rg -n "build_agent_task_action_manifest|list_improvement_case_import_source_specs|list_improvement_case_import_sources|validate_architecture_decisions|validate_agent_task_action_contracts|inspect_architecture_contracts|build_architecture_contract_map" app/architecture_inspection.py app/architecture_inspection_rules.py app/architecture_decisions.py app/hygiene.py app/services/improvement_case_intake.py
+  app/architecture_decisions.py:
+    _default_expected_contracts() lazily imports
+    app.architecture_inspection.build_architecture_contract_map
   app/architecture_inspection.py imports:
     app.services.agent_task_actions.build_agent_task_action_manifest
     app.services.improvement_case_intake.list_improvement_case_import_sources
@@ -80,27 +131,23 @@ rg -n "build_agent_task_action_manifest|list_improvement_case_import_source_spec
   app/architecture_inspection_rules.py imports:
     app.architecture_decisions.validate_architecture_decisions
     app.services.agent_task_actions.validate_agent_task_action_contracts
-  app/architecture_decisions.py:
-    _default_expected_contracts() lazily imports
-    app.architecture_inspection.build_architecture_contract_map
   app/hygiene.py:
     run_architecture_contract_checks() imports
     app.architecture_inspection.inspect_architecture_contracts
-
-uv run docling-system-architecture-inspect
-  valid=true
-  violation_count=0
-
-uv run docling-system-capability-contracts
-  valid=true
-
-uv run docling-system-improvement-case-validate
-  valid=true
-  issue_count=0
 ```
 
 Repo-current structural evidence:
 
+- `IC-08C078FD4F45` already exists as the live architecture-governance owner
+  case in both the registry and hygiene policy, so this packet must reuse it
+  rather than create a duplicate case family.
+- the exact architecture-control cycle component is still
+  `app.architecture_decisions`,
+  `app.architecture_inspection`,
+  `app.architecture_inspection_rules`,
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`; Milestone 0 must freeze that
+  baseline before code motion begins
 - `app/architecture_inspection.py` is the public inspection and contract-map
   entrypoint, but today it imports full runtime surfaces just to assemble
   manifest data for `agent_action_catalog` and `improvement_case_intake`.
@@ -257,6 +304,8 @@ the prior stacked packets close, refresh this plan before editing code.
 
 ### Milestone 0 - Refresh the post-stack state and bind the live owner case
 
+Status: resolved locally in the current worktree
+
 Outcome label: reduced
 
 Purpose: do not implement this packet against stale queue state. Confirm that
@@ -288,6 +337,54 @@ Acceptance signal:
 - The plan names the live owner case that this packet is working under.
 - The architecture-control cycle component is captured from the post-stack
   baseline before implementation begins.
+
+Local result:
+
+- confirmed the hygiene owner-case routing packet is already closed locally
+  through `9876f67`, so this packet now reuses the live owner case
+  `IC-08C078FD4F45` instead of creating a duplicate architecture-governance
+  case family
+- confirmed `config/improvement_cases.yaml` and `config/hygiene_policy.yaml`
+  both route `app/architecture_inspection.py`,
+  `app/architecture_inspection_rules.py`,
+  `app/services/improvement_case_intake.py`, and
+  `app/services/improvement_cases.py` through `IC-08C078FD4F45`
+- refreshed the current 2026-05-14 post-stack baseline and froze the exact
+  architecture-control cycle component as
+  `app.architecture_decisions`,
+  `app.architecture_inspection`,
+  `app.architecture_inspection_rules`,
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`
+- updated this plan, `docs/SESSION_HANDOFF.md`, and
+  `docs/agentic_architecture_index.md` so Milestone 1 gate-first architecture
+  import contract is now the next active code-changing slice
+
+Local verification:
+
+- `git status -sb`: clean worktree at baseline start commit `6867004`; local
+  `main` ahead of `origin/main` by `52`
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
+  `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-architecture-inspect`: `valid=true`,
+  `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`,
+  `facade_count=6`, `function_count=110`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; Python cycle components=`5`; the
+  architecture-control cycle component still contains
+  `app.architecture_decisions`,
+  `app.architecture_inspection`,
+  `app.architecture_inspection_rules`,
+  `app.hygiene`, and
+  `app.services.improvement_case_intake`
+- `rg -n "IC-08C078FD4F45|app/architecture_inspection.py|app/architecture_inspection_rules.py|app/services/improvement_case_intake.py|app/services/improvement_cases.py" config/improvement_cases.yaml config/hygiene_policy.yaml`:
+  registry and hygiene-policy hits both confirm `IC-08C078FD4F45` owns the
+  four governed architecture-governance files
 
 ### Milestone 1 - Add the gate-first architecture import contract
 
