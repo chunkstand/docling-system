@@ -40,20 +40,22 @@ remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
 remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
-Active local follow-up owner case: Milestone 4 hygiene owner-case routing closeout
-across `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`
+Active local follow-up owner case:
+`IC-08C078FD4F45` / architecture-governance cycle Milestone 0 refresh
 Latest planned bounded implementation brief:
-`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/oversized_test_hotspots_boundary_milestone_plan.md`
-The hygiene owner-case routing packet remains the active bounded follow-on.
-Its Milestone 0 refresh is committed locally as `08a1a75`, Milestone 1
-owner-case bootstrap is committed locally as `d4f082c` through
-`IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
-owner-case binding conversion is committed locally as `7ef99cd`.
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`
+The hygiene owner-case routing packet is now resolved locally in the current
+worktree. Its Milestone 0 refresh is committed locally as `08a1a75`,
+Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
+`IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, Milestone 2
+owner-case binding conversion is committed locally as `7ef99cd`, and
 Milestone 3 owner-case-only hygiene-contract enforcement is committed locally
-as `0dbd4c7`. Milestone 4 hygiene owner-case routing closeout is now the next
-active slice.
+as `0dbd4c7`. Milestone 4 routing-packet closeout now leaves zero live
+`owner_milestone` entries, keeps those three owner-case bindings as the
+durable routing map, and hands the next active slice to
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,
@@ -209,7 +211,7 @@ while `IC-D9A84C20546B`, `IC-3B4C9F2A76E1`, `IC-25C1F7B9E4DA`, and
 `IC-D49E037D5657` remain reduced/open because focused successor files still
 measure `756`, `636` or `630` or `653`, `621`, and `799` lines respectively.
 
-Active stacked follow-on after the oversized-test packet:
+Resolved stacked follow-on after the oversized-test packet:
 `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`. Milestone 0 is
 resolved locally through baseline commit `08a1a75`, and Milestone 1
 owner-case bootstrap is resolved locally through checkpoint `d4f082c`: the
@@ -231,13 +233,14 @@ the old milestone label, and Milestone 3 owner-case-only hygiene-contract
 enforcement is committed locally as `0dbd4c7`: `app/hygiene.py`,
 `app/hygiene_types.py`, `tests/unit/test_hygiene.py`, and
 `docs/improvement_loop.md` now reject `owner_milestone` as a live owner
-reference. Milestone 4 routing-packet closeout is now the next active slice.
+reference. Milestone 4 routing-packet closeout is now resolved locally in the
+current worktree, and the next active slice is
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
-Queued stacked follow-on after the hygiene owner-case routing packet:
+Active stacked follow-on after the hygiene owner-case routing packet:
 `docs/architecture_governance_cycle_boundary_milestone_plan.md`. Its
-Milestone 0 assumes the earlier queued boundary, test, and hygiene-routing
-packets are all complete and committed first, then refreshes live system state
-before reusing the architecture-governance owner case, removing the
+Milestone 0 now refreshes live system state before reusing the
+architecture-governance owner case, removing the
 `app.architecture_decisions` / `app.architecture_inspection` recursive
 contract-discovery dependency, and eliminating the architecture-governance
 cycle component from the architecture probe without broadening into the other
@@ -250,8 +253,8 @@ Additional committed later-stack follow-ons now exist for
 earlier routed packets closing first, and the broader coordination queue now
 also sits behind the architecture-governance cycle packet above.
 
-The live alignment snapshot after the hygiene owner-case routing Milestone 3
-contract enforcement is:
+The live alignment snapshot after the hygiene owner-case routing packet
+closeout is:
 
 - `uv run docling-system-improvement-case-summary`: `case_count=36`,
   `status_counts.open=25`, `status_counts.deployed=10`,
@@ -410,8 +413,9 @@ Verification:
 ## Hygiene Owner-Case Routing Boundary Milestone 3 Contract Enforcement
 
 Milestone 3 is resolved locally through closeout commit `0dbd4c7`. The hygiene contract
-now rejects `owner_milestone` as a valid ratchet owner reference, and
-Milestone 4 routing-packet closeout is the next active slice.
+now rejects `owner_milestone` as a valid ratchet owner reference. At
+Milestone 3 closeout, Milestone 4 routing-packet closeout became the next
+active slice.
 
 Results:
 
@@ -448,6 +452,54 @@ Verification:
   `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
   top hotspot `app/services/search.py`; Python cycle components=`5`
+- `rg -n "owner_milestone:" config/hygiene_policy.yaml`: no hits
+
+## Hygiene Owner-Case Routing Boundary Milestone 4 Packet Closeout
+
+Milestone 4 is resolved locally in the current worktree. The packet now closes
+with explicit owner-case routing only, the active docs no longer describe the
+residual files as milestone-owned hygiene debt, and the next active bounded
+packet is `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
+
+Results:
+
+- reran the live hygiene-routing evidence stack after Milestone 3 contract
+  enforcement and confirmed the explicit owner map remained stable at
+  `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `hotspot_count=10`,
+  `max_hotspot_risk_score=501.06`, and Python cycle components=`5`
+- refreshed `docs/hygiene_owner_case_routing_boundary_milestone_plan.md`,
+  `docs/SESSION_HANDOFF.md`, and
+  `docs/agentic_architecture_index.md` so the hygiene packet is now closed in
+  routed docs and the architecture-governance cycle packet is promoted into the
+  active slot
+- confirmed the explicit closeout owner map remains
+  `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, with zero live
+  `owner_milestone` entries remaining in `config/hygiene_policy.yaml`
+- left `docs/runtime_health_orchestration_milestone_plan.md`,
+  `docs/ci_release_gate_parity_milestone_plan.md`, and
+  `docs/boring_change_architecture_milestone_plan.md` queued behind the
+  architecture-governance cycle packet instead of letting them bypass the
+  still-open governance-cycle dependency
+
+Verification:
+
+- `git diff --check`: pass
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
+  `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
+  `candidate_count=0`, `imported_count=0`, `skipped_count=0`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; the targeted routed residual files
+  remain large; Python cycle components=`5`
 - `rg -n "owner_milestone:" config/hygiene_policy.yaml`: no hits
 
 ## Oversized Test Hotspots Boundary Local Closeout

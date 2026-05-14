@@ -1,7 +1,7 @@
 # Hygiene Owner-Case Routing Boundary Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: active stacked follow-on after
+Status: resolved locally in the current worktree after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -15,8 +15,8 @@ bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
 owner-case binding conversion is resolved locally through closeout commit
 `7ef99cd`, Milestone 3 owner-case-only hygiene-contract enforcement is
 resolved locally through closeout commit `0dbd4c7`, and Milestone 4
-routing-packet closeout is now the next active slice
-Owner context: active governance-first follow-on for the remaining
+routing-packet closeout is now resolved locally in the current worktree
+Owner context: resolved governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
 service and test hotspots first. Milestone 0 must refresh the live post-stack
@@ -37,8 +37,9 @@ the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, the live
 hygiene policy now binds all eight residual files through explicit
 `owner_case_id` values, the hygiene contract now rejects
-`owner_milestone`, and Milestone 4 routing-packet closeout is the next active
-slice.
+`owner_milestone`, and Milestone 4 routing-packet closeout now hands the
+active stacked follow-on to
+`docs/architecture_governance_cycle_boundary_milestone_plan.md`.
 
 Local Milestone 0 results:
 
@@ -587,7 +588,7 @@ Local result:
 
 ### Milestone 4 - Close out the routing packet and record the new owner map
 
-Status: next active slice
+Status: resolved locally in the current worktree
 
 Outcome label: resolved
 
@@ -612,8 +613,45 @@ Acceptance signal:
 
 - The handoff and index no longer describe these residual files as
   milestone-owned hygiene debt.
-- The closeout docs identify the next queued packet from the new explicit owner
+- The closeout docs identify the next active packet from the new explicit owner
   map rather than from the old milestone label.
+
+Local result:
+
+- reran the live hygiene-routing evidence stack after Milestone 3 contract
+  enforcement and confirmed the explicit owner-case map remains stable at
+  `case_count=36`, `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `hotspot_count=10`,
+  `max_hotspot_risk_score=501.06`, and Python cycle components=`5`
+- updated this plan, `docs/SESSION_HANDOFF.md`, and
+  `docs/agentic_architecture_index.md` so the packet no longer reads as active
+  hygiene debt and the next active stacked follow-on is now
+  `docs/architecture_governance_cycle_boundary_milestone_plan.md`
+- kept the routing contract explicit at closeout: `config/hygiene_policy.yaml`
+  still has zero live `owner_milestone` entries, the three routed owner cases
+  remain `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and the
+  broader runtime-health, CI-parity, and boring-change packets remain queued
+  behind the architecture-governance cycle packet rather than leapfrogging it
+
+Local verification:
+
+- `git diff --check`: pass
+- `uv run docling-system-improvement-case-summary`: `case_count=36`,
+  `status_counts.open=25`, `status_counts.deployed=10`,
+  `status_counts.measured=1`, `measured_case_count=31`,
+  `oldest_open_case_id=IC-9812A0B138D9`
+- `uv run docling-system-improvement-case-validate`: `valid=true`,
+  `issue_count=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-import --source hygiene --dry-run`:
+  `candidate_count=0`, `imported_count=0`, `skipped_count=0`
+- `uv run docling-system-architecture-quality-report --summary`:
+  `agent_legibility_average_score=90.0`, `broad_facade_count=2`,
+  `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 20`:
+  top hotspot `app/services/search.py`; the targeted routed residual files
+  remain large; Python cycle components=`5`
+- `rg -n "owner_milestone:" config/hygiene_policy.yaml`: no hits
 
 ## Required Implementation Artifacts
 
@@ -707,9 +745,14 @@ Acceptance signal:
   boring-change architecture lane, not with this routing packet.
 - If `app/services/improvement_case_intake.py` or
   `app/services/improvement_cases.py` still participate in the architecture
-  cycle after closeout, the follow-on cycle cleanup belongs to the broader
-  boring-change architecture packet once the owner routing is explicit.
-- After this packet closes, the next queued broader coordination packet should
-  be `docs/runtime_health_orchestration_milestone_plan.md`, followed by
-  `docs/ci_release_gate_parity_milestone_plan.md`, unless Milestone 0 refresh
+  cycle after closeout, the next scoped cleanup belongs first to
+  `docs/architecture_governance_cycle_boundary_milestone_plan.md`, with any
+  remaining later-stack debt then staying with the broader boring-change
+  architecture packet.
+- After this packet closes, the next active stacked follow-on is
+  `docs/architecture_governance_cycle_boundary_milestone_plan.md`.
+  `docs/runtime_health_orchestration_milestone_plan.md`,
+  `docs/ci_release_gate_parity_milestone_plan.md`, and
+  `docs/boring_change_architecture_milestone_plan.md` remain queued behind
+  that architecture-governance cycle packet unless its Milestone 0 refresh
   proves a different post-stack order is required.

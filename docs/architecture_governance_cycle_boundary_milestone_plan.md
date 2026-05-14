@@ -1,7 +1,7 @@
 # Architecture Governance Cycle Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Status: active stacked follow-on after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -9,11 +9,13 @@ Status: drafted on 2026-05-13 as a stacked follow-on after
 `docs/cli_command_dispatch_boundary_milestone_plan.md`,
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`,
 `docs/oversized_test_hotspots_boundary_milestone_plan.md`, and
-`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`; do not start
-implementation until those prior packets close locally
-Owner context: queued follow-on for the architecture-governance owner family
-once the hygiene owner-case routing packet has created or bound explicit owner
-cases for the residual governance files. This packet consumes the
+`docs/hygiene_owner_case_routing_boundary_milestone_plan.md`; those prior
+packets are now closed locally, the hygiene owner-case routing packet has
+bound explicit owner cases for the residual governance files, and Milestone 0
+live refresh is now the next active slice
+Owner context: active follow-on for the architecture-governance owner family
+now that the hygiene owner-case routing packet has closed locally and bound
+explicit owner cases for the residual governance files. This packet consumes the
 architecture-control cycle slice currently named in
 `docs/boring_change_architecture_milestone_plan.md`, but it does not replace
 that broader later-stack coordination plan.
