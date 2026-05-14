@@ -38,6 +38,8 @@ Hygiene Owner-Case Routing closeout checkpoint:
 `9876f67`
 Architecture Governance Cycle Milestone 0 checkpoint:
 `46b90a7`
+Architecture Governance Cycle Milestone 1 checkpoint:
+`4338d4e`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -73,8 +75,8 @@ measures `hotspot_count=10` and `max_hotspot_risk_score=501.06`,
 `docling-system-hotspot-prevention-check --strict` stays at
 `changed_hotspots=0`, `blocked=0`, and `docling-system-hygiene-check`
 continues to report `new hygiene regressions: none`. Milestone 1
-gate-first architecture import contract is now resolved locally in the
-current worktree: `app/architecture_decisions.py` now uses
+gate-first architecture import contract is now resolved locally through
+checkpoint `4338d4e`: `app/architecture_decisions.py` now uses
 `app/architecture_contract_catalog.py` instead of importing
 `app.architecture_inspection`, `app/architecture_inspection.py` now reads
 improvement-case and agent-action metadata through

@@ -1908,19 +1908,20 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/architecture_inspection.py and the broader
-    architecture-governance residual family still rely on milestone-owned
-    hygiene routing after the post-stack refresh, with
+    architecture-governance residual family still exceed the configured
+    hygiene budget after explicit owner-case routing and the import-cycle
+    reduction, with
     app/architecture_inspection.py, app/architecture_inspection_rules.py,
     app/services/improvement_case_intake.py, and
-    app/services/improvement_cases.py measuring 412, 604, 820, and 876 lines
-    respectively and still mapped only through
-    residual-weakness-milestone-2.
+    app/services/improvement_cases.py measuring 412, 604, 818, and 876 lines
+    respectively.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/architecture_inspection.py
     notes: Refreshed during the hygiene owner-case routing Milestone 1
-      bootstrap after the live residual file-budget set remained
-      milestone-owned. Family members=app/architecture_inspection.py,
+      bootstrap and revalidated after architecture-governance checkpoint
+      4338d4e removed the targeted import cycle. Family
+      members=app/architecture_inspection.py,
       app/architecture_inspection_rules.py,
       app/services/improvement_case_intake.py,
       app/services/improvement_cases.py.
@@ -1940,28 +1941,29 @@ cases:
       app/services/improvement_case_intake.py, and
       app/services/improvement_cases.py are reduced or split until each
       governed owner surface is within the configured budget without
-      reintroducing milestone-owned routing.
-    - The architecture-governance cycle follow-on resolves the remaining
-      contract-discovery cycle while reusing this family owner case.
+      reintroducing milestone-owned routing or runtime metadata reachthrough.
+    - The architecture-governance cycle follow-on preserves the contract-only
+      metadata seams while the remaining oversized owner files are reduced.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
     notes: Created during the hygiene owner-case routing Milestone 1 bootstrap.
-      The broader family remains open until the residual architecture-governance
-      files are reduced and the queued cycle packet closes the remaining import
-      cycle.
+      Architecture-governance checkpoint 4338d4e removed the targeted import
+      cycle, but the broader family remains open until the residual governed
+      files are reduced within budget.
   measurement:
     metric_name: architecture_governance_family_max_line_count
     current_value: 876.0
-    measurement_window: 2026-05-14 hygiene owner-case routing Milestone 1 bootstrap
+    measurement_window: 2026-05-14 architecture-governance Milestone 1 import contract
     notes: app/architecture_inspection.py measures 412 lines,
       app/architecture_inspection_rules.py 604,
-      app/services/improvement_case_intake.py 820, and
-      app/services/improvement_cases.py 876 after the Milestone 0 refresh.
+      app/services/improvement_case_intake.py 818, and
+      app/services/improvement_cases.py 876 after checkpoint 4338d4e removed
+      the targeted architecture-governance cycle.
   created_at: '2026-05-14T16:09:02Z'
-  updated_at: '2026-05-14T16:09:02Z'
+  updated_at: '2026-05-14T20:42:27Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

@@ -14,7 +14,7 @@ packets are now closed locally, the hygiene owner-case routing packet is
 closed locally through closeout commit `9876f67`, it has bound explicit owner
 cases for the residual governance files, Milestone 0 live refresh is resolved
 locally through baseline commit `46b90a7`, Milestone 1 gate-first
-architecture import contract is resolved locally in the current worktree, the
+architecture import contract is resolved locally through checkpoint `4338d4e`, the
 minimal contract-only seam already removed the targeted
 architecture-governance cycle component, and Milestone 4 closeout is now the
 next active slice
@@ -32,7 +32,7 @@ Milestone 0 is resolved locally through baseline commit `46b90a7`.
 case across both `config/improvement_cases.yaml` and
 `config/hygiene_policy.yaml`, the exact post-stack architecture-control cycle
 baseline is frozen from the current probe output, and Milestone 1 gate-first
-architecture import contract is resolved locally in the current worktree.
+architecture import contract is resolved locally through checkpoint `4338d4e`.
 The gate landed through a shared architecture contract catalog in `app/`, one
 improvement-case contract metadata module under the existing improvement-case
 owner family, one agent-action contract metadata module under the existing
@@ -499,8 +499,7 @@ Local verification:
 
 Outcome label: reduced
 
-Current local state: subsumed by the Milestone 1 implementation in the
-current worktree. The shared architecture contract catalog, improvement-case
+Current local state: subsumed by local checkpoint `4338d4e`. The shared architecture contract catalog, improvement-case
 contract metadata module, and agent-action contract metadata module already
 removed recursive contract discovery for this scoped packet, so no separate
 Milestone 2 code slice remains before closeout.
@@ -538,8 +537,7 @@ Acceptance signal:
 
 Outcome label: resolved
 
-Current local state: subsumed by the Milestone 1 implementation in the
-current worktree. The post-change architecture probe no longer lists the
+Current local state: subsumed by local checkpoint `4338d4e`. The post-change architecture probe no longer lists the
 targeted architecture-governance cycle component, and
 `app/architecture_inspection.py` no longer imports
 `app.services.improvement_case_intake` or
