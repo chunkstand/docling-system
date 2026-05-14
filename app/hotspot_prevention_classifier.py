@@ -182,10 +182,16 @@ def classify_python_addition(
 ) -> ClassifiedLine | None:
     path = changed_file.relative_path
     stripped = line.text.strip()
+    hunk_lines = tuple(
+        row.text for row in changed_file.added_lines if row.hunk_id == line.hunk_id
+    )
     if is_comment_or_blank(line.text):
         return None
     import_category = allowed_category_for_import(rule)
-    if import_category and is_import_or_alias(line.text):
+    if import_category and (
+        is_import_or_alias(line.text)
+        or is_multiline_import_continuation(stripped, hunk_lines)
+    ):
         return ClassifiedLine(
             line=line,
             status="allowed",
@@ -194,9 +200,6 @@ def classify_python_addition(
             policy_rule=f"allow.{import_category}",
         )
     forwarding_category = allowed_category_for_forwarder(rule)
-    hunk_lines = tuple(
-        row.text for row in changed_file.added_lines if row.hunk_id == line.hunk_id
-    )
     is_forwarding_def = stripped.startswith(("def ", "async def ")) and is_forwarding_hunk(
         hunk_lines
     )
@@ -221,6 +224,9 @@ def classify_hotspot_implementation(
     classifiers = {
         "app/db/models.py": classify_model_addition,
         "app/services/evidence.py": classify_evidence_addition,
+        "app/services/evidence_provenance_exports.py": (
+            classify_evidence_provenance_export_addition
+        ),
         "app/services/agent_task_actions.py": classify_agent_action_addition,
         "app/services/agent_task_context.py": classify_agent_task_context_addition,
         "app/services/search.py": classify_search_addition,
@@ -255,6 +261,89 @@ def classify_evidence_addition(*, stripped: str, line: ChangedLine) -> Classifie
     if any(token in stripped for token in ("write_text(", "json.dumps(", "artifact", "payload")):
         return blocked(
             line, "artifact_assembly", "new evidence assembly belongs in evidence_* modules"
+        )
+    return None
+def classify_evidence_provenance_export_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+) -> ClassifiedLine | None:
+    lowered = stripped.lower()
+    graph_patterns = (
+        r"(async def |def )_(build_|populate_|finalize_)",
+        r"(async def |def )build_agent_task_provenance_export",
+    )
+    lineage_tokens = (
+        "claim_retrieval_feedback",
+        "claim_derivations",
+        "evidence_cards",
+        "operator_runs",
+        "report_trace",
+    )
+    lifecycle_tokens = (
+        "persist_agent_task_provenance_export",
+        "get_agent_task_provenance_export",
+        "existing_prov_export_artifact",
+        "record_prov_export_supersession_attempt",
+        "technical_report_prov_export_filename",
+        "technical_report_prov_export_artifact_kind",
+        "write_text(",
+        "json.dumps(",
+        "frozen_prov_export_payload(",
+        "supersession_attempt",
+    )
+    governance_tokens = (
+        "change_impact",
+        "evidencepackageexport",
+        "record_technical_report_prov_export_governance_event",
+        "technical_report_change_impact_for_governance",
+    )
+    if any(re.match(pattern, stripped) for pattern in graph_patterns) or any(
+        token in lowered
+        for token in (
+            "was_generated_by",
+            "was_derived_from",
+            "was_associated_with",
+            "was_attributed_to",
+            "prov_identifier(",
+            "state.add_entity(",
+            "state.add_activity(",
+            "state.add_generated(",
+            "state.add_used(",
+            "state.add_derived(",
+        )
+    ):
+        return blocked(
+            line,
+            "provenance_graph_logic",
+            "provenance graph assembly belongs in the provenance-export owner modules",
+        )
+    if any(token in lowered for token in lineage_tokens):
+        return blocked(
+            line,
+            "report_trace_lineage_logic",
+            "report-trace lineage belongs in "
+            "app/services/evidence_provenance_export_graph_report.py",
+        )
+    if any(token in lowered for token in lifecycle_tokens):
+        return blocked(
+            line,
+            "export_lifecycle_logic",
+            "provenance export lifecycle behavior belongs in "
+            "app/services/evidence_provenance_export_lifecycle.py",
+        )
+    if any(token in lowered for token in governance_tokens):
+        return blocked(
+            line,
+            "governance_change_impact_logic",
+            "governance change-impact logic belongs in "
+            "app/services/evidence_provenance_export_lifecycle.py",
+        )
+    if stripped.startswith(("def _", "async def _", "def ", "async def ", "class ")):
+        return blocked(
+            line,
+            "provenance_graph_logic",
+            "new provenance-export behavior belongs in the focused provenance owner modules",
         )
     return None
 def classify_cli_addition(
@@ -498,6 +587,18 @@ def is_import_or_alias(text: str) -> bool:
     return stripped.startswith(("from ", "import ", "__all__")) or bool(
         re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*[A-Za-z_][A-Za-z0-9_.]*$", stripped)
     )
+
+
+def is_multiline_import_continuation(text: str, hunk_lines: tuple[str, ...]) -> bool:
+    if not re.match(
+        r"[A-Za-z_][A-Za-z0-9_]*(\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?,?$",
+        text,
+    ):
+        return False
+    return any(
+        re.match(r"(from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import|import)\s+\($", raw.strip())
+        for raw in hunk_lines
+    )
 def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
     significant = [text.strip() for text in lines if not is_comment_or_blank(text)]
     saw_alias = False
@@ -506,6 +607,20 @@ def is_alias_only_hunk(lines: tuple[str, ...]) -> bool:
         stripped = significant[index]
         if is_import_or_alias(stripped):
             saw_alias = True
+            index += 1
+            continue
+        if re.match(r"from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import\s+\($", stripped):
+            saw_alias = True
+            index += 1
+            while index < len(significant) and significant[index] != ")":
+                if not re.match(
+                    r"[A-Za-z_][A-Za-z0-9_]*(\s+as\s+[A-Za-z_][A-Za-z0-9_]*)?,?$",
+                    significant[index],
+                ):
+                    return False
+                index += 1
+            if index >= len(significant) or significant[index] != ")":
+                return False
             index += 1
             continue
         if not re.match(r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*\($", stripped):

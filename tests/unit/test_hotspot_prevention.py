@@ -79,6 +79,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
         "app/services/claim_support_policy_impacts.py",
         "app/services/evaluations.py",
         "app/services/evidence.py",
+        "app/services/evidence_provenance_exports.py",
         "app/services/search.py",
         "tests/unit/test_cli.py",
     ]
@@ -174,6 +175,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
             "app/services/evaluations.py",
             ["def load_evaluation_fixtures(corpus_path=None):", "    return []"],
             "fixture_corpus_logic",
+        ),
+        (
+            "app/services/evidence_provenance_exports.py",
+            ["def _build_agent_task_provenance_export(session, task_id):", "    return {}"],
+            "provenance_graph_logic",
         ),
         (
             "tests/unit/test_cli.py",
@@ -350,6 +356,50 @@ def test_evaluations_hotspot_blocks_fixture_scoring_structural_and_latest_read_g
     assert structural_report["findings"][0]["category"] == "structural_check_logic"
     assert latest_read_report["summary"]["blocked_count"] == 1
     assert latest_read_report["findings"][0]["category"] == "latest_read_logic"
+
+
+def test_provenance_export_hotspot_blocks_graph_lineage_lifecycle_and_governance_growth() -> None:
+    graph_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            ["def _build_agent_task_provenance_export(session, task_id):", "    return {}"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    lineage_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            ["feedback = report_trace.get('claim_retrieval_feedback')"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    lifecycle_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            ["def persist_agent_task_provenance_export(session, task_id):", "    return None"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+    governance_report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            ["change_impact = technical_report_change_impact_for_governance(session, task_id)"],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert graph_report["summary"]["blocked_count"] == 1
+    assert graph_report["findings"][0]["category"] == "provenance_graph_logic"
+    assert lineage_report["summary"]["blocked_count"] == 1
+    assert lineage_report["findings"][0]["category"] == "report_trace_lineage_logic"
+    assert lifecycle_report["summary"]["blocked_count"] == 1
+    assert lifecycle_report["findings"][0]["category"] == "export_lifecycle_logic"
+    assert governance_report["summary"]["blocked_count"] == 1
+    assert governance_report["findings"][0]["category"] == "governance_change_impact_logic"
 
 
 def test_analyzer_allows_import_forwarding_and_deletion_only_reductions() -> None:
@@ -543,6 +593,46 @@ def test_evaluations_forwarding_wrapper_is_allowed() -> None:
 
     assert report["summary"]["blocked_count"] == 0
     assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_provenance_export_forwarding_wrapper_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            [
+                "def get_agent_task_provenance_export(session, task_id, *, storage_service=None):",
+                "    return _lifecycle.get_agent_task_provenance_export(",
+                "        session,",
+                "        task_id,",
+                "        storage_service=storage_service,",
+                "    )",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "explicit_forwarding_function"
+
+
+def test_provenance_export_multiline_import_reexport_is_allowed() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/services/evidence_provenance_exports.py",
+            [
+                "from app.services.evidence_provenance_export_lifecycle import (",
+                "    existing_prov_export_artifact as _existing_prov_export_artifact,",
+                "    get_agent_task_provenance_export,",
+                "    persist_agent_task_provenance_export,",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert report["findings"][0]["category"] == "import_forwarder"
 
 
 def test_cli_forwarding_wrapper_cluster_with_keyword_dependencies_is_allowed() -> None:

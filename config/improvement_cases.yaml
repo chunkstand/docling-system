@@ -166,20 +166,24 @@ cases:
   title: 'Architecture hotspot: evidence owner-family modules'
   status: open
   cause_class: unclear_ownership
-  observed_failure: After the evidence facade reduction, extracted evidence
-    owner modules still exceed the 600-line hygiene budget; the largest owner
-    surface is app/services/evidence_provenance_exports.py at 1048 lines.
+  observed_failure: app/services/evidence_provenance_exports.py is now a 14-line
+    compatibility facade, but the broader evidence owner-family case remains
+    reduced rather than retired because app/services/evidence_technical_report_exports.py,
+    app/services/evidence_semantic_trace.py, app/services/evidence_claim_feedback.py,
+    and app/services/evidence_audit_views.py remain above the 600-line default
+    budget at 884, 837, 834, and 699 lines respectively.
   source:
     source_type: hygiene_finding
-    source_ref: hygiene:file-budget:app/services/evidence_provenance_exports.py
-    notes: Captured during the evidence compatibility-facade closeout while
-      ratcheting the new owner-family modules into explicit follow-on budget
-      governance.
+    source_ref: hygiene:file-budget:app/services/evidence_technical_report_exports.py
+    notes: Refreshed during the provenance-export boundary closeout after
+      app/services/evidence_provenance_exports.py was reduced to a thin
+      compatibility facade and the remaining evidence owner-family budgets were
+      remeasured.
   artifact:
     artifact_type: contract
-    target_path: app/services/evidence_provenance_exports.py
-    description: Largest routed evidence owner-family module after the evidence
-      facade split.
+    target_path: app/services/evidence_technical_report_exports.py
+    description: Largest remaining routed evidence owner-family module after
+      the provenance-export split.
   verification:
     commands:
     - uv run docling-system-hygiene-check
@@ -193,24 +197,32 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Owner-family follow-on created during the local evidence facade
-      reduction; no deployment commit recorded yet.
+    notes: Provenance-export boundary closeout reduced
+      app/services/evidence_provenance_exports.py to a compatibility facade and
+      added app/services/evidence_provenance_export_graph_core.py,
+      app/services/evidence_provenance_export_graph_report.py, and
+      app/services/evidence_provenance_export_lifecycle.py. The broader
+      owner-family case remains open because multiple extracted evidence owner
+      modules still exceed the default 600-line budget.
   measurement:
     metric_name: evidence_owner_family_max_line_count
-    current_value: 1048.0
-    measurement_window: 2026-05-11 local verification
-    notes: Largest governed owner-family file after the facade reduction is
-      app/services/evidence_provenance_exports.py at 1048 lines; other routed
-      evidence owner modules remain above the 600-line default budget.
+    current_value: 884.0
+    measurement_window: 2026-05-13 provenance-export closeout refresh
+    notes: app/services/evidence_provenance_exports.py now measures 14 lines,
+      app/services/evidence_provenance_export_graph_core.py measures 549,
+      app/services/evidence_provenance_export_graph_report.py measures 218, and
+      app/services/evidence_provenance_export_lifecycle.py measures 278. The
+      largest remaining governed owner-family file is
+      app/services/evidence_technical_report_exports.py at 884 lines.
   created_at: '2026-05-12T00:00:00+00:00'
-  updated_at: '2026-05-12T00:00:00+00:00'
+  updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-6C1B516A3F92
   title: 'Hygiene budget hotspot: app/hotspot_prevention_classifier.py'
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 658 lines after the search execution persistence gate
-    hardening expanded the hotspot-prevention classifier rules.
+    file budget at 773 lines after the provenance-export compatibility-facade
+    gate expanded the hotspot-prevention classifier rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
@@ -239,16 +251,20 @@ cases:
   workflow_version: improvement_v1
   deployment:
     deployed_ref: "f55b474"
-    notes: Residual ratchet increase recorded in the search execution
-      persistence closeout commit f55b474; the hygiene follow-on remains open.
+    notes: Residual ratchet increase was first recorded in the search execution
+      persistence closeout commit f55b474 and refreshed during the local
+      provenance-export closeout after adding the dedicated
+      evidence_provenance_exports hotspot classifier rules. The hygiene
+      follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 658.0
-    measurement_window: 2026-05-13 local search persistence alignment verification
-    notes: The classifier still carries the earlier registry-composition
-      allowances and now also blocks search persistence/operator-trace payload
-      growth in app/services/search.py, leaving the file above the default
-      budget at 658 lines.
+    current_value: 773.0
+    measurement_window: 2026-05-13 provenance-export closeout refresh
+    notes: The classifier still carries the earlier registry-composition and
+      search-boundary allowances and now also blocks provenance-graph,
+      report-lineage, lifecycle, and governance-change-impact growth in
+      app/services/evidence_provenance_exports.py, leaving the file above the
+      default budget at 773 lines.
   created_at: '2026-05-13T00:00:00+00:00'
   updated_at: '2026-05-13T00:00:00+00:00'
 - case_id: IC-9812A0B138D9

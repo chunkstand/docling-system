@@ -40,6 +40,22 @@ known_hotspots:
           - _frozen_prov_export_payload
           - _prov_export_receipt_integrity
           - settings_provider=get_settings
+  app/services/evidence_provenance_exports.py:
+    target_role: provenance-export compatibility facade
+    preferred_owner_modules:
+      - app/services/evidence_provenance_export_graph_core.py
+      - app/services/evidence_provenance_export_graph_report.py
+      - app/services/evidence_provenance_export_lifecycle.py
+    block_new:
+      - provenance_graph_logic
+      - report_trace_lineage_logic
+      - export_lifecycle_logic
+      - governance_change_impact_logic
+    allow:
+      - import_forwarder
+      - alias_forwarder
+      - explicit_forwarding_function
+      - deletion
   app/cli.py:
     target_role: console script compatibility and dispatch surface
     preferred_owner_modules:

@@ -1,17 +1,62 @@
 # Evidence Provenance Exports Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
+Status: resolved locally on 2026-05-13 after
 `docs/search_execution_orchestration_boundary_milestone_plan.md`,
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`, and
-`docs/evaluations_service_boundary_milestone_plan.md`; do not start
-implementation until all three prior packets close locally
-Owner context: queued follow-on under `IC-65AF4A6D8B1E` /
-`app/services/evidence_provenance_exports.py`. This plan assumes the current
-search execution orchestration packet completes first, the queued claim-support
-boundary packet completes second, the queued evaluations boundary packet
-completes third, and Milestone 0 then refreshes the live system state before
-any provenance-export code moves.
+`docs/evaluations_service_boundary_milestone_plan.md` all closed first.
+Milestones 0-3 completed, `app/services/evidence_provenance_exports.py` is now
+a 14-line compatibility facade, and the broader `IC-65AF4A6D8B1E` owner case
+remains reduced/open because multiple extracted evidence owner-family modules
+still exceed the default 600-line budget.
+Owner context: local closeout under `IC-65AF4A6D8B1E`; the next routed
+residual evidence owner surface is
+`app/services/evidence_technical_report_exports.py` at 884 lines, and
+`docs/semantics_service_boundary_milestone_plan.md` is now the next active
+bounded implementation brief.
+
+## Local Closeout Summary
+
+- Milestone 0 refreshed the post-search-orchestration, claim-support, and
+  evaluations state and confirmed the provenance-export knot was still the next
+  routed evidence owner surface.
+- Milestones 1-3 extracted provenance graph scaffolding into
+  `app/services/evidence_provenance_export_graph_core.py` at 549 lines,
+  report-trace and claim-lineage graph ownership into
+  `app/services/evidence_provenance_export_graph_report.py` at 218 lines, and
+  export lifecycle and persistence into
+  `app/services/evidence_provenance_export_lifecycle.py` at 278 lines.
+- `app/services/evidence_provenance_exports.py` is now a 14-line compatibility
+  facade that only re-exports the public persistence and fetch entrypoints plus
+  the stable internal aliases required by the evidence facade and existing
+  compatibility tests.
+- Hotspot prevention now explicitly blocks provenance graph, report-lineage,
+  lifecycle, and governance change-impact growth inside the facade, with
+  focused owner coverage in
+  `tests/unit/test_evidence_provenance_export_graph_core.py`,
+  `tests/unit/test_evidence_provenance_export_graph_report.py`, and
+  `tests/unit/test_evidence_provenance_export_lifecycle.py`.
+- The broader owner case remains reduced/open because
+  `app/services/evidence_technical_report_exports.py` measures 884 lines,
+  `app/services/evidence_semantic_trace.py` 837,
+  `app/services/evidence_claim_feedback.py` 834, and
+  `app/services/evidence_audit_views.py` 699.
+
+## Local Verification
+
+- `git diff --check`: pass
+- `uv run ruff check app/services/evidence.py app/services/evidence_provenance.py app/services/evidence_provenance_exports.py app/services/evidence_provenance_export_graph_core.py app/services/evidence_provenance_export_graph_report.py app/services/evidence_provenance_export_lifecycle.py app/services/agent_task_worker.py app/services/capabilities/agent_orchestration.py app/api/routers/agent_tasks.py app/hotspot_prevention_classifier.py tests/unit/test_evidence_provenance.py tests/unit/test_evidence_provenance_export_graph_core.py tests/unit/test_evidence_provenance_export_graph_report.py tests/unit/test_evidence_provenance_export_lifecycle.py tests/unit/test_evidence_facade_contract.py tests/unit/test_agent_tasks_api.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_evidence_provenance.py tests/unit/test_evidence_provenance_export_graph_core.py tests/unit/test_evidence_provenance_export_graph_report.py tests/unit/test_evidence_provenance_export_lifecycle.py tests/unit/test_evidence_facade_contract.py tests/unit/test_agent_tasks_api.py tests/unit/test_hotspot_prevention.py`: `85 passed`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs tests/integration/test_technical_report_harness_roundtrip.py tests/integration/test_semantic_governance_ledger.py`: `3 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=10`, `changed_hotspots=1`, `blocked=0`, `allowed=9`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-architecture-inspect`: `valid=true`, `violation_count=0`
+- `uv run docling-system-capability-contracts`: `valid=true`
+- `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=28`, `status_counts.open=20`, `status_counts.deployed=7`, `status_counts.measured=1`, `measured_case_count=18`
+- `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 15`: top hotspot remains `app/cli.py`, the provenance-export facade is absent from the top 15 churn hotspots, and the remaining Python cycle count is `5`
+- `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run pytest -q -rs`: `1915 passed`
 
 ## Purpose
 
@@ -34,9 +79,9 @@ evidence owner modules such as `app/services/evidence_manifests.py`,
 `app/services/evidence_claim_feedback.py`, `app/services/evidence_audit_views.py`,
 or back into `app/services/evidence.py`.
 
-## Current Evidence
+## Original Baseline Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
+Original live repo evidence captured when the plan was drafted on 2026-05-13
 local / 2026-05-13 UTC:
 
 ```text
