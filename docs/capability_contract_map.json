@@ -3175,8 +3175,8 @@
         {
           "name": "get_runtime_status",
           "operation_kind": "read",
-          "owner_module": "app.services.runtime",
-          "owner_symbol": "get_runtime_status",
+          "owner_module": "app.services.runtime_health",
+          "owner_symbol": "get_runtime_diagnostics",
           "parameters": [
             {
               "annotation": "str | None",
@@ -3230,7 +3230,6 @@
       "name": "system_governance",
       "owner_modules": [
         "app.services.architecture_governance",
-        "app.services.runtime",
         "app.services.runtime_health",
         "app.services.telemetry"
       ],

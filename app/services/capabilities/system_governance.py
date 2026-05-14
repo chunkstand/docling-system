@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.services import architecture_governance, runtime, runtime_health, telemetry
+from app.services import architecture_governance, runtime_health, telemetry
 from app.services.runtime_health import RuntimePublicHealthResponse
 
 
@@ -38,7 +38,7 @@ class ServicesSystemGovernanceCapability:
         self,
         process_identity: str | None = None,
     ) -> dict[str, Any]:
-        return runtime.get_runtime_status(process_identity=process_identity)
+        return runtime_health.get_runtime_diagnostics(process_identity=process_identity)
 
     def snapshot_metrics(self) -> dict[str, float]:
         return telemetry.snapshot_metrics()

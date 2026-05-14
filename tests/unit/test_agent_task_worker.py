@@ -213,13 +213,14 @@ def test_agent_task_worker_loop_exits_when_runtime_code_is_stale(monkeypatch) ->
         "app.services.agent_task_worker.get_process_identity",
         lambda: "agent-worker-1",
     )
+
+    @contextmanager
+    def fake_runtime_process_heartbeat(*_args, **_kwargs):
+        yield SimpleNamespace(startup_code_fingerprint="old-fingerprint")
+
     monkeypatch.setattr(
-        "app.services.agent_task_worker.register_runtime_process",
-        lambda process_kind, process_identity: SimpleNamespace(
-            process_kind=process_kind,
-            process_identity=process_identity,
-            startup_code_fingerprint="old-fingerprint",
-        ),
+        "app.services.agent_task_worker.runtime_process_heartbeat",
+        fake_runtime_process_heartbeat,
     )
     monkeypatch.setattr(
         "app.services.agent_task_worker.runtime_code_is_current",
@@ -272,17 +273,18 @@ def test_agent_task_worker_loop_registers_runtime_before_claiming(monkeypatch) -
         lambda: "agent-worker-1",
     )
 
-    def fake_register_runtime_process(process_kind, process_identity):
+    @contextmanager
+    def fake_runtime_process_heartbeat(process_kind, process_identity, **_kwargs):
         events["registered"] = (process_kind, process_identity)
-        return SimpleNamespace(startup_code_fingerprint="current-fingerprint")
+        yield SimpleNamespace(startup_code_fingerprint="current-fingerprint")
 
     def fake_claim_next_agent_task(*args, **kwargs):
         events["claimed"] = True
         raise SystemExit("stop after first claim attempt")
 
     monkeypatch.setattr(
-        "app.services.agent_task_worker.register_runtime_process",
-        fake_register_runtime_process,
+        "app.services.agent_task_worker.runtime_process_heartbeat",
+        fake_runtime_process_heartbeat,
     )
     monkeypatch.setattr(
         "app.services.agent_task_worker.runtime_code_is_current",

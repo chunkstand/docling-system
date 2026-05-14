@@ -1972,12 +1972,13 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: >-
-    Runtime health still lacks end-to-end orchestration closure: /health is
-    now bounded and backed by a shared repo-owned contract, but /runtime/status
-    does not yet expose the shared health report, worker and agent-worker still
-    have no Compose healthchecks, and the runtime registry still lacks
-    per-process heartbeat freshness for API and workers across
-    app/api/routers/system.py, app/services/runtime.py, app/workers/poller.py,
+    Runtime-health orchestration is now verified locally through Compose
+    runtime smoke and the full DB-backed integration gate, but this owner case
+    remains open until the Milestone 4 closeout commit is recorded as the
+    deployment ref for the shared `/health`, `/runtime/status`, whole-process
+    heartbeat, and Compose healthcheck contract across app/api/main.py,
+    app/api/routers/system.py, app/services/runtime.py, app/services/runs.py,
+    app/services/agent_task_worker.py, app/workers/poller.py,
     app/workers/agent_poller.py, and docker-compose.yml.
   source:
     source_type: architecture_governance
@@ -1994,47 +1995,127 @@ cases:
   verification:
     commands:
     - git diff --check
-    - uv run pytest -q tests/unit/test_health.py
+    - docker compose config --quiet
+    - DOCLING_SYSTEM_POSTGRES_PORT=5434 docker compose up -d db api worker agent-worker
+    - docker inspect "$(docker compose ps -q api)" --format '{{.State.Health.Status}}'
+    - docker inspect "$(docker compose ps -q worker)" --format '{{.State.Health.Status}}'
+    - docker inspect "$(docker compose ps -q agent-worker)" --format '{{.State.Health.Status}}'
+    - uv run --extra dev python -m pytest -q tests/unit/test_health.py tests/unit/test_runtime_health.py tests/unit/test_runtime_service.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py tests/unit/test_api_route_contracts.py tests/unit/test_api_architecture.py tests/unit/test_runtime_health_cli.py
+    - uv run ruff check app/api/main.py app/api/routers/system.py app/services/runtime.py app/services/runtime_health.py app/services/capabilities/system_governance.py app/services/runs.py app/services/agent_task_worker.py app/runtime_health_cli.py tests/unit/test_health.py tests/unit/test_runtime_service.py tests/unit/test_runtime_health.py tests/unit/test_runtime_health_cli.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py tests/unit/test_api_route_contracts.py tests/unit/test_api_architecture.py
+    - TMPDIR=$PWD/.tmp DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs
     - uv run docling-system-architecture-inspect
     - uv run docling-system-capability-contracts
     - uv run docling-system-improvement-case-validate
     - uv run docling-system-improvement-case-summary
     - uv run docling-system-architecture-quality-report --summary
     - uv run docling-system-hygiene-check
-    - python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py
-      --format markdown --top 20
     acceptance_conditions:
-    - A dedicated runtime-health owner contract exists and is routed through
-      this case before code changes begin.
-    - The refreshed runtime-health plan reflects live post-stack repo state and
-      keeps Milestone 1 focused on one shared health owner plus bounded public
-      health behavior.
+    - The shared runtime-health owner contract remains routed through this case
+      across bounded public health, authenticated runtime diagnostics,
+      whole-process heartbeat freshness, and repo-owned Compose healthchecks.
+    - Milestone 4 closeout proves the runtime-health behavior end to end
+      without broadening public exemptions or weakening the focused or full
+      DB-backed verification stack.
     catches_old_failure: true
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
     deployed_ref: null
-    notes: Runtime-health Milestone 0 refresh / owner-case bootstrap remains
+    notes: >-
+      Runtime-health Milestone 0 refresh / owner-case bootstrap remains
       committed locally as checkpoint 289f15a, and Milestone 1 gate-first
-      health contract is now committed locally as checkpoint a84728c.
-      app/services/runtime_health.py owns the shared health contract, /health
-      now returns only bounded ok or error payloads, and the checked-in
-      architecture workflow now runs docker compose config --quiet plus focused
-      runtime-health tests. Authenticated detailed diagnostics,
-      process-heartbeat publication, and Compose healthchecks remain
-      unimplemented.
+      health contract remains committed locally as checkpoint a84728c.
+      Milestones 2 through 4 now close the scoped gap locally:
+      app/services/runtime_health.py owns the shared contract, /runtime/status
+      now carries the nested shared health report, app/api/main.py plus the
+      run and agent-task worker loops publish whole-process heartbeats,
+      app/runtime_health_cli.py exposes the repo-owned Compose health command,
+      docker-compose.yml now wires healthchecks for api, worker, and
+      agent-worker with a verified 10s timeout budget, Compose runtime smoke
+      now passes on DOCLING_SYSTEM_POSTGRES_PORT=5434, and the full DB-backed
+      integration gate now passes at 1975 tests.
   measurement:
     metric_name: runtime_health_contract_surface_total_lines
-    current_value: 1193.0
-    measurement_window: 2026-05-14 runtime-health Milestone 1 gate-first contract
-    notes: app/api/routers/system.py=88, app/services/runtime.py=198,
-      app/services/runtime_health.py=256,
+    current_value: 4729.0
+    measurement_window: 2026-05-14 runtime-health Milestone 4 local closeout
+    notes: app/api/main.py=98, app/api/routers/system.py=88,
+      app/services/runtime.py=363, app/services/runtime_health.py=298,
       app/services/capabilities/system_governance.py=64,
-      tests/unit/test_health.py=329, tests/unit/test_runtime_service.py=64,
-      tests/unit/test_runtime_health.py=113,
-      .github/workflows/architecture-governance.yml=81.
+      app/services/runs.py=1026, app/services/agent_task_worker.py=568,
+      app/runtime_health_cli.py=66, tests/unit/test_health.py=343,
+      tests/unit/test_runtime_service.py=98,
+      tests/unit/test_runtime_health.py=165,
+      tests/unit/test_runtime_health_cli.py=67,
+      tests/unit/test_run_logic.py=737,
+      tests/unit/test_agent_task_worker.py=624,
+      docker-compose.yml=124.
   created_at: '2026-05-14T20:58:15Z'
-  updated_at: '2026-05-14T21:28:12Z'
+  updated_at: '2026-05-14T23:41:16Z'
+- case_id: IC-2D8D5BF5A8C4
+  title: 'Release gate parity gap: checked-in CI vs local release gate'
+  status: open
+  cause_class: missing_constraint
+  observed_failure: >-
+    The repo's checked-in CI still proves architecture governance only. The
+    only workflow is .github/workflows/architecture-governance.yml, and there
+    is still no repo-owned docling-system-release-gate-parity runner or
+    .github/workflows/release-gate-parity.yml workflow to execute Alembic
+    upgrade/current smoke, the Postgres Base.metadata.create_all(...)
+    verification path, bounded Compose runtime smoke, and the full
+    DOCLING_SYSTEM_RUN_INTEGRATION=1 suite as checked-in release gates.
+  source:
+    source_type: architecture_governance
+    source_ref: architecture-governance:ci-release-gate-parity
+    notes: Created during the CI release-gate parity Milestone 0 refresh after
+      the runtime-health contract landed locally. Keep this source_ref stable
+      so future CI parity reviews dedupe to the same owner case.
+  artifact:
+    artifact_type: contract
+    target_path: .github/workflows/architecture-governance.yml
+    description: Existing checked-in CI workflow surface that still lacks the
+      release-parity gate and repo-owned runner contract.
+  verification:
+    commands:
+    - git diff --check
+    - uv run docling-system-improvement-case-validate
+    - uv run pytest -q tests/unit/test_release_gate_cli.py
+    - uv run --extra dev alembic upgrade head
+    - uv run --extra dev alembic current
+    - docker compose config --quiet
+    - uv run docling-system-release-gate-parity
+    - DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs
+    - uv run docling-system-architecture-inspect
+    - uv run docling-system-capability-contracts
+    - uv run docling-system-hygiene-check
+    acceptance_conditions:
+    - A checked-in release-parity workflow exists and calls one repo-owned
+      release-gate runner surface instead of duplicating the release command
+      list inline.
+    - The checked-in release-parity gate executes Alembic upgrade/current
+      smoke, the Postgres Base.metadata.create_all(...) verification path,
+      bounded Compose runtime smoke, and the full DB-backed integration suite
+      without weakening tests or broadening skips.
+    catches_old_failure: true
+    allows_good_changes: true
+  workflow_version: improvement_v1
+  deployment:
+    deployed_ref: null
+    notes: Created during the CI release-gate parity Milestone 0 refresh after
+      runtime-health contract surfaces became available locally. The
+      runtime-health dependency is now satisfied at the contract and Compose
+      smoke level, and this owner case remains open until a checked-in
+      release-parity runner and workflow land and pass locally.
+  measurement:
+    metric_name: ci_release_gate_missing_check_count
+    current_value: 6.0
+    measurement_window: 2026-05-14 CI release-gate parity Milestone 0 refresh
+    notes: The current checked-in workflow set still lacks Alembic upgrade
+      smoke, Alembic current verification, the Postgres
+      Base.metadata.create_all(...) path, docker compose runtime smoke, a
+      dedicated release-parity runner, and a checked-in release-parity
+      workflow.
+  created_at: '2026-05-14T23:16:30Z'
+  updated_at: '2026-05-14T23:41:16Z'
 - case_id: IC-7C73737C689F
   title: 'Architecture hotspot: app/services/claim_support_policy_governance.py'
   status: open

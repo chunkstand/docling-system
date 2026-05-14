@@ -1,7 +1,8 @@
 # Runtime Health Orchestration Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: active stacked follow-on after
+Date: 2026-05-14 local / 2026-05-14 UTC
+Status: resolved locally through Milestone 4 verification, Compose runtime
+smoke, and docs alignment on 2026-05-14 after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -15,15 +16,20 @@ packets are now closed locally, including architecture-governance closeout
 commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is now
 committed locally as checkpoint `289f15a` through `IC-0F89DBB1CF9F`.
 Milestone 1 gate-first health contract is now committed locally as checkpoint
-`a84728c`. Milestone 2 hardened API and authenticated runtime-health behavior
-is now the next active slice
-Owner context: active follow-on for the production-orchestration health gap
-across `app/api/routers/system.py`, `app/services/runtime.py`,
-`app/workers/poller.py`, `app/workers/agent_poller.py`, and
-`docker-compose.yml`. `IC-0F89DBB1CF9F` now anchors the runtime-health
-contract gap across those surfaces. `app/services/runtime_health.py` now owns
-the shared gate-first health contract, but authenticated detailed diagnostics,
-process-heartbeat publication, and Compose healthchecks remain unimplemented.
+`a84728c`. Milestones 2 and 3 are now closed locally with Milestone 4 after
+the repo-owned runtime-health CLI passed Compose smoke for `api`, `worker`,
+and `agent-worker`, the checked-in Compose healthcheck timeout was raised from
+`5s` to `10s` to match the real CLI runtime, and the next routed follow-on is
+`docs/ci_release_gate_parity_milestone_plan.md`.
+Owner context: resolved follow-on for the production-orchestration health gap
+across `app/api/main.py`, `app/api/routers/system.py`,
+`app/services/runtime.py`, `app/workers/poller.py`,
+`app/workers/agent_poller.py`, and `docker-compose.yml`.
+`IC-0F89DBB1CF9F` now anchors the resolved runtime-health contract gap across
+those surfaces. `app/services/runtime_health.py` now owns the shared contract,
+and the scoped issue is locally closed across authenticated runtime
+diagnostics, process-heartbeat publication, the repo-owned runtime-health CLI,
+and Compose healthchecks.
 
 ## Local Progress
 
@@ -41,14 +47,35 @@ runtime-health pytest slice. The current health-contract surfaces now measure
 `app/services/capabilities/system_governance.py`,
 `tests/unit/test_health.py`, `tests/unit/test_runtime_service.py`,
 `tests/unit/test_runtime_health.py`, and
-`.github/workflows/architecture-governance.yml`. Milestone 2 hardened API and
-authenticated runtime-health behavior is now the next active code-changing
-slice.
+`.github/workflows/architecture-governance.yml`. Milestones 2 and 3 are now
+closed locally through Milestone 4: `app/api/main.py`,
+`app/services/runs.py`, and `app/services/agent_task_worker.py` now hold
+`runtime_process_heartbeat(...)` contexts; `app/services/runtime_health.py`
+now exposes `get_runtime_diagnostics(...)`; the `system_governance`
+capability routes `/runtime/status` through that diagnostics surface;
+`app/runtime_health_cli.py` now exposes `docling-system-runtime-health`;
+`docker-compose.yml` now healthchecks `api`, `worker`, and `agent-worker`
+through that CLI; `docs/capability_contract_map.json` was refreshed after the
+capability-owner change; and focused coverage now includes
+`tests/unit/test_runtime_health_cli.py`, including a contract test that keeps
+the Compose healthcheck timeout at `10s` for the repo-owned CLI. The current
+implementation surfaces
+now measure `98 / 88 / 363 / 298 / 64 / 1026 / 568 / 66 / 343 / 98 / 165 /
+67 / 737 / 624 / 124` lines for `app/api/main.py`,
+`app/api/routers/system.py`, `app/services/runtime.py`,
+`app/services/runtime_health.py`,
+`app/services/capabilities/system_governance.py`, `app/services/runs.py`,
+`app/services/agent_task_worker.py`, `app/runtime_health_cli.py`,
+`tests/unit/test_health.py`, `tests/unit/test_runtime_service.py`,
+`tests/unit/test_runtime_health.py`, `tests/unit/test_runtime_health_cli.py`,
+`tests/unit/test_run_logic.py`, `tests/unit/test_agent_task_worker.py`, and
+`docker-compose.yml`. Milestone 4 verification, docs alignment, and runtime
+smoke are now closed locally.
 
 ## Purpose
 
-Resolve the current production-orchestration health gap identified in the
-system review:
+Resolve the production-orchestration health gap identified in the system
+review. The packet started from this state:
 
 - `GET /health` is a static success response and cannot fail when critical
   runtime dependencies are broken
@@ -74,82 +101,146 @@ or public leak of detailed runtime internals.
 
 ## Current Evidence
 
-Milestone 0 baseline evidence refreshed from the current local checkout on
-2026-05-14 local / 2026-05-14 UTC before the owner-case bootstrap:
+Runtime-health Milestone 4 closeout evidence refreshed from the current local
+checkout on 2026-05-14 local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 58]
+  ## main...origin/main [ahead 62]
+
+wc -l app/api/main.py app/api/routers/system.py app/services/runtime.py app/services/runtime_health.py app/services/capabilities/system_governance.py app/services/runs.py app/services/agent_task_worker.py app/runtime_health_cli.py tests/unit/test_health.py tests/unit/test_runtime_service.py tests/unit/test_runtime_health.py tests/unit/test_runtime_health_cli.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py docker-compose.yml
+      98 app/api/main.py
+      88 app/api/routers/system.py
+     363 app/services/runtime.py
+     298 app/services/runtime_health.py
+      64 app/services/capabilities/system_governance.py
+    1026 app/services/runs.py
+     568 app/services/agent_task_worker.py
+      66 app/runtime_health_cli.py
+     343 tests/unit/test_health.py
+      98 tests/unit/test_runtime_service.py
+     165 tests/unit/test_runtime_health.py
+      67 tests/unit/test_runtime_health_cli.py
+     737 tests/unit/test_run_logic.py
+     624 tests/unit/test_agent_task_worker.py
+     124 docker-compose.yml
+    4729 total
+
+df -h . /tmp
+  /System/Volumes/Data 228Gi size, 201Gi used, 1.0Gi avail
+```
+
+Repo-current structural evidence:
+
+- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now both
+  route runtime-health as resolved locally after architecture-governance
+  closeout commit `7a4c5b0`. Milestone 0 is closed, Milestone 1 is committed
+  locally as checkpoint `a84728c`, Milestones 2 through 4 are now closed
+  locally, and CI release-gate parity is the next active follow-on.
+- `app/api/routers/system.py` currently serves a public `GET /health` route
+  backed by `system_governance.get_public_health()` and a gated
+  `GET /runtime/status` route. The public route remains bounded and can fail on
+  critical runtime-currentness, DB, storage, or registry failures without
+  leaking internal diagnostics, and `/runtime/status` now exposes the nested
+  shared health report only behind existing `system:read` gating.
+- `tests/unit/test_health.py` now proves the public health route stays bounded
+  on both success and failure while preserving `/runtime/status`
+  auth/metadata behavior, `tests/unit/test_runtime_health.py` now covers stale
+  code fingerprints, DB/storage probe failures, and process-heartbeat expiry
+  against the shared owner module, and `tests/unit/test_runtime_health_cli.py`
+  now proves the repo-owned CLI exit-code and JSON contract.
+- `app/services/runtime.py` now owns startup registration plus ongoing
+  heartbeat writes in `storage/runtime/process_registry.json`, while
+  `app/services/runtime_health.py` evaluates that registry for stale
+  fingerprints and expired heartbeat freshness.
+- `app/api/main.py`, `app/services/runs.py`, and
+  `app/services/agent_task_worker.py` now keep whole-process runtime heartbeats
+  fresh while the API, document worker, and agent-task worker loops remain
+  healthy.
+- `docker-compose.yml` now gives `api`, `worker`, and `agent-worker`
+  healthchecks driven by the repo-owned `docling-system-runtime-health`
+  command instead of an inline `/health` curl-only probe.
+- `README.md` documents that Compose publishes the API, keeps `GET /health`
+  public, documents the bounded `ok` / `error` public health contract, and
+  now also documents the repo-owned runtime-health CLI plus the enriched
+  `/runtime/status` diagnostics contract.
+- `docs/architecture_boundaries.md` says the only public remote exemptions are
+  `/` and `/health`, and now also states that `/health` must remain a bounded
+  contract while the nested shared `health` report and process-heartbeat
+  failures stay behind `system:read`.
+- The only checked-in GitHub workflow is
+  `.github/workflows/architecture-governance.yml`. It now validates
+  `docker compose config --quiet` plus a focused runtime-health pytest slice in
+  addition to the prior architecture/governance checks.
+- Milestone 0 created `IC-0F89DBB1CF9F` in `config/improvement_cases.yaml` as
+  the durable owner-case anchor for this packet. The owner case now carries
+  the Milestone 4 closeout evidence after the Compose smoke fix, and the next
+  follow-on packet is CI release-gate parity under `IC-2D8D5BF5A8C4`.
+
+Focused verification and the final runtime-smoke proof now pass locally:
+
+```text
+docker compose config --quiet
+  pass
+
+uv run --extra dev python -m pytest -q tests/unit/test_health.py tests/unit/test_runtime_health.py tests/unit/test_runtime_service.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py tests/unit/test_api_route_contracts.py tests/unit/test_api_architecture.py tests/unit/test_runtime_health_cli.py
+  62 passed
+
+uv run ruff check app/api/main.py app/api/routers/system.py app/services/runtime.py app/services/runtime_health.py app/services/capabilities/system_governance.py app/services/runs.py app/services/agent_task_worker.py app/runtime_health_cli.py tests/unit/test_health.py tests/unit/test_runtime_service.py tests/unit/test_runtime_health.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py tests/unit/test_api_route_contracts.py tests/unit/test_api_architecture.py tests/unit/test_runtime_health_cli.py
+  pass
+
+uv run docling-system-architecture-inspect
+  valid=true
+
+uv run docling-system-architecture-decisions
+  valid=true
+
+uv run docling-system-capability-contracts
+  valid=true
+
+uv run docling-system-improvement-case-validate
+  valid=true
 
 uv run docling-system-improvement-case-summary
-  case_count=36
-  status_counts.open=25
-  status_counts.deployed=10
+  case_count=38
   status_counts.measured=1
+  status_counts.deployed=10
+  status_counts.open=27
+
+uv run docling-system-hygiene-check
+  pass with no new regressions
 
 uv run docling-system-architecture-quality-report --summary
   agent_legibility_average_score=90.0
   broad_facade_count=2
   hotspot_count=10
   max_hotspot_risk_score=501.06
-  top_hotspot_paths=[app/db/models.py, app/services/agent_task_actions.py, app/cli.py, app/schemas/agent_tasks.py, app/services/evidence.py]
 
-wc -l app/api/routers/system.py app/services/runtime.py app/workers/poller.py app/workers/agent_poller.py tests/unit/test_health.py docker-compose.yml
-    85 app/api/routers/system.py
-   194 app/services/runtime.py
-    15 app/workers/poller.py
-    15 app/workers/agent_poller.py
-   307 tests/unit/test_health.py
-   110 docker-compose.yml
-   726 total
+DOCLING_SYSTEM_POSTGRES_PORT=5434 docker compose up -d db api worker agent-worker
+  pass
 
-rg -n "runtime-health|runtime health|app/services/runtime.py|app/api/routers/system.py|poller.py|agent_poller.py" config/improvement_cases.yaml config/hygiene_policy.yaml
-  no hits
+docker inspect "$(docker compose ps -q api)" --format '{{.State.Health.Status}}'
+  healthy
+
+docker inspect "$(docker compose ps -q worker)" --format '{{.State.Health.Status}}'
+  healthy
+
+docker inspect "$(docker compose ps -q agent-worker)" --format '{{.State.Health.Status}}'
+  healthy
+
+TMPDIR=/Users/chunkstand/Documents/docling-system/.tmp DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs
+  1975 passed
 ```
 
-Repo-current structural evidence:
+Closeout note:
 
-- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now both
-  route runtime-health as the next active packet after architecture-governance
-  closeout commit `7a4c5b0`. Milestone 0 is closed, Milestone 1 is now
-  committed locally as checkpoint `a84728c`, and Milestone 2 is the next
-  active slice.
-- `app/api/routers/system.py` currently serves a public `GET /health` route
-  backed by `system_governance.get_public_health()` and a gated
-  `GET /runtime/status` route. The public route is now bounded and can fail on
-  critical runtime-currentness, DB, storage, or registry failures without
-  leaking internal diagnostics, but `/runtime/status` does not yet expose the
-  shared health report.
-- `tests/unit/test_health.py` now proves the public health route stays bounded
-  on both success and failure while preserving `/runtime/status`
-  auth/metadata behavior, and `tests/unit/test_runtime_health.py` now covers
-  stale code fingerprints, DB/storage probe failures, and process-heartbeat
-  expiry against the shared owner module.
-- `app/services/runtime.py` currently owns startup fingerprint registration and
-  registry reads, and now exposes `get_runtime_registry()` so the shared health
-  owner can evaluate the registry contract. It still does not record ongoing
-  heartbeat timestamps.
-- `app/workers/poller.py` and `app/workers/agent_poller.py` are thin launchers.
-  Health ownership currently lives deeper in run and agent-task worker loops,
-  but those loops only reason about task/run lease heartbeats, not whole-process
-  runtime health.
-- `docker-compose.yml` currently gives `db` and `api` healthchecks but no
-  healthchecks for `worker` or `agent-worker`. The `api` healthcheck probes
-  only `http://127.0.0.1:8000/health`.
-- `README.md` documents that Compose publishes the API, keeps `GET /health`
-  public, and now documents the bounded `ok` / `error` public health contract.
-  It does not yet document a worker health contract or a repo-owned health CLI.
-- `docs/architecture_boundaries.md` says the only public remote exemptions are
-  `/` and `/health`, and now also states that `/health` must remain a bounded
-  contract while detailed runtime diagnostics stay behind `system:read`.
-- The only checked-in GitHub workflow is
-  `.github/workflows/architecture-governance.yml`. It now validates
-  `docker compose config --quiet` plus a focused runtime-health pytest slice in
-  addition to the prior architecture/governance checks.
-- Milestone 0 created `IC-0F89DBB1CF9F` in `config/improvement_cases.yaml` as
-  the durable owner-case anchor for this packet. No hygiene-policy changes were
-  needed because the scoped surfaces are not currently budget-ratcheted
-  inherited debt.
+- Docker Desktop recovered after a local restart and `docker builder prune -af`
+  cleared the corrupted BuildKit state that had been throwing containerd I/O
+  errors. After that recovery, Compose runtime smoke passed cleanly.
+- The only repo-side compose fix needed for Milestone 4 was widening the
+  repo-owned healthcheck timeout from `5s` to `10s`. The CLI itself already
+  returned `{"status":"ok"}` for `api`, `worker`, and `agent-worker`; the old
+  timeout was simply too tight for the real runtime.
 
 ## Goal
 
@@ -213,6 +304,7 @@ Out of scope:
 ## Owner Surfaces
 
 - API/system route surface:
+  `app/api/main.py`,
   `app/api/routers/system.py`
 - system-governance capability surface:
   `app/services/capabilities/system_governance.py`,
@@ -381,6 +473,11 @@ Stop conditions:
 
 Outcome label: `reduced`
 
+Current local state: implemented locally, pending Milestone 4 closeout.
+`/runtime/status` now routes through
+`runtime_health.get_runtime_diagnostics(...)` via the `system_governance`
+capability while `/health` remains the bounded public contract.
+
 Purpose: replace the static API health model with a bounded public contract and
 authenticated detailed diagnostics without leaking internal state.
 
@@ -415,6 +512,12 @@ Stop conditions:
 ### Milestone 3 - Add process-heartbeat freshness and Compose healthchecks for all long-running services
 
 Outcome label: `reduced`
+
+Current local state: implemented locally, pending Milestone 4 closeout. The
+API, worker, and agent-worker now publish whole-process heartbeats through
+`runtime_process_heartbeat(...)`, the repo-owned
+`docling-system-runtime-health` CLI exists, and `docker-compose.yml` now wires
+all three long-running service healthchecks through that shared command.
 
 Purpose: make API, worker, and agent-worker runtime health observable through
 the same repo-owned health contract and turn Compose service state into a real
@@ -455,6 +558,13 @@ Stop conditions:
 
 Outcome label: `resolved` for the scoped runtime-health orchestration issue
 
+Current local state: resolved locally. The code, focused verification slice,
+full DB-backed integration gate, and Compose runtime smoke are all green
+locally. `DOCLING_SYSTEM_POSTGRES_PORT=5434 docker compose up -d db api worker
+agent-worker` now reaches healthy `api`, `worker`, and `agent-worker` states,
+and the checked-in compose contract now preserves a `10s` timeout so the
+repo-owned CLI can complete reliably inside the container healthcheck budget.
+
 Purpose: prove that runtime-health behavior is now end-to-end real rather than
 just better-factored code, and close the milestone with the required docs,
 handoff, and atomic commit.
@@ -494,16 +604,19 @@ Stop conditions:
 
 - `app/services/runtime_health.py`
 - runtime-health CLI module and `pyproject.toml` script entry
+- `app/api/main.py`
 - updated `app/services/runtime.py`
 - updated `app/api/routers/system.py`
 - updated `app/services/capabilities/system_governance.py`
 - updated `app/services/runs.py` and `app/services/agent_task_worker.py`
 - updated `docker-compose.yml`
+- updated `docs/capability_contract_map.json`
 - updated `.github/workflows/architecture-governance.yml` or another checked-in
   workflow gate
 - `tests/unit/test_runtime_health.py`
 - updated `tests/unit/test_health.py`
 - updated `tests/unit/test_runtime_service.py`
+- `tests/unit/test_runtime_health_cli.py`
 - updated worker-loop focused tests in `tests/unit/test_run_logic.py` and
   `tests/unit/test_agent_task_worker.py`
 

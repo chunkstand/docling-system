@@ -53,11 +53,11 @@ remains `3fe9132`, the prior Audit Bundle And Retrieval Learning Hotspots
 Milestone 5 checkpoint remains `bf14f2a`, and the prior DB Models
 Compatibility Facade Milestone 2 checkpoint remains `8340dc0`.
 Active local follow-up owner case:
-`IC-0F89DBB1CF9F` / runtime-health Milestone 2 hardened API and authenticated diagnostics
+`IC-2D8D5BF5A8C4` / CI release-gate parity Milestone 1 release-parity runner contract
 Latest planned bounded implementation brief:
-`docs/runtime_health_orchestration_milestone_plan.md`
+`docs/ci_release_gate_parity_milestone_plan.md`
 Latest resolved bounded implementation brief:
-`docs/architecture_governance_cycle_boundary_milestone_plan.md`
+`docs/runtime_health_orchestration_milestone_plan.md`
 The hygiene owner-case routing packet is now resolved locally through closeout
 commit `9876f67`. Its Milestone 0 refresh is committed locally as `08a1a75`,
 Milestone 1 owner-case bootstrap is committed locally as `d4f082c` through
@@ -86,22 +86,44 @@ and the remaining global cycle backlog is now four non-governance components:
 the search/documents/evaluations/runs/semantics family, claim-support policy
 impacts/promotions, evidence-provenance export graph, and evidence-search
 packages/trace-store.
-The next active slice is
-`docs/runtime_health_orchestration_milestone_plan.md` Milestone 2 hardened API
-and authenticated runtime-health behavior. Runtime-health Milestone 0 refresh /
-owner-case bootstrap remains committed locally as checkpoint `289f15a`, and
-Milestone 1 gate-first health contract is now committed locally as checkpoint
-`a84728c`: `IC-0F89DBB1CF9F` now anchors the production-orchestration health gap
-across
-`app/api/routers/system.py`, `app/services/runtime.py`,
+The runtime-health packet is now resolved locally through Milestone 4.
+Runtime-health Milestone 0 refresh / owner-case bootstrap remains committed
+locally as checkpoint `289f15a`, and Milestone 1 gate-first health contract
+remains committed locally as checkpoint `a84728c`. Milestones 2 through 4 now
+close the production-orchestration health gap under `IC-0F89DBB1CF9F` across
+`app/api/main.py`, `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and
-`docker-compose.yml`; `app/services/runtime_health.py` now owns the shared
-health contract, `GET /health` now returns only bounded `ok` / `error`
-payloads through the `system_governance` capability seam, and the checked-in
-architecture workflow now runs `docker compose config --quiet` plus the focused
-runtime-health pytest slice. Process-heartbeat publication, authenticated
-detailed diagnostics on `/runtime/status`, and Compose healthchecks remain
-unimplemented, so Milestone 2 is now the next active code-changing slice.
+`docker-compose.yml`: `app/services/runtime_health.py` now enriches
+`/runtime/status` through the `system_governance` seam with nested shared
+`health` diagnostics; `app/api/main.py`, `app/services/runs.py`, and
+`app/services/agent_task_worker.py` now publish whole-process heartbeats
+through `runtime_process_heartbeat(...)`; `app/runtime_health_cli.py` exposes
+the repo-owned `docling-system-runtime-health` command; and
+`docker-compose.yml` now wires repo-owned healthchecks for `api`, `worker`,
+and `agent-worker` with a verified `10s` timeout budget.
+Focused verification is green: `docker compose config --quiet`, the focused
+runtime-health/API/worker unit slice (`62 passed`), `ruff`, architecture
+inspection, architecture decisions, capability contracts, improvement-case
+validate/summary, hygiene, and the architecture-quality summary all passed.
+The final runtime proof is also green: `DOCLING_SYSTEM_POSTGRES_PORT=5434
+docker compose up -d db api worker agent-worker` now brings up healthy `api`,
+`worker`, and `agent-worker` containers, and
+`TMPDIR=$PWD/.tmp DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m
+pytest -q -rs` now passes at `1975 passed`.
+The next active slice is
+`docs/ci_release_gate_parity_milestone_plan.md`. Its Milestone 0
+freshness/bootstrap is refreshed locally under `IC-2D8D5BF5A8C4`, the
+runtime-health dependency is now satisfied at the repo-owned contract and
+Compose-smoke level, and Milestone 1 is the next code-changing slice because
+only `.github/workflows/architecture-governance.yml` is checked in and there
+is still no repo-owned `docling-system-release-gate-parity` runner or
+`.github/workflows/release-gate-parity.yml` workflow. The Milestone 0
+alignment verification for that queued packet is green:
+`git diff --check` passed,
+`uv run docling-system-improvement-case-validate` returned `valid=true`, and
+`uv run docling-system-improvement-case-summary` reported
+`case_count=38`, `status_counts.open=27`, `status_counts.deployed=10`, and
+`status_counts.measured=1`.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are
 `IC-5F0E1C8B0D42`,

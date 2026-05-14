@@ -527,11 +527,14 @@ def test_run_worker_loop_exits_when_runtime_code_is_stale(monkeypatch) -> None:
         "app.services.runs.get_embedding_provider",
         lambda: (_ for _ in ()).throw(RuntimeError("no embeddings")),
     )
+
+    @contextmanager
+    def fake_runtime_process_heartbeat(*_args, **_kwargs):
+        yield SimpleNamespace(startup_code_fingerprint="old-fingerprint")
+
     monkeypatch.setattr(
-        "app.services.runs.register_runtime_process",
-        lambda process_kind, process_identity: SimpleNamespace(
-            startup_code_fingerprint="old-fingerprint"
-        ),
+        "app.services.runs.runtime_process_heartbeat",
+        fake_runtime_process_heartbeat,
     )
     monkeypatch.setattr(
         "app.services.runs.runtime_code_is_current",

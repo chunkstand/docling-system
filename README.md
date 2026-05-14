@@ -211,6 +211,7 @@ Current compose behavior:
 - the API binds `0.0.0.0:8000` inside the container and is published on the host port from `DOCLING_SYSTEM_API_PORT`
 - the compose file uses `DOCLING_SYSTEM_API_KEY` when set and otherwise falls back to `docling-local-secret`
 - the semantics layer remains disabled unless `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`
+- the `api`, `worker`, and `agent-worker` services now use the repo-owned `docling-system-runtime-health` command for Compose healthchecks, scoped by `--process-kind`
 - `GET /health` remains public and now returns only a bounded `{"status":"ok"}` or `{"status":"error"}` payload
 - most other remote endpoints require auth and, for many surfaces, explicit capabilities
 
@@ -256,7 +257,7 @@ Important legacy-key behavior:
 
 - if you use only `DOCLING_SYSTEM_API_KEY` and leave `DOCLING_SYSTEM_REMOTE_API_CAPABILITIES` unset, the current default capability set is limited to `documents:upload`, `search:query`, `search:feedback`, `chat:query`, and `chat:feedback`
 - document inspection, semantic review, quality, replay, runtime-status, and agent-task endpoints need additional capabilities or actor-scoped credentials
-- `GET /runtime/status` reports the current auth mode, effective principals, and shared capabilities when the caller has `system:read`
+- `GET /runtime/status` reports the current auth mode, effective principals, shared capabilities, and a nested shared `health` report when the caller has `system:read`
 
 ## Ingesting PDFs
 
@@ -294,7 +295,7 @@ Batch CLI commands:
 ## API Overview
 
 - `GET /health` returns a bounded public runtime-health signal and can return a non-200 status on critical DB, storage, registry, or stale-code failures
-- `GET /runtime/status`
+- `GET /runtime/status` returns authenticated runtime diagnostics, including the nested shared `health` report
 - `GET /metrics`
 - `GET /documents`
 - `POST /documents`

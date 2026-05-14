@@ -30,8 +30,8 @@ from app.services.evidence import (
 )
 from app.services.runtime import (
     get_process_identity,
-    register_runtime_process,
     runtime_code_is_current,
+    runtime_process_heartbeat,
 )
 from app.services.storage import StorageService
 
@@ -533,32 +533,36 @@ def run_agent_task_worker_loop(*, executor: AgentTaskExecutor | None = None) -> 
     session_factory = get_session_factory()
     storage_service = StorageService()
     worker_id = get_process_identity()
-    registration = register_runtime_process("agent_worker", worker_id)
-    logger.info(
-        "agent_worker_runtime_registered",
-        worker_id=worker_id,
-        code_fingerprint=registration.startup_code_fingerprint,
-    )
+    with runtime_process_heartbeat(
+        "agent_worker",
+        worker_id,
+        heartbeat_interval_seconds=max(getattr(settings, "worker_heartbeat_seconds", 30), 1),
+    ) as registration:
+        logger.info(
+            "agent_worker_runtime_registered",
+            worker_id=worker_id,
+            code_fingerprint=registration.startup_code_fingerprint,
+        )
 
-    while True:
-        if not runtime_code_is_current(registration.startup_code_fingerprint):
-            logger.warning(
-                "agent_worker_exiting_stale_code",
-                worker_id=worker_id,
-                code_fingerprint=registration.startup_code_fingerprint,
-            )
-            return
-        with session_factory() as session:
-            unblock_ready_agent_tasks(session)
-            requeue_stale_agent_tasks(session, storage_service=storage_service)
-            task = claim_next_agent_task(session, worker_id)
-            if task is None:
-                time.sleep(settings.worker_poll_seconds)
-                continue
+        while True:
+            if not runtime_code_is_current(registration.startup_code_fingerprint):
+                logger.warning(
+                    "agent_worker_exiting_stale_code",
+                    worker_id=worker_id,
+                    code_fingerprint=registration.startup_code_fingerprint,
+                )
+                return
+            with session_factory() as session:
+                unblock_ready_agent_tasks(session)
+                requeue_stale_agent_tasks(session, storage_service=storage_service)
+                task = claim_next_agent_task(session, worker_id)
+                if task is None:
+                    time.sleep(settings.worker_poll_seconds)
+                    continue
 
-            process_agent_task(
-                session=session,
-                task_id=task.id,
-                storage_service=storage_service,
-                executor=executor,
-            )
+                process_agent_task(
+                    session=session,
+                    task_id=task.id,
+                    storage_service=storage_service,
+                    executor=executor,
+                )

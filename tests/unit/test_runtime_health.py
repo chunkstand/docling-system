@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from app.services.runtime_health import (
     build_runtime_health_report,
     get_public_health,
+    get_runtime_diagnostics,
 )
 
 
@@ -99,6 +100,57 @@ def test_runtime_health_report_can_enforce_process_heartbeat_freshness() -> None
         check for check in report.checks if check.name == "process_heartbeat_freshness"
     )
     assert heartbeat_check.detail == "worker:stale"
+
+
+def test_runtime_health_report_fails_when_fresh_process_is_on_stale_code() -> None:
+    now = datetime(2026, 5, 14, 21, 0, tzinfo=UTC)
+    fresh = (now - timedelta(seconds=10)).isoformat()
+    registry = {
+        "desired_code_fingerprint": "startup-2",
+        "updated_at": now.isoformat(),
+        "processes": {
+            "worker-1": {
+                "process_kind": "worker",
+                "startup_code_fingerprint": "startup-1",
+                "heartbeat_at": fresh,
+            }
+        },
+    }
+
+    report = build_runtime_health_report(
+        runtime_status_reader=lambda _process_identity=None: _runtime_status(),
+        runtime_registry_reader=lambda: registry,
+        database_probe=lambda: None,
+        storage_probe=lambda: None,
+        now_reader=lambda: now,
+        include_process_heartbeat_check=True,
+        required_process_kinds=("worker",),
+        heartbeat_ttl_seconds=60,
+    )
+
+    assert report.status == "error"
+    heartbeat_check = next(
+        check for check in report.checks if check.name == "process_heartbeat_freshness"
+    )
+    assert heartbeat_check.detail == "worker:stale_code"
+
+
+def test_runtime_diagnostics_include_nested_health_report() -> None:
+    payload = get_runtime_diagnostics(
+        process_identity="api-1",
+        runtime_status_reader=lambda process_identity=None: {
+            **_runtime_status(),
+            "process_identity": process_identity,
+        },
+        runtime_registry_reader=_registry,
+        database_probe=lambda: None,
+        storage_probe=lambda: None,
+        required_process_kinds=("api",),
+    )
+
+    assert payload["process_identity"] == "api-1"
+    assert payload["health"]["status"] == "error"
+    assert payload["health"]["critical_failures"] == ["process_heartbeat_freshness"]
 
 
 def test_public_health_response_is_bounded_on_failure() -> None:

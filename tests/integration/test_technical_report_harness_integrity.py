@@ -202,6 +202,18 @@ def test_technical_report_provenance_and_trace_integrity_surfaces(
     )
 
     with postgres_integration_harness.session_factory() as session:
+        immutability_events = list(
+            session.scalars(
+                select(AgentTaskArtifactImmutabilityEvent)
+                .where(AgentTaskArtifactImmutabilityEvent.artifact_id == prov_artifact_id)
+                .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
+            )
+        )
+        assert [row.mutation_operation for row in immutability_events] == ["FREEZE_REUSE"]
+        assert immutability_events[0].event_kind == "supersession_attempt"
+        assert immutability_events[0].attempted_payload_sha256 is not None
+
+    with postgres_integration_harness.session_factory() as session:
         prov_artifact_count = len(
             list(
                 session.scalars(
@@ -239,15 +251,16 @@ def test_technical_report_provenance_and_trace_integrity_surfaces(
         assert prov_artifact.payload_json["frozen_export"]["artifact_id"] == str(prov_artifact_id)
         mutation_events = list(
             session.scalars(
-                select(AgentTaskArtifactImmutabilityEvent).where(
-                    AgentTaskArtifactImmutabilityEvent.artifact_id == prov_artifact_id
-                )
+                select(AgentTaskArtifactImmutabilityEvent)
+                .where(AgentTaskArtifactImmutabilityEvent.artifact_id == prov_artifact_id)
+                .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
             )
         )
-        assert len(mutation_events) == 1
-        assert mutation_events[0].event_kind == "mutation_blocked"
-        assert mutation_events[0].mutation_operation == "UPDATE"
-        assert mutation_events[0].attempted_payload_sha256 is None
+        assert [row.mutation_operation for row in mutation_events] == ["FREEZE_REUSE", "UPDATE"]
+        assert mutation_events[0].event_kind == "supersession_attempt"
+        assert mutation_events[0].attempted_payload_sha256 is not None
+        assert mutation_events[1].event_kind == "mutation_blocked"
+        assert mutation_events[1].attempted_payload_sha256 is None
 
     with postgres_integration_harness.session_factory() as session:
         session.execute(text(f'SET LOCAL search_path TO "{schema_name}"'))
@@ -263,7 +276,11 @@ def test_technical_report_provenance_and_trace_integrity_surfaces(
                 .order_by(AgentTaskArtifactImmutabilityEvent.created_at.asc())
             )
         )
-        assert [row.mutation_operation for row in mutation_events] == ["UPDATE", "DELETE"]
+        assert [row.mutation_operation for row in mutation_events] == [
+            "FREEZE_REUSE",
+            "UPDATE",
+            "DELETE",
+        ]
 
     with postgres_integration_harness.session_factory() as session:
         manifest_row = session.scalar(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from app.db.models import SemanticGovernanceEvent
 from app.services.semantic_governance import (
@@ -94,4 +95,15 @@ def test_semantic_governance_event_integrity_detects_payload_tamper() -> None:
 
     assert integrity["complete"] is False
     assert integrity["payload_hash_matches"] is False
+    assert integrity["event_hash_matches"] is True
+
+
+def test_semantic_governance_event_integrity_normalizes_created_at_timezone() -> None:
+    row = _governance_event()
+    row.created_at = row.created_at.astimezone(ZoneInfo("America/Boise"))
+
+    integrity = semantic_governance_event_integrity(row)
+
+    assert integrity["complete"] is True
+    assert integrity["payload_hash_matches"] is True
     assert integrity["event_hash_matches"] is True

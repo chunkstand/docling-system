@@ -38,8 +38,8 @@ from app.services.retrieval_spans import rebuild_retrieval_evidence_spans
 from app.services.run_failure_artifacts import write_failure_artifact
 from app.services.runtime import (
     get_process_identity,
-    register_runtime_process,
     runtime_code_is_current,
+    runtime_process_heartbeat,
 )
 from app.services.semantics import execute_semantic_pass
 from app.services.storage import StorageService
@@ -991,32 +991,36 @@ def run_worker_loop() -> None:
         embedding_provider = None
         logger.warning("embedding_provider_unavailable", error=str(exc))
     worker_id = get_process_identity()
-    registration = register_runtime_process("worker", worker_id)
-    logger.info(
-        "worker_runtime_registered",
-        worker_id=worker_id,
-        code_fingerprint=registration.startup_code_fingerprint,
-    )
+    with runtime_process_heartbeat(
+        "worker",
+        worker_id,
+        heartbeat_interval_seconds=max(getattr(settings, "worker_heartbeat_seconds", 30), 1),
+    ) as registration:
+        logger.info(
+            "worker_runtime_registered",
+            worker_id=worker_id,
+            code_fingerprint=registration.startup_code_fingerprint,
+        )
 
-    while True:
-        if not runtime_code_is_current(registration.startup_code_fingerprint):
-            logger.warning(
-                "worker_exiting_stale_code",
-                worker_id=worker_id,
-                code_fingerprint=registration.startup_code_fingerprint,
-            )
-            return
-        with session_factory() as session:
-            requeue_stale_runs(session, storage_service=storage_service)
-            run = claim_next_run(session, worker_id)
-            if run is None:
-                time.sleep(settings.worker_poll_seconds)
-                continue
+        while True:
+            if not runtime_code_is_current(registration.startup_code_fingerprint):
+                logger.warning(
+                    "worker_exiting_stale_code",
+                    worker_id=worker_id,
+                    code_fingerprint=registration.startup_code_fingerprint,
+                )
+                return
+            with session_factory() as session:
+                requeue_stale_runs(session, storage_service=storage_service)
+                run = claim_next_run(session, worker_id)
+                if run is None:
+                    time.sleep(settings.worker_poll_seconds)
+                    continue
 
-            process_run(
-                session=session,
-                run_id=run.id,
-                storage_service=storage_service,
-                parser=parser,
-                embedding_provider=embedding_provider,
-            )
+                process_run(
+                    session=session,
+                    run_id=run.id,
+                    storage_service=storage_service,
+                    parser=parser,
+                    embedding_provider=embedding_provider,
+                )

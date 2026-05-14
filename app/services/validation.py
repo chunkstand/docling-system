@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +82,14 @@ def _artifact_metadata(metadata: dict[str, Any] | None) -> dict[str, Any]:
     if not metadata:
         return {}
     return {key: value for key, value in metadata.items() if key != "audit"}
+
+
+def _artifact_created_at(value: object) -> str:
+    if not isinstance(value, datetime):
+        return str(value)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC).isoformat()
+    return value.astimezone(UTC).isoformat()
 
 
 def _normalize_artifact_payload(payload: object) -> object:
@@ -172,7 +181,7 @@ def _expected_table_artifact_payload(table: ParsedTable, persisted_table: object
         "page_to": table.page_to,
         "row_count": table.row_count,
         "col_count": table.col_count,
-        "created_at": persisted_table.created_at.isoformat(),
+        "created_at": _artifact_created_at(persisted_table.created_at),
         "search_text": table.search_text,
         "preview_text": table.preview_text,
         "metadata": _artifact_metadata(table.metadata),
@@ -206,7 +215,7 @@ def _expected_figure_artifact_payload(
         "figure_index": figure.figure_index,
         "page_from": figure.page_from,
         "page_to": figure.page_to,
-        "created_at": persisted_figure.created_at.isoformat(),
+        "created_at": _artifact_created_at(persisted_figure.created_at),
         "source_figure_ref": figure.source_figure_ref,
         "caption": figure.caption,
         "heading": figure.heading,

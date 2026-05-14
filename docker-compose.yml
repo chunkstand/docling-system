@@ -67,15 +67,9 @@ services:
     ports:
       - "${DOCLING_SYSTEM_API_PORT:-8000}:8000"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3).read()",
-        ]
+      test: ["CMD", "docling-system-runtime-health", "--process-kind", "api", "--compact"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       start_period: 15s
       retries: 3
     restart: unless-stopped
@@ -91,6 +85,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test:
+        ["CMD", "docling-system-runtime-health", "--process-kind", "worker", "--compact"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
     restart: unless-stopped
 
   agent-worker:
@@ -104,6 +105,19 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "docling-system-runtime-health",
+          "--process-kind",
+          "agent_worker",
+          "--compact",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
     restart: unless-stopped
 
 volumes:

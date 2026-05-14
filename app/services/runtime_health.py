@@ -166,6 +166,7 @@ def _process_heartbeat_check(
         )
 
     failures: list[str] = []
+    desired_code_fingerprint = payload.get("desired_code_fingerprint")
     for process_kind in required_process_kinds:
         matches = [
             entry
@@ -176,17 +177,30 @@ def _process_heartbeat_check(
             failures.append(f"{process_kind}:missing")
             continue
 
-        freshest = False
+        fresh_matches: list[dict[str, Any]] = []
         for entry in matches:
             heartbeat_at = coerce_utc_datetime(entry.get("heartbeat_at"))
             if heartbeat_at is None:
                 continue
             age_seconds = (now - heartbeat_at).total_seconds()
             if age_seconds <= heartbeat_ttl_seconds:
-                freshest = True
-                break
-        if not freshest:
+                fresh_matches.append(entry)
+        if not fresh_matches:
             failures.append(f"{process_kind}:stale")
+            continue
+        fresh_fingerprints = [
+            str(fingerprint)
+            for fingerprint in (
+                entry.get("startup_code_fingerprint") for entry in fresh_matches
+            )
+            if fingerprint
+        ]
+        if (
+            desired_code_fingerprint
+            and fresh_fingerprints
+            and desired_code_fingerprint not in set(fresh_fingerprints)
+        ):
+            failures.append(f"{process_kind}:stale_code")
 
     if failures:
         return RuntimeHealthCheckResult(
@@ -235,6 +249,34 @@ def build_runtime_health_report(
         checked_at=utcnow().isoformat(),
         checks=tuple(checks),
     )
+
+
+def get_runtime_diagnostics(
+    *,
+    process_identity: str | None = None,
+    runtime_status_reader: RuntimeStatusReader = runtime.get_runtime_status,
+    runtime_registry_reader: RuntimeRegistryReader = runtime.get_runtime_registry,
+    database_probe: Probe = probe_database_connectivity,
+    storage_probe: Probe = probe_storage_root_availability,
+    now_reader: NowReader = utcnow,
+    required_process_kinds: Sequence[str] = DEFAULT_HEARTBEAT_PROCESS_KINDS,
+    heartbeat_ttl_seconds: int | None = None,
+) -> dict[str, Any]:
+    payload = runtime_status_reader(process_identity)
+    report = build_runtime_health_report(
+        runtime_status_reader=runtime_status_reader,
+        runtime_registry_reader=runtime_registry_reader,
+        database_probe=database_probe,
+        storage_probe=storage_probe,
+        now_reader=now_reader,
+        include_process_heartbeat_check=True,
+        required_process_kinds=required_process_kinds,
+        heartbeat_ttl_seconds=heartbeat_ttl_seconds,
+    )
+    return {
+        **payload,
+        "health": report.model_dump(),
+    }
 
 
 def get_public_health(

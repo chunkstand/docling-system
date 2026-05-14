@@ -12,7 +12,7 @@ from app.core.coercion import uuid_or_none as _uuid_or_none
 from app.core.coercion import uuid_text as _uuid_text
 from app.core.hashes import payload_sha256 as _payload_sha256
 from app.core.json_utils import json_object_payload as _json_payload
-from app.core.time import utcnow
+from app.core.time import coerce_utc_datetime, utcnow
 from app.db.models import (
     AgentTaskArtifact,
     EvidenceManifest,
@@ -43,9 +43,9 @@ SEARCH_HARNESS_RELEASE_SEMANTIC_POLICY_PROFILE = "release_semantic_governance_v1
 def _created_at_text(value: Any) -> str | None:
     if value is None:
         return None
-    if hasattr(value, "isoformat"):
-        return value.isoformat()
-    return str(value)
+    if (coerced := coerce_utc_datetime(value)) is not None:
+        return coerced.isoformat()
+    return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
 def _uuids(values: Iterable[Any] | None) -> list[UUID]:

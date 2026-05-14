@@ -11,7 +11,7 @@ import app.api.deps as deps
 from app.api.errors import api_error, structured_http_exception_handler
 from app.api.routers import agent_tasks, documents, quality, search, semantics, system
 from app.core.config import is_loopback_host, resolve_api_mode
-from app.services.runtime import register_runtime_process
+from app.services.runtime import runtime_process_heartbeat
 
 
 def _validate_runtime_bind_settings() -> tuple[str, int]:
@@ -41,8 +41,8 @@ def _validate_runtime_bind_settings() -> tuple[str, int]:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    register_runtime_process("api", f"api:{os.getpid()}", pid=os.getpid())
-    yield
+    with runtime_process_heartbeat("api", f"api:{os.getpid()}", pid=os.getpid()):
+        yield
 
 
 def create_app() -> FastAPI:

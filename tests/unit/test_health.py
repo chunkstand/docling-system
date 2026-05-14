@@ -42,6 +42,12 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
             "is_current": True,
             "registered_process": {"pid": 123},
             "updated_at": "2026-04-18T00:00:00Z",
+            "health": {
+                "status": "ok",
+                "critical_failures": [],
+                "checks": [],
+                "checked_at": "2026-05-14T21:00:00+00:00",
+            },
         },
     )
     monkeypatch.setattr(
@@ -69,6 +75,7 @@ def test_runtime_status_endpoint(monkeypatch) -> None:
     assert response.json()["startup_code_fingerprint"] == "startup-1"
     assert response.json()["desired_code_fingerprint"] == "startup-1"
     assert response.json()["is_current"] is True
+    assert response.json()["health"]["status"] == "ok"
     assert response.json()["api_mode"] == "remote"
     assert response.json()["api_mode_explicit"] is True
 
@@ -106,6 +113,12 @@ def test_runtime_status_endpoint_exposes_actor_scoped_auth_metadata(monkeypatch)
             "is_current": True,
             "registered_process": {"pid": 123},
             "updated_at": "2026-04-18T00:00:00Z",
+            "health": {
+                "status": "ok",
+                "critical_failures": [],
+                "checks": [],
+                "checked_at": "2026-05-14T21:00:00+00:00",
+            },
         },
     )
     monkeypatch.setattr(
@@ -152,6 +165,7 @@ def test_runtime_status_endpoint_exposes_actor_scoped_auth_metadata(monkeypatch)
             "capabilities": ["*"],
         },
     ]
+    assert response.json()["health"]["status"] == "ok"
     assert "remote_api_capabilities" not in response.json()
 
 

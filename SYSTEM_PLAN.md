@@ -178,7 +178,7 @@ The deployed local system has these runtime components:
 The FastAPI app serves:
 
 - a bounded public `/health` runtime-health contract plus gated
-  `/runtime/status` diagnostics
+  `/runtime/status` diagnostics with the nested shared runtime-health report
 - document ingest and inspection endpoints
 - search, replay, harness, and chat endpoints
 - quality and evaluation inspection endpoints
@@ -198,6 +198,8 @@ The main worker:
 - promotes successful runs to `documents.active_run_id`
 - refreshes auto-generated evaluation fixtures
 - runs persisted evaluation checks for completed validated runs
+- publishes a whole-process runtime heartbeat into
+  `storage/runtime/process_registry.json` while the worker loop is healthy
 
 ### 3. Agent-task worker
 
@@ -209,6 +211,8 @@ The agent-task worker:
 - persists verifier rows and outcome labels
 - enforces approval gates for promotable tasks
 - emits typed outputs and task context artifacts
+- publishes a whole-process runtime heartbeat into
+  `storage/runtime/process_registry.json` while the task-worker loop is healthy
 
 ### 4. Postgres + pgvector
 
@@ -229,6 +233,8 @@ Canonical artifacts live under `storage/`:
 - per-task context and failure artifacts
 - task-specific JSON artifacts such as triage summaries
 - the auto-generated evaluation corpus companion file
+- the runtime process registry and heartbeat state in
+  `storage/runtime/process_registry.json`
 
 ## Data Model and State Machines
 

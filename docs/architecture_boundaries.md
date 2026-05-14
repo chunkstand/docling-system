@@ -100,8 +100,9 @@ validates that every non-exempt public route has exactly one known capability
 and that every mutating route also carries `require_api_key_for_mutations`.
 The only public remote exemptions are `/` and `/health`. `/health` must remain
 a bounded runtime-health contract and must not expose internal diagnostics,
-fingerprints, principal metadata, or process details that belong behind
-`system:read` on `/runtime/status`.
+fingerprints, principal metadata, the nested shared `health` report, or
+process-level heartbeat failure detail that belongs behind `system:read` on
+`/runtime/status`.
 
 ## Agent Action Contracts
 

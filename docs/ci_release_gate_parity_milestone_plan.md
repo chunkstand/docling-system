@@ -1,22 +1,37 @@
 # CI Release Gate Parity Milestone Plan
 
-Date: 2026-05-13 local / 2026-05-13 UTC
-Status: drafted on 2026-05-13 as a stacked follow-on after
-`docs/search_execution_orchestration_boundary_milestone_plan.md`,
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
-`docs/evaluations_service_boundary_milestone_plan.md`,
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`, and
-`docs/runtime_health_orchestration_milestone_plan.md`; do not start
-implementation until those prior packets close locally
-Owner context: queued follow-on for the checked-in CI parity gap across
+Date: 2026-05-14 local / 2026-05-14 UTC
+Status: refreshed locally through Milestone 0 on 2026-05-14 and now the next
+active follow-on after `docs/runtime_health_orchestration_milestone_plan.md`;
+the runtime-health dependency is satisfied locally, so Milestone 1 is now the
+next code-changing slice
+Owner context: active follow-on for the checked-in CI parity gap across
 `.github/workflows/architecture-governance.yml`,
 `.github/workflows/release-gate-parity.yml`,
 `pyproject.toml`, a new focused release-gate runner surface, `docker-compose.yml`,
 `README.md`, `SYSTEM_PLAN.md`, `docs/SESSION_HANDOFF.md`, and
-`docs/agentic_architecture_index.md`. No dedicated CI-parity improvement case
-is currently registered in `config/improvement_cases.yaml`; Milestone 0 must
-refresh live system state and either create or bind the correct owner case
-before code moves.
+`docs/agentic_architecture_index.md`. Milestone 0 now binds dedicated owner
+case `IC-2D8D5BF5A8C4` in `config/improvement_cases.yaml`, and the dependency
+stop condition for code-changing work is now cleared locally.
+
+## Local Progress
+
+Milestone 0 is now refreshed locally against the current checkout. The routed
+handoff and architecture index both confirm that runtime-health Milestone 4 is
+now closed locally, the repo-owned runtime-health contract plus Compose smoke
+for `api`, `worker`, and `agent-worker` are both proven locally, and the CI
+parity gap still exists because only `.github/workflows/architecture-governance.yml`
+is checked in and there is still no repo-owned
+`docling-system-release-gate-parity` runner or
+`.github/workflows/release-gate-parity.yml` workflow. `IC-2D8D5BF5A8C4` now
+anchors the active CI parity packet, and Milestone 1 is the next code-changing
+slice.
+Milestone 0 alignment verification is now green:
+`git diff --check` passed,
+`uv run docling-system-improvement-case-validate` returned `valid=true`, and
+`uv run docling-system-improvement-case-summary` reported
+`case_count=38`, `status_counts.open=27`, `status_counts.deployed=10`, and
+`status_counts.measured=1`.
 
 ## Purpose
 
@@ -46,35 +61,57 @@ changes cannot silently narrow CI without failing durable checks.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-13 UTC:
+Live repo evidence refreshed from the current local checkout on 2026-05-14
+local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 8]
-   M app/hotspot_prevention_classifier.py
-   M app/services/search.py
-   M config/hotspot_prevention.yaml
+  ## main...origin/main [ahead 62]
+   M README.md
+   M SYSTEM_PLAN.md
+   M app/api/main.py
+   M app/services/agent_task_worker.py
+   M app/services/capabilities/system_governance.py
+   M app/services/runs.py
+   M app/services/runtime.py
+   M app/services/runtime_health.py
+   M app/services/semantic_governance.py
+   M app/services/validation.py
+   M config/improvement_cases.yaml
+   M docker-compose.yml
    M docs/SESSION_HANDOFF.md
    M docs/agentic_architecture_index.md
-   M tests/unit/test_hotspot_prevention.py
-  ?? app/services/search_execution_orchestration.py
-  ?? docs/claim_support_policy_impacts_boundary_milestone_plan.md
-  ?? docs/evaluations_service_boundary_milestone_plan.md
-  ?? docs/evidence_provenance_exports_boundary_milestone_plan.md
-  ?? docs/runtime_health_orchestration_milestone_plan.md
-  ?? docs/search_execution_orchestration_boundary_milestone_plan.md
-  ?? tests/unit/test_search_execution_orchestration.py
+   M docs/architecture_boundaries.md
+   M docs/capability_contract_map.json
+   M docs/ci_release_gate_parity_milestone_plan.md
+   M docs/runtime_health_orchestration_milestone_plan.md
+   M pyproject.toml
+   M tests/integration/test_technical_report_harness_integrity.py
+   M tests/unit/test_agent_task_worker.py
+   M tests/unit/test_health.py
+   M tests/unit/test_run_logic.py
+   M tests/unit/test_runtime_health.py
+   M tests/unit/test_runtime_service.py
+   M tests/unit/test_semantic_governance.py
+  ?? app/runtime_health_cli.py
+  ?? tests/unit/test_runtime_health_cli.py
 
 find .github/workflows -maxdepth 1 -type f | sort
   .github/workflows/architecture-governance.yml
 
+uv run docling-system-improvement-case-summary
+  case_count=38
+  status_counts.measured=1
+  status_counts.deployed=10
+  status_counts.open=27
+  oldest_open_case_id=IC-9812A0B138D9
+
 wc -l .github/workflows/architecture-governance.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml
-      74 .github/workflows/architecture-governance.yml
-     808 README.md
-     916 SYSTEM_PLAN.md
-     110 docker-compose.yml
-     149 pyproject.toml
+      81 .github/workflows/architecture-governance.yml
+     809 README.md
+     924 SYSTEM_PLAN.md
+     124 docker-compose.yml
+     150 pyproject.toml
 ```
 
 Repo-current structural evidence:
@@ -83,28 +120,33 @@ Repo-current structural evidence:
   builds the architecture governance report, validates improvement-case intake,
   runs `uv run ruff check`, `docling-system-architecture-inspect`,
   `docling-system-architecture-decisions`,
-  `docling-system-capability-contracts`, a focused pytest slice, and
+  `docling-system-capability-contracts`, `docker compose config --quiet`, the
+  focused runtime-health pytest slice, focused architecture tests, and
   `docling-system-hygiene-check`.
 - No checked-in workflow currently runs:
   `uv run --extra dev alembic upgrade head`,
   `uv run --extra dev alembic current`,
   a repo-owned Postgres `Base.metadata.create_all(...)` verification path,
-  `docker compose config --quiet`,
-  Compose runtime smoke, or the full
+  bounded Compose runtime smoke, or the full
   `DOCLING_SYSTEM_RUN_INTEGRATION=1 uv run --extra dev python -m pytest -q -rs`
   suite.
-- `pyproject.toml` already exposes many repo-owned console scripts, but there is
-  no current checked-in "release gate parity" runner or Compose smoke command.
+- `pyproject.toml` already exposes many repo-owned console scripts, including
+  `docling-system-runtime-health`, but there is no current checked-in
+  `docling-system-release-gate-parity` runner.
 - `README.md` and older milestone closeouts document the heavier local release
   gate, but that gate is not enforced in GitHub Actions today.
-- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` both show
-  the active execution packet is the search orchestration milestone, with the
-  claim-support, evaluations, evidence-provenance, and runtime-health packets
-  stacked behind it. This CI plan must therefore begin with a stacked-state
-  refresh before implementation.
-- The runtime-health plan is a direct dependency for deterministic worker and
-  agent-worker Compose smoke. If that packet lands with materially different
-  health contracts, Milestone 0 must update this plan before code begins.
+- `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now show
+  runtime-health resolved locally through Milestone 4 and route this CI plan
+  as the next active follow-on rather than a queued packet blocked on Compose
+  smoke.
+- The runtime-health dependency is now confirmed at the contract level:
+  `app/services/runtime_health.py`, `app/runtime_health_cli.py`, and
+  `docker-compose.yml` already provide repo-owned health surfaces for `api`,
+  `worker`, and `agent-worker`.
+- `config/improvement_cases.yaml` now binds `IC-2D8D5BF5A8C4` as the dedicated
+  CI-parity owner case. The scoped gap remains open because the checked-in
+  workflow set still lacks a release-parity workflow and runner, but the
+  queued packet no longer depends on chat memory to identify its owner.
 
 ## Goal
 
@@ -233,10 +275,15 @@ and CI owner surfaces into different shapes.
 
 Outcome label: `reduced`
 
-Purpose: refresh this plan to current system state after the stacked search,
-claim-support, evaluations, evidence-provenance, and runtime-health packets
-close locally, and bind the CI parity gap to a durable owner case before code
-changes begin.
+Current local state: refreshed locally. `IC-2D8D5BF5A8C4` now anchors the
+queued CI parity gap, the runtime-health dependency is confirmed against the
+repo-owned health contract surfaces, and the scoped CI gap still exists. The
+runtime-health dependency is now satisfied at the repo-owned contract and
+Compose-smoke level, so Milestone 1 is the next active slice.
+
+Purpose: refresh this plan to the current post-stack checkout, confirm that
+runtime-health is now the only remaining dependency, and bind the CI parity gap
+to a durable owner case before code changes begin.
 
 Implementation:
 
@@ -249,13 +296,15 @@ Implementation:
   `uv run docling-system-improvement-case-summary`,
   and targeted searches for the current runtime-health and release-gate command
   surfaces.
-- Confirm the prior stacked packets are committed and the CI parity gap still
-  exists on the refreshed checkout.
+- Confirm the earlier stacked packets remain closed locally and that the CI
+  parity gap still exists on the refreshed checkout.
 - Confirm whether the runtime-health packet landed with the expected Compose
   health contract for `api`, `worker`, and `agent-worker`.
 - If no dedicated CI-parity improvement case exists, create one in
   `config/improvement_cases.yaml` with refreshed owner surfaces, observed
-  failure, and this plan as the queued implementation brief.
+  failure, and this plan as the queued implementation brief. If the case
+  already exists, verify that its owner surfaces, failure text, and queued
+  verification commands still match the refreshed packet.
 - Refresh the evidence block, owner context, dependency assumptions, and queued
   workflow name in this file before touching code.
 
@@ -272,7 +321,8 @@ Acceptance:
 
 Stop conditions:
 
-- Any prior stacked packet remains uncommitted.
+- The runtime-health packet remains uncommitted and its blocker cannot be
+  isolated cleanly from this queued follow-on.
 - The runtime-health packet lands with materially different healthcheck or
   smoke expectations and the plan cannot be reconciled safely.
 - Another newly landed plan or owner case already governs the same CI parity
