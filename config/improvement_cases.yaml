@@ -221,8 +221,9 @@ cases:
   status: open
   cause_class: unclear_ownership
   observed_failure: app/hotspot_prevention_classifier.py exceeds the default
-    file budget at 879 lines after the semantics and CLI compatibility-facade
-    gates expanded the hotspot-prevention classifier rules again.
+    file budget at 1011 lines after the semantics, CLI, and agent-task schema
+    compatibility-facade gates expanded the hotspot-prevention classifier
+    rules again.
   source:
     source_type: hygiene_finding
     source_ref: hygiene:file-budget:app/hotspot_prevention_classifier.py
@@ -259,22 +260,28 @@ cases:
       semantic lifecycle, review, read, and registry-preview regrowth in
       app/services/semantics.py. The CLI Milestone 1 facade-prevention ratchet
       expanded the classifier again to block direct session or storage wiring
-      plus parser-body or JSON-render scaffolding in app/cli.py. The hygiene
-      follow-on remains open.
+      plus parser-body or JSON-render scaffolding in app/cli.py. The local
+      agent-task schema Milestone 1 gate adds a dedicated compatibility-facade
+      rule for app/schemas/agent_tasks.py that allows only compact registry
+      declarations and explicit alias forwarders while blocking new schema
+      definitions, broad re-export batches, and export-sink surfaces. The
+      hygiene follow-on remains open.
   measurement:
     metric_name: hotspot_prevention_classifier_line_count
-    current_value: 879.0
-    measurement_window: 2026-05-13 CLI Milestone 1 closeout refresh
+    current_value: 1011.0
+    measurement_window: 2026-05-14 agent-task schema Milestone 1 working-tree verification
     notes: The classifier still carries the earlier registry-composition and
       search-boundary allowances and now also blocks provenance-graph,
       report-lineage, lifecycle, and governance-change-impact growth in
       app/services/evidence_provenance_exports.py plus semantic pass
       lifecycle, review persistence, active-pass read, registry-preview
-      regrowth in app/services/semantics.py, and direct session or storage
-      wiring plus parser-body or JSON-render scaffolding in app/cli.py,
-      leaving the file above the default budget at 879 lines.
+      regrowth in app/services/semantics.py, direct session or storage wiring
+      plus parser-body or JSON-render scaffolding in app/cli.py, and the new
+      agent-task schema compatibility-facade gate for
+      app/schemas/agent_tasks.py, leaving the file above the default budget at
+      1011 lines.
   created_at: '2026-05-13T00:00:00+00:00'
-  updated_at: '2026-05-14T03:34:46Z'
+  updated_at: '2026-05-14T06:05:00Z'
 - case_id: IC-9812A0B138D9
   title: 'Architecture hotspot: app/cli.py'
   status: open

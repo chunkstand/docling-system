@@ -74,6 +74,7 @@ def test_current_hotspot_policy_loads_expected_surfaces() -> None:
     assert sorted(policy.known_hotspots) == [
         "app/cli.py",
         "app/db/models.py",
+        "app/schemas/agent_tasks.py",
         "app/services/agent_task_actions.py",
         "app/services/agent_task_context.py",
         "app/services/claim_support_policy_impacts.py",
@@ -189,6 +190,11 @@ def test_analyzer_flags_obvious_implementation_growth_for_each_hotspot() -> None
                 "    return None",
             ],
             "semantic_pass_lifecycle_logic",
+        ),
+        (
+            "app/schemas/agent_tasks.py",
+            ["class NewTaskInput(BaseModel):"],
+            "schema_definition",
         ),
         (
             "tests/unit/test_cli.py",
@@ -521,6 +527,92 @@ def test_analyzer_allows_agent_task_registry_composition() -> None:
     assert action_report["findings"][0]["category"] == "registry_composition"
     assert context_report["summary"]["blocked_count"] == 0
     assert context_report["findings"][0]["category"] == "registry_composition"
+
+
+def test_analyzer_allows_agent_task_schema_registry_composition() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/schemas/agent_tasks.py",
+            [
+                "_OWNER_MODULES = (",
+                "    _agent_task_core,",
+                "    _agent_task_claim_support,",
+                ")",
+                "__all__ = [",
+                "    *_agent_task_core.__all__,",
+                "    *_agent_task_claim_support.__all__,",
+                "]",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert {
+        finding["category"] for finding in report["findings"]
+    } == {"compatibility_registry_declaration"}
+
+
+def test_analyzer_allows_agent_task_schema_alias_forwarders() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/schemas/agent_tasks.py",
+            [
+                "import app.schemas.agent_task_core as _agent_task_core",
+                "from app.schemas import agent_task_claim_support as _agent_task_claim_support",
+                "AgentTaskCreateRequest = _agent_task_core.AgentTaskCreateRequest",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 0
+    assert {finding["category"] for finding in report["findings"]} == {
+        "schema_alias_forwarder"
+    }
+
+
+def test_agent_task_schema_facade_blocks_broad_reexport_batches() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/schemas/agent_tasks.py",
+            [
+                "from app.schemas.agent_task_core import (",
+                "    AgentTaskCreateRequest,",
+                "    AgentTaskSummaryResponse,",
+                ")",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 4
+    assert {finding["category"] for finding in report["findings"]} == {
+        "broad_reexport_batch"
+    }
+
+
+def test_agent_task_schema_facade_blocks_new_export_sink_surfaces() -> None:
+    report = build_hotspot_prevention_report(
+        _diff_for(
+            "app/schemas/agent_tasks.py",
+            [
+                "from app.schemas._agent_task_schema_exports import SCHEMA_EXPORTS",
+                "def _load_schema_exports():",
+                "    return SCHEMA_EXPORTS",
+            ],
+        ),
+        policy=load_hotspot_policy(),
+        project_root=Path.cwd(),
+    )
+
+    assert report["summary"]["blocked_count"] == 3
+    assert {finding["category"] for finding in report["findings"]} == {
+        "export_sink_surface"
+    }
 
 def test_analyzer_allows_parenthesized_alias_forwarding_hunks() -> None:
     report = build_hotspot_prevention_report(

@@ -1,20 +1,58 @@
 # Agent Task Schema Aggregation Boundary Milestone Plan
 
 Date: 2026-05-13 local / 2026-05-14 UTC
-Status: Milestone 0 refreshed the live post-CLI state after
-`docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
-`docs/evaluations_service_boundary_milestone_plan.md`,
-`docs/evidence_provenance_exports_boundary_milestone_plan.md`,
-`docs/semantics_service_boundary_milestone_plan.md`, and
-`docs/cli_command_dispatch_boundary_milestone_plan.md` all closed locally
-through commits `3d7d090`, `1159297`, `1aa8378`, `a2eb27e`, and `4a79a82`;
-Milestone 1 is now the next active governance-ratchet slice
+Status: Milestone 1 is implemented and verified locally in the working tree
+after the Milestone 0 refresh closeout `5436f6f`, the claim-support closeout
+`3d7d090`, the evaluations closeout `1159297`, the evidence
+provenance-export closeout `1aa8378`, the semantics closeout `a2eb27e`, and
+the CLI closeout `4a79a82`; the Milestone 1 closeout commit is still pending,
+so Milestone 2 is now the next active import-fan-in reduction slice
 Owner context: active follow-on under `IC-24F3558D6091` /
 `app/schemas/agent_tasks.py`. The prior claim-support packet completed first,
 the evaluations packet completed second, the evidence provenance-export packet
 completed third, the semantics packet completed fourth, the CLI packet
-completed fifth, Milestone 0 refreshed the live system state, and Milestone 1
-now governs the first schema-facade code change.
+completed fifth, Milestone 0 refreshed the live system state in commit
+`5436f6f`, and the current Milestone 1 working tree now governs the first
+schema-facade gate for `app/schemas/agent_tasks.py`.
+
+## Local Progress
+
+Milestone 0 is resolved locally through closeout commit `5436f6f`. Milestone 1
+is implemented and verified locally in the working tree, and Milestone 2 is
+now the next active schema-facade slice.
+
+Local Milestone 1 working-tree snapshot:
+
+- added a dedicated hotspot-prevention policy entry for
+  `app/schemas/agent_tasks.py`, targeting the existing seven
+  `app/schemas/agent_task_*.py` owner modules while blocking new schema
+  definitions, broad re-export batches, and new export-sink surfaces
+- added the first schema-facade allowances: compact compatibility-registry
+  declarations and explicit schema alias forwarders are now allowed, so the
+  future facade compaction can compose exports from owner-module contracts
+  without reopening broad import growth
+- updated `config/hygiene_policy.yaml` so `app/schemas/agent_tasks.py` now
+  routes immediately through `owner_case_id: IC-24F3558D6091`, closing the
+  Milestone 0-era hygiene ownership gap before import rewiring begins
+- expanded `app/hotspot_prevention_classifier.py` to `1011` lines so the
+  analyzer now recognizes the schema-facade compatibility pattern and blocks
+  direct schema-body, broad re-export, and export-sink regrowth; the classifier
+  follow-on case `IC-6C1B516A3F92` was refreshed in the same working tree so
+  the ratchet increase remains explicit rather than hidden
+- extended `tests/unit/test_hotspot_prevention.py` to `35` focused assertions,
+  including controlled violations for new schema definitions, broad re-export
+  batches, and export sinks plus positive cases for compact registry
+  composition and explicit alias forwarders
+
+Local Milestone 1 working-tree verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `35 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 
 ## Purpose
 
@@ -38,12 +76,12 @@ catalog file or another new `app/schemas/agent_task_*.py` sink.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-13
-local / 2026-05-14 UTC:
+Milestone 0 refresh baseline captured from the local checkout on 2026-05-13
+local / 2026-05-14 UTC before the Milestone 1 governance-ratchet edits:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 36]
+  ## main...origin/main [ahead 37]
 
 wc -l app/schemas/agent_tasks.py app/schemas/agent_task_core.py app/schemas/agent_task_claim_support.py app/schemas/agent_task_reports.py app/schemas/agent_task_search_workflows.py app/schemas/agent_task_semantic_generation.py app/schemas/agent_task_semantic_graph.py app/schemas/agent_task_semantics.py
    461 app/schemas/agent_tasks.py
@@ -133,11 +171,11 @@ Repo-current structural evidence:
   still exists unchanged: the facade is still 461 lines, still exports 221
   names, still appears in the architecture-quality top-hotspot set, and still
   routes 92 production or test imports through one aggregation surface.
-- The current live config still leaves the schema-facade governance gap open:
-  `config/hygiene_policy.yaml` still allows `app/schemas/agent_tasks.py` at
-  `2061` lines with no `owner_case_id`, and `config/improvement_cases.yaml`
-  still records the older 409.07-risk snapshot without any post-refresh
-  measurement or deployment note.
+- At the Milestone 0 refresh baseline, the schema-facade governance gap still
+  remained open: `config/hygiene_policy.yaml` still allowed
+  `app/schemas/agent_tasks.py` at `2061` lines with no `owner_case_id`, and
+  `config/improvement_cases.yaml` still carried the older 409.07-risk snapshot
+  that Milestone 1 and later closeout work still needed to refresh.
 
 ## Goal
 
@@ -290,7 +328,7 @@ Milestone 0 is mandatory and must run before any schema code changes start.
 
 ### Milestone 0 - Post-CLI System-State Refresh
 
-Status: resolved locally in this refresh closeout
+Status: resolved locally through closeout commit `5436f6f`
 Outcome label: `resolved`
 
 Purpose:
@@ -331,7 +369,7 @@ Acceptance:
 
 ### Milestone 1 - Facade Governance Ratchet
 
-Status: next active implementation slice
+Status: implemented locally in working tree; closeout commit pending
 Outcome label: `resolved`
 
 Implementation:
@@ -364,7 +402,7 @@ Acceptance:
 
 ### Milestone 2 - Production Import Fan-In Reduction
 
-Status: drafted
+Status: next active implementation slice
 Outcome label: `reduced`
 
 Implementation:

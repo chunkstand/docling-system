@@ -26,6 +26,10 @@ CLI Command Dispatch Milestone 2 checkpoint:
 `f5a4260`
 CLI Command Dispatch closeout checkpoint:
 `4a79a82`
+Agent Task Schema Aggregation Milestone 0 checkpoint:
+`5436f6f`
+Agent Task Schema Aggregation Milestone 1 implementation:
+closeout commit pending
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -159,8 +163,9 @@ gate stays green at `changed_hotspots=2`, `blocked=0`, `allowed=3`,
 
 Active stacked follow-on after the CLI packet:
 `docs/agent_task_schema_aggregation_boundary_milestone_plan.md`. Its
-Milestone 0 refreshed the live post-CLI state, and Milestone 1 is now the
-next active governance-ratchet slice for `IC-24F3558D6091` /
+Milestone 0 is now closed locally as `5436f6f`, Milestone 1 is implemented and
+verified locally in the working tree, and Milestone 2 is now the next active
+import-fan-in reduction slice for `IC-24F3558D6091` /
 `app/schemas/agent_tasks.py`.
 
 Queued stacked follow-on after the agent-task schema packet:
@@ -466,7 +471,8 @@ Verification:
 
 ## Agent Task Schema Aggregation Boundary Milestone 0 Local Refresh
 
-Milestone 0 refreshed the live post-CLI state and promoted the schema
+Milestone 0 is resolved locally through closeout commit `5436f6f`. It
+refreshed the live post-CLI state and promoted the schema
 aggregation packet from a stacked drafted baseline to the active bounded
 follow-on. The scoped schema-facade knot under `IC-24F3558D6091` remains
 unresolved, and Milestone 1 is now the next active governance-ratchet slice.
@@ -495,10 +501,9 @@ Results:
   that the schema aggregation plan is active and that Milestone 1, not
   Milestone 0, is the next code-changing slice
 - recorded the remaining governance gap explicitly in the refreshed plan:
-  `config/hygiene_policy.yaml` still allows `app/schemas/agent_tasks.py` at
-  `2061` lines with no `owner_case_id`, and `config/improvement_cases.yaml`
-  still carries the older `risk_score=409.07` snapshot for
-  `IC-24F3558D6091`
+  `config/improvement_cases.yaml` still carries the older
+  `risk_score=409.07` snapshot for `IC-24F3558D6091`, and that case is the
+  live owner record Milestone 1 and later closeout work still need to refresh
 
 Verification:
 
@@ -508,6 +513,40 @@ Verification:
 - `uv run docling-system-architecture-quality-report --summary`: `hotspot_count=10`, `max_hotspot_risk_score=501.06`
 - `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 - `python /Users/chunkstand/.codex/skills/code-architecture-governance/scripts/architecture_probe.py --format markdown --top 12`: top hotspot `tests/unit/test_agent_tasks_api.py`; `app.schemas.agent_tasks` imported by `92` local modules; Python cycle components=`5`
+
+## Agent Task Schema Aggregation Boundary Milestone 1 Working-Tree Progress
+
+Milestone 1 is implemented and verified locally in the working tree. It is the
+schema-facade governance-ratchet slice for `IC-24F3558D6091`, and Milestone 2
+is now the next active import-fan-in reduction slice.
+
+Results:
+
+- added a dedicated hotspot-prevention policy entry for
+  `app/schemas/agent_tasks.py` with the existing seven
+  `app/schemas/agent_task_*.py` files as the preferred owner modules
+- blocked new schema definitions, broad direct re-export batches, and export
+  sinks in the facade while allowing only compact compatibility-registry
+  declarations and explicit schema alias forwarders
+- updated `config/hygiene_policy.yaml` so `app/schemas/agent_tasks.py` now
+  routes immediately through `owner_case_id: IC-24F3558D6091`
+- expanded `app/hotspot_prevention_classifier.py` to `1011` lines so the
+  analyzer recognizes the new schema-facade compatibility pattern, and
+  refreshed the classifier follow-on case `IC-6C1B516A3F92` in
+  `config/improvement_cases.yaml` so that ratchet increase remains explicit
+- extended `tests/unit/test_hotspot_prevention.py` to `35` focused assertions,
+  covering positive schema-registry and alias-forwarder cases plus controlled
+  violations for new schema classes, broad re-export batches, and export sinks
+
+Verification:
+
+- `git diff --check`: pass
+- `uv run ruff check app/hotspot_prevention_classifier.py tests/unit/test_hotspot_prevention.py`: pass
+- `uv run pytest -q tests/unit/test_hotspot_prevention.py`: `35 passed`
+- `uv run docling-system-hotspot-prevention-check --strict`: `known_hotspots=12`, `changed_hotspots=0`, `blocked=0`, `allowed=0`, `exceptions=0`
+- `uv run docling-system-hygiene-check`: `new hygiene regressions: none`
+- `uv run docling-system-improvement-case-validate`: `valid=true`, `issue_count=0`
+- `uv run docling-system-improvement-case-summary`: `case_count=29`, `status_counts.open=21`, `status_counts.deployed=7`, `status_counts.measured=1`, `oldest_open_case_id=IC-9812A0B138D9`
 
 ## Evidence Provenance Exports Boundary Local Closeout
 

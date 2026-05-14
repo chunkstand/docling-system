@@ -15,6 +15,24 @@ known_hotspots:
       - alias_forwarder
       - table_metadata_alignment
       - deletion
+  app/schemas/agent_tasks.py:
+    target_role: agent-task schema compatibility facade
+    preferred_owner_modules:
+      - app/schemas/agent_task_core.py
+      - app/schemas/agent_task_claim_support.py
+      - app/schemas/agent_task_reports.py
+      - app/schemas/agent_task_search_workflows.py
+      - app/schemas/agent_task_semantic_generation.py
+      - app/schemas/agent_task_semantic_graph.py
+      - app/schemas/agent_task_semantics.py
+    block_new:
+      - schema_definition
+      - broad_reexport_batch
+      - export_sink_surface
+    allow:
+      - schema_alias_forwarder
+      - compatibility_registry_declaration
+      - deletion
   app/services/evidence.py:
     target_role: compatibility facade for evidence capabilities
     preferred_owner_modules:

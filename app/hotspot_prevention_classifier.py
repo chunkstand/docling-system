@@ -187,6 +187,12 @@ def classify_python_addition(
     )
     if is_comment_or_blank(line.text):
         return None
+    if path == "app/schemas/agent_tasks.py":
+        return classify_agent_task_schema_facade_addition(
+            stripped=stripped,
+            line=line,
+            hunk_lines=hunk_lines,
+        )
     import_category = allowed_category_for_import(rule)
     if import_category and (
         is_import_or_alias(line.text)
@@ -264,6 +270,58 @@ def classify_evidence_addition(*, stripped: str, line: ChangedLine) -> Classifie
             line, "artifact_assembly", "new evidence assembly belongs in evidence_* modules"
         )
     return None
+def classify_agent_task_schema_facade_addition(
+    *,
+    stripped: str,
+    line: ChangedLine,
+    hunk_lines: tuple[str, ...],
+) -> ClassifiedLine | None:
+    if is_agent_task_schema_registry_hunk(hunk_lines):
+        return ClassifiedLine(
+            line=line,
+            status="allowed",
+            category="compatibility_registry_declaration",
+            message="compact schema compatibility-registry declaration is allowed",
+            policy_rule="allow.compatibility_registry_declaration",
+        )
+    if is_agent_task_schema_alias_line(stripped):
+        return ClassifiedLine(
+            line=line,
+            status="allowed",
+            category="schema_alias_forwarder",
+            message="explicit schema alias forwarders are allowed on the facade",
+            policy_rule="allow.schema_alias_forwarder",
+        )
+    if _CLASS_RE.match(stripped):
+        return blocked(
+            line,
+            "schema_definition",
+            "new schema definitions belong in the focused agent-task schema owner modules",
+        )
+    if stripped.startswith(("def ", "async def ")):
+        return blocked(
+            line,
+            "export_sink_surface",
+            "new schema-facade helpers or export sinks do not belong in app/schemas/agent_tasks.py",
+        )
+    if is_agent_task_schema_export_sink_line(stripped):
+        return blocked(
+            line,
+            "export_sink_surface",
+            "new export-sink surfaces do not belong in app/schemas/agent_tasks.py",
+        )
+    if is_agent_task_schema_broad_reexport_hunk(hunk_lines):
+        return blocked(
+            line,
+            "broad_reexport_batch",
+            "broad direct re-export batches do not belong in app/schemas/agent_tasks.py",
+        )
+    return blocked(
+        line,
+        "export_sink_surface",
+        "new schema-facade behavior belongs in the focused owner modules or a "
+        "compact registry declaration",
+    )
 def classify_evidence_provenance_export_addition(
     *,
     stripped: str,
@@ -785,6 +843,79 @@ def is_forwarding_call_line(stripped: str) -> bool:
     return bool(re.match(r"return\s+[A-Za-z_][A-Za-z0-9_.]*\(", stripped)) or stripped.startswith(
         "raise SystemExit("
     )
+def is_agent_task_schema_alias_line(stripped: str) -> bool:
+    return bool(
+        re.match(
+            r"import\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
+            stripped,
+        )
+        or re.match(
+            r"from\s+app\.schemas\s+import\s+agent_task_[A-Za-z0-9_]+\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
+            stripped,
+        )
+        or re.match(
+            r"from\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+import\s+__all__\s+as\s+_[A-Za-z_][A-Za-z0-9_]*$",
+            stripped,
+        )
+        or re.match(
+            r"[A-Za-z_][A-Za-z0-9_]*\s*=\s*_[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)+$",
+            stripped,
+        )
+    )
+def is_agent_task_schema_registry_hunk(lines: tuple[str, ...]) -> bool:
+    significant = [raw.strip() for raw in lines if not is_comment_or_blank(raw)]
+    if not significant:
+        return False
+    has_registry_marker = False
+    for stripped in significant:
+        if stripped in {"(", ")", "[", "]", "),", "],"}:
+            continue
+        if re.match(r"_[A-Z][A-Z0-9_]*\s*=\s*[\[(]$", stripped):
+            has_registry_marker = True
+            continue
+        if re.match(r"_[A-Za-z0-9_]+,?$", stripped):
+            has_registry_marker = True
+            continue
+        if re.match(r"__all__\s*=\s*[\[(].*$", stripped):
+            has_registry_marker = True
+            continue
+        if re.match(r"\*_[A-Za-z0-9_]+\.__all__,?$", stripped):
+            has_registry_marker = True
+            continue
+        if "for module in _" in stripped and "module.__all__" in stripped:
+            has_registry_marker = True
+            continue
+        if "for name in module.__all__" in stripped:
+            has_registry_marker = True
+            continue
+        if stripped == "globals().update(":
+            has_registry_marker = True
+            continue
+        if "globals()[name]" in stripped and "getattr(module, name)" in stripped:
+            has_registry_marker = True
+            continue
+        return False
+    return has_registry_marker
+def is_agent_task_schema_export_sink_line(stripped: str) -> bool:
+    return bool(
+        re.match(r"(from|import)\s+app\.schemas\._[A-Za-z0-9_.]+", stripped)
+        or re.match(r"(from|import)\s+app\.schemas\.agent_task_public", stripped)
+        or "_agent_task_schema_exports" in stripped
+        or "agent_task_public" in stripped
+    )
+def is_agent_task_schema_broad_reexport_hunk(lines: tuple[str, ...]) -> bool:
+    significant = [raw.strip() for raw in lines if not is_comment_or_blank(raw)]
+    if not significant:
+        return False
+    return any(
+        re.match(
+            r"from\s+app\.schemas\.agent_task_[A-Za-z0-9_]+\s+import(\s+\(|\s+[A-Za-z_][A-Za-z0-9_]*)",
+            stripped,
+        )
+        or re.match(r"__all__\s*=\s*[\[(]$", stripped)
+        or bool(re.match(r"[\"'][A-Za-z_][A-Za-z0-9_]*[\"'],?$", stripped))
+        for stripped in significant
+    )
 def is_significant_added_text(text: str) -> bool:
     return not is_comment_or_blank(text) and not is_import_or_alias(text)
 def is_registry_composition_hunk(lines: tuple[str, ...]) -> bool:
@@ -831,6 +962,7 @@ def significant_unclassified_lines(
 def fallback_block_category(rule: HotspotRule) -> str:
     return next(
         (category for category in (
+            "export_sink_surface", "broad_reexport_batch", "schema_definition",
             "broad_helper", "artifact_assembly", "broad_parser_logic",
             "executor_implementation", "ranking_logic", "broad_new_test_group",
         ) if category in rule.block_new),
