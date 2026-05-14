@@ -12,9 +12,9 @@ Status: active stacked follow-on after
 packets are now closed locally, Milestone 0 is resolved from the live
 post-stack refresh through baseline commit `08a1a75`, Milestone 1 owner-case
 bootstrap is resolved locally through checkpoint `d4f082c`, Milestone 2
-owner-case binding conversion is resolved locally in the current worktree, and
-Milestone 3 owner-case-only hygiene-contract enforcement is now the next
-active code-changing slice
+owner-case binding conversion is resolved locally through closeout commit
+`7ef99cd`, and Milestone 3 owner-case-only hygiene-contract enforcement is now
+the next active code-changing slice
 Owner context: active governance-first follow-on for the remaining
 milestone-owned hygiene debt in `config/hygiene_policy.yaml`. This packet
 assumes the earlier boundary and test packets have already reduced the major
@@ -27,8 +27,8 @@ hygiene contract so future sessions cannot hide debt behind milestone labels.
 
 Milestone 0 is resolved locally through baseline commit `08a1a75`, and
 Milestone 1 owner-case bootstrap is resolved locally through checkpoint
-`d4f082c`. Milestone 2 owner-case binding conversion is resolved locally in
-the current worktree.
+`d4f082c`. Milestone 2 owner-case binding conversion is resolved locally
+through closeout commit `7ef99cd`.
 The stacked queue assumptions were revalidated against the live repo state,
 the exact remaining residual owner set is now frozen in the active docs, the
 three required family owner cases are now present in the registry, the live
@@ -474,7 +474,7 @@ Local result:
 
 ### Milestone 2 - Convert the live hygiene policy to `owner_case_id` only
 
-Status: resolved locally in the current worktree
+Status: resolved locally through closeout commit `7ef99cd`
 
 Outcome label: resolved
 

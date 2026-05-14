@@ -50,7 +50,7 @@ The hygiene owner-case routing packet remains the active bounded follow-on.
 Its Milestone 0 refresh is committed locally as `08a1a75`, Milestone 1
 owner-case bootstrap is committed locally as `d4f082c` through
 `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
-owner-case binding conversion is resolved locally in the current worktree.
+owner-case binding conversion is committed locally as `7ef99cd`.
 Milestone 3 owner-case-only hygiene-contract enforcement is now the next
 active code-changing slice.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
@@ -215,9 +215,9 @@ owner-case bootstrap is resolved locally through checkpoint `d4f082c`: the
 seven prerequisite packets are closed locally, the registry now binds the
 eight residual owner-routing paths through
 `IC-08C078FD4F45`, `IC-7C73737C689F`, and `IC-81C531769EB3`, and Milestone 2
-owner-case binding conversion is resolved locally in the current worktree:
-`config/hygiene_policy.yaml` no longer contains any live
-`owner_milestone` entries for
+owner-case binding conversion is committed locally as `7ef99cd`:
+`config/hygiene_policy.yaml` no longer contains any live `owner_milestone`
+entries for
 `app/architecture_inspection.py`,
 `app/architecture_inspection_rules.py`,
 `app/services/claim_support_evaluations.py`,
@@ -362,7 +362,7 @@ Verification:
 
 ## Hygiene Owner-Case Routing Boundary Milestone 2 Binding Conversion
 
-Milestone 2 is resolved locally in the current worktree. The eight live
+Milestone 2 is resolved locally through closeout commit `7ef99cd`. The eight live
 residual hygiene overrides that previously used
 `owner_milestone=residual-weakness-milestone-2` now bind directly to explicit
 owner cases, and Milestone 3 owner-case-only hygiene-contract enforcement is
