@@ -1,8 +1,8 @@
 # Runtime Health Orchestration Milestone Plan
 
 Date: 2026-05-14 local / 2026-05-14 UTC
-Status: resolved locally through Milestone 4 verification, Compose runtime
-smoke, and docs alignment on 2026-05-14 after
+Status: resolved locally through Milestone 4 closeout commit `a57f74f` after
+verification, Compose runtime smoke, and docs alignment on 2026-05-14 after
 `docs/claim_support_policy_impacts_boundary_milestone_plan.md`,
 `docs/evaluations_service_boundary_milestone_plan.md`,
 `docs/evidence_provenance_exports_boundary_milestone_plan.md`,
@@ -101,12 +101,12 @@ or public leak of detailed runtime internals.
 
 ## Current Evidence
 
-Runtime-health Milestone 4 closeout evidence refreshed from the current local
-checkout on 2026-05-14 local / 2026-05-14 UTC:
+Runtime-health Milestone 4 closeout evidence recorded at closeout checkpoint
+`a57f74f` on 2026-05-14 local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 62]
+  ## main...origin/main [ahead 63]
 
 wc -l app/api/main.py app/api/routers/system.py app/services/runtime.py app/services/runtime_health.py app/services/capabilities/system_governance.py app/services/runs.py app/services/agent_task_worker.py app/runtime_health_cli.py tests/unit/test_health.py tests/unit/test_runtime_service.py tests/unit/test_runtime_health.py tests/unit/test_runtime_health_cli.py tests/unit/test_run_logic.py tests/unit/test_agent_task_worker.py docker-compose.yml
       98 app/api/main.py
@@ -173,9 +173,10 @@ Repo-current structural evidence:
   `docker compose config --quiet` plus a focused runtime-health pytest slice in
   addition to the prior architecture/governance checks.
 - Milestone 0 created `IC-0F89DBB1CF9F` in `config/improvement_cases.yaml` as
-  the durable owner-case anchor for this packet. The owner case now carries
-  the Milestone 4 closeout evidence after the Compose smoke fix, and the next
-  follow-on packet is CI release-gate parity under `IC-2D8D5BF5A8C4`.
+  the durable owner-case anchor for this packet. The owner case is now
+  deployed through closeout commit `a57f74f` after the Compose smoke fix, and
+  the next follow-on packet is CI release-gate parity under
+  `IC-2D8D5BF5A8C4`.
 
 Focused verification and the final runtime-smoke proof now pass locally:
 
@@ -204,8 +205,8 @@ uv run docling-system-improvement-case-validate
 uv run docling-system-improvement-case-summary
   case_count=38
   status_counts.measured=1
-  status_counts.deployed=10
-  status_counts.open=27
+  status_counts.deployed=11
+  status_counts.open=26
 
 uv run docling-system-hygiene-check
   pass with no new regressions

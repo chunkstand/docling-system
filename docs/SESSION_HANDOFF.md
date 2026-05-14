@@ -46,6 +46,8 @@ Runtime Health Orchestration Milestone 0 checkpoint:
 `289f15a`
 Runtime Health Orchestration Milestone 1 checkpoint:
 `a84728c`
+Runtime Health Orchestration closeout checkpoint:
+`a57f74f`
 Milestone 5 implementation checkpoint: agent-task orchestration local closeout
 commit `7cf7465`; the prior agent-task orchestration Milestone 3 checkpoint
 remains `faa3827`, the prior evidence and orchestration follow-on checkpoint
@@ -86,7 +88,8 @@ and the remaining global cycle backlog is now four non-governance components:
 the search/documents/evaluations/runs/semantics family, claim-support policy
 impacts/promotions, evidence-provenance export graph, and evidence-search
 packages/trace-store.
-The runtime-health packet is now resolved locally through Milestone 4.
+The runtime-health packet is now resolved locally through Milestone 4 closeout
+commit `a57f74f`.
 Runtime-health Milestone 0 refresh / owner-case bootstrap remains committed
 locally as checkpoint `289f15a`, and Milestone 1 gate-first health contract
 remains committed locally as checkpoint `a84728c`. Milestones 2 through 4 now
@@ -122,7 +125,7 @@ alignment verification for that queued packet is green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-improvement-case-summary` reported
-`case_count=38`, `status_counts.open=27`, `status_counts.deployed=10`, and
+`case_count=38`, `status_counts.open=26`, `status_counts.deployed=11`, and
 `status_counts.measured=1`.
 The oversized-test packet is now resolved locally in the 2026-05-14 closeout
 window through closeout commit `65c0c67`. Deployed follow-on cases are

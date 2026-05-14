@@ -30,7 +30,7 @@ Milestone 0 alignment verification is now green:
 `git diff --check` passed,
 `uv run docling-system-improvement-case-validate` returned `valid=true`, and
 `uv run docling-system-improvement-case-summary` reported
-`case_count=38`, `status_counts.open=27`, `status_counts.deployed=10`, and
+`case_count=38`, `status_counts.open=26`, `status_counts.deployed=11`, and
 `status_counts.measured=1`.
 
 ## Purpose
@@ -61,40 +61,12 @@ changes cannot silently narrow CI without failing durable checks.
 
 ## Current Evidence
 
-Live repo evidence refreshed from the current local checkout on 2026-05-14
-local / 2026-05-14 UTC:
+Live repo evidence refreshed from the `a57f74f` runtime-health closeout
+checkpoint on 2026-05-14 local / 2026-05-14 UTC:
 
 ```text
 git status -sb
-  ## main...origin/main [ahead 62]
-   M README.md
-   M SYSTEM_PLAN.md
-   M app/api/main.py
-   M app/services/agent_task_worker.py
-   M app/services/capabilities/system_governance.py
-   M app/services/runs.py
-   M app/services/runtime.py
-   M app/services/runtime_health.py
-   M app/services/semantic_governance.py
-   M app/services/validation.py
-   M config/improvement_cases.yaml
-   M docker-compose.yml
-   M docs/SESSION_HANDOFF.md
-   M docs/agentic_architecture_index.md
-   M docs/architecture_boundaries.md
-   M docs/capability_contract_map.json
-   M docs/ci_release_gate_parity_milestone_plan.md
-   M docs/runtime_health_orchestration_milestone_plan.md
-   M pyproject.toml
-   M tests/integration/test_technical_report_harness_integrity.py
-   M tests/unit/test_agent_task_worker.py
-   M tests/unit/test_health.py
-   M tests/unit/test_run_logic.py
-   M tests/unit/test_runtime_health.py
-   M tests/unit/test_runtime_service.py
-   M tests/unit/test_semantic_governance.py
-  ?? app/runtime_health_cli.py
-  ?? tests/unit/test_runtime_health_cli.py
+  ## main...origin/main [ahead 63]
 
 find .github/workflows -maxdepth 1 -type f | sort
   .github/workflows/architecture-governance.yml
@@ -102,8 +74,8 @@ find .github/workflows -maxdepth 1 -type f | sort
 uv run docling-system-improvement-case-summary
   case_count=38
   status_counts.measured=1
-  status_counts.deployed=10
-  status_counts.open=27
+  status_counts.deployed=11
+  status_counts.open=26
   oldest_open_case_id=IC-9812A0B138D9
 
 wc -l .github/workflows/architecture-governance.yml README.md SYSTEM_PLAN.md docker-compose.yml pyproject.toml

@@ -1969,14 +1969,12 @@ cases:
   updated_at: '2026-05-14T20:55:20Z'
 - case_id: IC-0F89DBB1CF9F
   title: 'Architecture contract gap: runtime health orchestration'
-  status: open
+  status: deployed
   cause_class: unclear_ownership
   observed_failure: >-
-    Runtime-health orchestration is now verified locally through Compose
-    runtime smoke and the full DB-backed integration gate, but this owner case
-    remains open until the Milestone 4 closeout commit is recorded as the
-    deployment ref for the shared `/health`, `/runtime/status`, whole-process
-    heartbeat, and Compose healthcheck contract across app/api/main.py,
+    The production-orchestration health gap previously left `/health` static,
+    omitted worker and agent-worker Compose healthchecks, and lacked shared
+    runtime-heartbeat freshness across app/api/main.py,
     app/api/routers/system.py, app/services/runtime.py, app/services/runs.py,
     app/services/agent_task_worker.py, app/workers/poller.py,
     app/workers/agent_poller.py, and docker-compose.yml.
@@ -2020,12 +2018,13 @@ cases:
     allows_good_changes: true
   workflow_version: improvement_v1
   deployment:
-    deployed_ref: null
+    deployed_ref: "a57f74f"
     notes: >-
       Runtime-health Milestone 0 refresh / owner-case bootstrap remains
       committed locally as checkpoint 289f15a, and Milestone 1 gate-first
       health contract remains committed locally as checkpoint a84728c.
-      Milestones 2 through 4 now close the scoped gap locally:
+      Milestones 2 through 4 now close the scoped gap locally through closeout
+      commit a57f74f:
       app/services/runtime_health.py owns the shared contract, /runtime/status
       now carries the nested shared health report, app/api/main.py plus the
       run and agent-task worker loops publish whole-process heartbeats,
@@ -2050,7 +2049,7 @@ cases:
       tests/unit/test_agent_task_worker.py=624,
       docker-compose.yml=124.
   created_at: '2026-05-14T20:58:15Z'
-  updated_at: '2026-05-14T23:41:16Z'
+  updated_at: '2026-05-14T23:54:23Z'
 - case_id: IC-2D8D5BF5A8C4
   title: 'Release gate parity gap: checked-in CI vs local release gate'
   status: open
