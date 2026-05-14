@@ -3,10 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.services import architecture_governance, runtime, telemetry
+from app.services import architecture_governance, runtime, runtime_health, telemetry
+from app.services.runtime_health import RuntimePublicHealthResponse
 
 
 class SystemGovernanceCapability(Protocol):
+    def get_public_health(self) -> RuntimePublicHealthResponse: ...
+
     def get_runtime_status(
         self,
         process_identity: str | None = None,
@@ -28,6 +31,9 @@ class SystemGovernanceCapability(Protocol):
 
 
 class ServicesSystemGovernanceCapability:
+    def get_public_health(self) -> RuntimePublicHealthResponse:
+        return runtime_health.get_public_health()
+
     def get_runtime_status(
         self,
         process_identity: str | None = None,

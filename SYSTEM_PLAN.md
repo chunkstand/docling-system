@@ -177,6 +177,8 @@ The deployed local system has these runtime components:
 
 The FastAPI app serves:
 
+- a bounded public `/health` runtime-health contract plus gated
+  `/runtime/status` diagnostics
 - document ingest and inspection endpoints
 - search, replay, harness, and chat endpoints
 - quality and evaluation inspection endpoints

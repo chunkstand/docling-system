@@ -62,6 +62,13 @@ jobs:
       - name: Capability contracts
         run: uv run docling-system-capability-contracts
 
+      - name: Runtime health contract
+        run: |
+          docker compose config --quiet
+          uv run pytest -q \
+            tests/unit/test_health.py \
+            tests/unit/test_runtime_health.py
+
       - name: Focused architecture tests
         run: >
           uv run pytest -q

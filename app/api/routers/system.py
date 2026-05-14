@@ -4,6 +4,7 @@ import os
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import FileResponse
+from starlette.responses import JSONResponse
 
 import app.api.capabilities as api_capabilities
 from app.api.deps import UI_DIR, api_mode_metadata, require_api_capability
@@ -15,6 +16,7 @@ from app.schemas.architecture_governance import (
 from app.services.capabilities import system_governance
 
 router = APIRouter()
+get_public_health = system_governance.get_public_health
 get_runtime_status = system_governance.get_runtime_status
 snapshot_metrics = system_governance.snapshot_metrics
 get_architecture_inspection_report = system_governance.get_architecture_inspection_report
@@ -27,8 +29,9 @@ def index() -> FileResponse:
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health() -> JSONResponse:
+    result = get_public_health()
+    return JSONResponse(status_code=result.status_code, content=result.model_dump())
 
 
 @router.get(

@@ -3144,7 +3144,7 @@
     {
       "contract_sources": [],
       "exported_instance": "system_governance",
-      "function_count": 4,
+      "function_count": 5,
       "functions": [
         {
           "name": "get_architecture_inspection_report",
@@ -3161,7 +3161,16 @@
             }
           ],
           "returns": "dict[str, Any]",
-          "source_lineno": 17
+          "source_lineno": 20
+        },
+        {
+          "name": "get_public_health",
+          "operation_kind": "read",
+          "owner_module": "app.services.runtime_health",
+          "owner_symbol": "get_public_health",
+          "parameters": [],
+          "returns": "RuntimePublicHealthResponse",
+          "source_lineno": 11
         },
         {
           "name": "get_runtime_status",
@@ -3178,7 +3187,7 @@
             }
           ],
           "returns": "dict[str, Any]",
-          "source_lineno": 10
+          "source_lineno": 13
         },
         {
           "name": "snapshot_metrics",
@@ -3187,7 +3196,7 @@
           "owner_symbol": "snapshot_metrics",
           "parameters": [],
           "returns": "dict[str, float]",
-          "source_lineno": 15
+          "source_lineno": 18
         },
         {
           "name": "summarize_architecture_measurements",
@@ -3211,7 +3220,7 @@
             }
           ],
           "returns": "dict[str, Any]",
-          "source_lineno": 22
+          "source_lineno": 25
         }
       ],
       "implementation": "ServicesSystemGovernanceCapability",
@@ -3222,6 +3231,7 @@
       "owner_modules": [
         "app.services.architecture_governance",
         "app.services.runtime",
+        "app.services.runtime_health",
         "app.services.telemetry"
       ],
       "protocol": "SystemGovernanceCapability",
@@ -3229,7 +3239,7 @@
       "source": "app/services/capabilities/system_governance.py"
     }
   ],
-  "function_count": 110,
+  "function_count": 111,
   "schema_name": "capability_contract_map",
   "schema_version": "1.0"
 }

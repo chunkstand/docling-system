@@ -162,16 +162,20 @@ def register_runtime_process(
     )
 
 
-def get_runtime_status(process_identity: str | None = None) -> dict[str, Any]:
+def get_runtime_registry() -> dict[str, Any]:
     registry_path = _runtime_registry_path()
-    startup_code_fingerprint = get_startup_code_fingerprint()
 
     lock_handle = _with_runtime_registry_lock()
     try:
-        payload = _read_runtime_registry_unlocked(registry_path)
+        return _read_runtime_registry_unlocked(registry_path)
     finally:
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
         lock_handle.close()
+
+
+def get_runtime_status(process_identity: str | None = None) -> dict[str, Any]:
+    startup_code_fingerprint = get_startup_code_fingerprint()
+    payload = get_runtime_registry()
 
     desired_code_fingerprint = payload.get("desired_code_fingerprint")
     processes = payload.get("processes") if isinstance(payload.get("processes"), dict) else {}

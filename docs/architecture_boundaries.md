@@ -98,7 +98,10 @@ FastAPI app: method, path, route name, endpoint, capability, public exemption,
 mutation-key gate, and response model. `tests/unit/test_api_route_contracts.py`
 validates that every non-exempt public route has exactly one known capability
 and that every mutating route also carries `require_api_key_for_mutations`.
-The only public remote exemptions are `/` and `/health`.
+The only public remote exemptions are `/` and `/health`. `/health` must remain
+a bounded runtime-health contract and must not expose internal diagnostics,
+fingerprints, principal metadata, or process details that belong behind
+`system:read` on `/runtime/status`.
 
 ## Agent Action Contracts
 

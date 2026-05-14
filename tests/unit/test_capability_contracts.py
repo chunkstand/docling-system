@@ -43,6 +43,7 @@ def test_capability_contract_map_exposes_facade_surfaces() -> None:
         "run_worker_loop",
     } <= {row["name"] for row in facades["agent_orchestration"]["functions"]}
     assert {
+        "get_public_health",
         "get_architecture_inspection_report",
         "summarize_architecture_measurements",
     } <= {row["name"] for row in facades["system_governance"]["functions"]}

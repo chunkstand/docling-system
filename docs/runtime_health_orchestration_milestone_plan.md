@@ -14,28 +14,36 @@ Status: active stacked follow-on after
 packets are now closed locally, including architecture-governance closeout
 commit `7a4c5b0`, and Milestone 0 refresh / owner-case bootstrap is now
 committed locally as checkpoint `289f15a` through `IC-0F89DBB1CF9F`.
-Milestone 1 gate-first health contract is now the next active slice
+Milestone 1 gate-first health contract is now resolved locally in the current
+worktree. Milestone 2 hardened API and authenticated runtime-health behavior
+is now the next active slice
 Owner context: active follow-on for the production-orchestration health gap
 across `app/api/routers/system.py`, `app/services/runtime.py`,
 `app/workers/poller.py`, `app/workers/agent_poller.py`, and
 `docker-compose.yml`. `IC-0F89DBB1CF9F` now anchors the runtime-health
-contract gap across those surfaces. No shared runtime-health owner module or
-worker/API health contract exists yet, so Milestone 1 remains the next
-code-changing slice.
+contract gap across those surfaces. `app/services/runtime_health.py` now owns
+the shared gate-first health contract, but authenticated detailed diagnostics,
+process-heartbeat publication, and Compose healthchecks remain unimplemented.
 
 ## Local Progress
 
-Milestone 0 is committed locally as checkpoint `289f15a`. The stacked packet
-is now refreshed to the live post-`7a4c5b0` repo state, and
-`IC-0F89DBB1CF9F` binds the runtime-health orchestration gap before any code
-motion. The refreshed baseline confirms the targeted health surfaces still
-measure `85 / 194 / 15 / 15 / 307 / 110` lines for
+Milestone 0 is committed locally as checkpoint `289f15a`. Milestone 1 is now
+resolved locally in the current worktree: `app/services/runtime_health.py`
+owns the shared health contract at `256` lines, the
+`system_governance` capability now exposes the bounded public health seam at
+`64` lines, `GET /health` now delegates to that seam and returns only bounded
+`{"status":"ok"}` / `{"status":"error"}` payloads, and the checked-in
+architecture workflow now runs `docker compose config --quiet` plus a focused
+runtime-health pytest slice. The current health-contract surfaces now measure
+`88 / 198 / 256 / 64 / 329 / 64 / 113 / 81` lines for
 `app/api/routers/system.py`, `app/services/runtime.py`,
-`app/workers/poller.py`, `app/workers/agent_poller.py`,
-`tests/unit/test_health.py`, and `docker-compose.yml`; the architecture quality
-summary still reports `hotspot_count=10` with `max_hotspot_risk_score=501.06`;
-and no prior runtime-health improvement case existed in the registry. Milestone
-1 gate-first health contract is now the next active code-changing slice.
+`app/services/runtime_health.py`,
+`app/services/capabilities/system_governance.py`,
+`tests/unit/test_health.py`, `tests/unit/test_runtime_service.py`,
+`tests/unit/test_runtime_health.py`, and
+`.github/workflows/architecture-governance.yml`. Milestone 2 hardened API and
+authenticated runtime-health behavior is now the next active code-changing
+slice.
 
 ## Purpose
 
@@ -103,18 +111,24 @@ Repo-current structural evidence:
 
 - `docs/agentic_architecture_index.md` and `docs/SESSION_HANDOFF.md` now both
   route runtime-health as the next active packet after architecture-governance
-  closeout commit `7a4c5b0`. Milestone 0 therefore remains a real refresh step,
-  but the upstream stacked prerequisites are no longer open.
+  closeout commit `7a4c5b0`. Milestone 0 is closed, Milestone 1 is now
+  resolved locally in the current worktree, and Milestone 2 is the next active
+  slice.
 - `app/api/routers/system.py` currently serves a public `GET /health` route
-  that returns only `{"status": "ok"}` and a gated `GET /runtime/status`
-  route. There is no shared runtime health evaluator yet.
-- `tests/unit/test_health.py` currently asserts the public health route always
-  returns `200` with `{"status": "ok"}` and covers auth/metadata on
-  `/runtime/status`, but it does not model DB loss, storage failure, stale API
-  fingerprints, stale worker processes, or process-heartbeat expiry.
+  backed by `system_governance.get_public_health()` and a gated
+  `GET /runtime/status` route. The public route is now bounded and can fail on
+  critical runtime-currentness, DB, storage, or registry failures without
+  leaking internal diagnostics, but `/runtime/status` does not yet expose the
+  shared health report.
+- `tests/unit/test_health.py` now proves the public health route stays bounded
+  on both success and failure while preserving `/runtime/status`
+  auth/metadata behavior, and `tests/unit/test_runtime_health.py` now covers
+  stale code fingerprints, DB/storage probe failures, and process-heartbeat
+  expiry against the shared owner module.
 - `app/services/runtime.py` currently owns startup fingerprint registration and
-  registry reads, but it does not record ongoing heartbeat timestamps or expose
-  process-freshness helpers for health evaluation.
+  registry reads, and now exposes `get_runtime_registry()` so the shared health
+  owner can evaluate the registry contract. It still does not record ongoing
+  heartbeat timestamps.
 - `app/workers/poller.py` and `app/workers/agent_poller.py` are thin launchers.
   Health ownership currently lives deeper in run and agent-task worker loops,
   but those loops only reason about task/run lease heartbeats, not whole-process
@@ -123,15 +137,15 @@ Repo-current structural evidence:
   healthchecks for `worker` or `agent-worker`. The `api` healthcheck probes
   only `http://127.0.0.1:8000/health`.
 - `README.md` documents that Compose publishes the API, keeps `GET /health`
-  public, and uses fallback auth defaults. It does not document a detailed
-  runtime-health contract, worker health contract, or a repo-owned health CLI.
+  public, and now documents the bounded `ok` / `error` public health contract.
+  It does not yet document a worker health contract or a repo-owned health CLI.
 - `docs/architecture_boundaries.md` says the only public remote exemptions are
-  `/` and `/health`. This plan should preserve that constraint instead of
-  adding another public exemption for detailed readiness state.
+  `/` and `/health`, and now also states that `/health` must remain a bounded
+  contract while detailed runtime diagnostics stay behind `system:read`.
 - The only checked-in GitHub workflow is
-  `.github/workflows/architecture-governance.yml`. It currently validates
-  architecture/governance checks and does not yet run any Compose config check
-  or health-focused runtime test slice.
+  `.github/workflows/architecture-governance.yml`. It now validates
+  `docker compose config --quiet` plus a focused runtime-health pytest slice in
+  addition to the prior architecture/governance checks.
 - Milestone 0 created `IC-0F89DBB1CF9F` in `config/improvement_cases.yaml` as
   the durable owner-case anchor for this packet. No hygiene-policy changes were
   needed because the scoped surfaces are not currently budget-ratcheted
@@ -323,6 +337,12 @@ Stop conditions:
 ### Milestone 1 - Create the gate-first health contract and controlled violations
 
 Outcome label: `reduced`
+
+Current local state: resolved locally in the current worktree. The shared
+runtime-health owner module, bounded public route contract, focused unit
+coverage, and checked-in workflow gate are now in place. Authenticated
+detailed diagnostics, process-heartbeat publication, and Compose healthchecks
+remain for Milestone 2 and Milestone 3.
 
 Purpose: define and enforce the runtime-health contract before broad
 implementation so future growth cannot silently reintroduce static or

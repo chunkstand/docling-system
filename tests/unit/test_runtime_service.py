@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from app.services.runtime import (
+    get_runtime_registry,
     get_runtime_status,
     register_runtime_process,
     runtime_code_is_current,
@@ -41,3 +42,23 @@ def test_register_runtime_process_marks_older_fingerprint_stale(monkeypatch, tmp
     assert new_status["desired_code_fingerprint"] == "fingerprint-new"
     assert runtime_code_is_current(first.startup_code_fingerprint) is False
     assert runtime_code_is_current(second.startup_code_fingerprint) is True
+
+
+def test_get_runtime_registry_returns_registered_processes(monkeypatch, tmp_path) -> None:
+    storage_root = tmp_path / "storage"
+
+    monkeypatch.setattr(
+        "app.services.runtime.get_settings",
+        lambda: SimpleNamespace(storage_root=storage_root),
+    )
+    monkeypatch.setattr(
+        "app.services.runtime.get_startup_code_fingerprint",
+        lambda: "fingerprint-runtime",
+    )
+
+    register_runtime_process("worker", "worker-1", pid=101)
+    registry = get_runtime_registry()
+
+    assert registry["desired_code_fingerprint"] == "fingerprint-runtime"
+    assert registry["processes"]["worker-1"]["process_kind"] == "worker"
+    assert registry["processes"]["worker-1"]["pid"] == 101

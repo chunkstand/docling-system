@@ -3,15 +3,33 @@ import json
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.services.runtime_health import RuntimePublicHealthResponse
 
 
-def test_health_endpoint() -> None:
+def test_health_endpoint_uses_bounded_public_contract(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routers.system.get_public_health",
+        lambda: RuntimePublicHealthResponse(status="ok", status_code=200),
+    )
     client = TestClient(app)
 
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_health_endpoint_returns_bounded_failure_payload(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routers.system.get_public_health",
+        lambda: RuntimePublicHealthResponse(status="error", status_code=503),
+    )
+    client = TestClient(app)
+
+    response = client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"status": "error"}
 
 
 def test_runtime_status_endpoint(monkeypatch) -> None:
@@ -291,6 +309,10 @@ def test_architecture_summary_endpoint_requires_remote_system_read_capability(
 
 
 def test_health_endpoint_remains_public_in_remote_mode(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.api.routers.system.get_public_health",
+        lambda: RuntimePublicHealthResponse(status="ok", status_code=200),
+    )
     monkeypatch.setattr(
         "app.api.deps.get_settings",
         lambda: type(

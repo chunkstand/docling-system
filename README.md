@@ -211,7 +211,7 @@ Current compose behavior:
 - the API binds `0.0.0.0:8000` inside the container and is published on the host port from `DOCLING_SYSTEM_API_PORT`
 - the compose file uses `DOCLING_SYSTEM_API_KEY` when set and otherwise falls back to `docling-local-secret`
 - the semantics layer remains disabled unless `DOCLING_SYSTEM_SEMANTICS_ENABLED=1`
-- `GET /health` remains public
+- `GET /health` remains public and now returns only a bounded `{"status":"ok"}` or `{"status":"error"}` payload
 - most other remote endpoints require auth and, for many surfaces, explicit capabilities
 
 The shipped browser UI can store an `X-API-Key` or bearer token in local browser storage and applies that credential to API requests and protected downloads. For interactive operator use, the manual loopback-local flow is still the simplest path because it avoids remote auth setup.
@@ -293,7 +293,7 @@ Batch CLI commands:
 
 ## API Overview
 
-- `GET /health`
+- `GET /health` returns a bounded public runtime-health signal and can return a non-200 status on critical DB, storage, registry, or stale-code failures
 - `GET /runtime/status`
 - `GET /metrics`
 - `GET /documents`
